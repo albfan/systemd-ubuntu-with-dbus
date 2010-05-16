@@ -1,0 +1,4 @@
+[Unit]
+Description=Reboot
+Names=runlevel6.target
+Requires=reboot.service

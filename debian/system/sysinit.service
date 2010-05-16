@@ -1,0 +1,9 @@
+[Unit]
+Description=System Initialization
+
+[Service]
+ExecStart=/etc/init.d/rcS
+Type=finish
+TimeoutSec=0
+StandardInput=tty
+ValidNoProcess=yes

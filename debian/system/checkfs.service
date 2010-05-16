@@ -1,0 +1,9 @@
+[Unit]
+Description=Check non-root file systems
+
+[Service]
+ExecStart=/etc/init.d/checkfs.sh start
+Type=finish
+TimeoutSec=0
+StandardInput=tty
+ValidNoProcess=yes

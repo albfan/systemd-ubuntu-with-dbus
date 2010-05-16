@@ -1,0 +1,9 @@
+[Unit]
+Description=Check root file system
+
+[Service]
+ExecStart=/etc/init.d/checkroot.sh start
+Type=finish
+TimeoutSec=0
+StandardInput=tty
+ValidNoProcess=yes

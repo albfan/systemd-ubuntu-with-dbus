@@ -1,0 +1,11 @@
+[Unit]
+Description=Poweroff
+Requires=shutdown.target killall.service
+After=shutdown.target killall.service
+Before=poweroff.target
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+Environment=RUNLEVEL=0
+ExecStart=/etc/init.d/halt stop

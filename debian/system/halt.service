@@ -1,0 +1,12 @@
+[Unit]
+Description=Halt
+Requires=shutdown.target killall.service
+After=shutdown.target killall.service
+Before=halt.target
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+Environment=INIT_HALT=HALT
+Environment=RUNLEVEL=0
+ExecStart=/etc/init.d/halt stop

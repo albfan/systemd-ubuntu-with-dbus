@@ -1,0 +1,11 @@
+[Unit]
+Description=Reboot
+Requires=shutdown.target killall.service
+After=shutdown.target killall.service
+Before=reboot.target
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+Environment=RUNLEVEL=6
+ExecStart=/etc/init.d/reboot stop

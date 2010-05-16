@@ -1,0 +1,4 @@
+[Unit]
+Description=Basic System
+Requires=local-fs.target sysinit.service rc-local.service
+After=local-fs.target sysinit.service

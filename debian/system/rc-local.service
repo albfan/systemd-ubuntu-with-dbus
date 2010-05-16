@@ -1,0 +1,12 @@
+[Unit]
+Description=/etc/rc.local Compatibility
+Requires=basic.target
+Names=local.service
+
+[Service]
+ExecStart=/etc/rc.local start
+Type=finish
+TimeoutSec=0
+StandardInput=tty
+ValidNoProcess=yes
+SysVStartPriority=99

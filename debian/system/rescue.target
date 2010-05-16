@@ -1,0 +1,5 @@
+[Unit]
+Description=Rescue Target
+Requires=basic.target
+After=basic.target
+Names=runlevel1.target

@@ -1,0 +1,4 @@
+[Unit]
+Description=Power Off
+Names=runlevel0.target
+Requires=poweroff.service

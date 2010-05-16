@@ -1,0 +1,8 @@
+[Unit]
+Description=Kill All Processes
+After=shutdown.target
+
+[Service]
+Type=finish
+ValidNoProcess=yes
+ExecStart=/etc/init.d/sendsigs stop

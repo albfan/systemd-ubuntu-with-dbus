@@ -9,7 +9,7 @@ Package: systemd
 Architecture: linux-any
 Section: admin
 Priority: extra
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd-services
 Description: system and session manager
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -18,3 +18,19 @@ Description: system and session manager
  It also provides process supervision using cgroups and the ability to
  not only depend on other init script being started, but also
  availability of a given mount point or dbus service.
+
+Package: systemd-services
+Architecture: all
+Section: admin
+Priority: extra
+Recommends: systemd
+Description: system and session manager - service scripts
+ systemd is a replacement for sysvinit.  It is dependency-based and
+ able to read the LSB init script headers in addition to parsing rcN.d
+ links as hints.
+ .
+ It also provides process supervision using cgroups and the ability to
+ not only depend on other init script being started, but also
+ availability of a given mount point or dbus service.
+ .
+ This package contains the service scripts that systemd needs.

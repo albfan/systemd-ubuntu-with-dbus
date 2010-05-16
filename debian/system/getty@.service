@@ -1,0 +1,11 @@
+[Unit]
+Description=Getty on %I
+Before=getty.target
+After=basic.target
+Conflicts=shutdown.target
+
+[Service]
+ExecStart=/sbin/getty 38400 %I
+Type=simple
+Restart=restart-always
+RestartSec=0
