@@ -1,0 +1,5 @@
+systemd (0~git+afb757b-1) experimental; urgency=low
+
+  * Initial release, upload to experimental.  Closes: #580814
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Fri, 30 Apr 2010 21:02:25 +0200
