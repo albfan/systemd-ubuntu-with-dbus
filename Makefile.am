@@ -317,10 +317,7 @@ SED_PROCESS = \
 units/%: units/%.in Makefile
 	$(SED_PROCESS)
 
-man/%.html: man/%.html.in Makefile
-	$(SED_PROCESS)
-
-man/%.7: man/%.7.in Makefile
+man/%: man/%.in Makefile
 	$(SED_PROCESS)
 
 M4_PROCESS_SYSTEM = \
@@ -353,7 +350,7 @@ CLEANFILES = \
 	man/systemd.special.7 \
 	man/systemd.special.html
 
-#if HAVE_XSLTPROC
+if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
@@ -396,7 +393,7 @@ CLEANFILES += \
 	man/systemd.unit.html \
 	man/systemd.service.html \
 	man/systemd.special.html.in
-#endif
+endif
 
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
@@ -408,8 +405,8 @@ install-data-hook:
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
-		$(DESTDIR)$(sysconfdir)/xdg/systemd \
-		$(DESTDIR)/cgroup/debug
+		$(DESTDIR)$(sysconfdir)/xdg/systemd
+	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/debug || echo "Don't forget to create /cgroup/debug! Couldn't create it for you, continuing anyway."
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )
