@@ -15,11 +15,15 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-# See systemd.special(7) for details
-
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
+Description=/etc/rc.local Compatibility
+Requires=basic.target
+
+# The rcN.d symlink uses the name "local" while the script itself is
+# called "rc.local", hence carry both names here.
+Names=rc-local.service local.service
 
 [Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
+ExecStart=/etc/rc.local start
 Type=simple
+SysVStartPriority=99

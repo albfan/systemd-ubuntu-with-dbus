@@ -15,11 +15,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-# See systemd.special(7) for details
-
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
+Description=System Initialization
+Before=local-fs.target remote-fs.target swap.target sockets.target
 
 [Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+ExecStart=/etc/rc.d/rc.sysinit
+Type=finish

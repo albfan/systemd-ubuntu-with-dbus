@@ -15,11 +15,14 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-# See systemd.special(7) for details
+# This file is a dirty trick to simplify compilation from within
+# emacs. This file is not intended to be distributed. So, don't touch
+# it, even better ignore it!
 
-[Unit]
-Description=systemd /dev/initctl Compatibility Daemon
+all:
+	$(MAKE) -C ..
 
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+clean:
+	$(MAKE) -C .. clean
+
+.PHONY: all clean

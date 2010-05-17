@@ -47,6 +47,13 @@ public class RightLabel : Label {
                 else
                         set_text(text);
         }
+
+        public void set_markup_or_na(string? text = null) {
+                if (text == null || text == "")
+                        set_markup("<i>n/a</i>");
+                else
+                        set_markup(text);
+        }
 }
 
 public class MainWindow : Window {
@@ -77,6 +84,7 @@ public class MainWindow : Window {
 
         private RightLabel unit_id_label;
         private RightLabel unit_aliases_label;
+        private RightLabel unit_dependency_label;
         private RightLabel unit_description_label;
         private RightLabel unit_load_state_label;
         private RightLabel unit_active_state_label;
@@ -95,7 +103,7 @@ public class MainWindow : Window {
         private ComboBox unit_type_combo_box;
 
         public MainWindow() throws DBus.Error {
-                title = "systemadm";
+                title = session ? "systemd Session Manager" : "systemd System Manager";
                 position = WindowPosition.CENTER;
                 set_default_size(1000, 700);
                 set_border_width(12);
@@ -137,9 +145,9 @@ public class MainWindow : Window {
                 unit_load_entry.activate += on_unit_load;
                 unit_load_button.clicked += on_unit_load;
 
-                Gtk.Alignment unit_load_button_alignment = new Gtk.Alignment(0.5f, 0.5f, 1f, 1f);
-                unit_load_button_alignment.right_padding = 24;
-                unit_load_button_alignment.add(unit_load_button);
+                Box unit_load_hbox = new HBox(false, 6);
+                unit_load_hbox.pack_start(unit_load_entry, false, true, 0);
+                unit_load_hbox.pack_start(unit_load_button, false, true, 0);
 
                 server_snapshot_button = new Button.with_mnemonic("Take S_napshot");
                 server_reload_button = new Button.with_mnemonic("Reload _Configuration");
@@ -149,8 +157,7 @@ public class MainWindow : Window {
 
                 type_hbox.pack_end(server_snapshot_button, false, true, 0);
                 type_hbox.pack_end(server_reload_button, false, true, 0);
-                type_hbox.pack_end(unit_load_button_alignment, false, true, 0);
-                type_hbox.pack_end(unit_load_entry, false, true, 0);
+                type_hbox.pack_end(unit_load_hbox, false, true, 24);
 
                 unit_model = new ListStore(7, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job), typeof(uint32));
@@ -190,6 +197,7 @@ public class MainWindow : Window {
 
                 unit_id_label = new RightLabel();
                 unit_aliases_label = new RightLabel();
+                unit_dependency_label = new RightLabel();
                 unit_description_label = new RightLabel();
                 unit_load_state_label = new RightLabel();
                 unit_active_state_label = new RightLabel();
@@ -204,6 +212,10 @@ public class MainWindow : Window {
                 job_id_label = new RightLabel();
                 job_state_label = new RightLabel();
                 job_type_label = new RightLabel();
+
+                unit_dependency_label.set_track_visited_links(false);
+                unit_dependency_label.set_selectable(false);
+                unit_dependency_label.activate_link += on_activate_link;
 
                 Table unit_table = new Table(8, 6, false);
                 unit_table.set_row_spacings(6);
@@ -221,27 +233,29 @@ public class MainWindow : Window {
                 unit_table.attach(unit_aliases_label,                       1, 6, 1, 2, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Description:"),            0, 1, 2, 3, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_description_label,                   1, 6, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_fragment_path_label,                 1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_cgroup_label,                        1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Dependencies:"),           0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_dependency_label,                    1, 6, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Fragment Path:"),          0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_fragment_path_label,                 1, 6, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Control Group:"),          0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_cgroup_label,                        1, 6, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_load_state_label,                    1, 2, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_state_label,                  1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_sub_state_label,                     1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Load State:"),             0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_load_state_label,                    1, 2, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Active State:"),           0, 1, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_state_label,                  1, 2, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Unit State:"),             0, 1, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_sub_state_label,                     1, 2, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Active Enter Timestamp:"), 2, 3, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Active Exit Timestamp:"),  2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Active Enter Timestamp:"), 2, 3, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_enter_timestamp_label,        3, 4, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Active Exit Timestamp:"),  2, 3, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_active_exit_timestamp_label,         3, 4, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
-                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_start_label,                     5, 6, 6, 7, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_can_reload_label,                    5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Start/Stop:"),         4, 5, 7, 8, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_start_label,                     5, 6, 7, 8, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Can Reload:"),             4, 5, 8, 9, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_can_reload_label,                    5, 6, 8, 9, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
 
                 job_table.attach(new LeftLabel("Id:"),                      0, 1, 0, 1, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 job_table.attach(job_id_label,                              1, 2, 0, 1, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
@@ -391,6 +405,7 @@ public class MainWindow : Window {
                 unit_id_label.set_text_or_na();
                 unit_aliases_label.set_text_or_na();
                 unit_description_label.set_text_or_na();
+                unit_description_label.set_text_or_na();
                 unit_load_state_label.set_text_or_na();
                 unit_active_state_label.set_text_or_na();
                 unit_sub_state_label.set_text_or_na();
@@ -400,6 +415,30 @@ public class MainWindow : Window {
                 unit_can_reload_label.set_text_or_na();
                 unit_can_start_label.set_text_or_na();
                 unit_cgroup_label.set_text_or_na();
+        }
+
+        public string make_dependency_string(string? prefix, string word, string[] dependencies) {
+                bool first = true;
+                string r;
+
+                if (prefix == null)
+                        r = "";
+                else
+                        r = prefix;
+
+                foreach (string i in dependencies) {
+                        if (r != "")
+                                r += first ? "\n" : ",";
+
+                        if (first) {
+                                r += word;
+                                first = false;
+                        }
+
+                        r += " <a href=\"" + i + "\">" + i + "</a>";
+                }
+
+                return r;
         }
 
         public void show_unit(Unit unit) {
@@ -419,6 +458,44 @@ public class MainWindow : Window {
                 }
 
                 unit_aliases_label.set_text_or_na(a);
+
+                string[]
+                        requires = unit.requires,
+                        requires_overridable = unit.requires_overridable,
+                        requisite = unit.requisite,
+                        requisite_overridable = unit.requisite_overridable,
+                        wants = unit.wants,
+                        required_by = unit.required_by,
+                        required_by_overridable = unit.required_by_overridable,
+                        wanted_by = unit.wanted_by,
+                        conflicts = unit.conflicts,
+                        before = unit.before,
+                        after = unit.after;
+
+                unit_dependency_label.set_markup_or_na(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(
+                                make_dependency_string(null,
+                                "requires", requires),
+                                "overridable requires", requires_overridable),
+                                "requisite", requisite),
+                                "overridable requisite", requisite_overridable),
+                                "wants", wants),
+                                "conflicts", conflicts),
+                                "required by", required_by),
+                                "overridable required by", required_by_overridable),
+                                "wanted by", wanted_by),
+                                "after", after),
+                                "before", before));
+
                 unit_description_label.set_text_or_na(unit.description);
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
@@ -786,8 +863,13 @@ public class MainWindow : Window {
         }
 
         public void on_unit_load() {
+                string t = unit_load_entry.get_text();
+
+                if (t == "")
+                        return;
+
                 try {
-                        var path = manager.load_unit(unit_load_entry.get_text());
+                        var path = manager.load_unit(t);
 
                         Unit u = bus.get_object(
                                         "org.freedesktop.systemd1",
@@ -803,6 +885,7 @@ public class MainWindow : Window {
                         m.run();
                         m.destroy();
 
+                        show_unit(u);
                 } catch (DBus.Error e) {
                         show_error(e.message);
                 }
@@ -810,6 +893,24 @@ public class MainWindow : Window {
 
         public void on_unit_load_entry_changed() {
                 unit_load_button.set_sensitive(unit_load_entry.get_text() != "");
+        }
+
+        public bool on_activate_link(string uri) {
+
+                try {
+                        string path = manager.get_unit(uri);
+
+                        Unit u = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        path,
+                                        "org.freedesktop.systemd1.Unit") as Unit;
+
+                        show_unit(u);
+                } catch (DBus.Error e) {
+                        show_error(e.message);
+                }
+
+                return true;
         }
 
         public void show_error(string e) {

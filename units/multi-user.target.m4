@@ -18,8 +18,11 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Multi-User
+Requires=basic.target
+After=basic.target
+m4_dnl
+m4_ifdef(`TARGET_FEDORA',
+m4_dnl On Fedora Runlevel 3 is multi-user
+Names=runlevel3.target
+)m4_dnl

@@ -18,11 +18,11 @@
 AC_PREREQ(2.63)
 
 AC_INIT([systemd],[0],[systemd-devel@lists.freedesktop.org])
-AC_CONFIG_SRCDIR([main.c])
+AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 
-AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax])
+AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax subdir-objects])
 
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
@@ -36,6 +36,10 @@ AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
         AC_MSG_NOTICE([*** Found /usr/local/stow: default install prefix set to /usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION} ***])
         ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
 ])
+
+AC_PROG_MKDIR_P
+AC_PROG_LN_S
+AC_PROG_SED
 
 AC_PROG_CC
 AC_PROG_CC_C99
@@ -138,6 +142,8 @@ AC_SUBST(VAPIDIR)
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
+AC_PATH_PROG([M4], [m4])
+
 AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
@@ -156,58 +162,67 @@ if test "z$with_distro" = "z"; then
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
 
+# Default generic names
+SPECIAL_DBUS_SERVICE=dbus.service
+SPECIAL_SYSLOG_SERVICE=syslog.service
+
+# Location of the init scripts as mandated by LSB
+SYSTEM_SYSVINIT_PATH=/etc/init.d
+
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-                special_dbus_service=messagebus.service
-                special_syslog_service=rsyslog.service
+
+                # A little background why we define these special unit
+                # names here in configure.ac: SysV services currently
+                # cannot have aliases. As long as syslog is started
+                # via a SysV init script we hence define these names
+                # to the actual SysV name here. Later on when SysV
+                # init scripts are not used anymore it is advisable to
+                # use the generic names instead and use symlinks in
+                # the unit directories to point to the right native
+                # unit file.
+
+                SPECIAL_DBUS_SERVICE=messagebus.service
+                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 ;;
         suse)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
-                special_dbus_service=dbus.service
-                special_syslog_service=syslog.service
                 AC_DEFINE(TARGET_SUSE, [], [Target is OpenSUSE/SLES])
                 ;;
         debian)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                special_dbus_service=dbus.service
-                special_syslog_service=rsyslog.service
+                SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                special_dbus_service=dbus.service
-                special_syslog_service=syslog-ng.service
+                SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
                 ;;
         gentoo)
-                SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
-                special_dbus_service=dbus.service
-                special_syslog_service=syslog-ng.service
+                SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 ;;
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-                special_dbus_service=messagebus.service
-                special_syslog_service=syslog.service
+                SPECIAL_DBUS_SERVICE=messagebus.service
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 ;;
         other)
                 AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path= to configure])])
                 AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_dbus_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service to configure])])
+                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service= to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
@@ -229,17 +244,19 @@ AC_ARG_WITH([sysvrcd-path],
 AC_ARG_WITH([dbus-service],
         [AS_HELP_STRING([--with-dbus-service=PATH],
                 [Specify the name of the special DBus service @<:@default=based on distro@:>@])],
-        [special_dbus_service="$withval"],
+        [SPECIAL_DBUS_SERVICE="$withval"],
         [])
 
 AC_ARG_WITH([syslog-service],
         [AS_HELP_STRING([--with-syslog-service=PATH],
                 [Specify the name of the special syslog service @<:@default=based on distro@:>@])],
-        [special_syslog_service="$withval"],
+        [SPECIAL_SYSLOG_SERVICE="$withval"],
         [])
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
+AC_SUBST(SPECIAL_DBUS_SERVICE)
+AC_SUBST(SPECIAL_SYSLOG_SERVICE)
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
@@ -248,15 +265,14 @@ AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 
-AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$special_dbus_service"], [D-Bus service name])
-AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$special_syslog_service"], [syslog service name])
+AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$SPECIAL_DBUS_SERVICE"], [D-Bus service name])
+AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 
 AC_ARG_WITH([udevrulesdir],
         AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
         [],
         [with_udevrulesdir=/lib/udev/rules.d])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
-
 
 AC_OUTPUT([Makefile])
 
@@ -266,8 +282,8 @@ echo "
         Distribution:            ${with_distro}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
-        Syslog service:          ${special_syslog_service}
-        D-Bus service:           ${special_dbus_service}
+        Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
+        D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
         udev rules dir:          ${with_udevrulesdir}
 "

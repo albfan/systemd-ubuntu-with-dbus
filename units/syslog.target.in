@@ -18,8 +18,6 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Syslog
+Requires=@SPECIAL_SYSLOG_SERVICE@
+After=@SPECIAL_SYSLOG_SERVICE@

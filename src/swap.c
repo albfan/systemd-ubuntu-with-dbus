@@ -70,6 +70,9 @@ int swap_add_one_mount_link(Swap *s, Mount *m) {
             m->meta.load_state != UNIT_LOADED)
                 return 0;
 
+        if (is_device_path(s->what))
+                return 0;
+
         if (!path_startswith(s->what, m->where))
                 return 0;
 
@@ -112,7 +115,7 @@ static int swap_add_target_links(Swap *s) {
         if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
                 return r;
 
-        if (!p->noauto && p->handle)
+        if (!p->noauto && p->handle && s->meta.manager->running_as != MANAGER_SESSION)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
