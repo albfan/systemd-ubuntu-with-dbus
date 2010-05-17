@@ -144,7 +144,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, slackware or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -169,6 +169,8 @@ SPECIAL_SYSLOG_SERVICE=syslog.service
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 
+M4_DISTRO_FLAG=
+
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
@@ -187,42 +189,48 @@ case $with_distro in
                 SPECIAL_DBUS_SERVICE=messagebus.service
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
+                M4_DISTRO_FLAG=-DTARGET_FEDORA=1
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is OpenSUSE/SLES])
+                M4_DISTRO_FLAG=-DTARGET_SUSE=1
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
+                M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
+                M4_DISTRO_FLAG=-DTARGET_ARCH=1
                 ;;
         gentoo)
                 SYSTEM_SYSVRCND_PATH=/etc
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
+                M4_DISTRO_FLAG=-DTARGET_GENTOO=1
                 ;;
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
                 SPECIAL_DBUS_SERVICE=messagebus.service
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
+                M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
         other)
                 AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvinit-path= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvinit-path= to configure])])
                 AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-sysvrcd-path= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_dbus_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-dbus-service= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-dbus-service= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
-                        [AC_MSG_ERROR([With --distro=none, you must pass --with-syslog-service= to configure])])
+                        [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=other to skip this check])
@@ -257,6 +265,7 @@ AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
 AC_SUBST(SPECIAL_DBUS_SERVICE)
 AC_SUBST(SPECIAL_SYSLOG_SERVICE)
+AC_SUBST(M4_DISTRO_FLAG)
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
