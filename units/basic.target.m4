@@ -18,8 +18,13 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Basic System
+Requires=local-fs.target swap.target sockets.target
+After=local-fs.target swap.target sockets.target
+Conflicts=emergency.service
+m4_dnl
+m4_ifdef(`TARGET_FEDORA',
+m4_dnl Hook in Fedora's /etc/rc.d/rc.sysinit
+Requires=sysinit.service
+After=sysinit.service
+)m4_dnl

@@ -18,8 +18,6 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Name Lookups
+Wants=network.target
+After=network.target

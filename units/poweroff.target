@@ -18,8 +18,7 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Power-Off
+Names=runlevel0.target
+Requires=poweroff.service
+After=poweroff.service

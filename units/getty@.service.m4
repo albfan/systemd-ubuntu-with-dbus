@@ -15,11 +15,15 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-# See systemd.special(7) for details
-
+m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
+m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
+m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
+m4_dnl
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
+Description=Getty on %I
+Before=getty.target
+After=basic.target
 
 [Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
 Type=simple
+ExecStart=GETTY %I

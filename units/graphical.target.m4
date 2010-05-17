@@ -18,8 +18,12 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=systemd /dev/initctl Compatibility Daemon
-
-[Service]
-ExecStart=@pkglibexecdir@/systemd-initctl
-Type=simple
+Description=Graphical Interface
+Requires=multi-user.target
+After=multi-user.target
+Conflicts=rescue.target
+m4_dnl
+m4_ifdef(`TARGET_FEDORA',
+m4_dnl On Fedora Runlevel 5 is graphical login
+Names=runlevel5.target
+)m4_dnl
