@@ -118,6 +118,13 @@ dist_systemunit_DATA += \
 	units/fedora/rc-local.service \
 	units/fedora/reboot.service \
 	units/fedora/sysinit.service
+else
+if TARGET_DEBIAN
+dist_systemunit_DATA += \
+	units/debian/halt.service \
+	units/debian/killall.service \
+	units/debian/poweroff.service \
+	units/debian/reboot.service \
 endif
 
 # This is needed because automake is buggy in how it generates the

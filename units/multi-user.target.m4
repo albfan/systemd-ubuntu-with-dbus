@@ -27,3 +27,8 @@ m4_ifdef(`TARGET_FEDORA',
 m4_dnl On Fedora Runlevel 3 is multi-user
 Names=runlevel3.target
 )m4_dnl
+m4_dnl
+m4_ifdef(`TARGET_DEBIAN',
+m4_dnl On Debian Runlevel 2, 3, 4 and 5 are multi-user
+Names=runlevel2.target runlevel3.target runlevel4.target runlevel5.target
+)m4_dnl

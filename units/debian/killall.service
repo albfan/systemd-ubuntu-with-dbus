@@ -15,15 +15,10 @@
 #  You should have received a copy of the GNU General Public License
 #  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
-m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400 %I')')m4_dnl
-m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
-m4_dnl
 [Unit]
-Description=Getty on %I
-Before=getty.target
-After=basic.target
+Description=Kill All Processes
 
 [Service]
-Type=simple
-ExecStart=GETTY %I
+Type=finish
+ValidNoProcess=yes
+ExecStart=/etc/init.d/sendsigs stop
