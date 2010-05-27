@@ -163,6 +163,16 @@ static char** session_dirs(void) {
         } else if (home) {
                 if (asprintf(&data_home, "%s/.local/share/systemd/session", home) < 0)
                         goto fail;
+
+                /* There is really no need for two unit dirs in $HOME,
+                 * except to be fully compliant with the XDG spec. We
+                 * now try to link the two dirs, so that we can
+                 * minimize disk seeks a little. Further down we'll
+                 * then filter out this link, if it is actually is
+                 * one. */
+
+                mkdir_parents(data_home, 0777);
+                symlink("../../../.config/systemd/session", data_home);
         }
 
         if ((e = getenv("XDG_DATA_DIRS")))
@@ -283,15 +293,33 @@ static int manager_find_paths(Manager *m) {
                 }
         }
 
+        if (m->unit_path)
+                if (!strv_path_canonicalize(m->unit_path))
+                        return -ENOMEM;
+
+        if (m->sysvinit_path)
+                if (!strv_path_canonicalize(m->sysvinit_path))
+                        return -ENOMEM;
+
+        if (m->sysvrcnd_path)
+                if (!strv_path_canonicalize(m->sysvrcnd_path))
+                        return -ENOMEM;
+
         strv_uniq(m->unit_path);
         strv_uniq(m->sysvinit_path);
         strv_uniq(m->sysvrcnd_path);
 
-        assert(!strv_isempty(m->unit_path));
-        if (!(t = strv_join(m->unit_path, "\n\t")))
-                return -ENOMEM;
-        log_debug("Looking for unit files in:\n\t%s", t);
-        free(t);
+        if (!strv_isempty(m->unit_path)) {
+
+                if (!(t = strv_join(m->unit_path, "\n\t")))
+                        return -ENOMEM;
+                log_debug("Looking for unit files in:\n\t%s", t);
+                free(t);
+        } else {
+                log_debug("Ignoring unit files.");
+                strv_free(m->unit_path);
+                m->unit_path = NULL;
+        }
 
         if (!strv_isempty(m->sysvinit_path)) {
 
@@ -300,8 +328,11 @@ static int manager_find_paths(Manager *m) {
 
                 log_debug("Looking for SysV init scripts in:\n\t%s", t);
                 free(t);
-        } else
+        } else {
                 log_debug("Ignoring SysV init scripts.");
+                strv_free(m->sysvinit_path);
+                m->sysvinit_path = NULL;
+        }
 
         if (!strv_isempty(m->sysvrcnd_path)) {
 
@@ -310,8 +341,11 @@ static int manager_find_paths(Manager *m) {
 
                 log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
                 free(t);
-        } else
+        } else {
                 log_debug("Ignoring SysV rcN.d links.");
+                strv_free(m->sysvrcnd_path);
+                m->sysvrcnd_path = NULL;
+        }
 
         return 0;
 }
@@ -327,7 +361,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         if (!(m = new0(Manager, 1)))
                 return -ENOMEM;
 
-        m->boot_timestamp = now(CLOCK_REALTIME);
+        timestamp_get(&m->startup_timestamp);
 
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;
@@ -1757,11 +1791,13 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static void manager_start_target(Manager *m, const char *name) {
+static int manager_start_target(Manager *m, const char *name) {
         int r;
 
         if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_REPLACE, true, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, strerror(-r));
+
+        return r;
 }
 
 static int manager_process_signal_fd(Manager *m) {
@@ -1790,14 +1826,14 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 case SIGTERM:
-                        if (m->running_as == MANAGER_INIT)
+                        if (m->running_as == MANAGER_INIT) {
                                 /* This is for compatibility with the
                                  * original sysvinit */
                                 m->exit_code = MANAGER_REEXECUTE;
-                        else
-                                m->exit_code = MANAGER_EXIT;
+                                break;
+                        }
 
-                        return 0;
+                        /* Fall through */
 
                 case SIGINT:
                         if (m->running_as == MANAGER_INIT) {
@@ -1805,8 +1841,13 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        m->exit_code = MANAGER_EXIT;
-                        return 0;
+                        /* Run the exit target if there is one, if not, just exit. */
+                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE) < 0) {
+                                m->exit_code = MANAGER_EXIT;
+                                return 0;
+                        }
+
+                        break;
 
                 case SIGWINCH:
                         if (m->running_as == MANAGER_INIT)
@@ -1939,6 +1980,11 @@ int manager_loop(Manager *m) {
         assert(m);
         m->exit_code = MANAGER_RUNNING;
 
+        /* There might still be some zombies hanging around from
+         * before we were exec()'ed. Leat's reap them */
+        if ((r = manager_dispatch_sigchld(m)) < 0)
+                return r;
+
         while (m->exit_code == MANAGER_RUNNING) {
                 struct epoll_event event;
                 int n;
@@ -2062,7 +2108,7 @@ void manager_write_utmp_reboot(Manager *m) {
         if (!manager_utmp_good(m))
                 return;
 
-        if ((r = utmp_put_reboot(m->boot_timestamp)) < 0) {
+        if ((r = utmp_put_reboot(m->startup_timestamp.realtime)) < 0) {
 
                 if (r != -ENOENT && r != -EROFS)
                         log_warning("Failed to write utmp/wtmp: %s", strerror(-r));

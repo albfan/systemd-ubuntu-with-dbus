@@ -57,7 +57,7 @@ static const struct {
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
         { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
 
-        /* SuSE style boot.d */
+        /* SUSE style boot.d */
         { "boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
 
         /* Debian style rcS.d */
@@ -169,16 +169,41 @@ static void service_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
-static int sysv_translate_name(const char *name, char **_r) {
+static char *sysv_translate_name(const char *name) {
+        char *r;
+
+        if (!(r = new(char, strlen(name) + sizeof(".service"))))
+                return NULL;
+
+        if (startswith(name, "boot."))
+                /* Drop SuSE-style boot. prefix */
+                strcpy(stpcpy(r, name + 5), ".service");
+        else if (endswith(name, ".sh"))
+                /* Drop Debian-style .sh suffix */
+                strcpy(stpcpy(r, name) - 3, ".service");
+        else
+                /* Normal init scripts */
+                strcpy(stpcpy(r, name), ".service");
+
+        return r;
+}
+
+static int sysv_translate_facility(const char *name, char **_r) {
 
         static const char * const table[] = {
+                /* LSB defined facilities */
                 "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
                 "$network",   SPECIAL_NETWORK_TARGET,
                 "$named",     SPECIAL_NSS_LOOKUP_TARGET,
                 "$portmap",   SPECIAL_RPCBIND_TARGET,
                 "$remote_fs", SPECIAL_REMOTE_FS_TARGET,
                 "$syslog",    SPECIAL_SYSLOG_TARGET,
-                "$time",      SPECIAL_RTC_SET_TARGET
+                "$time",      SPECIAL_RTC_SET_TARGET,
+
+                /* Debian extensions */
+                "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE
         };
 
         unsigned i;
@@ -195,7 +220,7 @@ static int sysv_translate_name(const char *name, char **_r) {
         if (*name == '$')
                 return 0;
 
-        if (asprintf(&r, "%s.service", name) < 0)
+        if (!(r = sysv_translate_name(name)))
                 return -ENOMEM;
 
 finish:
@@ -206,7 +231,7 @@ finish:
         return 1;
 }
 
-static int sysv_chkconfig_order(Service *s) {
+static int sysv_fix_order(Service *s) {
         Meta *other;
         int r;
 
@@ -360,7 +385,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                         /* Try to parse Red Hat style chkconfig headers */
 
-                        if (startswith(t, "chkconfig:")) {
+                        if (startswith_no_case(t, "chkconfig:")) {
                                 int start_priority;
                                 char runlevels[16], *k;
 
@@ -397,7 +422,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith(t, "description:")) {
+                        } else if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;
@@ -415,7 +440,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith(t, "pidfile:")) {
+                        } else if (startswith_no_case(t, "pidfile:")) {
 
                                 char *fn;
 
@@ -460,7 +485,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 } else if (state == LSB || state == LSB_DESCRIPTION) {
 
-                        if (startswith(t, "Provides:")) {
+                        if (startswith_no_case(t, "Provides:")) {
                                 char *i, *w;
                                 size_t z;
 
@@ -474,7 +499,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_name(n, &m);
+                                        r = sysv_translate_facility(n, &m);
                                         free(n);
 
                                         if (r < 0)
@@ -496,8 +521,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                 }
 
-                        } else if (startswith(t, "Required-Start:") ||
-                                   startswith(t, "Should-Start:")) {
+                        } else if (startswith_no_case(t, "Required-Start:") ||
+                                   startswith_no_case(t, "Should-Start:") ||
+                                   startswith_no_case(t, "X-Start-Before:") ||
+                                   startswith_no_case(t, "X-Start-After:")) {
                                 char *i, *w;
                                 size_t z;
 
@@ -511,7 +538,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_name(n, &m);
+                                        r = sysv_translate_facility(n, &m);
                                         free(n);
 
                                         if (r < 0)
@@ -520,13 +547,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m, NULL, true);
+                                        r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
                                         free(m);
 
                                         if (r < 0)
                                                 goto finish;
                                 }
-                        } else if (startswith(t, "Default-Start:")) {
+                        } else if (startswith_no_case(t, "Default-Start:")) {
                                 char *k, *d;
 
                                 state = LSB;
@@ -543,7 +570,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith(t, "Description:")) {
+                        } else if (startswith_no_case(t, "Description:")) {
                                 char *d;
 
                                 state = LSB_DESCRIPTION;
@@ -556,7 +583,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith(t, "Short-Description:") &&
+                        } else if (startswith_no_case(t, "Short-Description:") &&
                                    !u->meta.description) {
                                 char *d;
 
@@ -571,6 +598,19 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 }
 
                                 u->meta.description = d;
+
+                        } else if (startswith_no_case(t, "X-Interactive:")) {
+                                int b;
+
+                                if ((b = parse_boolean(strstrip(t+14))) < 0) {
+                                        log_warning("[%s:%u] Couldn't parse interactive flag. Ignoring.", path, line);
+                                        continue;
+                                }
+
+                                if (b)
+                                        s->exec_context.std_input = EXEC_INPUT_TTY;
+                                else
+                                        s->exec_context.std_input = EXEC_INPUT_NULL;
 
                         } else if (state == LSB_DESCRIPTION) {
 
@@ -630,6 +670,12 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
+        /* For SysV services we strip the boot. or .sh
+         * prefixes/suffixes. */
+        if (startswith(name, "boot.") ||
+            endswith(name, ".sh.service"))
+                return -ENOENT;
+
         STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path) {
                 char *path;
                 int r;
@@ -643,7 +689,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 r = service_load_sysv_path(s, path);
 
                 if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
-                        /* Try Debian style .sh source'able init scripts */
+                        /* Try Debian style xxx.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
@@ -651,7 +697,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 free(path);
 
                 if (r >= 0 && UNIT(s)->meta.load_state == UNIT_STUB) {
-                        /* Try Suse style boot.xxxx init scripts */
+                        /* Try SUSE style boot.xxx init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
@@ -770,7 +816,7 @@ static int service_load(Unit *u) {
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
 
-                if ((r = sysv_chkconfig_order(s)) < 0)
+                if ((r = sysv_fix_order(s)) < 0)
                         return r;
 
                 if (s->bus_name) {
@@ -1683,7 +1729,7 @@ static int service_start(Unit *u) {
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
                 log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
-                return -EAGAIN;
+                return -ECANCELED;
         }
 
         s->failure = false;
@@ -2208,20 +2254,10 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 free(name);
-                                if (!(name = new(char, strlen(de->d_name) - 3 + 8 + 1))) {
+                                if (!(name = sysv_translate_name(de->d_name + 3))) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
-
-                                if (startswith(de->d_name+3, "boot."))
-                                        /* Drop SuSE-style boot. prefix */
-                                        strcpy(stpcpy(name, de->d_name + 3 + 5), ".service");
-                                else if (endswith(de->d_name+3, ".sh"))
-                                        /* Drop Debian-style .sh suffix */
-                                        strcpy(stpcpy(name, de->d_name + 3) - 3, ".service");
-                                else
-                                        /* Normal init scripts */
-                                        strcpy(stpcpy(name, de->d_name + 3), ".service");
 
                                 if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0) {
                                         log_warning("Failed to prepare unit %s: %s", name, strerror(-r));

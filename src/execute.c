@@ -189,7 +189,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 "%i\n"
                 "%s\n"
                 "%i\n",
-                output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
+                output == EXEC_OUTPUT_KMSG ? "kmsg" : "syslog",
                 context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
                 !context->syslog_no_prefix);
@@ -227,31 +227,20 @@ static bool is_terminal_input(ExecInput i) {
                 i == EXEC_INPUT_TTY_FAIL;
 }
 
-static int fixup_input(const ExecContext *context, int socket_fd) {
-        assert(context);
+static int fixup_input(ExecInput std_input, int socket_fd) {
 
-        if (socket_fd < 0 && context->std_input == EXEC_INPUT_SOCKET)
+        if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
                 return EXEC_INPUT_NULL;
 
-        return context->std_input;
+        return std_input;
 }
 
-static int fixup_output(const ExecContext *context, int socket_fd) {
-        assert(context);
+static int fixup_output(ExecOutput std_output, int socket_fd) {
 
-        if (socket_fd < 0 && context->std_output == EXEC_OUTPUT_SOCKET)
+        if (std_output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
                 return EXEC_OUTPUT_INHERIT;
 
-        return context->std_output;
-}
-
-static int fixup_error(const ExecContext *context, int socket_fd) {
-        assert(context);
-
-        if (socket_fd < 0 && context->std_error == EXEC_OUTPUT_SOCKET)
-                return EXEC_OUTPUT_INHERIT;
-
-        return context->std_error;
+        return std_output;
 }
 
 static int setup_input(const ExecContext *context, int socket_fd) {
@@ -259,7 +248,7 @@ static int setup_input(const ExecContext *context, int socket_fd) {
 
         assert(context);
 
-        i = fixup_input(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
 
         switch (i) {
 
@@ -274,7 +263,8 @@ static int setup_input(const ExecContext *context, int socket_fd) {
                 if ((fd = acquire_terminal(
                                      tty_path(context),
                                      i == EXEC_INPUT_TTY_FAIL,
-                                     i == EXEC_INPUT_TTY_FORCE)) < 0)
+                                     i == EXEC_INPUT_TTY_FORCE,
+                                     false)) < 0)
                         return fd;
 
                 if (fd != STDIN_FILENO) {
@@ -301,8 +291,8 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         assert(context);
         assert(ident);
 
-        i = fixup_input(context, socket_fd);
-        o = fixup_output(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
+        o = fixup_output(context->std_output, socket_fd);
 
         /* This expects the input is already set up */
 
@@ -311,10 +301,15 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         case EXEC_OUTPUT_INHERIT:
 
                 /* If the input is connected to a terminal, inherit that... */
-                if (is_terminal_input(i) || i == EXEC_INPUT_SOCKET)
+                if (i != EXEC_INPUT_NULL)
                         return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
-                return STDIN_FILENO;
+                /* For PID 1 stdout is always connected to /dev/null,
+                 * hence reopen the console if out parent is PID1. */
+                if (getppid() == 1)
+                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
+
+                return STDOUT_FILENO;
 
         case EXEC_OUTPUT_NULL:
                 return open_null_as(O_WRONLY, STDOUT_FILENO);
@@ -327,7 +322,7 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
                 return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_KERNEL:
+        case EXEC_OUTPUT_KMSG:
                 return connect_logger_as(context, o, ident, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -346,9 +341,9 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         assert(context);
         assert(ident);
 
-        i = fixup_input(context, socket_fd);
-        o = fixup_output(context, socket_fd);
-        e = fixup_error(context, socket_fd);
+        i = fixup_input(context->std_input, socket_fd);
+        o = fixup_output(context->std_output, socket_fd);
+        e = fixup_output(context->std_error, socket_fd);
 
         /* This expects the input and output are already set up */
 
@@ -356,7 +351,8 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
          * the way and are not on a tty */
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
-            !is_terminal_input(i))
+            i != EXEC_INPUT_NULL &&
+            getppid () != 1)
                 return STDERR_FILENO;
 
         /* Duplicate form stdout if possible */
@@ -376,7 +372,7 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
                 return open_terminal_as(tty_path(context), O_WRONLY, STDERR_FILENO);
 
         case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_KERNEL:
+        case EXEC_OUTPUT_KMSG:
                 return connect_logger_as(context, e, ident, STDERR_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -429,7 +425,8 @@ static int setup_confirm_stdio(const ExecContext *context,
         if ((fd = acquire_terminal(
                              tty_path(context),
                              context->std_input == EXEC_INPUT_TTY_FAIL,
-                             context->std_input == EXEC_INPUT_TTY_FORCE)) < 0) {
+                             context->std_input == EXEC_INPUT_TTY_FORCE,
+                             false)) < 0) {
                 r = EXIT_STDIN;
                 goto fail;
         }
@@ -786,7 +783,13 @@ int exec_spawn(ExecCommand *command,
 
                 /* child */
 
-                reset_all_signal_handlers();
+                /* We reset exactly these signals, since they are the
+                 * only ones we set to SIG_IGN in the main daemon. All
+                 * others we leave untouched because we set them to
+                 * SIG_DFL or a valid handler initially, both of which
+                 * will be demoted to SIG_DFL. */
+                default_signals(SIGNALS_CRASH_HANDLER,
+                                SIGNALS_IGNORE, -1);
 
                 if (sigemptyset(&ss) < 0 ||
                     sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
@@ -1260,8 +1263,8 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sTTYPath: %s\n",
                         prefix, c->tty_path);
 
-        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KERNEL ||
-            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KERNEL)
+        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG ||
+            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG)
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
@@ -1610,7 +1613,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_NULL] = "null",
         [EXEC_OUTPUT_TTY] = "tty",
         [EXEC_OUTPUT_SYSLOG] = "syslog",
-        [EXEC_OUTPUT_KERNEL] = "kernel",
+        [EXEC_OUTPUT_KMSG] = "kmsg",
         [EXEC_OUTPUT_SOCKET] = "socket"
 };
 

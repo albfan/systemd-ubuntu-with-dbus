@@ -72,6 +72,15 @@ usec_t now(clockid_t clock_id) {
         return timespec_load(&ts);
 }
 
+timestamp* timestamp_get(timestamp *ts) {
+        assert(ts);
+
+        ts->realtime = now(CLOCK_REALTIME);
+        ts->monotonic = now(CLOCK_MONOTONIC);
+
+        return ts;
+}
+
 usec_t timespec_load(const struct timespec *ts) {
         assert(ts);
 
@@ -648,6 +657,51 @@ char **strv_path_make_absolute_cwd(char **l) {
                 free(*s);
                 *s = t;
         }
+
+        return l;
+}
+
+char **strv_path_canonicalize(char **l) {
+        char **s;
+        unsigned k = 0;
+        bool enomem = false;
+
+        if (strv_isempty(l))
+                return l;
+
+        /* Goes through every item in the string list and canonicalize
+         * the path. This works in place and won't rollback any
+         * changes on failure. */
+
+        STRV_FOREACH(s, l) {
+                char *t, *u;
+
+                t = path_make_absolute_cwd(*s);
+                free(*s);
+
+                if (!t) {
+                        enomem = true;
+                        continue;
+                }
+
+                errno = 0;
+                u = canonicalize_file_name(t);
+                free(t);
+
+                if (!u) {
+                        if (errno == ENOMEM || !errno)
+                                enomem = true;
+
+                        continue;
+                }
+
+                l[k++] = u;
+        }
+
+        l[k] = NULL;
+
+        if (enomem)
+                return NULL;
 
         return l;
 }
@@ -1353,6 +1407,55 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
+char *format_timespan(char *buf, size_t l, usec_t t) {
+        static const struct {
+                const char *suffix;
+                usec_t usec;
+        } table[] = {
+                { "w", USEC_PER_WEEK },
+                { "d", USEC_PER_DAY },
+                { "h", USEC_PER_HOUR },
+                { "min", USEC_PER_MINUTE },
+                { "s", USEC_PER_SEC },
+                { "ms", USEC_PER_MSEC },
+                { "us", 1 },
+        };
+
+        unsigned i;
+        char *p = buf;
+
+        assert(buf);
+        assert(l > 0);
+
+        if (t == (usec_t) -1)
+                return NULL;
+
+        /* The result of this function can be parsed with parse_usec */
+
+        for (i = 0; i < ELEMENTSOF(table); i++) {
+                int k;
+                size_t n;
+
+                if (t < table[i].usec)
+                        continue;
+
+                if (l <= 1)
+                        break;
+
+                k = snprintf(p, l, "%s%llu%s", p > buf ? " " : "", (unsigned long long) (t / table[i].usec), table[i].suffix);
+                n = MIN((size_t) k, l);
+
+                l -= n;
+                p += n;
+
+                t %= table[i].usec;
+        }
+
+        *p = 0;
+
+        return buf;
+}
+
 bool fstype_is_network(const char *fstype) {
         static const char * const table[] = {
                 "cifs",
@@ -1598,7 +1701,7 @@ int flush_fd(int fd) {
         }
 }
 
-int acquire_terminal(const char *name, bool fail, bool force) {
+int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm) {
         int fd = -1, notify = -1, r, wd = -1;
 
         assert(name);
@@ -1640,8 +1743,15 @@ int acquire_terminal(const char *name, bool fail, bool force) {
                         return -errno;
 
                 /* First, try to get the tty */
-                if ((r = ioctl(fd, TIOCSCTTY, force)) < 0 &&
-                    (force || fail || errno != EPERM)) {
+                r = ioctl(fd, TIOCSCTTY, force);
+
+                /* Sometimes it makes sense to ignore TIOCSCTTY
+                 * returning EPERM, i.e. when very likely we already
+                 * are have this controlling terminal. */
+                if (r < 0 && errno == EPERM && ignore_tiocstty_eperm)
+                        r = 0;
+
+                if (r < 0 && (force || fail || errno != EPERM)) {
                         r = -errno;
                         goto fail;
                 }
@@ -1728,14 +1838,59 @@ int release_terminal(void) {
         return r;
 }
 
-int ignore_signal(int sig) {
+int sigaction_many(const struct sigaction *sa, ...) {
+        va_list ap;
+        int r = 0, sig;
+
+        va_start(ap, sa);
+        while ((sig = va_arg(ap, int)) > 0)
+                if (sigaction(sig, sa, NULL) < 0)
+                        r = -errno;
+        va_end(ap);
+
+        return r;
+}
+
+int ignore_signals(int sig, ...) {
         struct sigaction sa;
+        va_list ap;
+        int r = 0;
 
         zero(sa);
         sa.sa_handler = SIG_IGN;
         sa.sa_flags = SA_RESTART;
 
-        return sigaction(sig, &sa, NULL);
+        if (sigaction(sig, &sa, NULL) < 0)
+                r = -errno;
+
+        va_start(ap, sig);
+        while ((sig = va_arg(ap, int)) > 0)
+                if (sigaction(sig, &sa, NULL) < 0)
+                        r = -errno;
+        va_end(ap);
+
+        return r;
+}
+
+int default_signals(int sig, ...) {
+        struct sigaction sa;
+        va_list ap;
+        int r = 0;
+
+        zero(sa);
+        sa.sa_handler = SIG_DFL;
+        sa.sa_flags = SA_RESTART;
+
+        if (sigaction(sig, &sa, NULL) < 0)
+                r = -errno;
+
+        va_start(ap, sig);
+        while ((sig = va_arg(ap, int)) > 0)
+                if (sigaction(sig, &sa, NULL) < 0)
+                        r = -errno;
+        va_end(ap);
+
+        return r;
 }
 
 int close_pipe(int p[]) {
@@ -1935,6 +2090,35 @@ bool is_device_path(const char *path) {
         return
                 path_startswith(path, "/dev/") ||
                 path_startswith(path, "/sys/");
+}
+
+int dir_is_empty(const char *path) {
+        DIR *d;
+        int r;
+        struct dirent buf, *de;
+
+        if (!(d = opendir(path)))
+                return -errno;
+
+        for (;;) {
+                if ((r = readdir_r(d, &buf, &de)) > 0) {
+                        r = -r;
+                        break;
+                }
+
+                if (!de) {
+                        r = 1;
+                        break;
+                }
+
+                if (!ignore_file(de->d_name)) {
+                        r = 0;
+                        break;
+                }
+        }
+
+        closedir(d);
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

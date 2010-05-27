@@ -25,6 +25,8 @@
 #include "log.h"
 #include "dbus-unit.h"
 
+const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
+
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;
         Iterator j;
@@ -281,6 +283,9 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 int r;
                 char *path;
 
+                if (job_type == JOB_START && u->meta.only_by_dependency)
+                        return bus_send_error_reply(m, message, NULL, -EPERM);
+
                 if (!dbus_message_get_args(
                                     message,
                                     &error,
@@ -418,8 +423,11 @@ void bus_unit_send_removed_signal(Unit *u) {
 
         assert(u);
 
-        if (set_isempty(u->meta.manager->subscribed) || !u->meta.sent_dbus_new_signal)
+        if (set_isempty(u->meta.manager->subscribed))
                 return;
+
+        if (!u->meta.sent_dbus_new_signal)
+                bus_unit_send_change_signal(u);
 
         if (!(p = unit_dbus_path(u)))
                 goto oom;

@@ -217,6 +217,8 @@ public class MainWindow : Window {
                 unit_dependency_label.set_selectable(false);
                 unit_dependency_label.activate_link += on_activate_link;
 
+                unit_fragment_path_label.set_track_visited_links(false);
+
                 Table unit_table = new Table(8, 6, false);
                 unit_table.set_row_spacings(6);
                 unit_table.set_border_width(0);
@@ -500,7 +502,12 @@ public class MainWindow : Window {
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
                 unit_sub_state_label.set_text_or_na(unit.sub_state);
-                unit_fragment_path_label.set_text_or_na(unit.fragment_path);
+
+                string fp = unit.fragment_path;
+                if (fp != "")
+                        unit_fragment_path_label.set_markup_or_na("<a href=\"file://" + fp +"\">" + fp + "</a>" );
+                else
+                        unit_fragment_path_label.set_text_or_na();
 
                 uint64 t = unit.active_enter_timestamp;
                 if (t > 0) {
@@ -721,7 +728,7 @@ public class MainWindow : Window {
                 } while (unit_model.iter_next(ref iter));
         }
 
-        public void on_job_removed(uint32 id, ObjectPath path) {
+        public void on_job_removed(uint32 id, ObjectPath path, bool success) {
                 TreeIter iter;
                 if (!(job_model.get_iter_first(out iter)))
                         return;
