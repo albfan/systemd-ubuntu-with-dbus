@@ -48,7 +48,8 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_MOUNT] = &mount_vtable,
         [UNIT_AUTOMOUNT] = &automount_vtable,
         [UNIT_SNAPSHOT] = &snapshot_vtable,
-        [UNIT_SWAP] = &swap_vtable
+        [UNIT_SWAP] = &swap_vtable,
+        [UNIT_PATH] = &path_vtable
 };
 
 Unit *unit_new(Manager *m) {
@@ -212,6 +213,9 @@ int unit_set_description(Unit *u, const char *description) {
 
 bool unit_check_gc(Unit *u) {
         assert(u);
+
+        if (u->meta.load_state == UNIT_STUB)
+                return true;
 
         if (UNIT_VTABLE(u)->no_gc)
                 return true;
@@ -531,7 +535,10 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (c->std_output != EXEC_OUTPUT_KERNEL && c->std_output != EXEC_OUTPUT_SYSLOG)
+        if (c->std_output != EXEC_OUTPUT_KMSG &&
+            c->std_output != EXEC_OUTPUT_SYSLOG &&
+            c->std_error != EXEC_OUTPUT_KMSG &&
+            c->std_error != EXEC_OUTPUT_SYSLOG)
                 return 0;
 
         /* If syslog or kernel logging is requested, make sure our own
@@ -587,17 +594,19 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n",
+                "%s\tGC Check Good: %s\n"
+                "%s\tOnly By Dependency: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
                 prefix, unit_load_state_to_string(u->meta.load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.inactive_exit_timestamp)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp)),
-                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp)),
-                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp)),
-                prefix, yes_no(unit_check_gc(u)));
+                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.inactive_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
+                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(u->meta.only_by_dependency));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -732,9 +741,10 @@ fail:
 }
 
 /* Errors:
- *         -EBADR:    This unit type does not support starting.
- *         -EALREADY: Unit is already started.
- *         -EAGAIN:   An operation is already in progress. Retry later.
+ *         -EBADR:     This unit type does not support starting.
+ *         -EALREADY:  Unit is already started.
+ *         -EAGAIN:    An operation is already in progress. Retry later.
+ *         -ECANCELED: Too many requests for now.
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -921,7 +931,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         bool unexpected = false;
-        usec_t ts;
+        timestamp ts;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -934,7 +944,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * this function will be called too and the utmp code below
          * relies on that! */
 
-        ts = now(CLOCK_REALTIME);
+        timestamp_get(&ts);
 
         if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
                 u->meta.inactive_exit_timestamp = ts;
@@ -945,6 +955,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 u->meta.active_enter_timestamp = ts;
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
+
+        timer_unit_notify(u, ns);
+        path_unit_notify(u, ns);
 
         if (u->meta.job) {
 

@@ -105,9 +105,11 @@ struct Watch {
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog; Should pull in syslog.socket or syslog.service */
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
-
+#define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
+#define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
+#define SPECIAL_EXIT_SERVICE "exit.service"
 
 #ifndef SPECIAL_DBUS_SERVICE
 #define SPECIAL_DBUS_SERVICE "dbus.service"
@@ -179,7 +181,7 @@ struct Manager {
 
         char **environment;
 
-        usec_t boot_timestamp;
+        timestamp startup_timestamp;
 
         /* Data specific to the device subsystem */
         struct udev* udev;

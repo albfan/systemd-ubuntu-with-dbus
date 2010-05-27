@@ -23,6 +23,7 @@ udevrulesdir=@udevrulesdir@
 pkgsysconfdir=$(sysconfdir)/systemd
 systemunitdir=$(pkgdatadir)/system
 sessionunitdir=$(pkgdatadir)/session
+interfacedir=$(datadir)/dbus-1/interfaces
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -64,6 +65,21 @@ dist_dbuspolicy_DATA = \
 dist_udevrules_DATA = \
 	src/99-systemd.rules
 
+interface_DATA = \
+	org.freedesktop.systemd1.Manager.xml \
+	org.freedesktop.systemd1.Job.xml \
+	org.freedesktop.systemd1.Unit.xml \
+	org.freedesktop.systemd1.Service.xml \
+	org.freedesktop.systemd1.Socket.xml \
+	org.freedesktop.systemd1.Timer.xml \
+	org.freedesktop.systemd1.Target.xml \
+	org.freedesktop.systemd1.Device.xml \
+	org.freedesktop.systemd1.Mount.xml \
+	org.freedesktop.systemd1.Automount.xml \
+	org.freedesktop.systemd1.Snapshot.xml \
+	org.freedesktop.systemd1.Swap.xml \
+	org.freedesktop.systemd1.Path.xml
+
 dist_systemunit_DATA = \
 	units/emergency.service \
 	units/getty.target \
@@ -71,6 +87,7 @@ dist_systemunit_DATA = \
 	units/local-fs.target \
 	units/network.target \
 	units/nss-lookup.target \
+	units/mail-transfer-agent.target \
 	units/poweroff.target \
 	units/reboot.target \
 	units/remote-fs.target \
@@ -82,7 +99,21 @@ dist_systemunit_DATA = \
 	units/sockets.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
-	units/systemd-logger.socket
+	units/systemd-logger.socket \
+	units/dev-hugepages.automount \
+	units/dev-hugepages.mount \
+	units/dev-mqueue.automount \
+	units/dev-mqueue.mount \
+	units/proc-sys-fs-binfmt_misc.automount \
+	units/proc-sys-fs-binfmt_misc.mount \
+	units/sys-fs-fuse-connections.automount \
+	units/sys-fs-fuse-connections.mount \
+	units/sys-kernel-debug.automount \
+	units/sys-kernel-debug.mount \
+	units/sys-kernel-security.automount \
+	units/sys-kernel-security.mount \
+	units/var-lock.mount \
+	units/var-run.mount
 
 systemunit_DATA = \
 	units/basic.target \
@@ -93,8 +124,12 @@ systemunit_DATA = \
 	units/systemd-logger.service \
 	units/syslog.target
 
+dist_sessionunit_DATA = \
+	units/session/default.target
+
 sessionunit_DATA = \
-	units/session/remote-fs.target
+	units/session/remote-fs.target \
+	units/session/exit.service
 
 EXTRA_DIST = \
 	units/basic.target.m4 \
@@ -105,6 +140,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
+	units/session/exit.service.in \
 	LICENSE \
 	README \
 	DISTRO_PORTING
@@ -125,6 +161,15 @@ dist_systemunit_DATA += \
 	units/debian/killall.service \
 	units/debian/poweroff.service \
 	units/debian/reboot.service \
+endif
+
+if TARGET_GENTOO
+dist_systemunit_DATA += \
+	units/gentoo/halt.service \
+	units/gentoo/killall.service \
+	units/gentoo/poweroff.service \
+	units/gentoo/reboot.service \
+	units/gentoo/xdm.service
 endif
 
 # This is needed because automake is buggy in how it generates the
@@ -155,6 +200,7 @@ COMMON_SOURCES = \
         src/snapshot.c \
         src/socket.c \
         src/timer.c \
+	src/path.c \
         src/load-dropin.c \
         src/execute.c \
         src/dbus.c \
@@ -163,6 +209,7 @@ COMMON_SOURCES = \
         src/dbus-job.c \
 	src/dbus-service.c \
 	src/dbus-socket.c \
+	src/dbus-timer.c \
 	src/dbus-target.c \
 	src/dbus-mount.c \
 	src/dbus-automount.c \
@@ -170,10 +217,12 @@ COMMON_SOURCES = \
 	src/dbus-snapshot.c \
 	src/dbus-device.c \
 	src/dbus-execute.c \
+	src/dbus-path.c \
 	src/cgroup.c \
 	src/mount-setup.c \
 	src/hostname-setup.c \
 	src/loopback-setup.c \
+	src/kmod-setup.c \
 	src/utmp-wtmp.c \
 	src/specifier.c \
 	src/unit-name.c \
@@ -319,6 +368,8 @@ SED_PROCESS = \
 	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
 		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
+		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
+		-e 's,@SYSTEMCTL\@,$(bindir)/systemctl,g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
@@ -342,9 +393,6 @@ units/session/%: units/%.m4 Makefile
 	$(M4_PROCESS_SESSION)
 
 CLEANFILES = \
-	src/systemd-interfaces.c \
-	src/systemctl.c \
-	src/systemadm.c \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/syslog.target \
@@ -354,8 +402,16 @@ CLEANFILES = \
 	units/multi-user.target \
 	units/remote-fs.target \
 	units/session/remote-fs.target \
+	units/session/exit.service \
 	man/systemd.special.7 \
 	man/systemd.special.html
+
+if HAVE_VALAC
+CLEANFILES += \
+	src/systemd-interfaces.c \
+	src/systemctl.c \
+	src/systemadm.c
+endif
 
 if HAVE_XSLTPROC
 XSLTPROC_PROCESS_MAN = \
@@ -402,18 +458,25 @@ CLEANFILES += \
 	man/systemd.special.html.in
 endif
 
+org.freedesktop.systemd1.%.xml: systemd
+	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
+
+CLEANFILES += $(interface_DATA)
+
 install-data-hook:
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
+		$(DESTDIR)$(systemunitdir)/basic.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
-	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/debug || echo "Don't forget to create /cgroup/debug! Couldn't create it for you, continuing anyway."
+	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup/systemd || \
+		echo "Don't forget to create /cgroup/systemd! Couldn't create it for you, continuing anyway."
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )
@@ -453,16 +516,42 @@ install-data-hook:
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target )
+	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+		rm -f dev-hugepages.automount \
+			dev-mqueue.automount \
+			proc-sys-fs-binfmt_misc.automount \
+			sys-kernel-debug.automount \
+			sys-fs-fuse-connections.automount \
+			sys-kernel-security.automount && \
+		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
+		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
+		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
+		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
+		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
+		$(LN_S) ../sys-fs-fuse-connections.automount sys-fs-fuse-connections.automount )
 if TARGET_FEDORA
+	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f prefdm.service && \
-		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
+		rm -f display-manager.service && \
+		$(LN_S) ../display-manager.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
+	( cd $(DESTDIR)/etc/init.d && \
+		$(LN_S) halt reboot > /dev/null 2>&1 || true )
+endif
+if TARGET_GENTOO
+	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) ../display-manager.service display-manager.service )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \

@@ -41,6 +41,10 @@ struct CGroupBonding;
 /* Abstract namespace! */
 #define LOGGER_SOCKET "/org/freedesktop/systemd1/logger"
 
+/* This doesn't really belong here, but I couldn't find a better place to put this. */
+#define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
+#define SIGNALS_IGNORE SIGKILL,SIGPIPE
+
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
@@ -56,7 +60,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_NULL,
         EXEC_OUTPUT_TTY,
         EXEC_OUTPUT_SYSLOG,
-        EXEC_OUTPUT_KERNEL,
+        EXEC_OUTPUT_KMSG,
         EXEC_OUTPUT_SOCKET,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1

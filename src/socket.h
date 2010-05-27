@@ -62,19 +62,16 @@ typedef enum SocketType {
         _SOCKET_FIFO_INVALID = -1
 } SocketType;
 
-typedef struct SocketPort SocketPort;
-
-struct SocketPort {
+typedef struct SocketPort {
         SocketType type;
         int fd;
 
         SocketAddress address;
         char *path;
-
         Watch fd_watch;
 
-        LIST_FIELDS(SocketPort, port);
-};
+        LIST_FIELDS(struct SocketPort, port);
+} SocketPort;
 
 struct Socket {
         Meta meta;
@@ -82,7 +79,7 @@ struct Socket {
         LIST_HEAD(SocketPort, ports);
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        bool bind_ipv6_only;
+        SocketAddressBindIPv6Only bind_ipv6_only;
         unsigned backlog;
 
         usec_t timeout_usec;

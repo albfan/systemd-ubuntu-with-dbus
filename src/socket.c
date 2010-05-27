@@ -58,7 +58,6 @@ static void socket_init(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        s->timer_watch.type = WATCH_INVALID;
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;
@@ -290,7 +289,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, socket_state_to_string(s->state),
-                prefix, yes_no(s->bind_ipv6_only),
+                prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,
@@ -386,16 +385,36 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
         }
 
         case AF_INET6: {
-                char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
+                static const char ipv4_prefix[] = {
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF
+                };
 
-                if (asprintf(&r,
-                             "%u-%s:%u-%s:%u",
-                             nr,
-                             inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
-                             ntohs(local.in6.sin6_port),
-                             inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
-                             ntohs(remote.in6.sin6_port)) < 0)
-                        return -ENOMEM;
+                if (memcmp(&local.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0 &&
+                    memcmp(&remote.in6.sin6_addr, ipv4_prefix, sizeof(ipv4_prefix)) == 0) {
+                        const uint8_t
+                                *a = local.in6.sin6_addr.s6_addr+12,
+                                *b = remote.in6.sin6_addr.s6_addr+12;
+
+                        if (asprintf(&r,
+                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     nr,
+                                     a[0], a[1], a[2], a[3],
+                                     ntohs(local.in6.sin6_port),
+                                     b[0], b[1], b[2], b[3],
+                                     ntohs(remote.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                } else {
+                        char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
+
+                        if (asprintf(&r,
+                                     "%u-%s:%u-%s:%u",
+                                     nr,
+                                     inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
+                                     ntohs(local.in6.sin6_port),
+                                     inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
+                                     ntohs(remote.in6.sin6_port)) < 0)
+                                return -ENOMEM;
+                }
 
                 break;
         }
@@ -876,7 +895,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Unit *u;
                 char *prefix, *instance, *name;
 
-                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)))
+                if ((r = instance_from_socket(cfd, s->n_accepted++, &instance)) < 0)
                         goto fail;
 
                 if (!(prefix = unit_name_to_prefix(UNIT(s)->meta.id))) {
@@ -889,8 +908,10 @@ static void socket_enter_running(Socket *s, int cfd) {
                 free(prefix);
                 free(instance);
 
-                if (!name)
+                if (!name) {
                         r = -ENOMEM;
+                        goto fail;
+                }
 
                 r = manager_load_unit(UNIT(s)->meta.manager, name, NULL, &u);
                 free(name);
@@ -898,7 +919,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (r < 0)
                         goto fail;
 
-                if ((r = service_set_socket_fd(SERVICE(u), cfd) < 0))
+                if ((r = service_set_socket_fd(SERVICE(u), cfd)) < 0)
                         goto fail;
 
                 cfd = -1;
@@ -1166,6 +1187,9 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
 
         assert(s);
         assert(fd >= 0);
+
+        if (s->state != SOCKET_LISTENING)
+                return;
 
         log_debug("Incoming traffic on %s", u->meta.id);
 

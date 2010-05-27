@@ -42,15 +42,12 @@ typedef struct MountPoint {
 } MountPoint;
 
 static const MountPoint mount_table[] = {
-        { "proc",        "/proc",                    "proc",        NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "sysfs",       "/sys",                     "sysfs",       NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devtmps",     "/dev",                     "devtmpfs",    "mode=755",  MS_NOSUID,                    true },
-        { "tmpfs",       "/dev/shm",                 "tmpfs",       "mode=1777", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "devpts",      "/dev/pts",                 "devpts",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
-        { "cgroup",      "/cgroup/debug",            "cgroup",      "debug",     MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-        { "debugfs",     "/sys/kernel/debug",        "debugfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
-        { "binfmt_misc", "/proc/sys/fs/binfmt_misc", "binfmt_misc", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
-        { "mqueue",      "/dev/mqueue",              "mqueue",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
+        { "proc",        "/proc",                    "proc",        NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "sysfs",       "/sys",                     "sysfs",       NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devtmps",     "/dev",                     "devtmpfs",    "mode=755",          MS_NOSUID,                    true },
+        { "tmpfs",       "/dev/shm",                 "tmpfs",       "mode=1777",         MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
+        { "devpts",      "/dev/pts",                 "devpts",      NULL,                MS_NOSUID|MS_NOEXEC|MS_NODEV, false },
+        { "cgroup",      "/cgroup/systemd",          "cgroup",      "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
 
 bool mount_point_is_api(const char *path) {
@@ -104,7 +101,7 @@ static int mount_cgroup_controllers(void) {
         FILE *f;
         char buf [256];
 
-        /* Mount all available cgroup controllers. */
+        /* Mount all available cgroup controllers that are built into the kernel. */
 
         if (!(f = fopen("/proc/cgroups", "re")))
                 return -ENOENT;

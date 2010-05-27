@@ -25,20 +25,25 @@
 #include "log.h"
 #include "dbus-job.h"
 
-static const char introspection[] =
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-        "<node>"
-        " <interface name=\"org.freedesktop.systemd1.Job\">"
-        "  <method name=\"Cancel\"/>"
-        "  <signal name=\"Changed\"/>"
-        "  <property name=\"Id\" type=\"u\" access=\"read\"/>"
-        "  <property name=\"Unit\" type=\"(so)\" access=\"read\"/>"
-        "  <property name=\"JobType\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"State\" type=\"s\" access=\"read\"/>"
-        " </interface>"
-        BUS_PROPERTIES_INTERFACE
-        BUS_INTROSPECTABLE_INTERFACE
-        "</node>";
+#define BUS_JOB_INTERFACE                                             \
+        " <interface name=\"org.freedesktop.systemd1.Job\">\n"        \
+        "  <method name=\"Cancel\"/>\n"                               \
+        "  <signal name=\"Changed\"/>\n"                              \
+        "  <property name=\"Id\" type=\"u\" access=\"read\"/>\n"      \
+        "  <property name=\"Unit\" type=\"(so)\" access=\"read\"/>\n" \
+        "  <property name=\"JobType\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"   \
+        " </interface>\n"
+
+#define INTROSPECTION                                                 \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                     \
+        "<node>\n"                                                    \
+        BUS_JOB_INTERFACE                                             \
+        BUS_PROPERTIES_INTERFACE                                      \
+        BUS_INTROSPECTABLE_INTERFACE                                  \
+        "</node>\n"
+
+const char bus_job_interface[] = BUS_JOB_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
@@ -92,7 +97,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) 
                 job_free(j);
 
         } else
-                return bus_default_message_handler(j->manager, message, introspection, properties);
+                return bus_default_message_handler(j->manager, message, INTROSPECTION, properties);
 
         if (reply) {
                 if (!dbus_connection_send(m->api_bus, reply, NULL))
@@ -197,14 +202,18 @@ oom:
         log_error("Failed to allocate job change signal.");
 }
 
-void bus_job_send_removed_signal(Job *j) {
+void bus_job_send_removed_signal(Job *j, bool success) {
         char *p = NULL;
         DBusMessage *m = NULL;
+        dbus_bool_t b = success;
 
         assert(j);
 
-        if (set_isempty(j->manager->subscribed) || !j->sent_dbus_new_signal)
+        if (set_isempty(j->manager->subscribed))
                 return;
+
+        if (!j->sent_dbus_new_signal)
+                bus_job_send_change_signal(j);
 
         if (!(p = job_dbus_path(j)))
                 goto oom;
@@ -215,6 +224,7 @@ void bus_job_send_removed_signal(Job *j) {
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_UINT32, &j->id,
                                       DBUS_TYPE_OBJECT_PATH, &p,
+                                      DBUS_TYPE_BOOLEAN, &b,
                                       DBUS_TYPE_INVALID))
                 goto oom;
 

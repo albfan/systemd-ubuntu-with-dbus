@@ -37,6 +37,7 @@
 #include "mount-setup.h"
 #include "hostname-setup.h"
 #include "loopback-setup.h"
+#include "kmod-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 
@@ -44,7 +45,8 @@ static enum {
         ACTION_RUN,
         ACTION_HELP,
         ACTION_TEST,
-        ACTION_DUMP_CONFIGURATION_ITEMS
+        ACTION_DUMP_CONFIGURATION_ITEMS,
+        ACTION_DONE
 } action = ACTION_RUN;
 
 static char *default_unit = NULL;
@@ -138,15 +140,10 @@ _noreturn static void crash(int sig) {
                 else if (pid == 0) {
                         int fd, r;
 
-                        if ((fd = acquire_terminal("/dev/console", false, true)) < 0) {
+                        if ((fd = acquire_terminal("/dev/console", false, true, true)) < 0)
                                 log_error("Failed to acquire terminal: %s", strerror(-fd));
-                                _exit(1);
-                        }
-
-                        if ((r = make_stdio(fd)) < 0) {
+                        else if ((r = make_stdio(fd)) < 0)
                                 log_error("Failed to duplicate terminal fd: %s", strerror(-r));
-                                _exit(1);
-                        }
 
                         execl("/bin/sh", "/bin/sh", NULL);
 
@@ -169,18 +166,13 @@ static void install_crash_handler(void) {
         sa.sa_handler = crash;
         sa.sa_flags = SA_NODEFER;
 
-        assert_se(sigaction(SIGSEGV, &sa, NULL) == 0);
-        assert_se(sigaction(SIGILL, &sa, NULL) == 0);
-        assert_se(sigaction(SIGFPE, &sa, NULL) == 0);
-        assert_se(sigaction(SIGBUS, &sa, NULL) == 0);
-        assert_se(sigaction(SIGQUIT, &sa, NULL) == 0);
-        assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
+        sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
 }
 
 static int make_null_stdio(void) {
         int null_fd, r;
 
-        if ((null_fd = open("/dev/null", O_RDWR)) < 0) {
+        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0) {
                 log_error("Failed to open /dev/null: %m");
                 return -errno;
         }
@@ -356,7 +348,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_CONFIRM_SPAWN,
-                ARG_DESERIALIZE
+                ARG_DESERIALIZE,
+                ARG_INTROSPECT
         };
 
         static const struct option options[] = {
@@ -369,6 +362,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
+                { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
         };
 
@@ -453,6 +447,27 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_INTROSPECT: {
+                        const char * const * i = NULL;
+
+                        for (i = bus_interface_table; *i; i += 2)
+                                if (!optarg || streq(i[0], optarg)) {
+                                        fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                                              "<node>\n", stdout);
+                                        fputs(i[1], stdout);
+                                        fputs("</node>\n", stdout);
+
+                                        if (optarg)
+                                                break;
+                                }
+
+                        if (!i[0] && optarg)
+                                log_error("Unknown interface %s.", optarg);
+
+                        action = ACTION_DONE;
+                        break;
+                }
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -487,7 +502,8 @@ static int help(void) {
                "     --running-as=AS             Set running as (init, system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
-               "     --confirm-spawn             Ask for confirmation when spawning processes\n",
+               "     --confirm-spawn             Ask for confirmation when spawning processes\n"
+               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n",
                __progname);
 
         return 0;
@@ -566,15 +582,15 @@ int main(int argc, char *argv[]) {
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        if (mount_setup() < 0)
-                goto finish;
+        if (geteuid() == 0)
+                if (mount_setup() < 0)
+                        goto finish;
 
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
 
         /* If we are init, we can block sigkill. Yay. */
-        ignore_signal(SIGKILL);
-        ignore_signal(SIGPIPE);
+        ignore_signals(SIGNALS_IGNORE, -1);
 
         if (running_as != MANAGER_SESSION)
                 if (parse_proc_cmdline() < 0)
@@ -590,6 +606,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
+                retval = 0;
+                goto finish;
+        } else if (action == ACTION_DONE) {
                 retval = 0;
                 goto finish;
         }
@@ -644,6 +663,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
         if (running_as == MANAGER_INIT) {
+                kmod_setup();
                 hostname_setup();
                 loopback_setup();
         }

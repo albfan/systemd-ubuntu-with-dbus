@@ -28,8 +28,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 
 typedef uint64_t usec_t;
+
+typedef struct timestamp {
+        usec_t realtime;
+        usec_t monotonic;
+} timestamp;
 
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  1000000ULL
@@ -48,8 +54,11 @@ typedef uint64_t usec_t;
 #define NEWLINE "\n\r"
 
 #define FORMAT_TIMESTAMP_MAX 64
+#define FORMAT_TIMESPAN_MAX 64
 
 usec_t now(clockid_t clock);
+
+timestamp* timestamp_get(timestamp *ts);
 
 usec_t timespec_load(const struct timespec *ts);
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
@@ -137,7 +146,9 @@ bool is_path(const char *p);
 bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
 char *path_make_absolute_cwd(const char *p);
+
 char **strv_path_make_absolute_cwd(char **l);
+char **strv_path_canonicalize(char **l);
 
 int reset_all_signal_handlers(void);
 
@@ -178,6 +189,7 @@ bool ignore_file(const char *filename);
 bool chars_intersect(const char *a, const char *b);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
+char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 
@@ -218,12 +230,14 @@ int ask(char *ret, const char *replies, const char *text, ...);
 
 int reset_terminal(int fd);
 int open_terminal(const char *name, int mode);
-int acquire_terminal(const char *name, bool fail, bool force);
+int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm);
 int release_terminal(void);
 
 int flush_fd(int fd);
 
-int ignore_signal(int sig);
+int ignore_signals(int sig, ...);
+int default_signals(int sig, ...);
+int sigaction_many(const struct sigaction *sa, ...);
 
 int close_pipe(int p[]);
 
@@ -232,6 +246,8 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes);
 int path_is_mount_point(const char *path);
 
 bool is_device_path(const char *path);
+
+int dir_is_empty(const char *path);
 
 extern char * __progname;
 

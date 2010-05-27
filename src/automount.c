@@ -59,6 +59,8 @@ static void repeat_unmout(const char *path) {
         assert(path);
 
         for (;;) {
+                /* If there are multiple mounts on a mount point, this
+                 * removes them all */
 
                 if (umount2(path, MNT_DETACH) >= 0)
                         continue;
@@ -116,6 +118,9 @@ int automount_add_one_mount_link(Automount *a, Mount *m) {
                 return 0;
 
         if (!path_startswith(a->where, m->where))
+                return 0;
+
+        if (path_equal(a->where, m->where))
                 return 0;
 
         if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(a), true)) < 0)
@@ -557,12 +562,15 @@ static int automount_start(Unit *u) {
 
         assert(a);
 
+        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_MAINTAINANCE);
+
         if (path_is_mount_point(a->where)) {
                 log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
                 return -EEXIST;
         }
 
-        assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_MAINTAINANCE);
+        if (a->mount->meta.load_state != UNIT_LOADED)
+                return -ENOENT;
 
         a->failure = false;
         automount_enter_waiting(a);

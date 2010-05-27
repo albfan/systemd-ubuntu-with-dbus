@@ -213,6 +213,8 @@ static int config_parse_listen(
                         free(p);
                         return -ENOMEM;
                 }
+
+                path_kill_slashes(p->path);
         } else {
                 p->type = SOCKET_SOCKET;
 
@@ -252,8 +254,8 @@ static int config_parse_socket_bind(
                 void *data,
                 void *userdata) {
 
-        int r;
         Socket *s;
+        SocketAddressBindIPv6Only b;
 
         assert(filename);
         assert(lvalue);
@@ -262,12 +264,17 @@ static int config_parse_socket_bind(
 
         s = (Socket*) data;
 
-        if ((r = parse_boolean(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
-                return r;
-        }
+        if ((b = socket_address_bind_ipv6_only_from_string(rvalue)) < 0) {
+                int r;
 
-        s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
+                if ((r = parse_boolean(rvalue)) < 0) {
+                        log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+
+                s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
+        } else
+                s->bind_ipv6_only = b;
 
         return 0;
 }
@@ -386,49 +393,75 @@ static int config_parse_exec(
         char *w;
         unsigned k;
         size_t l;
-        char *state;
+        char *state, *path = NULL;
+        bool honour_argv0, write_to_path;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        /* We accept an absolute path as first argument, or
+         * alternatively an absolute prefixed with @ to allow
+         * overriding of argv[0]. */
+
+        honour_argv0 = rvalue[0] == '@';
+
+        if (rvalue[honour_argv0 ? 1 : 0] != '/') {
+                log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
         k = 0;
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 k++;
 
-        if (!(n = new(char*, k+1)))
+        if (!(n = new(char*, k + (honour_argv0 ? 0 : 1))))
                 return -ENOMEM;
 
         k = 0;
-        FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                if (!(n[k++] = strndup(w, l)))
-                        goto fail;
+        write_to_path = honour_argv0;
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                if (write_to_path) {
+                        if (!(path = strndup(w+1, l-1)))
+                                goto fail;
+                        write_to_path = false;
+                } else {
+                        if (!(n[k++] = strndup(w, l)))
+                                goto fail;
+                }
+        }
 
         n[k] = NULL;
 
-        if (!n[0] || !path_is_absolute(n[0])) {
-                log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
+        if (!n[0]) {
+                log_error("[%s:%u] Invalid command line: %s", filename, line, rvalue);
                 strv_free(n);
                 return -EINVAL;
         }
+
+        if (!path)
+                if (!(path = strdup(n[0])))
+                        goto fail;
+
+        assert(path_is_absolute(path));
 
         if (!(nce = new0(ExecCommand, 1)))
                 goto fail;
 
         nce->argv = n;
-        if (!(nce->path = strdup(n[0])))
-                goto fail;
+        nce->path = path;
+
+        path_kill_slashes(nce->path);
 
         exec_command_append_list(e, nce);
 
         return 0;
 
 fail:
-        for (; k > 0; k--)
-                free(n[k-1]);
-        free(n);
-
+        n[k] = NULL;
+        strv_free(n);
+        free(path);
         free(nce);
 
         return -ENOMEM;
@@ -973,6 +1006,143 @@ static int config_parse_mount_flags(
         return 0;
 }
 
+static int config_parse_timer(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Timer *t = data;
+        usec_t u;
+        int r;
+        TimerValue *v;
+        TimerBase b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((b = timer_base_from_string(lvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse timer base: %s", filename, line, lvalue);
+                return -EINVAL;
+        }
+
+        if ((r = parse_usec(rvalue, &u)) < 0) {
+                log_error("[%s:%u] Failed to parse timer value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        if (!(v = new0(TimerValue, 1)))
+                return -ENOMEM;
+
+        v->base = b;
+        v->value = u;
+
+        LIST_PREPEND(TimerValue, value, t->values, v);
+
+        return 0;
+}
+
+static int config_parse_timer_unit(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Timer *t = data;
+        int r;
+
+        if (endswith(rvalue, ".timer")) {
+                log_error("[%s:%u] Unit cannot be of type timer: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
+static int config_parse_path_spec(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Path *p = data;
+        PathSpec *s;
+        PathType b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((b = path_type_from_string(lvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse path type: %s", filename, line, lvalue);
+                return -EINVAL;
+        }
+
+        if (!path_is_absolute(rvalue)) {
+                log_error("[%s:%u] Path is not absolute: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if (!(s = new0(PathSpec, 1)))
+                return -ENOMEM;
+
+        if (!(s->path = strdup(rvalue))) {
+                free(s);
+                return -ENOMEM;
+        }
+
+        path_kill_slashes(s->path);
+
+        s->type = b;
+        s->inotify_fd = -1;
+
+        LIST_PREPEND(PathSpec, spec, p->specs, s);
+
+        return 0;
+}
+
+static int config_parse_path_unit(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Path *t = data;
+        int r;
+
+        if (endswith(rvalue, ".path")) {
+                log_error("[%s:%u] Unit cannot be of type path: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1132,6 +1302,8 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_path_strv,        "PATH [...]" },
                 { config_parse_mount_flags,      "MOUNTFLAG [...]" },
                 { config_parse_description,      "DESCRIPTION" },
+                { config_parse_timer,            "TIMER" },
+                { config_parse_timer_unit,       "NAME" },
         };
 
         assert(f);
@@ -1172,7 +1344,8 @@ static int load_from_path(Unit *u, const char *path) {
                 [UNIT_MOUNT]     = "Mount",
                 [UNIT_AUTOMOUNT] = "Automount",
                 [UNIT_SNAPSHOT]  = "Snapshot",
-                [UNIT_SWAP]      = "Swap"
+                [UNIT_SWAP]      = "Swap",
+                [UNIT_PATH]      = "Path"
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
@@ -1239,6 +1412,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
                 { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
+                { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1288,8 +1462,20 @@ static int load_from_path(Unit *u, const char *path) {
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
 
-                { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap" },
-                { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap" },
+                { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
+                { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },
+
+                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer"   },
+
+                { "PathExists",             config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "PathChanged",            config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "DirectoryNotEmpty",      config_parse_path_spec,       &u->path,                                        "Path"    },
+                { "Unit",                   config_parse_path_unit,       &u->path,                                        "Path"    },
 
                 { NULL, NULL, NULL, NULL }
         };

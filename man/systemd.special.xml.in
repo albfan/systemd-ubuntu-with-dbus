@@ -50,12 +50,16 @@
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
+                <filename>@SPECIAL_DBUS_SERVICE@</filename>,
                 <filename>default.target</filename>,
+                <filename>display-manager.service</filename>,
                 <filename>emergency.service</filename>,
+                <filename>exit.service</filename>,
                 <filename>graphical.target</filename>,
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>local-fs.target</filename>,
+                <filename>mail-transfer-agent.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
                 <filename>nss-lookup.target</filename>,
@@ -77,6 +81,7 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>syslog.target</filename>,
+                <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
@@ -131,6 +136,17 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>@SPECIAL_DBUS_SERVICE@</filename></term>
+                                <listitem>
+                                        <para>A special unit for the
+                                        D-Bus system bus. As soon as
+                                        this service is fully started
+                                        up systemd will connect to it
+                                        and register its
+                                        service.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>default.target</filename></term>
                                 <listitem>
                                         <para>The default unit systemd
@@ -145,6 +161,26 @@
                                         overriden with the
                                         <varname>systemd.default=</varname>
                                         kernel command line option.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>display-manager.service</filename></term>
+                                <listitem>
+                                        <para>The display manager
+                                        service. Usually this should
+                                        be aliased (symlinked) to
+                                        <filename>gdm.service</filename>
+                                        or a similar display manager
+                                        service.</para>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$x-display-manager</literal>
+                                        facility, for compatibility
+                                        with Debian.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -225,6 +261,29 @@
                                         referring to the
                                         <literal>$local_fs</literal>
                                         facility.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>mail-transfer-agent.target</filename></term>
+                                <listitem>
+                                        <para>The mail transfer agent
+                                        (MTA) service. Usually this
+                                        should pull in all units
+                                        necessary for
+                                        sending/receiving mails on the
+                                        local host.</para>
+
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$mail-transfer-argent</literal>
+                                        or
+                                        <literal>$mail-transport-agent</literal>
+                                        facilities, for compatibility
+                                        with Debian.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -313,7 +372,7 @@
                                         all SysV init script service
                                         units with an LSB header
                                         referring to the
-                                        <literal>$remote-fs</literal>
+                                        <literal>$remote_fs</literal>
                                         facility.</para>
                                 </listitem>
                         </varlistentry>
@@ -528,6 +587,23 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>@SPECIAL_SYSLOG_SERVICE@</filename></term>
+                                <listitem>
+                                        <para>A special unit for the
+                                        syslog daemon. As soon as
+                                        this service is fully started
+                                        up systemd will connect to it
+                                        and use it for logging if it
+                                        has been configured for
+                                        that.</para>
+                                        <para>Applications should
+                                        generally not depend on this
+                                        service, and depend on
+                                        <filename>syslog.target</filename>
+                                        instead.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>systemd-initctl.service</filename></term>
                                 <listitem>
                                         <para>This provides
@@ -590,6 +666,35 @@
                 <filename>shutdown.target</filename>,
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>.</para>
+
+                <para>In addition the following special unit is
+                understood only when systemd runs as service instance:</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>exit.service</filename></term>
+                                <listitem>
+                                        <para>A special service unit
+                                        for shutting down the
+                                        session.</para>
+
+                                        <para>Applications wanting to
+                                        terminate the session should
+                                        start this unit. If systemd
+                                        receives SIGTERM or SIGINT
+                                        when running as session daemon
+                                        it will start this
+                                        unit.</para>
+
+                                        <para>Normally, this pulls in
+                                        <filename>shutdown.target</filename>
+                                        which in turn should be
+                                        conflicted by all units that
+                                        want to be shut down on
+                                        session exit.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>

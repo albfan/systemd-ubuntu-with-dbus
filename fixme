@@ -9,6 +9,9 @@
 * implicitly import "defaults" settings file into all types
 
 * write .service file install tool
+    [Install]
+    WantedBy=graphical.target
+    Names=prefdm.service
 
 * service startup should be delayed if the matching socket is being started
 
@@ -18,15 +21,7 @@
 
 * bootchart hookup
 
-* dbus.service and syslog.service should be symlinked not ifdef to the right distro-specific names
-
 * reinvestigate random seed, hwclock
-
-* rework sysv stuff to have SPECIAL_SYSV_BEFORE, SPECIAL_SYSV_AFTER instead SPECIAL_RCSYSINIT
-
-* introduce serialized mode
-
-* when refusing start due to ratelimit, enter restart state
 
 * "disabled" load state?
 
@@ -38,11 +33,7 @@
 
 * iCalendar semantics for the timer stuff (RFC2445)
 
-* autofs für /dev/mqueue usw.
-
 * provide sysv-like command line utilities
-
-* Add OnlyByDependency
 
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
@@ -51,21 +42,27 @@
 
    - uuidd    DONE
    - nscd     DONE
-   - rpcbind (/var/run/rpcbind.sock!)
-   - dbus
-   - rsyslog
-   - cups
+   - dbus     DONE
+   - rsyslog  DONE
+   - rpcbind (/var/run/rpcbind.sock!) DONE
+   - cups     DONE
+   - avahi-daemon (/var/run/avahi-daemon/socket) DONE
    - ssh      CLASSIC
    - postfix, saslauthd
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
-   - avahi-daemon (/var/run/avahi-daemon/socket)
    - distccd
 
 * teach dbus to talk to systemd when autospawning services
 
-* unix sockets chown()/chgrp()
+* regnerate unit/sysv search paths on daemon reload
+
+* write utmp record a la upstart for processes
+
+* run PAM session stuff
+
+* tcpwrap
 
 Regularly:
 

@@ -62,6 +62,7 @@ enum UnitType {
         UNIT_SNAPSHOT,
         UNIT_TIMER,
         UNIT_SWAP,
+        UNIT_PATH,
         _UNIT_TYPE_MAX,
         _UNIT_TYPE_INVALID = -1
 };
@@ -136,6 +137,9 @@ struct Meta {
         UnitLoadState load_state;
         Unit *merged_into;
 
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool only_by_dependency;
+
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
         char *instance;
 
@@ -149,10 +153,10 @@ struct Meta {
          * the job for it */
         Job *job;
 
-        usec_t inactive_exit_timestamp;
-        usec_t active_enter_timestamp;
-        usec_t active_exit_timestamp;
-        usec_t inactive_enter_timestamp;
+        timestamp inactive_exit_timestamp;
+        timestamp active_enter_timestamp;
+        timestamp active_exit_timestamp;
+        timestamp inactive_enter_timestamp;
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
@@ -198,6 +202,7 @@ struct Meta {
 #include "automount.h"
 #include "snapshot.h"
 #include "swap.h"
+#include "path.h"
 
 union Unit {
         Meta meta;
@@ -210,6 +215,7 @@ union Unit {
         Automount automount;
         Snapshot snapshot;
         Swap swap;
+        Path path;
 };
 
 struct UnitVTable {
@@ -341,6 +347,7 @@ DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 DEFINE_CAST(SWAP, Swap);
+DEFINE_CAST(PATH, Path);
 
 Unit *unit_new(Manager *m);
 void unit_free(Unit *u);

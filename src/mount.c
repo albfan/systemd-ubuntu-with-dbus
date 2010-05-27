@@ -167,6 +167,19 @@ static int mount_add_swap_links(Mount *m) {
         return 0;
 }
 
+static int mount_add_path_links(Mount *m) {
+        Meta *other;
+        int r;
+
+        assert(m);
+
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_PATH])
+                if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
+                        return r;
+
+        return 0;
+}
+
 static int mount_add_automount_links(Mount *m) {
         Meta *other;
         int r;
@@ -267,8 +280,11 @@ static int mount_verify(Mount *m) {
         char *e;
         assert(m);
 
-        if (UNIT(m)->meta.load_state != UNIT_LOADED)
+        if (m->meta.load_state != UNIT_LOADED)
                 return 0;
+
+        if (!m->from_etc_fstab && !m->from_fragment && !m->from_proc_self_mountinfo)
+                return -ENOENT;
 
         if (!(e = unit_name_from_path(m->where, ".mount")))
                 return -ENOMEM;
@@ -336,6 +352,9 @@ static int mount_load(Unit *u) {
                         return r;
 
                 if ((r = mount_add_swap_links(m)) < 0)
+                        return r;
+
+                if ((r = mount_add_path_links(m)) < 0)
                         return r;
 
                 if ((r = mount_add_automount_links(m)) < 0)
@@ -933,7 +952,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_REMOUNTING_SIGKILL:
         case MOUNT_REMOUNTING_SIGTERM:
 
-                if (success && m->from_proc_self_mountinfo)
+                if (success)
                         mount_enter_mounted(m, true);
                 else if (m->from_proc_self_mountinfo)
                         mount_enter_mounted(m, false);

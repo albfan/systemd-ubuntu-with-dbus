@@ -25,8 +25,10 @@
 #include <dbus/dbus.h>
 
 void bus_job_send_change_signal(Job *j);
-void bus_job_send_removed_signal(Job *j);
+void bus_job_send_removed_signal(Job *j, bool success);
 
 extern const DBusObjectPathVTable bus_job_vtable;
+
+extern const char bus_job_interface[];
 
 #endif

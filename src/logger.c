@@ -75,7 +75,7 @@ struct Stream {
 
         int fd;
 
-        LogTarget target;
+        StreamTarget target;
         int priority;
         char *process;
         pid_t pid;
@@ -89,7 +89,7 @@ struct Stream {
         LIST_FIELDS(Stream, stream);
 };
 
-static int stream_log(Stream *s, char *p, usec_t timestamp) {
+static int stream_log(Stream *s, char *p, usec_t ts) {
 
         char header_priority[16], header_time[64], header_pid[16];
         struct iovec iovec[5];
@@ -134,7 +134,7 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
                 time_t t;
                 struct tm *tm;
 
-                t = (time_t) (timestamp / USEC_PER_SEC);
+                t = (time_t) (ts / USEC_PER_SEC);
                 if (!(tm = localtime(&t)))
                         return -EINVAL;
 
@@ -177,7 +177,7 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
         return 0;
 }
 
-static int stream_line(Stream *s, char *p, usec_t timestamp) {
+static int stream_line(Stream *s, char *p, usec_t ts) {
         int r;
 
         assert(s);
@@ -236,13 +236,13 @@ static int stream_line(Stream *s, char *p, usec_t timestamp) {
                 return 0;
 
         case STREAM_RUNNING:
-                return stream_log(s, p, timestamp);
+                return stream_log(s, p, ts);
         }
 
         assert_not_reached("Unknown stream state");
 }
 
-static int stream_scan(Stream *s, usec_t timestamp) {
+static int stream_scan(Stream *s, usec_t ts) {
         char *p;
         size_t remaining;
         int r = 0;
@@ -259,7 +259,7 @@ static int stream_scan(Stream *s, usec_t timestamp) {
 
                 *newline = 0;
 
-                if ((r = stream_line(s, p, timestamp)) >= 0) {
+                if ((r = stream_line(s, p, ts)) >= 0) {
                         remaining -= newline-p+1;
                         p = newline+1;
                 }
@@ -273,7 +273,7 @@ static int stream_scan(Stream *s, usec_t timestamp) {
         return r;
 }
 
-static int stream_process(Stream *s, usec_t timestamp) {
+static int stream_process(Stream *s, usec_t ts) {
         ssize_t l;
         int r;
         assert(s);
@@ -292,7 +292,7 @@ static int stream_process(Stream *s, usec_t timestamp) {
                 return 0;
 
         s->length += l;
-        r = stream_scan(s, timestamp);
+        r = stream_scan(s, ts);
 
         if (r < 0)
                 return r;
@@ -424,11 +424,25 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         for (i = 0; i < n_sockets; i++) {
                 struct epoll_event ev;
+                int fd;
+
+                fd = SD_LISTEN_FDS_START+i;
+
+                if ((r = sd_is_socket(fd, AF_UNSPEC, SOCK_STREAM, 1)) < 0) {
+                        log_error("Failed to determine file descriptor type: %s", strerror(-r));
+                        goto fail;
+                }
+
+                if (!r) {
+                        log_error("Wrong file descriptor type.");
+                        r = -EINVAL;
+                        goto fail;
+                }
 
                 zero(ev);
                 ev.events = EPOLLIN;
-                ev.data.ptr = UINT_TO_PTR(SD_LISTEN_FDS_START+i);
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SD_LISTEN_FDS_START+i, &ev) < 0) {
+                ev.data.ptr = UINT_TO_PTR(fd);
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         log_error("Failed to add server fd to epoll object: %s", strerror(errno));
                         goto fail;
@@ -487,10 +501,10 @@ static int process_event(Server *s, struct epoll_event *ev) {
                 }
 
         } else {
-                usec_t timestamp;
+                usec_t ts;
                 Stream *stream = ev->data.ptr;
 
-                timestamp = now(CLOCK_REALTIME);
+                ts = now(CLOCK_REALTIME);
 
                 if (!(ev->events & EPOLLIN)) {
                         log_info("Got invalid event from epoll. (2)");
@@ -498,7 +512,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
                         return 0;
                 }
 
-                if ((r = stream_process(stream, timestamp)) <= 0) {
+                if ((r = stream_process(stream, ts)) <= 0) {
 
                         if (r < 0)
                                 log_info("Got error on stream: %s", strerror(-r));
