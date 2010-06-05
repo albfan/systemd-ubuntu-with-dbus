@@ -1,8 +1,5 @@
 #! /usr/bin/make -f
 
-export CGROUP_LIBS=-lcgroup
-export CGROUP_CFLAGS=-I/usr/include
-
 #export DH_VERBOSE=1
 export DEB_BUILD_OPTIONS="nostrip"
 
