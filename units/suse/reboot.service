@@ -6,9 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=FUSE Control File System
+Description=Reboot
+Requires=shutdown.target
+After=shutdown.target
+Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
 
-[Mount]
-What=fusectl
-Where=/sys/fs/fuse/connections
-Type=fusectl
+[Service]
+Type=finish
+ValidNoProcess=yes
+ExecStart=/etc/init.d/reboot start

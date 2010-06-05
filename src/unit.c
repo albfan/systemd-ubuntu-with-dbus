@@ -67,6 +67,7 @@ Unit *unit_new(Manager *m) {
 
         u->meta.manager = m;
         u->meta.type = _UNIT_TYPE_INVALID;
+        u->meta.deserialized_job = _JOB_TYPE_INVALID;
 
         return u;
 }
@@ -318,9 +319,18 @@ void unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
-        /* Detach from next 'bigger' objects */
+        if (u->meta.load_state != UNIT_STUB)
+                if (UNIT_VTABLE(u)->done)
+                        UNIT_VTABLE(u)->done(u);
+
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
+
+        if (u->meta.job)
+                job_free(u->meta.job);
+
+        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
+                bidi_set_free(u, u->meta.dependencies[d]);
 
         if (u->meta.type != _UNIT_TYPE_INVALID)
                 LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
@@ -339,18 +349,7 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        /* Free data and next 'smaller' objects */
-        if (u->meta.job)
-                job_free(u->meta.job);
-
-        if (u->meta.load_state != UNIT_STUB)
-                if (UNIT_VTABLE(u)->done)
-                        UNIT_VTABLE(u)->done(u);
-
         cgroup_bonding_free_list(u->meta.cgroup_bondings);
-
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                bidi_set_free(u, u->meta.dependencies[d]);
 
         free(u->meta.description);
         free(u->meta.fragment_path);
@@ -968,56 +967,54 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                          * failed previously due to EAGAIN. */
                         job_add_to_run_queue(u->meta.job);
 
-                else {
-                        assert(u->meta.job->state == JOB_RUNNING);
 
-                        /* Let's check whether this state change
-                         * constitutes a finished job, or maybe
-                         * cotradicts a running job and hence needs to
-                         * invalidate jobs. */
+                /* Let's check whether this state change constitutes a
+                 * finished job, or maybe cotradicts a running job and
+                 * hence needs to invalidate jobs. */
 
-                        switch (u->meta.job->type) {
+                switch (u->meta.job->type) {
 
-                        case JOB_START:
-                        case JOB_VERIFY_ACTIVE:
+                case JOB_START:
+                case JOB_VERIFY_ACTIVE:
 
-                                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                                        job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_ACTIVATING) {
-                                        unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
-                                }
+                        if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                                job_finish_and_invalidate(u->meta.job, true);
+                        else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
+                                unexpected = true;
+                                job_finish_and_invalidate(u->meta.job, false);
+                        }
 
-                                break;
+                        break;
 
-                        case JOB_RELOAD:
-                        case JOB_RELOAD_OR_START:
+                case JOB_RELOAD:
+                case JOB_RELOAD_OR_START:
 
+                        if (u->meta.job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_ACTIVE_RELOADING) {
                                         unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
                                 }
-
-                                break;
-
-                        case JOB_STOP:
-                        case JOB_RESTART:
-                        case JOB_TRY_RESTART:
-
-                                if (ns == UNIT_INACTIVE)
-                                        job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_DEACTIVATING) {
-                                        unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
-                                }
-
-                                break;
-
-                        default:
-                                assert_not_reached("Job type unknown");
                         }
+
+                        break;
+
+                case JOB_STOP:
+                case JOB_RESTART:
+                case JOB_TRY_RESTART:
+
+                        if (ns == UNIT_INACTIVE)
+                                job_finish_and_invalidate(u->meta.job, true);
+                        else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                                unexpected = true;
+                                job_finish_and_invalidate(u->meta.job, false);
+                        }
+
+                        break;
+
+                default:
+                        assert_not_reached("Job type unknown");
                 }
         }
 
@@ -1794,6 +1791,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds) {
         if ((r = UNIT_VTABLE(u)->serialize(u, f, fds)) < 0)
                 return r;
 
+        if (u->meta.job)
+                unit_serialize_item(u, f, "job", job_type_to_string(u->meta.job->type));
+
         /* End marker */
         fputc('\n', f);
         return 0;
@@ -1860,6 +1860,17 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else
                         v = l+k;
 
+                if (streq(l, "job")) {
+                        JobType type;
+
+                        if ((type = job_type_from_string(v)) < 0)
+                                log_debug("Failed to parse job type value %s", v);
+                        else
+                                u->meta.deserialized_job = type;
+
+                        continue;
+                }
+
                 if ((r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds)) < 0)
                         return r;
         }
@@ -1898,6 +1909,25 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (wants)
                 if ((r = unit_add_dependency(device, UNIT_WANTS, u, false)) < 0)
                         return r;
+
+        return 0;
+}
+
+int unit_coldplug(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (UNIT_VTABLE(u)->coldplug)
+                if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
+                        return r;
+
+        if (u->meta.deserialized_job >= 0) {
+                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL)) < 0)
+                        return r;
+
+                u->meta.deserialized_job = _JOB_TYPE_INVALID;
+        }
 
         return 0;
 }

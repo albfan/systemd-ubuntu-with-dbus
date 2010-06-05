@@ -65,6 +65,8 @@ const char *const bus_interface_table[] = {
         NULL
 };
 
+static const char *error_to_dbus(int error);
+
 static void api_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;
 
@@ -333,6 +335,7 @@ static void bus_toggle_timeout(DBusTimeout *timeout, void *data) {
 static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
         Manager *m = data;
         DBusError error;
+        DBusMessage *reply = NULL;
 
         assert(connection);
         assert(message);
@@ -370,10 +373,67 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
 
                         manager_dispatch_bus_name_owner_changed(m, name, old_owner, new_owner);
                 }
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Activator", "ActivationRequest")) {
+                const char *name;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &name,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse ActivationRequest message: %s", error.message);
+                else  {
+                        int r;
+                        Unit *u;
+
+                        log_debug("Got D-Bus activation request for %s", name);
+
+                        r = manager_load_unit(m, name, NULL, &u);
+
+                        if (r >= 0 && u->meta.only_by_dependency)
+                                r = -EPERM;
+
+                        if (r >= 0)
+                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, NULL);
+
+                        if (r < 0) {
+                                const char *id, *text;
+
+                                if (!(reply = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure")))
+                                        goto oom;
+
+                                id = error_to_dbus(r);
+                                text = strerror(-r);
+
+                                if (!dbus_message_set_destination(reply, DBUS_SERVICE_DBUS) ||
+                                    !dbus_message_append_args(reply,
+                                                              DBUS_TYPE_STRING, &name,
+                                                              DBUS_TYPE_STRING, &id,
+                                                              DBUS_TYPE_STRING, &text,
+                                                              DBUS_TYPE_INVALID))
+                                        goto oom;
+                        }
+
+                        /* On success we don't do anything, the service will be spwaned now */
+                }
         }
 
         dbus_error_free(&error);
+
+        if (reply) {
+                if (!dbus_connection_send(connection, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
@@ -531,6 +591,95 @@ oom:
         return -ENOMEM;
 }
 
+static void query_name_list_pending_cb(DBusPendingCall *pending, void *userdata) {
+        DBusMessage *reply;
+        DBusError error;
+        Manager *m = userdata;
+
+        assert(m);
+
+        dbus_error_init(&error);
+
+        assert_se(reply = dbus_pending_call_steal_reply(pending));
+
+        switch (dbus_message_get_type(reply)) {
+
+        case DBUS_MESSAGE_TYPE_ERROR:
+
+                assert_se(dbus_set_error_from_message(&error, reply));
+                log_warning("ListNames() failed: %s", error.message);
+                break;
+
+        case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
+                int r;
+                char **l;
+
+                if ((r = bus_parse_strv(reply, &l)) < 0)
+                        log_warning("Failed to parse ListNames() reply: %s", strerror(-r));
+                else {
+                        char **t;
+
+                        STRV_FOREACH(t, l)
+                                /* This is a bit hacky, we say the
+                                 * owner of the name is the name
+                                 * itself, because we don't want the
+                                 * extra traffic to figure out the
+                                 * real owner. */
+                                manager_dispatch_bus_name_owner_changed(m, *t, NULL, *t);
+
+                        strv_free(l);
+                }
+
+                break;
+        }
+
+        default:
+                assert_not_reached("Invalid reply message");
+        }
+
+        dbus_message_unref(reply);
+        dbus_error_free(&error);
+}
+
+static int query_name_list(Manager *m) {
+        DBusMessage *message = NULL;
+        DBusPendingCall *pending = NULL;
+
+        /* Asks for the currently installed bus names */
+
+        if (!(message = dbus_message_new_method_call(
+                              DBUS_SERVICE_DBUS,
+                              DBUS_PATH_DBUS,
+                              DBUS_INTERFACE_DBUS,
+                              "ListNames")))
+                goto oom;
+
+        if (!dbus_connection_send_with_reply(m->api_bus, message, &pending, -1))
+                goto oom;
+
+        if (!dbus_pending_call_set_notify(pending, query_name_list_pending_cb, m, NULL))
+                goto oom;
+
+        dbus_message_unref(message);
+        dbus_pending_call_unref(pending);
+
+        /* We simple ask for the list and don't wait for it. Sooner or
+         * later we'll get it. */
+
+        return 0;
+
+oom:
+        if (pending) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+        }
+
+        if (message)
+                dbus_message_unref(message);
+
+        return -ENOMEM;
+}
+
 static int bus_setup_loop(Manager *m, DBusConnection *bus) {
         assert(m);
         assert(bus);
@@ -642,6 +791,7 @@ int bus_init_api(Manager *m) {
                 return -ENOMEM;
         }
 
+        /* Get NameOwnerChange messages */
         dbus_bus_add_match(m->api_bus,
                            "type='signal',"
                            "sender='"DBUS_SERVICE_DBUS"',"
@@ -656,7 +806,27 @@ int bus_init_api(Manager *m) {
                 return -ENOMEM;
         }
 
+        /* Get activation requests */
+        dbus_bus_add_match(m->api_bus,
+                           "type='signal',"
+                           "sender='"DBUS_SERVICE_DBUS"',"
+                           "interface='org.freedesktop.systemd1.Activator',"
+                           "path='"DBUS_PATH_DBUS"'",
+                           &error);
+
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to register match: %s", error.message);
+                dbus_error_free(&error);
+                bus_done_api(m);
+                return -ENOMEM;
+        }
+
         if ((r = request_name(m)) < 0) {
+                bus_done_api(m);
+                return r;
+        }
+
+        if ((r = query_name_list(m)) < 0) {
                 bus_done_api(m);
                 return r;
         }

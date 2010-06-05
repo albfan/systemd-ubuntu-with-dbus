@@ -9,6 +9,8 @@
 
 [Unit]
 Description=systemd /dev/initctl Compatibility Socket
+After=sysinit.target
+Before=sockets.target
 
 [Socket]
 ListenFIFO=/dev/initctl
