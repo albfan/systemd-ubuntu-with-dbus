@@ -3,7 +3,7 @@ Section: admin
 Priority: extra
 Maintainer: Tollef Fog Heen <tfheen@debian.org>
 Standards-Version: 3.8.0
-Build-Depends: debhelper (>= 7.0.50), libcap-dev, pkg-config, libudev-dev, libdbus-1-dev, libdbus-glib-1-dev, libgee-dev, libcgroup-dev (>= 0.36), libgtk2.0-dev, valac
+Build-Depends: debhelper (>= 7.0.50), libcap-dev, pkg-config, libudev-dev, libdbus-1-dev, libdbus-glib-1-dev, libgee-dev, libcgroup-dev (>= 0.36), libgtk2.0-dev, valac, xsltproc, docbook-xsl, m4
 
 Package: systemd
 Architecture: linux-any
