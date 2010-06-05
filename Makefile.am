@@ -17,13 +17,20 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+# Dirs of external packages
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 udevrulesdir=@udevrulesdir@
-
-pkgsysconfdir=$(sysconfdir)/systemd
-systemunitdir=$(pkgdatadir)/system
-sessionunitdir=$(pkgdatadir)/session
 interfacedir=$(datadir)/dbus-1/interfaces
+
+# Our own, non-special dirs
+pkgsysconfdir=$(sysconfdir)/systemd
+sessionunitdir=$(pkgdatadir)/session
+
+# And these are the special ones for /
+rootdir=@rootdir@
+rootbindir=$(rootdir)/bin
+rootlibexecdir=$(rootdir)/lib/systemd
+systemunitdir=$(rootdir)/lib/systemd/system
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -33,22 +40,20 @@ AM_CPPFLAGS = \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
-	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\" \
-	-DSYSTEMD_BINARY_PATH=\"$(sbindir)/systemd\" \
+	-DCGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
+	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-I $(top_srcdir)/src
 
-sbin_PROGRAMS = \
-	systemd
-
-bin_PROGRAMS = \
+rootbin_PROGRAMS = \
+	systemd \
 	systemctl
 
 if HAVE_GTK
-bin_PROGRAMS += \
+bin_PROGRAMS = \
 	systemadm
 endif
 
-pkglibexec_PROGRAMS = \
+rootlibexec_PROGRAMS = \
 	systemd-logger \
 	systemd-cgroups-agent \
 	systemd-initctl
@@ -82,6 +87,7 @@ interface_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/basic.target \
 	units/getty.target \
 	units/halt.target \
 	units/local-fs.target \
@@ -106,8 +112,6 @@ dist_systemunit_DATA = \
 	units/dev-mqueue.mount \
 	units/proc-sys-fs-binfmt_misc.automount \
 	units/proc-sys-fs-binfmt_misc.mount \
-	units/sys-fs-fuse-connections.automount \
-	units/sys-fs-fuse-connections.mount \
 	units/sys-kernel-debug.automount \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
@@ -116,7 +120,7 @@ dist_systemunit_DATA = \
 	units/var-run.mount
 
 systemunit_DATA = \
-	units/basic.target \
+	units/sysinit.target \
 	units/getty@.service \
 	units/graphical.target \
 	units/multi-user.target \
@@ -132,7 +136,7 @@ sessionunit_DATA = \
 	units/session/exit.service
 
 EXTRA_DIST = \
-	units/basic.target.m4 \
+	units/sysinit.target.m4 \
 	units/getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
@@ -161,6 +165,13 @@ dist_systemunit_DATA += \
 	units/debian/killall.service \
 	units/debian/poweroff.service \
 	units/debian/reboot.service
+endif
+
+if TARGET_SUSE
+dist_systemunit_DATA += \
+	units/suse/halt.service \
+	units/suse/poweroff.service \
+	units/suse/reboot.service
 endif
 
 if TARGET_GENTOO
@@ -285,7 +296,7 @@ test_engine_LDADD = $(systemd_LDADD)
 
 test_job_type_SOURCES = \
 	$(COMMON_SOURCES) \
-	src/test-engine.c
+	src/test-job-type.c
 
 test_job_type_CPPFLAGS = $(systemd_CPPFLAGS)
 test_job_type_LDADD = $(systemd_LDADD)
@@ -365,11 +376,10 @@ systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(SED)  -e 's,@libexecdir\@,$(libexecdir),g' \
-		-e 's,@pkglibexecdir\@,$(pkglibexecdir),g' \
+	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
 		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
-		-e 's,@SYSTEMCTL\@,$(bindir)/systemctl,g' \
+		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		< $< > $@
 
 units/%: units/%.in Makefile
@@ -396,7 +406,7 @@ CLEANFILES = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/syslog.target \
-	units/basic.target \
+	units/sysinit.target \
 	units/getty@.service \
 	units/graphical.target \
 	units/multi-user.target \
@@ -468,7 +478,7 @@ install-data-hook:
 		$(DESTDIR)$(systemunitdir) \
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
-		$(DESTDIR)$(systemunitdir)/basic.target.wants \
+		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
@@ -486,10 +496,10 @@ install-data-hook:
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target && \
-		$(LN_S) ../system/shutdown.target shutdown.target && \
-		$(LN_S) ../system/sockets.target sockets.target && \
-		$(LN_S) ../system/local-fs.target local-fs.target && \
-		$(LN_S) ../system/swap.target swap.target )
+		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
+		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
+		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
+		$(LN_S) $(systemunitdir)/swap.target swap.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \
@@ -514,21 +524,20 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f getty.target && \
-		$(LN_S) $(systemunitdir)/getty.target getty.target )
-	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
+		rm -f getty.target remote-fs.target && \
+		$(LN_S) $(systemunitdir)/getty.target getty.target && \
+		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
+	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
 		rm -f dev-hugepages.automount \
 			dev-mqueue.automount \
 			proc-sys-fs-binfmt_misc.automount \
 			sys-kernel-debug.automount \
-			sys-fs-fuse-connections.automount \
 			sys-kernel-security.automount && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
-		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
-		$(LN_S) ../sys-fs-fuse-connections.automount sys-fs-fuse-connections.automount )
+		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount )
 if TARGET_FEDORA
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
@@ -555,4 +564,5 @@ if TARGET_GENTOO
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
-	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir)
+	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
+	--with-rootdir=$$dc_install_base/$(rootdir)

@@ -269,7 +269,14 @@ AC_ARG_WITH([udevrulesdir],
         [with_udevrulesdir=/lib/udev/rules.d])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 
-AC_OUTPUT([Makefile])
+AC_ARG_WITH([rootdir],
+        AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
+        [],
+        [with_rootdir=${ac_default_prefix}])
+AC_SUBST([rootdir], [$with_rootdir])
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 
 echo "
         $PACKAGE_NAME $VERSION
@@ -280,5 +287,7 @@ echo "
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         D-Bus service:           ${SPECIAL_DBUS_SERVICE}
         Gtk:                     ${have_gtk}
+        prefix:                  ${prefix}
+        root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
 "

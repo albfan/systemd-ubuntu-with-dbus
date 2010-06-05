@@ -6,13 +6,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Power-Off
-Requires=shutdown.target killall.service
-After=shutdown.target killall.service
+Description=Halt
+Requires=shutdown.target
+After=shutdown.target
 Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
 
 [Service]
 Type=finish
 ValidNoProcess=yes
-Environment=RC_DOWN_HARDDISK=yes
-ExecStart=/etc/init.d/shutdown.sh
+Environment=INIT_HALT=HALT
+Environment=RUNLEVEL=0
+ExecStart=/etc/init.d/halt start

@@ -548,6 +548,19 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
+
+        manager_dispatch_cleanup_queue(m);
+
+        assert(!m->load_queue);
+        assert(!m->run_queue);
+        assert(!m->dbus_unit_queue);
+        assert(!m->dbus_job_queue);
+        assert(!m->cleanup_queue);
+        assert(!m->gc_queue);
+
+        assert(hashmap_isempty(m->transaction_jobs));
+        assert(hashmap_isempty(m->jobs));
+        assert(hashmap_isempty(m->units));
 }
 
 void manager_free(Manager *m) {
@@ -555,7 +568,6 @@ void manager_free(Manager *m) {
 
         assert(m);
 
-        manager_dispatch_cleanup_queue(m);
         manager_clear_jobs_and_units(m);
 
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
@@ -625,9 +637,8 @@ int manager_coldplug(Manager *m) {
                 if (u->meta.id != k)
                         continue;
 
-                if (UNIT_VTABLE(u)->coldplug)
-                        if ((q = UNIT_VTABLE(u)->coldplug(u)) < 0)
-                                r = q;
+                if ((q = unit_coldplug(u)) < 0)
+                        r = q;
         }
 
         return r;
@@ -964,20 +975,25 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         /* Does a recursive sweep through the ordering graph, looking
          * for a cycle. If we find cycle we try to break it. */
 
-        /* Did we find a cycle? */
-        if (j->marker && j->generation == generation) {
+        /* Have we seen this before? */
+        if (j->generation == generation) {
                 Job *k;
 
-                /* So, we already have been here. We have a
-                 * cycle. Let's try to break it. We go backwards in
-                 * our path and try to find a suitable job to
-                 * remove. We use the marker to find our way back,
-                 * since smart how we are we stored our way back in
-                 * there. */
+                /* If the marker is NULL we have been here already and
+                 * decided the job was loop-free from here. Hence
+                 * shortcut things and return right-away. */
+                if (!j->marker)
+                        return 0;
 
+                /* So, the marker is not NULL and we already have been
+                 * here. We have a cycle. Let's try to break it. We go
+                 * backwards in our path and try to find a suitable
+                 * job to remove. We use the marker to find our way
+                 * back, since smart how we are we stored our way back
+                 * in there. */
                 log_debug("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
 
-                for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
+                for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
                         log_debug("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
 
@@ -1002,8 +1018,10 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         }
 
         /* Make the marker point to where we come from, so that we can
-         * find our way backwards if we want to break a cycle */
-        j->marker = from;
+         * find our way backwards if we want to break a cycle. We use
+         * a special marker for the beginning: we point to
+         * ourselves. */
+        j->marker = from ? from : j;
         j->generation = generation;
 
         /* We assume that the the dependencies are bidirectional, and
@@ -1035,6 +1053,7 @@ static int transaction_verify_order(Manager *m, unsigned *generation) {
         Job *j;
         int r;
         Iterator i;
+        unsigned g;
 
         assert(m);
         assert(generation);
@@ -1042,8 +1061,10 @@ static int transaction_verify_order(Manager *m, unsigned *generation) {
         /* Check if the ordering graph is cyclic. If it is, try to fix
          * that up by dropping one of the jobs. */
 
+        g = (*generation)++;
+
         HASHMAP_FOREACH(j, m->transaction_jobs, i)
-                if ((r = transaction_verify_order_one(m, j, NULL, (*generation)++)) < 0)
+                if ((r = transaction_verify_order_one(m, j, NULL, g)) < 0)
                         return r;
 
         return 0;
@@ -1882,10 +1903,32 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
                 }
 
-                case SIGUSR2:
-                        manager_dump_units(m, stdout, "\t");
-                        manager_dump_jobs(m, stdout, "\t");
+                case SIGUSR2: {
+                        FILE *f;
+                        char *dump = NULL;
+                        size_t size;
+
+                        if (!(f = open_memstream(&dump, &size))) {
+                                log_warning("Failed to allocate memory stream.");
+                                break;
+                        }
+
+                        manager_dump_units(m, f, "\t");
+                        manager_dump_jobs(m, f, "\t");
+
+                        if (ferror(f)) {
+                                fclose(f);
+                                free(dump);
+                                log_warning("Failed to write status stream");
+                                break;
+                        }
+
+                        fclose(f);
+                        log_dump(LOG_INFO, dump);
+                        free(dump);
+
                         break;
+                }
 
                 case SIGHUP:
                         m->exit_code = MANAGER_RELOAD;

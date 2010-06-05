@@ -40,7 +40,7 @@ typedef enum UnitDependency UnitDependency;
 #include "execute.h"
 
 #define UNIT_NAME_MAX 128
-#define DEFAULT_TIMEOUT_USEC (20*USEC_PER_SEC)
+#define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
 typedef enum KillMode {
@@ -184,6 +184,10 @@ struct Meta {
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
+
+        /* When deserializing, temporarily store the job type for this
+         * unit here, if there was a job scheduled */
+        int deserialized_job; /* This is actually of type JobType */
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;
@@ -431,11 +435,13 @@ char **unit_full_printf_strv(Unit *u, char **l);
 
 bool unit_can_serialize(Unit *u);
 int unit_serialize(Unit *u, FILE *f, FDSet *fds);
-void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr(4,5);
+void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *value, ...) _printf_attr_(4,5);
 void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 
 int unit_add_node_link(Unit *u, const char *what, bool wants);
+
+int unit_coldplug(Unit *u);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

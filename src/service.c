@@ -58,10 +58,10 @@ static const struct {
         { "rc6.d",  SPECIAL_RUNLEVEL6_TARGET, RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
-        { "boot.d", SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+        { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
 
         /* Debian style rcS.d */
-        { "rcS.d",  SPECIAL_BASIC_TARGET,     RUNLEVEL_BASIC },
+        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_BASIC },
 };
 
 #define RUNLEVELS_UP "12345"
@@ -339,9 +339,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 r = errno == ENOENT ? 0 : -errno;
                 goto finish;
         }
-
-        s->type = SERVICE_FORKING;
-        s->restart = SERVICE_ONCE;
 
         free(s->sysv_path);
         if (!(s->sysv_path = strdup(path))) {
@@ -650,8 +647,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 s->timeout_usec = 0;
 
         /* Special setting for all SysV services */
+        s->type = SERVICE_FORKING;
         s->valid_no_process = true;
         s->kill_mode = KILL_PROCESS_GROUP;
+        s->restart = SERVICE_ONCE;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -1964,14 +1963,18 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         break;
 
                 case SERVICE_START:
-                        assert(s->type == SERVICE_FINISH);
+                        if (s->type == SERVICE_FINISH) {
+                                /* This was our main goal, so let's go on */
+                                if (success)
+                                        service_enter_start_post(s);
+                                else
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                                break;
+                        } else {
+                                assert(s->type == SERVICE_DBUS);
 
-                        /* This was our main goal, so let's go on */
-                        if (success)
-                                service_enter_start_post(s);
-                        else
-                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
-                        break;
+                                /* Fall through */
+                        }
 
                 case SERVICE_RUNNING:
                         service_enter_running(s, success);

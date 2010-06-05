@@ -6,8 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=FUSE Control File System Automount Point
-Before=basic.target
+Description=Power-Off
+Requires=shutdown.target
+After=shutdown.target
+Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
 
-[Automount]
-Where=/sys/fs/fuse/connections
+[Service]
+Type=finish
+ValidNoProcess=yes
+ExecStart=/etc/init.d/halt start
