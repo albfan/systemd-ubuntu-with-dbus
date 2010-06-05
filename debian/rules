@@ -8,10 +8,16 @@ export DEB_BUILD_OPTIONS="nostrip"
 override_dh_auto_configure:
 #	mkdir build
 #	cd build &&
-	./configure --build=$(DEB_BUILD_GNU_TYPE) --prefix=/ --mandir=/usr/share/man --sysconfdir=/etc --datarootdir=/lib --localstatedir=/var --libexecdir=/lib
+	dh_auto_configure -- --prefix=/ --mandir=/usr/share/man --sysconfdir=/etc --datarootdir=/lib --localstatedir=/var --libexecdir=/lib
 
-override_dh_install:
-	dh_install -O--parallel --fail-missing
+override_dh_auto_build:
+	dh_auto_build -- interfacedir=/usr/share/dbus-1/interfaces
+
+override_dh_auto_install:
+	dh_auto_install -- interfacedir=/usr/share/dbus-1/interfaces
+
+#override_dh_install:
+#	dh_install -O--parallel --fail-missing
 
 #export DH_VERBOSE=1
 
