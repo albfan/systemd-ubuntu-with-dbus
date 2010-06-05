@@ -10,11 +10,21 @@ init=/bin/systemd
 
 to the kernel command line and then rebooting.
 
-There are some known bugs and problems associated with systemd and
-other packages in Debian at the moment.  The main one is a race
-condition between / being mounted read-write and udev calling ifup on
-network interfaces.  This will, in some cases, cause interfaces which
-have "allow-hotplug" set for them, but not "auto" fail to come up.
-This is a known bug and being fixed in udev's net.agent.
+Known bugs and problems
+=======================
 
- -- Tollef Fog Heen <tfheen@debian.org>, Sat,  5 Jun 2010 08:41:51 +0200
+There is a race condition between / being mounted read-write and udev
+calling ifup on network interfaces.  This will, in some cases, cause
+interfaces which have "allow-hotplug" set for them, but not "auto"
+fail to come up.  This is a known bug and being fixed in udev's
+net.agent.
+
+The error reporting when you have loops or unsatisfiable conditions
+between init scripts is not very good, it will cause systemctl to
+respond with "invalid argument".  Inspecting the dmesg can give useful
+clues in that case.
+
+Restarting DBus breaks systemctl, since there is then no way to
+connect to the bus that systemd thinks it's connected to.
+
+ -- Tollef Fog Heen <tfheen@debian.org>, Sat,  5 Jun 2010 18:41:06 +0200
