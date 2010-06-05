@@ -1,4 +1,4 @@
-systemd (0~git+20100527+f306f4-1) experimental; urgency=low
+systemd (0~git+20100605+dfd8ee-1) experimental; urgency=low
 
   * Initial release, upload to experimental.  Closes: #580814
 
