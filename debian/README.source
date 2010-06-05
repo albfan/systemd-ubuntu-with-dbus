@@ -1,0 +1,7 @@
+Notes regarding the systemd source package
+==========================================
+
+Currently, systemd is a native package.  This is intentional until
+upstream starts releasing packages.
+
+ -- Tollef Fog Heen <tfheen@debian.org>, Sat,  5 Jun 2010 08:42:49 +0200

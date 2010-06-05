@@ -1,0 +1,20 @@
+systemd for Debian
+==================
+
+systemd can be installed alongside sysvinit and will not change the
+behaviour of the system out of the box.  This is intentional, but
+might eventually change in the future.  To enable systemd, add
+something like:
+
+init=/bin/systemd
+
+to the kernel command line and then rebooting.
+
+There are some known bugs and problems associated with systemd and
+other packages in Debian at the moment.  The main one is a race
+condition between / being mounted read-write and udev calling ifup on
+network interfaces.  This will, in some cases, cause interfaces which
+have "allow-hotplug" set for them, but not "auto" fail to come up.
+This is a known bug and being fixed in udev's net.agent.
+
+ -- Tollef Fog Heen <tfheen@debian.org>, Sat,  5 Jun 2010 08:41:51 +0200
