@@ -56,6 +56,11 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"TryRestartUnit\">\n"                          \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -103,12 +108,17 @@
         "  </signal>"                                                   \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -185,18 +195,37 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
-static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
+static const char *message_get_sender_with_fallback(DBusMessage *m) {
+        const char *s;
+
+        assert(m);
+
+        if ((s = dbus_message_get_sender(m)))
+                return s;
+
+        /* When the message came in from a direct connection the
+         * message will have no sender. We fix that here. */
+
+        return ":no-sender";
+}
+
+static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection, DBusMessage *message, void *data) {
         Manager *m = data;
 
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s", PACKAGE_STRING     },
-                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
-                { "org.freedesktop.systemd1.Manager", "BootTimestamp", bus_property_append_uint64,    "t", &m->startup_timestamp.realtime },
-                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s", NULL               },
-                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
-                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u", NULL               },
-                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u", NULL               },
-                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment   },
+                { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
+                { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
+                { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
+                { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
+                { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
+                { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -226,10 +255,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (!(u = manager_get_unit(m, name)))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -252,10 +281,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -277,6 +306,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 job_type = JOB_RELOAD;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "RestartUnit"))
                 job_type = JOB_RESTART;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "TryRestartUnit"))
+                job_type = JOB_TRY_RESTART;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
@@ -286,10 +317,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     &error,
                                     DBUS_TYPE_UINT32, &id,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (!(j = manager_get_job(m, id)))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -442,14 +473,25 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Subscribe")) {
                 char *client;
+                Set *s;
 
-                if (!(client = strdup(dbus_message_get_sender(message))))
+                if (!(s = BUS_CONNECTION_SUBSCRIBED(m, connection))) {
+                        if (!(s = set_new(string_hash_func, string_compare_func)))
+                                goto oom;
+
+                        if (!(dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL))) {
+                                set_free(s);
+                                goto oom;
+                        }
+                }
+
+                if (!(client = strdup(message_get_sender_with_fallback(message))))
                         goto oom;
 
-                r = set_put(m->subscribed, client);
-
-                if (r < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                if ((r = set_put(s, client)) < 0) {
+                        free(client);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
+                }
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -457,8 +499,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Unsubscribe")) {
                 char *client;
 
-                if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
-                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+                if (!(client = set_remove(BUS_CONNECTION_SUBSCRIBED(m, connection), (char*) message_get_sender_with_fallback(message))))
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOENT);
 
                 free(client);
 
@@ -504,13 +546,13 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_BOOLEAN, &cleanup,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if (name && name[0] == 0)
                         name = NULL;
 
                 if ((r = snapshot_create(m, name, cleanup, &s)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -608,8 +650,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
-                if (m->running_as == MANAGER_INIT)
-                        return bus_send_error_reply(m, message, NULL, -ENOTSUP);
+                if (m->running_as == MANAGER_SYSTEM)
+                        return bus_send_error_reply(m, connection, message, NULL, -ENOTSUP);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -623,10 +665,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
                 }
 
-                e = strv_env_merge(m->environment, l, NULL);
+                e = strv_env_merge(2, m->environment, l);
                 strv_free(l);
 
                 if (!e)
@@ -647,10 +689,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         if (r == -ENOMEM)
                                 goto oom;
 
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
                 }
 
-                e = strv_env_delete(m->environment, l, NULL);
+                e = strv_env_delete(m->environment, 1, l);
                 strv_free(l);
 
                 if (!e)
@@ -663,7 +705,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 m->environment = e;
 
         } else
-                return bus_default_message_handler(m, message, NULL, properties);
+                return bus_default_message_handler(m, connection, message, NULL, properties);
 
 
         if (job_type != _JOB_TYPE_INVALID) {
@@ -678,19 +720,24 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_STRING, &name,
                                     DBUS_TYPE_STRING, &smode,
                                     DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(m, message, &error, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
-                        return bus_send_error_reply(m, message, NULL, -EINVAL);
+                        return bus_send_error_reply(m, connection, message, NULL, -EINVAL);
 
                 if ((r = manager_load_unit(m, name, NULL, &u)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
 
                 if (job_type == JOB_START && u->meta.only_by_dependency)
-                        return bus_send_error_reply(m, message, NULL, -EPERM);
+                        return bus_send_error_reply(m, connection, message, NULL, -EPERM);
 
                 if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
-                        return bus_send_error_reply(m, message, NULL, r);
+                        return bus_send_error_reply(m, connection, message, NULL, r);
+
+                if (!(j->bus_client = strdup(message_get_sender_with_fallback(message))))
+                        goto oom;
+
+                j->bus = connection;
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -703,6 +750,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
                         goto oom;
+
         }
 
         free(path);

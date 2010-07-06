@@ -38,6 +38,7 @@
 #include "unit-name.h"
 #include "specifier.h"
 #include "dbus-unit.h"
+#include "special.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -68,6 +69,7 @@ Unit *unit_new(Manager *m) {
         u->meta.manager = m;
         u->meta.type = _UNIT_TYPE_INVALID;
         u->meta.deserialized_job = _JOB_TYPE_INVALID;
+        u->meta.default_dependencies = true;
 
         return u;
 }
@@ -280,7 +282,8 @@ void unit_add_to_dbus_queue(Unit *u) {
         if (u->meta.load_state == UNIT_STUB || u->meta.in_dbus_queue)
                 return;
 
-        if (set_isempty(u->meta.manager->subscribed)) {
+        /* Shortcut things if nobody cares */
+        if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;
                 return;
         }
@@ -354,9 +357,7 @@ void unit_free(Unit *u) {
         free(u->meta.description);
         free(u->meta.fragment_path);
 
-        while ((t = set_steal_first(u->meta.names)))
-                free(t);
-        set_free(u->meta.names);
+        set_free_free(u->meta.names);
 
         free(u->meta.instance);
 
@@ -366,8 +367,12 @@ void unit_free(Unit *u) {
 UnitActiveState unit_active_state(Unit *u) {
         assert(u);
 
-        if (u->meta.load_state != UNIT_LOADED)
-                return UNIT_INACTIVE;
+        if (u->meta.load_state == UNIT_MERGED)
+                return unit_active_state(unit_follow_merge(u));
+
+        /* After a reload it might happen that a unit is not correctly
+         * loaded but still has a process around. That's why we won't
+         * shortcut failed loading to UNIT_INACTIVE_MAINTENANCE. */
 
         return UNIT_VTABLE(u)->active_state(u);
 }
@@ -402,10 +407,7 @@ static void merge_names(Unit *u, Unit *other) {
 
         complete_move(&u->meta.names, &other->meta.names);
 
-        while ((t = set_steal_first(other->meta.names)))
-                free(t);
-
-        set_free(other->meta.names);
+        set_free_free(other->meta.names);
         other->meta.names = NULL;
         other->meta.id = NULL;
 
@@ -467,7 +469,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (other->meta.job)
                 return -EEXIST;
 
-        if (unit_active_state(other) != UNIT_INACTIVE)
+        if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(other)))
                 return -EEXIST;
 
         /* Merge names */
@@ -546,7 +548,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                 return r;
 
-        if (u->meta.manager->running_as != MANAGER_SESSION)
+        if (u->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
                         return r;
 
@@ -593,8 +595,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n"
-                "%s\tOnly By Dependency: %s\n",
+                "%s\tGC Check Good: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
@@ -604,8 +605,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)),
-                prefix, yes_no(u->meta.only_by_dependency));
+                prefix, yes_no(unit_check_gc(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -623,9 +623,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->meta.load_state == UNIT_LOADED) {
                 fprintf(f,
                         "%s\tRecursive Stop: %s\n"
-                        "%s\tStop When Unneeded: %s\n",
+                        "%s\tStopWhenUnneeded: %s\n"
+                        "%s\tOnlyByDependency: %s\n"
+                        "%s\tDefaultDependencies: %s\n",
                         prefix, yes_no(u->meta.recursive_stop),
-                        prefix, yes_no(u->meta.stop_when_unneeded));
+                        prefix, yes_no(u->meta.stop_when_unneeded),
+                        prefix, yes_no(u->meta.only_by_dependency),
+                        prefix, yes_no(u->meta.default_dependencies));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
@@ -750,6 +754,9 @@ int unit_start(Unit *u) {
 
         assert(u);
 
+        if (u->meta.load_state != UNIT_LOADED)
+                return -EINVAL;
+
         /* If this is already (being) started, then this will
          * succeed. Note that this will even succeed if this unit is
          * not startable by the user. This is relied on to detect when
@@ -789,7 +796,7 @@ int unit_stop(Unit *u) {
         assert(u);
 
         state = unit_active_state(u);
-        if (state == UNIT_INACTIVE)
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(state))
                 return -EALREADY;
 
         if (!UNIT_VTABLE(u)->stop)
@@ -809,11 +816,14 @@ int unit_reload(Unit *u) {
 
         assert(u);
 
+        if (u->meta.load_state != UNIT_LOADED)
+                return -EINVAL;
+
         if (!unit_can_reload(u))
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (unit_active_state(u) == UNIT_ACTIVE_RELOADING)
+        if (unit_active_state(u) == UNIT_RELOADING)
                 return -EALREADY;
 
         if (unit_active_state(u) != UNIT_ACTIVE)
@@ -930,7 +940,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         bool unexpected = false;
-        timestamp ts;
+        dual_timestamp ts;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -943,11 +953,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * this function will be called too and the utmp code below
          * relies on that! */
 
-        timestamp_get(&ts);
+        dual_timestamp_get(&ts);
 
-        if (os == UNIT_INACTIVE && ns != UNIT_INACTIVE)
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && !UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 u->meta.inactive_exit_timestamp = ts;
-        else if (os != UNIT_INACTIVE && ns == UNIT_INACTIVE)
+        else if (!UNIT_IS_INACTIVE_OR_MAINTENANCE(os) && UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 u->meta.inactive_enter_timestamp = ts;
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
@@ -992,7 +1002,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         if (u->meta.job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
-                                else if (ns != UNIT_ACTIVATING && ns != UNIT_ACTIVE_RELOADING) {
+                                else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
                                 }
@@ -1006,6 +1016,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                         if (ns == UNIT_INACTIVE)
                                 job_finish_and_invalidate(u->meta.job, true);
+                        else if (ns == UNIT_MAINTENANCE)
+                                job_finish_and_invalidate(u->meta.job, false);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
                                 job_finish_and_invalidate(u->meta.job, false);
@@ -1034,8 +1046,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         /* The bus just might have become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
-                        bus_init_system(u->meta.manager);
-                        bus_init_api(u->meta.manager);
+                        bus_init(u->meta.manager);
                 }
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
@@ -1317,6 +1328,20 @@ fail:
         return r;
 }
 
+int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference) {
+        int r;
+
+        assert(u);
+
+        if ((r = unit_add_dependency(u, d, other, add_reference)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(u, e, other, add_reference)) < 0)
+                return r;
+
+        return 0;
+}
+
 static const char *resolve_template(Unit *u, const char *name, const char*path, char **p) {
         char *s;
 
@@ -1371,6 +1396,27 @@ finish:
         return r;
 }
 
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        Unit *other;
+        int r;
+        char *s;
+
+        assert(u);
+        assert(name || path);
+
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
+
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        r = unit_add_two_dependencies(u, d, e, other, add_reference);
+
+finish:
+        free(s);
+        return r;
+}
+
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *path, bool add_reference) {
         Unit *other;
         int r;
@@ -1386,6 +1432,28 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
                 goto finish;
 
         r = unit_add_dependency(other, d, u, add_reference);
+
+finish:
+        free(s);
+        return r;
+}
+
+int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference) {
+        Unit *other;
+        int r;
+        char *s;
+
+        assert(u);
+        assert(name || path);
+
+        if (!(name = resolve_template(u, name, path, &s)))
+                return -ENOMEM;
+
+        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+                goto finish;
+
+        if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
+                goto finish;
 
 finish:
         free(s);
@@ -1900,10 +1968,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (r < 0)
                 return r;
 
-        if ((r = unit_add_dependency(u, UNIT_AFTER, device, true)) < 0)
-                return r;
-
-        if ((r = unit_add_dependency(u, UNIT_REQUIRES, device, true)) < 0)
+        if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, device, true)) < 0)
                 return r;
 
         if (wants)
@@ -1957,7 +2022,9 @@ DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
 static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_ACTIVE] = "active",
+        [UNIT_RELOADING] = "reloading",
         [UNIT_INACTIVE] = "inactive",
+        [UNIT_MAINTENANCE] = "maintenance",
         [UNIT_ACTIVATING] = "activating",
         [UNIT_DEACTIVATING] = "deactivating"
 };

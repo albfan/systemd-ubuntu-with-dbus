@@ -37,6 +37,10 @@
 #include <sys/mount.h>
 #include <linux/fs.h>
 
+#ifdef HAVE_PAM
+#include <security/pam_appl.h>
+#endif
+
 #include "execute.h"
 #include "strv.h"
 #include "macro.h"
@@ -46,6 +50,7 @@
 #include "securebits.h"
 #include "cgroup.h"
 #include "namespace.h"
+#include "tcpwrap.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -192,7 +197,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 output == EXEC_OUTPUT_KMSG ? "kmsg" : "syslog",
                 context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
-                !context->syslog_no_prefix);
+                context->syslog_level_prefix);
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
@@ -719,6 +724,164 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         return 0;
 }
 
+#ifdef HAVE_PAM
+
+static int null_conv(
+                int num_msg,
+                const struct pam_message **msg,
+                struct pam_response **resp,
+                void *appdata_ptr) {
+
+        /* We don't support conversations */
+
+        return PAM_CONV_ERR;
+}
+
+static int setup_pam(
+                const char *name,
+                const char *user,
+                const char *tty,
+                char ***pam_env,
+                int fds[], unsigned n_fds) {
+
+        static const struct pam_conv conv = {
+                .conv = null_conv,
+                .appdata_ptr = NULL
+        };
+
+        pam_handle_t *handle = NULL;
+        sigset_t ss, old_ss;
+        int pam_code = PAM_SUCCESS;
+        char **e = NULL;
+        bool close_session = false;
+        pid_t pam_pid = 0, parent_pid;
+
+        assert(name);
+        assert(user);
+        assert(pam_env);
+
+        /* We set up PAM in the parent process, then fork. The child
+         * will then stay around untill killed via PR_GET_PDEATHSIG or
+         * systemd via the cgroup logic. It will then remove the PAM
+         * session again. The parent process will exec() the actual
+         * daemon. We do things this way to ensure that the main PID
+         * of the daemon is the one we initially fork()ed. */
+
+        if ((pam_code = pam_start(name, user, &conv, &handle)) != PAM_SUCCESS) {
+                handle = NULL;
+                goto fail;
+        }
+
+        if (tty)
+                if ((pam_code = pam_set_item(handle, PAM_TTY, tty)) != PAM_SUCCESS)
+                        goto fail;
+
+        if ((pam_code = pam_acct_mgmt(handle, PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        if ((pam_code = pam_open_session(handle, PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        close_session = true;
+
+        if ((pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | PAM_SILENT)) != PAM_SUCCESS)
+                goto fail;
+
+        if ((!(e = pam_getenvlist(handle)))) {
+                pam_code = PAM_BUF_ERR;
+                goto fail;
+        }
+
+        /* Block SIGTERM, so that we know that it won't get lost in
+         * the child */
+        if (sigemptyset(&ss) < 0 ||
+            sigaddset(&ss, SIGTERM) < 0 ||
+            sigprocmask(SIG_BLOCK, &ss, &old_ss) < 0)
+                goto fail;
+
+        parent_pid = getpid();
+
+        if ((pam_pid = fork()) < 0)
+                goto fail;
+
+        if (pam_pid == 0) {
+                int sig;
+                int r = EXIT_PAM;
+
+                /* The child's job is to reset the PAM session on
+                 * termination */
+
+                /* This string must fit in 10 chars (i.e. the length
+                 * of "/sbin/init") */
+                rename_process("sd:pam");
+
+                /* Make sure we don't keep open the passed fds in this
+                child. We assume that otherwise only those fds are
+                open here that have been opened by PAM. */
+                close_many(fds, n_fds);
+
+                /* Wait until our parent died. This will most likely
+                 * not work since the kernel does not allow
+                 * unpriviliged paretns kill their priviliged children
+                 * this way. We rely on the control groups kill logic
+                 * to do the rest for us. */
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+                        goto child_finish;
+
+                /* Check if our parent process might already have
+                 * died? */
+                if (getppid() == parent_pid) {
+                        if (sigwait(&ss, &sig) < 0)
+                                goto child_finish;
+
+                        assert(sig == SIGTERM);
+                }
+
+                /* Only if our parent died we'll end the session */
+                if (getppid() != parent_pid)
+                        if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
+                                goto child_finish;
+
+                r = 0;
+
+        child_finish:
+                pam_end(handle, pam_code | PAM_DATA_SILENT);
+                _exit(r);
+        }
+
+        /* If the child was forked off successfully it will do all the
+         * cleanups, so forget about the handle here. */
+        handle = NULL;
+
+        /* Unblock SIGSUR1 again in the parent */
+        if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
+                goto fail;
+
+        /* We close the log explicitly here, since the PAM modules
+         * might have opened it, but we don't want this fd around. */
+        closelog();
+
+        return 0;
+
+fail:
+        if (handle) {
+                if (close_session)
+                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+
+                pam_end(handle, pam_code | PAM_DATA_SILENT);
+        }
+
+        strv_free(e);
+
+        closelog();
+
+        if (pam_pid > 1)
+                kill(pam_pid, SIGTERM);
+
+        return EXIT_PAM;
+}
+#endif
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                const ExecContext *context,
@@ -776,12 +939,16 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char **our_env = NULL, **final_env = NULL;
+                char **our_env = NULL, **pam_env = NULL, **final_env = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
                 bool keep_stdout = false, keep_stdin = false;
 
                 /* child */
+
+                /* This string must fit in 10 chars (i.e. the length
+                 * of "/sbin/init") */
+                rename_process("sd:exec");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
@@ -797,11 +964,26 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                if (!context->no_setsid)
+                if (!context->same_pgrp)
                         if (setsid() < 0) {
                                 r = EXIT_SETSID;
                                 goto fail;
                         }
+
+                if (context->tcpwrap_name) {
+                        if (socket_fd >= 0)
+                                if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
+                                        r = EXIT_TCPWRAP;
+                                        goto fail;
+                                }
+
+                        for (i = 0; i < (int) n_fds; i++) {
+                                if (!socket_tcpwrap(fds[i], context->tcpwrap_name)) {
+                                        r = EXIT_TCPWRAP;
+                                        goto fail;
+                                }
+                        }
+                }
 
                 if (confirm_spawn) {
                         char response;
@@ -889,8 +1071,8 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (context->cpu_affinity_set)
-                        if (sched_setaffinity(0, sizeof(context->cpu_affinity), &context->cpu_affinity) < 0) {
+                if (context->cpuset)
+                        if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
                                 r = EXIT_CPUAFFINITY;
                                 goto fail;
                         }
@@ -901,24 +1083,11 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (context->timer_slack_ns_set)
-                        if (prctl(PR_SET_TIMERSLACK, context->timer_slack_ns_set) < 0) {
+                if (context->timer_slack_nsec_set)
+                        if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
                                 r = EXIT_TIMERSLACK;
                                 goto fail;
                         }
-
-                if (strv_length(context->read_write_dirs) > 0 ||
-                    strv_length(context->read_only_dirs) > 0 ||
-                    strv_length(context->inaccessible_dirs) > 0 ||
-                    context->mount_flags != MS_SHARED ||
-                    context->private_tmp)
-                        if ((r = setup_namespace(
-                                             context->read_write_dirs,
-                                             context->read_only_dirs,
-                                             context->inaccessible_dirs,
-                                             context->private_tmp,
-                                             context->mount_flags)) < 0)
-                                goto fail;
 
                 if (context->user) {
                         username = context->user;
@@ -934,6 +1103,25 @@ int exec_spawn(ExecCommand *command,
                                 }
                 }
 
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        /* Make sure no fds leak into the PAM
+                         * supervisor process. We will call this later
+                         * on again to make sure that any fds leaked
+                         * by the PAM modules get closed before our
+                         * exec(). */
+                        if (close_all_fds(fds, n_fds) < 0) {
+                                r = EXIT_FDS;
+                                goto fail;
+                        }
+
+                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
+                                r = EXIT_PAM;
+                                goto fail;
+                        }
+                }
+#endif
+
                 if (apply_permissions)
                         if (enforce_groups(context, username, uid) < 0) {
                                 r = EXIT_GROUP;
@@ -941,6 +1129,19 @@ int exec_spawn(ExecCommand *command,
                         }
 
                 umask(context->umask);
+
+                if (strv_length(context->read_write_dirs) > 0 ||
+                    strv_length(context->read_only_dirs) > 0 ||
+                    strv_length(context->inaccessible_dirs) > 0 ||
+                    context->mount_flags != MS_SHARED ||
+                    context->private_tmp)
+                        if ((r = setup_namespace(
+                                             context->read_write_dirs,
+                                             context->read_only_dirs,
+                                             context->inaccessible_dirs,
+                                             context->private_tmp,
+                                             context->mount_flags)) < 0)
+                                goto fail;
 
                 if (apply_chroot) {
                         if (context->root_directory)
@@ -1021,7 +1222,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (n_fds > 0)
-                        if (asprintf(our_env + n_env++, "LISTEN_PID=%llu", (unsigned long long) getpid()) < 0 ||
+                        if (asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
                             asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
                                 r = EXIT_MEMORY;
                                 goto fail;
@@ -1042,7 +1243,13 @@ int exec_spawn(ExecCommand *command,
 
                 assert(n_env <= 6);
 
-                if (!(final_env = strv_env_merge(environment, our_env, context->environment, NULL))) {
+                if (!(final_env = strv_env_merge(
+                                      4,
+                                      environment,
+                                      our_env,
+                                      context->environment,
+                                      pam_env,
+                                      NULL))) {
                         r = EXIT_MEMORY;
                         goto fail;
                 }
@@ -1053,6 +1260,7 @@ int exec_spawn(ExecCommand *command,
         fail:
                 strv_free(our_env);
                 strv_free(final_env);
+                strv_free(pam_env);
 
                 if (saved_stdin >= 0)
                         close_nointr_nofail(saved_stdin);
@@ -1071,10 +1279,9 @@ int exec_spawn(ExecCommand *command,
         if (cgroup_bondings)
                 cgroup_bonding_install_list(cgroup_bondings, pid);
 
-        log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
+        log_debug("Forked %s as %lu", command->path, (unsigned long) pid);
 
-        command->exec_status.pid = pid;
-        command->exec_status.start_timestamp = now(CLOCK_REALTIME);
+        exec_status_start(&command->exec_status, pid);
 
         *ret = pid;
         return 0;
@@ -1087,6 +1294,7 @@ void exec_context_init(ExecContext *c) {
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
+        c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
 }
 
@@ -1111,6 +1319,9 @@ void exec_context_done(ExecContext *c) {
         free(c->tty_path);
         c->tty_path = NULL;
 
+        free(c->tcpwrap_name);
+        c->tcpwrap_name = NULL;
+
         free(c->syslog_identifier);
         c->syslog_identifier = NULL;
 
@@ -1122,6 +1333,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->supplementary_groups);
         c->supplementary_groups = NULL;
+
+        free(c->pam_name);
+        c->pam_name = NULL;
 
         if (c->capabilities) {
                 cap_free(c->capabilities);
@@ -1136,6 +1350,9 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->inaccessible_dirs);
         c->inaccessible_dirs = NULL;
+
+        if (c->cpuset)
+                CPU_FREE(c->cpuset);
 }
 
 void exec_command_done(ExecCommand *c) {
@@ -1209,6 +1426,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 for (e = c->environment; *e; e++)
                         fprintf(f, "%sEnvironment: %s\n", prefix, *e);
 
+        if (c->tcpwrap_name)
+                fprintf(f,
+                        "%sTCPWrapName: %s\n",
+                        prefix, c->tcpwrap_name);
+
         if (c->nice_set)
                 fprintf(f,
                         "%sNice: %i\n",
@@ -1239,16 +1461,16 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->cpu_sched_priority,
                         prefix, yes_no(c->cpu_sched_reset_on_fork));
 
-        if (c->cpu_affinity_set) {
+        if (c->cpuset) {
                 fprintf(f, "%sCPUAffinity:", prefix);
-                for (i = 0; i < CPU_SETSIZE; i++)
-                        if (CPU_ISSET(i, &c->cpu_affinity))
+                for (i = 0; i < c->cpuset_ncpus; i++)
+                        if (CPU_ISSET_S(i, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset))
                                 fprintf(f, " %i", i);
                 fputs("\n", f);
         }
 
-        if (c->timer_slack_ns_set)
-                fprintf(f, "%sTimerSlackNS: %lu\n", prefix, c->timer_slack_ns);
+        if (c->timer_slack_nsec_set)
+                fprintf(f, "%sTimerSlackNSec: %lu\n", prefix, c->timer_slack_nsec);
 
         fprintf(f,
                 "%sStandardInput: %s\n"
@@ -1307,15 +1529,18 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->user)
-                fprintf(f, "%sUser: %s", prefix, c->user);
+                fprintf(f, "%sUser: %s\n", prefix, c->user);
         if (c->group)
-                fprintf(f, "%sGroup: %s", prefix, c->group);
+                fprintf(f, "%sGroup: %s\n", prefix, c->group);
 
         if (strv_length(c->supplementary_groups) > 0) {
                 fprintf(f, "%sSupplementaryGroups:", prefix);
                 strv_fprintf(f, c->supplementary_groups);
                 fputs("\n", f);
         }
+
+        if (c->pam_name)
+                fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
         if (strv_length(c->read_write_dirs) > 0) {
                 fprintf(f, "%sReadWriteDirs:", prefix);
@@ -1336,11 +1561,23 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         }
 }
 
-void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
+void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
+        zero(*s);
         s->pid = pid;
-        s->exit_timestamp = now(CLOCK_REALTIME);
+        dual_timestamp_get(&s->start_timestamp);
+}
+
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
+        assert(s);
+
+        if ((s->pid && s->pid != pid) ||
+            !s->start_timestamp.realtime <= 0)
+                zero(*s);
+
+        s->pid = pid;
+        dual_timestamp_get(&s->exit_timestamp);
 
         s->code = code;
         s->status = status;
@@ -1359,20 +1596,20 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                 return;
 
         fprintf(f,
-                "%sPID: %llu\n",
-                prefix, (unsigned long long) s->pid);
+                "%sPID: %lu\n",
+                prefix, (unsigned long) s->pid);
 
-        if (s->start_timestamp > 0)
+        if (s->start_timestamp.realtime > 0)
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp));
+                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp.realtime));
 
-        if (s->exit_timestamp > 0)
+        if (s->exit_timestamp.realtime > 0)
                 fprintf(f,
                         "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
                         "%sExit Status: %i\n",
-                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp),
+                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp.realtime),
                         prefix, sigchld_code_to_string(s->code),
                         prefix, s->status);
 }
@@ -1594,6 +1831,12 @@ const char* exit_status_to_string(ExitStatus status) {
 
         case EXIT_STDERR:
                 return "STDERR";
+
+        case EXIT_TCPWRAP:
+                return "TCPWRAP";
+
+        case EXIT_PAM:
+                return "PAM";
 
         default:
                 return NULL;

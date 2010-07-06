@@ -78,8 +78,9 @@ enum UnitLoadState {
 
 enum UnitActiveState {
         UNIT_ACTIVE,
-        UNIT_ACTIVE_RELOADING,
+        UNIT_RELOADING,
         UNIT_INACTIVE,
+        UNIT_MAINTENANCE,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
         _UNIT_ACTIVE_STATE_MAX,
@@ -87,15 +88,19 @@ enum UnitActiveState {
 };
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
-        return t == UNIT_ACTIVE || t == UNIT_ACTIVE_RELOADING;
+        return t == UNIT_ACTIVE || t == UNIT_RELOADING;
 }
 
 static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
-        return t == UNIT_ACTIVE || t == UNIT_ACTIVATING || t == UNIT_ACTIVE_RELOADING;
+        return t == UNIT_ACTIVE || t == UNIT_ACTIVATING || t == UNIT_RELOADING;
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_DEACTIVATING;
+        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_DEACTIVATING;
+}
+
+static inline bool UNIT_IS_INACTIVE_OR_MAINTENANCE(UnitActiveState t) {
+        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE;
 }
 
 enum UnitDependency {
@@ -137,9 +142,6 @@ struct Meta {
         UnitLoadState load_state;
         Unit *merged_into;
 
-        /* Refuse manual starting, allow starting only indirectly via dependency. */
-        bool only_by_dependency;
-
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
         char *instance;
 
@@ -153,10 +155,10 @@ struct Meta {
          * the job for it */
         Job *job;
 
-        timestamp inactive_exit_timestamp;
-        timestamp active_enter_timestamp;
-        timestamp active_exit_timestamp;
-        timestamp inactive_enter_timestamp;
+        dual_timestamp inactive_exit_timestamp;
+        dual_timestamp active_enter_timestamp;
+        dual_timestamp active_exit_timestamp;
+        dual_timestamp inactive_enter_timestamp;
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
@@ -184,6 +186,12 @@ struct Meta {
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
+
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool only_by_dependency;
+
+        /* Create default depedencies */
+        bool default_dependencies;
 
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */
@@ -285,6 +293,9 @@ struct UnitVTable {
          * ran empty */
         void (*cgroup_notify_empty)(Unit *u);
 
+        /* Called whenever a process of this unit sends us a message */
+        void (*notify_message)(Unit *u, pid_t pid, char **tags);
+
         /* Called whenever a name thus Unit registered for comes or
          * goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
@@ -293,7 +304,7 @@ struct UnitVTable {
         void (*bus_query_pid_done)(Unit *u, const char *name, pid_t pid);
 
         /* Called for each message received on the bus */
-        DBusHandlerResult (*bus_message_handler)(Unit *u, DBusMessage *message);
+        DBusHandlerResult (*bus_message_handler)(Unit *u, DBusConnection *c, DBusMessage *message);
 
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
@@ -333,14 +344,14 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 /* For casting a unit into the various unit types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
         static inline MixedCase* UPPERCASE(Unit *u) {                   \
-                if (!u || u->meta.type != UNIT_##UPPERCASE)             \
+                if (_unlikely_(!u || u->meta.type != UNIT_##UPPERCASE)) \
                         return NULL;                                    \
                                                                         \
                 return (MixedCase*) u;                                  \
         }
 
 /* For casting the various unit types into a unit */
-#define UNIT(u) ((Unit*) (u))
+#define UNIT(u) ((Unit*) (&(u)->meta))
 
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(TIMER, Timer);
@@ -359,8 +370,13 @@ void unit_free(Unit *u);
 int unit_add_name(Unit *u, const char *name);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference);
+int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference);
+
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
+int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
+
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name, const char *filename, bool add_reference);
+int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDependency e, const char *name, const char *path, bool add_reference);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 

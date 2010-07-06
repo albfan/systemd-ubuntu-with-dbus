@@ -30,7 +30,7 @@ typedef enum AutomountState {
         AUTOMOUNT_DEAD,
         AUTOMOUNT_WAITING,
         AUTOMOUNT_RUNNING,
-        AUTOMOUNT_MAINTAINANCE,
+        AUTOMOUNT_MAINTENANCE,
         _AUTOMOUNT_STATE_MAX,
         _AUTOMOUNT_STATE_INVALID = -1
 } AutomountState;
@@ -47,6 +47,8 @@ struct Automount {
         int pipe_fd;
         Watch pipe_watch;
         dev_t dev_id;
+
+        mode_t directory_mode;
 
         Set *tokens;
 

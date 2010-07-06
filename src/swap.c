@@ -33,11 +33,12 @@
 #include "load-dropin.h"
 #include "unit-name.h"
 #include "dbus-swap.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
         [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_MAINTAINANCE] = UNIT_INACTIVE
+        [SWAP_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void swap_init(Unit *u) {
@@ -76,10 +77,7 @@ int swap_add_one_mount_link(Swap *s, Mount *m) {
         if (!path_startswith(s->what, m->where))
                 return 0;
 
-        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(s), true)) < 0)
-                return r;
-
-        if ((r = unit_add_dependency(UNIT(s), UNIT_REQUIRES, UNIT(m), true)) < 0)
+        if ((r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
                 return r;
 
         return 0;
@@ -115,7 +113,7 @@ static int swap_add_target_links(Swap *s) {
         if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
                 return r;
 
-        if (!p->noauto && p->handle && s->meta.manager->running_as != MANAGER_SESSION)
+        if (!p->noauto && p->handle && s->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
@@ -126,7 +124,7 @@ static int swap_verify(Swap *s) {
         bool b;
         char *e;
 
-        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+        if (s->meta.load_state != UNIT_LOADED)
                   return 0;
 
         if (!(e = unit_name_from_path(s->what, ".swap")))
@@ -136,7 +134,7 @@ static int swap_verify(Swap *s) {
         free(e);
 
         if (!b) {
-                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", UNIT(s)->meta.id);
+                log_error("%s: Value of \"What\" and unit name do not match, not loading.\n", s->meta.id);
                 return -EINVAL;
         }
 
@@ -179,9 +177,7 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
-                if ((r = unit_add_node_link(u, s->what,
-                                            (u->meta.manager->running_as == MANAGER_INIT ||
-                                             u->meta.manager->running_as == MANAGER_SYSTEM))) < 0)
+                if ((r = unit_add_node_link(u, s->what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
                         return r;
 
                 if ((r = swap_add_mount_links(s)) < 0)
@@ -321,7 +317,7 @@ static void swap_set_state(Swap *s, SwapState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(s)->meta.id,
+                          s->meta.id,
                           swap_state_to_string(old_state),
                           swap_state_to_string(state));
 
@@ -382,7 +378,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static void swap_enter_dead(Swap *s, bool success) {
         assert(s);
 
-        swap_set_state(s, success ? SWAP_MAINTAINANCE : SWAP_DEAD);
+        swap_set_state(s, success ? SWAP_MAINTENANCE : SWAP_DEAD);
 }
 
 static int swap_start(Unit *u) {
@@ -391,7 +387,7 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-        assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTAINANCE);
+        assert(s->state == SWAP_DEAD || s->state == SWAP_MAINTENANCE);
 
         if (s->from_fragment)
                 priority = s->parameters_fragment.priority;
@@ -527,7 +523,7 @@ static void swap_shutdown(Manager *m) {
 static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = "dead",
         [SWAP_ACTIVE] = "active",
-        [SWAP_MAINTAINANCE] = "maintainance"
+        [SWAP_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);

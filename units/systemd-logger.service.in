@@ -9,6 +9,7 @@
 
 [Unit]
 Description=systemd Logging Daemon
+DefaultDependencies=no
 After=@SPECIAL_SYSLOG_SERVICE@
 
 [Service]

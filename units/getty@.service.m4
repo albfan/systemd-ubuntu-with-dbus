@@ -7,14 +7,19 @@
 
 m4_ifdef(`TARGET_FEDORA', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
 m4_ifdef(`TARGET_SUSE', `m4_define(`GETTY', `/sbin/mingetty')')m4_dnl
-m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400 %I')')m4_dnl
+m4_ifdef(`TARGET_DEBIAN', `m4_define(`GETTY', `/sbin/getty 38400')')m4_dnl
 m4_ifdef(`TARGET_GENTOO', `m4_define(`GETTY', `/sbin/agetty 38400')')m4_dnl
+m4_ifdef(`TARGET_ARCH', `m4_define(`GETTY', `/sbin/agetty -8 38400')')m4_dnl
 m4_dnl
 [Unit]
 Description=Getty on %I
 Before=getty.target
-After=basic.target
-Conflicts=shutdown.target
+m4_ifdef(`TARGET_FEDORA',
+After=rc-local.service
+)m4_dnl
+m4_ifdef(`TARGET_ARCH',
+After=rc-local.service
+)m4_dnl
 
 [Service]
 Environment=TERM=linux
@@ -22,3 +27,11 @@ ExecStart=GETTY %I
 Restart=restart-always
 RestartSec=0
 KillMode=process-group
+
+[Install]
+Alias=getty.target.wants/getty@tty1.service
+Alias=getty.target.wants/getty@tty2.service
+Alias=getty.target.wants/getty@tty3.service
+Alias=getty.target.wants/getty@tty4.service
+Alias=getty.target.wants/getty@tty5.service
+Alias=getty.target.wants/getty@tty6.service

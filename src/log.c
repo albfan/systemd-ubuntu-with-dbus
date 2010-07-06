@@ -35,11 +35,14 @@
 #define LOG_BUFFER_MAX 1024
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
-static int log_max_level = LOG_DEBUG;
+static int log_max_level = LOG_INFO;
 
 static int console_fd = STDERR_FILENO;
 static int syslog_fd = -1;
 static int kmsg_fd = -1;
+
+static bool show_color = false;
+static bool show_location = false;
 
 /* Akin to glibc's __abort_msg; which is private and we hance cannot
  * use here. */
@@ -162,6 +165,12 @@ int log_open(void) {
          * the fs. If we don't use /dev/kmsg we still keep it open,
          * because there is no reason to close it. */
 
+        if (log_target == LOG_TARGET_NULL) {
+                log_close_syslog();
+                log_close_console();
+                return 0;
+        }
+
         if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
             log_target == LOG_TARGET_SYSLOG)
                 if ((r = log_open_syslog()) >= 0) {
@@ -212,15 +221,16 @@ static int write_to_console(
         snprintf(location, sizeof(location), "(%s:%u) ", file, line);
         char_array_0(location);
 
-        highlight = LOG_PRI(level) <= LOG_ERR;
+        highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         zero(iovec);
-        IOVEC_SET_STRING(iovec[n++], location);
+        if (show_location)
+                IOVEC_SET_STRING(iovec[n++], location);
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], "\x1B[1;31m");
+                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_ON);
         IOVEC_SET_STRING(iovec[n++], buffer);
         if (highlight)
-                IOVEC_SET_STRING(iovec[n++], "\x1B[0m");
+                IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_OFF);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
         if (writev(console_fd, iovec, n) < 0)
@@ -255,13 +265,13 @@ static int write_to_syslog(
         if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
                 return -EINVAL;
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
         char_array_0(header_pid);
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
-        IOVEC_SET_STRING(iovec[2], __progname);
+        IOVEC_SET_STRING(iovec[2], program_invocation_short_name);
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
@@ -291,12 +301,12 @@ static int write_to_kmsg(
         snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_PRI(level));
         char_array_0(header_priority);
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) getpid());
         char_array_0(header_pid);
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], __progname);
+        IOVEC_SET_STRING(iovec[1], program_invocation_short_name);
         IOVEC_SET_STRING(iovec[2], header_pid);
         IOVEC_SET_STRING(iovec[3], buffer);
         IOVEC_SET_STRING(iovec[4], "\n");
@@ -315,6 +325,9 @@ static int log_dispatch(
         char *buffer) {
 
         int r = 0;
+
+        if (log_target == LOG_TARGET_NULL)
+                return 0;
 
         do {
                 char *e;
@@ -460,6 +473,15 @@ void log_parse_environment(void) {
         if ((e = getenv("SYSTEMD_LOG_LEVEL")))
                 if (log_set_max_level_from_string(e) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", e);
+
+        if ((e = getenv("SYSTEMD_LOG_COLOR")))
+                if (log_show_color_from_string(e) < 0)
+                        log_warning("Failed to parse bool %s. Ignoring.", e);
+
+        if ((e = getenv("SYSTEMD_LOG_LOCATION"))) {
+                if (log_show_location_from_string(e) < 0)
+                        log_warning("Failed to parse bool %s. Ignoring.", e);
+        }
 }
 
 LogTarget log_get_target(void) {
@@ -470,11 +492,40 @@ int log_get_max_level(void) {
         return log_max_level;
 }
 
+void log_show_color(bool b) {
+        show_color = b;
+}
+
+void log_show_location(bool b) {
+        show_location = b;
+}
+
+int log_show_color_from_string(const char *e) {
+        int t;
+
+        if ((t = parse_boolean(e)) < 0)
+                return -EINVAL;
+
+        log_show_color(t);
+        return 0;
+}
+
+int log_show_location_from_string(const char *e) {
+        int t;
+
+        if ((t = parse_boolean(e)) < 0)
+                return -EINVAL;
+
+        log_show_location(t);
+        return 0;
+}
+
 static const char *const log_target_table[] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
+        [LOG_TARGET_NULL] = "null"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);

@@ -67,8 +67,8 @@ typedef enum ExecOutput {
 } ExecOutput;
 
 struct ExecStatus {
-        usec_t start_timestamp;
-        usec_t exit_timestamp;
+        dual_timestamp start_timestamp;
+        dual_timestamp exit_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
@@ -93,8 +93,9 @@ struct ExecContext {
         int cpu_sched_policy;
         int cpu_sched_priority;
 
-        cpu_set_t cpu_affinity;
-        unsigned long timer_slack_ns;
+        cpu_set_t *cpuset;
+        unsigned cpuset_ncpus;
+        unsigned long timer_slack_nsec;
 
         ExecInput std_input;
         ExecOutput std_output;
@@ -102,7 +103,9 @@ struct ExecContext {
 
         int syslog_priority;
         char *syslog_identifier;
-        bool syslog_no_prefix;
+        bool syslog_level_prefix;
+
+        char *tcpwrap_name;
 
         char *tty_path;
 
@@ -113,6 +116,8 @@ struct ExecContext {
         char *user;
         char *group;
         char **supplementary_groups;
+
+        char *pam_name;
 
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
@@ -130,15 +135,14 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
-        bool cpu_affinity_set:1;
-        bool timer_slack_ns_set:1;
+        bool timer_slack_nsec_set:1;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
          * /bin/mount it is run in the same process group as us so
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
-        bool no_setsid:1;
+        bool same_pgrp;
 };
 
 typedef enum ExitStatus {
@@ -179,7 +183,9 @@ typedef enum ExitStatus {
         EXIT_CGROUP,
         EXIT_SETSID,   /* 220 */
         EXIT_CONFIRM,
-        EXIT_STDERR
+        EXIT_STDERR,
+        EXIT_TCPWRAP,
+        EXIT_PAM
 
 } ExitStatus;
 
@@ -211,7 +217,8 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
-void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status);
+void exec_status_start(ExecStatus *s, pid_t pid);
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
 const char* exec_output_to_string(ExecOutput i);

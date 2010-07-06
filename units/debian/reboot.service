@@ -17,6 +17,7 @@
 
 [Unit]
 Description=Reboot
+DefaultDependencies=no
 Requires=shutdown.target killall.service
 After=shutdown.target killall.service
 

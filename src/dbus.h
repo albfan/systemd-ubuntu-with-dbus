@@ -37,29 +37,27 @@ typedef struct BusProperty {
 } BusProperty;
 
 #define BUS_PROPERTIES_INTERFACE                                        \
-        " <interface name=\"org.freedesktop.DBus.Properties\">\n"         \
-        "  <method name=\"Get\">\n"                                       \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"       \
-        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"         \
-        "  </method>\n"                                                   \
-        "  <method name=\"GetAll\">\n"                                    \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"      \
+        " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
+        "  <method name=\"Get\">\n"                                     \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
+        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
+        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetAll\">\n"                                  \
+        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
         "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
-        "  </method>\n"                                                   \
+        "  </method>\n"                                                 \
         " </interface>\n"
 
 #define BUS_INTROSPECTABLE_INTERFACE                                    \
-        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"     \
-        "  <method name=\"Introspect\">\n"                                \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"          \
-        "  </method>\n"                                                   \
+        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
+        "  <method name=\"Introspect\">\n"                              \
+        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
         " </interface>\n"
 
-int bus_init_system(Manager *m);
-int bus_init_api(Manager *m);
-void bus_done_system(Manager *m);
-void bus_done_api(Manager *m);
+int bus_init(Manager *m);
+void bus_done(Manager *m);
 
 unsigned bus_dispatch(Manager *m);
 
@@ -68,9 +66,10 @@ void bus_timeout_event(Manager *m, Watch *w, int events);
 
 int bus_query_pid(Manager *m, const char *name);
 
-DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, const char* introspection, const BusProperty *properties);
+DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBusMessage *message, const char* introspection, const BusProperty *properties);
+DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *bus_error, int error);
 
-DBusHandlerResult bus_send_error_reply(Manager *m, DBusMessage *message, DBusError *bus_error, int error);
+int bus_broadcast(Manager *m, DBusMessage *message);
 
 int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_strv(Manager *m, DBusMessageIter *i, const char *property, void *data);
@@ -78,6 +77,8 @@ int bus_property_append_bool(Manager *m, DBusMessageIter *i, const char *propert
 int bus_property_append_int32(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_uint32(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_size(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_ul(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 #define bus_property_append_int bus_property_append_int32
 #define bus_property_append_pid bus_property_append_uint32
@@ -103,6 +104,12 @@ int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *prope
         }
 
 int bus_parse_strv(DBusMessage *m, char ***_l);
+
+bool bus_has_subscriber(Manager *m);
+bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
+
+#define BUS_CONNECTION_SUBSCRIBED(m, c) dbus_connection_get_data((c), (m)->subscribed_data_slot)
+#define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)
 
 extern const char * const bus_interface_table[];
 

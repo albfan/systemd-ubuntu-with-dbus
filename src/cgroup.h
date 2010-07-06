@@ -22,8 +22,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <libcgroup.h>
-
 typedef struct CGroupBonding CGroupBonding;
 
 #include "unit.h"
@@ -34,8 +32,6 @@ struct CGroupBonding {
         char *path;
 
         Unit *unit;
-
-        struct cgroup *cgroup;
 
         /* For the Unit::cgroup_bondings list */
         LIST_FIELDS(CGroupBonding, by_unit);
@@ -49,8 +45,8 @@ struct CGroupBonding {
         /* When our tasks are the only ones in this group */
         bool only_us:1;
 
-        /* Inherit parameters from parent group */
-        bool inherit:1;
+        /* This cgroup is realized */
+        bool realized:1;
 };
 
 int cgroup_bonding_realize(CGroupBonding *b);
@@ -75,8 +71,10 @@ char *cgroup_bonding_to_string(CGroupBonding *b);
 #include "manager.h"
 
 int manager_setup_cgroup(Manager *m);
-int manager_shutdown_cgroup(Manager *m, bool delete);
+int manager_shutdown_cgroup(Manager *m);
 
 int cgroup_notify_empty(Manager *m, const char *group);
+
+Unit* cgroup_unit_by_pid(Manager *m, pid_t pid);
 
 #endif
