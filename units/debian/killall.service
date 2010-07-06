@@ -17,6 +17,7 @@
 
 [Unit]
 Description=Kill All Processes
+DefaultDependencies=no
 
 [Service]
 Type=finish
