@@ -29,12 +29,13 @@
 #include "unit-name.h"
 #include "path.h"
 #include "dbus-path.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_MAINTAINANCE] = UNIT_INACTIVE
+        [PATH_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void path_done(Unit *u) {
@@ -65,10 +66,7 @@ int path_add_one_mount_link(Path *p, Mount *m) {
                 if (!path_startswith(s->path, m->where))
                         continue;
 
-                if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, UNIT(p), true)) < 0)
-                        return r;
-
-                if ((r = unit_add_dependency(UNIT(p), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                if ((r = unit_add_two_dependencies(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true)) < 0)
                         return r;
         }
 
@@ -91,7 +89,7 @@ static int path_add_mount_links(Path *p) {
 static int path_verify(Path *p) {
         assert(p);
 
-        if (UNIT(p)->meta.load_state != UNIT_LOADED)
+        if (p->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!p->specs) {
@@ -123,6 +121,11 @@ static int path_load(Unit *u) {
 
                 if ((r = path_add_mount_links(p)) < 0)
                         return r;
+
+                /* Path units shouldn't stay around on shutdown */
+                if (p->meta.default_dependencies)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                return r;
         }
 
         return path_verify(p);
@@ -290,14 +293,14 @@ static void path_enter_dead(Path *p, bool success) {
         if (!success)
                 p->failure = true;
 
-        path_set_state(p, p->failure ? PATH_MAINTAINANCE : PATH_DEAD);
+        path_set_state(p, p->failure ? PATH_MAINTENANCE : PATH_DEAD);
 }
 
 static void path_enter_running(Path *p) {
         int r;
         assert(p);
 
-        if ((r = manager_add_job(UNIT(p)->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, NULL)) < 0)
                 goto fail;
 
         path_set_state(p, PATH_RUNNING);
@@ -363,7 +366,7 @@ static int path_start(Unit *u) {
         Path *p = PATH(u);
 
         assert(p);
-        assert(p->state == PATH_DEAD || p->state == PATH_MAINTAINANCE);
+        assert(p->state == PATH_DEAD || p->state == PATH_MAINTENANCE);
 
         if (p->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
@@ -540,7 +543,7 @@ static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = "dead",
         [PATH_WAITING] = "waiting",
         [PATH_RUNNING] = "running",
-        [PATH_MAINTAINANCE] = "maintainance"
+        [PATH_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);

@@ -1,39 +1,14 @@
-* timer
-
-* enforce max number of concurrent connection limit in sockets.
+* calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
 * complete dbus exposure
 
-* make conf parser work more like .desktop parsers
-
 * implicitly import "defaults" settings file into all types
 
-* write .service file install tool
-    [Install]
-    WantedBy=graphical.target
-    Names=prefdm.service
-
-* service startup should be delayed if the matching socket is being started
-
-* add #ifdefs for non-redhat builds in sysv parser
-
 * add #ifdefs for non-sysv builds
-
-* bootchart hookup
 
 * reinvestigate random seed, hwclock
 
 * "disabled" load state?
-
-* uid are 32bit
-
-* %m in printf() instead of strerror();
-
-* gc: don't reap broken services
-
-* iCalendar semantics for the timer stuff (RFC2445)
-
-* provide sysv-like command line utilities
 
 * ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
@@ -54,20 +29,26 @@
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* teach dbus to talk to systemd when autospawning services
-
-* regnerate unit/sysv search paths on daemon reload
-
 * write utmp record a la upstart for processes
 
-* run PAM session stuff
+* follow property change dbus spec
 
-* tcpwrap
+* selinux
 
-* use setproctitle() when forking, before exec() (waiting for (PR_SET_PROCTITLE_AREA to enter the kernel)
+* systemctl daemon-reload is kaputt
+
+External:
+
+* patch /etc/init.d/functions with:
+
+  if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
 Regularly:
 
 * look for close() vs. close_nointr() vs. close_nointr_nofail()
 
 * check for strerror(r) instead of strerror(-r)
+
+* Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
+
+* %m in printf() instead of strerror();

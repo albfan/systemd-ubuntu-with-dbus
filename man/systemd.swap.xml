@@ -1,0 +1,146 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<?xml-stylesheet type="text/xsl" href="http://docbook.sourceforge.net/release/xsl/current/xhtml/docbook.xsl"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  This file is part of systemd.
+
+  Copyright 2010 Lennart Poettering
+
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<refentry id="systemd.swap">
+        <refentryinfo>
+                <title>systemd.swap</title>
+                <productname>systemd</productname>
+
+                <authorgroup>
+                        <author>
+                                <contrib>Developer</contrib>
+                                <firstname>Lennart</firstname>
+                                <surname>Poettering</surname>
+                                <email>lennart@poettering.net</email>
+                        </author>
+                </authorgroup>
+        </refentryinfo>
+
+        <refmeta>
+                <refentrytitle>systemd.swap</refentrytitle>
+                <manvolnum>5</manvolnum>
+        </refmeta>
+
+        <refnamediv>
+                <refname>systemd.swap</refname>
+                <refpurpose>systemd swap configuration files</refpurpose>
+        </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>systemd.swap</filename></para>
+        </refsynopsisdiv>
+
+        <refsect1>
+                <title>Description</title>
+
+                <para>A unit configuration file whose name ends in
+                <filename>.swap</filename> encodes information about a
+                swap device or file for memory paging controlled and
+                supervised by systemd.</para>
+
+                <para>This man page lists the configuration options
+                specific to this unit type. See
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The swap
+                specific configuration options are configured in the
+                [Swap] section.</para>
+
+                <para>Swap units must be named after the devices they
+                control. Example: the swap device
+                <filename>/dev/sda5</filename> must be configured in a
+                unit file <filename>dev-sda5.swap</filename>. For
+                details about the escaping logic used to convert a
+                file system path to a unit name see
+                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title><filename>fstab</filename></title>
+
+                <para>Swap units may either be configured via unit
+                files, or via <filename>/etc/fstab</filename> (see
+                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for details).</para>
+
+                <para>If a swap device or file is configured in both
+                <filename>/etc/fstab</filename> and a unit file the
+                configuration in the latter takes precedence.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Options</title>
+
+                <para>Swap files must include a [Swap] section, which
+                carries information about the swap device it
+                supervises. The options specific to the [Swap] section
+                of swap units are the following:</para>
+
+                <variablelist>
+
+                        <varlistentry>
+                                <term><varname>What=</varname></term>
+                                <listitem><para>Takes an absolute path
+                                of a device node or file to use for
+                                paging. See
+                                <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                for details. If this refers to a
+                                device node, a dependency on the
+                                respective device unit is
+                                automatically created. (See
+                                <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for more information.) If this refers
+                                to a file, a dependency on the
+                                respective mount unit is automatically
+                                created. (See
+                                <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for more information.) This option is
+                                mandatory.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Priority=</varname></term>
+
+                                <listitem><para>Swap priority to use
+                                when activating the swap device or
+                                file. This takes an integer. This
+                                setting is optional.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
+                  <title>See Also</title>
+                  <para>
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  </para>
+        </refsect1>
+
+</refentry>

@@ -41,7 +41,7 @@ typedef enum SocketState {
         SOCKET_STOP_POST,
         SOCKET_FINAL_SIGTERM,
         SOCKET_FINAL_SIGKILL,
-        SOCKET_MAINTAINANCE,
+        SOCKET_MAINTENANCE,
         _SOCKET_STATE_MAX,
         _SOCKET_STATE_INVALID = -1
 } SocketState;
@@ -78,10 +78,7 @@ struct Socket {
 
         LIST_HEAD(SocketPort, ports);
 
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        SocketAddressBindIPv6Only bind_ipv6_only;
         unsigned backlog;
-
         usec_t timeout_usec;
 
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
@@ -97,15 +94,31 @@ struct Socket {
         SocketExecCommand control_command_id;
         pid_t control_pid;
 
-        char *bind_to_device;
-        mode_t directory_mode;
-        mode_t socket_mode;
-
         bool accept;
         unsigned n_accepted;
+        unsigned n_connections;
+        unsigned max_connections;
 
         bool failure;
         Watch timer_watch;
+
+        /* Socket options */
+        bool keep_alive;
+        int priority;
+        size_t receive_buffer;
+        size_t send_buffer;
+        int ip_tos;
+        int ip_ttl;
+        size_t pipe_size;
+        int mark;
+        bool free_bind;
+        char *bind_to_device;
+
+        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
+        SocketAddressBindIPv6Only bind_ipv6_only;
+
+        mode_t directory_mode;
+        mode_t socket_mode;
 };
 
 /* Called from the service code when collecting fds */
@@ -117,6 +130,9 @@ void socket_notify_service_dead(Socket *s);
 /* Called from the mount code figure out if a mount is a dependency of
  * any of the sockets of this socket */
 int socket_add_one_mount_link(Socket *s, Mount *m);
+
+/* Called from the service code when a per-connection service ended */
+void socket_connection_unref(Socket *s);
 
 extern const UnitVTable socket_vtable;
 

@@ -46,9 +46,8 @@ typedef enum ManagerExitCode {
 } ManagerExitCode;
 
 typedef enum ManagerRunningAs {
-        MANAGER_INIT,      /* root and pid=1 */
-        MANAGER_SYSTEM,    /* root and pid!=1 */
-        MANAGER_SESSION,   /* non-root, for a session */
+        MANAGER_SYSTEM,
+        MANAGER_SESSION,
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;
@@ -56,6 +55,7 @@ typedef enum ManagerRunningAs {
 enum WatchType {
         WATCH_INVALID,
         WATCH_SIGNAL,
+        WATCH_NOTIFY,
         WATCH_FD,
         WATCH_TIMER,
         WATCH_MOUNT,
@@ -82,53 +82,7 @@ struct Watch {
 #include "list.h"
 #include "set.h"
 #include "dbus.h"
-
-#define SPECIAL_DEFAULT_TARGET "default.target"
-
-/* This is not really intended to be started by directly. This is
- * mostly so that other targets (reboot/halt/poweroff) can depend on
- * it to bring all services down that want to be brought down on
- * system shutdown. */
-#define SPECIAL_SHUTDOWN_TARGET "shutdown.target"
-
-#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
-
-#define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
-#define SPECIAL_SIGPWR_TARGET "sigpwr.target"
-#define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
-
-#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
-#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
-#define SPECIAL_SWAP_TARGET "swap.target"
-#define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
-#define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
-#define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
-#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog; Should pull in syslog.socket or syslog.service */
-#define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
-#define SPECIAL_DISPLAY_MANAGER_SERVICE "display-manager.service"       /* Debian's $x-display-manager */
-#define SPECIAL_MAIL_TRANSFER_AGENT_TARGET "mail-transfer-agent.target" /* Debian's $mail-{transport|transfer-agent */
-#define SPECIAL_BASIC_TARGET "basic.target"
-#define SPECIAL_SYSINIT_TARGET "sysinit.target"
-#define SPECIAL_RESCUE_TARGET "rescue.target"
-#define SPECIAL_EXIT_SERVICE "exit.service"
-
-#ifndef SPECIAL_DBUS_SERVICE
-#define SPECIAL_DBUS_SERVICE "dbus.service"
-#endif
-
-#ifndef SPECIAL_SYSLOG_SERVICE
-#define SPECIAL_SYSLOG_SERVICE "syslog.service"
-#endif
-
-/* For SysV compatibility. Usually an alias for a saner target. On
- * SysV-free systems this doesn't exist. */
-#define SPECIAL_RUNLEVEL0_TARGET "runlevel0.target"
-#define SPECIAL_RUNLEVEL1_TARGET "runlevel1.target"
-#define SPECIAL_RUNLEVEL2_TARGET "runlevel2.target"
-#define SPECIAL_RUNLEVEL3_TARGET "runlevel3.target"
-#define SPECIAL_RUNLEVEL4_TARGET "runlevel4.target"
-#define SPECIAL_RUNLEVEL5_TARGET "runlevel5.target"
-#define SPECIAL_RUNLEVEL6_TARGET "runlevel6.target"
+#include "path-lookup.h"
 
 struct Manager {
         uint32_t current_job_id;
@@ -170,19 +124,20 @@ struct Manager {
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
+        char *notify_socket;
+
+        Watch notify_watch;
         Watch signal_watch;
 
         int epoll_fd;
 
         unsigned n_snapshots;
 
-        char **unit_path;
-        char **sysvinit_path;
-        char **sysvrcnd_path;
+        LookupPaths lookup_paths;
 
         char **environment;
 
-        timestamp startup_timestamp;
+        dual_timestamp startup_timestamp;
 
         /* Data specific to the device subsystem */
         struct udev* udev;
@@ -198,7 +153,9 @@ struct Manager {
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;
-        Set *subscribed;
+        DBusServer *private_bus;
+        Set *bus_connections, *bus_connections_for_dispatch;
+
         DBusMessage *queued_message; /* This is used during reloading:
                                       * before the reload we queue the
                                       * reply message here, and
@@ -206,6 +163,7 @@ struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
+        int32_t subscribed_data_slot;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
@@ -213,12 +171,16 @@ struct Manager {
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
+        char *cgroup_mount_point;
         char *cgroup_hierarchy;
 
         usec_t gc_queue_timestamp;
-
         int gc_marker;
         unsigned n_in_gc_queue;
+
+        /* Make sure the user cannot accidentaly unmount our cgroup
+         * file system */
+        int pin_cgroupfs_fd;
 
         /* Flags */
         ManagerRunningAs running_as;
@@ -228,12 +190,9 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
-        bool request_api_bus_dispatch:1;
-        bool request_system_bus_dispatch:1;
-
         bool utmp_reboot_written:1;
 
-        bool confirm_spawn:1;
+        bool confirm_spawn;
 };
 
 int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);

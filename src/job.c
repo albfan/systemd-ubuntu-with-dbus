@@ -76,6 +76,7 @@ void job_free(Job *j) {
         if (j->in_dbus_queue)
                 LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
 
+        free(j->bus_client);
         free(j);
 }
 
@@ -275,25 +276,26 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
         case JOB_START:
                 return
                         b == UNIT_ACTIVE ||
-                        b == UNIT_ACTIVE_RELOADING;
+                        b == UNIT_RELOADING;
 
         case JOB_STOP:
                 return
-                        b == UNIT_INACTIVE;
+                        b == UNIT_INACTIVE ||
+                        b == UNIT_MAINTENANCE;
 
         case JOB_VERIFY_ACTIVE:
                 return
                         b == UNIT_ACTIVE ||
-                        b == UNIT_ACTIVE_RELOADING;
+                        b == UNIT_RELOADING;
 
         case JOB_RELOAD:
                 return
-                        b == UNIT_ACTIVE_RELOADING;
+                        b == UNIT_RELOADING;
 
         case JOB_RELOAD_OR_START:
                 return
                         b == UNIT_ACTIVATING ||
-                        b == UNIT_ACTIVE_RELOADING;
+                        b == UNIT_RELOADING;
 
         case JOB_RESTART:
                 return
@@ -415,7 +417,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_ACTIVATING) {
+                        if (t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
                                 r = unit_start(j->unit);
                         } else
@@ -425,7 +427,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_TRY_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_DEACTIVATING)
+                        if (t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_DEACTIVATING)
                                 r = -ENOEXEC;
                         else if (t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
@@ -543,10 +545,9 @@ void job_add_to_dbus_queue(Job *j) {
         if (j->in_dbus_queue)
                 return;
 
-        if (set_isempty(j->manager->subscribed)) {
-                j->sent_dbus_new_signal = true;
-                return;
-        }
+        /* We don't check if anybody is subscribed here, since this
+         * job might just have been created and not yet assigned to a
+         * connection/client. */
 
         LIST_PREPEND(Job, dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = true;

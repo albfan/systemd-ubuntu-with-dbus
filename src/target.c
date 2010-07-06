@@ -27,6 +27,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "dbus-target.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = UNIT_INACTIVE,
@@ -42,11 +43,51 @@ static void target_set_state(Target *t, TargetState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(t)->meta.id,
+                          t->meta.id,
                           target_state_to_string(old_state),
                           target_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int target_add_default_dependencies(Target *t) {
+        Iterator i;
+        Unit *other;
+        int r;
+
+        /* Imply ordering for requirement dependencies
+         * on target units. */
+
+        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES], i)
+                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                        return r;
+        SET_FOREACH(other, t->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
+                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                        return r;
+        SET_FOREACH(other, t->meta.dependencies[UNIT_WANTS], i)
+                if ((r = unit_add_dependency(UNIT(t), UNIT_AFTER, other, true)) < 0)
+                        return r;
+
+        return 0;
+}
+
+static int target_load(Unit *u) {
+        Target *t = TARGET(u);
+        int r;
+
+        assert(t);
+
+        if ((r = unit_load_fragment_and_dropin(u)) < 0)
+                return r;
+
+        /* This is a new unit? Then let's add in some extras */
+        if (u->meta.load_state == UNIT_LOADED) {
+                if (u->meta.default_dependencies)
+                        if ((r = target_add_default_dependencies(t)) < 0)
+                                return r;
+        }
+
+        return 0;
 }
 
 static int target_coldplug(Unit *u) {
@@ -147,9 +188,9 @@ int target_get_runlevel(Target *t) {
                 { SPECIAL_RUNLEVEL4_TARGET, '4' },
                 { SPECIAL_RUNLEVEL3_TARGET, '3' },
                 { SPECIAL_RUNLEVEL2_TARGET, '2' },
-                { SPECIAL_RUNLEVEL1_TARGET, '1' },
-                { SPECIAL_RUNLEVEL0_TARGET, '0' },
-                { SPECIAL_RUNLEVEL6_TARGET, '6' },
+                { SPECIAL_RESCUE_TARGET,    '1' },
+                { SPECIAL_POWEROFF_TARGET,  '0' },
+                { SPECIAL_REBOOT_TARGET,    '6' },
         };
 
         unsigned i;
@@ -176,7 +217,7 @@ DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .load = unit_load_fragment_and_dropin,
+        .load = target_load,
         .coldplug = target_coldplug,
 
         .dump = target_dump,

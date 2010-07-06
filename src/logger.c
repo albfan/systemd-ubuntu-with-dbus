@@ -36,6 +36,7 @@
 #include "log.h"
 #include "list.h"
 #include "sd-daemon.h"
+#include "tcpwrap.h"
 
 #define STREAM_BUFFER 2048
 #define STREAMS_MAX 256
@@ -142,7 +143,7 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                         return -EINVAL;
         }
 
-        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) s->pid);
+        snprintf(header_pid, sizeof(header_pid), "[%lu]: ", (unsigned long) s->pid);
         char_array_0(header_pid);
 
         zero(iovec);
@@ -340,6 +341,11 @@ static int stream_new(Server *s, int server_fd) {
                 return 0;
         }
 
+        if (!socket_tcpwrap(fd, "systemd-logger")) {
+                close_nointr_nofail(fd);
+                return 0;
+        }
+
         if (!(stream = new0(Stream, 1))) {
                 close_nointr_nofail(fd);
                 return -ENOMEM;
@@ -529,10 +535,20 @@ int main(int argc, char *argv[]) {
         Server server;
         int r = 3, n;
 
+        if (getppid() != 1) {
+                log_error("This program should be invoked by init only.");
+                return 1;
+        }
+
+        if (argc > 1) {
+                log_error("This program does not take arguments.");
+                return 1;
+        }
+
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
-        log_info("systemd-logger running as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-logger running as pid %lu", (unsigned long) getpid());
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -546,6 +562,10 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, (unsigned) n) < 0)
                 return 3;
+
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing requests...");
 
         for (;;) {
                 struct epoll_event event;
@@ -571,9 +591,12 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 fail:
+        sd_notify(false,
+                  "STATUS=Shutting down...");
+
         server_done(&server);
 
-        log_info("systemd-logger stopped as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
         return r;
 }

@@ -40,11 +40,26 @@ static void snapshot_set_state(Snapshot *s, SnapshotState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          UNIT(s)->meta.id,
+                          s->meta.id,
                           snapshot_state_to_string(old_state),
                           snapshot_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int snapshot_load(Unit *u) {
+        Snapshot *s = SNAPSHOT(u);
+
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        /* Make sure that only snapshots created via snapshot_create()
+         * can be loaded */
+        if (!s->by_snapshot_create)
+                return -ENOENT;
+
+        u->meta.load_state = UNIT_LOADED;
+        return 0;
 }
 
 static int snapshot_coldplug(Unit *u) {
@@ -107,8 +122,8 @@ static int snapshot_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", snapshot_state_to_string(s->state));
         unit_serialize_item(u, f, "cleanup", yes_no(s->cleanup));
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
-                unit_serialize_item(u, f, "requires", other->meta.id);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
+                unit_serialize_item(u, f, "wants", other->meta.id);
 
         return 0;
 }
@@ -137,12 +152,9 @@ static int snapshot_deserialize_item(Unit *u, const char *key, const char *value
                 else
                         s->cleanup = r;
 
-        } else if (streq(key, "requires")) {
+        } else if (streq(key, "wants")) {
 
-                if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, value, NULL, true)) < 0)
-                        return r;
-
-                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, value, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, value, NULL, true)) < 0)
                         return r;
         } else
                 log_debug("Unknown serialization key '%s'", key);
@@ -197,11 +209,15 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 name = n;
         }
 
-        r = manager_load_unit(m, name, NULL, &u);
+        r = manager_load_unit_prepare(m, name, NULL, &u);
         free(n);
 
         if (r < 0)
                 goto fail;
+
+        SNAPSHOT(u)->by_snapshot_create = true;
+        manager_dispatch_load_queue(m);
+        assert(u->meta.load_state == UNIT_LOADED);
 
         HASHMAP_FOREACH_KEY(other, k, m->units, i) {
 
@@ -218,10 +234,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, Snapshot **_s) {
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         continue;
 
-                if ((r = unit_add_dependency(u, UNIT_REQUIRES, other, true)) < 0)
-                        goto fail;
-
-                if ((r = unit_add_dependency(u, UNIT_AFTER, other, true)) < 0)
+                if ((r = unit_add_two_dependencies(u, UNIT_AFTER, UNIT_WANTS, other, true)) < 0)
                         goto fail;
         }
 
@@ -258,7 +271,7 @@ const UnitVTable snapshot_vtable = {
         .no_snapshots = true,
         .no_gc = true,
 
-        .load = unit_load_nop,
+        .load = snapshot_load,
         .coldplug = snapshot_coldplug,
 
         .dump = snapshot_dump,

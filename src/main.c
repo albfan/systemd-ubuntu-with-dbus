@@ -40,6 +40,7 @@
 #include "kmod-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
+#include "special.h"
 
 static enum {
         ACTION_RUN,
@@ -115,7 +116,7 @@ _noreturn_ static void crash(int sig) {
                         else if (!WCOREDUMP(status))
                                 log_error("Caught <%s>, core dump failed.", strsignal(sig));
                         else
-                                log_error("Caught <%s>, dumped core as pid %llu.", strsignal(sig), (unsigned long long) pid);
+                                log_error("Caught <%s>, dumped core as pid %lu.", strsignal(sig), (unsigned long) pid);
                 }
         }
 
@@ -151,7 +152,7 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shall as pid %llu.", (unsigned long long) pid);
+                log_info("Successfully spawned crash shall as pid %lu.", (unsigned long) pid);
         }
 
         log_info("Freezing execution.");
@@ -222,19 +223,19 @@ static int set_default_unit(const char *u) {
 static int parse_proc_cmdline_word(const char *word) {
 
         static const char * const rlmap[] = {
-                "single", SPECIAL_RUNLEVEL1_TARGET,
-                "-s",     SPECIAL_RUNLEVEL1_TARGET,
-                "s",      SPECIAL_RUNLEVEL1_TARGET,
-                "S",      SPECIAL_RUNLEVEL1_TARGET,
-                "1",      SPECIAL_RUNLEVEL1_TARGET,
+                "single", SPECIAL_RESCUE_TARGET,
+                "-s",     SPECIAL_RESCUE_TARGET,
+                "s",      SPECIAL_RESCUE_TARGET,
+                "S",      SPECIAL_RESCUE_TARGET,
+                "1",      SPECIAL_RESCUE_TARGET,
                 "2",      SPECIAL_RUNLEVEL2_TARGET,
                 "3",      SPECIAL_RUNLEVEL3_TARGET,
                 "4",      SPECIAL_RUNLEVEL4_TARGET,
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
 
-        if (startswith(word, "systemd.default="))
-                return set_default_unit(word + 16);
+        if (startswith(word, "systemd.unit="))
+                return set_default_unit(word + 13);
 
         else if (startswith(word, "systemd.log_target=")) {
 
@@ -245,6 +246,16 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 if (log_set_max_level_from_string(word + 18) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", word + 18);
+
+        } else if (startswith(word, "systemd.log_color=")) {
+
+                if (log_show_color_from_string(word + 18) < 0)
+                        log_warning("Failed to parse log color setting %s. Ignoring.", word + 18);
+
+        } else if (startswith(word, "systemd.log_location=")) {
+
+                if (log_show_location_from_string(word + 21) < 0)
+                        log_warning("Failed to parse log location setting %s. Ignoring.", word + 21);
 
         } else if (startswith(word, "systemd.dump_core=")) {
                 int r;
@@ -283,14 +294,17 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 log_warning("Unknown kernel switch %s. Ignoring.", word);
 
-                log_info("Supported kernel switches:");
-                log_info("systemd.default=UNIT                     Default unit to start");
-                log_info("systemd.log_target=console|kmsg|syslog   Log target");
-                log_info("systemd.log_level=LEVEL                  Log level");
-                log_info("systemd.dump_core=0|1                    Dump core on crash");
-                log_info("systemd.crash_shell=0|1                  On crash run shell");
-                log_info("systemd.crash_chvt=N                     Change to VT #N on crash");
-                log_info("systemd.confirm_spawn=0|1                Confirm every process spawn");
+                log_info("Supported kernel switches:\n"
+                         "systemd.unit=UNIT                        Default unit to start\n"
+                         "systemd.log_target=console|kmsg|syslog|  Log target\n"
+                         "                   syslog-org-kmsg|null\n"
+                         "systemd.log_level=LEVEL                  Log level\n"
+                         "systemd.log_color=0|1                    Highlight important log messages\n"
+                         "systemd.log_location=0|1                 Include code location in log messages\n"
+                         "systemd.dump_core=0|1                    Dump core on crash\n"
+                         "systemd.crash_shell=0|1                  On crash run shell\n"
+                         "systemd.crash_chvt=N                     Change to VT #N on crash\n"
+                         "systemd.confirm_spawn=0|1                Confirm every process spawn");
 
         } else {
                 unsigned i;
@@ -343,7 +357,9 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
-                ARG_DEFAULT,
+                ARG_LOG_COLOR,
+                ARG_LOG_LOCATION,
+                ARG_UNIT,
                 ARG_RUNNING_AS,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
@@ -355,7 +371,9 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
                 { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
-                { "default",                  required_argument, NULL, ARG_DEFAULT                  },
+                { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
+                { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
+                { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "running-as",               required_argument, NULL, ARG_RUNNING_AS               },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
@@ -392,7 +410,31 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_DEFAULT:
+                case ARG_LOG_COLOR:
+
+                        if (optarg) {
+                                if ((r = log_show_color_from_string(optarg)) < 0) {
+                                        log_error("Failed to parse log color setting %s.", optarg);
+                                        return r;
+                                }
+                        } else
+                                log_show_color(true);
+
+                        break;
+
+                case ARG_LOG_LOCATION:
+
+                        if (optarg) {
+                                if ((r = log_show_location_from_string(optarg)) < 0) {
+                                        log_error("Failed to parse log location setting %s.", optarg);
+                                        return r;
+                                }
+                        } else
+                                log_show_location(true);
+
+                        break;
+
+                case ARG_UNIT:
 
                         if ((r = set_default_unit(optarg)) < 0) {
                                 log_error("Failed to set default unit %s: %s", optarg, strerror(-r));
@@ -484,7 +526,7 @@ static int parse_argv(int argc, char *argv[]) {
          * ignore and unconditionally read from
          * /proc/cmdline. However, we need to ignore those arguments
          * here. */
-        if (running_as != MANAGER_INIT && optind < argc) {
+        if (running_as != MANAGER_SYSTEM && optind < argc) {
                 log_error("Excess arguments.");
                 return -EINVAL;
         }
@@ -494,17 +536,20 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int help(void) {
 
-        printf("%s [options]\n\n"
+        printf("%s [OPTIONS...]\n\n"
+               "Starts up and maintains the system or a session.\n\n"
                "  -h --help                      Show this help\n"
-               "     --default=UNIT              Set default unit\n"
-               "     --log-level=LEVEL           Set log level\n"
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg)\n"
-               "     --running-as=AS             Set running as (init, system, session)\n"
+               "     --unit=UNIT                 Set default unit\n"
+               "     --running-as=AS             Set running as (system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
-               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n",
-               __progname);
+               "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
+               "     --log-level=LEVEL           Set log level\n"
+               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-color[=0|1]           Highlight important log messages\n"
+               "     --log-location[=0|1]        Include code location in log messages\n",
+               program_invocation_short_name);
 
         return 0;
 }
@@ -571,11 +616,27 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
         bool reexecute = false;
 
+        if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
+                /* This is compatbility support for SysV, where
+                 * calling init as a user is identical to telinit. */
+
+                errno = -ENOENT;
+                execv(SYSTEMCTL_BINARY_PATH, argv);
+                log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
+                return 1;
+        }
+
+        log_show_color(true);
+        log_show_location(false);
+        log_set_max_level(LOG_DEBUG);
+
         if (getpid() == 1) {
-                running_as = MANAGER_INIT;
+                running_as = MANAGER_SYSTEM;
                 log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
-        } else
+        } else {
                 running_as = MANAGER_SESSION;
+                log_set_target(LOG_TARGET_CONSOLE);
+        }
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
                 goto finish;
@@ -592,7 +653,7 @@ int main(int argc, char *argv[]) {
         /* If we are init, we can block sigkill. Yay. */
         ignore_signals(SIGNALS_IGNORE, -1);
 
-        if (running_as != MANAGER_SESSION)
+        if (running_as == MANAGER_SYSTEM)
                 if (parse_proc_cmdline() < 0)
                         goto finish;
 
@@ -629,12 +690,12 @@ int main(int argc, char *argv[]) {
         /* Set up PATH unless it is already set */
         setenv("PATH",
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-               running_as == MANAGER_INIT);
+               running_as == MANAGER_SYSTEM);
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
-        if (running_as != MANAGER_SESSION) {
+        if (running_as == MANAGER_SYSTEM) {
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
@@ -647,7 +708,7 @@ int main(int argc, char *argv[]) {
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
-        if (running_as != MANAGER_SESSION && action == ACTION_RUN) {
+        if (running_as == MANAGER_SYSTEM && action == ACTION_RUN) {
                 console_setup(getpid() == 1 && !serialization);
                 make_null_stdio();
         }
@@ -662,7 +723,7 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
-        if (running_as == MANAGER_INIT) {
+        if (running_as == MANAGER_SYSTEM) {
                 kmod_setup();
                 hostname_setup();
                 loopback_setup();

@@ -39,7 +39,7 @@
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
-#include "manager.h"
+#include "special.h"
 #include "sd-daemon.h"
 
 #define SERVER_FD_MAX 16
@@ -72,15 +72,15 @@ static const char *translate_runlevel(int runlevel) {
                 const int runlevel;
                 const char *special;
         } table[] = {
-                { '0', SPECIAL_RUNLEVEL0_TARGET },
-                { '1', SPECIAL_RUNLEVEL1_TARGET },
-                { 's', SPECIAL_RUNLEVEL1_TARGET },
-                { 'S', SPECIAL_RUNLEVEL1_TARGET },
+                { '0', SPECIAL_POWEROFF_TARGET },
+                { '1', SPECIAL_RESCUE_TARGET },
+                { 's', SPECIAL_RESCUE_TARGET },
+                { 'S', SPECIAL_RESCUE_TARGET },
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
                 { '3', SPECIAL_RUNLEVEL3_TARGET },
                 { '4', SPECIAL_RUNLEVEL4_TARGET },
                 { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '6', SPECIAL_RUNLEVEL6_TARGET },
+                { '6', SPECIAL_REBOOT_TARGET },
         };
 
         unsigned i;
@@ -230,8 +230,10 @@ static void server_done(Server *s) {
         if (s->epoll_fd >= 0)
                 close_nointr_nofail(s->epoll_fd);
 
-        if (s->bus)
-                dbus_connection_unref(s->bus);
+        if (s->bus) {
+               dbus_connection_set_exit_on_disconnect(s->bus, FALSE);
+               dbus_connection_unref(s->bus);
+        }
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
@@ -288,13 +290,13 @@ static int server_init(Server *s, unsigned n_sockets) {
                         goto fail;
                 }
 
-                f->fd = SD_LISTEN_FDS_START+i;
+                f->fd = fd;
                 LIST_PREPEND(Fifo, fifo, s->fifos, f);
                 f->server = s;
                 s->n_fifos ++;
         }
 
-        if (!(s->bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error))) {
+        if (!(s->bus = dbus_connection_open("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 goto fail;
         }
@@ -334,10 +336,20 @@ int main(int argc, char *argv[]) {
         Server server;
         int r = 3, n;
 
+        if (getppid() != 1) {
+                log_error("This program should be invoked by init only.");
+                return 1;
+        }
+
+        if (argc > 1) {
+                log_error("This program does not take arguments.");
+                return 1;
+        }
+
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
 
-        log_info("systemd-initctl running as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-initctl running as pid %lu", (unsigned long) getpid());
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -351,6 +363,10 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, (unsigned) n) < 0)
                 return 2;
+
+        sd_notify(false,
+                  "READY=1\n"
+                  "STATUS=Processing requests...");
 
         for (;;) {
                 struct epoll_event event;
@@ -376,9 +392,12 @@ int main(int argc, char *argv[]) {
         r = 0;
 
 fail:
+        sd_notify(false,
+                  "STATUS=Shutting down...");
+
         server_done(&server);
 
-        log_info("systemd-initctl stopped as pid %llu", (unsigned long long) getpid());
+        log_info("systemd-initctl stopped as pid %lu", (unsigned long) getpid());
 
         dbus_shutdown();
 

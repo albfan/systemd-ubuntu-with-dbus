@@ -40,6 +40,9 @@
 #include "missing.h"
 #include "unit-name.h"
 
+#define COMMENTS "#;\n"
+#define LINE_MAX 4096
+
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         static int function(                                            \
                         const char *filename,                           \
@@ -151,7 +154,7 @@ static int config_parse_names(
         return 0;
 }
 
-static int config_parse_description(
+static int config_parse_string_printf(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -161,23 +164,24 @@ static int config_parse_description(
                 void *userdata) {
 
         Unit *u = userdata;
+        char **s = data;
         char *k;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(s);
+        assert(u);
 
         if (!(k = unit_full_printf(u, rvalue)))
                 return -ENOMEM;
 
-        free(u->meta.description);
-
+        free(*s);
         if (*k)
-                u->meta.description = k;
+                *s = k;
         else {
                 free(k);
-                u->meta.description = NULL;
+                *s = NULL;
         }
 
         return 0;
@@ -721,18 +725,20 @@ static int config_parse_cpu_affinity(
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
+                if (!(c->cpuset))
+                        if (!(c->cpuset = cpu_set_malloc(&c->cpuset_ncpus)))
+                                return -ENOMEM;
+
                 r = safe_atou(t, &cpu);
                 free(t);
 
-                if (r < 0 || cpu >= CPU_SETSIZE) {
+                if (r < 0 || cpu >= c->cpuset_ncpus) {
                         log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
                         return -EBADMSG;
                 }
 
-                CPU_SET(cpu, &c->cpu_affinity);
+                CPU_SET_S(cpu, CPU_ALLOC_SIZE(c->cpuset_ncpus), c->cpuset);
         }
-
-        c->cpu_affinity_set = true;
 
         return 0;
 }
@@ -851,7 +857,7 @@ static int config_parse_bounding_set(
         return 0;
 }
 
-static int config_parse_timer_slack_ns(
+static int config_parse_timer_slack_nsec(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -874,7 +880,7 @@ static int config_parse_timer_slack_ns(
                 return r;
         }
 
-        c->timer_slack_ns = u;
+        c->timer_slack_nsec = u;
 
         return 0;
 }
@@ -1143,6 +1149,93 @@ static int config_parse_path_unit(
         return 0;
 }
 
+static int config_parse_env_file(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        FILE *f;
+        int r;
+        char ***env = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!(f = fopen(rvalue, "re"))) {
+                log_error("[%s:%u] Failed to open environment file '%s': %m", filename, line, rvalue);
+                return -errno;
+        }
+
+        while (!feof(f)) {
+                char l[LINE_MAX], *p;
+                char **t;
+
+                if (!fgets(l, sizeof(l), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        log_error("[%s:%u] Failed to read environment file '%s': %m", filename, line, rvalue);
+                        goto finish;
+                }
+
+                p = strstrip(l);
+
+                if (!*p)
+                        continue;
+
+                if (strchr(COMMENTS, *p))
+                        continue;
+
+                t = strv_env_set(*env, p);
+                strv_free(*env);
+                *env = t;
+        }
+
+        r = 0;
+
+finish:
+        if (f)
+                fclose(f);
+
+        return r;
+}
+
+static int config_parse_ip_tos(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *ip_tos = data, x;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((x = ip_tos_from_string(rvalue)) < 0)
+                if ((r = safe_atoi(rvalue, &x)) < 0) {
+                        log_error("[%s:%u] Failed to parse IP TOS value: %s", filename, line, rvalue);
+                        return r;
+                }
+
+        *ip_tos = x;
+        return 0;
+}
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
@@ -1160,7 +1253,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
          * reached by a symlink. The old string will be freed. */
 
         for (;;) {
-                char *target, *k, *name;
+                char *target, *name;
 
                 if (c++ >= FOLLOW_MAX)
                         return -ELOOP;
@@ -1189,17 +1282,11 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                         return -errno;
 
                 /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                if ((r = readlink_malloc(*filename, &target)) < 0)
+                if ((r = readlink_and_make_absolute(*filename, &target)) < 0)
                         return r;
 
-                k = file_in_same_dir(*filename, target);
-                free(target);
-
-                if (!k)
-                        return -ENOMEM;
-
                 free(*filename);
-                *filename = k;
+                *filename = target;
         }
 
         if (!(f = fdopen(fd, "r"))) {
@@ -1278,6 +1365,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_cpu_sched_prio,   "CPUSCHEDPRIO" },
                 { config_parse_cpu_affinity,     "CPUAFFINITY" },
                 { config_parse_mode,             "MODE" },
+                { config_parse_env_file,         "FILE" },
                 { config_parse_output,           "OUTPUT" },
                 { config_parse_input,            "INPUT" },
                 { config_parse_facility,         "FACILITY" },
@@ -1285,7 +1373,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_capabilities,     "CAPABILITIES" },
                 { config_parse_secure_bits,      "SECUREBITS" },
                 { config_parse_bounding_set,     "BOUNDINGSET" },
-                { config_parse_timer_slack_ns,   "TIMERSLACK" },
+                { config_parse_timer_slack_nsec, "TIMERSLACK" },
                 { config_parse_limit,            "LIMIT" },
                 { config_parse_cgroup,           "CGROUP [...]" },
                 { config_parse_deps,             "UNIT [...]" },
@@ -1301,9 +1389,13 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_usec,             "SECONDS" },
                 { config_parse_path_strv,        "PATH [...]" },
                 { config_parse_mount_flags,      "MOUNTFLAG [...]" },
-                { config_parse_description,      "DESCRIPTION" },
+                { config_parse_string_printf,    "STRING" },
                 { config_parse_timer,            "TIMER" },
                 { config_parse_timer_unit,       "NAME" },
+                { config_parse_path_spec,        "PATH" },
+                { config_parse_path_unit,        "UNIT" },
+                { config_parse_notify_access,    "ACCESS" },
+                { config_parse_ip_tos,           "TOS" },
         };
 
         assert(f);
@@ -1351,8 +1443,8 @@ static int load_from_path(Unit *u, const char *path) {
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
                 { "WorkingDirectory",       config_parse_path,            &(context).working_directory,                    section   }, \
                 { "RootDirectory",          config_parse_path,            &(context).root_directory,                       section   }, \
-                { "User",                   config_parse_string,          &(context).user,                                 section   }, \
-                { "Group",                  config_parse_string,          &(context).group,                                section   }, \
+                { "User",                   config_parse_string_printf,   &(context).user,                                 section   }, \
+                { "Group",                  config_parse_string_printf,   &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
                 { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
@@ -1364,18 +1456,19 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
+                { "EnvironmentFile",        config_parse_env_file,        &(context).environment,                          section   }, \
                 { "StandardInput",          config_parse_input,           &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
                 { "StandardError",          config_parse_output,          &(context).std_error,                            section   }, \
                 { "TTYPath",                config_parse_path,            &(context).tty_path,                             section   }, \
-                { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
+                { "SyslogIdentifier",       config_parse_string_printf,   &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
                 { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }, \
-                { "SyslogNoPrefix",         config_parse_bool,            &(context).syslog_no_prefix,                     section   }, \
+                { "SyslogLevelPrefix",      config_parse_bool,            &(context).syslog_level_prefix,                  section   }, \
                 { "Capabilities",           config_parse_capabilities,    &(context),                                      section   }, \
                 { "SecureBits",             config_parse_secure_bits,     &(context),                                      section   }, \
                 { "CapabilityBoundingSetDrop", config_parse_bounding_set, &(context),                                      section   }, \
-                { "TimerSlackNS",           config_parse_timer_slack_ns,  &(context),                                      section   }, \
+                { "TimerSlackNSec",         config_parse_timer_slack_nsec,&(context),                                      section   }, \
                 { "LimitCPU",               config_parse_limit,           &(context).rlimit[RLIMIT_CPU],                   section   }, \
                 { "LimitFSIZE",             config_parse_limit,           &(context).rlimit[RLIMIT_FSIZE],                 section   }, \
                 { "LimitDATA",              config_parse_limit,           &(context).rlimit[RLIMIT_DATA],                  section   }, \
@@ -1397,11 +1490,13 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ReadOnlyDirectories",    config_parse_path_strv,       &(context).read_only_dirs,                       section   }, \
                 { "InaccessibleDirectories",config_parse_path_strv,       &(context).inaccessible_dirs,                    section   }, \
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
-                { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }
+                { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
+                { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
+                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
-                { "Description",            config_parse_description,     u,                                               "Unit"    },
+                { "Description",            config_parse_string_printf,   &u->meta.description,                            "Unit"    },
                 { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Unit"    },
                 { "RequiresOverridable",    config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES_OVERRIDABLE),          "Unit"    },
                 { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
@@ -1413,6 +1508,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
+                { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1431,7 +1527,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
-                { "BusName",                config_parse_string,          &u->service.bus_name,                            "Service" },
+                { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
+                { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
@@ -1450,6 +1547,16 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
                 { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
+                { "MaxConnections",         config_parse_unsigned,        &u->socket.max_connections,                      "Socket"  },
+                { "KeepAlive",              config_parse_bool,            &u->socket.keep_alive,                           "Socket"  },
+                { "Priority",               config_parse_int,             &u->socket.priority,                             "Socket"  },
+                { "ReceiveBuffer",          config_parse_size,            &u->socket.receive_buffer,                       "Socket"  },
+                { "SendBuffer",             config_parse_size,            &u->socket.send_buffer,                          "Socket"  },
+                { "IPTOS",                  config_parse_ip_tos,          &u->socket.ip_tos,                               "Socket"  },
+                { "IPTTL",                  config_parse_int,             &u->socket.ip_ttl,                               "Socket"  },
+                { "Mark",                   config_parse_int,             &u->socket.mark,                                 "Socket"  },
+                { "PipeSize",               config_parse_size,            &u->socket.pipe_size,                            "Socket"  },
+                { "FreeBind",               config_parse_bool,            &u->socket.free_bind,                            "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },
@@ -1458,18 +1565,20 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Type",                   config_parse_string,          &u->mount.parameters_fragment.fstype,            "Mount"   },
                 { "TimeoutSec",             config_parse_usec,            &u->mount.timeout_usec,                          "Mount"   },
                 { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
+                { "DirectoryMode",          config_parse_mode,            &u->mount.directory_mode,                        "Mount"   },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
                 { "Where",                  config_parse_path,            &u->automount.where,                             "Automount" },
+                { "DirectoryMode",          config_parse_mode,            &u->automount.directory_mode,                    "Automount" },
 
                 { "What",                   config_parse_path,            &u->swap.parameters_fragment.what,               "Swap"    },
                 { "Priority",               config_parse_int,             &u->swap.parameters_fragment.priority,           "Swap"    },
 
-                { "OnActive",               config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnBoot",                 config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnStartup",              config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnUnitActive",           config_parse_timer,           &u->timer,                                       "Timer"   },
-                { "OnUnitInactive",         config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnActiveSec",            config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnBootSec",              config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnStartupSec",           config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitActiveSec",        config_parse_timer,           &u->timer,                                       "Timer"   },
+                { "OnUnitInactiveSec",      config_parse_timer,           &u->timer,                                       "Timer"   },
                 { "Unit",                   config_parse_timer_unit,      &u->timer,                                       "Timer"   },
 
                 { "PathExists",             config_parse_path_spec,       &u->path,                                        "Path"    },
@@ -1477,13 +1586,17 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DirectoryNotEmpty",      config_parse_path_spec,       &u->path,                                        "Path"    },
                 { "Unit",                   config_parse_path_unit,       &u->path,                                        "Path"    },
 
+                /* The [Install] section is ignored here. */
+                { "Alias",                  NULL,                         NULL,                                            "Install" },
+                { "WantedBy",               NULL,                         NULL,                                            "Install" },
+                { "Also",                   NULL,                         NULL,                                            "Install" },
+
                 { NULL, NULL, NULL, NULL }
         };
 
 #undef EXEC_CONTEXT_CONFIG_ITEMS
 
-        const char *sections[3];
-        char *k;
+        const char *sections[4];
         int r;
         Set *symlink_names;
         FILE *f = NULL;
@@ -1501,7 +1614,8 @@ static int load_from_path(Unit *u, const char *path) {
 
         sections[0] = "Unit";
         sections[1] = section_table[u->meta.type];
-        sections[2] = NULL;
+        sections[2] = "Install";
+        sections[3] = NULL;
 
         if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
                 return -ENOMEM;
@@ -1524,7 +1638,7 @@ static int load_from_path(Unit *u, const char *path) {
         } else  {
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->unit_path) {
+                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
 
                         /* Instead of opening the path right away, we manually
                          * follow all symlinks and add their name to our unit
@@ -1570,7 +1684,7 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         /* Now, parse the file contents */
-        if ((r = config_parse(filename, f, sections, items, u)) < 0)
+        if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
                 goto finish;
 
         free(u->meta.fragment_path);
@@ -1581,10 +1695,7 @@ static int load_from_path(Unit *u, const char *path) {
         r = 0;
 
 finish:
-        while ((k = set_steal_first(symlink_names)))
-                free(k);
-
-        set_free(symlink_names);
+        set_free_free(symlink_names);
         free(filename);
 
         if (f)

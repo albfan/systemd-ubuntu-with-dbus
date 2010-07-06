@@ -43,6 +43,10 @@
 #include <sys/poll.h>
 #include <libgen.h>
 #include <ctype.h>
+#include <sys/prctl.h>
+#include <sys/utsname.h>
+#include <pwd.h>
+#include <netinet/ip.h>
 
 #include "macro.h"
 #include "util.h"
@@ -72,7 +76,7 @@ usec_t now(clockid_t clock_id) {
         return timespec_load(&ts);
 }
 
-timestamp* timestamp_get(timestamp *ts) {
+dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
@@ -222,6 +226,13 @@ void close_nointr_nofail(int fd) {
         errno = saved_errno;
 }
 
+void close_many(const int fds[], unsigned n_fd) {
+        unsigned i;
+
+        for (i = 0; i < n_fd; i++)
+                close_nointr_nofail(fds[i]);
+}
+
 int parse_boolean(const char *v) {
         assert(v);
 
@@ -231,6 +242,29 @@ int parse_boolean(const char *v) {
                 return 0;
 
         return -EINVAL;
+}
+
+int parse_pid(const char *s, pid_t* ret_pid) {
+        unsigned long ul;
+        pid_t pid;
+        int r;
+
+        assert(s);
+        assert(ret_pid);
+
+        if ((r = safe_atolu(s, &ul)) < 0)
+                return r;
+
+        pid = (pid_t) ul;
+
+        if ((unsigned long) pid != ul)
+                return -ERANGE;
+
+        if (pid <= 0)
+                return -ERANGE;
+
+        *ret_pid = pid;
+        return 0;
 }
 
 int safe_atou(const char *s, unsigned *ret_u) {
@@ -413,12 +447,12 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         FILE *f;
         char fn[132], line[256], *p;
-        long long unsigned ppid;
+        long unsigned ppid;
 
         assert(pid >= 0);
         assert(_ppid);
 
-        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%llu/stat", (unsigned long long) pid) < (int) (sizeof(fn)-1));
+        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
         fn[sizeof(fn)-1] = 0;
 
         if (!(f = fopen(fn, "r")))
@@ -443,11 +477,11 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 
         if (sscanf(p, " "
                    "%*c "  /* state */
-                   "%llu ", /* ppid */
+                   "%lu ", /* ppid */
                    &ppid) != 1)
                 return -EIO;
 
-        if ((long long unsigned) (pid_t) ppid != ppid)
+        if ((long unsigned) (pid_t) ppid != ppid)
                 return -ERANGE;
 
         *_ppid = (pid_t) ppid;
@@ -519,7 +553,7 @@ int get_process_name(pid_t pid, char **name) {
         assert(pid >= 1);
         assert(name);
 
-        if (asprintf(&p, "/proc/%llu/comm", (unsigned long long) pid) < 0)
+        if (asprintf(&p, "/proc/%lu/comm", (unsigned long) pid) < 0)
                 return -ENOMEM;
 
         r = read_one_line_file(p, name);
@@ -529,6 +563,65 @@ int get_process_name(pid_t pid, char **name) {
                 return r;
 
         truncate_nl(*name);
+        return 0;
+}
+
+int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
+        char *p, *r, *k;
+        int c;
+        bool space = false;
+        size_t left;
+        FILE *f;
+
+        assert(pid >= 1);
+        assert(max_length > 0);
+        assert(line);
+
+        if (asprintf(&p, "/proc/%lu/cmdline", (unsigned long) pid) < 0)
+                return -ENOMEM;
+
+        f = fopen(p, "r");
+        free(p);
+
+        if (!f)
+                return -errno;
+
+        if (!(r = new(char, max_length))) {
+                fclose(f);
+                return -ENOMEM;
+        }
+
+        k = r;
+        left = max_length;
+        while ((c = getc(f)) != EOF) {
+
+                if (isprint(c)) {
+                        if (space) {
+                                if (left <= 4)
+                                        break;
+
+                                *(k++) = ' ';
+                                space = false;
+                        }
+
+                        if (left <= 4)
+                                break;
+
+                        *(k++) = (char) c;
+                }  else
+                        space = true;
+        }
+
+        if (left <= 4) {
+                size_t n = MIN(left-1, 3U);
+                memcpy(k, "...", n);
+                k[n] = 0;
+        } else
+                *k = 0;
+
+        fclose(f);
+
+        *line = r;
         return 0;
 }
 
@@ -580,6 +673,26 @@ int readlink_malloc(const char *p, char **r) {
                 free(c);
                 l *= 2;
         }
+}
+
+int readlink_and_make_absolute(const char *p, char **r) {
+        char *target, *k;
+        int j;
+
+        assert(p);
+        assert(r);
+
+        if ((j = readlink_malloc(p, &target)) < 0)
+                return j;
+
+        k = file_in_same_dir(p, target);
+        free(target);
+
+        if (!k)
+                return -ENOMEM;
+
+        *r = k;
+        return 0;
 }
 
 char *file_name_from_path(const char *p) {
@@ -793,6 +906,28 @@ char *file_in_same_dir(const char *path, const char *filename) {
         return r;
 }
 
+int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        struct stat st;
+
+        if (mkdir(path, mode) >= 0)
+                if (chmod_and_chown(path, mode, uid, gid) < 0)
+                        return -errno;
+
+        if (lstat(path, &st) < 0)
+                return -errno;
+
+        if ((st.st_mode & 0777) != mode ||
+            st.st_uid != uid ||
+            st.st_gid != gid ||
+            !S_ISDIR(st.st_mode)) {
+                errno = EEXIST;
+                return -errno;
+        }
+
+        return 0;
+}
+
+
 int mkdir_parents(const char *path, mode_t mode) {
         const char *p, *e;
 
@@ -839,6 +974,53 @@ int mkdir_p(const char *path, mode_t mode) {
 
         return 0;
 }
+
+int rmdir_parents(const char *path, const char *stop) {
+        size_t l;
+        int r = 0;
+
+        assert(path);
+        assert(stop);
+
+        l = strlen(path);
+
+        /* Skip trailing slashes */
+        while (l > 0 && path[l-1] == '/')
+                l--;
+
+        while (l > 0) {
+                char *t;
+
+                /* Skip last component */
+                while (l > 0 && path[l-1] != '/')
+                        l--;
+
+                /* Skip trailing slashes */
+                while (l > 0 && path[l-1] == '/')
+                        l--;
+
+                if (l <= 0)
+                        break;
+
+                if (!(t = strndup(path, l)))
+                        return -ENOMEM;
+
+                if (path_startswith(stop, t)) {
+                        free(t);
+                        return 0;
+                }
+
+                r = rmdir(t);
+                free(t);
+
+                if (r < 0)
+                        if (errno != ENOENT)
+                                return -errno;
+        }
+
+        return 0;
+}
+
 
 char hexchar(int x) {
         static const char table[16] = "0123456789abcdef";
@@ -1399,7 +1581,7 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         if (t <= 0)
                 return NULL;
 
-        sec = (time_t) t / USEC_PER_SEC;
+        sec = (time_t) (t / USEC_PER_SEC);
 
         if (strftime(buf, l, "%a, %d %b %Y %H:%M:%S %z", localtime_r(&sec, &tm)) <= 0)
                 return NULL;
@@ -1911,7 +2093,7 @@ int close_pipe(int p[]) {
         return a < 0 ? a : b;
 }
 
-ssize_t loop_read(int fd, void *buf, size_t nbytes) {
+ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
         uint8_t *p;
         ssize_t n = 0;
 
@@ -1925,10 +2107,10 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes) {
 
                 if ((k = read(fd, p, nbytes)) <= 0) {
 
-                        if (errno == EINTR)
+                        if (k < 0 && errno == EINTR)
                                 continue;
 
-                        if (errno == EAGAIN) {
+                        if (k < 0 && errno == EAGAIN && do_poll) {
                                 struct pollfd pollfd;
 
                                 zero(pollfd);
@@ -1943,6 +2125,54 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes) {
                                 }
 
                                 if (pollfd.revents != POLLIN)
+                                        return n > 0 ? n : -EIO;
+
+                                continue;
+                        }
+
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                }
+
+                p += k;
+                nbytes -= k;
+                n += k;
+        }
+
+        return n;
+}
+
+ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+        const uint8_t *p;
+        ssize_t n = 0;
+
+        assert(fd >= 0);
+        assert(buf);
+
+        p = buf;
+
+        while (nbytes > 0) {
+                ssize_t k;
+
+                if ((k = write(fd, p, nbytes)) <= 0) {
+
+                        if (k < 0 && errno == EINTR)
+                                continue;
+
+                        if (k < 0 && errno == EAGAIN && do_poll) {
+                                struct pollfd pollfd;
+
+                                zero(pollfd);
+                                pollfd.fd = fd;
+                                pollfd.events = POLLOUT;
+
+                                if (poll(&pollfd, 1, -1) < 0) {
+                                        if (errno == EINTR)
+                                                continue;
+
+                                        return n > 0 ? n : -errno;
+                                }
+
+                                if (pollfd.revents != POLLOUT)
                                         return n > 0 ? n : -EIO;
 
                                 continue;
@@ -2121,6 +2351,280 @@ int dir_is_empty(const char *path) {
         return r;
 }
 
+unsigned long long random_ull(void) {
+        int fd;
+        uint64_t ull;
+        ssize_t r;
+
+        if ((fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY)) < 0)
+                goto fallback;
+
+        r = loop_read(fd, &ull, sizeof(ull), true);
+        close_nointr_nofail(fd);
+
+        if (r != sizeof(ull))
+                goto fallback;
+
+        return ull;
+
+fallback:
+        return random() * RAND_MAX + random();
+}
+
+void rename_process(const char name[8]) {
+        assert(name);
+
+        prctl(PR_SET_NAME, name);
+
+        /* This is a like a poor man's setproctitle(). The string
+         * passed should fit in 7 chars (i.e. the length of
+         * "systemd") */
+
+        if (program_invocation_name)
+                strncpy(program_invocation_name, name, strlen(program_invocation_name));
+}
+
+void sigset_add_many(sigset_t *ss, ...) {
+        va_list ap;
+        int sig;
+
+        assert(ss);
+
+        va_start(ap, ss);
+        while ((sig = va_arg(ap, int)) > 0)
+                assert_se(sigaddset(ss, sig) == 0);
+        va_end(ap);
+}
+
+char* gethostname_malloc(void) {
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        if (u.nodename[0])
+                return strdup(u.nodename);
+
+        return strdup(u.sysname);
+}
+
+int getmachineid_malloc(char **b) {
+        int r;
+
+        assert(b);
+
+        if ((r = read_one_line_file("/var/lib/dbus/machine-id", b)) < 0)
+                return r;
+
+        strstrip(*b);
+        return 0;
+}
+
+char* getlogname_malloc(void) {
+        uid_t uid;
+        long bufsize;
+        char *buf, *name;
+        struct passwd pwbuf, *pw = NULL;
+        struct stat st;
+
+        if (isatty(STDIN_FILENO) && fstat(STDIN_FILENO, &st) >= 0)
+                uid = st.st_uid;
+        else
+                uid = getuid();
+
+        /* Shortcut things to avoid NSS lookups */
+        if (uid == 0)
+                return strdup("root");
+
+        if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) <= 0)
+                bufsize = 4096;
+
+        if (!(buf = malloc(bufsize)))
+                return NULL;
+
+        if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw) {
+                name = strdup(pw->pw_name);
+                free(buf);
+                return name;
+        }
+
+        free(buf);
+
+        if (asprintf(&name, "%lu", (unsigned long) uid) < 0)
+                return NULL;
+
+        return name;
+}
+
+int getttyname_malloc(char **r) {
+        char path[PATH_MAX], *p, *c;
+
+        assert(r);
+
+        if (ttyname_r(STDIN_FILENO, path, sizeof(path)) < 0)
+                return -errno;
+
+        char_array_0(path);
+
+        p = path;
+        if (startswith(path, "/dev/"))
+                p += 5;
+
+        if (!(c = strdup(p)))
+                return -ENOMEM;
+
+        *r = c;
+        return 0;
+}
+
+static int rm_rf_children(int fd, bool only_dirs) {
+        DIR *d;
+        int ret = 0;
+
+        assert(fd >= 0);
+
+        /* This returns the first error we run into, but nevertheless
+         * tries to go on */
+
+        if (!(d = fdopendir(fd))) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        for (;;) {
+                struct dirent buf, *de;
+                bool is_dir;
+                int r;
+
+                if ((r = readdir_r(d, &buf, &de)) != 0) {
+                        if (ret == 0)
+                                ret = -r;
+                        break;
+                }
+
+                if (!de)
+                        break;
+
+                if (streq(de->d_name, ".") || streq(de->d_name, ".."))
+                        continue;
+
+                if (de->d_type == DT_UNKNOWN) {
+                        struct stat st;
+
+                        if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                                continue;
+                        }
+
+                        is_dir = S_ISDIR(st.st_mode);
+                } else
+                        is_dir = de->d_type == DT_DIR;
+
+                if (is_dir) {
+                        int subdir_fd;
+
+                        if ((subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                                continue;
+                        }
+
+                        if ((r = rm_rf_children(subdir_fd, only_dirs)) < 0) {
+                                if (ret == 0)
+                                        ret = r;
+                        }
+
+                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                        }
+                } else  if (!only_dirs) {
+
+                        if (unlinkat(fd, de->d_name, 0) < 0) {
+                                if (ret == 0)
+                                        ret = -errno;
+                        }
+                }
+        }
+
+        closedir(d);
+
+        return ret;
+}
+
+int rm_rf(const char *path, bool only_dirs, bool delete_root) {
+        int fd;
+        int r;
+
+        assert(path);
+
+        if ((fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
+
+                if (errno != ENOTDIR)
+                        return -errno;
+
+                if (delete_root && !only_dirs)
+                        if (unlink(path) < 0)
+                                return -errno;
+
+                return 0;
+        }
+
+        r = rm_rf_children(fd, only_dirs);
+
+        if (delete_root)
+                if (rmdir(path) < 0) {
+                        if (r == 0)
+                                r = -errno;
+                }
+
+        return r;
+}
+
+int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        assert(path);
+
+        /* Under the assumption that we are running privileged we
+         * first change the access mode and only then hand out
+         * ownership to avoid a window where access is too open. */
+
+        if (chmod(path, mode) < 0)
+                return -errno;
+
+        if (chown(path, uid, gid) < 0)
+                return -errno;
+
+        return 0;
+}
+
+cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
+        cpu_set_t *r;
+        unsigned n = 1024;
+
+        /* Allocates the cpuset in the right size */
+
+        for (;;) {
+                if (!(r = CPU_ALLOC(n)))
+                        return NULL;
+
+                if (sched_getaffinity(0, CPU_ALLOC_SIZE(n), r) >= 0) {
+                        CPU_ZERO_S(CPU_ALLOC_SIZE(n), r);
+
+                        if (ncpus)
+                                *ncpus = n;
+
+                        return r;
+                }
+
+                CPU_FREE(r);
+
+                if (errno != EINVAL)
+                        return NULL;
+
+                n *= 2;
+        }
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
@@ -2209,3 +2713,12 @@ static const char* const rlimit_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+static const char* const ip_tos_table[] = {
+        [IPTOS_LOWDELAY] = "low-delay",
+        [IPTOS_THROUGHPUT] = "throughput",
+        [IPTOS_RELIABILITY] = "reliability",
+        [IPTOS_LOWCOST] = "low-cost",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);

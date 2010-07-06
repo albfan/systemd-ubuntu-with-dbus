@@ -25,13 +25,14 @@
 #include "unit-name.h"
 #include "timer.h"
 #include "dbus-timer.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
         [TIMER_DEAD] = UNIT_INACTIVE,
         [TIMER_WAITING] = UNIT_ACTIVE,
         [TIMER_RUNNING] = UNIT_ACTIVE,
         [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_MAINTAINANCE] = UNIT_INACTIVE
+        [TIMER_MAINTENANCE] = UNIT_MAINTENANCE
 };
 
 static void timer_init(Unit *u) {
@@ -60,7 +61,7 @@ static void timer_done(Unit *u) {
 static int timer_verify(Timer *t) {
         assert(t);
 
-        if (UNIT(t)->meta.load_state != UNIT_LOADED)
+        if (t->meta.load_state != UNIT_LOADED)
                 return 0;
 
         if (!t->values) {
@@ -89,6 +90,11 @@ static int timer_load(Unit *u) {
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, t->unit, true)) < 0)
                         return r;
+
+                /* Timers shouldn't stay around on shutdown */
+                if (t->meta.default_dependencies)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                return r;
         }
 
         return timer_verify(t);
@@ -167,7 +173,7 @@ static void timer_enter_dead(Timer *t, bool success) {
         if (!success)
                 t->failure = true;
 
-        timer_set_state(t, t->failure ? TIMER_MAINTAINANCE : TIMER_DEAD);
+        timer_set_state(t, t->failure ? TIMER_MAINTENANCE : TIMER_DEAD);
 }
 
 static void timer_enter_waiting(Timer *t, bool initial) {
@@ -258,7 +264,7 @@ static void timer_enter_running(Timer *t) {
         int r;
         assert(t);
 
-        if ((r = manager_add_job(UNIT(t)->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
@@ -273,7 +279,7 @@ static int timer_start(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(t);
-        assert(t->state == TIMER_DEAD || t->state == TIMER_MAINTAINANCE);
+        assert(t->state == TIMER_DEAD || t->state == TIMER_MAINTENANCE);
 
         if (t->unit->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
@@ -401,7 +407,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 case TIMER_RUNNING:
 
-                        if (new_state == UNIT_INACTIVE) {
+                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(new_state)) {
                                 log_debug("%s got notified about unit deactivation.", t->meta.id);
                                 timer_enter_waiting(t, false);
                         }
@@ -409,7 +415,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                         break;
 
                 case TIMER_DEAD:
-                case TIMER_MAINTAINANCE:
+                case TIMER_MAINTENANCE:
                         ;
 
                 default:
@@ -428,17 +434,17 @@ static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = "waiting",
         [TIMER_RUNNING] = "running",
         [TIMER_ELAPSED] = "elapsed",
-        [TIMER_MAINTAINANCE] = "maintainance"
+        [TIMER_MAINTENANCE] = "maintenance"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
 
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
-        [TIMER_ACTIVE] = "OnActive",
-        [TIMER_BOOT] = "OnBoot",
-        [TIMER_STARTUP] = "OnStartup",
-        [TIMER_UNIT_ACTIVE] = "OnUnitActive",
-        [TIMER_UNIT_INACTIVE] = "OnUnitInactive"
+        [TIMER_ACTIVE] = "OnActiveSec",
+        [TIMER_BOOT] = "OnBootSec",
+        [TIMER_STARTUP] = "OnStartupSec",
+        [TIMER_UNIT_ACTIVE] = "OnUnitActiveSec",
+        [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);

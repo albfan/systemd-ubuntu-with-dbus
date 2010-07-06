@@ -41,7 +41,7 @@ typedef enum ServiceState {
         SERVICE_STOP_POST,
         SERVICE_FINAL_SIGTERM,     /* In case the STOP_POST executable hangs, we shoot that down, too */
         SERVICE_FINAL_SIGKILL,
-        SERVICE_MAINTAINANCE,
+        SERVICE_MAINTENANCE,
         SERVICE_AUTO_RESTART,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1
@@ -60,6 +60,7 @@ typedef enum ServiceType {
         SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
         SERVICE_FINISH,   /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
+        SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
@@ -75,11 +76,21 @@ typedef enum ServiceExecCommand {
         _SERVICE_EXEC_COMMAND_INVALID = -1
 } ServiceExecCommand;
 
+typedef enum NotifyAccess {
+        NOTIFY_NONE,
+        NOTIFY_ALL,
+        NOTIFY_MAIN,
+        _NOTIFY_ACCESS_MAX,
+        _NOTIFY_ACCESS_INVALID = -1
+} NotifyAccess;
+
 struct Service {
         Meta meta;
 
         ServiceType type;
         ServiceRestart restart;
+
+        NotifyAccess notify_access;
 
         /* If set we'll read the main daemon PID from this file */
         char *pid_file;
@@ -121,16 +132,19 @@ struct Service {
 
         char *bus_name;
 
+        char *status_text;
+
         RateLimit ratelimit;
 
         int socket_fd;
+        struct Socket *socket;
 
         Watch timer_watch;
 };
 
 extern const UnitVTable service_vtable;
 
-int service_set_socket_fd(Service *s, int fd);
+int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
 
 const char* service_state_to_string(ServiceState i);
 ServiceState service_state_from_string(const char *s);
@@ -143,5 +157,8 @@ ServiceType service_type_from_string(const char *s);
 
 const char* service_exec_command_to_string(ServiceExecCommand i);
 ServiceExecCommand service_exec_command_from_string(const char *s);
+
+const char* notify_access_to_string(NotifyAccess i);
+NotifyAccess notify_access_from_string(const char *s);
 
 #endif
