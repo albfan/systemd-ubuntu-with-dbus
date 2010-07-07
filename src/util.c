@@ -307,40 +307,6 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atolu(const char *s, long unsigned *ret_lu) {
-        char *x = NULL;
-        unsigned long l;
-
-        assert(s);
-        assert(ret_lu);
-
-        errno = 0;
-        l = strtoul(s, &x, 0);
-
-        if (!x || *x || errno)
-                return errno ? -errno : -EINVAL;
-
-        *ret_lu = l;
-        return 0;
-}
-
-int safe_atoli(const char *s, long int *ret_li) {
-        char *x = NULL;
-        long l;
-
-        assert(s);
-        assert(ret_li);
-
-        errno = 0;
-        l = strtol(s, &x, 0);
-
-        if (!x || *x || errno)
-                return errno ? -errno : -EINVAL;
-
-        *ret_li = l;
-        return 0;
-}
-
 int safe_atollu(const char *s, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;
@@ -601,6 +567,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
                                         break;
 
                                 *(k++) = ' ';
+                                left--;
                                 space = false;
                         }
 
@@ -608,6 +575,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
                                 break;
 
                         *(k++) = (char) c;
+                        left--;
                 }  else
                         space = true;
         }
@@ -2623,6 +2591,77 @@ cpu_set_t* cpu_set_malloc(unsigned *ncpus) {
 
                 n *= 2;
         }
+}
+
+void status_vprintf(const char *format, va_list ap) {
+        char *s = NULL;
+        int fd = -1;
+
+        assert(format);
+
+        /* This independent of logging, as status messages are
+         * optional and go exclusively to the console. */
+
+        if (vasprintf(&s, format, ap) < 0)
+                goto finish;
+
+        if ((fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+                goto finish;
+
+        write(fd, s, strlen(s));
+
+finish:
+        free(s);
+
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+}
+
+void status_printf(const char *format, ...) {
+        va_list ap;
+
+        assert(format);
+
+        va_start(ap, format);
+        status_vprintf(format, ap);
+        va_end(ap);
+}
+
+void status_welcome(void) {
+
+#if defined(TARGET_FEDORA)
+        char *r;
+
+        if (read_one_line_file("/etc/system-release", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        /* This tries to mimic the color magic the old Red Hat sysinit
+         * script did. */
+
+        if (startswith(r, "Red Hat"))
+                status_printf("Welcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
+        else if (startswith(r, "Fedora"))
+                status_printf("Welcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
+        else
+                status_printf("Welcome to %s!\n", r);
+
+        free(r);
+
+#elif defined(TARGET_SUSE)
+        char *r;
+
+        if (read_one_line_file("/etc/SuSE-release", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
+        free(r);
+#else
+#warning "You probably should add a welcome text logic here."
+#endif
 }
 
 static const char *const ioprio_class_table[] = {

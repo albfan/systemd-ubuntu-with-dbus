@@ -170,10 +170,10 @@
                                 specified, this value defaults to a
                                 service that has the same name as the
                                 timer unit, except for the
-                                suffix. (See above.) It is recommended,
+                                suffix. (See above.) It is recommended
                                 that the unit name that is activated
                                 and the unit name of the timer unit
-                                are named identical, except for the
+                                are named identically, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -182,7 +182,7 @@
         <refsect1>
                   <title>See Also</title>
                   <para>
-                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>

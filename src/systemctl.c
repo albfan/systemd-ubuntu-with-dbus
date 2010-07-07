@@ -75,6 +75,8 @@ enum action {
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
 
+static bool private_bus = false;
+
 static bool error_is_no_service(DBusError *error) {
 
         assert(error);
@@ -237,6 +239,9 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
                         int a = 0, b = 0;
 
+                        if (streq(active_state, "maintenance"))
+                                fputs(ANSI_HIGHLIGHT_ON, stdout);
+
                         printf("%-45s %-6s %-12s %-12s%n", id, load_state, active_state, sub_state, &a);
 
                         if (job_id != 0)
@@ -248,8 +253,11 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                                 if (job_id == 0)
                                         printf("                ");
 
-                                printf("%.*s", columns() - a - b - 2, description);
+                                printf(" %.*s", columns() - a - b - 2, description);
                         }
+
+                        if (streq(active_state, "maintenance"))
+                                fputs(ANSI_HIGHLIGHT_OFF, stdout);
 
                         fputs("\n", stdout);
                         k++;
@@ -521,10 +529,10 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
 
         dbus_error_init(&error);
 
-        /* log_debug("Got D-Bus request: %s.%s() on %s", */
-        /*           dbus_message_get_interface(message), */
-        /*           dbus_message_get_member(message), */
-        /*           dbus_message_get_path(message)); */
+        log_debug("Got D-Bus request: %s.%s() on %s",
+                  dbus_message_get_interface(message),
+                  dbus_message_get_member(message),
+                  dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! D-Bus connection terminated.");
@@ -560,6 +568,9 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
         DBusError error;
 
         assert(bus);
+
+        if (private_bus)
+                return 0;
 
         dbus_error_init(&error);
         dbus_bus_add_match(bus,
@@ -856,6 +867,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                         if (!arg_quiet)
                                 puts("unknown");
 
+                        dbus_error_free(&error);
                         continue;
                 }
 
@@ -951,8 +963,6 @@ static void show_cgroup(const char *name) {
         if (!f)
                 return;
 
-        printf("\t\t  \342\224\202\n");
-
         while (!feof(f)) {
                 unsigned long ul;
 
@@ -967,7 +977,8 @@ static void show_cgroup(const char *name) {
                         get_process_cmdline(last, 60, &t);
                         printf("\t\t  \342\224\234 %lu %s\n", (unsigned long) last, strna(t));
                         free(t);
-                }
+                } else
+                        printf("\t\t  \342\224\202\n");
 
                 last = (pid_t) ul;
         }
@@ -1618,6 +1629,42 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 goto finish;
                         }
 
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+
+                                if (!dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
+                                        log_error("Failed to issue method call: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+
+                                dbus_error_free(&error);
+
+                                dbus_message_unref(m);
+                                if (!(m = dbus_message_new_method_call(
+                                                      "org.freedesktop.systemd1",
+                                                      "/org/freedesktop/systemd1",
+                                                      "org.freedesktop.systemd1.Manager",
+                                                      "GetUnit"))) {
+                                        log_error("Could not allocate message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!dbus_message_append_args(m,
+                                                              DBUS_TYPE_STRING, &args[i],
+                                                              DBUS_TYPE_INVALID)) {
+                                        log_error("Could not append arguments to message.");
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                        log_error("Failed to issue method call: %s", error.message);
+                                        r = -EIO;
+                                        goto finish;
+                                }
+                        }
+
                 } else {
 
                         if (!(m = dbus_message_new_method_call(
@@ -1637,12 +1684,12 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
-                }
 
-                if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
-                        r = -EIO;
-                        goto finish;
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                log_error("Failed to issue method call: %s", error.message);
+                                r = -EIO;
+                                goto finish;
+                        }
                 }
 
                 if (!dbus_message_get_args(reply, &error,
@@ -1684,10 +1731,10 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
 
         dbus_error_init(&error);
 
-        /* log_debug("Got D-Bus request: %s.%s() on %s", */
-        /*           dbus_message_get_interface(message), */
-        /*           dbus_message_get_member(message), */
-        /*           dbus_message_get_path(message)); */
+        log_debug("Got D-Bus request: %s.%s() on %s",
+                  dbus_message_get_interface(message),
+                  dbus_message_get_member(message),
+                  dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! D-Bus connection terminated.");
@@ -1813,43 +1860,45 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Manager',"
-                           "path='/org/freedesktop/systemd1'",
-                           &error);
+        if (!private_bus) {
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Manager',"
+                                   "path='/org/freedesktop/systemd1'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Unit',"
-                           "member='Changed'",
-                           &error);
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Unit',"
+                                   "member='Changed'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
-        }
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
 
-        dbus_bus_add_match(bus,
-                           "type='signal',"
-                           "sender='org.freedesktop.systemd1',"
-                           "interface='org.freedesktop.systemd1.Job',"
-                           "member='Changed'",
-                           &error);
+                dbus_bus_add_match(bus,
+                                   "type='signal',"
+                                   "sender='org.freedesktop.systemd1',"
+                                   "interface='org.freedesktop.systemd1.Job',"
+                                   "member='Changed'",
+                                   &error);
 
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
-                r = -EIO;
-                goto finish;
+                if (dbus_error_is_set(&error)) {
+                        log_error("Failed to add match: %s", error.message);
+                        r = -EIO;
+                        goto finish;
+                }
         }
 
         if (!dbus_connection_add_filter(bus, monitor_filter, NULL, NULL)) {
@@ -3250,7 +3299,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &error);
+        bus_connect(arg_session ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
 
         switch (arg_action) {
 
