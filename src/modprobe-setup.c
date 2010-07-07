@@ -1,8 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#ifndef foodbuscommonhfoo
-#define foodbuscommonhfoo
-
 /***
   This file is part of systemd.
 
@@ -22,10 +19,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include "modprobe-setup.h"
 
-int bus_check_peercred(DBusConnection *c);
+#include "util.h"
 
-int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private_bus, DBusError *error);
+int modprobe_setup(bool nomodules) {
+        int r;
 
-#endif
+        if (!nomodules)
+                return 0;
+
+        if ((r = write_one_line_file("/proc/sys/kernel/modprobe", "/bin/true")) < 0)
+                log_error("Failed to write /proc/sys/kernel/modprobe: %m");
+
+        return r;
+}

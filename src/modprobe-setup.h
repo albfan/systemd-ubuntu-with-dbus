@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#ifndef foodbuscommonhfoo
-#define foodbuscommonhfoo
+#ifndef foomodprobesetuphfoo
+#define foomodprobesetuphfoo
 
 /***
   This file is part of systemd.
@@ -22,10 +22,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include <stdbool.h>
 
-int bus_check_peercred(DBusConnection *c);
-
-int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private_bus, DBusError *error);
+int modprobe_setup(bool arg_nomodules);
 
 #endif

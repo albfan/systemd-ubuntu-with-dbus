@@ -738,7 +738,7 @@ fail:
         u->meta.load_state = UNIT_FAILED;
         unit_add_to_dbus_queue(u);
 
-        log_debug("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
+        log_notice("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }
@@ -776,6 +776,9 @@ int unit_start(Unit *u) {
          * before it will start again. */
 
         unit_add_to_dbus_queue(u);
+
+        unit_status_printf(u, "Starting %s...\n", unit_description(u));
+
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -803,6 +806,9 @@ int unit_stop(Unit *u) {
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
+
+        unit_status_printf(u, "Stopping %s...\n", unit_description(u));
+
         return UNIT_VTABLE(u)->stop(u);
 }
 
@@ -872,7 +878,7 @@ static void unit_check_uneeded(Unit *u) {
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         return;
 
-        log_debug("Service %s is not needed anymore. Stopping.", u->meta.id);
+        log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
         manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
@@ -939,7 +945,6 @@ static void retroactively_stop_dependencies(Unit *u) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
-        bool unexpected = false;
         dual_timestamp ts;
 
         assert(u);
@@ -969,6 +974,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         path_unit_notify(u, ns);
 
         if (u->meta.job) {
+                bool unexpected = false;
 
                 if (u->meta.job->state == JOB_WAITING)
 
@@ -1014,10 +1020,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 case JOB_RESTART:
                 case JOB_TRY_RESTART:
 
-                        if (ns == UNIT_INACTIVE)
+                        if (ns == UNIT_INACTIVE || ns == UNIT_MAINTENANCE)
                                 job_finish_and_invalidate(u->meta.job, true);
-                        else if (ns == UNIT_MAINTENANCE)
-                                job_finish_and_invalidate(u->meta.job, false);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
                                 job_finish_and_invalidate(u->meta.job, false);
@@ -1028,16 +1032,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 default:
                         assert_not_reached("Job type unknown");
                 }
-        }
 
-        /* If this state change happened without being requested by a
-         * job, then let's retroactively start or stop dependencies */
+                /* If this state change happened without being
+                 * requested by a job, then let's retroactively start
+                 * or stop dependencies */
 
-        if (unexpected) {
-                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
-                        retroactively_start_dependencies(u);
-                else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
-                        retroactively_stop_dependencies(u);
+                if (unexpected) {
+                        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                                retroactively_start_dependencies(u);
+                        else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                                retroactively_stop_dependencies(u);
+                }
         }
 
         /* Some names are special */
@@ -1995,6 +2000,29 @@ int unit_coldplug(Unit *u) {
         }
 
         return 0;
+}
+
+void unit_status_printf(Unit *u, const char *format, ...) {
+        va_list ap;
+
+        assert(u);
+        assert(format);
+
+        if (!UNIT_VTABLE(u)->show_status)
+                return;
+
+        if (u->meta.manager->running_as != MANAGER_SYSTEM)
+                return;
+
+        if (!u->meta.manager->show_status)
+                return;
+
+        if (!manager_is_booting_or_shutting_down(u->meta.manager))
+                return;
+
+        va_start(ap, format);
+        status_vprintf(format, ap);
+        va_end(ap);
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

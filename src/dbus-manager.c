@@ -115,6 +115,7 @@
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
@@ -222,6 +223,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
+                { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
                 { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
                 { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
@@ -639,6 +641,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!(m->queued_message = dbus_message_new_method_return(message)))
                         goto oom;
 
+                m->queued_message_connection = connection;
                 m->exit_code = MANAGER_RELOAD;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
@@ -750,7 +753,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
                         goto oom;
-
         }
 
         free(path);
