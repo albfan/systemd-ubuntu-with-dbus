@@ -1,0 +1,7 @@
+/bin/systemd /sbin/init
+/bin/systemctl /sbin/telinit
+/bin/systemctl /sbin/runlevel
+/bin/systemctl /sbin/shutdown
+/bin/systemctl /sbin/poweroff
+/bin/systemctl /sbin/reboot
+/bin/systemctl /sbin/halt

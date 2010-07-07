@@ -18,3 +18,22 @@ Description: system and session manager
  It also provides process supervision using cgroups and the ability to
  not only depend on other init script being started, but also
  availability of a given mount point or dbus service.
+
+Package: systemd-sysv
+Architecture: linux-any
+Section: admin
+Priority: extra
+Conflicts: sysvinit
+Replaces: sysvinit
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: system and session manager - SysV links
+ systemd is a replacement for sysvinit.  It is dependency-based and
+ able to read the LSB init script headers in addition to parsing rcN.d
+ links as hints.
+ .
+ It also provides process supervision using cgroups and the ability to
+ not only depend on other init script being started, but also
+ availability of a given mount point or dbus service.
+ .
+ This package provides the manual pages and links needed for systemd
+ to replace sysvinit.
