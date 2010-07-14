@@ -35,6 +35,8 @@
 #include "load-dropin.h"
 #include "unit-name.h"
 #include "dbus-automount.h"
+#include "bus-errors.h"
+#include "special.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -144,6 +146,23 @@ static int automount_add_mount_links(Automount *a) {
         return 0;
 }
 
+static int automount_add_default_dependencies(Automount *a) {
+        int r;
+
+        assert(a);
+
+        if (a->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+                if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int automount_verify(Automount *a) {
         bool b;
         char *e;
@@ -151,6 +170,11 @@ static int automount_verify(Automount *a) {
 
         if (a->meta.load_state != UNIT_LOADED)
                 return 0;
+
+        if (path_equal(a->where, "/")) {
+                log_error("Cannot have an automount unit for the root directory. Refusing.");
+                return -EINVAL;
+        }
 
         if (!(e = unit_name_from_path(a->where, ".automount")))
                 return -ENOMEM;
@@ -193,6 +217,10 @@ static int automount_load(Unit *u) {
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount), true)) < 0)
                         return r;
+
+                if (a->meta.default_dependencies)
+                        if ((r = automount_add_default_dependencies(a)) < 0)
+                                return r;
         }
 
         return automount_verify(a);
@@ -533,9 +561,19 @@ fail:
 static void automount_enter_runnning(Automount *a) {
         int r;
         struct stat st;
+        DBusError error;
 
         assert(a);
         assert(a->mount);
+
+        dbus_error_init(&error);
+
+        /* We don't take mount requests anymore if we are supposed to
+         * shut down anyway */
+        if (a->meta.job && a->meta.job->type == JOB_STOP) {
+                automount_send_ready(a, -EHOSTDOWN);
+                return;
+        }
 
         mkdir_p(a->where, a->directory_mode);
 
@@ -547,8 +585,8 @@ static void automount_enter_runnning(Automount *a) {
 
         if (!S_ISDIR(st.st_mode) || st.st_dev != a->dev_id)
                 log_info("%s's automount point already active?", a->meta.id);
-        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, NULL)) < 0) {
-                log_warning("%s failed to queue mount startup job: %s", a->meta.id, strerror(-r));
+        else if ((r = manager_add_job(a->meta.manager, JOB_START, UNIT(a->mount), JOB_REPLACE, true, &error, NULL)) < 0) {
+                log_warning("%s failed to queue mount startup job: %s", a->meta.id, bus_error(&error, r));
                 goto fail;
         }
 
@@ -557,6 +595,7 @@ static void automount_enter_runnning(Automount *a) {
 
 fail:
         automount_enter_dead(a, false);
+        dbus_error_free(&error);
 }
 
 static int automount_start(Unit *u) {

@@ -29,6 +29,7 @@
  * it to bring all services down that want to be brought down on
  * system shutdown. */
 #define SPECIAL_SHUTDOWN_TARGET "shutdown.target"
+#define SPECIAL_UMOUNT_TARGET "umount.target"
 
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
 
@@ -52,14 +53,11 @@
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 #define SPECIAL_EXIT_SERVICE "exit.service"
-#define SPECIAL_EMERGENCY_SERVICE "emergency.service"
+#define SPECIAL_EMERGENCY_TARGET "emergency.target"
 #define SPECIAL_HALT_TARGET "halt.target"
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"
-
-#ifndef SPECIAL_DBUS_SERVICE
 #define SPECIAL_DBUS_SERVICE "dbus.service"
-#endif
 
 #ifndef SPECIAL_SYSLOG_SERVICE
 #define SPECIAL_SYSLOG_SERVICE "syslog.service"

@@ -23,20 +23,37 @@
 ***/
 
 #include <sys/types.h>
+#include <stdio.h>
+#include <dirent.h>
 
-int cg_translate_error(int error, int _errno);
+#include "set.h"
+
+#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+
+int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
+int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
+int cg_read_pid(FILE *f, pid_t *_pid);
+
+int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
+int cg_read_subgroup(DIR *d, char **fn);
 
 int cg_kill(const char *controller, const char *path, int sig, bool ignore_self);
-int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self);
-int cg_kill_recursive_and_wait(const char *controller, const char *path);
+int cg_kill_recursive(const char *controller, const char *path, int sig, bool ignore_self, bool remove);
+int cg_kill_recursive_and_wait(const char *controller, const char *path, bool remove);
 
 int cg_migrate(const char *controller, const char *from, const char *to, bool ignore_self);
-int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self);
+int cg_migrate_recursive(const char *controller, const char *from, const char *to, bool ignore_self, bool remove);
+
+int cg_split_spec(const char *spec, char **controller, char **path);
+int cg_join_spec(const char *controller, const char *path, char **spec);
+int cg_fix_path(const char *path, char **result);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
 int cg_get_by_pid(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);
+
+int cg_rmdir(const char *controller, const char *path);
 int cg_delete(const char *controller, const char *path);
 
 int cg_create(const char *controller, const char *path);

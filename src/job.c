@@ -461,7 +461,6 @@ int job_finish_and_invalidate(Job *j, bool success) {
         assert(j);
         assert(j->installed);
 
-        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
@@ -471,12 +470,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                           j->unit->meta.id, job_type_to_string(j->type),
                           j->unit->meta.id, job_type_to_string(JOB_START));
 
-                j->state = JOB_RUNNING;
+                j->state = JOB_WAITING;
                 j->type = JOB_START;
 
                 job_add_to_run_queue(j);
                 return 0;
         }
+
+        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
 
         j->failed = !success;
         u = j->unit;
@@ -494,14 +495,16 @@ int job_finish_and_invalidate(Job *j, bool success) {
                     t == JOB_RELOAD_OR_START) {
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if (other->meta.job &&
+                                if (!other->meta.ignore_dependency_failure &&
+                                    other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                                if (other->meta.job &&
+                                if (!other->meta.ignore_dependency_failure &&
+                                    other->meta.job &&
                                     !other->meta.job->override &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
@@ -511,7 +514,8 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 } else if (t == JOB_STOP) {
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
-                                if (other->meta.job &&
+                                if (!other->meta.ignore_dependency_failure &&
+                                    other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))

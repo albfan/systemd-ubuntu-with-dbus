@@ -47,6 +47,7 @@
 #include <sys/utsname.h>
 #include <pwd.h>
 #include <netinet/ip.h>
+#include <linux/kd.h>
 
 #include "macro.h"
 #include "util.h"
@@ -360,7 +361,8 @@ char *split(const char *c, size_t *l, const char *separator, char **state) {
 /* Split a string into words, but consider strings enclosed in '' and
  * "" as words even if they include spaces. */
 char *split_quoted(const char *c, size_t *l, char **state) {
-        char *current;
+        char *current, *e;
+        bool escaped = false;
 
         current = *state ? *state : (char*) c;
 
@@ -371,25 +373,44 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 
         if (*current == '\'') {
                 current ++;
-                *l = strcspn(current, "'");
-                *state = current+*l;
 
-                if (**state == '\'')
-                        (*state)++;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (*e == '\'')
+                                break;
+                }
+
+                *l = e-current;
+                *state = *e == 0 ? e : e+1;
         } else if (*current == '\"') {
                 current ++;
-                *l = strcspn(current, "\"");
-                *state = current+*l;
 
-                if (**state == '\"')
-                        (*state)++;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (*e == '\"')
+                                break;
+                }
+
+                *l = e-current;
+                *state = *e == 0 ? e : e+1;
         } else {
-                *l = strcspn(current, WHITESPACE);
-                *state = current+*l;
+                for (e = current; *e; e++) {
+                        if (escaped)
+                                escaped = false;
+                        else if (*e == '\\')
+                                escaped = true;
+                        else if (strchr(WHITESPACE, *e))
+                                break;
+                }
+                *l = e-current;
+                *state = e;
         }
-
-        /* FIXME: Cannot deal with strings that have spaces AND ticks
-         * in them */
 
         return (char*) current;
 }
@@ -589,19 +610,44 @@ int get_process_cmdline(pid_t pid, size_t max_length, char **line) {
 
         fclose(f);
 
+        /* Kernel threads have no argv[] */
+        if (r[0] == 0) {
+                char *t;
+                int h;
+
+                free(r);
+
+                if ((h = get_process_name(pid, &t)) < 0)
+                        return h;
+
+                h = asprintf(&r, "[%s]", t);
+                free(t);
+
+                if (h < 0)
+                        return -ENOMEM;
+        }
+
         *line = r;
         return 0;
 }
 
-char *strappend(const char *s, const char *suffix) {
-        size_t a, b;
+char *strnappend(const char *s, const char *suffix, size_t b) {
+        size_t a;
         char *r;
+
+        if (!s && !suffix)
+                return strdup("");
+
+        if (!s)
+                return strndup(suffix, b);
+
+        if (!suffix)
+                return strdup(s);
 
         assert(s);
         assert(suffix);
 
         a = strlen(s);
-        b = strlen(suffix);
 
         if (!(r = new(char, a+b+1)))
                 return NULL;
@@ -611,6 +657,10 @@ char *strappend(const char *s, const char *suffix) {
         r[a+b] = 0;
 
         return r;
+}
+
+char *strappend(const char *s, const char *suffix) {
+        return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
 int readlink_malloc(const char *p, char **r) {
@@ -662,6 +712,48 @@ int readlink_and_make_absolute(const char *p, char **r) {
         *r = k;
         return 0;
 }
+
+int parent_of_path(const char *path, char **_r) {
+        const char *e, *a = NULL, *b = NULL, *p;
+        char *r;
+        bool slash = false;
+
+        assert(path);
+        assert(_r);
+
+        if (!*path)
+                return -EINVAL;
+
+        for (e = path; *e; e++) {
+
+                if (!slash && *e == '/') {
+                        a = b;
+                        b = e;
+                        slash = true;
+                } else if (slash && *e != '/')
+                        slash = false;
+        }
+
+        if (*(e-1) == '/')
+                p = a;
+        else
+                p = b;
+
+        if (!p)
+                return -EINVAL;
+
+        if (p == path)
+                r = strdup("/");
+        else
+                r = strndup(path, p-path);
+
+        if (!r)
+                return -ENOMEM;
+
+        *_r = r;
+        return 0;
+}
+
 
 char *file_name_from_path(const char *p) {
         char *r;
@@ -921,7 +1013,6 @@ int mkdir_parents(const char *path, mode_t mode) {
                         return -ENOMEM;
 
                 r = mkdir(t, mode);
-
                 free(t);
 
                 if (r < 0 && errno != EEXIST)
@@ -937,7 +1028,7 @@ int mkdir_p(const char *path, mode_t mode) {
         if ((r = mkdir_parents(path, mode)) < 0)
                 return r;
 
-        if (mkdir(path, mode) < 0)
+        if (mkdir(path, mode) < 0 && errno != EEXIST)
                 return -errno;
 
         return 0;
@@ -1109,7 +1200,7 @@ char *cescape(const char *s) {
         return r;
 }
 
-char *cunescape(const char *s) {
+char *cunescape_length(const char *s, size_t length) {
         char *r, *t;
         const char *f;
 
@@ -1117,10 +1208,10 @@ char *cunescape(const char *s) {
 
         /* Undoes C style string escaping */
 
-        if (!(r = new(char, strlen(s)+1)))
+        if (!(r = new(char, length+1)))
                 return r;
 
-        for (f = s, t = r; *f; f++) {
+        for (f = s, t = r; f < s + length; f++) {
 
                 if (*f != '\\') {
                         *(t++) = *f;
@@ -1160,6 +1251,11 @@ char *cunescape(const char *s) {
                         break;
                 case '\'':
                         *(t++) = '\'';
+                        break;
+
+                case 's':
+                        /* This is an extension of the XDG syntax files */
+                        *(t++) = ' ';
                         break;
 
                 case 'x': {
@@ -1212,7 +1308,7 @@ char *cunescape(const char *s) {
                 default:
                         /* Invalid escape code, let's take it literal then */
                         *(t++) = '\\';
-                        *(t++) = 'f';
+                        *(t++) = *f;
                         break;
                 }
         }
@@ -1222,6 +1318,9 @@ finish:
         return r;
 }
 
+char *cunescape(const char *s) {
+        return cunescape_length(s, strlen(s));
+}
 
 char *xescape(const char *s, const char *bad) {
         char *r, *t;
@@ -1746,10 +1845,22 @@ int ask(char *ret, const char *replies, const char *text, ...) {
 int reset_terminal(int fd) {
         struct termios termios;
         int r = 0;
+        long arg;
+
+        /* Set terminal to some sane defaults */
 
         assert(fd >= 0);
 
-        /* Set terminal to some sane defaults */
+        /* First, unlock termios */
+        zero(termios);
+        ioctl(fd, TIOCSLCKTRMIOS, &termios);
+
+        /* Disable exclusive mode, just in case */
+        ioctl(fd, TIOCNXCL);
+
+        /* Enable console unicode mode */
+        arg = K_UNICODE;
+        ioctl(fd, KDSKBMODE, &arg);
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
@@ -1932,7 +2043,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                         }
 
                         if (e.wd != wd || !(e.mask & IN_CLOSE)) {
-                                r = -errno;
+                                r = -EIO;
                                 goto fail;
                         }
 
@@ -2159,25 +2270,24 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 
 int path_is_mount_point(const char *t) {
         struct stat a, b;
-        char *copy;
+        char *parent;
+        int r;
 
         if (lstat(t, &a) < 0) {
-
                 if (errno == ENOENT)
                         return 0;
 
                 return -errno;
         }
 
-        if (!(copy = strdup(t)))
-                return -ENOMEM;
+        if ((r = parent_of_path(t, &parent)) < 0)
+                return r;
 
-        if (lstat(dirname(copy), &b) < 0) {
-                free(copy);
+        r = lstat(parent, &b);
+        free(parent);
+
+        if (r < 0)
                 return -errno;
-        }
-
-        free(copy);
 
         return a.st_dev != b.st_dev;
 }
@@ -2455,7 +2565,8 @@ static int rm_rf_children(int fd, bool only_dirs) {
 
         if (!(d = fdopendir(fd))) {
                 close_nointr_nofail(fd);
-                return -errno;
+
+                return errno == ENOENT ? 0 : -errno;
         }
 
         for (;;) {
@@ -2479,7 +2590,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         struct stat st;
 
                         if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
@@ -2492,7 +2603,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         int subdir_fd;
 
                         if ((subdir_fd = openat(fd, de->d_name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC)) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
@@ -2503,13 +2614,13 @@ static int rm_rf_children(int fd, bool only_dirs) {
                         }
 
                         if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                         }
                 } else  if (!only_dirs) {
 
                         if (unlinkat(fd, de->d_name, 0) < 0) {
-                                if (ret == 0)
+                                if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                         }
                 }
@@ -2664,6 +2775,143 @@ void status_welcome(void) {
 #endif
 }
 
+char *replace_env(const char *format, char **env) {
+        enum {
+                WORD,
+                DOLLAR,
+                VARIABLE
+        } state = WORD;
+
+        const char *e, *word = format;
+        char *r = NULL, *k;
+
+        assert(format);
+
+        for (e = format; *e; e ++) {
+
+                switch (state) {
+
+                case WORD:
+                        if (*e == '$')
+                                state = DOLLAR;
+                        break;
+
+                case DOLLAR:
+                        if (*e == '(') {
+                                if (!(k = strnappend(r, word, e-word-1)))
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e-1;
+                                state = VARIABLE;
+
+                        } else if (*e == '$') {
+                                if (!(k = strnappend(r, word, e-word)))
+                                        goto fail;
+
+                                free(r);
+                                r = k;
+
+                                word = e+1;
+                                state = WORD;
+                        } else
+                                state = WORD;
+                        break;
+
+                case VARIABLE:
+                        if (*e == ')') {
+                                char *t;
+
+                                if ((t = strv_env_get_with_length(env, word+2, e-word-2))) {
+                                        if (!(k = strappend(r, t)))
+                                                goto fail;
+
+                                        free(r);
+                                        r = k;
+
+                                        word = e+1;
+                                }
+
+                                state = WORD;
+                        }
+                        break;
+                }
+        }
+
+        if (!(k = strnappend(r, word, e-word)))
+                goto fail;
+
+        free(r);
+        return k;
+
+fail:
+        free(r);
+        return NULL;
+}
+
+char **replace_env_argv(char **argv, char **env) {
+        char **r, **i;
+        unsigned k = 0;
+
+        if (!(r = new(char*, strv_length(argv)+1)))
+                return NULL;
+
+        STRV_FOREACH(i, argv) {
+                if (!(r[k++] = replace_env(*i, env))) {
+                        strv_free(r);
+                        return NULL;
+                }
+        }
+
+        r[k] = NULL;
+        return r;
+}
+
+int columns(void) {
+        static __thread int parsed_columns = 0;
+        const char *e;
+
+        if (parsed_columns > 0)
+                return parsed_columns;
+
+        if ((e = getenv("COLUMNS")))
+                parsed_columns = atoi(e);
+
+        if (parsed_columns <= 0) {
+                struct winsize ws;
+                zero(ws);
+
+                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+                        parsed_columns = ws.ws_col;
+        }
+
+        if (parsed_columns <= 0)
+                parsed_columns = 80;
+
+        return parsed_columns;
+}
+
+int running_in_chroot(void) {
+        struct stat a, b;
+
+        zero(a);
+        zero(b);
+
+        /* Only works as root */
+
+        if (stat("/proc/1/root", &a) < 0)
+                return -errno;
+
+        if (stat("/", &b) < 0)
+                return -errno;
+
+        return
+                a.st_dev != b.st_dev ||
+                a.st_ino != b.st_ino;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
@@ -2761,3 +3009,39 @@ static const char* const ip_tos_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
+
+static const char *const signal_table[] = {
+        [SIGHUP] = "HUP",
+        [SIGINT] = "INT",
+        [SIGQUIT] = "QUIT",
+        [SIGILL] = "ILL",
+        [SIGTRAP] = "TRAP",
+        [SIGABRT] = "ABRT",
+        [SIGBUS] = "BUS",
+        [SIGFPE] = "FPE",
+        [SIGKILL] = "KILL",
+        [SIGUSR1] = "USR1",
+        [SIGSEGV] = "SEGV",
+        [SIGUSR2] = "USR2",
+        [SIGPIPE] = "PIPE",
+        [SIGALRM] = "ALRM",
+        [SIGTERM] = "TERM",
+        [SIGSTKFLT] = "STKFLT",
+        [SIGCHLD] = "CHLD",
+        [SIGCONT] = "CONT",
+        [SIGSTOP] = "STOP",
+        [SIGTSTP] = "TSTP",
+        [SIGTTIN] = "TTIN",
+        [SIGTTOU] = "TTOU",
+        [SIGURG] = "URG",
+        [SIGXCPU] = "XCPU",
+        [SIGXFSZ] = "XFSZ",
+        [SIGVTALRM] = "VTALRM",
+        [SIGPROF] = "PROF",
+        [SIGWINCH] = "WINCH",
+        [SIGIO] = "IO",
+        [SIGPWR] = "PWR",
+        [SIGSYS] = "SYS"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(signal, int);

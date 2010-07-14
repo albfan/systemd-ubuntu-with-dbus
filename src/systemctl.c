@@ -42,11 +42,14 @@
 #include "initreq.h"
 #include "strv.h"
 #include "dbus-common.h"
+#include "cgroup-show.h"
+#include "cgroup-util.h"
+#include "list.h"
 
 static const char *arg_type = NULL;
 static const char *arg_property = NULL;
 static bool arg_all = false;
-static bool arg_replace = false;
+static bool arg_fail = false;
 static bool arg_session = false;
 static bool arg_no_block = false;
 static bool arg_immediate = false;
@@ -107,31 +110,6 @@ static int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *da
                 return -EIO;
 
         return 0;
-}
-
-static int columns(void) {
-        static int parsed_columns = 0;
-        const char *e;
-
-        if (parsed_columns > 0)
-                return parsed_columns;
-
-        if ((e = getenv("COLUMNS")))
-                parsed_columns = atoi(e);
-
-        if (parsed_columns <= 0) {
-                struct winsize ws;
-                zero(ws);
-
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
-                        parsed_columns = ws.ws_col;
-        }
-
-        if (parsed_columns <= 0)
-                parsed_columns = 80;
-
-        return parsed_columns;
-
 }
 
 static void warn_wall(enum action action) {
@@ -742,7 +720,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 [ACTION_RUNLEVEL4] = SPECIAL_RUNLEVEL4_TARGET,
                 [ACTION_RUNLEVEL5] = SPECIAL_RUNLEVEL5_TARGET,
                 [ACTION_RESCUE] = SPECIAL_RESCUE_TARGET,
-                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_SERVICE,
+                [ACTION_EMERGENCY] = SPECIAL_EMERGENCY_TARGET,
                 [ACTION_DEFAULT] = SPECIAL_DEFAULT_TARGET
         };
 
@@ -755,17 +733,20 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
-                        streq(args[0], "stop")    ? "StopUnit" :
-                        streq(args[0], "reload")  ? "ReloadUnit" :
-                        streq(args[0], "restart") ? "RestartUnit" :
-                                                    "StartUnit";
+                        streq(args[0], "stop")                  ? "StopUnit" :
+                        streq(args[0], "reload")                ? "ReloadUnit" :
+                        streq(args[0], "restart")               ? "RestartUnit" :
+                        streq(args[0], "try-restart")           ? "TryRestartUnit" :
+                        streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
+                        streq(args[0], "reload-or-try-restart") ? "ReloadOrTryRestartUnit" :
+                                                                  "StartUnit";
 
                 mode =
                         (streq(args[0], "isolate") ||
                          streq(args[0], "rescue")  ||
                          streq(args[0], "emergency")) ? "isolate" :
-                                          arg_replace ? "replace" :
-                                                        "fail";
+                                             arg_fail ? "fail" :
+                                                        "replace";
 
                 one_name = table[verb_to_action(args[0])];
 
@@ -816,12 +797,17 @@ finish:
 }
 
 static int start_special(DBusConnection *bus, char **args, unsigned n) {
+        int r;
+
         assert(bus);
         assert(args);
 
-        warn_wall(verb_to_action(args[0]));
+        r = start_unit(bus, args, n);
 
-        return start_unit(bus, args, n);
+        if (r >= 0)
+                warn_wall(verb_to_action(args[0]));
+
+        return r;
 }
 
 static int check_unit(DBusConnection *bus, char **args, unsigned n) {
@@ -946,51 +932,98 @@ finish:
         return r;
 }
 
-static void show_cgroup(const char *name) {
-        char *fn;
-        FILE *f;
-        pid_t last = 0;
+typedef struct ExecStatusInfo {
+        char *path;
+        char **argv;
 
-        if (!startswith(name, "name=systemd:"))
-                return;
+        bool ignore;
 
-        if (asprintf(&fn, "/cgroup/systemd/%s/tasks", name + 13) < 0)
-                return;
+        usec_t start_timestamp;
+        usec_t exit_timestamp;
+        pid_t pid;
+        int code;
+        int status;
 
-        f = fopen(fn, "r");
-        free(fn);
+        LIST_FIELDS(struct ExecStatusInfo, exec);
+} ExecStatusInfo;
 
-        if (!f)
-                return;
+static void exec_status_info_free(ExecStatusInfo *i) {
+        assert(i);
 
-        while (!feof(f)) {
-                unsigned long ul;
+        free(i->path);
+        strv_free(i->argv);
+        free(i);
+}
 
-                if (fscanf(f, "%lu", &ul) != 1)
-                        break;
+static int exec_status_info_deserialize(DBusMessageIter *sub, ExecStatusInfo *i) {
+        uint64_t start_timestamp, exit_timestamp;
+        DBusMessageIter sub2, sub3;
+        const char*path;
+        unsigned n;
+        uint32_t pid;
+        int32_t code, status;
+        dbus_bool_t ignore;
 
-                if (ul <= 0)
-                        continue;
+        assert(i);
+        assert(i);
 
-                if (last > 0) {
-                        char *t = NULL;
-                        get_process_cmdline(last, 60, &t);
-                        printf("\t\t  \342\224\234 %lu %s\n", (unsigned long) last, strna(t));
-                        free(t);
-                } else
-                        printf("\t\t  \342\224\202\n");
+        if (dbus_message_iter_get_arg_type(sub) != DBUS_TYPE_STRUCT)
+                return -EIO;
 
-                last = (pid_t) ul;
+        dbus_message_iter_recurse(sub, &sub2);
+
+        if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
+                return -EIO;
+
+        if (!(i->path = strdup(path)))
+                return -ENOMEM;
+
+        if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(&sub2) != DBUS_TYPE_STRING)
+                return -EIO;
+
+        n = 0;
+        dbus_message_iter_recurse(&sub2, &sub3);
+        while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
+                assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
+                dbus_message_iter_next(&sub3);
+                n++;
         }
 
-        if (last > 0) {
-                char *t = NULL;
-                get_process_cmdline(last, 60, &t);
-                printf("\t\t  \342\224\224 %lu %s\n", (unsigned long) last, strna(t));
-                free(t);
+
+        if (!(i->argv = new0(char*, n+1)))
+                return -ENOMEM;
+
+        n = 0;
+        dbus_message_iter_recurse(&sub2, &sub3);
+        while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
+                const char *s;
+
+                assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
+                dbus_message_iter_get_basic(&sub3, &s);
+                dbus_message_iter_next(&sub3);
+
+                if (!(i->argv[n++] = strdup(s)))
+                        return -ENOMEM;
         }
 
-        fclose(f);
+        if (!dbus_message_iter_next(&sub2) ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_timestamp, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) < 0 ||
+            bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) < 0)
+                return -EIO;
+
+        i->ignore = ignore;
+        i->start_timestamp = (usec_t) start_timestamp;
+        i->exit_timestamp = (usec_t) exit_timestamp;
+        i->pid = (pid_t) pid;
+        i->code = code;
+        i->status = status;
+
+        return 0;
 }
 
 typedef struct UnitStatusInfo {
@@ -1018,6 +1051,7 @@ typedef struct UnitStatusInfo {
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
+        bool accept;
 
         /* Device */
         const char *sysfs_path;
@@ -1027,9 +1061,13 @@ typedef struct UnitStatusInfo {
 
         /* Swap */
         const char *what;
+
+        LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
 
 static void print_status_info(UnitStatusInfo *i) {
+        ExecStatusInfo *p;
+
         assert(i);
 
         /* This shows pretty information about a unit. See
@@ -1049,14 +1087,23 @@ static void print_status_info(UnitStatusInfo *i) {
         else
                 printf("\t  Loaded: %s\n", strna(i->load_state));
 
-        if (streq_ptr(i->active_state, "maintenance"))
-                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
-                       strna(i->active_state),
-                       strna(i->sub_state));
-        else
-                printf("\t  Active: %s (%s)\n",
-                       strna(i->active_state),
-                       strna(i->sub_state));
+        if (streq_ptr(i->active_state, "maintenance")) {
+                        if (streq_ptr(i->active_state, i->sub_state))
+                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s" ANSI_HIGHLIGHT_OFF "\n",
+                                       strna(i->active_state));
+                        else
+                                printf("\t  Active: " ANSI_HIGHLIGHT_ON "%s (%s)" ANSI_HIGHLIGHT_OFF "\n",
+                                       strna(i->active_state),
+                                       strna(i->sub_state));
+        } else {
+                if (streq_ptr(i->active_state, i->sub_state))
+                        printf("\t  Active: %s\n",
+                               strna(i->active_state));
+                else
+                        printf("\t  Active: %s (%s)\n",
+                               strna(i->active_state),
+                               strna(i->sub_state));
+        }
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -1065,17 +1112,41 @@ static void print_status_info(UnitStatusInfo *i) {
         else if (i->what)
                 printf("\t    What: %s\n", i->what);
 
-        if (i->status_text)
-                printf("\t  Status: \"%s\"\n", i->status_text);
-
-        if (i->id && endswith(i->id, ".socket"))
+        if (i->accept)
                 printf("\tAccepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
+
+        LIST_FOREACH(exec, p, i->exec) {
+                char *t;
+
+                /* Only show exited processes here */
+                if (p->code == 0)
+                        continue;
+
+                t = strv_join(p->argv, " ");
+                printf("\t  Exited: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                free(t);
+
+                if (p->code == CLD_EXITED)
+                        printf("status=%i", p->status);
+                else
+                        printf("signal=%s", signal_to_string(p->status));
+                printf(")\n");
+
+                if (i->main_pid == p->pid &&
+                    i->start_timestamp == p->start_timestamp &&
+                    i->exit_timestamp == p->start_timestamp)
+                        /* Let's not show this twice */
+                        i->main_pid = 0;
+
+                if (p->pid == i->control_pid)
+                        i->control_pid = 0;
+        }
 
         if (i->main_pid > 0 || i->control_pid > 0) {
                 printf("\t");
 
                 if (i->main_pid > 0) {
-                        printf(" Process: %u", (unsigned) i->main_pid);
+                        printf("    Main: %u", (unsigned) i->main_pid);
 
                         if (i->running) {
                                 char *t = NULL;
@@ -1090,7 +1161,7 @@ static void print_status_info(UnitStatusInfo *i) {
                                 if (i->exit_code == CLD_EXITED)
                                         printf("status=%i", i->exit_status);
                                 else
-                                        printf("signal=%s", strsignal(i->exit_status));
+                                        printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
                 }
@@ -1113,9 +1184,20 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\n");
         }
 
+        if (i->status_text)
+                printf("\t  Status: \"%s\"\n", i->status_text);
+
         if (i->default_control_group) {
+                unsigned c;
+
                 printf("\t  CGroup: %s\n", i->default_control_group);
-                show_cgroup(i->default_control_group);
+
+                if ((c = columns()) > 18)
+                        c -= 18;
+                else
+                        c = 0;
+
+                show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
         }
 }
 
@@ -1152,6 +1234,17 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "What"))
                                 i->what = s;
                 }
+
+                break;
+        }
+
+        case DBUS_TYPE_BOOLEAN: {
+                dbus_bool_t b;
+
+                dbus_message_iter_get_basic(iter, &b);
+
+                if (streq(name, "Accept"))
+                        i->accept = b;
 
                 break;
         }
@@ -1201,6 +1294,34 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->start_timestamp = (usec_t) u;
                 else if (streq(name, "ExecMainExitTimestamp"))
                         i->exit_timestamp = (usec_t) u;
+
+                break;
+        }
+
+        case DBUS_TYPE_ARRAY: {
+
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT &&
+                    startswith(name, "Exec")) {
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                ExecStatusInfo *info;
+                                int r;
+
+                                if (!(info = new0(ExecStatusInfo, 1)))
+                                        return -ENOMEM;
+
+                                if ((r = exec_status_info_deserialize(&sub, info)) < 0) {
+                                        free(info);
+                                        return r;
+                                }
+
+                                LIST_PREPEND(ExecStatusInfo, exec, i->exec, info);
+
+                                dbus_message_iter_next(&sub);
+                        }
+                }
 
                 break;
         }
@@ -1317,7 +1438,6 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         bool space = false;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         if (arg_all ||
                             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                                 printf("%s=", name);
@@ -1337,11 +1457,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_BYTE) {
                         DBusMessageIter sub;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         if (arg_all ||
                             dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
                                 printf("%s=", name);
@@ -1360,11 +1480,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Paths")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                                 const char *type, *path;
 
@@ -1378,11 +1498,11 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "Timers")) {
                         DBusMessageIter sub, sub2;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
                                 const char *base;
                                 uint64_t value, next_elapse;
@@ -1404,59 +1524,39 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                         }
 
                         return 0;
-                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
 
-                        DBusMessageIter sub, sub2, sub3;
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
+                        DBusMessageIter sub;
 
                         dbus_message_iter_recurse(iter, &sub);
-
                         while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
-                                const char *path;
-                                uint64_t start_time, exit_time;
-                                uint32_t pid;
-                                int32_t code, status;
+                                ExecStatusInfo info;
 
-                                dbus_message_iter_recurse(&sub, &sub2);
-
-                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) < 0)
-                                        continue;
-
-                                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_ARRAY ||
-                                    dbus_message_iter_get_element_type(&sub2) != DBUS_TYPE_STRING)
-                                        continue;
-
-                                printf("%s={ path=%s ; argv[]=", name, path);
-
-                                dbus_message_iter_recurse(&sub2, &sub3);
-
-                                while (dbus_message_iter_get_arg_type(&sub3) != DBUS_TYPE_INVALID) {
-                                        const char *s;
-
-                                        assert(dbus_message_iter_get_arg_type(&sub3) == DBUS_TYPE_STRING);
-                                        dbus_message_iter_get_basic(&sub3, &s);
-                                        printf("%s ", s);
-                                        dbus_message_iter_next(&sub3);
-                                }
-
-                                if (dbus_message_iter_next(&sub2) &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &start_time, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT64, &exit_time, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &pid, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &code, true) >= 0 &&
-                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_INT32, &status, false) >= 0) {
-
+                                zero(info);
+                                if (exec_status_info_deserialize(&sub, &info) >= 0) {
                                         char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
+                                        char *t;
 
-                                        printf("; start=%s ; stop=%s ; pid=%u ; code=%s ; status=%i/%s",
-                                               strna(format_timestamp(timestamp1, sizeof(timestamp1), start_time)),
-                                               strna(format_timestamp(timestamp2, sizeof(timestamp2), exit_time)),
-                                               (unsigned) pid,
-                                               sigchld_code_to_string(code),
-                                               status,
-                                               strempty(code == CLD_EXITED ? NULL : strsignal(status)));
+                                        t = strv_join(info.argv, " ");
+
+                                        printf("%s={ path=%s ; argv[]=%s ; ignore=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                               name,
+                                               strna(info.path),
+                                               strna(t),
+                                               yes_no(info.ignore),
+                                               strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                               strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                               (unsigned) info. pid,
+                                               sigchld_code_to_string(info.code),
+                                               info.status,
+                                               info.code == CLD_EXITED ? "" : "/",
+                                               strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+
+                                        free(t);
                                 }
 
-                                printf(" }\n");
+                                free(info.path);
+                                strv_free(info.argv);
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -1480,6 +1580,7 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
         DBusError error;
         DBusMessageIter iter, sub, sub2, sub3;
         UnitStatusInfo info;
+        ExecStatusInfo *p;
 
         assert(bus);
         assert(path);
@@ -1568,6 +1669,11 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
 
         if (!show_properties)
                 print_status_info(&info);
+
+        while ((p = info.exec)) {
+                LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
+                exec_status_info_free(p);
+        }
 
         r = 0;
 
@@ -2394,7 +2500,8 @@ static int systemctl_help(void) {
                "  -t --type=TYPE     List only units of a particular type\n"
                "  -p --property=NAME Show only properties by this name\n"
                "  -a --all           Show all units/properties, including dead/empty ones\n"
-               "     --replace       When installing a new job, replace existing conflicting ones\n"
+               "     --fail          When installing a new job, fail if conflicting jobs are\n"
+               "                     pending\n"
                "     --system        Connect to system bus\n"
                "     --session       Connect to session bus\n"
                "  -q --quiet         Suppress output\n"
@@ -2404,12 +2511,18 @@ static int systemctl_help(void) {
                "  list-units                      List units\n"
                "  start [NAME...]                 Start one or more units\n"
                "  stop [NAME...]                  Stop one or more units\n"
-               "  restart [NAME...]               Restart one or more units\n"
                "  reload [NAME...]                Reload one or more units\n"
+               "  restart [NAME...]               Start or restart one or more units\n"
+               "  try-restart [NAME...]           Restart one or more units if active\n"
+               "  reload-or-restart [NAME...]     Reload one or more units is possible,\n"
+               "                                  otherwise start or restart\n"
+               "  reload-or-try-restart [NAME...] Reload one or more units is possible,\n"
+               "                                  otherwise restart if active\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
-               "  check [NAME...]                 Check whether any of the passed units are active\n"
+               "  check [NAME...]                 Check whether units are active\n"
                "  status [NAME...]                Show status of one or more units\n"
-               "  show [NAME...|JOB...]           Show properties of one or more units/jobs/manager\n"
+               "  show [NAME...|JOB...]           Show properties of one or more\n"
+               "                                  units/jobs/manager\n"
                "  load [NAME...]                  Load one or more units\n"
                "  list-jobs                       List jobs\n"
                "  cancel [JOB...]                 Cancel one or more jobs\n"
@@ -2427,9 +2540,9 @@ static int systemctl_help(void) {
                "  halt                            Shut down and halt the system\n"
                "  poweroff                        Shut down and power-off the system\n"
                "  reboot                          Shut down and reboot the system\n"
-               "  default                         Enter default mode\n"
-               "  rescue                          Enter rescue mode\n"
-               "  emergency                       Enter emergency mode\n",
+               "  rescue                          Enter system rescue mode\n"
+               "  emergency                       Enter system emergency mode\n"
+               "  default                         Enter system default mode\n",
                program_invocation_short_name);
 
         return 0;
@@ -2503,7 +2616,7 @@ static int runlevel_help(void) {
 static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
-                ARG_REPLACE = 0x100,
+                ARG_FAIL = 0x100,
                 ARG_SESSION,
                 ARG_SYSTEM,
                 ARG_NO_BLOCK,
@@ -2515,7 +2628,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'          },
                 { "property",  required_argument, NULL, 'p'          },
                 { "all",       no_argument,       NULL, 'a'          },
-                { "replace",   no_argument,       NULL, ARG_REPLACE  },
+                { "fail",      no_argument,       NULL, ARG_FAIL     },
                 { "session",   no_argument,       NULL, ARG_SESSION  },
                 { "system",    no_argument,       NULL, ARG_SYSTEM   },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK },
@@ -2554,8 +2667,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
-                case ARG_REPLACE:
-                        arg_replace = true;
+                case ARG_FAIL:
+                        arg_fail = true;
                         break;
 
                 case ARG_SESSION:
@@ -2960,7 +3073,7 @@ static int talk_upstart(void) {
         if (utmp_get_runlevel(&previous, NULL) < 0)
                 previous = 'N';
 
-        if (!(bus = dbus_connection_open("unix:abstract=/com/ubuntu/upstart", &error))) {
+        if (!(bus = dbus_connection_open_private("unix:abstract=/com/ubuntu/upstart", &error))) {
                 if (dbus_error_has_name(&error, DBUS_ERROR_NO_SERVER)) {
                         r = 0;
                         goto finish;
@@ -3024,8 +3137,10 @@ finish:
         if (reply)
                 dbus_message_unref(reply);
 
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 
@@ -3088,6 +3203,9 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "stop",              MORE,  2, start_unit      },
                 { "reload",            MORE,  2, start_unit      },
                 { "restart",           MORE,  2, start_unit      },
+                { "try-restart",       MORE,  2, start_unit      },
+                { "reload-or-restart", MORE,  2, start_unit      },
+                { "reload-or-try-restart", MORE, 2, start_unit   },
                 { "isolate",           EQUAL, 2, start_unit      },
                 { "check",             MORE,  2, check_unit      },
                 { "show",              MORE,  1, show            },
@@ -3107,7 +3225,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[]) {
                 { "reboot",            EQUAL, 1, start_special   },
                 { "default",           EQUAL, 1, start_special   },
                 { "rescue",            EQUAL, 1, start_special   },
-                { "emergency",         EQUAL, 1, start_special   },
+                { "emergency",         EQUAL, 1, start_special   }
         };
 
         int left;
@@ -3194,32 +3312,40 @@ static int reload_with_fallback(DBusConnection *bus) {
 static int start_with_fallback(DBusConnection *bus) {
         int r;
 
-        warn_wall(arg_action);
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
                 if ((r = start_unit(bus, NULL, 0)) > 0)
-                        return 0;
+                        goto done;
 
                 /* Hmm, talking to systemd via D-Bus didn't work. Then
                  * let's try to talk to Upstart via D-Bus. */
                 if ((r = talk_upstart()) > 0)
-                        return 0;
+                        goto done;
         }
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
         if ((r = talk_initctl()) != 0)
-                return 0;
+                goto done;
 
         log_error("Failed to talk to init daemon.");
         return -EIO;
+
+done:
+        warn_wall(arg_action);
+        return 0;
 }
 
 static int halt_main(DBusConnection *bus) {
         int r;
 
-        if (!arg_immediate)
+        if (geteuid() != 0) {
+                log_error("Must to be root.");
+                return -EPERM;
+        }
+
+        if (!arg_dry && !arg_immediate)
                 return start_with_fallback(bus);
 
         if (!arg_no_wtmp)
@@ -3343,8 +3469,10 @@ int main(int argc, char*argv[]) {
 
 finish:
 
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 

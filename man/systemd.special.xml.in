@@ -50,11 +50,11 @@
         <refsynopsisdiv>
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
-                <filename>@SPECIAL_DBUS_SERVICE@</filename>,
+                <filename>dbus.service</filename>,
                 <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
-                <filename>emergency.service</filename>,
+                <filename>emergency.target</filename>,
                 <filename>exit.service</filename>,
                 <filename>graphical.target</filename>,
                 <filename>halt.target</filename>,
@@ -84,7 +84,8 @@
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
                 <filename>systemd-logger.service</filename>,
-                <filename>systemd-logger.socket</filename></para>
+                <filename>systemd-logger.socket</filename>,
+                <filename>umount.target</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -134,7 +135,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>@SPECIAL_DBUS_SERVICE@</filename></term>
+                                <term><filename>dbus.service</filename></term>
                                 <listitem>
                                         <para>A special unit for the
                                         D-Bus system bus. As soon as
@@ -160,7 +161,7 @@
                                         ensure that this target pulls
                                         in a service unit with the
                                         name or alias of
-                                        <filename>@SPECIAL_DBUS_SERVICE@</filename>
+                                        <filename>dbus.service</filename>
                                         (or a socket unit that
                                         activates this
                                         service).</para>
@@ -204,9 +205,9 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>emergency.service</filename></term>
+                                <term><filename>emergency.target</filename></term>
                                 <listitem>
-                                        <para>A special service unit
+                                        <para>A special target unit
                                         that starts an emergency
                                         shell on the main
                                         console. This unit is supposed
@@ -499,8 +500,10 @@
                                         terminated on system shutdown
                                         shall add Conflicts
                                         dependencies to this unit for
-                                        their service unit during
-                                        installation.</para>
+                                        their service unit, which is
+                                        implicitly done when
+                                        <varname>DefaultDependencies=yes</varname>
+                                        is set (the default).</para>
 
                                         <para>systemd automatically
                                         adds dependencies of type
@@ -651,6 +654,24 @@
                                         stdout or stderr to be
                                         connected to syslog or the
                                         kernel log buffer.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>umount.target</filename></term>
+                                <listitem>
+                                        <para>A special target unit
+                                        that umounts all mount and
+                                        automount points on system
+                                        shutdown.</para>
+
+                                        <para>Mounts that shall be
+                                        unmounted on system shutdown
+                                        shall add Conflicts
+                                        dependencies to this unit for
+                                        their mount unit, which is
+                                        implicitly done when
+                                        <varname>DefaultDependencies=yes</varname>
+                                        is set (the default).</para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>

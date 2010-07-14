@@ -32,6 +32,7 @@
 #include "strv.h"
 #include "conf-parser.h"
 #include "dbus-common.h"
+#include "sd-daemon.h"
 
 static bool arg_force = false;
 
@@ -45,15 +46,17 @@ static enum {
         ACTION_INVALID,
         ACTION_ENABLE,
         ACTION_DISABLE,
+        ACTION_REALIZE,
         ACTION_TEST
 } arg_action = ACTION_INVALID;
 
 static enum {
-        START_NO,        /* Don't start/stop or anything */
-        START_MINIMAL,   /* Only shutdown/restart if running. */
-        START_MAYBE,     /* Start if WantedBy= suggests */
-        START_YES        /* Start unconditionally */
-} arg_start = START_NO;
+        REALIZE_NO,        /* Don't reload/start/stop or anything */
+        REALIZE_RELOAD,    /* Only reload daemon config, don't stop/start */
+        REALIZE_MINIMAL,   /* Only shutdown/restart if running. */
+        REALIZE_MAYBE,     /* Start if WantedBy= suggests */
+        REALIZE_YES        /* Start unconditionally */
+} arg_realize = REALIZE_NO;
 
 typedef struct {
         char *name;
@@ -69,16 +72,18 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Install init system units.\n\n"
-               "  -h --help         Show this help\n"
-               "     --force        Override existing links\n"
-               "     --system       Install into system\n"
-               "     --session      Install into session\n"
-               "     --global       Install into all sessions\n"
-               "     --start[=MODE] Start/stop/restart unit after installation\n"
-               "                    Takes 'no', 'minimal', 'maybe' or 'yes'\n\n"
+               "  -h --help           Show this help\n"
+               "     --force          Override existing links\n"
+               "     --system         Install into system\n"
+               "     --session        Install into session\n"
+               "     --global         Install into all sessions\n"
+               "     --realize[=MODE] Start/stop/restart unit after installation\n"
+               "                      Takes 'no', 'minimal', 'maybe' or 'yes'\n\n"
                "Commands:\n"
                "  enable [NAME...]    Enable one or more units\n"
                "  disable [NAME...]   Disable one or more units\n"
+               "  realize [NAME...]   Test whether any of the specified units are enabled\n"
+               "                      and the start/stop/restart units accordingly\n"
                "  test [NAME...]      Test whether any of the specified units are enabled\n",
                program_invocation_short_name);
 
@@ -92,7 +97,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_FORCE,
-                ARG_START
+                ARG_REALIZE
         };
 
         static const struct option options[] = {
@@ -101,11 +106,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM  },
                 { "global",    no_argument,       NULL, ARG_GLOBAL  },
                 { "force",     no_argument,       NULL, ARG_FORCE   },
-                { "start",     optional_argument, NULL, ARG_START   },
+                { "realize",   optional_argument, NULL, ARG_REALIZE },
                 { NULL,        0,                 NULL, 0           }
         };
 
         int c;
+        bool realize_switch = false;
 
         assert(argc >= 1);
         assert(argv);
@@ -134,20 +140,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
-                case ARG_START:
+                case ARG_REALIZE:
+
+                        realize_switch = true;
 
                         if (!optarg)
-                                arg_start = START_MAYBE;
+                                arg_realize = REALIZE_MAYBE;
                         else if (streq(optarg, "no"))
-                                arg_start = START_NO;
+                                arg_realize = REALIZE_NO;
                         else if (streq(optarg, "minimal"))
-                                arg_start = START_MINIMAL;
+                                arg_realize = REALIZE_MINIMAL;
                         else if (streq(optarg, "maybe"))
-                                arg_start = START_MAYBE;
+                                arg_realize = REALIZE_MAYBE;
                         else if (streq(optarg, "yes"))
-                                arg_start = START_YES;
+                                arg_realize = REALIZE_YES;
+                        else if (streq(optarg, "reload"))
+                                arg_realize = REALIZE_RELOAD;
                         else {
-                                log_error("Invalid --start argument %s", optarg);
+                                log_error("Invalid --realize argument %s", optarg);
                                 return -EINVAL;
                         }
 
@@ -173,7 +183,12 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_action = ACTION_DISABLE;
         else if (streq(argv[optind], "test"))
                 arg_action = ACTION_TEST;
-        else {
+        else if (streq(argv[optind], "realize")) {
+                arg_action = ACTION_REALIZE;
+
+                if (!realize_switch)
+                        arg_realize = REALIZE_MAYBE;
+        } else {
                 log_error("Unknown verb %s.", argv[optind]);
                 return -EINVAL;
         }
@@ -293,7 +308,7 @@ finish:
         return r;
 }
 
-static int install_info_run(DBusConnection *bus, InstallInfo *i) {
+static int install_info_run(DBusConnection *bus, InstallInfo *i, bool enabled) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
@@ -304,9 +319,10 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
 
         dbus_error_init(&error);
 
-        if (arg_action == ACTION_ENABLE) {
+        if (arg_action == ACTION_ENABLE ||
+            (arg_action == ACTION_REALIZE && enabled)) {
 
-                if (arg_start == START_MAYBE) {
+                if (arg_realize == REALIZE_MAYBE) {
                         char **k;
                         bool yes_please = false;
 
@@ -416,7 +432,7 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
                                       "org.freedesktop.systemd1",
                                       "/org/freedesktop/systemd1",
                                       "org.freedesktop.systemd1.Manager",
-                                      arg_start == START_MINIMAL ? "TryRestartUnit" : "RestartUnit"))) {
+                                      arg_realize == REALIZE_MINIMAL ? "TryRestartUnit" : "RestartUnit"))) {
                         log_error("Could not allocate message.");
                         r = -ENOMEM;
                         goto finish;
@@ -432,7 +448,8 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
                 }
 
 
-        } else if (arg_action == ACTION_DISABLE) {
+        } else if (arg_action == ACTION_DISABLE ||
+                   (arg_action == ACTION_REALIZE && !enabled)) {
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -452,10 +469,11 @@ static int install_info_run(DBusConnection *bus, InstallInfo *i) {
                         r = -ENOMEM;
                         goto finish;
                 }
-        }
+        } else
+                assert_not_reached("install_info_run() called but nothing to do?");
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to reload configuration: %s", error.message);
+                log_error("Failed to realize unit: %s", error.message);
                 r = -EIO;
                 goto finish;
         }
@@ -587,7 +605,7 @@ static int create_symlink(const char *old_path, const char *new_path) {
                 log_error("Cannot unlink %s: %m", new_path);
                 return -errno;
 
-        } else if (arg_action == ACTION_TEST) {
+        } else if (arg_action == ACTION_TEST || arg_action == ACTION_REALIZE) {
                 char *dest;
 
                 if ((r = readlink_and_make_absolute(new_path, &dest)) < 0) {
@@ -769,7 +787,7 @@ static char *get_config_path(void) {
         }
 }
 
-static int do_run(void) {
+static int do_realize(bool enabled) {
         DBusConnection *bus = NULL;
         DBusError error;
         int r, q;
@@ -778,16 +796,26 @@ static int do_run(void) {
 
         dbus_error_init(&error);
 
-        if (arg_start == START_NO)
+        if (arg_realize == REALIZE_NO)
                 return 0;
 
         if (arg_where == WHERE_GLOBAL) {
-                log_warning("Warning: --start has no effect with --global.");
+                log_warning("Warning: --realize has no effect with --global.");
                 return 0;
         }
 
-        if (arg_action != ACTION_ENABLE && arg_action != ACTION_DISABLE) {
-                log_warning("Warning: --start has no effect with test.");
+        if (arg_action == ACTION_TEST) {
+                log_warning("Warning: --realize has no effect with test.");
+                return 0;
+        }
+
+        if (arg_where == WHERE_SYSTEM && sd_booted() <= 0) {
+                log_info("systemd is not running, --realize has not effect.");
+                return 0;
+        }
+
+        if (arg_where == WHERE_SYSTEM && running_in_chroot() > 0) {
+                log_info("Running in a chroot() environment, --realize has no effect.");
                 return 0;
         }
 
@@ -798,21 +826,25 @@ static int do_run(void) {
 
         r = 0;
 
-        if (arg_action == ACTION_ENABLE)
+        if (arg_action == ACTION_ENABLE || arg_action == ACTION_REALIZE)
                 if ((r = daemon_reload(bus)) < 0)
                         goto finish;
 
-        HASHMAP_FOREACH(j, have_installed, i)
-                if ((q = install_info_run(bus, j)) < 0)
-                        r = q;
+        if (arg_realize != REALIZE_RELOAD) {
+                HASHMAP_FOREACH(j, have_installed, i)
+                        if ((q = install_info_run(bus, j, enabled)) < 0)
+                                r = q;
+        }
 
         if (arg_action == ACTION_DISABLE)
                 if ((q = daemon_reload(bus)) < 0)
                         r = q;
 
 finish:
-        if (bus)
+        if (bus) {
+                dbus_connection_close(bus);
                 dbus_connection_unref(bus);
+        }
 
         dbus_error_free(&error);
 
@@ -869,14 +901,12 @@ int main(int argc, char *argv[]) {
 
                         /* In test mode and found something */
                         retval = 0;
-                        goto finish;
+                        break;
                 }
         }
 
-        if (do_run() < 0)
+        if (do_realize(!retval) < 0)
                 goto finish;
-
-        retval = arg_action == ACTION_TEST ? 1 : 0;
 
 finish:
         install_info_hashmap_free(will_install);

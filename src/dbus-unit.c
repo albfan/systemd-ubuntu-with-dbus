@@ -24,6 +24,7 @@
 #include "dbus.h"
 #include "log.h"
 #include "dbus-unit.h"
+#include "bus-errors.h"
 
 const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
 
@@ -253,14 +254,13 @@ int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property
         return 0;
 }
 
-DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_kill_mode, kill_mode, KillMode);
-
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;
         DBusError error;
         JobType job_type = _JOB_TYPE_INVALID;
         char *path = NULL;
+        bool reload_if_possible = false;
 
         dbus_error_init(&error);
 
@@ -274,7 +274,13 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 job_type = JOB_RESTART;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "TryRestart"))
                 job_type = JOB_TRY_RESTART;
-        else if (UNIT_VTABLE(u)->bus_message_handler)
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrRestart")) {
+                reload_if_possible = true;
+                job_type = JOB_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
+                reload_if_possible = true;
+                job_type = JOB_TRY_RESTART;
+        } else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
         else
                 return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -285,8 +291,10 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 Job *j;
                 int r;
 
-                if (job_type == JOB_START && u->meta.only_by_dependency)
-                        return bus_send_error_reply(m, connection, message, NULL, -EPERM);
+                if (job_type == JOB_START && u->meta.only_by_dependency) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                        return bus_send_error_reply(m, connection, message, &error, -EPERM);
+                }
 
                 if (!dbus_message_get_args(
                                     message,
@@ -295,11 +303,20 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
 
-                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
-                        return bus_send_error_reply(m, connection, message, NULL, -EINVAL);
+                if (reload_if_possible && unit_can_reload(u)) {
+                        if (job_type == JOB_RESTART)
+                                job_type = JOB_RELOAD_OR_START;
+                        else if (job_type == JOB_TRY_RESTART)
+                                job_type = JOB_RELOAD;
+                }
 
-                if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
-                        return bus_send_error_reply(m, connection, message, NULL, r);
+                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
+                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+                }
+
+                if ((r = manager_add_job(m, job_type, u, mode, true, &error, &j)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
@@ -345,11 +362,6 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         assert(message);
         assert(m);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
-
         if ((r = manager_get_unit_from_dbus_path(m, dbus_message_get_path(message), &u)) < 0) {
 
                 if (r == -ENOMEM)
@@ -373,10 +385,11 @@ void bus_unit_send_change_signal(Unit *u) {
         DBusMessage *m = NULL;
 
         assert(u);
-        assert(u->meta.in_dbus_queue);
 
-        LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
-        u->meta.in_dbus_queue = false;
+        if (u->meta.in_dbus_queue) {
+                LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
+                u->meta.in_dbus_queue = false;
+        }
 
         if (!bus_has_subscriber(u->meta.manager)) {
                 u->meta.sent_dbus_new_signal = true;

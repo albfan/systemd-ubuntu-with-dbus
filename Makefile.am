@@ -58,7 +58,8 @@ rootbin_PROGRAMS = \
 	systemd-notify
 
 bin_PROGRAMS = \
-	systemd-install
+	systemd-install \
+	systemd-cgls
 
 if HAVE_GTK
 bin_PROGRAMS += \
@@ -112,6 +113,7 @@ dbusinterface_DATA = \
 
 dist_systemunit_DATA = \
 	units/emergency.service \
+	units/emergency.target \
 	units/basic.target \
 	units/getty.target \
 	units/halt.target \
@@ -125,9 +127,11 @@ dist_systemunit_DATA = \
 	units/rpcbind.target \
 	units/rtc-set.target \
 	units/shutdown.target \
+	units/umount.target \
 	units/sigpwr.target \
 	units/sockets.target \
 	units/swap.target \
+	units/dbus.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
 	units/dev-hugepages.automount \
@@ -141,7 +145,9 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
 	units/var-lock.mount \
-	units/var-run.mount
+	units/var-run.mount \
+	units/printer.target \
+	units/bluetooth.target
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -151,8 +157,7 @@ nodist_systemunit_DATA = \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
-	units/syslog.target \
-	units/dbus.target
+	units/syslog.target
 
 dist_sessionunit_DATA = \
 	units/session/default.target
@@ -170,7 +175,6 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/syslog.target.in \
-	units/dbus.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
 
@@ -182,7 +186,8 @@ dist_systemunit_DATA += \
 	units/fedora/prefdm.service \
 	units/fedora/rc-local.service \
 	units/fedora/reboot.service \
-	units/fedora/sysinit.service
+	units/fedora/sysinit.service \
+	units/fedora/single.service
 endif
 if TARGET_DEBIAN
 dist_systemunit_DATA += \
@@ -291,14 +296,12 @@ libsystemd_core_la_SOURCES = \
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(UDEV_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
-	$(CGROUP_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS)
 
@@ -318,13 +321,16 @@ EXTRA_DIST += \
 	src/initreq.h \
 	src/sd-daemon.h \
 	src/special.h \
-	src/dbus-common.h
+	src/dbus-common.h \
+	src/bus-errors.h \
+	src/cgroup-show.h
 
 MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
 	man/systemadm.1 \
 	man/systemd-install.1 \
+	man/systemd-cgls.1 \
 	man/systemd-notify.1 \
 	man/sd_notify.3 \
 	man/sd_booted.3 \
@@ -399,8 +405,7 @@ systemd_SOURCES = \
 systemd_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(UDEV_CFLAGS)
 
 systemd_LDADD = \
 	libsystemd-core.la
@@ -442,12 +447,10 @@ test_cgroup_SOURCES = \
 	src/cgroup-util.c
 
 test_cgroup_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CGROUP_CFLAGS)
+	$(AM_CFLAGS)
 
 test_cgroup_LDADD = \
-	libsystemd-basic.la \
-	$(CGROUP_LIBS)
+	libsystemd-basic.la
 
 systemd_logger_SOURCES = \
 	src/logger.c \
@@ -485,7 +488,9 @@ systemd_cgroups_agent_LDADD = \
 systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
-	src/dbus-common.c
+	src/dbus-common.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -505,7 +510,8 @@ systemd_notify_LDADD = \
 systemd_install_SOURCES = \
 	src/install.c \
 	src/path-lookup.c \
-	src/dbus-common.c
+	src/dbus-common.c \
+	src/sd-daemon.c
 
 systemd_install_LDADD = \
 	libsystemd-basic.la \
@@ -514,6 +520,17 @@ systemd_install_LDADD = \
 systemd_install_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS)
+
+systemd_cgls_SOURCES = \
+	src/systemd-cgls.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c
+
+systemd_cgls_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_cgls_LDADD = \
+	libsystemd-basic.la
 
 systemadm_SOURCES = \
 	src/systemadm.vala \
@@ -544,8 +561,7 @@ pam_systemd_la_SOURCES = \
 	src/sd-daemon.c
 
 pam_systemd_la_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(CGROUP_CFLAGS) \
+	$(AM_CFLAGS)
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -557,14 +573,12 @@ pam_systemd_la_LDFLAGS = \
 
 pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
-	$(PAM_LIBS) \
-	$(CGROUP_LIBS)
+	$(PAM_LIBS)
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(SED)  -e 's,@rootlibexecdir\@,$(rootlibexecdir),g' \
 		-e 's,@SPECIAL_SYSLOG_SERVICE\@,$(SPECIAL_SYSLOG_SERVICE),g' \
-		-e 's,@SPECIAL_DBUS_SERVICE\@,$(SPECIAL_DBUS_SERVICE),g' \
 		-e 's,@SYSTEMCTL\@,$(rootbindir)/systemctl,g' \
 		-e 's,@pkgsysconfdir\@,$(pkgsysconfdir),g' \
 		-e 's,@pkgdatadir\@,$(pkgdatadir),g' \
@@ -677,7 +691,7 @@ CLEANFILES += \
 endif
 
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)./systemd --introspect=${@:.xml=} > $@
+	$(AM_V_GEN)SYSTEMD_SKIP_API_MOUNTS=1 ./systemd --introspect=${@:.xml=} > $@
 
 CLEANFILES += \
 	$(dbusinterface_DATA)
@@ -704,11 +718,13 @@ install-data-hook:
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
 	( cd $(DESTDIR)$(sessionunitdir) && \
-		rm -f shutdown.target sockets.target local-fs.target swap.target && \
+		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
 		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
-		$(LN_S) $(systemunitdir)/swap.target swap.target )
+		$(LN_S) $(systemunitdir)/swap.target swap.target && \
+		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
+		$(LN_S) $(systemunitdir)/printer.target printer.target)
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel0.target runlevel1.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \
@@ -752,16 +768,20 @@ install-data-hook:
 		$(LN_S) ../system-services/org.freedesktop.systemd1.service org.freedesktop.systemd1.service )
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
-		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH)
+		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
+		$(DESTDIR)$(systemunitdir)/rescue.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f prefdm.service && \
-		$(LN_S) ../prefdm.service prefdm.service )
+		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f rc-local.service && \
 		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
+		rm -f single.service && \
+		$(LN_S) $(systemunitdir)/single.service single.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )
@@ -773,8 +793,8 @@ if TARGET_GENTOO
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/xdm.service display-manager.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
-		rm -f prefdm.service && \
-		$(LN_S) ../prefdm.service prefdm.service )
+		rm -f xdm.service && \
+		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
@@ -785,3 +805,11 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
 	--with-rootdir=$$dc_install_base/$(rootdir)
+
+upload: all distcheck
+	cp -v systemd-$(VERSION).tar.bz2 /home/lennart/cvs.fedora/systemd/devel/
+	scp systemd-$(VERSION).tar.bz2 fdo:/srv/www.freedesktop.org/www/software/systemd/
+	scp man/*.html tango:public/systemd-man/
+
+git-tag:
+	git tag "v$(VERSION)" -m "systemd $(VERSION)"

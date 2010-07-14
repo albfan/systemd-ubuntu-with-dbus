@@ -116,15 +116,15 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--replace</option></term>
+                                <term><option>--fail</option></term>
 
                                 <listitem><para>If the requested
                                 operation conflicts with an existing
-                                unfinished operation, replace the
-                                existing operation by the requested
-                                operation. If this is not specified
-                                the requested operation will
-                                fail.</para></listitem>
+                                unfinished operation, fail the
+                                command. If this is not specified the
+                                requested operation will replace the
+                                pending job if
+                                necessary.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -194,13 +194,6 @@
                                 line.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>restart [NAME...]</command></term>
-
-                                <listitem><para>Restart one or more
-                                units specified on the command
-                                line.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><command>reload [NAME...]</command></term>
 
                                 <listitem><para>Asks all services
@@ -225,6 +218,33 @@
                                 or <command>load</command>
                                 commands.</para></listitem>
 
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>restart [NAME...]</command></term>
+
+                                <listitem><para>Restart one or more
+                                units specified on the command
+                                line. If the units are not running yet
+                                they will be
+                                started.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>try-restart [NAME...]</command></term>
+
+                                <listitem><para>Restart one or more
+                                units specified on the command
+                                line. If the units are not running yet
+                                the operation will
+                                fail.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>reload-or-restart [NAME...]</command></term>
+                                <term><command>reload-or-try-restart [NAME...]</command></term>
+
+                                <listitem><para>Reload one or more
+                                units if they support it. If not
+                                restart them
+                                instead.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>isolate [NAME]</command></term>
@@ -501,7 +521,7 @@
                                 <listitem><para>Enter emergency
                                 mode. This is mostly equivalent to
                                 <command>isolate
-                                emergency.service</command> but also
+                                emergency.target</command> but also
                                 prints a wall message to all
                                 users.</para></listitem>
                         </varlistentry>

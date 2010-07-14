@@ -110,7 +110,7 @@ static int swap_add_target_links(Swap *s) {
         else
                 return 0;
 
-        if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, &tu)) < 0)
+        if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu)) < 0)
                 return r;
 
         if (!p->noauto && p->handle && s->meta.manager->running_as == MANAGER_SYSTEM)
@@ -118,6 +118,24 @@ static int swap_add_target_links(Swap *s) {
                         return r;
 
         return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
+}
+
+static int swap_add_default_dependencies(Swap *s) {
+        int r;
+
+        assert(s);
+
+        if (s->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+                /* Note that by default we don't disable swap devices
+                 * on shutdown. i.e. there is no umount.target
+                 * conflicts here. */
+        }
+
+        return 0;
 }
 
 static int swap_verify(Swap *s) {
@@ -185,6 +203,10 @@ static int swap_load(Unit *u) {
 
                 if ((r = swap_add_target_links(s)) < 0)
                         return r;
+
+                if (s->meta.default_dependencies)
+                        if ((r = swap_add_default_dependencies(s)) < 0)
+                                return r;
         }
 
         return swap_verify(s);

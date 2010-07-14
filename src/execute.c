@@ -171,7 +171,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         sa.sa.sa_family = AF_UNIX;
         strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (connect(fd, &sa.sa, sizeof(sa)) < 0) {
+        if (connect(fd, &sa.sa, sizeof(sa_family_t) + 1 + sizeof(LOGGER_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -232,7 +232,10 @@ static bool is_terminal_input(ExecInput i) {
                 i == EXEC_INPUT_TTY_FAIL;
 }
 
-static int fixup_input(ExecInput std_input, int socket_fd) {
+static int fixup_input(ExecInput std_input, int socket_fd, bool apply_tty_stdin) {
+
+        if (is_terminal_input(std_input) && !apply_tty_stdin)
+                return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
                 return EXEC_INPUT_NULL;
@@ -248,12 +251,12 @@ static int fixup_output(ExecOutput std_output, int socket_fd) {
         return std_output;
 }
 
-static int setup_input(const ExecContext *context, int socket_fd) {
+static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty_stdin) {
         ExecInput i;
 
         assert(context);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
 
         switch (i) {
 
@@ -289,14 +292,14 @@ static int setup_input(const ExecContext *context, int socket_fd) {
         }
 }
 
-static int setup_output(const ExecContext *context, int socket_fd, const char *ident) {
+static int setup_output(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
         ExecOutput o;
         ExecInput i;
 
         assert(context);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
 
         /* This expects the input is already set up */
@@ -304,6 +307,10 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         switch (o) {
 
         case EXEC_OUTPUT_INHERIT:
+
+                /* If input got downgraded, inherit the original value */
+                if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
+                        return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
 
                 /* If the input is connected to anything that's not a /dev/null, inherit that... */
                 if (i != EXEC_INPUT_NULL)
@@ -339,14 +346,14 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         }
 }
 
-static int setup_error(const ExecContext *context, int socket_fd, const char *ident) {
+static int setup_error(const ExecContext *context, int socket_fd, const char *ident, bool apply_tty_stdin) {
         ExecOutput o, e;
         ExecInput i;
 
         assert(context);
         assert(ident);
 
-        i = fixup_input(context->std_input, socket_fd);
+        i = fixup_input(context->std_input, socket_fd, apply_tty_stdin);
         o = fixup_output(context->std_output, socket_fd);
         e = fixup_output(context->std_error, socket_fd);
 
@@ -357,10 +364,11 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         if (e == EXEC_OUTPUT_INHERIT &&
             o == EXEC_OUTPUT_INHERIT &&
             i == EXEC_INPUT_NULL &&
+            !is_terminal_input(context->std_input) &&
             getppid () != 1)
                 return STDERR_FILENO;
 
-        /* Duplicate form stdout if possible */
+        /* Duplicate from stdout if possible */
         if (e == o || e == EXEC_OUTPUT_INHERIT)
                 return dup2(STDOUT_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
@@ -889,6 +897,7 @@ int exec_spawn(ExecCommand *command,
                char **environment,
                bool apply_permissions,
                bool apply_chroot,
+               bool apply_tty_stdin,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
                pid_t *ret) {
@@ -939,7 +948,7 @@ int exec_spawn(ExecCommand *command,
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
                 gid_t gid = (gid_t) -1;
-                char **our_env = NULL, **pam_env = NULL, **final_env = NULL;
+                char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
                 bool keep_stdout = false, keep_stdin = false;
@@ -964,6 +973,14 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
+                /* Close sockets very early to make sure we don't
+                 * block init reexecution because it cannot bind its
+                 * sockets */
+                if (close_all_fds(fds, n_fds) < 0) {
+                        r = EXIT_FDS;
+                        goto fail;
+                }
+
                 if (!context->same_pgrp)
                         if (setsid() < 0) {
                                 r = EXIT_SETSID;
@@ -985,7 +1002,9 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 
-                if (confirm_spawn) {
+                /* We skip the confirmation step if we shall not apply the TTY */
+                if (confirm_spawn &&
+                    (!is_terminal_input(context->std_input) || apply_tty_stdin)) {
                         char response;
 
                         /* Set up terminal for the question */
@@ -1018,18 +1037,18 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (!keep_stdin)
-                        if (setup_input(context, socket_fd) < 0) {
+                        if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
                                 r = EXIT_STDIN;
                                 goto fail;
                         }
 
                 if (!keep_stdout)
-                        if (setup_output(context, socket_fd, file_name_from_path(command->path)) < 0) {
+                        if (setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail;
                         }
 
-                if (setup_error(context, socket_fd, file_name_from_path(command->path)) < 0) {
+                if (setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
                         r = EXIT_STDERR;
                         goto fail;
                 }
@@ -1105,16 +1124,6 @@ int exec_spawn(ExecCommand *command,
 
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        /* Make sure no fds leak into the PAM
-                         * supervisor process. We will call this later
-                         * on again to make sure that any fds leaked
-                         * by the PAM modules get closed before our
-                         * exec(). */
-                        if (close_all_fds(fds, n_fds) < 0) {
-                                r = EXIT_FDS;
-                                goto fail;
-                        }
-
                         if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
                                 r = EXIT_PAM;
                                 goto fail;
@@ -1174,6 +1183,8 @@ int exec_spawn(ExecCommand *command,
                         free(d);
                 }
 
+                /* We repeat the fd closing here, to make sure that
+                 * nothing is leaked from the PAM modules */
                 if (close_all_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
                     flags_fds(fds, n_fds, context->non_blocking) < 0) {
@@ -1254,13 +1265,19 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                execve(command->path, argv, final_env);
+                if (!(final_argv = replace_env_argv(argv, final_env))) {
+                        r = EXIT_MEMORY;
+                        goto fail;
+                }
+
+                execve(command->path, final_argv, final_env);
                 r = EXIT_EXEC;
 
         fail:
                 strv_free(our_env);
                 strv_free(final_env);
                 strv_free(pam_env);
+                strv_free(final_argv);
 
                 if (saved_stdin >= 0)
                         close_nointr_nofail(saved_stdin);
@@ -1296,6 +1313,7 @@ void exec_context_init(ExecContext *c) {
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
         c->mount_flags = MS_SHARED;
+        c->kill_signal = SIGTERM;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1559,6 +1577,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 strv_fprintf(f, c->inaccessible_dirs);
                 fputs("\n", f);
         }
+
+        fprintf(f,
+                "%sKillMode: %s\n"
+                "%sKillSignal: SIG%s\n",
+                prefix, kill_mode_to_string(c->kill_mode),
+                prefix, signal_to_string(c->kill_signal));
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

@@ -183,6 +183,10 @@ int write_one_line_file(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
 
 char *strappend(const char *s, const char *suffix);
+char *strnappend(const char *s, const char *suffix, size_t length);
+
+char *replace_env(const char *format, char **env);
+char **replace_env_argv(char **argv, char **env);
 
 int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);
@@ -208,6 +212,8 @@ int safe_mkdir(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
 
+int parent_of_path(const char *path, char **parent);
+
 int rmdir_parents(const char *path, const char *stop);
 
 int get_process_name(pid_t pid, char **name);
@@ -222,6 +228,12 @@ int undecchar(char c);
 
 char *cescape(const char *s);
 char *cunescape(const char *s);
+char *cunescape_length(const char *s, size_t length);
+
+char *xescape(const char *s, const char *bad);
+
+char *bus_path_escape(const char *s);
+char *bus_path_unescape(const char *s);
 
 char *path_kill_slashes(char *path);
 
@@ -229,11 +241,6 @@ bool path_startswith(const char *path, const char *prefix);
 bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
-
-char *xescape(const char *s, const char *bad);
-
-char *bus_path_escape(const char *s);
-char *bus_path_unescape(const char *s);
 
 bool ignore_file(const char *filename);
 
@@ -323,6 +330,10 @@ void status_vprintf(const char *format, va_list ap);
 void status_printf(const char *format, ...);
 void status_welcome(void);
 
+int columns(void);
+
+int running_in_chroot(void);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 
@@ -343,5 +354,8 @@ int rlimit_from_string(const char *s);
 
 const char *ip_tos_to_string(int i);
 int ip_tos_from_string(const char *s);
+
+const char *signal_to_string(int i);
+int signal_from_string(const char *s);
 
 #endif

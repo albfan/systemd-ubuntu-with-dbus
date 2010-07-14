@@ -39,6 +39,7 @@
 #include "securebits.h"
 #include "missing.h"
 #include "unit-name.h"
+#include "bus-errors.h"
 
 #define COMMENTS "#;\n"
 
@@ -61,7 +62,7 @@ static int config_parse_deps(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t, *k;
                 int r;
 
@@ -103,7 +104,7 @@ static int config_parse_names(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t, *k;
                 int r;
 
@@ -364,73 +365,102 @@ static int config_parse_exec(
                 void *data,
                 void *userdata) {
 
-        ExecCommand **e = data, *nce = NULL;
-        char **n;
-        char *w;
+        ExecCommand **e = data, *nce;
+        char *path, **n;
         unsigned k;
-        size_t l;
-        char *state, *path = NULL;
-        bool honour_argv0, write_to_path;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(e);
 
         /* We accept an absolute path as first argument, or
          * alternatively an absolute prefixed with @ to allow
          * overriding of argv[0]. */
 
-        honour_argv0 = rvalue[0] == '@';
+        for (;;) {
+                char *w;
+                size_t l;
+                char *state;
+                bool honour_argv0 = false, ignore = false;
 
-        if (rvalue[honour_argv0 ? 1 : 0] != '/') {
-                log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
-                return -EINVAL;
-        }
+                path = NULL;
+                nce = NULL;
+                n = NULL;
 
-        k = 0;
-        FOREACH_WORD_QUOTED(w, l, rvalue, state)
-                k++;
+                rvalue += strspn(rvalue, WHITESPACE);
 
-        if (!(n = new(char*, k + (honour_argv0 ? 0 : 1))))
-                return -ENOMEM;
+                if (rvalue[0] == 0)
+                        break;
 
-        k = 0;
-        write_to_path = honour_argv0;
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                if (write_to_path) {
-                        if (!(path = strndup(w+1, l-1)))
-                                goto fail;
-                        write_to_path = false;
-                } else {
-                        if (!(n[k++] = strndup(w, l)))
-                                goto fail;
+                if (rvalue[0] == '-') {
+                        ignore = true;
+                        rvalue ++;
                 }
-        }
 
-        n[k] = NULL;
+                if (rvalue[0] == '@') {
+                        honour_argv0 = true;
+                        rvalue ++;
+                }
 
-        if (!n[0]) {
-                log_error("[%s:%u] Invalid command line: %s", filename, line, rvalue);
-                strv_free(n);
-                return -EINVAL;
-        }
+                if (*rvalue != '/') {
+                        log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
+                        return -EINVAL;
+                }
 
-        if (!path)
-                if (!(path = strdup(n[0])))
+                k = 0;
+                FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                        if (strncmp(w, ";", l) == 0)
+                                break;
+
+                        k++;
+                }
+
+                if (!(n = new(char*, k + !honour_argv0)))
+                        return -ENOMEM;
+
+                k = 0;
+                FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                        if (strncmp(w, ";", l) == 0)
+                                break;
+
+                        if (honour_argv0 && w == rvalue) {
+                                assert(!path);
+                                if (!(path = cunescape_length(w, l)))
+                                        goto fail;
+                        } else {
+                                if (!(n[k++] = cunescape_length(w, l)))
+                                        goto fail;
+                        }
+                }
+
+                n[k] = NULL;
+
+                if (!n[0]) {
+                        log_error("[%s:%u] Invalid command line: %s", filename, line, rvalue);
+                        strv_free(n);
+                        return -EINVAL;
+                }
+
+                if (!path)
+                        if (!(path = strdup(n[0])))
+                                goto fail;
+
+                assert(path_is_absolute(path));
+
+                if (!(nce = new0(ExecCommand, 1)))
                         goto fail;
 
-        assert(path_is_absolute(path));
+                nce->argv = n;
+                nce->path = path;
+                nce->ignore = ignore;
 
-        if (!(nce = new0(ExecCommand, 1)))
-                goto fail;
+                path_kill_slashes(nce->path);
 
-        nce->argv = n;
-        nce->path = path;
+                exec_command_append_list(e, nce);
 
-        path_kill_slashes(nce->path);
-
-        exec_command_append_list(e, nce);
+                rvalue = state;
+        }
 
         return 0;
 
@@ -689,7 +719,7 @@ static int config_parse_cpu_affinity(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
                 unsigned cpu;
@@ -766,7 +796,7 @@ static int config_parse_secure_bits(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (first_word(w, "keep-caps"))
                         c->secure_bits |= SECURE_KEEP_CAPS;
                 else if (first_word(w, "keep-caps-locked"))
@@ -807,7 +837,7 @@ static int config_parse_bounding_set(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
                 cap_value_t cap;
@@ -902,11 +932,11 @@ static int config_parse_cgroup(
         size_t l;
         char *state;
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 char *t;
                 int r;
 
-                if (!(t = strndup(w, l)))
+                if (!(t = cunescape_length(w, l)))
                         return -ENOMEM;
 
                 r = unit_add_cgroup_from_text(u, t);
@@ -947,6 +977,36 @@ static int config_parse_sysv_priority(
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
+static int config_parse_kill_signal(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *sig = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(sig);
+
+        if ((r = signal_from_string(rvalue)) <= 0)
+                if (startswith(rvalue, "SIG"))
+                        r = signal_from_string(rvalue+3);
+
+        if (r <= 0) {
+                log_error("[%s:%u] Failed to parse kill signal: %s", filename, line, rvalue);
+                return -EINVAL;
+        }
+
+        *sig = r;
+        return 0;
+}
+
 static int config_parse_mount_flags(
                 const char *filename,
                 unsigned line,
@@ -967,7 +1027,7 @@ static int config_parse_mount_flags(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, l, rvalue, state) {
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                 if (strncmp(w, "shared", l) == 0)
                         flags |= MS_SHARED;
                 else if (strncmp(w, "slave", l) == 0)
@@ -1036,14 +1096,23 @@ static int config_parse_timer_unit(
 
         Timer *t = data;
         int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
 
         if (endswith(rvalue, ".timer")) {
                 log_error("[%s:%u] Unit cannot be of type timer: %s", filename, line, rvalue);
                 return -EINVAL;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
                 return r;
         }
 
@@ -1107,14 +1176,23 @@ static int config_parse_path_unit(
 
         Path *t = data;
         int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
 
         if (endswith(rvalue, ".path")) {
                 log_error("[%s:%u] Unit cannot be of type path: %s", filename, line, rvalue);
                 return -EINVAL;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &t->unit)) < 0) {
-                log_error("[%s:%u] Failed to load unit: %s", filename, line, rvalue);
+        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &t->unit)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
                 return r;
         }
 
@@ -1355,6 +1433,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_service_restart,  "SERVICERESTART" },
                 { config_parse_sysv_priority,    "SYSVPRIORITY" },
                 { config_parse_kill_mode,        "KILLMODE" },
+                { config_parse_kill_signal,      "SIGNAL" },
                 { config_parse_listen,           "SOCKET [...]" },
                 { config_parse_socket_bind,      "SOCKETBIND" },
                 { config_parse_bindtodevice,     "NETWORKINTERFACE" },
@@ -1464,7 +1543,9 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PrivateTmp",             config_parse_bool,            &(context).private_tmp,                          section   }, \
                 { "MountFlags",             config_parse_mount_flags,     &(context),                                      section   }, \
                 { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
-                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }
+                { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }, \
+                { "KillMode",               config_parse_kill_mode,       &(context).kill_mode,                            section   }, \
+                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
@@ -1481,6 +1562,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
+                { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1497,7 +1579,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
-                { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
@@ -1517,7 +1598,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "TimeoutSec",             config_parse_usec,            &u->socket.timeout_usec,                         "Socket"  },
                 { "DirectoryMode",          config_parse_mode,            &u->socket.directory_mode,                       "Socket"  },
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
-                { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 { "Accept",                 config_parse_bool,            &u->socket.accept,                               "Socket"  },
                 { "MaxConnections",         config_parse_unsigned,        &u->socket.max_connections,                      "Socket"  },
                 { "KeepAlive",              config_parse_bool,            &u->socket.keep_alive,                           "Socket"  },
@@ -1536,7 +1616,6 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Options",                config_parse_string,          &u->mount.parameters_fragment.options,           "Mount"   },
                 { "Type",                   config_parse_string,          &u->mount.parameters_fragment.fstype,            "Mount"   },
                 { "TimeoutSec",             config_parse_usec,            &u->mount.timeout_usec,                          "Mount"   },
-                { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
                 { "DirectoryMode",          config_parse_mode,            &u->mount.directory_mode,                        "Mount"   },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
@@ -1620,7 +1699,13 @@ static int load_from_path(Unit *u, const char *path) {
                                 goto finish;
                         }
 
-                        if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                        if (u->meta.manager->unit_path_cache &&
+                            !set_get(u->meta.manager->unit_path_cache, filename))
+                                r = -ENOENT;
+                        else
+                                r = open_follow(&filename, &f, symlink_names, &id);
+
+                        if (r < 0) {
                                 char *sn;
 
                                 free(filename);

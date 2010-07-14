@@ -8,13 +8,12 @@
 [Unit]
 Description=Halt
 DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
-Conflicts=dev-hugepages.automount dev-mqueue.automount proc-sys-fs-binfmt_misc.automount sys-kernel-debug.automount sys-kernel-security.automount
+Requires=shutdown.target umount.target
+After=shutdown.target umount.target
 
 [Service]
 Type=finish
 ValidNoProcess=yes
-Environment=INIT_HALT=HALT
-Environment=RUNLEVEL=0
-ExecStart=/etc/init.d/halt start
+Environment=INIT_HALT=HALT RUNLEVEL=0 COLD_BOOT=1
+ExecStart=/etc/init.d/halt
+StandardInput=tty

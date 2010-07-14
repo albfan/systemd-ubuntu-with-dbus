@@ -83,10 +83,12 @@
         "  <property name=\"InaccessibleDirectories\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"MountFlags\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"PrivateTmp\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"SameProcessGroup\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n"
 
 #define BUS_EXEC_COMMAND_INTERFACE(name)                             \
-        "  <property name=\"" name "\" type=\"a(sasttuii)\" access=\"read\"/>\n"
+        "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
 
 #define BUS_EXEC_CONTEXT_PROPERTIES(interface, context)                 \
         { interface, "Environment",                   bus_property_append_strv,   "as",    (context).environment                   }, \
@@ -138,7 +140,9 @@
         { interface, "InaccessibleDirectories",       bus_property_append_strv,   "as",    (context).inaccessible_dirs             }, \
         { interface, "MountFlags",                    bus_property_append_ul,     "t",     &(context).mount_flags                  }, \
         { interface, "PrivateTmp",                    bus_property_append_bool,   "b",     &(context).private_tmp                  }, \
-        { interface, "SameProcessGroup",              bus_property_append_bool,   "b",     &(context).same_pgrp                    }
+        { interface, "SameProcessGroup",              bus_property_append_bool,   "b",     &(context).same_pgrp                    }, \
+        { interface, "KillMode",                      bus_execute_append_kill_mode, "s",   &(context).kill_mode                    }, \
+        { interface, "KillSignal",                    bus_property_append_int,    "i",     &(context).kill_signal                  }
 
 #define BUS_EXEC_STATUS_PROPERTIES(interface, estatus, prefix)           \
         { interface, prefix "StartTimestamp",         bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
@@ -148,7 +152,7 @@
         { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
 #define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)             \
-        { interface, name, bus_execute_append_command, "a(sasttuii)", (command) }
+        { interface, name, bus_execute_append_command, "a(sasbttuii)", (command) }
 
 int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);
@@ -162,5 +166,6 @@ int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const ch
 int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);
+int bus_execute_append_kill_mode(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 #endif

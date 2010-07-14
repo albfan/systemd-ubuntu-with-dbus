@@ -45,6 +45,15 @@ struct CGroupBonding;
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGKILL,SIGPIPE
 
+typedef enum KillMode {
+        KILL_CONTROL_GROUP = 0,
+        KILL_PROCESS_GROUP,
+        KILL_PROCESS,
+        KILL_NONE,
+        _KILL_MODE_MAX,
+        _KILL_MODE_INVALID = -1
+} KillMode;
+
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
         EXEC_INPUT_TTY,
@@ -78,6 +87,7 @@ struct ExecCommand {
         char *path;
         char **argv;
         ExecStatus exec_status;
+        bool ignore;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
 };
 
@@ -143,6 +153,10 @@ struct ExecContext {
          * that the autofs logic detects that it belongs to us and we
          * don't enter a trigger loop. */
         bool same_pgrp;
+
+        /* Not relevant for spawning processes, just for killing */
+        KillMode kill_mode;
+        int kill_signal;
 };
 
 typedef enum ExitStatus {
@@ -196,6 +210,7 @@ int exec_spawn(ExecCommand *command,
                char **environment,
                bool apply_permissions,
                bool apply_chroot,
+               bool apply_tty_stdin,
                bool confirm_spawn,
                struct CGroupBonding *cgroup_bondings,
                pid_t *ret);

@@ -36,6 +36,10 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"Reload\">\n"                                  \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"Restart\">\n"                                 \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -44,7 +48,11 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"Reload\">\n"                                  \
+        "  <method name=\"ReloadOrRestart\">\n"                         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReloadOrTryRestart\">\n"                      \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
@@ -126,7 +134,6 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_unit_append_kill_mode(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

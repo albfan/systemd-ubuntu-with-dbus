@@ -42,6 +42,7 @@
 #include "dbus-swap.h"
 #include "dbus-timer.h"
 #include "dbus-path.h"
+#include "bus-errors.h"
 
 #define CONNECTIONS_MAX 52
 
@@ -71,6 +72,7 @@ static const char *error_to_dbus(int error);
 static void bus_done_api(Manager *m);
 static void bus_done_system(Manager *m);
 static void bus_done_private(Manager *m);
+static void shutdown_connection(Manager *m, DBusConnection *c);
 
 static void bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;
@@ -336,10 +338,12 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+            dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL)
+                log_debug("Got D-Bus request: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! API D-Bus connection terminated.");
@@ -379,13 +383,13 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         log_debug("Got D-Bus activation request for %s", name);
 
-                        r = manager_load_unit(m, name, NULL, &u);
+                        r = manager_load_unit(m, name, NULL, &error, &u);
 
                         if (r >= 0 && u->meta.only_by_dependency)
                                 r = -EPERM;
 
                         if (r >= 0)
-                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, NULL);
+                                r = manager_add_job(m, JOB_START, u, JOB_REPLACE, true, &error, NULL);
 
                         if (r < 0) {
                                 const char *id, *text;
@@ -395,8 +399,8 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                 if (!(reply = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Activator", "ActivationFailure")))
                                         goto oom;
 
-                                id = error_to_dbus(r);
-                                text = strerror(-r);
+                                id = error.name ? error.name : error_to_dbus(r);
+                                text = bus_error(&error, r);
 
                                 if (!dbus_message_set_destination(reply, DBUS_SERVICE_DBUS) ||
                                     !dbus_message_append_args(reply,
@@ -441,10 +445,13 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
 
         dbus_error_init(&error);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (m->api_bus != m->system_bus &&
+            (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+             dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL))
+                log_debug("Got D-Bus request on system bus: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
                 log_error("Warning! System D-Bus connection terminated.");
@@ -472,16 +479,15 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
         assert(message);
         assert(m);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
+        if (dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_METHOD_CALL ||
+            dbus_message_get_type(message) == DBUS_MESSAGE_TYPE_SIGNAL)
+                log_debug("Got D-Bus request: %s.%s() on %s",
+                          dbus_message_get_interface(message),
+                          dbus_message_get_member(message),
+                          dbus_message_get_path(message));
 
-        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                set_remove(m->bus_connections, connection);
-                set_remove(m->bus_connections_for_dispatch, connection);
-                dbus_connection_unref(connection);
-        }
+        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected"))
+                shutdown_connection(m, connection);
 
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
@@ -752,7 +758,6 @@ static void bus_new_connection(
 
 static int bus_init_system(Manager *m) {
         DBusError error;
-        char *id;
         int r;
 
         assert(m);
@@ -794,10 +799,13 @@ static int bus_init_system(Manager *m) {
                 goto fail;
         }
 
-        log_info("Successfully connected to system D-Bus bus %s as %s",
-                 strnull((id = dbus_connection_get_server_id(m->system_bus))),
-                 strnull(dbus_bus_get_unique_name(m->system_bus)));
-        dbus_free(id);
+        if (m->api_bus != m->system_bus) {
+                char *id;
+                log_info("Successfully connected to system D-Bus bus %s as %s",
+                         strnull((id = dbus_connection_get_server_id(m->system_bus))),
+                         strnull(dbus_bus_get_unique_name(m->system_bus)));
+                dbus_free(id);
+        }
 
         return 0;
 
@@ -810,7 +818,6 @@ fail:
 
 static int bus_init_api(Manager *m) {
         DBusError error;
-        char *id;
         int r;
 
         assert(m);
@@ -878,10 +885,13 @@ static int bus_init_api(Manager *m) {
         if ((r = query_name_list(m)) < 0)
                 goto fail;
 
-        log_info("Successfully connected to API D-Bus bus %s as %s",
-                 strnull((id = dbus_connection_get_server_id(m->api_bus))),
-                 strnull(dbus_bus_get_unique_name(m->api_bus)));
-        dbus_free(id);
+        if (m->api_bus != m->system_bus) {
+                char *id;
+                log_info("Successfully connected to API D-Bus bus %s as %s",
+                         strnull((id = dbus_connection_get_server_id(m->api_bus))),
+                         strnull(dbus_bus_get_unique_name(m->api_bus)));
+                dbus_free(id);
+        }
 
         return 0;
 
@@ -908,7 +918,7 @@ static int bus_init_private(Manager *m) {
                 return 0;
 
         /* We want the private bus only when running as init */
-        if (m->running_as != MANAGER_SYSTEM)
+        if (getpid() != 1)
                 return 0;
 
         if (!(m->private_bus = dbus_server_listen("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
@@ -1326,13 +1336,13 @@ static const char *error_to_dbus(int error) {
         return DBUS_ERROR_FAILED;
 }
 
-DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *bus_error, int error) {
+DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessage *message, DBusError *berror, int error) {
         DBusMessage *reply = NULL;
         const char *name, *text;
 
-        if (bus_error && dbus_error_is_set(bus_error)) {
-                name = bus_error->name;
-                text = bus_error->message;
+        if (berror && dbus_error_is_set(berror)) {
+                name = berror->name;
+                text = berror->message;
         } else {
                 name = error_to_dbus(error);
                 text = strerror(-error);
@@ -1346,8 +1356,8 @@ DBusHandlerResult bus_send_error_reply(Manager *m, DBusConnection *c, DBusMessag
 
         dbus_message_unref(reply);
 
-        if (bus_error)
-                dbus_error_free(bus_error);
+        if (berror)
+                dbus_error_free(berror);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
@@ -1355,8 +1365,8 @@ oom:
         if (reply)
                 dbus_message_unref(reply);
 
-        if (bus_error)
-                dbus_error_free(bus_error);
+        if (berror)
+                dbus_error_free(berror);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
