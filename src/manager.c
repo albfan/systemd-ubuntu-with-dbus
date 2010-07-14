@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -53,6 +54,7 @@
 #include "missing.h"
 #include "path-lookup.h"
 #include "special.h"
+#include "bus-errors.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -82,12 +84,12 @@ static int manager_setup_notify(Manager *m) {
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
 
-        if (m->running_as == MANAGER_SESSION)
+        if (getpid() != 1)
                 snprintf(sa.un.sun_path+1, sizeof(sa.un.sun_path)-1, NOTIFY_SOCKET "/%llu", random_ull());
         else
                 strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa)) < 0) {
+        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa_family_t) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }
@@ -185,7 +187,6 @@ static int manager_setup_signals(Manager *m) {
 int manager_new(ManagerRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
-        char *p;
 
         assert(_m);
         assert(running_as >= 0);
@@ -243,14 +244,6 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init(m)) < 0)
                 goto fail;
-
-        if (asprintf(&p, "%s/%s", m->cgroup_mount_point, m->cgroup_hierarchy) < 0) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        m->pin_cgroupfs_fd = open(p, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-        free(p);
 
         *_m = m;
         return 0;
@@ -419,8 +412,7 @@ void manager_free(Manager *m) {
 
         /* If we reexecute ourselves, we keep the root cgroup
          * around */
-        if (m->exit_code != MANAGER_REEXECUTE)
-                manager_shutdown_cgroup(m);
+        manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
         bus_done(m);
 
@@ -442,14 +434,8 @@ void manager_free(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
-        free(m->cgroup_controller);
-        free(m->cgroup_hierarchy);
-        free(m->cgroup_mount_point);
-
         hashmap_free(m->cgroup_bondings);
-
-        if (m->pin_cgroupfs_fd >= 0)
-                close_nointr_nofail(m->pin_cgroupfs_fd);
+        set_free_free(m->unit_path_cache);
 
         free(m);
 }
@@ -493,10 +479,76 @@ int manager_coldplug(Manager *m) {
         return r;
 }
 
+static void manager_build_unit_path_cache(Manager *m) {
+        char **i;
+        DIR *d = NULL;
+        int r;
+
+        assert(m);
+
+        set_free_free(m->unit_path_cache);
+
+        if (!(m->unit_path_cache = set_new(string_hash_func, string_compare_func))) {
+                log_error("Failed to allocate unit path cache.");
+                return;
+        }
+
+        /* This simply builds a list of files we know exist, so that
+         * we don't always have to go to disk */
+
+        STRV_FOREACH(i, m->lookup_paths.unit_path) {
+                struct dirent *de;
+
+                if (!(d = opendir(*i))) {
+                        log_error("Failed to open directory: %m");
+                        continue;
+                }
+
+                while ((de = readdir(d))) {
+                        char *p;
+
+                        if (ignore_file(de->d_name))
+                                continue;
+
+                        if (asprintf(&p, "%s/%s", streq(*i, "/") ? "" : *i, de->d_name) < 0) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        if ((r = set_put(m->unit_path_cache, p)) < 0) {
+                                free(p);
+                                goto fail;
+                        }
+                }
+
+                closedir(d);
+                d = NULL;
+        }
+
+        return;
+
+fail:
+        log_error("Failed to build unit path cache: %s", strerror(-r));
+
+        set_free_free(m->unit_path_cache);
+        m->unit_path_cache = NULL;
+
+        if (d)
+                closedir(d);
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r, q;
 
         assert(m);
+
+        manager_build_unit_path_cache(m);
+
+        /* If we will deserialize make sure that during enumeration
+         * this is already known, so we increase the counter here
+         * already */
+        if (serialization)
+                m->n_deserializing ++;
 
         /* First, enumerate what we can from all config files */
         r = manager_enumerate(m);
@@ -509,6 +561,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         /* Third, fire things up! */
         if ((q = manager_coldplug(m)) < 0)
                 r = q;
+
+        if (serialization) {
+                assert(m->n_deserializing > 0);
+                m->n_deserializing --;
+        }
 
         /* Now that the initial devices are available, let's see if we
          * can write the utmp file */
@@ -697,7 +754,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Manager *m) {
+static int transaction_merge_jobs(Manager *m, DBusError *e) {
         Job *j;
         Iterator i;
         int r;
@@ -726,6 +783,8 @@ static int transaction_merge_jobs(Manager *m) {
                                 return -EAGAIN;
 
                         /* We couldn't merge anything. Failure */
+                        dbus_set_error(e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING, "Transaction contains conflicting jobs '%s' and '%s' for %s. Probably contradicting requirement dependencies configured.",
+                                       job_type_to_string(t), job_type_to_string(k->type), k->unit->meta.id);
                         return r;
                 }
         }
@@ -812,7 +871,7 @@ static bool unit_matters_to_anchor(Unit *u, Job *j) {
         return false;
 }
 
-static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation) {
+static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation, DBusError *e) {
         Iterator i;
         Unit *u;
         int r;
@@ -863,6 +922,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
                 log_error("Unable to break cycle");
 
+                dbus_set_error(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC, "Transaction order is cyclic. See logs for details.");
                 return -ENOEXEC;
         }
 
@@ -887,7 +947,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                         if (!(o = u->meta.job))
                                 continue;
 
-                if ((r = transaction_verify_order_one(m, o, j, generation)) < 0)
+                if ((r = transaction_verify_order_one(m, o, j, generation, e)) < 0)
                         return r;
         }
 
@@ -898,7 +958,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         return 0;
 }
 
-static int transaction_verify_order(Manager *m, unsigned *generation) {
+static int transaction_verify_order(Manager *m, unsigned *generation, DBusError *e) {
         Job *j;
         int r;
         Iterator i;
@@ -913,7 +973,7 @@ static int transaction_verify_order(Manager *m, unsigned *generation) {
         g = (*generation)++;
 
         HASHMAP_FOREACH(j, m->transaction_jobs, i)
-                if ((r = transaction_verify_order_one(m, j, NULL, g)) < 0)
+                if ((r = transaction_verify_order_one(m, j, NULL, g, e)) < 0)
                         return r;
 
         return 0;
@@ -945,7 +1005,7 @@ static void transaction_collect_garbage(Manager *m) {
         } while (again);
 }
 
-static int transaction_is_destructive(Manager *m) {
+static int transaction_is_destructive(Manager *m, DBusError *e) {
         Iterator i;
         Job *j;
 
@@ -962,8 +1022,11 @@ static int transaction_is_destructive(Manager *m) {
 
                 if (j->unit->meta.job &&
                     j->unit->meta.job != j &&
-                    !job_type_is_superset(j->type, j->unit->meta.job->type))
+                    !job_type_is_superset(j->type, j->unit->meta.job->type)) {
+
+                        dbus_set_error(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
                         return -EEXIST;
+                }
         }
 
         return 0;
@@ -1080,7 +1143,7 @@ rollback:
         return r;
 }
 
-static int transaction_activate(Manager *m, JobMode mode) {
+static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         int r;
         unsigned generation = 1;
 
@@ -1107,11 +1170,11 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
                 /* Fifth step: verify order makes sense and correct
                  * cycles if necessary and possible */
-                if ((r = transaction_verify_order(m, &generation)) >= 0)
+                if ((r = transaction_verify_order(m, &generation, e)) >= 0)
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", strerror(-r));
+                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1123,11 +1186,11 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 /* Sixth step: let's drop unmergeable entries if
                  * necessary and possible, merge entries we can
                  * merge */
-                if ((r = transaction_merge_jobs(m)) >= 0)
+                if ((r = transaction_merge_jobs(m, e)) >= 0)
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains unmergable jobs: %s", strerror(-r));
+                        log_warning("Requested transaction contains unmergable jobs: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1144,8 +1207,8 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
         /* Ninth step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
-                if ((r = transaction_is_destructive(m)) < 0) {
-                        log_notice("Requested transaction contradicts existing jobs: %s", strerror(-r));
+                if ((r = transaction_is_destructive(m, e)) < 0) {
+                        log_notice("Requested transaction contradicts existing jobs: %s", bus_error(e, r));
                         goto rollback;
                 }
 
@@ -1253,6 +1316,7 @@ static int transaction_add_job_and_dependencies(
                 Job *by,
                 bool matters,
                 bool override,
+                DBusError *e,
                 Job **_ret) {
         Job *ret;
         Iterator i;
@@ -1264,11 +1328,16 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED)
+        if (type != JOB_STOP &&
+            unit->meta.load_state != UNIT_LOADED) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load. See logs for details.", unit->meta.id);
                 return -EINVAL;
+        }
 
-        if (!unit_job_is_applicable(unit, type))
+        if (!unit_job_is_applicable(unit, type)) {
+                dbus_set_error(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE, "Job type %s is not applicable for unit %s.", job_type_to_string(type), unit->meta.id);
                 return -EBADR;
+        }
 
         /* First add the job. */
         if (!(ret = transaction_add_one_job(m, type, unit, override, &is_new)))
@@ -1282,33 +1351,39 @@ static int transaction_add_job_and_dependencies(
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, NULL)) < 0)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, e, NULL)) < 0) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, NULL)) < 0 && r != -EBADR)
-                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, strerror(-r));
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, e, NULL)) < 0 && r != -EBADR) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+                                        dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, NULL)) < 0 && r != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, e, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }
 
@@ -1349,14 +1424,14 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (hashmap_get(m->transaction_jobs, u))
                         continue;
 
-                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL)) < 0)
+                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, NULL, NULL)) < 0)
                         log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->meta.id, strerror(-r));
         }
 
         return 0;
 }
 
-int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, DBusError *e, Job **_ret) {
         int r;
         Job *ret;
 
@@ -1365,12 +1440,14 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
-        if (mode == JOB_ISOLATE && type != JOB_START)
+        if (mode == JOB_ISOLATE && type != JOB_START) {
+                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "Isolate is only valid for start.");
                 return -EINVAL;
+        }
 
         log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, &ret)) < 0) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, e, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
@@ -1381,7 +1458,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                         return r;
                 }
 
-        if ((r = transaction_activate(m, mode)) < 0)
+        if ((r = transaction_activate(m, mode, e)) < 0)
                 return r;
 
         log_debug("Enqueued job %s/%s as %u", unit->meta.id, job_type_to_string(type), (unsigned) ret->id);
@@ -1392,7 +1469,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         return 0;
 }
 
-int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, Job **_ret) {
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool override, DBusError *e, Job **_ret) {
         Unit *unit;
         int r;
 
@@ -1401,10 +1478,10 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = manager_load_unit(m, name, NULL, &unit)) < 0)
+        if ((r = manager_load_unit(m, name, NULL, NULL, &unit)) < 0)
                 return r;
 
-        return manager_add_job(m, type, unit, mode, override, _ret);
+        return manager_add_job(m, type, unit, mode, override, e, _ret);
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -1446,7 +1523,7 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Unit **_ret) {
+int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
         Unit *ret;
         int r;
 
@@ -1456,14 +1533,18 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
         /* This will prepare the unit for loading, but not actually
          * load anything from disk. */
 
-        if (path && !is_path(path))
+        if (path && !is_path(path)) {
+                dbus_set_error(e, BUS_ERROR_INVALID_PATH, "Path %s is not absolute.", path);
                 return -EINVAL;
+        }
 
         if (!name)
                 name = file_name_from_path(path);
 
-        if (!unit_name_is_valid(name))
+        if (!unit_name_is_valid(name)) {
+                dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
+        }
 
         if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
@@ -1494,7 +1575,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, Un
         return 0;
 }
 
-int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_ret) {
+int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
         int r;
 
         assert(m);
@@ -1502,7 +1583,7 @@ int manager_load_unit(Manager *m, const char *name, const char *path, Unit **_re
         /* This will load the service information files, but not actually
          * start any services or anything. */
 
-        if ((r = manager_load_unit_prepare(m, name, path, _ret)) != 0)
+        if ((r = manager_load_unit_prepare(m, name, path, e, _ret)) != 0)
                 return r;
 
         manager_dispatch_load_queue(m);
@@ -1647,7 +1728,7 @@ static int manager_process_notify_fd(Manager *m) {
 
                 ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
 
-                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(ucred->pid))))
+                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid))))
                         if (!(u = cgroup_unit_by_pid(m, ucred->pid))) {
                                 log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
@@ -1712,7 +1793,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                         return r;
 
                 /* And now figure out the unit this belongs to */
-                if (!(u = hashmap_get(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                if (!(u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid))))
                         u = cgroup_unit_by_pid(m, si.si_pid);
 
                 /* And now, we actually reap the zombie. */
@@ -1730,14 +1811,14 @@ static int manager_dispatch_sigchld(Manager *m) {
                           (long unsigned) si.si_pid,
                           sigchld_code_to_string(si.si_code),
                           si.si_status,
-                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : strsignal(si.si_status)));
+                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : signal_to_string(si.si_status)));
 
                 if (!u)
                         continue;
 
-                log_debug("Child %llu belongs to %s", (long long unsigned) si.si_pid, u->meta.id);
+                log_debug("Child %lu belongs to %s", (long unsigned) si.si_pid, u->meta.id);
 
-                hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid));
+                hashmap_remove(m->watch_pids, LONG_TO_PTR(si.si_pid));
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 
@@ -1746,9 +1827,16 @@ static int manager_dispatch_sigchld(Manager *m) {
 
 static int manager_start_target(Manager *m, const char *name, JobMode mode) {
         int r;
+        DBusError error;
 
-        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, NULL)) < 0)
-                log_error("Failed to enqueue %s job: %s", name, strerror(-r));
+        dbus_error_init(&error);
+
+        log_info("Activating special unit %s", name);
+
+        if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
+                log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
+
+        dbus_error_free(&error);
 
         return r;
 }
@@ -1771,6 +1859,8 @@ static int manager_process_signal_fd(Manager *m) {
 
                         return -errno;
                 }
+
+                log_debug("Received SIG%s", strna(signal_to_string(sfsi.ssi_signo)));
 
                 switch (sfsi.ssi_signo) {
 
@@ -1869,7 +1959,7 @@ static int manager_process_signal_fd(Manager *m) {
                         static const char * const table[] = {
                                 [0] = SPECIAL_DEFAULT_TARGET,
                                 [1] = SPECIAL_RESCUE_TARGET,
-                                [2] = SPECIAL_EMERGENCY_SERVICE,
+                                [2] = SPECIAL_EMERGENCY_TARGET,
                                 [3] = SPECIAL_HALT_TARGET,
                                 [4] = SPECIAL_POWEROFF_TARGET,
                                 [5] = SPECIAL_REBOOT_TARGET
@@ -1882,7 +1972,7 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
+                        log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
                 }
                 }
         }
@@ -1981,6 +2071,10 @@ int manager_loop(Manager *m) {
 
         assert(m);
         m->exit_code = MANAGER_RUNNING;
+
+        /* Release the path cache */
+        set_free_free(m->unit_path_cache);
+        m->unit_path_cache = NULL;
 
         /* There might still be some zombies hanging around from
          * before we were exec()'ed. Leat's reap them */
@@ -2252,6 +2346,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
         log_debug("Deserializing state...");
 
+        m->n_deserializing ++;
+
         for (;;) {
                 Unit *u;
                 char name[UNIT_NAME_MAX+2];
@@ -2261,22 +2357,31 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (feof(f))
                                 break;
 
-                        return -errno;
+                        r = -errno;
+                        goto finish;
                 }
 
                 char_array_0(name);
 
-                if ((r = manager_load_unit(m, strstrip(name), NULL, &u)) < 0)
-                        return r;
+                if ((r = manager_load_unit(m, strstrip(name), NULL, NULL, &u)) < 0)
+                        goto finish;
 
                 if ((r = unit_deserialize(u, f, fds)) < 0)
-                        return r;
+                        goto finish;
         }
 
-        if (ferror(f))
-                return -EIO;
+        if (ferror(f)) {
+                r = -EIO;
+                goto finish;
+        }
 
-        return 0;
+        r = 0;
+
+finish:
+        assert(m->n_deserializing > 0);
+        m->n_deserializing --;
+
+        return r;
 }
 
 int manager_reload(Manager *m) {
@@ -2310,6 +2415,8 @@ int manager_reload(Manager *m) {
         if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 r = q;
 
+        m->n_deserializing ++;
+
         /* First, enumerate what we can from all config files */
         if ((q = manager_enumerate(m)) < 0)
                 r = q;
@@ -2324,6 +2431,9 @@ int manager_reload(Manager *m) {
         /* Third, fire things up! */
         if ((q = manager_coldplug(m)) < 0)
                 r = q;
+
+        assert(m->n_deserializing > 0);
+        m->n_deserializing ++;
 
 finish:
         if (f)

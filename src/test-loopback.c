@@ -22,8 +22,10 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #include "loopback-setup.h"
+#include "util.h"
 
 int main(int argc, char* argv[]) {
         int r;

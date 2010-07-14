@@ -33,6 +33,7 @@
 #include "unit-name.h"
 #include "dbus-service.h"
 #include "special.h"
+#include "bus-errors.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -526,7 +527,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB;
 
-                                FOREACH_WORD(w, z, t+9, i) {
+                                FOREACH_WORD_QUOTED(w, z, t+9, i) {
                                         char *n, *m;
 
                                         if (!(n = strndup(w, z))) {
@@ -563,7 +564,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 state = LSB;
 
-                                FOREACH_WORD(w, z, strchr(t, ':')+1, i) {
+                                FOREACH_WORD_QUOTED(w, z, strchr(t, ':')+1, i) {
                                         char *n, *m;
 
                                         if (!(n = strndup(w, z))) {
@@ -630,6 +631,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         goto finish;
                                 }
 
+                                free(u->meta.description);
                                 u->meta.description = d;
 
                         } else if (startswith_no_case(t, "X-Interactive:")) {
@@ -683,9 +685,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->valid_no_process = true;
-        s->kill_mode = KILL_PROCESS_GROUP;
         s->restart = SERVICE_ONCE;
         s->exec_context.std_output = EXEC_OUTPUT_TTY;
+        s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -820,7 +822,7 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
@@ -927,14 +929,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
-                "%sKillMode: %s\n"
                 "%sType: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
-                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, service_type_to_string(s->type),
                 prefix, notify_access_to_string(s->notify_access));
 
@@ -1179,6 +1179,11 @@ static void service_set_state(Service *s, ServiceState state) {
                 service_connection_unref(s);
         }
 
+        /* For the inactive states unit_notify() will trim the cgroup,
+         * but for exit we have to do that ourselves... */
+        if (state == SERVICE_EXITED)
+                cgroup_bonding_trim_list(s->meta.cgroup_bondings, true);
+
         if (old_state != state)
                 log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
@@ -1322,14 +1327,15 @@ static int service_spawn(
                 bool pass_fds,
                 bool apply_permissions,
                 bool apply_chroot,
+                bool apply_tty_stdin,
                 bool set_notify_socket,
                 pid_t *_pid) {
 
         pid_t pid;
         int r;
         int *fds = NULL, *fdsbuf = NULL;
-        unsigned n_fds = 0;
-        char **argv = NULL, **env = NULL;
+        unsigned n_fds = 0, n_env = 0;
+        char **argv = NULL, **final_env = NULL, **our_env = NULL;
 
         assert(s);
         assert(c);
@@ -1362,63 +1368,65 @@ static int service_spawn(
                 goto fail;
         }
 
-        if (set_notify_socket) {
-                char *t;
+        if (!(our_env = new0(char*, 3))) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
-                if (asprintf(&t, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
+        if (set_notify_socket)
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                env = strv_env_set(s->meta.manager->environment, t);
-                free(t);
-
-                if (!env) {
+        if (s->main_pid > 0)
+                if (asprintf(our_env + n_env++, "MAINPID=%lu", (unsigned long) s->main_pid) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
-        } else
-                env = s->meta.manager->environment;
+
+        if (!(final_env = strv_env_merge(2,
+                                         s->meta.manager->environment,
+                                         our_env,
+                                         NULL))) {
+                r = -ENOMEM;
+                goto fail;
+        }
 
         r = exec_spawn(c,
                        argv,
                        &s->exec_context,
                        fds, n_fds,
-                       env,
+                       final_env,
                        apply_permissions,
                        apply_chroot,
+                       apply_tty_stdin,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
                        &pid);
 
-        strv_free(argv);
-        argv = NULL;
-
-        if (set_notify_socket)
-                strv_free(env);
-        env = NULL;
-
         if (r < 0)
                 goto fail;
 
-        if (fdsbuf)
-                free(fdsbuf);
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
+
+        free(fdsbuf);
+        strv_free(argv);
+        strv_free(our_env);
+        strv_free(final_env);
 
         *_pid = pid;
 
         return 0;
 
 fail:
-        free(fds);
-
+        free(fdsbuf);
         strv_free(argv);
-
-        if (set_notify_socket)
-                strv_free(env);
+        strv_free(our_env);
+        strv_free(final_env);
 
         if (timeout)
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
@@ -1503,6 +1511,7 @@ static void service_enter_stop_post(Service *s, bool success) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       true,
                                        false,
                                        &s->control_pid)) < 0)
                         goto fail;
@@ -1528,10 +1537,10 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (s->kill_mode != KILL_NONE) {
-                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->exec_context.kill_mode != KILL_NONE) {
+                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->kill_mode == KILL_CONTROL_GROUP) {
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -1544,14 +1553,14 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                         r = 0;
 
                         if (s->main_pid > 0) {
-                                if (kill(s->kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
+                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
                                         r = -errno;
                                 else
                                         sent = true;
                         }
 
                         if (s->control_pid > 0) {
-                                if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
+                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
                                         r = -errno;
                                 else
                                         sent = true;
@@ -1603,6 +1612,7 @@ static void service_enter_stop(Service *s, bool success) {
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
                                        false,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1651,6 +1661,7 @@ static void service_enter_start_post(Service *s) {
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
                                        false,
+                                       false,
                                        &s->control_pid)) < 0)
                         goto fail;
 
@@ -1682,6 +1693,7 @@ static void service_enter_start(Service *s) {
         if ((r = service_spawn(s,
                                s->exec_command[SERVICE_EXEC_START],
                                s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
+                               true,
                                true,
                                true,
                                true,
@@ -1745,6 +1757,7 @@ static void service_enter_start_pre(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       true,
                                        false,
                                        &s->control_pid)) < 0)
                         goto fail;
@@ -1762,20 +1775,24 @@ fail:
 
 static void service_enter_restart(Service *s) {
         int r;
+        DBusError error;
+
         assert(s);
+        dbus_error_init(&error);
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL)) < 0)
+        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL, NULL)) < 0)
                 goto fail;
 
         log_debug("%s scheduled restart job.", s->meta.id);
         return;
 
 fail:
-
-        log_warning("%s failed to schedule restart job: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to schedule restart job: %s", s->meta.id, bus_error(&error, -r));
         service_enter_dead(s, false, false);
+
+        dbus_error_free(&error);
 }
 
 static void service_enter_reload(Service *s) {
@@ -1793,6 +1810,7 @@ static void service_enter_reload(Service *s) {
                                        false,
                                        !s->permissions_start_only,
                                        !s->root_directory_start_only,
+                                       false,
                                        false,
                                        &s->control_pid)) < 0)
                         goto fail;
@@ -1828,6 +1846,8 @@ static void service_run_next(Service *s, bool success) {
                                false,
                                !s->permissions_start_only,
                                !s->root_directory_start_only,
+                               s->control_command_id == SERVICE_EXEC_START_PRE ||
+                               s->control_command_id == SERVICE_EXEC_STOP_POST,
                                false,
                                &s->control_pid)) < 0)
                 goto fail;
@@ -1889,12 +1909,9 @@ static int service_stop(Unit *u) {
 
         assert(s);
 
-        /* Cannot do this now */
-        if (s->state == SERVICE_START_PRE ||
-            s->state == SERVICE_START ||
-            s->state == SERVICE_START_POST ||
-            s->state == SERVICE_RELOAD)
-                return -EAGAIN;
+        /* This is a user request, so don't do restarts on this
+         * shutdown. */
+        s->allow_restart = false;
 
         /* Already on it */
         if (s->state == SERVICE_STOP ||
@@ -1905,16 +1922,24 @@ static int service_stop(Unit *u) {
             s->state == SERVICE_FINAL_SIGKILL)
                 return 0;
 
+        /* Don't allow a restart */
         if (s->state == SERVICE_AUTO_RESTART) {
                 service_set_state(s, SERVICE_DEAD);
                 return 0;
         }
 
-        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
+        /* If there's already something running we go directly into
+         * kill mode. */
+        if (s->state == SERVICE_START_PRE ||
+            s->state == SERVICE_START ||
+            s->state == SERVICE_START_POST ||
+            s->state == SERVICE_RELOAD) {
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
+                return 0;
+        }
 
-        /* This is a user request, so don't do restarts on this
-         * shutdown. */
-        s->allow_restart = false;
+        assert(s->state == SERVICE_RUNNING ||
+               s->state == SERVICE_EXITED);
 
         service_enter_stop(s, true);
         return 0;
@@ -2152,7 +2177,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(pid >= 0);
 
         success = is_clean_exit(code, status);
-        s->failure = s->failure || !success;
 
         if (s->main_pid == pid) {
 
@@ -2162,9 +2186,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (s->type != SERVICE_FORKING) {
                         assert(s->exec_command[SERVICE_EXEC_START]);
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
+
+                        if (s->exec_command[SERVICE_EXEC_START]->ignore)
+                                success = true;
                 }
 
                 log_debug("%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                s->failure = s->failure || !success;
 
                 /* The service exited, so the service is officially
                  * gone. */
@@ -2211,12 +2239,17 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         } else if (s->control_pid == pid) {
 
-                if (s->control_command)
+                if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, pid, code, status);
+
+                        if (s->control_command->ignore)
+                                success = true;
+                }
 
                 s->control_pid = 0;
 
                 log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                s->failure = s->failure || !success;
 
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
@@ -2537,7 +2570,7 @@ static int service_enumerate(Manager *m) {
                                         goto finish;
                                 }
 
-                                if ((r = manager_load_unit_prepare(m, name, NULL, &service)) < 0) {
+                                if ((r = manager_load_unit_prepare(m, name, NULL, NULL, &service)) < 0) {
                                         log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
                                         continue;
                                 }
@@ -2549,6 +2582,13 @@ static int service_enumerate(Manager *m) {
 
                                 manager_dispatch_load_queue(m);
                                 service = unit_follow_merge(service);
+
+                                /* If this is a native service, rely
+                                 * on native ways to pull in a
+                                 * service, don't pull it in via sysv
+                                 * rcN.d links. */
+                                if (service->meta.fragment_path)
+                                        continue;
 
                                 if (de->d_name[0] == 'S') {
 

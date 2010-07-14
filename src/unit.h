@@ -39,18 +39,9 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 
-#define UNIT_NAME_MAX 128
+#define UNIT_NAME_MAX 256
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
-
-typedef enum KillMode {
-        KILL_CONTROL_GROUP = 0,
-        KILL_PROCESS_GROUP,
-        KILL_PROCESS,
-        KILL_NONE,
-        _KILL_MODE_MAX,
-        _KILL_MODE_INVALID = -1
-} KillMode;
 
 enum UnitType {
         UNIT_SERVICE = 0,
@@ -192,6 +183,9 @@ struct Meta {
 
         /* Create default depedencies */
         bool default_dependencies;
+
+        /* Bring up this unit even if a dependency fails to start */
+        bool ignore_dependency_failure;
 
         /* When deserializing, temporarily store the job type for this
          * unit here, if there was a job scheduled */

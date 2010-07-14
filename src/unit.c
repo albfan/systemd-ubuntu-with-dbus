@@ -39,6 +39,7 @@
 #include "specifier.h"
 #include "dbus-unit.h"
 #include "special.h"
+#include "cgroup-util.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -625,11 +626,13 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tRecursive Stop: %s\n"
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tOnlyByDependency: %s\n"
-                        "%s\tDefaultDependencies: %s\n",
+                        "%s\tDefaultDependencies: %s\n"
+                        "%s\tIgnoreDependencyFailure: %s\n",
                         prefix, yes_no(u->meta.recursive_stop),
                         prefix, yes_no(u->meta.stop_when_unneeded),
                         prefix, yes_no(u->meta.only_by_dependency),
-                        prefix, yes_no(u->meta.default_dependencies));
+                        prefix, yes_no(u->meta.default_dependencies),
+                        prefix, yes_no(u->meta.ignore_dependency_failure));
 
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
@@ -881,7 +884,7 @@ static void unit_check_uneeded(Unit *u) {
         log_info("Service %s is not needed anymore. Stopping.", u->meta.id);
 
         /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-        manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
+        manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL, NULL);
 }
 
 static void retroactively_start_dependencies(Unit *u) {
@@ -893,23 +896,23 @@ static void retroactively_start_dependencies(Unit *u) {
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_FAIL, false, NULL, NULL);
 
         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
                 if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -923,7 +926,7 @@ static void retroactively_stop_dependencies(Unit *u) {
                 /* Pull down units need us recursively if enabled */
                 SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
                         if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL, NULL);
         }
 
         /* Garbage collect services that might not be needed anymore, if enabled */
@@ -946,6 +949,7 @@ static void retroactively_stop_dependencies(Unit *u) {
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         dual_timestamp ts;
+        bool unexpected;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -970,11 +974,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
 
+        if (ns != os && ns == UNIT_MAINTENANCE)
+                log_notice("Unit %s entered maintenance state.", u->meta.id);
+
+        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                cgroup_bonding_trim_list(u->meta.cgroup_bondings, true);
+
         timer_unit_notify(u, ns);
         path_unit_notify(u, ns);
 
         if (u->meta.job) {
-                bool unexpected = false;
+                unexpected = false;
 
                 if (u->meta.job->state == JOB_WAITING)
 
@@ -1033,16 +1043,20 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         assert_not_reached("Job type unknown");
                 }
 
-                /* If this state change happened without being
-                 * requested by a job, then let's retroactively start
-                 * or stop dependencies */
+        } else
+                unexpected = true;
 
-                if (unexpected) {
-                        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
-                                retroactively_start_dependencies(u);
-                        else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
-                                retroactively_stop_dependencies(u);
-                }
+        /* If this state change happened without being requested by a
+         * job, then let's retroactively start or stop
+         * dependencies. We skip that step when deserializing, since
+         * we don't want to create any additional jobs just because
+         * something is already activated. */
+
+        if (unexpected && u->meta.manager->n_deserializing <= 0) {
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                        retroactively_start_dependencies(u);
+                else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                        retroactively_stop_dependencies(u);
         }
 
         /* Some names are special */
@@ -1138,14 +1152,14 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         /* Watch a specific PID. We only support one unit watching
          * each PID for now. */
 
-        return hashmap_put(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
+        return hashmap_put(u->meta.manager->watch_pids, LONG_TO_PTR(pid), u);
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove_value(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
+        hashmap_remove_value(u->meta.manager->watch_pids, LONG_TO_PTR(pid), u);
 }
 
 int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
@@ -1391,7 +1405,7 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, con
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_dependency(u, d, other, add_reference);
@@ -1412,7 +1426,7 @@ int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency 
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_two_dependencies(u, d, e, other, add_reference);
@@ -1433,7 +1447,7 @@ int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *n
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         r = unit_add_dependency(other, d, u, add_reference);
@@ -1454,7 +1468,7 @@ int unit_add_two_dependencies_by_name_inverse(Unit *u, UnitDependency d, UnitDep
         if (!(name = resolve_template(u, name, path, &s)))
                 return -ENOMEM;
 
-        if ((r = manager_load_unit(u->meta.manager, name, path, &other)) < 0)
+        if ((r = manager_load_unit(u->meta.manager, name, path, NULL, &other)) < 0)
                 goto finish;
 
         if ((r = unit_add_two_dependencies(other, d, e, u, add_reference)) < 0)
@@ -1502,12 +1516,9 @@ char *unit_dbus_path(Unit *u) {
         if (!(e = bus_path_escape(u->meta.id)))
                 return NULL;
 
-        if (asprintf(&p, "/org/freedesktop/systemd1/unit/%s", e) < 0) {
-                free(e);
-                return NULL;
-        }
-
+        p = strappend("/org/freedesktop/systemd1/unit/", e);
         free(e);
+
         return p;
 }
 
@@ -1517,7 +1528,12 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
         assert(u);
         assert(b);
+
         assert(b->path);
+
+        if (!b->controller)
+                if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
+                        return -ENOMEM;
 
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
@@ -1557,7 +1573,6 @@ static char *default_cgroup_path(Unit *u) {
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
-        size_t n;
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
         int r;
@@ -1565,38 +1580,20 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        /* Detect controller name */
-        n = strcspn(name, ":");
+        if ((r = cg_split_spec(name, &controller, &path)) < 0)
+                return r;
 
-        if (name[n] == 0 ||
-            (name[n] == ':' && name[n+1] == 0)) {
+        if (!path)
+                path = default_cgroup_path(u);
 
-                /* Only controller name, no path? */
+        if (!controller)
+                controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
 
-                if (!(path = default_cgroup_path(u)))
-                        return -ENOMEM;
+        if (!path || !controller) {
+                free(path);
+                free(controller);
 
-        } else {
-                const char *p;
-
-                /* Controller name, and path. */
-                p = name+n+1;
-
-                if (!path_is_absolute(p))
-                        return -EINVAL;
-
-                if (!(path = strdup(p)))
-                        return -ENOMEM;
-        }
-
-        if (n > 0)
-                controller = strndup(name, n);
-        else
-                controller = strdup(u->meta.manager->cgroup_controller);
-
-        if (!controller) {
-                r = -ENOMEM;
-                goto fail;
+                return -ENOMEM;
         }
 
         if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller)) {
@@ -1641,9 +1638,6 @@ int unit_add_default_cgroup(Unit *u) {
         if (!(b = new0(CGroupBonding, 1)))
                 return -ENOMEM;
 
-        if (!(b->controller = strdup(u->meta.manager->cgroup_controller)))
-                goto fail;
-
         if (!(b->path = default_cgroup_path(u)))
                 goto fail;
 
@@ -1666,7 +1660,7 @@ fail:
 CGroupBonding* unit_get_default_cgroup(Unit *u) {
         assert(u);
 
-        return cgroup_bonding_find_list(u->meta.cgroup_bondings, u->meta.manager->cgroup_controller);
+        return cgroup_bonding_find_list(u->meta.cgroup_bondings, SYSTEMD_CGROUP_CONTROLLER);
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
@@ -1682,7 +1676,7 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
 
         assert(!unit_has_name(u, t));
 
-        r = manager_load_unit(u->meta.manager, t, NULL, _found);
+        r = manager_load_unit(u->meta.manager, t, NULL, NULL, _found);
         free(t);
 
         assert(r < 0 || *_found != u);
@@ -1967,7 +1961,7 @@ int unit_add_node_link(Unit *u, const char *what, bool wants) {
         if (!(e = unit_name_build_escape(what+1, NULL, ".device")))
                 return -ENOMEM;
 
-        r = manager_load_unit(u->meta.manager, e, NULL, &device);
+        r = manager_load_unit(u->meta.manager, e, NULL, NULL, &device);
         free(e);
 
         if (r < 0)
@@ -1993,7 +1987,7 @@ int unit_coldplug(Unit *u) {
                         return r;
 
         if (u->meta.deserialized_job >= 0) {
-                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL)) < 0)
+                if ((r = manager_add_job(u->meta.manager, u->meta.deserialized_job, u, JOB_FAIL, false, NULL, NULL)) < 0)
                         return r;
 
                 u->meta.deserialized_job = _JOB_TYPE_INVALID;

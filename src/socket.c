@@ -38,6 +38,7 @@
 #include "dbus-socket.h"
 #include "missing.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -164,7 +165,7 @@ static int socket_verify(Socket *s) {
                 return -EINVAL;
         }
 
-        if (s->exec_context.pam_name && s->kill_mode != KILL_CONTROL_GROUP) {
+        if (s->exec_context.pam_name && s->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", s->meta.id);
                 return -EINVAL;
         }
@@ -267,7 +268,7 @@ static int socket_load(Unit *u) {
         if (u->meta.load_state == UNIT_LOADED) {
 
                 if (have_non_accept_socket(s)) {
-                        if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)))
+                        if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
                                 return r;
 
                         if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
@@ -325,7 +326,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocket State: %s\n"
                 "%sBindIPv6Only: %s\n"
                 "%sBacklog: %u\n"
-                "%sKillMode: %s\n"
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
@@ -333,7 +333,6 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
-                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
@@ -821,6 +820,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        s->meta.manager->environment,
                        true,
                        true,
+                       true,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
                        &pid);
@@ -889,10 +889,10 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (s->kill_mode != KILL_NONE) {
-                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->exec_context.kill_mode != KILL_NONE) {
+                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->kill_mode == KILL_CONTROL_GROUP) {
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -902,7 +902,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                 }
 
                 if (!sent && s->control_pid > 0)
-                        if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
                                 r = -errno;
                                 goto fail;
                         }
@@ -1025,17 +1025,37 @@ fail:
 
 static void socket_enter_running(Socket *s, int cfd) {
         int r;
+        DBusError error;
 
         assert(s);
+        dbus_error_init(&error);
+
+        /* We don't take connections anymore if we are supposed to
+         * shut down anyway */
+        if (s->meta.job && s->meta.job->type == JOB_STOP) {
+                if (cfd >= 0)
+                        close_nointr_nofail(cfd);
+                else  {
+                        /* Flush all sockets by closing and reopening them */
+                        socket_close_fds(s);
+
+                        if ((r = socket_watch_fds(s)) < 0) {
+                                log_warning("%s failed to watch sockets: %s", s->meta.id, strerror(-r));
+                                socket_enter_stop_pre(s, false);
+                        }
+                }
+
+                return;
+        }
 
         if (cfd < 0) {
-                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
+                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
                 Unit *u;
-                char *prefix, *instance, *name;
+                char *prefix, *instance = NULL, *name;
 
                 if (s->n_connections >= s->max_connections) {
                         log_warning("Too many incoming connections (%u)", s->n_connections);
@@ -1061,7 +1081,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         goto fail;
                 }
 
-                r = manager_load_unit(s->meta.manager, name, NULL, &u);
+                r = manager_load_unit(s->meta.manager, name, NULL, NULL, &u);
                 free(name);
 
                 if (r < 0)
@@ -1074,18 +1094,20 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 s->n_connections ++;
 
-                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, NULL)) < 0)
+                if ((r = manager_add_job(u->meta.manager, JOB_START, u, JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
         }
 
         return;
 
 fail:
-        log_warning("%s failed to queue socket startup job: %s", s->meta.id, strerror(-r));
+        log_warning("%s failed to queue socket startup job: %s", s->meta.id, bus_error(&error, r));
         socket_enter_stop_pre(s, false);
 
         if (cfd >= 0)
                 close_nointr_nofail(cfd);
+
+        dbus_error_free(&error);
 }
 
 static void socket_run_next(Socket *s, bool success) {
@@ -1162,20 +1184,22 @@ static int socket_stop(Unit *u) {
 
         assert(s);
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (s->state == SOCKET_START_PRE ||
-            s->state == SOCKET_START_POST)
-                return -EAGAIN;
-
         /* Already on it */
         if (s->state == SOCKET_STOP_PRE ||
             s->state == SOCKET_STOP_PRE_SIGTERM ||
             s->state == SOCKET_STOP_PRE_SIGKILL ||
             s->state == SOCKET_STOP_POST ||
             s->state == SOCKET_FINAL_SIGTERM ||
-            s->state == SOCKET_FINAL_SIGTERM)
+            s->state == SOCKET_FINAL_SIGKILL)
                 return 0;
+
+        /* If there's already something running we go directly into
+         * kill mode. */
+        if (s->state == SOCKET_START_PRE ||
+            s->state == SOCKET_START_POST) {
+                socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, true);
+                return -EAGAIN;
+        }
 
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 
@@ -1394,12 +1418,16 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         s->control_pid = 0;
 
         success = is_clean_exit(code, status);
-        s->failure = s->failure || !success;
 
-        if (s->control_command)
+        if (s->control_command) {
                 exec_status_exit(&s->control_command->exec_status, pid, code, status);
 
+                if (s->control_command->ignore)
+                        success = true;
+        }
+
         log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+        s->failure = s->failure || !success;
 
         if (s->control_command && s->control_command->command_next && success) {
                 log_debug("%s running next command for state %s", u->meta.id, socket_state_to_string(s->state));

@@ -61,6 +61,9 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid);
 int cgroup_bonding_kill(CGroupBonding *b, int sig);
 int cgroup_bonding_kill_list(CGroupBonding *first, int sig);
 
+void cgroup_bonding_trim(CGroupBonding *first, bool delete_root);
+void cgroup_bonding_trim_list(CGroupBonding *first, bool delete_root);
+
 int cgroup_bonding_is_empty(CGroupBonding *b);
 int cgroup_bonding_is_empty_list(CGroupBonding *first);
 
@@ -71,7 +74,7 @@ char *cgroup_bonding_to_string(CGroupBonding *b);
 #include "manager.h"
 
 int manager_setup_cgroup(Manager *m);
-int manager_shutdown_cgroup(Manager *m);
+void manager_shutdown_cgroup(Manager *m, bool delete);
 
 int cgroup_notify_empty(Manager *m, const char *group);
 

@@ -60,9 +60,9 @@ static void mount_init(Unit *u) {
         assert(u->meta.load_state == UNIT_STUB);
 
         m->timeout_usec = DEFAULT_TIMEOUT_USEC;
-        exec_context_init(&m->exec_context);
-
         m->directory_mode = 0755;
+
+        exec_context_init(&m->exec_context);
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
@@ -253,7 +253,7 @@ static int mount_add_target_links(Mount *m) {
         else
                 target = SPECIAL_LOCAL_FS_TARGET;
 
-        if ((r = manager_load_unit(m->meta.manager, target, NULL, &tu)) < 0)
+        if ((r = manager_load_unit(m->meta.manager, target, NULL, NULL, &tu)) < 0)
                 return r;
 
         if (automount && m->meta.manager->running_as == MANAGER_SYSTEM) {
@@ -272,6 +272,24 @@ static int mount_add_target_links(Mount *m) {
 
                 return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu, true);
         }
+}
+
+static int mount_add_default_dependencies(Mount *m) {
+        int r;
+
+        assert(m);
+
+        if (m->meta.manager->running_as == MANAGER_SYSTEM) {
+
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+                if (!path_equal(m->where, "/"))
+                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                                return r;
+        }
+
+        return 0;
 }
 
 static int mount_verify(Mount *m) {
@@ -301,7 +319,7 @@ static int mount_verify(Mount *m) {
                 return -EBADMSG;
         }
 
-        if (m->exec_context.pam_name && m->kill_mode != KILL_CONTROL_GROUP) {
+        if (m->exec_context.pam_name && m->exec_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_error("%s has PAM enabled. Kill mode must be set to 'control-group'. Refusing.", m->meta.id);
                 return -EINVAL;
         }
@@ -367,6 +385,10 @@ static int mount_load(Unit *u) {
 
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
+
+                if (m->meta.default_dependencies)
+                        if ((r = mount_add_default_dependencies(m)) < 0)
+                                return r;
         }
 
         return mount_verify(m);
@@ -495,7 +517,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sFrom /etc/fstab: %s\n"
                 "%sFrom /proc/self/mountinfo: %s\n"
                 "%sFrom fragment: %s\n"
-                "%sKillMode: %s\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, m->where,
@@ -505,7 +526,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->from_etc_fstab),
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, kill_mode_to_string(m->kill_mode),
                 prefix, m->directory_mode);
 
         if (m->control_pid > 0)
@@ -532,6 +552,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             &m->exec_context,
                             NULL, 0,
                             m->meta.manager->environment,
+                            true,
                             true,
                             true,
                             m->meta.manager->confirm_spawn,
@@ -580,12 +601,12 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
         if (!success)
                 m->failure = true;
 
-        if (m->kill_mode != KILL_NONE) {
+        if (m->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == MOUNT_MOUNTING_SIGTERM ||
                            state == MOUNT_UNMOUNTING_SIGTERM ||
-                           state == MOUNT_REMOUNTING_SIGTERM) ? SIGTERM : SIGKILL;
+                           state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
-                if (m->kill_mode == KILL_CONTROL_GROUP) {
+                if (m->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
                         if ((r = cgroup_bonding_kill_list(m->meta.cgroup_bondings, sig)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH)
@@ -595,7 +616,10 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                 }
 
                 if (!sent && m->control_pid > 0)
-                        if (kill(m->kill_mode == KILL_PROCESS ? m->control_pid : -m->control_pid, sig) < 0 && errno != ESRCH) {
+                        if (kill(m->exec_context.kill_mode == KILL_PROCESS ?
+                                 m->control_pid :
+                                 -m->control_pid, sig) < 0 && errno != ESRCH) {
+
                                 r = -errno;
                                 goto fail;
                         }
@@ -798,23 +822,20 @@ static int mount_stop(Unit *u) {
 
         assert(m);
 
-        /* Cann't do this right now. */
-        if (m->state == MOUNT_MOUNTING ||
-            m->state == MOUNT_MOUNTING_DONE ||
-            m->state == MOUNT_MOUNTING_SIGTERM ||
-            m->state == MOUNT_MOUNTING_SIGKILL ||
-            m->state == MOUNT_REMOUNTING ||
-            m->state == MOUNT_REMOUNTING_SIGTERM ||
-            m->state == MOUNT_REMOUNTING_SIGKILL)
-                return -EAGAIN;
-
         /* Already on it */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGKILL ||
             m->state == MOUNT_UNMOUNTING_SIGTERM)
                 return 0;
 
-        assert(m->state == MOUNT_MOUNTED);
+        assert(m->state == MOUNT_MOUNTING ||
+               m->state == MOUNT_MOUNTING_DONE ||
+               m->state == MOUNT_MOUNTED ||
+               m->state == MOUNT_MOUNTING_SIGTERM ||
+               m->state == MOUNT_MOUNTING_SIGKILL ||
+               m->state == MOUNT_REMOUNTING ||
+               m->state == MOUNT_REMOUNTING_SIGTERM ||
+               m->state == MOUNT_REMOUNTING_SIGKILL);
 
         mount_enter_unmounting(m, true);
         return 0;

@@ -123,11 +123,6 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection *connection, DBu
         assert(message);
         assert(m);
 
-        log_debug("Got D-Bus request: %s.%s() on %s",
-                  dbus_message_get_interface(message),
-                  dbus_message_get_member(message),
-                  dbus_message_get_path(message));
-
         if ((r = manager_get_job_from_dbus_path(m, dbus_message_get_path(message), &j)) < 0) {
 
                 if (r == -ENOMEM)
@@ -177,10 +172,11 @@ void bus_job_send_change_signal(Job *j) {
         DBusMessage *m = NULL;
 
         assert(j);
-        assert(j->in_dbus_queue);
 
-        LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
-        j->in_dbus_queue = false;
+        if (j->in_dbus_queue) {
+                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+                j->in_dbus_queue = false;
+        }
 
         if (!bus_has_subscriber(j->manager) && !j->bus_client) {
                 j->sent_dbus_new_signal = true;

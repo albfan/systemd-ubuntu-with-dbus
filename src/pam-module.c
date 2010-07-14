@@ -31,8 +31,6 @@
 #include <security/pam_ext.h>
 #include <security/pam_misc.h>
 
-#include <libcgroup.h>
-
 #include "util.h"
 #include "cgroup-util.h"
 #include "macro.h"
@@ -217,17 +215,17 @@ static int create_user_group(pam_handle_t *handle, const char *group, struct pas
         assert(group);
 
         if (attach)
-                r = cg_create_and_attach("name=systemd", group, 0);
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, group, 0);
         else
-                r = cg_create("name=systemd", group);
+                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, group);
 
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to create cgroup: %s", strerror(-r));
                 return PAM_SESSION_ERR;
         }
 
-        if ((r = cg_set_task_access("name=systemd", group, 0755, pw->pw_uid, pw->pw_gid)) < 0 ||
-            (r = cg_set_group_access("name=systemd", group, 0755, pw->pw_uid, pw->pw_gid)) < 0) {
+        if ((r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, group, 0755, pw->pw_uid, pw->pw_gid)) < 0 ||
+            (r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, group, 0755, pw->pw_uid, pw->pw_gid)) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to change access modes: %s", strerror(-r));
                 return PAM_SESSION_ERR;
         }
@@ -257,12 +255,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         /* Make this a NOP on non-systemd systems */
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
-
-        if ((r = cgroup_init()) != 0) {
-                pam_syslog(handle, LOG_ERR, "libcgroup initialization failed: %s", cgroup_strerror(r));
-                r = PAM_SESSION_ERR;
-                goto finish;
-        }
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
                 goto finish;
@@ -354,44 +346,29 @@ finish:
 }
 
 static int session_remains(pam_handle_t *handle, const char *user_path) {
-        struct cgroup_file_info info;
-        int level = 0, r;
-        void *iterator = NULL;
+        int r;
         bool remains = false;
+        DIR *d;
+        char *subgroup;
 
-        zero(info);
+        if ((r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, user_path, &d)) < 0)
+                return r;
 
-        r = cgroup_walk_tree_begin("name=systemd", user_path, 0, &iterator, &info, &level);
-        while (r == 0) {
+        while ((r = cg_read_subgroup(d, &subgroup)) > 0) {
 
-                if (info.type != CGROUP_FILE_TYPE_DIR)
-                        goto next;
+                remains = !streq(subgroup, "no-session");
+                free(subgroup);
 
-                if (streq(info.path, ""))
-                        goto next;
-
-                if (streq(info.path, "no-session"))
-                        goto next;
-
-                remains = true;
-                break;
-
-        next:
-
-                r = cgroup_walk_tree_next(0, &iterator, &info, level);
+                if (remains)
+                        break;
         }
 
+        closedir(d);
 
-        if (remains)
-                r = 1;
-        else if (r == 0 || r == ECGEOF)
-                r = 0;
-        else
-                r = cg_translate_error(r, errno);
+        if (r < 0)
+                return r;
 
-        assert_se(cgroup_walk_tree_end(&iterator) == 0);
-
-        return r;
+        return !!remains;
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(
@@ -425,6 +402,10 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 goto finish;
         }
 
+        /* We are probably still in some session/no-session dir. Move ourselves out of the way as first step */
+        if ((r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, "/user", 0)) < 0)
+                pam_syslog(handle, LOG_ERR, "Failed to move us away: %s", strerror(-r));
+
         if (asprintf(&user_path, "/user/%s", username) < 0) {
                 r = PAM_BUF_ERR;
                 goto finish;
@@ -439,32 +420,23 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 }
 
                 if (kill_session)  {
-                        /* Kill processes in session cgroup */
-                        if ((r = cg_kill_recursive_and_wait("name=systemd", session_path)) < 0)
+                        /* Kill processes in session cgroup, and delete it */
+                        if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, session_path, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to kill session cgroup: %s", strerror(-r));
-
-                } else  {
+                } else {
                         /* Migrate processes from session to
                          * no-session cgroup. First, try to create the
                          * no-session group in case it doesn't exist
-                         * yet. */
+                         * yet. Also, delete the session group. */
                         create_user_group(handle, nosession_path, pw, 0);
 
-                        if ((r = cg_migrate_recursive("name=systemd", session_path, nosession_path, false)) < 0)
+                        if ((r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, session_path, nosession_path, false, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to migrate session cgroup: %s", strerror(-r));
-                }
-
-                /* Delete session cgroup */
-                if (r < 0)
-                        pam_syslog(handle, LOG_INFO, "Couldn't empty session cgroup, not deleting.");
-                else {
-                        if ((r = cg_delete("name=systemd", session_path)) < 0)
-                                pam_syslog(handle, LOG_ERR, "Failed to delete session cgroup: %s", strerror(-r));
                 }
         }
 
         /* GC user tree */
-        cg_trim("name=systemd", user_path, false);
+        cg_trim(SYSTEMD_CGROUP_CONTROLLER, user_path, false);
 
         if ((r = session_remains(handle, user_path)) < 0)
                 pam_syslog(handle, LOG_ERR, "Failed to determine whether a session remains: %s", strerror(-r));
@@ -473,24 +445,25 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (kill_user && r == 0) {
 
                 /* Kill no-session cgroup */
-                if ((r = cg_kill_recursive_and_wait("name=systemd", user_path)) < 0)
+                if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)
                         pam_syslog(handle, LOG_ERR, "Failed to kill user cgroup: %s", strerror(-r));
         } else {
 
-                if ((r = cg_is_empty_recursive("name=systemd", user_path, true)) < 0)
+                if ((r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)
                         pam_syslog(handle, LOG_ERR, "Failed to check user cgroup: %s", strerror(-r));
 
-                /* If we managed to kill somebody, don't cleanup the cgroup. */
-                if (r == 0)
+                /* Remove user cgroup */
+                if (r > 0) {
+                        if ((r = cg_delete(SYSTEMD_CGROUP_CONTROLLER, user_path)) < 0)
+                                pam_syslog(handle, LOG_ERR, "Failed to delete user cgroup: %s", strerror(-r));
+
+                /* If we managed to find somebody, don't cleanup the cgroup. */
+                } else if (r == 0)
                         r = -EBUSY;
         }
 
         if (r >= 0) {
                 const char *runtime_dir;
-
-                /* Remove user cgroup */
-                if ((r = cg_delete("name=systemd", user_path)) < 0)
-                        pam_syslog(handle, LOG_ERR, "Failed to delete user cgroup: %s", strerror(-r));
 
                 /* This will migrate us to the /user cgroup. */
 
