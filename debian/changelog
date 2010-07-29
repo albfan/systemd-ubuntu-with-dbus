@@ -1,9 +1,9 @@
-systemd (0~git+20100706+894ba5-1) experimental; urgency=low
+systemd (3-1) unstable; urgency=low
 
-  * New upstream snapshot
-    - Only ship the top /cgroup
-    - Pass --with-rootdir= to configure, to make it think / is / rather
-      than //
+  * New upstream release
+  * Only ship the top /cgroup
+  * Pass --with-rootdir= to configure, to make it think / is / rather
+    than //
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 06 Jul 2010 19:58:26 +0200
 
