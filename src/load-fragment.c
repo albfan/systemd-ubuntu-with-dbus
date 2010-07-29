@@ -29,6 +29,7 @@
 #include <sys/prctl.h>
 #include <sys/mount.h>
 #include <linux/fs.h>
+#include <sys/stat.h>
 
 #include "unit.h"
 #include "strv.h"
@@ -1311,16 +1312,20 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 path_kill_slashes(*filename);
 
                 /* Add the file name we are currently looking at to
-                 * the names of this unit */
+                 * the names of this unit, but only if it is a valid
+                 * unit name. */
                 name = file_name_from_path(*filename);
-                if (!(id = set_get(names, name))) {
 
-                        if (!(id = strdup(name)))
-                                return -ENOMEM;
+                if (unit_name_is_valid(name)) {
+                        if (!(id = set_get(names, name))) {
 
-                        if ((r = set_put(names, id)) < 0) {
-                                free(id);
-                                return r;
+                                if (!(id = strdup(name)))
+                                        return -ENOMEM;
+
+                                if ((r = set_put(names, id)) < 0) {
+                                        free(id);
+                                        return r;
+                                }
                         }
                 }
 
@@ -1339,7 +1344,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 *filename = target;
         }
 
-        if (!(f = fdopen(fd, "r"))) {
+        if (!(f = fdopen(fd, "re"))) {
                 r = -errno;
                 close_nointr_nofail(fd);
                 return r;
@@ -1558,11 +1563,13 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Unit"    },
                 { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
+                { "OnFailure",              config_parse_deps,            UINT_TO_PTR(UNIT_ON_FAILURE),                    "Unit"    },
                 { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "OnlyByDependency",       config_parse_bool,            &u->meta.only_by_dependency,                     "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
                 { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
+                { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1653,6 +1660,7 @@ static int load_from_path(Unit *u, const char *path) {
         FILE *f = NULL;
         char *filename = NULL, *id = NULL;
         Unit *merged;
+        struct stat st;
 
         if (!u) {
                 /* Dirty dirty hack. */
@@ -1726,6 +1734,7 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (!filename) {
+                /* Hmm, no suitable file found? */
                 r = 0;
                 goto finish;
         }
@@ -1740,6 +1749,12 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
         }
 
+        zero(st);
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         /* Now, parse the file contents */
         if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
                 goto finish;
@@ -1747,6 +1762,8 @@ static int load_from_path(Unit *u, const char *path) {
         free(u->meta.fragment_path);
         u->meta.fragment_path = filename;
         filename = NULL;
+
+        u->meta.fragment_mtime = timespec_load(&st.st_mtim);
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -1763,68 +1780,69 @@ finish:
 
 int unit_load_fragment(Unit *u) {
         int r;
+        Iterator i;
+        const char *t;
 
         assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->meta.id);
 
-        if (u->meta.fragment_path) {
+        /* First, try to find the unit under its id. We always look
+         * for unit files in the default directories, to make it easy
+         * to override things by placing things in /etc/systemd/system */
+        if ((r = load_from_path(u, u->meta.id)) < 0)
+                return r;
 
+        /* Try to find an alias we can load this with */
+        if (u->meta.load_state == UNIT_STUB)
+                SET_FOREACH(t, u->meta.names, i) {
+
+                        if (t == u->meta.id)
+                                continue;
+
+                        if ((r = load_from_path(u, t)) < 0)
+                                return r;
+
+                        if (u->meta.load_state != UNIT_STUB)
+                                break;
+                }
+
+        /* And now, try looking for it under the suggested (originally linked) path */
+        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path)
                 if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
                         return r;
 
-        } else {
-                Iterator i;
-                const char *t;
+        /* Look for a template */
+        if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
+                char *k;
 
-                /* Try to find the unit under its id */
-                if ((r = load_from_path(u, u->meta.id)) < 0)
+                if (!(k = unit_name_template(u->meta.id)))
+                        return -ENOMEM;
+
+                r = load_from_path(u, k);
+                free(k);
+
+                if (r < 0)
                         return r;
 
-                /* Try to find an alias we can load this with */
                 if (u->meta.load_state == UNIT_STUB)
                         SET_FOREACH(t, u->meta.names, i) {
 
                                 if (t == u->meta.id)
                                         continue;
 
-                                if ((r = load_from_path(u, t)) < 0)
+                                if (!(k = unit_name_template(t)))
+                                        return -ENOMEM;
+
+                                r = load_from_path(u, k);
+                                free(k);
+
+                                if (r < 0)
                                         return r;
 
                                 if (u->meta.load_state != UNIT_STUB)
                                         break;
                         }
-
-                /* Now, follow the same logic, but look for a template */
-                if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
-                        char *k;
-
-                        if (!(k = unit_name_template(u->meta.id)))
-                                return -ENOMEM;
-
-                        r = load_from_path(u, k);
-                        free(k);
-
-                        if (r < 0)
-                                return r;
-
-                        if (u->meta.load_state == UNIT_STUB)
-                                SET_FOREACH(t, u->meta.names, i) {
-
-                                        if (t == u->meta.id)
-                                                continue;
-
-                                        if (!(k = unit_name_template(t)))
-                                                return -ENOMEM;
-
-                                        r = load_from_path(u, k);
-                                        free(k);
-
-                                        if (r < 0)
-                                                return r;
-
-                                        if (u->meta.load_state != UNIT_STUB)
-                                                break;
-                                }
-                }
         }
 
         return 0;

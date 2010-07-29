@@ -31,15 +31,54 @@
 
 * follow property change dbus spec
 
-* selinux
+* selinux policy loading/socket stuff
 
 * systemctl status $PID, systemctl stop $PID!
 
+* place /etc/inittab with explaining blurb.
+
+* vielleicht implizit immer auf syslog dependen?
+
+* debian deadlock when partition set to noauto
+
+* fingerprint.target, wireless.target, gps.target
+
+* set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
+
+* fix merging in .swap units
+
+* pahole
+
+* chkconfig/systemd-install glue
+
+* io priority during initialization
+
+* if a service fails too often, make the service enter maintainence mode, and the socket, too.
+
 External:
+
+* default.target must be %ghosted...
+
+* in %post create all symlinks manually and use inittab data
+
+* default logic for serial getty, ck logging, ssh readahead
+
+* pam: fix double sudo session cleanup:
+  http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
 
 * patch /etc/init.d/functions with:
 
   if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
+
+https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
+https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
+https://bugzilla.redhat.com/show_bug.cgi?id=612728 -- /etc/rc.d/init.d/functions
+https://bugzilla.redhat.com/show_bug.cgi?id=612712 -- pam_systemd
+https://bugs.freedesktop.org/show_bug.cgi?id=29193 -- accountsservice
+https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
+https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
+http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
+http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
 
 Regularly:
 

@@ -47,6 +47,24 @@ int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, 
         return 0;
 }
 
+int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data, *f;
+        const char *d;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        f = unit_following(u);
+        d = f ? f->meta.id : "";
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u;
         Iterator j;
@@ -128,7 +146,8 @@ int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *proper
         assert(property);
         assert(u);
 
-        b = unit_can_start(u);
+        b = unit_can_start(u) &&
+                !u->meta.only_by_dependency;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -254,6 +273,23 @@ int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property
         return 0;
 }
 
+int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_need_daemon_reload(u);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *connection, DBusMessage *message) {
         DBusMessage *reply = NULL;
         Manager *m = u->meta.manager;
@@ -280,6 +316,13 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetMaintenance")) {
+
+                unit_reset_maintenance(u);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
         } else if (UNIT_VTABLE(u)->bus_message_handler)
                 return UNIT_VTABLE(u)->bus_message_handler(u, connection, message);
         else

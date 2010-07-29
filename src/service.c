@@ -49,20 +49,28 @@ static const struct {
         const char *target;
         const RunlevelType type;
 } rcnd_table[] = {
-        /* Standard SysV runlevels */
-        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
+        /* Standard SysV runlevels for start-up */
         { "rc1.d",  SPECIAL_RESCUE_TARGET,    RUNLEVEL_UP },
         { "rc2.d",  SPECIAL_RUNLEVEL2_TARGET, RUNLEVEL_UP },
         { "rc3.d",  SPECIAL_RUNLEVEL3_TARGET, RUNLEVEL_UP },
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
-        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN },
 
         /* SUSE style boot.d */
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
+
+        /* Standard SysV runlevels for shutdown */
+        { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
+        { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
+
+        /* Note that the order here matters, as we read the
+           directories in this order, and we want to make sure that
+           sysv_start_priority is known when we first load the
+           unit. And that value we only know from S links. Hence
+           UP/SYSINIT must be read before DOWN */
 };
 
 #define RUNLEVELS_UP "12345"
@@ -546,8 +554,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
+                                        else if (s->sysv_start_priority >= 0)
+                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
                                         else
-                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_REQUIRES, m, NULL, true);
+                                                r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
 
                                         free(m);
 
@@ -1896,6 +1906,14 @@ static int service_start(Unit *u) {
                 return -ECANCELED;
         }
 
+        if ((s->exec_context.std_input == EXEC_INPUT_SOCKET ||
+             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
+             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) &&
+            s->socket_fd < 0) {
+                log_warning("%s can only be started with a per-connection socket.", u->meta.id);
+                return -EINVAL;
+        }
+
         s->failure = false;
         s->main_pid_known = false;
         s->allow_restart = true;
@@ -1982,6 +2000,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "main-pid-known", yes_no(s->main_pid_known));
 
+        if (s->status_text)
+                unit_serialize_item(u, f, "status-text", s->status_text);
+
         /* There's a minor uncleanliness here: if there are multiple
          * commands attached here, we will start from the first one
          * again */
@@ -2066,6 +2087,14 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug("Failed to parse main-pid-known value %s", value);
                 else
                         s->main_pid_known = b;
+        } else if (streq(key, "status-text")) {
+                char *t;
+
+                if ((t = strdup(value))) {
+                        free(s->status_text);
+                        s->status_text = t;
+                }
+
         } else if (streq(key, "control-command")) {
                 ServiceExecCommand id;
 
@@ -2191,7 +2220,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success = true;
                 }
 
-                log_debug("%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                         "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 /* The service exited, so the service is officially
@@ -2248,7 +2278,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 s->control_pid = 0;
 
-                log_debug("%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+                log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                         "%s: control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
                 /* If we are shutting things down anyway we
@@ -2468,7 +2499,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
              s->state == SERVICE_RELOAD)) {
 
                 if (parse_pid(e + 8, &pid) < 0)
-                        log_warning("Failed to parse %s", e);
+                        log_warning("Failed to parse notification message %s", e);
                 else {
                         log_debug("%s: got %s", u->meta.id, e);
                         service_set_main_pid(s, pid);
@@ -2488,15 +2519,21 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         if ((e = strv_find_prefix(tags, "STATUS="))) {
                 char *t;
 
-                if (!(t = strdup(e+7))) {
-                        log_error("Failed to allocate string.");
-                        return;
+                if (e[7]) {
+                        if (!(t = strdup(e+7))) {
+                                log_error("Failed to allocate string.");
+                                return;
+                        }
+
+                        log_debug("%s: got %s", u->meta.id, e);
+
+                        free(s->status_text);
+                        s->status_text = t;
+                } else {
+                        free(s->status_text);
+                        s->status_text = NULL;
                 }
 
-                log_debug("%s: got %s", u->meta.id, e);
-
-                free(s->status_text);
-                s->status_text = t;
         }
 }
 
@@ -2724,6 +2761,17 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
         return 0;
 }
 
+static void service_reset_maintenance(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        if (s->state == SERVICE_MAINTENANCE)
+                service_set_state(s, SERVICE_DEAD);
+
+        s->failure = false;
+}
+
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
         [SERVICE_START_PRE] = "start-pre",
@@ -2810,6 +2858,8 @@ const UnitVTable service_vtable = {
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
+
+        .reset_maintenance = service_reset_maintenance,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

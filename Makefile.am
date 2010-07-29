@@ -58,7 +58,6 @@ rootbin_PROGRAMS = \
 	systemd-notify
 
 bin_PROGRAMS = \
-	systemd-install \
 	systemd-cgls
 
 if HAVE_GTK
@@ -77,7 +76,8 @@ noinst_PROGRAMS = \
 	test-ns \
 	test-loopback \
 	test-daemon \
-	test-cgroup
+	test-cgroup \
+	test-env-replace
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -147,7 +147,8 @@ dist_systemunit_DATA = \
 	units/var-lock.mount \
 	units/var-run.mount \
 	units/printer.target \
-	units/bluetooth.target
+	units/bluetooth.target \
+	units/smartcard.target
 
 nodist_systemunit_DATA = \
 	units/sysinit.target \
@@ -303,7 +304,8 @@ libsystemd_core_la_LIBADD = \
 	$(DBUS_LIBS) \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
-	$(PAM_LIBS)
+	$(PAM_LIBS) \
+	$(SELINUX_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -329,7 +331,6 @@ MANPAGES = \
 	man/systemd.1 \
 	man/systemctl.1 \
 	man/systemadm.1 \
-	man/systemd-install.1 \
 	man/systemd-cgls.1 \
 	man/systemd-notify.1 \
 	man/sd_notify.3 \
@@ -452,6 +453,15 @@ test_cgroup_CFLAGS = \
 test_cgroup_LDADD = \
 	libsystemd-basic.la
 
+test_env_replace_SOURCES = \
+	src/test-env-replace.c
+
+test_env_replace_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_env_replace_LDADD = \
+	libsystemd-basic.la
+
 systemd_logger_SOURCES = \
 	src/logger.c \
 	src/sd-daemon.c \
@@ -489,6 +499,8 @@ systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
 	src/dbus-common.c \
+	src/path-lookup.c \
+	src/sd-daemon.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c
 
@@ -507,22 +519,8 @@ systemd_notify_SOURCES = \
 systemd_notify_LDADD = \
 	libsystemd-basic.la
 
-systemd_install_SOURCES = \
-	src/install.c \
-	src/path-lookup.c \
-	src/dbus-common.c \
-	src/sd-daemon.c
-
-systemd_install_LDADD = \
-	libsystemd-basic.la \
-	$(DBUS_LIBS)
-
-systemd_install_CFLAGS = \
-	$(AM_CFLAGS) \
-	$(DBUS_CFLAGS)
-
 systemd_cgls_SOURCES = \
-	src/systemd-cgls.c \
+	src/cgls.c \
 	src/cgroup-show.c \
 	src/cgroup-util.c
 

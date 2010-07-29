@@ -962,7 +962,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
 
-        log_debug("%s control process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
+        log_full(success ? LOG_DEBUG : LOG_NOTICE,
+                 "%s mount process exited, code=%s status=%i", u->meta.id, sigchld_code_to_string(code), status);
 
         /* Note that mount(8) returning and the kernel sending us a
          * mount table change event might happen out-of-order. If an
@@ -1537,6 +1538,17 @@ finish:
         return r;
 }
 
+static void mount_reset_maintenance(Unit *u) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+
+        if (m->state == MOUNT_MAINTENANCE)
+                mount_set_state(m, MOUNT_DEAD);
+
+        m->failure = false;
+}
+
 static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = "dead",
         [MOUNT_MOUNTING] = "mounting",
@@ -1593,6 +1605,8 @@ const UnitVTable mount_vtable = {
 
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,
+
+        .reset_maintenance = mount_reset_maintenance,
 
         .bus_message_handler = bus_mount_message_handler,
 

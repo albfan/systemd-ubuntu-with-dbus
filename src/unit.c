@@ -27,6 +27,7 @@
 #include <sys/poll.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "set.h"
 #include "unit.h"
@@ -84,7 +85,7 @@ bool unit_has_name(Unit *u, const char *name) {
 
 int unit_add_name(Unit *u, const char *text) {
         UnitType t;
-        char *s = NULL, *i = NULL;
+        char *s, *i = NULL;
         int r;
 
         assert(u);
@@ -119,7 +120,9 @@ int unit_add_name(Unit *u, const char *text) {
         if (i && unit_vtable[t]->no_instances)
                 goto fail;
 
-        if (u->meta.type != _UNIT_TYPE_INVALID && !streq_ptr(u->meta.instance, i)) {
+        /* Ensure that this unit is either instanced or not instanced,
+         * but not both. */
+        if (u->meta.type != _UNIT_TYPE_INVALID && !u->meta.instance != !i) {
                 r = -EINVAL;
                 goto fail;
         }
@@ -171,7 +174,8 @@ fail:
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        char *s, *t = NULL;
+        char *s, *t = NULL, *i;
+        int r;
 
         assert(u);
         assert(name);
@@ -194,7 +198,14 @@ int unit_choose_id(Unit *u, const char *name) {
         if (!s)
                 return -ENOENT;
 
+        if ((r = unit_name_to_instance(s, &i)) < 0)
+                return r;
+
         u->meta.id = s;
+
+        free(u->meta.instance);
+        u->meta.instance = i;
+
         unit_add_to_dbus_queue(u);
 
         return 0;
@@ -460,7 +471,7 @@ int unit_merge(Unit *u, Unit *other) {
         if (u->meta.type != other->meta.type)
                 return -EINVAL;
 
-        if (!streq_ptr(u->meta.instance, other->meta.instance))
+        if (!u->meta.instance != !other->meta.instance)
                 return -EINVAL;
 
         if (other->meta.load_state != UNIT_STUB &&
@@ -576,7 +587,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
                 timestamp3[FORMAT_TIMESTAMP_MAX],
-                timestamp4[FORMAT_TIMESTAMP_MAX];
+                timestamp4[FORMAT_TIMESTAMP_MAX],
+                timespan[FORMAT_TIMESPAN_MAX];
+        Unit *following;
 
         assert(u);
         assert(u->meta.type >= 0);
@@ -596,7 +609,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n",
+                "%s\tGC Check Good: %s\n"
+                "%s\tNeed Daemon Reload: %s\n",
                 prefix, u->meta.id,
                 prefix, unit_description(u),
                 prefix, strna(u->meta.instance),
@@ -606,13 +620,20 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->meta.active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->meta.inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)));
+                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(unit_need_daemon_reload(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
+        if ((following = unit_following(u)))
+                fprintf(f, "%s\tFollowing: %s\n", prefix, following->meta.id);
+
         if (u->meta.fragment_path)
                 fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
+
+        if (u->meta.job_timeout > 0)
+                fprintf(f, "%s\tJob Timeout: %s\n", prefix, format_timespan(timespan, sizeof(timespan), u->meta.job_timeout));
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
@@ -974,9 +995,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_exit_timestamp = ts;
 
-        if (ns != os && ns == UNIT_MAINTENANCE)
-                log_notice("Unit %s entered maintenance state.", u->meta.id);
-
         if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                 cgroup_bonding_trim_list(u->meta.cgroup_bondings, true);
 
@@ -992,7 +1010,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                          * job. Let's see if we can run it now if it
                          * failed previously due to EAGAIN. */
                         job_add_to_run_queue(u->meta.job);
-
 
                 /* Let's check whether this state change constitutes a
                  * finished job, or maybe cotradicts a running job and
@@ -1057,6 +1074,16 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         retroactively_start_dependencies(u);
                 else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
                         retroactively_stop_dependencies(u);
+        }
+
+        if (ns != os && ns == UNIT_MAINTENANCE) {
+                Iterator i;
+                Unit *other;
+
+                SET_FOREACH(other, u->meta.dependencies[UNIT_ON_FAILURE], i)
+                        manager_add_job(u->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL, NULL);
+
+                log_notice("Unit %s entered maintenance state.", u->meta.id);
         }
 
         /* Some names are special */
@@ -1169,18 +1196,23 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
         assert(u);
         assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_TIMER && w->data.unit == u));
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_UNIT_TIMER && w->data.unit == u));
 
         /* This will try to reuse the old timer if there is one */
 
-        if (w->type == WATCH_TIMER) {
+        if (w->type == WATCH_UNIT_TIMER) {
+                assert(w->data.unit == u);
+                assert(w->fd >= 0);
+
                 ours = false;
                 fd = w->fd;
-        } else {
+        } else if (w->type == WATCH_INVALID) {
+
                 ours = true;
                 if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
                         return -errno;
-        }
+        } else
+                assert_not_reached("Invalid watch type");
 
         zero(its);
 
@@ -1211,8 +1243,8 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
                         goto fail;
         }
 
+        w->type = WATCH_UNIT_TIMER;
         w->fd = fd;
-        w->type = WATCH_TIMER;
         w->data.unit = u;
 
         return 0;
@@ -1231,7 +1263,9 @@ void unit_unwatch_timer(Unit *u, Watch *w) {
         if (w->type == WATCH_INVALID)
                 return;
 
-        assert(w->type == WATCH_TIMER && w->data.unit == u);
+        assert(w->type == WATCH_UNIT_TIMER);
+        assert(w->data.unit == u);
+        assert(w->fd >= 0);
 
         assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
         close_nointr_nofail(w->fd);
@@ -1281,6 +1315,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                 [UNIT_CONFLICTS] = UNIT_CONFLICTS,
                 [UNIT_BEFORE] = UNIT_AFTER,
                 [UNIT_AFTER] = UNIT_BEFORE,
+                [UNIT_ON_FAILURE] = _UNIT_DEPENDENCY_INVALID,
                 [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
                 [UNIT_REFERENCED_BY] = UNIT_REFERENCES
         };
@@ -1288,7 +1323,6 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
 
         assert(u);
         assert(d >= 0 && d < _UNIT_DEPENDENCY_MAX);
-        assert(inverse_table[d] != _UNIT_DEPENDENCY_INVALID);
         assert(other);
 
         /* We won't allow dependencies on ourselves. We will not
@@ -1304,9 +1338,12 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
                     return -EINVAL;
         }
 
-        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0 ||
-            (r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+        if ((r = set_ensure_allocated(&u->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
+
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
+                if ((r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+                        return r;
 
         if (add_reference)
                 if ((r = set_ensure_allocated(&u->meta.dependencies[UNIT_REFERENCES], trivial_hash_func, trivial_compare_func)) < 0 ||
@@ -1316,10 +1353,11 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_referen
         if ((q = set_put(u->meta.dependencies[d], other)) < 0)
                 return q;
 
-        if ((v = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
-                r = v;
-                goto fail;
-        }
+        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID)
+                if ((v = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
+                        r = v;
+                        goto fail;
+                }
 
         if (add_reference) {
                 if ((w = set_put(u->meta.dependencies[UNIT_REFERENCES], other)) < 0) {
@@ -2019,6 +2057,40 @@ void unit_status_printf(Unit *u, const char *format, ...) {
         va_end(ap);
 }
 
+bool unit_need_daemon_reload(Unit *u) {
+        struct stat st;
+
+        assert(u);
+
+        if (!u->meta.fragment_path)
+                return false;
+
+        zero(st);
+        if (stat(u->meta.fragment_path, &st) < 0)
+                /* What, cannot access this anymore? */
+                return true;
+
+        return
+                u->meta.fragment_mtime &&
+                timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
+}
+
+void unit_reset_maintenance(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->reset_maintenance)
+                UNIT_VTABLE(u)->reset_maintenance(u);
+}
+
+Unit *unit_following(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->following)
+                return UNIT_VTABLE(u)->following(u);
+
+        return NULL;
+}
+
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_TIMER] = "timer",
@@ -2066,7 +2138,8 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_BEFORE] = "Before",
         [UNIT_AFTER] = "After",
         [UNIT_REFERENCES] = "References",
-        [UNIT_REFERENCED_BY] = "ReferencedBy"
+        [UNIT_REFERENCED_BY] = "ReferencedBy",
+        [UNIT_ON_FAILURE] = "OnFailure"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

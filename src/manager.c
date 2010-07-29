@@ -1124,6 +1124,7 @@ static int transaction_apply(Manager *m) {
 
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
+                job_start_timer(j);
         }
 
         /* As last step, kill all remaining job dependencies. */
@@ -2022,7 +2023,8 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 UNIT_VTABLE(w->data.unit)->fd_event(w->data.unit, w->fd, ev->events, w);
                 break;
 
-        case WATCH_TIMER: {
+        case WATCH_UNIT_TIMER:
+        case WATCH_JOB_TIMER: {
                 uint64_t v;
                 ssize_t k;
 
@@ -2035,7 +2037,10 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                         return k < 0 ? -errno : -EIO;
                 }
 
-                UNIT_VTABLE(w->data.unit)->timer_event(w->data.unit, v, w);
+                if (w->type == WATCH_UNIT_TIMER)
+                        UNIT_VTABLE(w->data.unit)->timer_event(w->data.unit, v, w);
+                else
+                        job_timer_event(w->data.job, v, w);
                 break;
         }
 
@@ -2274,7 +2279,7 @@ void manager_dispatch_bus_query_pid_done(
         UNIT_VTABLE(u)->bus_query_pid_done(u, name, pid);
 }
 
-int manager_open_serialization(FILE **_f) {
+int manager_open_serialization(Manager *m, FILE **_f) {
         char *path;
         mode_t saved_umask;
         int fd;
@@ -2282,8 +2287,15 @@ int manager_open_serialization(FILE **_f) {
 
         assert(_f);
 
-        if (asprintf(&path, "/dev/shm/systemd-%u.dump-XXXXXX", (unsigned) getpid()) < 0)
-                return -ENOMEM;
+        if (m->running_as == MANAGER_SYSTEM) {
+                mkdir_p("/dev/.systemd", 0755);
+
+                if (asprintf(&path, "/dev/.systemd/dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
+                        return -ENOMEM;
+        } else {
+                if (asprintf(&path, "/tmp/systemd-dump-%lu-XXXXXX", (unsigned long) getpid()) < 0)
+                        return -ENOMEM;
+        }
 
         saved_umask = umask(0077);
         fd = mkostemp(path, O_RDWR|O_CLOEXEC);
@@ -2391,7 +2403,7 @@ int manager_reload(Manager *m) {
 
         assert(m);
 
-        if ((r = manager_open_serialization(&f)) < 0)
+        if ((r = manager_open_serialization(m, &f)) < 0)
                 return r;
 
         if (!(fds = fdset_new())) {
@@ -2459,6 +2471,16 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
                 return !!u->meta.job;
 
         return false;
+}
+
+void manager_reset_maintenance(Manager *m) {
+        Unit *u;
+        Iterator i;
+
+        assert(m);
+
+        HASHMAP_FOREACH(u, m->units, i)
+                unit_reset_maintenance(u);
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
