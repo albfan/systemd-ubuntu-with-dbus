@@ -2,8 +2,11 @@ Source: systemd
 Section: admin
 Priority: extra
 Maintainer: Tollef Fog Heen <tfheen@debian.org>
-Standards-Version: 3.8.0
-Build-Depends: debhelper (>= 7.0.50), libcap-dev, pkg-config, libudev-dev, libdbus-1-dev, libdbus-glib-1-dev, libgee-dev, libcgroup-dev (>= 0.36), libgtk2.0-dev, valac, xsltproc, docbook-xsl, docbook-xml, m4
+Standards-Version: 3.8.4
+Vcs-Git: git://git.err.no/systemd/
+Vcs-Browser: http://git.err.no/cgi-bin/gitweb.cgi?p=systemd;a=summary
+Homepage: http://www.freedesktop.org/wiki/Software/systemd
+Build-Depends: debhelper (>= 7.0.50), libcap-dev, pkg-config, libudev-dev (>= 160), libdbus-1-dev, libdbus-glib-1-dev, libgee-dev, libgtk2.0-dev, valac, xsltproc, docbook-xsl, docbook-xml, m4
 
 Package: systemd
 Architecture: linux-any
