@@ -101,6 +101,18 @@ static int path_verify(Path *p) {
         return 0;
 }
 
+static int path_add_default_dependencies(Path *p) {
+        int r;
+
+        assert(p);
+
+        if (p->meta.manager->running_as == MANAGER_SYSTEM)
+                if ((r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+}
+
 static int path_load(Unit *u) {
         Path *p = PATH(u);
         int r;
@@ -123,9 +135,8 @@ static int path_load(Unit *u) {
                 if ((r = path_add_mount_links(p)) < 0)
                         return r;
 
-                /* Path units shouldn't stay around on shutdown */
                 if (p->meta.default_dependencies)
-                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                        if ((r = path_add_default_dependencies(p)) < 0)
                                 return r;
         }
 
@@ -549,6 +560,17 @@ fail:
         log_error("Failed find path unit: %s", strerror(-r));
 }
 
+static void path_reset_maintenance(Unit *u) {
+        Path *p = PATH(u);
+
+        assert(p);
+
+        if (p->state == PATH_MAINTENANCE)
+                path_set_state(p, PATH_DEAD);
+
+        p->failure = false;
+}
+
 static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = "dead",
         [PATH_WAITING] = "waiting",
@@ -586,6 +608,8 @@ const UnitVTable path_vtable = {
         .sub_state_to_string = path_sub_state_to_string,
 
         .fd_event = path_fd_event,
+
+        .reset_maintenance = path_reset_maintenance,
 
         .bus_message_handler = bus_path_message_handler
 };

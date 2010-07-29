@@ -57,7 +57,8 @@ enum WatchType {
         WATCH_SIGNAL,
         WATCH_NOTIFY,
         WATCH_FD,
-        WATCH_TIMER,
+        WATCH_UNIT_TIMER,
+        WATCH_JOB_TIMER,
         WATCH_MOUNT,
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
@@ -69,6 +70,7 @@ struct Watch {
         WatchType type;
         union {
                 union Unit *unit;
+                struct Job *job;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
         } data;
@@ -144,6 +146,7 @@ struct Manager {
         struct udev* udev;
         struct udev_monitor* udev_monitor;
         Watch udev_watch;
+        Hashmap *devices_by_sysfs;
 
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;
@@ -236,7 +239,7 @@ void manager_write_utmp_runlevel(Manager *m, Unit *t);
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
 void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
 
-int manager_open_serialization(FILE **_f);
+int manager_open_serialization(Manager *m, FILE **_f);
 
 int manager_serialize(Manager *m, FILE *f, FDSet *fds);
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
@@ -244,6 +247,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds);
 int manager_reload(Manager *m);
 
 bool manager_is_booting_or_shutting_down(Manager *m);
+
+void manager_reset_maintenance(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

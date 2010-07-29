@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[3],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[4],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -105,6 +105,11 @@ PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
+PKG_CHECK_MODULES(SELINUX, [ libselinux ])
+AC_SUBST(SELINUX_CFLAGS)
+AC_SUBST(SELINUX_LIBS)
+AC_SEARCH_LIBS([is_selinux_enabled], [selinux], [], [AC_MSG_ERROR([*** libselinux library not found])])
+
 PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
 AC_SUBST(DBUSGLIB_CFLAGS)
 AC_SUBST(DBUSGLIB_LIBS)
@@ -183,7 +188,7 @@ if test "x$enable_gtk" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
-AM_PROG_VALAC([0.8])
+AM_PROG_VALAC([0.9])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 

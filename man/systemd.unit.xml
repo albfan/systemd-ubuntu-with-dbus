@@ -136,8 +136,8 @@
                 <varname>Wanted=</varname> see below. The preferred
                 way to create symlinks in the
                 <filename>.wants/</filename> directory of a service is
-                with the
-                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                with the <command>enable</command> command of the
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool which reads information from the [Install]
                 section of unit files. (See below.)</para>
 
@@ -399,6 +399,15 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>OnFailure=</varname></term>
+
+                                <listitem><para>Lists one or more
+                                units that are activated when this
+                                unit fails (i.e. enters maintenance
+                                state).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>RecursiveStop=</varname></term>
 
                                 <listitem><para>Takes a boolean
@@ -495,6 +504,34 @@
                                 fails the unit will immediately fail
                                 too and the job is removed.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>JobTimeoutSec=</varname></term>
+
+                                <listitem><para>When clients are
+                                waiting for a job of this unit to
+                                complete, time out after the specified
+                                time. If this time limit is reached
+                                the job will be cancelled, the unit
+                                however will not change state or even
+                                enter maintenance mode. This value
+                                defaults to 0 (job timeouts disabled),
+                                except for device units. NB: this
+                                timeout is independent from any
+                                unit-specific timeout (for example,
+                                the timeout set with
+                                <varname>Timeout=</varname> in service
+                                units) as the job timeout has no effect
+                                on the unit itself, only on the job
+                                that might be pending for it. Or in
+                                other words: unit-specific timeouts
+                                are useful to abort unit state
+                                changes, and revert them. The job
+                                timeout set with this option however
+                                is useful to abort only the job waiting
+                                for the unit state to change.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which
@@ -502,7 +539,9 @@
                 section is not interpreted by
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 during runtime. It is used exclusively by the
-                <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <command>enable</command> and
+                <command>disable</command> commands of the
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool during installation of a unit:</para>
 
                 <variablelist>
@@ -517,7 +556,7 @@
                                 more than once, in which case all
                                 listed names are used. At installation
                                 time,
-                                <command>systemd-install</command>
+                                <command>systemctl enable</command>
                                 will create symlinks from these names
                                 to the unit file name. Note that this
                                 is different from the
@@ -530,8 +569,8 @@
                                 <varname>Alias=</varname> apply only
                                 if the unit has actually been
                                 installed with the
-                                <command>systemd-install</command>
-                                tool.  Also, if systemd searches for a
+                                <command>systemctl enable</command>
+                                command.  Also, if systemd searches for a
                                 unit, it will discover symlinked alias
                                 names as configured with
                                 <varname>Alias=</varname>, but not
@@ -570,7 +609,7 @@
                                 installed. If the user requests
                                 installation of a unit with this
                                 option configured,
-                                <command>systemd-install</command>
+                                <command>systemctl enable</command>
                                 will automatically install units
                                 listed in this option as
                                 well.</para></listitem>
@@ -584,7 +623,6 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-install</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

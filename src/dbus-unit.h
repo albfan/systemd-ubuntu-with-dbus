@@ -56,9 +56,11 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"ResetMaintenance\"/>\n"                       \
         "  <signal name=\"Changed\"/>\n"                                \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Requires\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"RequiresOverridable\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Requisite\" type=\"as\" access=\"read\"/>\n" \
@@ -70,6 +72,7 @@
         "  <property name=\"Conflicts\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"Before\" type=\"as\" access=\"read\"/>\n"   \
         "  <property name=\"After\" type=\"as\" access=\"read\"/>\n"    \
+        "  <property name=\"OnFailure\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
@@ -88,11 +91,14 @@
         "  <property name=\"DefaultDependencies\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_PROPERTIES \
         { "org.freedesktop.systemd1.Unit", "Id",                   bus_property_append_string,     "s",    u->meta.id                        }, \
         { "org.freedesktop.systemd1.Unit", "Names",                bus_unit_append_names,          "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "Following",            bus_unit_append_following,      "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "Requires",             bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES] }, \
         { "org.freedesktop.systemd1.Unit", "RequiresOverridable",  bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE] }, \
         { "org.freedesktop.systemd1.Unit", "Requisite",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_REQUISITE] }, \
@@ -104,6 +110,7 @@
         { "org.freedesktop.systemd1.Unit", "Conflicts",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_CONFLICTS] }, \
         { "org.freedesktop.systemd1.Unit", "Before",               bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_BEFORE] }, \
         { "org.freedesktop.systemd1.Unit", "After",                bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_AFTER]  }, \
+        { "org.freedesktop.systemd1.Unit", "OnFailure",            bus_unit_append_dependencies,   "as",   u->meta.dependencies[UNIT_ON_FAILURE] }, \
         { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,    "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,     "s",    &u->meta.load_state               }, \
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
@@ -121,9 +128,12 @@
         { "org.freedesktop.systemd1.Unit", "OnlyByDependency",     bus_property_append_bool,       "b",    &u->meta.only_by_dependency       }, \
         { "org.freedesktop.systemd1.Unit", "DefaultDependencies",  bus_property_append_bool,       "b",    &u->meta.default_dependencies     }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
-        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }
+        { "org.freedesktop.systemd1.Unit", "ControlGroups",        bus_unit_append_cgroups,        "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
+        { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_following(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_dependencies(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_description(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *property, void *data);
@@ -134,6 +144,7 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_need_daemon_reload(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

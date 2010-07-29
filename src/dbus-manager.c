@@ -72,13 +72,17 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"ResetMaintenanceUnit\">\n"                    \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"ClearJobs\"/>\n"                              \
+        "  <method name=\"ResetMaintenance\"/>\n"                       \
         "  <method name=\"ListUnits\">\n"                               \
-        "   <arg name=\"units\" type=\"a(sssssouso)\" direction=\"out\"/>\n" \
+        "   <arg name=\"units\" type=\"a(ssssssouso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"ListJobs\">\n"                                \
         "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>\n" \
@@ -362,6 +366,34 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenance")) {
+
+                manager_reset_maintenance(m);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenanceUnit")) {
+                const char *name;
+                Unit *u;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (!(u = manager_get_unit(m, name))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
+
+                unit_reset_maintenance(u);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
@@ -373,14 +405,15 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sssssouso)", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssssouso)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *u_path, *j_path;
-                        const char *description, *load_state, *active_state, *sub_state, *sjob_type;
+                        const char *description, *load_state, *active_state, *sub_state, *sjob_type, *following;
                         DBusMessageIter sub2;
                         uint32_t job_id;
+                        Unit *f;
 
                         if (k != u->meta.id)
                                 continue;
@@ -392,6 +425,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         load_state = unit_load_state_to_string(u->meta.load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
                         sub_state = unit_sub_state_to_string(u);
+
+                        f = unit_following(u);
+                        following = f ? f->meta.id : "";
 
                         if (!(u_path = unit_dbus_path(u)))
                                 goto oom;
@@ -416,6 +452,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sub_state) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &following) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sjob_type) ||
@@ -732,7 +769,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else
                 return bus_default_message_handler(m, connection, message, NULL, properties);
-
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode;
