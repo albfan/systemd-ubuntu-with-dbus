@@ -746,7 +746,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_notice("Trying to fix job merging by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
+                        log_debug("Fixing conflicting jobs by deleting job %s/%s", d->unit->meta.id, job_type_to_string(d->type));
                         transaction_delete_job(m, d, true);
                         return 0;
                 }
@@ -885,7 +885,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
         /* Have we seen this before? */
         if (j->generation == generation) {
-                Job *k;
+                Job *k, *delete;
 
                 /* If the marker is NULL we have been here already and
                  * decided the job was loop-free from here. Hence
@@ -901,23 +901,30 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * in there. */
                 log_warning("Found ordering cycle on %s/%s", j->unit->meta.id, job_type_to_string(j->type));
 
+                delete = NULL;
                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
 
                         log_info("Walked on cycle path to %s/%s", k->unit->meta.id, job_type_to_string(k->type));
 
-                        if (!k->installed &&
+                        if (!delete &&
+                            !k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_warning("Breaking order cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
-                                transaction_delete_unit(m, k->unit);
-                                return -EAGAIN;
+                                delete = k;
                         }
 
                         /* Check if this in fact was the beginning of
                          * the cycle */
                         if (k == j)
                                 break;
+                }
+
+
+                if (delete) {
+                        log_warning("Breaking ordering cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                        transaction_delete_unit(m, delete->unit);
+                        return -EAGAIN;
                 }
 
                 log_error("Unable to break cycle");
@@ -1061,7 +1068,7 @@ static void transaction_minimize_impact(Manager *m) {
                                         j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
 
                                 changes_existing_job =
-                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->state);
+                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->type);
 
                                 if (!stops_running_service && !changes_existing_job)
                                         continue;
@@ -1302,7 +1309,7 @@ void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies
                 job_dependency_free(j->object_list);
 
                 if (other && delete_dependencies) {
-                        log_info("Deleting job %s/%s as dependency of job %s/%s",
+                        log_debug("Deleting job %s/%s as dependency of job %s/%s",
                                   other->unit->meta.id, job_type_to_string(other->type),
                                   j->unit->meta.id, job_type_to_string(j->type));
                         transaction_delete_job(m, other, delete_dependencies);
