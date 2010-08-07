@@ -1,11 +1,11 @@
-systemd (3-1) unstable; urgency=low
+systemd (6-1) unstable; urgency=low
 
   * New upstream release
   * Only ship the top /cgroup
   * Pass --with-rootdir= to configure, to make it think / is / rather
     than //
 
- -- Tollef Fog Heen <tfheen@debian.org>  Tue, 06 Jul 2010 19:58:26 +0200
+ -- Tollef Fog Heen <tfheen@debian.org>  Sat, 07 Aug 2010 07:31:38 +0200
 
 systemd (0~git+20100605+dfd8ee-1) experimental; urgency=low
 
