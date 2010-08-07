@@ -27,10 +27,10 @@
 #include <sys/epoll.h>
 #include <signal.h>
 #include <arpa/inet.h>
-#include <selinux/selinux.h>
 
 #include "unit.h"
 #include "socket.h"
+#include "netinet/tcp.h"
 #include "log.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
@@ -115,6 +115,9 @@ static void socket_done(Unit *u) {
         socket_unwatch_control_pid(s);
 
         s->service = NULL;
+
+        free(s->tcp_congestion);
+        s->tcp_congestion = NULL;
 
         free(s->bind_to_device);
         s->bind_to_device = NULL;
@@ -371,14 +374,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
-                "%sFreeBind: %s\n",
+                "%sFreeBind: %s\n"
+                "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
                 prefix, s->backlog,
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
-                prefix, yes_no(s->free_bind));
+                prefix, yes_no(s->free_bind),
+                prefix, s->tcp_congestion);
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -632,6 +637,10 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (r < 0 && x < 0)
                         log_warning("IP_TTL/IPV6_UNICAST_HOPS failed: %m");
         }
+
+        if (s->tcp_congestion)
+                if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
+                        log_warning("TCP_CONGESTION failed: %m");
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
@@ -643,89 +652,25 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                         log_warning("F_SETPIPE_SZ: %m");
 }
 
-static int selinux_getconfromexe(
-                const char *exe,
-                security_context_t *newcon) {
-
-        security_context_t mycon = NULL, fcon = NULL;
-        security_class_t sclass;
-        int r = 0;
-
-        r = getcon(&mycon);
-        if (r < 0)
-                goto fail;
-
-        r = getfilecon(exe, &fcon);
-        if (r < 0)
-                goto fail;
-
-        sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, newcon);
-
-fail:
-        if (r < 0)
-                r = -errno;
-
-        freecon(mycon);
-        freecon(fcon);
-        return r;
-}
-
-static int selinux_getfileconfrompath(
-                const security_context_t scon,
-                const char *path,
-                const char *class,
-                security_context_t *fcon) {
-
-        security_context_t dir_con = NULL;
-        security_class_t sclass;
-        int r = 0;
-
-        r = getfilecon(path, &dir_con);
-        if (r >= 0) {
-                r = -1;
-                if ((sclass = string_to_security_class(class)) != 0)
-                        r = security_compute_create(scon, dir_con, sclass, fcon);
-        }
-        if (r < 0)
-                r = -errno;
-
-        freecon(dir_con);
-        return r;
-}
 
 static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                security_context_t scon,
+                const char *label,
                 int *_fd) {
 
         int fd = -1, r = 0;
         struct stat st;
         mode_t old_mask;
-        security_context_t filecon = NULL;
 
         assert(path);
         assert(_fd);
 
         mkdir_parents(path, directory_mode);
 
-        if (scon) {
-                if (scon && ((r = selinux_getfileconfrompath(scon, path, "fifo_file", &filecon)) == 0)) {
-                        r = setfscreatecon(filecon);
-
-                        if (r < 0) {
-                                log_error("Failed to set SELinux file context (%s) on %s: %m", scon, path);
-                                r = -errno;
-                        }
-
-                        freecon(filecon);
-                }
-
-                if (r < 0  && security_getenforce() == 1)
-                        goto fail;
-        }
+        if ((r = label_fifofile_set(label, path)) < 0)
+                goto fail;
 
         /* Enforce the right access mode for the fifo */
         old_mask = umask(~ socket_mode);
@@ -746,7 +691,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        setfscreatecon(NULL);
+        label_file_clear();
 
         if (fstat(fd, &st) < 0) {
                 r = -errno;
@@ -766,7 +711,8 @@ static int fifo_address_create(
         return 0;
 
 fail:
-        setfscreatecon(NULL);
+        label_file_clear();
+
         if (fd >= 0)
                 close_nointr_nofail(fd);
 
@@ -776,20 +722,16 @@ fail:
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
-        security_context_t scon = NULL;
+        char *label = NULL;
 
         assert(s);
 
         if ((r = socket_instantiate_service(s)) < 0)
                 return r;
 
-        if (selinux_getconfromexe(s->service->exec_command[SERVICE_EXEC_START]->path, &scon) < 0) {
-                log_error("Failed to get SELinux exec context for %s \n", s->service->exec_command[SERVICE_EXEC_START]->path);
-                if (security_getenforce() == 1)
-                        return -errno;
-        }
+        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
+                return r;
 
-        log_debug("SELinux Socket context for %s set to %s\n", s->service->exec_command[SERVICE_EXEC_START]->path, scon);
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->fd >= 0)
@@ -805,7 +747,7 @@ static int socket_open_fds(Socket *s) {
                                              s->free_bind,
                                              s->directory_mode,
                                              s->socket_mode,
-                                             scon,
+                                             label,
                                              &p->fd)) < 0)
                                 goto rollback;
 
@@ -817,7 +759,7 @@ static int socket_open_fds(Socket *s) {
                                              p->path,
                                              s->directory_mode,
                                              s->socket_mode,
-                                             scon,
+                                             label,
                                              &p->fd)) < 0)
                                 goto rollback;
 
@@ -827,12 +769,12 @@ static int socket_open_fds(Socket *s) {
                         assert_not_reached("Unknown port type");
         }
 
-        freecon(scon);
+        label_free(label);
         return 0;
 
 rollback:
         socket_close_fds(s);
-        freecon(scon);
+        label_free(label);
         return r;
 }
 

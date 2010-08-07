@@ -202,7 +202,8 @@ if TARGET_SUSE
 dist_systemunit_DATA += \
 	units/suse/halt.service \
 	units/suse/poweroff.service \
-	units/suse/reboot.service
+	units/suse/reboot.service \
+	units/suse/fsck.target
 endif
 
 if TARGET_GENTOO
@@ -485,7 +486,8 @@ systemd_initctl_LDADD = \
 	$(DBUS_LIBS)
 
 systemd_cgroups_agent_SOURCES = \
-	src/cgroups-agent.c
+	src/cgroups-agent.c \
+	src/dbus-common.c
 
 systemd_cgroups_agent_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -793,6 +795,11 @@ if TARGET_GENTOO
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants && \
 		rm -f xdm.service && \
 		$(LN_S) $(systemunitdir)/xdm.service xdm.service )
+endif
+if !TARGET_SUSE
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f fsck.target && \
+		$(LN_S) sysinit.target fsck.target )
 endif
 
 DISTCHECK_CONFIGURE_FLAGS = \
