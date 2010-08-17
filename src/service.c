@@ -566,7 +566,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else if (s->sysv_start_priority >= 0)
+                                        else if (s->sysv_enabled)
                                                 r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
                                         else
                                                 r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
@@ -708,7 +708,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->type = SERVICE_FORKING;
         s->valid_no_process = true;
         s->restart = SERVICE_ONCE;
-        s->exec_context.std_output = EXEC_OUTPUT_TTY;
+        s->exec_context.std_output = s->meta.manager->sysv_console ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         u->meta.load_state = UNIT_LOADED;
@@ -873,7 +873,7 @@ static int service_add_default_dependencies(Service *s) {
         }
 
         /* Second, activate normal shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int service_load(Unit *u) {
@@ -952,12 +952,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
                 "%sType: %s\n"
+                "%sRestart: %s\n"
                 "%sNotifyAccess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
                 prefix, service_type_to_string(s->type),
+                prefix, service_restart_to_string(s->restart),
                 prefix, notify_access_to_string(s->notify_access));
 
         if (s->control_pid > 0)
@@ -1004,8 +1006,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->sysv_start_priority >= 0)
                 fprintf(f,
-                        "%sSysVStartPriority: %i\n",
-                        prefix, s->sysv_start_priority);
+                        "%sSysVStartPriority: %i\n"
+                        "%sSysVEnabled: %s\n",
+                        prefix, s->sysv_start_priority,
+                        prefix, yes_no(s->sysv_enabled));
 
         if (s->sysv_runlevels)
                 fprintf(f, "%sSysVRunLevels: %s\n",
@@ -1496,7 +1500,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
                 s->failure = true;
 
         if (allow_restart &&
-            s->allow_restart &&
+            !s->forbid_restart &&
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure))) {
 
@@ -1506,6 +1510,8 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
                 service_set_state(s, s->failure ? SERVICE_MAINTENANCE : SERVICE_DEAD);
+
+        s->forbid_restart = false;
 
         return;
 
@@ -1928,7 +1934,7 @@ static int service_start(Unit *u) {
 
         s->failure = false;
         s->main_pid_known = false;
-        s->allow_restart = true;
+        s->forbid_restart = false;
 
         service_enter_start_pre(s);
         return 0;
@@ -1941,7 +1947,7 @@ static int service_stop(Unit *u) {
 
         /* This is a user request, so don't do restarts on this
          * shutdown. */
-        s->allow_restart = false;
+        s->forbid_restart = true;
 
         /* Already on it */
         if (s->state == SERVICE_STOP ||
@@ -2625,9 +2631,11 @@ static int service_enumerate(Manager *m) {
                                 }
 
                                 if (de->d_name[0] == 'S' &&
-                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT))
+                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
                                         SERVICE(service)->sysv_start_priority =
                                                 MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
+                                        SERVICE(service)->sysv_enabled = true;
+                                }
 
                                 manager_dispatch_load_queue(m);
                                 service = unit_follow_merge(service);
