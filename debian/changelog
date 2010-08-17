@@ -1,4 +1,4 @@
-systemd (6-1) unstable; urgency=low
+systemd (7-1) unstable; urgency=low
 
   * New upstream release
   * Only ship the top /cgroup
