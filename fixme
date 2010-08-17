@@ -1,3 +1,22 @@
+* dot output for --test for 'initial description'
+
+* check 'disable'
+  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recomended
+  <kay>           when does it do that?
+  <Viking-Ice>    if you disable the service
+
+* fixup var-run/var-lock tmpfs mounts. we need:
+    touch /var/run/utmp
+    chown root:utmp /var/run/utmp
+    mkdir -p /var/lock/subsys
+
+* downgrade warnings for non-existent services pulled-in
+  by soft dependencies, like:
+    init[1]: Failed to load configuration for isdn.service: No such file or directory
+
+* somehow fix the start of getty on tty1, which clears the screen, and mixes
+  its output with systemd bootup messages
+
 * have a simple syslog bridge providing /dev/log and forward messages
   to /dev/kmsg. at the moment the real syslog can be started, the bridge
   is stopped and the open /dev/log fd to the real syslog. that way we
@@ -61,11 +80,13 @@
 
 * if a service fails too often, make the service enter maintainence mode, and the socket, too.
 
-* send cgroup msg directly
-
 * don't show file not found msgs for irrelevant units
 
+* hide plymouth in multi-user mode
+
 External:
+
+* sysv functions should color when stdout is tty, not stdin
 
 * agetty should not modify baudrate
 

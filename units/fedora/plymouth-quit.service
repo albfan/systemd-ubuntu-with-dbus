@@ -6,13 +6,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Kill All Processes
-DefaultDependencies=no
-After=shutdown.target
-OnlyByDependency=yes
+Description=Terminate Plymouth Boot Screen
+After=getty@tty1.service
 
 [Service]
+ExecStart=-/usr/bin/plymouth quit
 Type=finish
-ValidNoProcess=yes
-ExecStart=-/etc/init.d/killprocs start
-StandardOutput=tty
+
+[Install]
+WantedBy=multi-user.target
