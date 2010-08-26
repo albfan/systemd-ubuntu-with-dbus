@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -27,6 +27,18 @@
 #include "bus-errors.h"
 
 const char bus_unit_interface[] = BUS_UNIT_INTERFACE;
+
+#define INVALIDATING_PROPERTIES                 \
+        "LoadState\0"                           \
+        "ActiveState\0"                         \
+        "SubState\0"                            \
+        "InactiveExitTimestamp\0"               \
+        "ActiveEnterTimestamp\0"                \
+        "ActiveExitTimestamp\0"                 \
+        "InactiveEnterTimestamp\0"              \
+        "Job\0"                                 \
+        "NeedDaemonReload\0"                    \
+        "\0"
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;
@@ -147,7 +159,28 @@ int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *proper
         assert(u);
 
         b = unit_can_start(u) &&
-                !u->meta.only_by_dependency;
+                !u->meta.refuse_manual_start;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_unit_append_can_stop(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        /* On the lower levels we assume that every unit we can start
+         * we can also stop */
+
+        b = unit_can_start(u) &&
+                !u->meta.refuse_manual_stop;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
                 return -ENOMEM;
@@ -334,8 +367,11 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 Job *j;
                 int r;
 
-                if (job_type == JOB_START && u->meta.only_by_dependency) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
+                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(m, connection, message, &error, -EPERM);
                 }
 
@@ -446,10 +482,27 @@ void bus_unit_send_change_signal(Unit *u) {
                 goto oom;
 
         if (u->meta.sent_dbus_new_signal) {
-                /* Send a change signal */
+                /* Send a properties changed signal. First for the
+                 * specific type, then for the generic unit. The
+                 * clients may rely on this order to get atomic
+                 * behaviour if needed. */
 
-                if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Unit", "Changed")))
+                if (UNIT_VTABLE(u)->bus_invalidating_properties) {
+
+                        if (!(m = bus_properties_changed_new(p,
+                                                             UNIT_VTABLE(u)->bus_interface,
+                                                             UNIT_VTABLE(u)->bus_invalidating_properties)))
+                                goto oom;
+
+                        if (bus_broadcast(u->meta.manager, m) < 0)
+                                goto oom;
+
+                        dbus_message_unref(m);
+                }
+
+                if (!(m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit", INVALIDATING_PROPERTIES)))
                         goto oom;
+
         } else {
                 /* Send a new signal */
 

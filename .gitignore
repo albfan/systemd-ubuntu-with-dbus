@@ -1,3 +1,11 @@
+systemd-kmsg-syslogd
+systemd-remount-api-vfs
+test-hostname
+systemd-modules-load
+systemd-auto-serial-getty
+systemd-shutdownd
+systemd-random-seed
+systemd-update-utmp
 test-env-replace
 systemd-cgls
 systemd.pc

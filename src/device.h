@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef foodevicehfoo
 #define foodevicehfoo
@@ -38,8 +38,6 @@ typedef enum DeviceState {
 struct Device {
         Meta meta;
 
-        DeviceState state;
-
         char *sysfs;
 
         /* In order to be able to distuingish dependencies on
@@ -47,6 +45,8 @@ struct Device {
         devices for the same sysfs path. We chain them up here. */
 
         LIST_FIELDS(struct Device, same_sysfs);
+
+        DeviceState state;
 };
 
 extern const UnitVTable device_vtable;

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -38,7 +38,6 @@
 #include "sd-daemon.h"
 #include "tcpwrap.h"
 
-#define STREAM_BUFFER 2048
 #define STREAMS_MAX 256
 #define SERVER_FD_MAX 16
 #define TIMEOUT ((int) (10*MSEC_PER_SEC))
@@ -81,10 +80,11 @@ struct Stream {
         char *process;
         pid_t pid;
         uid_t uid;
+        gid_t gid;
 
         bool prefix;
 
-        char buffer[STREAM_BUFFER];
+        char buffer[LINE_MAX];
         size_t length;
 
         LIST_FIELDS(Stream, stream);
@@ -151,6 +151,21 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
 
         if (s->target == STREAM_SYSLOG) {
                 struct msghdr msghdr;
+                union {
+                        struct cmsghdr cmsghdr;
+                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+                } control;
+                struct ucred *ucred;
+
+                zero(control);
+                control.cmsghdr.cmsg_level = SOL_SOCKET;
+                control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
+                control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+                ucred->pid = s->pid;
+                ucred->uid = s->uid;
+                ucred->gid = s->gid;
 
                 IOVEC_SET_STRING(iovec[1], header_time);
                 IOVEC_SET_STRING(iovec[2], s->process);
@@ -160,6 +175,8 @@ static int stream_log(Stream *s, char *p, usec_t ts) {
                 zero(msghdr);
                 msghdr.msg_iov = iovec;
                 msghdr.msg_iovlen = ELEMENTSOF(iovec);
+                msghdr.msg_control = &control;
+                msghdr.msg_controllen = control.cmsghdr.cmsg_len;
 
                 if (sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
                         return -errno;
@@ -208,12 +225,12 @@ static int stream_line(Stream *s, char *p, usec_t ts) {
 
         case STREAM_PRIORITY:
                 if ((r = safe_atoi(p, &s->priority)) < 0) {
-                        log_warning("Failed to parse log priority line: %s", strerror(errno));
+                        log_warning("Failed to parse log priority line: %m");
                         return r;
                 }
 
                 if (s->priority < 0) {
-                        log_warning("Log priority negative: %s", strerror(errno));
+                        log_warning("Log priority negative: %m");
                         return -ERANGE;
                 }
 
@@ -279,12 +296,12 @@ static int stream_process(Stream *s, usec_t ts) {
         int r;
         assert(s);
 
-        if ((l = read(s->fd, s->buffer+s->length, STREAM_BUFFER-s->length)) < 0) {
+        if ((l = read(s->fd, s->buffer+s->length, LINE_MAX-s->length)) < 0) {
 
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning("Failed to read from stream: %s", strerror(errno));
+                log_warning("Failed to read from stream: %m");
                 return -1;
         }
 
@@ -373,6 +390,7 @@ static int stream_new(Server *s, int server_fd) {
 
         stream->pid = ucred.pid;
         stream->uid = ucred.uid;
+        stream->gid = ucred.gid;
 
         stream->server = s;
         LIST_PREPEND(Stream, stream, s->streams, stream);
@@ -424,7 +442,7 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         if ((s->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0) {
                 r = -errno;
-                log_error("Failed to create epoll object: %s", strerror(errno));
+                log_error("Failed to create epoll object: %m");
                 goto fail;
         }
 
@@ -445,19 +463,25 @@ static int server_init(Server *s, unsigned n_sockets) {
                         goto fail;
                 }
 
+                /* We use ev.data.ptr instead of ev.data.fd here,
+                 * since on 64bit archs fd is 32bit while a pointer is
+                 * 64bit. To make sure we can easily distuingish fd
+                 * values and pointer values we want to make sure to
+                 * write the full field unconditionally. */
+
                 zero(ev);
                 ev.events = EPOLLIN;
-                ev.data.ptr = UINT_TO_PTR(fd);
+                ev.data.ptr = INT_TO_PTR(fd);
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
-                        log_error("Failed to add server fd to epoll object: %s", strerror(errno));
+                        log_error("Failed to add server fd to epoll object: %m");
                         goto fail;
                 }
         }
 
         if ((s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
                 r = -errno;
-                log_error("Failed to create log fd: %s", strerror(errno));
+                log_error("Failed to create log fd: %m");
                 goto fail;
         }
 
@@ -467,13 +491,13 @@ static int server_init(Server *s, unsigned n_sockets) {
 
         if (connect(s->syslog_fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
-                log_error("Failed to connect log socket to /dev/log: %s", strerror(errno));
+                log_error("Failed to connect log socket to /dev/log: %m");
                 goto fail;
         }
 
         /* /dev/kmsg logging is strictly optional */
         if ((s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
-                log_warning("Failed to open /dev/kmsg for logging, disabling kernel log buffer support: %s", strerror(errno));
+                log_warning("Failed to open /dev/kmsg for logging, disabling kernel log buffer support: %m");
 
         return 0;
 
@@ -493,15 +517,15 @@ static int process_event(Server *s, struct epoll_event *ev) {
          * first 4k usually are part of a seperate null pointer
          * dereference page. */
 
-        if (PTR_TO_UINT(ev->data.ptr) >= SD_LISTEN_FDS_START &&
-            PTR_TO_UINT(ev->data.ptr) < SD_LISTEN_FDS_START+s->n_server_fd) {
+        if (PTR_TO_INT(ev->data.ptr) >= SD_LISTEN_FDS_START &&
+            PTR_TO_INT(ev->data.ptr) < SD_LISTEN_FDS_START+(int)s->n_server_fd) {
 
                 if (ev->events != EPOLLIN) {
                         log_info("Got invalid event from epoll. (1)");
                         return -EIO;
                 }
 
-                if ((r = stream_new(s, PTR_TO_UINT(ev->data.ptr))) < 0) {
+                if ((r = stream_new(s, PTR_TO_INT(ev->data.ptr))) < 0) {
                         log_info("Failed to accept new connection: %s", strerror(-r));
                         return r;
                 }
@@ -547,8 +571,7 @@ int main(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
-
-        log_info("systemd-logger running as pid %lu", (unsigned long) getpid());
+        log_open();
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -562,6 +585,8 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, (unsigned) n) < 0)
                 return 3;
+
+        log_debug("systemd-logger running as pid %lu", (unsigned long) getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -578,25 +603,26 @@ int main(int argc, char *argv[]) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("epoll_wait() failed: %s", strerror(errno));
+                        log_error("epoll_wait() failed: %m");
                         goto fail;
                 }
 
                 if (k <= 0)
                         break;
 
-                if ((k = process_event(&server, &event)) < 0)
+                if (process_event(&server, &event) < 0)
                         goto fail;
         }
+
         r = 0;
+
+        log_debug("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
 fail:
         sd_notify(false,
                   "STATUS=Shutting down...");
 
         server_done(&server);
-
-        log_info("systemd-logger stopped as pid %lu", (unsigned long) getpid());
 
         return r;
 }

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -41,6 +41,7 @@
 #include "dbus-unit.h"
 #include "special.h"
 #include "cgroup-util.h"
+#include "missing.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -233,6 +234,9 @@ bool unit_check_gc(Unit *u) {
                 return true;
 
         if (UNIT_VTABLE(u)->no_gc)
+                return true;
+
+        if (u->meta.no_gc)
                 return true;
 
         if (u->meta.job)
@@ -646,12 +650,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tRecursive Stop: %s\n"
                         "%s\tStopWhenUnneeded: %s\n"
-                        "%s\tOnlyByDependency: %s\n"
+                        "%s\tRefuseManualStart: %s\n"
+                        "%s\tRefuseManualStop: %s\n"
                         "%s\tDefaultDependencies: %s\n"
                         "%s\tIgnoreDependencyFailure: %s\n",
                         prefix, yes_no(u->meta.recursive_stop),
                         prefix, yes_no(u->meta.stop_when_unneeded),
-                        prefix, yes_no(u->meta.only_by_dependency),
+                        prefix, yes_no(u->meta.refuse_manual_start),
+                        prefix, yes_no(u->meta.refuse_manual_stop),
                         prefix, yes_no(u->meta.default_dependencies),
                         prefix, yes_no(u->meta.ignore_dependency_failure));
 
@@ -666,6 +672,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tMerged into: %s\n",
                         prefix, u->meta.merged_into->meta.id);
+        else if (u->meta.load_state == UNIT_FAILED)
+                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->meta.load_error));
+
 
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
@@ -716,16 +725,6 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return 0;
 }
 
-/* Common implementation for multiple backends */
-int unit_load_nop(Unit *u) {
-        assert(u);
-
-        if (u->meta.load_state == UNIT_STUB)
-                u->meta.load_state = UNIT_LOADED;
-
-        return 0;
-}
-
 int unit_load(Unit *u) {
         int r;
 
@@ -760,9 +759,10 @@ int unit_load(Unit *u) {
 
 fail:
         u->meta.load_state = UNIT_FAILED;
+        u->meta.load_error = r;
         unit_add_to_dbus_queue(u);
 
-        log_notice("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
+        log_debug("Failed to load configuration for %s: %s", u->meta.id, strerror(-r));
 
         return r;
 }
@@ -853,10 +853,10 @@ int unit_reload(Unit *u) {
                 return -EBADR;
 
         state = unit_active_state(u);
-        if (unit_active_state(u) == UNIT_RELOADING)
+        if (state == UNIT_RELOADING)
                 return -EALREADY;
 
-        if (unit_active_state(u) != UNIT_ACTIVE)
+        if (state != UNIT_ACTIVE)
                 return -ENOEXEC;
 
         unit_add_to_dbus_queue(u);
@@ -984,8 +984,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
          * even if they might map to the same high-level
          * UnitActiveState! That means that ns == os is OK an expected
          * behaviour here. For example: if a mount point is remounted
-         * this function will be called too and the utmp code below
-         * relies on that! */
+         * this function will be called too! */
 
         dual_timestamp_get(&ts);
 
@@ -1028,7 +1027,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                                 job_finish_and_invalidate(u->meta.job, true);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                                 unexpected = true;
-                                job_finish_and_invalidate(u->meta.job, false);
+
+                                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                                        job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
                         }
 
                         break;
@@ -1041,7 +1042,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                                         job_finish_and_invalidate(u->meta.job, true);
                                 else if (ns != UNIT_ACTIVATING && ns != UNIT_RELOADING) {
                                         unexpected = true;
-                                        job_finish_and_invalidate(u->meta.job, false);
+
+                                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
+                                                job_finish_and_invalidate(u->meta.job, ns != UNIT_MAINTENANCE);
                                 }
                         }
 
@@ -1051,7 +1054,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 case JOB_RESTART:
                 case JOB_TRY_RESTART:
 
-                        if (ns == UNIT_INACTIVE || ns == UNIT_MAINTENANCE)
+                        if (UNIT_IS_INACTIVE_OR_MAINTENANCE(ns))
                                 job_finish_and_invalidate(u->meta.job, true);
                         else if (u->meta.job->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                                 unexpected = true;
@@ -1092,12 +1095,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
         /* Some names are special */
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
-                if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+                if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
                         /* The bus just might have become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
                         bus_init(u->meta.manager);
-                }
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
                         /* The syslog daemon just might have become
@@ -1105,17 +1107,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                          * we aren't yet connected. */
                         log_open();
 
-                if (u->meta.type == UNIT_MOUNT)
-                        /* Another directory became available, let's
-                         * check if that is enough to write our utmp
-                         * entry. */
-                        manager_write_utmp_reboot(u->meta.manager);
+                if (u->meta.type == UNIT_SERVICE &&
+                    !UNIT_IS_ACTIVE_OR_RELOADING(os)) {
+                        /* Write audit record if we have just finished starting up */
+                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, 1);
+                        u->meta.in_audit = true;
+                }
 
-                if (u->meta.type == UNIT_TARGET)
-                        /* A target got activated, maybe this is a runlevel? */
-                        manager_write_utmp_runlevel(u->meta.manager, u);
-
-        } else if (!UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+        } else {
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
                         /* The syslog daemon might just have
@@ -1125,6 +1124,25 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                 /* We don't care about D-Bus here, since we'll get an
                  * asynchronous notification for it anyway. */
+
+                if (u->meta.type == UNIT_SERVICE &&
+                    UNIT_IS_INACTIVE_OR_MAINTENANCE(ns) &&
+                    !UNIT_IS_INACTIVE_OR_MAINTENANCE(os)) {
+
+                        /* Hmm, if there was no start record written
+                         * write it now, so that we always have a nice
+                         * pair */
+                        if (!u->meta.in_audit) {
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, ns == UNIT_INACTIVE);
+
+                                if (ns == UNIT_INACTIVE)
+                                        manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, true);
+                        } else
+                                /* Write audit record if we have just finished shutting down */
+                                manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_STOP, ns == UNIT_INACTIVE);
+
+                        u->meta.in_audit = false;
+                }
         }
 
         /* Maybe we finished startup and are now ready for being
@@ -1959,6 +1977,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         return -errno;
                 }
 
+                char_array_0(line);
                 l = strstrip(line);
 
                 /* End marker */
@@ -2098,20 +2117,6 @@ Unit *unit_following(Unit *u) {
 
         return NULL;
 }
-
-static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
-        [UNIT_SERVICE] = "service",
-        [UNIT_TIMER] = "timer",
-        [UNIT_SOCKET] = "socket",
-        [UNIT_TARGET] = "target",
-        [UNIT_DEVICE] = "device",
-        [UNIT_MOUNT] = "mount",
-        [UNIT_AUTOMOUNT] = "automount",
-        [UNIT_SNAPSHOT] = "snapshot",
-        [UNIT_SWAP] = "swap"
-};
-
-DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",

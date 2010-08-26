@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -42,7 +42,7 @@
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"ValidNoProcess\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
         BUS_EXEC_STATUS_INTERFACE("ExecMain")                           \
         "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
@@ -59,10 +59,24 @@
         BUS_UNIT_INTERFACE                                              \
         BUS_SERVICE_INTERFACE                                           \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
 const char bus_service_interface[] = BUS_SERVICE_INTERFACE;
+
+const char bus_service_invalidating_properties[] =
+        "ExecStartPre\0"
+        "ExecStart\0"
+        "ExecStartPost\0"
+        "ExecReload\0"
+        "ExecStop\0"
+        "ExecStopPost\0"
+        "ExecMain\0"
+        "MainPID\0"
+        "ControlPID\0"
+        "StatusText\0"
+        "\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
@@ -86,7 +100,7 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                 BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Service", u->service.exec_context),
                 { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only    },
                 { "org.freedesktop.systemd1.Service", "RootDirectoryStartOnly", bus_property_append_bool,   "b", &u->service.root_directory_start_only },
-                { "org.freedesktop.systemd1.Service", "ValidNoProcess",         bus_property_append_bool,   "b", &u->service.valid_no_process          },
+                { "org.freedesktop.systemd1.Service", "RemainAfterExit",        bus_property_append_bool,   "b", &u->service.remain_after_exit          },
                 BUS_EXEC_STATUS_PROPERTIES("org.freedesktop.systemd1.Service", u->service.main_exec_status, "ExecMain"),
                 { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -209,11 +209,13 @@ int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *
         else
                 s = "";
 
-        if (!t)
+        if (!s)
                 return -ENOMEM;
 
         b = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &s);
-        cap_free(t);
+
+        if (t)
+                cap_free(t);
 
         if (!b)
                 return -ENOMEM;
@@ -286,9 +288,9 @@ int bus_execute_append_command(Manager *m, DBusMessageIter *i, const char *prope
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_BOOLEAN, &c->ignore) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.start_timestamp.realtime) ||
                     !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT64, &c->exec_status.exit_timestamp.realtime) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &c->exec_status.pid) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &c->exec_status.code) ||
-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &c->exec_status.status))
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &code) ||
+                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_INT32, &status))
                         return -ENOMEM;
 
                 if (!dbus_message_iter_close_container(&sub, &sub2))

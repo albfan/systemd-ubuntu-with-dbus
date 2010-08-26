@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -49,6 +49,8 @@
 #include "path-lookup.h"
 #include "conf-parser.h"
 #include "sd-daemon.h"
+#include "shutdownd.h"
+#include "exit-status.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -67,7 +69,13 @@ static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
+static bool arg_sysv_compat = false; /* this is undocumented, and
+                                      * exists simply to make
+                                      * implementation of SysV
+                                      * compatible shell glue
+                                      * easier */
 static char **arg_wall = NULL;
+static usec_t arg_when = 0;
 static enum action {
         ACTION_INVALID,
         ACTION_SYSTEMCTL,
@@ -84,6 +92,7 @@ static enum action {
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
+        ACTION_CANCEL_SHUTDOWN,
         _ACTION_MAX
 } arg_action = ACTION_SYSTEMCTL;
 static enum dot {
@@ -96,16 +105,29 @@ static bool private_bus = false;
 
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
 
-static const char *ansi_highlight(bool b) {
+static bool on_tty(void) {
         static int t = -1;
 
         if (_unlikely_(t < 0))
                 t = isatty(STDOUT_FILENO) > 0;
 
-        if (!t)
+        return t;
+}
+
+static const char *ansi_highlight(bool b) {
+
+        if (!on_tty())
                 return "";
 
         return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+}
+
+static const char *ansi_highlight_green(bool b) {
+
+        if (!on_tty())
+                return "";
+
+        return b ? ANSI_HIGHLIGHT_GREEN_ON : ANSI_HIGHLIGHT_OFF;
 }
 
 static bool error_is_no_service(DBusError *error) {
@@ -175,12 +197,43 @@ static void warn_wall(enum action action) {
         utmp_wall(table[action]);
 }
 
+struct unit_info {
+        const char *id;
+        const char *description;
+        const char *load_state;
+        const char *active_state;
+        const char *sub_state;
+        const char *following;
+        const char *unit_path;
+        uint32_t job_id;
+        const char *job_type;
+        const char *job_path;
+};
+
+static int compare_unit_info(const void *a, const void *b) {
+        const char *d1, *d2;
+        const struct unit_info *u = a, *v = b;
+
+        d1 = strrchr(u->id, '.');
+        d2 = strrchr(v->id, '.');
+
+        if (d1 && d2) {
+                int r;
+
+                if ((r = strcasecmp(d1, d2)) != 0)
+                        return r;
+        }
+
+        return strcasecmp(u->id, v->id);
+}
+
 static int list_units(DBusConnection *bus, char **args, unsigned n) {
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
         int r;
         DBusMessageIter iter, sub, sub2;
-        unsigned k = 0;
+        unsigned c = 0, k, n_units = 0;
+        struct unit_info *unit_infos = NULL;
 
         dbus_error_init(&error);
 
@@ -196,7 +249,7 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -211,12 +264,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_iter_recurse(&iter, &sub);
 
-        if (isatty(STDOUT_FILENO))
-                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
-
         while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *id, *description, *load_state, *active_state, *sub_state, *following, *unit_path, *job_type, *job_path, *dot;
-                uint32_t job_id;
+                struct unit_info *u;
 
                 if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
                         log_error("Failed to parse reply.");
@@ -224,69 +273,99 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
+                if (c >= n_units) {
+                        struct unit_info *w;
+
+                        n_units = MAX(2*c, 16);
+                        w = realloc(unit_infos, sizeof(struct unit_info) * n_units);
+
+                        if (!w) {
+                                log_error("Failed to allocate unit array.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        unit_infos = w;
+                }
+
+                u = unit_infos+c;
+
                 dbus_message_iter_recurse(&sub, &sub2);
 
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &description, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &load_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &active_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &sub_state, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &following, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &job_id, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &job_type, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path, false) < 0) {
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->id, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->description, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->load_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->active_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->sub_state, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->following, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->unit_path, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_UINT32, &u->job_id, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &u->job_type, true) < 0 ||
+                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &u->job_path, false) < 0) {
                         log_error("Failed to parse reply.");
                         r = -EIO;
                         goto finish;
                 }
 
-                if ((!arg_type || ((dot = strrchr(id, '.')) &&
+                dbus_message_iter_next(&sub);
+                c++;
+        }
+
+        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+
+        if (isatty(STDOUT_FILENO))
+                printf("%-45s %-6s %-12s %-12s %-15s %s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB", "DESCRIPTION");
+
+        for (k = 0; k < c; k++) {
+                const char *dot;
+                struct unit_info *u = unit_infos+k;
+
+                if ((!arg_type || ((dot = strrchr(u->id, '.')) &&
                                    streq(dot+1, arg_type))) &&
-                    (arg_all || !(streq(active_state, "inactive") || following[0]) || job_id > 0)) {
+                    (arg_all || !(streq(u->active_state, "inactive") || u->following[0]) || u->job_id > 0)) {
                         char *e;
                         int a = 0, b = 0;
+                        const char *on, *off;
 
-                        if (streq(active_state, "maintenance"))
-                                fputs(ansi_highlight(true), stdout);
+                        if (streq(u->active_state, "maintenance")) {
+                                on = ansi_highlight(true);
+                                off = ansi_highlight(false);
+                        } else
+                                on = off = "";
 
-                        e = arg_full ? NULL : ellipsize(id, 45, 33);
-                        printf("%-45s %-6s %-12s %-12s%n", e ? e : id, load_state, active_state, sub_state, &a);
+                        e = arg_full ? NULL : ellipsize(u->id, 45, 33);
+                        printf("%-45s %-6s %s%-12s %-12s%s%n", e ? e : u->id, u->load_state, on, u->active_state, u->sub_state, off, &a);
                         free(e);
 
-                        if (job_id != 0)
-                                printf(" => %-12s%n", job_type, &b);
+                        a -= strlen(on) + strlen(off);
+
+                        if (u->job_id != 0)
+                                printf(" => %-12s%n", u->job_type, &b);
                         else
                                 b = 1 + 15;
 
                         if (a + b + 2 < columns()) {
-                                if (job_id == 0)
+                                if (u->job_id == 0)
                                         printf("                ");
 
-                                printf(" %.*s", columns() - a - b - 2, description);
+                                printf(" %.*s", columns() - a - b - 2, u->description);
                         }
 
-                        if (streq(active_state, "maintenance"))
-                                fputs(ansi_highlight(false), stdout);
-
                         fputs("\n", stdout);
-                        k++;
                 }
-
-                dbus_message_iter_next(&sub);
         }
 
         if (isatty(STDOUT_FILENO)) {
 
-                printf("\nLOAD   = Load State, reflects whether the unit configuration was properly loaded.\n"
-                       "ACTIVE = Active State, the high-level unit activation state, i.e. generalization of the substate.\n"
-                       "SUB    = Substate, the low-level unit activation state, possible values depend on unit type.\n"
-                       "JOB    = Job, shows pending jobs for the unit.\n");
+                printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
+                       "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
+                       "SUB    = The low-level unit activation state, values depend on unit type.\n"
+                       "JOB    = Pending job for the unit.\n");
 
                 if (arg_all)
-                        printf("\n%u units listed.\n", k);
+                        printf("\n%u units listed.\n", c);
                 else
-                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", k);
+                        printf("\n%u units listed. Pass --all to see inactive units, too.\n", c);
         }
 
         r = 0;
@@ -297,6 +376,8 @@ finish:
 
         if (reply)
                 dbus_message_unref(reply);
+
+        free(unit_infos);
 
         dbus_error_free(&error);
 
@@ -392,7 +473,7 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -441,6 +522,8 @@ static int dot_one(DBusConnection *bus, const char *name, const char *path) {
                 dbus_message_iter_next(&sub);
         }
 
+        r = 0;
+
 finish:
         if (m)
                 dbus_message_unref(m);
@@ -473,7 +556,7 @@ static int dot(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -566,7 +649,7 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -663,7 +746,7 @@ static int load_unit(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -731,7 +814,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -739,7 +822,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -757,7 +840,7 @@ static int cancel_job(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -782,7 +865,7 @@ finish:
 }
 
 static bool need_daemon_reload(DBusConnection *bus, const char *unit) {
-        DBusMessage *m, *reply;
+        DBusMessage *m = NULL, *reply = NULL;
         dbus_bool_t b = FALSE;
         DBusMessageIter iter, sub;
         const char
@@ -886,7 +969,7 @@ static DBusHandlerResult wait_filter(DBusConnection *connection, DBusMessage *me
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_BOOLEAN, &success,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else {
                         char *p;
 
@@ -920,7 +1003,7 @@ static int enable_wait_for_jobs(DBusConnection *bus) {
                            &error);
 
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to add match: %s", error.message);
+                log_error("Failed to add match: %s", bus_error_message(&error));
                 dbus_error_free(&error);
                 return -EIO;
         }
@@ -1009,7 +1092,7 @@ static int start_unit_one(
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -1017,7 +1100,7 @@ static int start_unit_one(
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -1153,7 +1236,10 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!arg_no_block)
-                r = wait_for_jobs(bus, s);
+                if ((r = wait_for_jobs(bus, s)) < 0)
+                        goto finish;
+
+        r = 1;
 
 finish:
         if (s)
@@ -1226,7 +1312,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -1253,7 +1339,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -1278,7 +1364,7 @@ static int check_unit(DBusConnection *bus, char **args, unsigned n) {
                 if (!arg_quiet)
                         puts(state);
 
-                if (streq(state, "active") || startswith(state, "reloading"))
+                if (streq(state, "active") || streq(state, "reloading"))
                         r = 0;
 
                 dbus_message_unref(m);
@@ -1400,8 +1486,13 @@ typedef struct UnitStatusInfo {
 
         const char *description;
 
-        const char *fragment_path;
+        const char *path;
         const char *default_control_group;
+
+        usec_t inactive_exit_timestamp;
+        usec_t active_enter_timestamp;
+        usec_t active_exit_timestamp;
+        usec_t inactive_enter_timestamp;
 
         bool need_daemon_reload;
 
@@ -1409,7 +1500,8 @@ typedef struct UnitStatusInfo {
         pid_t main_pid;
         pid_t control_pid;
         const char *status_text;
-        bool running;
+        bool running:1;
+        bool is_sysv:1;
 
         usec_t start_timestamp;
         usec_t exit_timestamp;
@@ -1435,6 +1527,10 @@ typedef struct UnitStatusInfo {
 
 static void print_status_info(UnitStatusInfo *i) {
         ExecStatusInfo *p;
+        const char *on, *off, *ss;
+        usec_t timestamp;
+        char since1[FORMAT_TIMESTAMP_PRETTY_MAX], *s1;
+        char since2[FORMAT_TIMESTAMP_MAX], *s2;
 
         assert(i);
 
@@ -1448,37 +1544,56 @@ static void print_status_info(UnitStatusInfo *i) {
 
         printf("\n");
 
-        if (i->fragment_path)
-                printf("\t  Loaded: %s (%s)\n", strna(i->load_state), i->fragment_path);
-        else if (streq_ptr(i->load_state, "failed"))
-                printf("\t  Loaded: %s%s%s\n",
-                       ansi_highlight(true),
-                       strna(i->load_state),
-                       ansi_highlight(false));
+        if (streq_ptr(i->load_state, "failed")) {
+                on = ansi_highlight(true);
+                off = ansi_highlight(false);
+        } else
+                on = off = "";
+
+        if (i->path)
+                printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
         else
-                printf("\t  Loaded: %s\n", strna(i->load_state));
+                printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
+
+        ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
         if (streq_ptr(i->active_state, "maintenance")) {
-                        if (streq_ptr(i->active_state, i->sub_state))
-                                printf("\t  Active: %s%s%s\n",
-                                       ansi_highlight(true),
-                                       strna(i->active_state),
-                                       ansi_highlight(false));
-                        else
-                                printf("\t  Active: %s%s (%s)%s\n",
-                                       ansi_highlight(true),
-                                       strna(i->active_state),
-                                       strna(i->sub_state),
-                                       ansi_highlight(false));
-        } else {
-                if (streq_ptr(i->active_state, i->sub_state))
-                        printf("\t  Active: %s\n",
-                               strna(i->active_state));
-                else
-                        printf("\t  Active: %s (%s)\n",
-                               strna(i->active_state),
-                               strna(i->sub_state));
-        }
+                on = ansi_highlight(true);
+                off = ansi_highlight(false);
+        } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
+                on = ansi_highlight_green(true);
+                off = ansi_highlight_green(false);
+        } else
+                on = off = "";
+
+        if (ss)
+                printf("\t  Active: %s%s (%s)%s",
+                       on,
+                       strna(i->active_state),
+                       ss,
+                       off);
+        else
+                printf("\t  Active: %s%s%s",
+                       on,
+                       strna(i->active_state),
+                       off);
+
+        timestamp = (streq_ptr(i->active_state, "active")      ||
+                     streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
+                    (streq_ptr(i->active_state, "inactive")    ||
+                     streq_ptr(i->active_state, "maintenance")) ? i->inactive_enter_timestamp :
+                    streq_ptr(i->active_state, "activating")    ? i->inactive_exit_timestamp :
+                                                                  i->active_exit_timestamp;
+
+        s1 = format_timestamp_pretty(since1, sizeof(since1), timestamp);
+        s2 = format_timestamp(since2, sizeof(since2), timestamp);
+
+        if (s1)
+                printf(" since [%s; %s]\n", s2, s1);
+        else if (s2)
+                printf(" since [%s]\n", s2);
+        else
+                printf("\n");
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -1498,12 +1613,18 @@ static void print_status_info(UnitStatusInfo *i) {
                         continue;
 
                 t = strv_join(p->argv, " ");
-                printf("\t  Exited: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                printf("\t Process: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
                 free(t);
 
-                if (p->code == CLD_EXITED)
+                if (p->code == CLD_EXITED) {
+                        const char *c;
+
                         printf("status=%i", p->status);
-                else
+
+                        if ((c = exit_status_to_string(p->status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+                                printf("/%s", c);
+
+                } else
                         printf("signal=%s", signal_to_string(p->status));
                 printf(")\n");
 
@@ -1521,7 +1642,7 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf("\t");
 
                 if (i->main_pid > 0) {
-                        printf("    Main: %u", (unsigned) i->main_pid);
+                        printf("Main PID: %u", (unsigned) i->main_pid);
 
                         if (i->running) {
                                 char *t = NULL;
@@ -1533,9 +1654,15 @@ static void print_status_info(UnitStatusInfo *i) {
                         } else if (i->exit_code > 0) {
                                 printf(" (code=%s, ", sigchld_code_to_string(i->exit_code));
 
-                                if (i->exit_code == CLD_EXITED)
+                                if (i->exit_code == CLD_EXITED) {
+                                        const char *c;
+
                                         printf("status=%i", i->exit_status);
-                                else
+
+                                        if ((c = exit_status_to_string(i->exit_status, i->is_sysv ? EXIT_STATUS_LSB : EXIT_STATUS_SYSTEMD)))
+                                                printf("/%s", c);
+
+                                } else
                                         printf("signal=%s", signal_to_string(i->exit_status));
                                 printf(")");
                         }
@@ -1603,8 +1730,11 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         else if (streq(name, "Description"))
                                 i->description = s;
                         else if (streq(name, "FragmentPath"))
-                                i->fragment_path = s;
-                        else if (streq(name, "DefaultControlGroup"))
+                                i->path = s;
+                        else if (streq(name, "SysVPath")) {
+                                i->is_sysv = true;
+                                i->path = s;
+                        } else if (streq(name, "DefaultControlGroup"))
                                 i->default_control_group = s;
                         else if (streq(name, "StatusText"))
                                 i->status_text = s;
@@ -1677,6 +1807,14 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->start_timestamp = (usec_t) u;
                 else if (streq(name, "ExecMainExitTimestamp"))
                         i->exit_timestamp = (usec_t) u;
+                else if (streq(name, "ActiveEnterTimestamp"))
+                        i->active_enter_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveEnterTimestamp"))
+                        i->inactive_enter_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveExitTimestamp"))
+                        i->inactive_exit_timestamp = (usec_t) u;
+                else if (streq(name, "ActiveExitTimestamp"))
+                        i->active_exit_timestamp = (usec_t) u;
 
                 break;
         }
@@ -1991,7 +2129,7 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2050,15 +2188,26 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
                 dbus_message_iter_next(&sub);
         }
 
-        if (!show_properties)
-                print_status_info(&info);
+        r = 0;
+
+        if (!show_properties) {
+                if (arg_sysv_compat &&
+                    !streq_ptr(info.active_state, "active") &&
+                    !streq_ptr(info.active_state, "reloading")) {
+
+                        /* If the SysV compatibility mode is on, we
+                         * will refuse to run "status" on units that
+                         * aren't active */
+                        log_error("Unit not active.");
+                        r = -EADDRNOTAVAIL;
+                } else
+                        print_status_info(&info);
+        }
 
         while ((p = info.exec)) {
                 LIST_REMOVE(ExecStatusInfo, exec, info.exec, p);
                 exec_status_info_free(p);
         }
-
-        r = 0;
 
 finish:
         if (m)
@@ -2098,7 +2247,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 const char *path = NULL;
                 uint32_t id;
 
-                if (!show_properties || safe_atou32(args[i], &id) < 0) {
+                if (safe_atou32(args[i], &id) < 0) {
+
+                        /* Interpret as unit name */
 
                         if (!(m = dbus_message_new_method_call(
                                               "org.freedesktop.systemd1",
@@ -2121,7 +2272,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
                                 if (!dbus_error_has_name(&error, DBUS_ERROR_ACCESS_DENIED)) {
-                                        log_error("Failed to issue method call: %s", error.message);
+                                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                                         r = -EIO;
                                         goto finish;
                                 }
@@ -2148,13 +2299,15 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                                 }
 
                                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                                        log_error("Failed to issue method call: %s", error.message);
+                                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                                         r = -EIO;
                                         goto finish;
                                 }
                         }
 
-                } else {
+                } else if (show_properties) {
+
+                        /* Interpret as job id */
 
                         if (!(m = dbus_message_new_method_call(
                                               "org.freedesktop.systemd1",
@@ -2175,7 +2328,34 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         }
 
                         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                                log_error("Failed to issue method call: %s", error.message);
+                                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                                r = -EIO;
+                                goto finish;
+                        }
+                } else {
+
+                        /* Interpret as PID */
+
+                        if (!(m = dbus_message_new_method_call(
+                                              "org.freedesktop.systemd1",
+                                              "/org/freedesktop/systemd1",
+                                              "org.freedesktop.systemd1.Manager",
+                                              "GetUnitByPID"))) {
+                                log_error("Could not allocate message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!dbus_message_append_args(m,
+                                                      DBUS_TYPE_UINT32, &id,
+                                                      DBUS_TYPE_INVALID)) {
+                                log_error("Could not append arguments to message.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
+                                log_error("Failed to issue method call: %s", bus_error_message(&error));
                                 r = -EIO;
                                 goto finish;
                         }
@@ -2184,7 +2364,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2237,7 +2417,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_STRING, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else if (streq(dbus_message_get_member(message), "UnitNew"))
                         printf("Unit %s added.\n", id);
                 else
@@ -2252,21 +2432,30 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_UINT32, &id,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID))
-                        log_error("Failed to parse message: %s", error.message);
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
                 else if (streq(dbus_message_get_member(message), "JobNew"))
                         printf("Job %u added.\n", id);
                 else
                         printf("Job %u removed.\n", id);
 
 
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Unit", "Changed") ||
-                   dbus_message_is_signal(message, "org.freedesktop.systemd1.Job", "Changed")) {
+        } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
 
                 const char *path, *interface, *property = "Id";
                 DBusMessageIter iter, sub;
 
                 path = dbus_message_get_path(message);
-                interface = dbus_message_get_interface(message);
+
+                if (!dbus_message_get_args(message, &error,
+                                          DBUS_TYPE_STRING, &interface,
+                                          DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
+                        goto finish;
+                }
+
+                if (!streq(interface, "org.freedesktop.systemd1.Job") &&
+                    !streq(interface, "org.freedesktop.systemd1.Unit"))
+                        goto finish;
 
                 if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -2286,7 +2475,7 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(connection, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         goto finish;
                 }
 
@@ -2358,7 +2547,7 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
                                    &error);
 
                 if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
+                        log_error("Failed to add match: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2366,25 +2555,12 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
                 dbus_bus_add_match(bus,
                                    "type='signal',"
                                    "sender='org.freedesktop.systemd1',"
-                                   "interface='org.freedesktop.systemd1.Unit',"
-                                   "member='Changed'",
+                                   "interface='org.freedesktop.DBus.Properties',"
+                                   "member='PropertiesChanged'",
                                    &error);
 
                 if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_bus_add_match(bus,
-                                   "type='signal',"
-                                   "sender='org.freedesktop.systemd1',"
-                                   "interface='org.freedesktop.systemd1.Job',"
-                                   "member='Changed'",
-                                   &error);
-
-                if (dbus_error_is_set(&error)) {
-                        log_error("Failed to add match: %s", error.message);
+                        log_error("Failed to add match: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2407,7 +2583,7 @@ static int monitor(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2450,7 +2626,7 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2458,7 +2634,7 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_STRING, &text,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2514,7 +2690,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2522,7 +2698,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
         if (!dbus_message_get_args(reply, &error,
                                    DBUS_TYPE_OBJECT_PATH, &path,
                                    DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", error.message);
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2548,7 +2724,7 @@ static int snapshot(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_message_unref(reply);
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2619,7 +2795,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2627,7 +2803,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
                 if (!dbus_message_get_args(reply, &error,
                                            DBUS_TYPE_OBJECT_PATH, &path,
                                            DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", error.message);
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2645,7 +2821,7 @@ static int delete_snapshot(DBusConnection *bus, char **args, unsigned n) {
 
                 dbus_message_unref(reply);
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2711,7 +2887,7 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2763,7 +2939,7 @@ static int reset_maintenance(DBusConnection *bus, char **args, unsigned n) {
                 }
 
                 if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                        log_error("Failed to issue method call: %s", error.message);
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
                         r = -EIO;
                         goto finish;
                 }
@@ -2817,7 +2993,7 @@ static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -2915,7 +3091,7 @@ static int set_environment(DBusConnection *bus, char **args, unsigned n) {
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -3136,7 +3312,7 @@ static int remove_marked_symlinks_fd(int fd, const char *config_path, const char
                         free(p);
 
                         if (r == 0)
-                                q = r;
+                                r = q;
 
                 } else if (is_link) {
                         char *p, *dest, *c;
@@ -3655,7 +3831,7 @@ static int systemctl_help(void) {
                "                                  otherwise restart if active\n"
                "  isolate [NAME]                  Start one unit and stop all others\n"
                "  is-active [NAME...]             Check whether units are active\n"
-               "  status [NAME...]                Show runtime status of one or more units\n"
+               "  status [NAME...|PID...]         Show runtime status of one or more units\n"
                "  show [NAME...|JOB...]           Show properties of one or more\n"
                "                                  units/jobs or the manager\n"
                "  reset-maintenance [NAME...]     Reset maintenance state for all, one,\n"
@@ -3711,7 +3887,7 @@ static int halt_help(void) {
 
 static int shutdown_help(void) {
 
-        printf("%s [OPTIONS...] [now] [WALL...]\n\n"
+        printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
                "Shut down the system.\n\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
@@ -3719,7 +3895,8 @@ static int shutdown_help(void) {
                "  -r --reboot    Reboot the machine\n"
                "  -h             Equivalent to --poweroff, overriden by --halt\n"
                "  -k             Don't halt/power-off/reboot, just send warnings\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n",
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
+               "  -c             Cancel a pending shutdown\n",
                program_invocation_short_name);
 
         return 0;
@@ -3767,7 +3944,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FULL,
                 ARG_FORCE,
                 ARG_NO_RELOAD,
-                ARG_DEFAULTS
+                ARG_DEFAULTS,
+                ARG_SYSV_COMPAT
         };
 
         static const struct option options[] = {
@@ -3787,7 +3965,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "require",   no_argument,       NULL, ARG_REQUIRE   },
                 { "force",     no_argument,       NULL, ARG_FORCE     },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
-                { "defaults",   no_argument,      NULL, ARG_DEFAULTS  },
+                { "defaults",  no_argument,       NULL, ARG_DEFAULTS  },
+                { "sysv-compat", no_argument,     NULL, ARG_SYSV_COMPAT },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -3879,6 +4058,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFAULTS:
                         arg_defaults = true;
+                        break;
+
+                case ARG_SYSV_COMPAT:
+                        arg_sysv_compat = true;
                         break;
 
                 case '?':
@@ -3986,6 +4169,56 @@ static int halt_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_time_spec(const char *t, usec_t *_u) {
+        assert(t);
+        assert(_u);
+
+        if (streq(t, "now"))
+                *_u = 0;
+        else if (t[0] == '+') {
+                uint64_t u;
+
+                if (safe_atou64(t + 1, &u) < 0)
+                        return -EINVAL;
+
+                *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
+        } else {
+                char *e = NULL;
+                long hour, minute;
+                struct tm tm;
+                time_t s;
+                usec_t n;
+
+                errno = 0;
+                hour = strtol(t, &e, 10);
+                if (errno != 0 || *e != ':' || hour < 0 || hour > 23)
+                        return -EINVAL;
+
+                minute = strtol(e+1, &e, 10);
+                if (errno != 0 || *e != 0 || minute < 0 || minute > 59)
+                        return -EINVAL;
+
+                n = now(CLOCK_REALTIME);
+                s = (time_t) (n / USEC_PER_SEC);
+
+                zero(tm);
+                assert_se(localtime_r(&s, &tm));
+
+                tm.tm_hour = (int) hour;
+                tm.tm_min = (int) minute;
+                tm.tm_sec = 0;
+
+                assert_se(s = mktime(&tm));
+
+                *_u = (usec_t) s * USEC_PER_SEC;
+
+                while (*_u <= n)
+                        *_u += USEC_PER_DAY;
+        }
+
+        return 0;
+}
+
 static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -4002,12 +4235,12 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 { NULL,        0,                 NULL, 0           }
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "HPrhkt:a", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "HPrhkt:afFc", options, NULL)) >= 0) {
                 switch (c) {
 
                 case ARG_HELP:
@@ -4044,6 +4277,10 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                         /* Compatibility nops */
                         break;
 
+                case 'c':
+                        arg_action = ACTION_CANCEL_SHUTDOWN;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4053,10 +4290,15 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (argc > optind && !streq(argv[optind], "now"))
-                log_warning("First argument '%s' isn't 'now'. Ignoring.", argv[optind]);
+        if (argc > optind) {
+                if ((r = parse_time_spec(argv[optind], &arg_when)) < 0) {
+                        log_error("Failed to parse time specification: %s", argv[optind]);
+                        return r;
+                }
+        } else
+                arg_when = now(CLOCK_REALTIME) + USEC_PER_MINUTE;
 
-        /* We ignore the time argument */
+        /* We skip the time argument */
         if (argc > optind + 1)
                 arg_wall = argv + optind + 1;
 
@@ -4284,7 +4526,7 @@ static int talk_upstart(void) {
                         goto finish;
                 }
 
-                log_error("Failed to connect to Upstart bus: %s", error.message);
+                log_error("Failed to connect to Upstart bus: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -4328,7 +4570,7 @@ static int talk_upstart(void) {
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", error.message);
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
         }
@@ -4511,12 +4753,71 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
+static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
+        int fd = -1;
+        struct msghdr msghdr;
+        struct iovec iovec;
+        union sockaddr_union sockaddr;
+        struct ucred *ucred;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        } control;
+        struct shutdownd_command c;
+
+        zero(c);
+        c.elapse = t;
+        c.mode = mode;
+        c.warn_wall = warn;
+
+        if (message)
+                strncpy(c.wall_message, message, sizeof(c.wall_message));
+
+        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
+                return -errno;
+
+        zero(sockaddr);
+        sockaddr.sa.sa_family = AF_UNIX;
+        sockaddr.un.sun_path[0] = 0;
+        strncpy(sockaddr.un.sun_path+1, "/org/freedesktop/systemd1/shutdownd", sizeof(sockaddr.un.sun_path)-1);
+
+        zero(iovec);
+        iovec.iov_base = (char*) &c;
+        iovec.iov_len = sizeof(c);
+
+        zero(control);
+        control.cmsghdr.cmsg_level = SOL_SOCKET;
+        control.cmsghdr.cmsg_type = SCM_CREDENTIALS;
+        control.cmsghdr.cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+        ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
+        ucred->pid = getpid();
+        ucred->uid = getuid();
+        ucred->gid = getgid();
+
+        zero(msghdr);
+        msghdr.msg_name = &sockaddr;
+        msghdr.msg_namelen = sizeof(sa_family_t) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
+
+        msghdr.msg_iov = &iovec;
+        msghdr.msg_iovlen = 1;
+        msghdr.msg_control = &control;
+        msghdr.msg_controllen = control.cmsghdr.cmsg_len;
+
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        close_nointr_nofail(fd);
+        return 0;
+}
+
 static int reload_with_fallback(DBusConnection *bus) {
-        int r;
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if ((r = daemon_reload(bus, NULL, 0)) > 0)
+                if (daemon_reload(bus, NULL, 0) > 0)
                         return 0;
         }
 
@@ -4532,22 +4833,21 @@ static int reload_with_fallback(DBusConnection *bus) {
 }
 
 static int start_with_fallback(DBusConnection *bus) {
-        int r;
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if ((r = start_unit(bus, NULL, 0)) > 0)
+                if (start_unit(bus, NULL, 0) > 0)
                         goto done;
         }
 
         /* Hmm, talking to systemd via D-Bus didn't work. Then
          * let's try to talk to Upstart via D-Bus. */
-        if ((r = talk_upstart()) > 0)
+        if (talk_upstart() > 0)
                 goto done;
 
         /* Nothing else worked, so let's try
          * /dev/initctl */
-        if ((r = talk_initctl()) != 0)
+        if (talk_initctl() > 0)
                 goto done;
 
         log_error("Failed to talk to init daemon.");
@@ -4566,12 +4866,37 @@ static int halt_main(DBusConnection *bus) {
                 return -EPERM;
         }
 
+        if (arg_when > 0) {
+                char *m;
+                char date[FORMAT_TIMESTAMP_MAX];
+
+                m = strv_join(arg_wall, " ");
+                r = send_shutdownd(arg_when,
+                                   arg_action == ACTION_HALT     ? 'H' :
+                                   arg_action == ACTION_POWEROFF ? 'P' :
+                                                                   'r',
+                                   !arg_no_wall,
+                                   m);
+                free(m);
+
+                if (r < 0)
+                        log_warning("Failed to talk to shutdownd, proceeding with immediate shutdown: %s", strerror(-r));
+                else {
+                        log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.",
+                                 format_timestamp(date, sizeof(date), arg_when));
+                        return 0;
+                }
+        }
+
         if (!arg_dry && !arg_immediate)
                 return start_with_fallback(bus);
 
-        if (!arg_no_wtmp)
-                if ((r = utmp_put_shutdown(0)) < 0)
+        if (!arg_no_wtmp) {
+                if (sd_booted() > 0)
+                        log_debug("Not writing utmp record, assuming that systemd-update-utmp is used.");
+                else if ((r = utmp_put_shutdown(0)) < 0)
                         log_warning("Failed to write utmp record: %s", strerror(-r));
+        }
 
         if (!arg_no_sync)
                 sync();
@@ -4586,17 +4911,17 @@ static int halt_main(DBusConnection *bus) {
         switch (arg_action) {
 
         case ACTION_HALT:
-                log_info("Halting");
+                log_info("Halting.");
                 reboot(RB_HALT_SYSTEM);
                 break;
 
         case ACTION_POWEROFF:
-                log_info("Powering off");
+                log_info("Powering off.");
                 reboot(RB_POWER_OFF);
                 break;
 
         case ACTION_REBOOT:
-                log_info("Rebooting");
+                log_info("Rebooting.");
                 reboot(RB_AUTOBOOT);
                 break;
 
@@ -4612,7 +4937,7 @@ static int runlevel_main(void) {
         int r, runlevel, previous;
 
         if ((r = utmp_get_runlevel(&runlevel, &previous)) < 0) {
-                printf("unknown");
+                printf("unknown\n");
                 return r;
         }
 
@@ -4631,6 +4956,7 @@ int main(int argc, char*argv[]) {
         dbus_error_init(&error);
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) < 0)
                 goto finish;
@@ -4674,6 +5000,10 @@ int main(int argc, char*argv[]) {
         case ACTION_RELOAD:
         case ACTION_REEXEC:
                 retval = reload_with_fallback(bus) < 0;
+                break;
+
+        case ACTION_CANCEL_SHUTDOWN:
+                retval = send_shutdownd(0, 0, false, NULL) < 0;
                 break;
 
         case ACTION_INVALID:

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -134,6 +134,7 @@ int main(int argc, char* argv[]) {
         int r, retval = 1;
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) <= 0) {
                 retval = r < 0;

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -31,6 +31,10 @@
         " <interface name=\"org.freedesktop.systemd1.Manager\">\n"      \
         "  <method name=\"GetUnit\">\n"                                 \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetUnitByPID\">\n"                            \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"LoadUnit\">\n"                                \
@@ -92,7 +96,7 @@
         "  <method name=\"Dump\"/>\n"                                   \
         "  <method name=\"CreateSnapshot\">\n"                          \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg nane=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"cleanup\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"Reload\"/>\n"                                 \
@@ -137,6 +141,8 @@
         "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -144,6 +150,7 @@
         "<node>\n"                                                      \
         BUS_MANAGER_INTERFACE                                           \
         BUS_PROPERTIES_INTERFACE                                        \
+        BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE
 
 #define INTROSPECTION_END                                               \
@@ -247,6 +254,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
+                { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
+                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -290,7 +299,33 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_OBJECT_PATH, &path,
                                     DBUS_TYPE_INVALID))
                         goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitByPID")) {
+                Unit *u;
+                uint32_t pid;
 
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &pid,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (!(u = cgroup_unit_by_pid(m, (pid_t) pid))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(path = unit_dbus_path(u)))
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LoadUnit")) {
                 const char *name;
                 Unit *u;
@@ -801,8 +836,11 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                 job_type = JOB_RELOAD;
                 }
 
-                if (job_type == JOB_START && u->meta.only_by_dependency) {
-                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Unit may be activated by dependency only.");
+                if ((job_type == JOB_START && u->meta.refuse_manual_start) ||
+                    (job_type == JOB_STOP && u->meta.refuse_manual_stop) ||
+                    ((job_type == JOB_RESTART || job_type == JOB_TRY_RESTART) &&
+                     (u->meta.refuse_manual_start || u->meta.refuse_manual_stop))) {
+                        dbus_set_error(&error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, may be requested by dependency only.");
                         return bus_send_error_reply(m, connection, message, &error, -EPERM);
                 }
 

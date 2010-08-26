@@ -388,7 +388,7 @@
                 track of processes. Control group information is
                 maintained in the kernel, and is accessible via the
                 file system hierarchy (beneath
-                <filename>/cgroup/systemd/</filename>), or in tools
+                <filename>/sys/fs/cgroup/systemd/</filename>), or in tools
                 such as
                 <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 (<command>ps xawf -eo pid,user,cgroup,args</command>
@@ -935,6 +935,17 @@
                                 or the kernel log buffer. This is an
                                 AF_UNIX stream socket in the Linux
                                 abstract namespace.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>@/org/freedesktop/systemd1/shutdown</filename></term>
+
+                                <listitem><para>Used internally by the
+                                <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                tool to implement delayed
+                                shutdowns. This is an AF_UNIX datagram
+                                socket in the Linux abstract
+                                namespace.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

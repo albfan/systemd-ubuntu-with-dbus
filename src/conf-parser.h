@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef fooconfparserhfoo
 #define fooconfparserhfoo
@@ -71,14 +71,13 @@ int config_parse_path_strv(const char *filename, unsigned line, const char *sect
                 assert(data);                                           \
                                                                         \
                 if ((x = name##_from_string(rvalue)) < 0) {             \
-                        log_error("[%s:%u] " msg ": %s", filename, line, rvalue); \
-                        return -EBADMSG;                                \
+                        log_error("[%s:%u] " msg ", ignoring: %s", filename, line, rvalue); \
+                        return 0;                                       \
                 }                                                       \
                                                                         \
                 *i = x;                                                 \
                                                                         \
                 return 0;                                               \
         }
-
 
 #endif

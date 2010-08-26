@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -145,12 +145,10 @@ static int path_load(Unit *u) {
 
 static void path_dump(Unit *u, FILE *f, const char *prefix) {
         Path *p = PATH(u);
-        const char *prefix2;
-        char *p2;
         PathSpec *s;
 
-        p2 = strappend(prefix, "\t");
-        prefix2 = p2 ? p2 : prefix;
+        assert(p);
+        assert(f);
 
         fprintf(f,
                 "%sPath State: %s\n"
@@ -164,8 +162,6 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix,
                         path_type_to_string(s->type),
                         s->path);
-
-        free(p2);
 }
 
 static void path_unwatch_one(Path *p, PathSpec *s) {
@@ -611,5 +607,6 @@ const UnitVTable path_vtable = {
 
         .reset_maintenance = path_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Path",
         .bus_message_handler = bus_path_message_handler
 };

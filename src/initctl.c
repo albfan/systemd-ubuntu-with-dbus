@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -119,12 +119,12 @@ static void change_runlevel(Server *s, int runlevel) {
                                       DBUS_TYPE_STRING, &target,
                                       DBUS_TYPE_STRING, &replace,
                                       DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to signal message.");
+                log_error("Could not attach target and flag information to message.");
                 goto finish;
         }
 
         if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
-                log_error("Failed to start unit: %s", error.message);
+                log_error("Failed to start unit: %s", bus_error_message(&error));
                 goto finish;
         }
 
@@ -298,7 +298,7 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", error.message);
+                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                 goto fail;
         }
 
@@ -349,8 +349,7 @@ int main(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
-
-        log_info("systemd-initctl running as pid %lu", (unsigned long) getpid());
+        log_open();
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -364,6 +363,8 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, (unsigned) n) < 0)
                 return 2;
+
+        log_debug("systemd-initctl running as pid %lu", (unsigned long) getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -387,18 +388,19 @@ int main(int argc, char *argv[]) {
                 if (k <= 0)
                         break;
 
-                if ((k = process_event(&server, &event)) < 0)
+                if (process_event(&server, &event) < 0)
                         goto fail;
         }
+
         r = 0;
+
+        log_debug("systemd-initctl stopped as pid %lu", (unsigned long) getpid());
 
 fail:
         sd_notify(false,
                   "STATUS=Shutting down...");
 
         server_done(&server);
-
-        log_info("systemd-initctl stopped as pid %lu", (unsigned long) getpid());
 
         dbus_shutdown();
 

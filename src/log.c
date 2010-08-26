@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -32,7 +32,6 @@
 #include "macro.h"
 
 #define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
-#define LOG_BUFFER_MAX 1024
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
@@ -73,7 +72,7 @@ static int log_open_console(void) {
                         return console_fd;
                 }
 
-                log_info("Succesfully opened /dev/console for logging.");
+                log_debug("Succesfully opened /dev/console for logging.");
         } else
                 console_fd = STDERR_FILENO;
 
@@ -99,7 +98,7 @@ static int log_open_kmsg(void) {
                 return -errno;
         }
 
-        log_info("Succesfully opened /dev/kmsg for logging.");
+        log_debug("Succesfully opened /dev/kmsg for logging.");
 
         return 0;
 }
@@ -146,7 +145,7 @@ static int log_open_syslog(void) {
                 goto fail;
         }
 
-        log_info("Succesfully opened syslog for logging.");
+        log_debug("Succesfully opened syslog for logging.");
 
         return 0;
 
@@ -331,7 +330,7 @@ static int log_dispatch(
 
         do {
                 char *e;
-                int k;
+                int k = 0;
 
                 buffer += strspn(buffer, NEWLINE);
 
@@ -344,24 +343,26 @@ static int log_dispatch(
                 if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
                     log_target == LOG_TARGET_SYSLOG) {
 
-                        if ((r = write_to_syslog(level, file, line, func, buffer)) < 0) {
+                        if ((k = write_to_syslog(level, file, line, func, buffer)) < 0) {
                                 log_close_syslog();
                                 log_open_kmsg();
-                        } else if (r > 0)
+                        } else if (k > 0)
                                 r++;
                 }
 
-                if (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
-                    log_target == LOG_TARGET_KMSG) {
+                if (k <= 0 &&
+                    (log_target == LOG_TARGET_SYSLOG_OR_KMSG ||
+                     log_target == LOG_TARGET_KMSG)) {
 
-                        if ((r = write_to_kmsg(level, file, line, func, buffer)) < 0) {
+                        if ((k = write_to_kmsg(level, file, line, func, buffer)) < 0) {
                                 log_close_kmsg();
                                 log_open_console();
-                        } else if (r > 0)
+                        } else if (k > 0)
                                 r++;
                 }
 
-                if ((k = write_to_console(level, file, line, func, buffer)) < 0)
+                if (k <= 0 &&
+                    (k = write_to_console(level, file, line, func, buffer)) < 0)
                         return k;
 
                 buffer = e;
@@ -398,7 +399,7 @@ int log_meta(
         const char *func,
         const char *format, ...) {
 
-        char buffer[LOG_BUFFER_MAX];
+        char buffer[LINE_MAX];
         int saved_errno, r;
         va_list ap;
 
@@ -425,7 +426,7 @@ void log_assert(
         const char *func,
         const char *format, ...) {
 
-        static char buffer[LOG_BUFFER_MAX];
+        static char buffer[LINE_MAX];
         int saved_errno = errno;
         va_list ap;
 

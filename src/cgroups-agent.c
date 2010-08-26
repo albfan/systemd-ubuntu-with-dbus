@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
+        log_open();
 
         /* If possible we go via the system bus, to make sure that
          * session instances get the messages. If not possible we talk
@@ -48,7 +49,7 @@ int main(int argc, char *argv[]) {
                 dbus_error_free(&error);
 
                 if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
-                        log_error("Failed to get D-Bus connection: %s", error.message);
+                        log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
                         goto finish;
                 }
 

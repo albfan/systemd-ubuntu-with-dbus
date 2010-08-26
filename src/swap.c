@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -113,11 +113,34 @@ static int swap_add_target_links(Swap *s) {
         if ((r = manager_load_unit(s->meta.manager, SPECIAL_SWAP_TARGET, NULL, NULL, &tu)) < 0)
                 return r;
 
-        if (!p->noauto && p->handle && s->meta.manager->running_as == MANAGER_SYSTEM)
+        if (!p->noauto &&
+            (p->handle || s->meta.manager->swap_auto) &&
+            !s->from_fragment &&
+            s->meta.manager->running_as == MANAGER_SYSTEM)
                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(s), true)) < 0)
                         return r;
 
         return unit_add_dependency(UNIT(s), UNIT_BEFORE, tu, true);
+}
+
+static int swap_add_device_links(Swap *s) {
+        SwapParameters *p;
+
+        assert(s);
+
+        if (!s->what)
+                return 0;
+
+        if (s->from_fragment)
+                p = &s->parameters_fragment;
+        else if (s->from_etc_fstab)
+                p = &s->parameters_etc_fstab;
+        else
+                return 0;
+
+        return unit_add_node_link(UNIT(s), s->what,
+                                  !p->noauto && p->nofail &&
+                                  s->meta.manager->running_as == MANAGER_SYSTEM);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
@@ -195,7 +218,8 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
-                if ((r = unit_add_node_link(u, s->what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+
+                if ((r = swap_add_device_links(s)) < 0)
                         return r;
 
                 if ((r = swap_add_mount_links(s)) < 0)
@@ -260,6 +284,7 @@ int swap_add_one(
                 const char *what,
                 int priority,
                 bool noauto,
+                bool nofail,
                 bool handle,
                 bool from_proc_swaps) {
         Unit *u = NULL;
@@ -309,6 +334,7 @@ int swap_add_one(
 
         p->priority = priority;
         p->noauto = noauto;
+        p->nofail = nofail;
         p->handle = handle;
 
         if (delete)
@@ -383,6 +409,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWhat: %s\n"
                 "%sPriority: %i\n"
                 "%sNoAuto: %s\n"
+                "%sNoFail: %s\n"
                 "%sHandle: %s\n"
                 "%sFrom /etc/fstab: %s\n"
                 "%sFrom /proc/swaps: %s\n"
@@ -391,6 +418,7 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->what,
                 prefix, p->priority,
                 prefix, yes_no(p->noauto),
+                prefix, yes_no(p->nofail),
                 prefix, yes_no(p->handle),
                 prefix, yes_no(s->from_etc_fstab),
                 prefix, yes_no(s->from_proc_swaps),
@@ -523,7 +551,7 @@ static int swap_load_proc_swaps(Manager *m) {
                 if (!d)
                         return -ENOMEM;
 
-                k = swap_add_one(m, d, prio, false, false, true);
+                k = swap_add_one(m, d, prio, false, false, false, true);
                 free(d);
 
                 if (k < 0)
@@ -599,7 +627,9 @@ const UnitVTable swap_vtable = {
 
         .check_gc = swap_check_gc,
 
+        .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_message_handler = bus_swap_message_handler,
+        .bus_invalidating_properties =  bus_swap_invalidating_properties,
 
         .reset_maintenance = swap_reset_maintenance,
 

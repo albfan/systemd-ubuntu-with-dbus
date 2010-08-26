@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -37,6 +37,7 @@
 #include "dbus-automount.h"
 #include "bus-errors.h"
 #include "special.h"
+#include "label.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
@@ -444,6 +445,8 @@ int automount_send_ready(Automount *a, int status) {
         else
                 log_debug("Sending success.");
 
+        r = 0;
+
         /* Autofs thankfully does not hand out 0 as a token */
         while ((token = PTR_TO_UINT(set_steal_first(a->tokens)))) {
                 int k;
@@ -459,8 +462,6 @@ int automount_send_ready(Automount *a, int status) {
                                            status)) < 0)
                         r = k;
         }
-
-        r = 0;
 
 fail:
         if (ioctl_fd >= 0)
@@ -842,6 +843,7 @@ const UnitVTable automount_vtable = {
 
         .reset_maintenance = automount_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Automount",
         .bus_message_handler = bus_automount_message_handler,
 
         .shutdown = automount_shutdown

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -38,13 +38,14 @@
 #include "hostname-setup.h"
 #include "loopback-setup.h"
 #include "kmod-setup.h"
-#include "modprobe-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
 #include "conf-parser.h"
 #include "bus-errors.h"
 #include "missing.h"
+#include "label.h"
+#include "build.h"
 
 static enum {
         ACTION_RUN,
@@ -55,16 +56,16 @@ static enum {
 } arg_action = ACTION_RUN;
 
 static char *arg_default_unit = NULL;
-static char *arg_console = NULL;
 static ManagerRunningAs arg_running_as = _MANAGER_RUNNING_AS_INVALID;
 
 static bool arg_dump_core = true;
 static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
-static bool arg_nomodules = false;
 static bool arg_show_status = true;
 static bool arg_sysv_console = true;
+static bool arg_mount_auto = true;
+static bool arg_swap_auto = true;
 
 static FILE* serialization = NULL;
 
@@ -117,10 +118,10 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
 
                 } else {
-                        int status, r;
+                        int status;
 
                         /* Order things nicely. */
-                        if ((r = waitpid(pid, &status, 0)) < 0)
+                        if (waitpid(pid, &status, 0) < 0)
                                 log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(errno));
                         else if (!WCOREDUMP(status))
                                 log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
@@ -243,6 +244,8 @@ static int parse_proc_cmdline_word(const char *word) {
                 "5",      SPECIAL_RUNLEVEL5_TARGET
         };
 
+        assert(word);
+
         if (startswith(word, "systemd.unit="))
                 return set_default_unit(word + 13);
 
@@ -331,27 +334,6 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
-
-        } else if (streq(word, "nomodules"))
-                arg_nomodules = true;
-        else if (startswith(word, "console=")) {
-                const char *k;
-                size_t l;
-                char *w = NULL;
-
-                k = word + 8;
-                l = strcspn(k, ",");
-
-                if (l < 4 ||
-                    !startswith(k, "tty") ||
-                    k[3+strspn(k+3, "0123456789")] != 0) {
-
-                        if (!(w = strndup(k, l)))
-                                return -ENOMEM;
-                }
-
-                free(arg_console);
-                arg_console = w;
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
@@ -492,16 +474,18 @@ static int config_parse_cpu_affinity(
 static int parse_config_file(void) {
 
         const ConfigItem items[] = {
-                { "LogLevel",    config_parse_level,        NULL,             "Manager" },
-                { "LogTarget",   config_parse_target,       NULL,             "Manager" },
-                { "LogColor",    config_parse_color,        NULL,             "Manager" },
-                { "LogLocation", config_parse_location,     NULL,             "Manager" },
-                { "DumpCore",    config_parse_bool,         &arg_dump_core,   "Manager" },
-                { "CrashShell",  config_parse_bool,         &arg_crash_shell, "Manager" },
-                { "ShowStatus",  config_parse_bool,         &arg_show_status, "Manager" },
-                { "SysVConsole", config_parse_bool,         &arg_sysv_console,"Manager" },
-                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,  "Manager" },
-                { "CPUAffinity", config_parse_cpu_affinity, NULL,             "Manager" },
+                { "LogLevel",    config_parse_level,        NULL,               "Manager" },
+                { "LogTarget",   config_parse_target,       NULL,               "Manager" },
+                { "LogColor",    config_parse_color,        NULL,               "Manager" },
+                { "LogLocation", config_parse_location,     NULL,               "Manager" },
+                { "DumpCore",    config_parse_bool,         &arg_dump_core,     "Manager" },
+                { "CrashShell",  config_parse_bool,         &arg_crash_shell,   "Manager" },
+                { "ShowStatus",  config_parse_bool,         &arg_show_status,   "Manager" },
+                { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
+                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
+                { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
+                { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
+                { "SwapAuto",    config_parse_bool,         &arg_swap_auto,     "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -540,7 +524,7 @@ static int parse_proc_cmdline(void) {
         char *state;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(errno));
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
         }
 
@@ -871,7 +855,6 @@ fail:
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Unit *target = NULL;
         int r, retval = 1;
         FDSet *fds = NULL;
         bool reexecute = false;
@@ -987,26 +970,16 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 install_crash_handler();
 
-        log_info(PACKAGE_STRING " running in %s mode.", manager_running_as_to_string(arg_running_as));
+        log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
+                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM) {
+        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+                if (arg_show_status)
+                        status_welcome();
 
-                /* Disable nscd, to avoid deadlocks when systemd uses
-                 * NSS and the nscd socket is maintained by us. */
-                /* if (nss_disable_nscd) { */
-                /*         log_debug("Disabling nscd"); */
-                /*         nss_disable_nscd(); */
-                /* } else */
-                /*         log_debug("Hmm, can't disable nscd."); */
-
-                if (!serialization) {
-                        if (arg_show_status)
-                                status_welcome();
-                        modprobe_setup(arg_nomodules);
-                        kmod_setup();
-                        hostname_setup();
-                        loopback_setup();
-                }
+                kmod_setup();
+                hostname_setup();
+                loopback_setup();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
@@ -1017,6 +990,8 @@ int main(int argc, char *argv[]) {
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
         m->sysv_console = arg_sysv_console;
+        m->mount_auto = arg_mount_auto;
+        m->swap_auto = arg_swap_auto;
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1034,6 +1009,7 @@ int main(int argc, char *argv[]) {
                 serialization = NULL;
         } else {
                 DBusError error;
+                Unit *target = NULL;
 
                 dbus_error_init(&error);
 
@@ -1042,11 +1018,18 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
+                } else if (target->meta.load_state != UNIT_LOADED)
+                        log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
 
+                if (!target || target->meta.load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
+
                         if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
+                                goto finish;
+                        } else if (target->meta.load_state != UNIT_LOADED) {
+                                log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
                                 goto finish;
                         }
                 }
@@ -1060,21 +1043,6 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to start default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
                         goto finish;
-                }
-
-                if (arg_console && arg_running_as == MANAGER_SYSTEM) {
-                        char *name;
-
-                        if (asprintf(&name, "getty@%s.service", arg_console) < 0)
-                                log_error("Out of memory while generating console getty service name.");
-                        else {
-                                if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_FAIL, false, &error, NULL)) < 0) {
-                                        log_error("Failed to start console getty target: %s", bus_error(&error, r));
-                                        dbus_error_free(&error);
-                                }
-
-                                free(name);
-                        }
                 }
 
                 if (arg_action == ACTION_TEST) {
@@ -1122,7 +1090,6 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
-        free(arg_console);
 
         dbus_shutdown();
 

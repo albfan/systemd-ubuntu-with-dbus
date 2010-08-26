@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef foomanagerhfoo
 #define foomanagerhfoo
@@ -87,8 +87,6 @@ struct Watch {
 #include "path-lookup.h"
 
 struct Manager {
-        uint32_t current_job_id;
-
         /* Note that the set of units we know of is allowed to be
          * incosistent. However the subset of it that is loaded may
          * not, and the list of jobs may neither. */
@@ -170,6 +168,8 @@ struct Manager {
         int32_t name_data_slot;
         int32_t subscribed_data_slot;
 
+        uint32_t current_job_id;
+
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
@@ -185,6 +185,11 @@ struct Manager {
          * file system */
         int pin_cgroupfs_fd;
 
+        /* Audit fd */
+#ifdef HAVE_AUDIT
+        int audit_fd;
+#endif
+
         /* Flags */
         ManagerRunningAs running_as;
         ManagerExitCode exit_code:4;
@@ -193,13 +198,13 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
-        bool utmp_reboot_written:1;
-
-        int n_deserializing;
-
         bool show_status;
         bool confirm_spawn;
         bool sysv_console;
+        bool mount_auto;
+        bool swap_auto;
+
+        int n_deserializing;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
@@ -234,9 +239,6 @@ unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_loop(Manager *m);
 
-void manager_write_utmp_reboot(Manager *m);
-void manager_write_utmp_runlevel(Manager *m, Unit *t);
-
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
 void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
 
@@ -250,6 +252,8 @@ int manager_reload(Manager *m);
 bool manager_is_booting_or_shutting_down(Manager *m);
 
 void manager_reset_maintenance(Manager *m);
+
+void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

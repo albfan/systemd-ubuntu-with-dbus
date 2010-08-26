@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -244,7 +244,8 @@ static int mount_add_target_links(Mount *m) {
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
         user = mount_test_option(p->options, "user") || mount_test_option(p->options, "users");
-        handle = !!mount_test_option(p->options, "comment=systemd.mount");
+        handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
+                m->meta.manager->mount_auto;
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
         if (mount_test_option(p->options, "_netdev") ||
@@ -265,13 +266,41 @@ static int mount_add_target_links(Mount *m) {
                 return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, UNIT(am), true);
         } else {
 
-                if (!noauto && handle)
+                /* Automatically add mount points that aren't natively
+                 * configured to local-fs.target */
+                if (!noauto &&
+                    handle &&
+                    !m->from_fragment)
                         if (user || m->meta.manager->running_as == MANAGER_SYSTEM)
                                 if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
                                         return r;
 
                 return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu, true);
         }
+}
+
+static int mount_add_device_links(Mount *m) {
+        MountParameters *p;
+        bool nofail, noauto;
+
+        assert(m);
+
+        if (m->from_fragment)
+                p = &m->parameters_fragment;
+        else if (m->from_etc_fstab)
+                p = &m->parameters_etc_fstab;
+        else
+                return 0;
+
+        if (!p->what || path_equal(m->where, "/"))
+                return 0;
+
+        noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
+        nofail = !!mount_test_option(p->options, "nofail");
+
+        return unit_add_node_link(UNIT(m), p->what,
+                                  !noauto && nofail &&
+                                  UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM);
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -361,9 +390,8 @@ static int mount_load(Unit *u) {
                 else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
                         what = m->parameters_proc_self_mountinfo.what;
 
-                if (what)
-                        if ((r = unit_add_node_link(u, what, u->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
-                                return r;
+                if ((r = mount_add_device_links(m)) < 0)
+                        return r;
 
                 if ((r = mount_add_mount_links(m)) < 0)
                         return r;
@@ -789,6 +817,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
         return;
 
 fail:
+        log_warning("%s failed to run 'remount' task: %s", m->meta.id, strerror(-r));
         mount_enter_mounted(m, false);
 }
 
@@ -876,7 +905,6 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Mount *m = MOUNT(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -901,7 +929,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
                         m->control_pid = pid;
@@ -1005,6 +1033,9 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached("Uh, control process died at wrong time.");
         }
+
+        /* Notify clients about changed exit status */
+        unit_add_to_dbus_queue(u);
 }
 
 static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
@@ -1172,7 +1203,7 @@ fail:
 }
 
 static char *fstab_node_to_udev_node(char *p) {
-        char *dn, *t;
+        char *dn, *t, *u;
         int r;
 
         /* FIXME: to follow udev's logic 100% we need to leave valid
@@ -1180,7 +1211,13 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "LABEL=")) {
 
-                if (!(t = xescape(p+6, "/ ")))
+                if (!(u = unquote(p+6, '"')))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
                         return NULL;
 
                 r = asprintf(&dn, "/dev/disk/by-label/%s", t);
@@ -1194,7 +1231,13 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "UUID=")) {
 
-                if (!(t = xescape(p+5, "/ ")))
+                if (!(u = unquote(p+5, '"')))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
                         return NULL;
 
                 r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
@@ -1271,6 +1314,7 @@ static int mount_load_etc_fstab(Manager *m) {
                                                  what,
                                                  pri,
                                                  !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
+                                                 !!mount_test_option(me->mnt_opts, "nofail"),
                                                  !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
@@ -1422,7 +1466,7 @@ void mount_fd_event(Manager *m, int events) {
          * table changes */
 
         if ((r = mount_load_proc_self_mountinfo(m, true)) < 0) {
-                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(errno));
+                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
                 LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
@@ -1485,57 +1529,6 @@ void mount_fd_event(Manager *m, int events) {
                 /* Reset the flags for later calls */
                 mount->is_mounted = mount->just_mounted = mount->just_changed = false;
         }
-}
-
-int mount_path_is_mounted(Manager *m, const char* path) {
-        char *t;
-        int r;
-
-        assert(m);
-        assert(path);
-
-        if (path[0] != '/')
-                return 1;
-
-        if (!(t = strdup(path)))
-                return -ENOMEM;
-
-        path_kill_slashes(t);
-
-        for (;;) {
-                char *e, *slash;
-                Unit *u;
-
-                if (!(e = unit_name_from_path(t, ".mount"))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                u = manager_get_unit(m, e);
-                free(e);
-
-                if (u &&
-                    (MOUNT(u)->from_etc_fstab || MOUNT(u)->from_fragment) &&
-                    MOUNT(u)->state != MOUNT_MOUNTED) {
-                        r = 0;
-                        goto finish;
-                }
-
-                assert_se(slash = strrchr(t, '/'));
-
-                if (slash == t) {
-                        r = 1;
-                        goto finish;
-                }
-
-                *slash = 0;
-        }
-
-        r = 1;
-
-finish:
-        free(t);
-        return r;
 }
 
 static void mount_reset_maintenance(Unit *u) {
@@ -1608,7 +1601,9 @@ const UnitVTable mount_vtable = {
 
         .reset_maintenance = mount_reset_maintenance,
 
+        .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_message_handler = bus_mount_message_handler,
+        .bus_invalidating_properties =  bus_mount_invalidating_properties,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown

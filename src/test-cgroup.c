@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -53,7 +53,7 @@ int main(int argc, char*argv[]) {
         free(path);
 
         assert_se(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-d", NULL, &path) == 0);
-        assert_se(path_equal(path, "/cgroup/systemd/test-b/test-d"));
+        assert_se(path_equal(path, "/sys/fs/cgroup/systemd/test-b/test-d"));
         free(path);
 
         assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, "/test-a", false) > 0);

@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -34,6 +34,7 @@
 #include "util.h"
 #include "socket-util.h"
 #include "missing.h"
+#include "label.h"
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         int r;

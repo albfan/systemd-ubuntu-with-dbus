@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
         int r = 0, retval = 1;
 
         log_parse_environment();
+        log_open();
 
         if ((r = parse_argv(argc, argv)) < 0)
                 goto finish;
@@ -102,7 +103,7 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                if (path_startswith(p, "/cgroup")) {
+                if (path_startswith(p, "/sys/fs/cgroup")) {
                         printf("Working Directory %s:\n", p);
                         r = show_cgroup_by_path(p, NULL, 0);
                 } else

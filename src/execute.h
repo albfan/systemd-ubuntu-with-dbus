@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef fooexecutehfoo
 #define fooexecutehfoo
@@ -87,8 +87,8 @@ struct ExecCommand {
         char *path;
         char **argv;
         ExecStatus exec_status;
-        bool ignore;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
+        bool ignore;
 };
 
 struct ExecContext {
@@ -105,15 +105,12 @@ struct ExecContext {
 
         cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
-        unsigned long timer_slack_nsec;
 
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
 
-        int syslog_priority;
-        char *syslog_identifier;
-        bool syslog_level_prefix;
+        unsigned long timer_slack_nsec;
 
         char *tcpwrap_name;
 
@@ -134,18 +131,20 @@ struct ExecContext {
 
         uint64_t capability_bounding_set_drop;
 
+        /* Not relevant for spawning processes, just for killing */
+        KillMode kill_mode;
+        int kill_signal;
+
         cap_t capabilities;
         int secure_bits;
+
+        int syslog_priority;
+        char *syslog_identifier;
+        bool syslog_level_prefix;
 
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;
-
-        bool oom_adjust_set:1;
-        bool nice_set:1;
-        bool ioprio_set:1;
-        bool cpu_sched_set:1;
-        bool timer_slack_nsec_set:1;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
@@ -154,54 +153,12 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-        /* Not relevant for spawning processes, just for killing */
-        KillMode kill_mode;
-        int kill_signal;
+        bool oom_adjust_set:1;
+        bool nice_set:1;
+        bool ioprio_set:1;
+        bool cpu_sched_set:1;
+        bool timer_slack_nsec_set:1;
 };
-
-typedef enum ExitStatus {
-        /* EXIT_SUCCESS defined by libc */
-        /* EXIT_FAILURE defined by libc */
-        EXIT_INVALIDARGUMENT = 2,
-        EXIT_NOTIMPLEMENTED = 3,
-        EXIT_NOPERMISSION = 4,
-        EXIT_NOTINSTALLED = 5,
-        EXIT_NOTCONFIGURED = 6,
-        EXIT_NOTRUNNING = 7,
-
-        /* The LSB suggests that error codes >= 200 are "reserved". We
-         * use them here under the assumption that they hence are
-         * unused by init scripts.
-         *
-         * http://refspecs.freestandards.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
-
-        EXIT_CHDIR = 200,
-        EXIT_NICE,
-        EXIT_FDS,
-        EXIT_EXEC,
-        EXIT_MEMORY,
-        EXIT_LIMITS,
-        EXIT_OOM_ADJUST,
-        EXIT_SIGNAL_MASK,
-        EXIT_STDIN,
-        EXIT_STDOUT,
-        EXIT_CHROOT,   /* 210 */
-        EXIT_IOPRIO,
-        EXIT_TIMERSLACK,
-        EXIT_SECUREBITS,
-        EXIT_SETSCHEDULER,
-        EXIT_CPUAFFINITY,
-        EXIT_GROUP,
-        EXIT_USER,
-        EXIT_CAPABILITIES,
-        EXIT_CGROUP,
-        EXIT_SETSID,   /* 220 */
-        EXIT_CONFIRM,
-        EXIT_STDERR,
-        EXIT_TCPWRAP,
-        EXIT_PAM
-
-} ExitStatus;
 
 int exec_spawn(ExecCommand *command,
                char **argv,
@@ -241,7 +198,5 @@ int exec_output_from_string(const char *s);
 
 const char* exec_input_to_string(ExecInput i);
 int exec_input_from_string(const char *s);
-
-const char* exit_status_to_string(ExitStatus status);
 
 #endif
