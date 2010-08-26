@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -48,6 +48,7 @@
 #include <pwd.h>
 #include <netinet/ip.h>
 #include <linux/kd.h>
+#include <dlfcn.h>
 
 #include "macro.h"
 #include "util.h"
@@ -55,263 +56,8 @@
 #include "missing.h"
 #include "log.h"
 #include "strv.h"
-
-#ifdef HAVE_SELINUX
-#include <selinux/selinux.h>
-#include <selinux/label.h>
-
-static struct selabel_handle *label_hnd = NULL;
-
-static inline bool use_selinux(void) {
-        static int use_selinux_ind = -1;
-
-        if (use_selinux_ind < 0)
-                use_selinux_ind = is_selinux_enabled() > 0;
-
-        return use_selinux_ind;
-}
-
-static int label_get_file_label_from_path(
-                const char *label,
-                const char *path,
-                const char *class,
-                security_context_t *fcon) {
-
-        security_context_t dir_con = NULL;
-        security_class_t sclass;
-        int r = 0;
-
-        r = getfilecon(path, &dir_con);
-        if (r >= 0) {
-                r = -1;
-                errno = EINVAL;
-
-                if ((sclass = string_to_security_class(class)) != 0)
-                        r = security_compute_create((security_context_t) label, dir_con, sclass, fcon);
-        }
-        if (r < 0)
-                r = -errno;
-
-        freecon(dir_con);
-        return r;
-}
-
-#endif
-
-int label_init(void) {
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-
-        if (!use_selinux())
-                return 0;
-
-        label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
-        if (!label_hnd) {
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Failed to initialize SELinux context: %m");
-                r = (security_getenforce() == 1) ? -errno : 0;
-        }
-#endif
-
-        return r;
-}
-
-int label_fix(const char *path) {
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-        struct stat st;
-        security_context_t fcon;
-
-        if (!use_selinux() || !label_hnd)
-                return 0;
-
-        r = lstat(path, &st);
-        if (r == 0) {
-                r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
-
-                if (r == 0) {
-                        r = setfilecon(path, fcon);
-                        freecon(fcon);
-                }
-        }
-        if (r < 0) {
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Unable to fix label of %s: %m", path);
-                r = (security_getenforce() == 1) ? -errno : 0;
-        }
-#endif
-
-        return r;
-}
-
-void label_finish(void) {
-
-#ifdef HAVE_SELINUX
-        if (use_selinux() && label_hnd)
-                selabel_close(label_hnd);
-#endif
-}
-
-int label_get_socket_label_from_exe(const char *exe, char **label) {
-
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-        security_context_t mycon = NULL, fcon = NULL;
-        security_class_t sclass;
-
-        if (!use_selinux()) {
-                *label = NULL;
-                return 0;
-        }
-
-        r = getcon(&mycon);
-        if (r < 0)
-                goto fail;
-
-        r = getfilecon(exe, &fcon);
-        if (r < 0)
-                goto fail;
-
-        sclass = string_to_security_class("process");
-        r = security_compute_create(mycon, fcon, sclass, (security_context_t *) label);
-        if (r == 0)
-                log_debug("SELinux Socket context for %s will be set to %s", exe, *label);
-
-fail:
-        if (r < 0 && security_getenforce() == 1)
-                r = -errno;
-
-        freecon(mycon);
-        freecon(fcon);
-#endif
-
-        return r;
-}
-
-int label_fifofile_set(const char *label, const char *path) {
-        int r = 0;
-
-#ifdef HAVE_SELINUX
-        security_context_t filecon = NULL;
-
-        if (!use_selinux() || !label)
-                return 0;
-
-        if (((r = label_get_file_label_from_path(label, path, "fifo_file", &filecon)) == 0)) {
-                if ((r = setfscreatecon(filecon)) < 0) {
-                        log_error("Failed to set SELinux file context (%s) on %s: %m", label, path);
-                        r = -errno;
-                }
-
-                freecon(filecon);
-        }
-
-        if (r < 0 && security_getenforce() == 0)
-                r = 0;
-#endif
-
-        return r;
-}
-
-int label_socket_set(const char *label) {
-
-#ifdef HAVE_SELINUX
-        if (!use_selinux())
-                return 0;
-
-        if (setsockcreatecon((security_context_t) label) < 0) {
-                log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
-                         "Failed to set SELinux context (%s) on socket: %m", label);
-
-                if (security_getenforce() == 1)
-                        return -errno;
-        }
-#endif
-
-        return 0;
-}
-
-void label_file_clear(void) {
-
-#ifdef HAVE_SELINUX
-        if (!use_selinux())
-                return;
-
-        setfscreatecon(NULL);
-#endif
-}
-
-void label_socket_clear(void) {
-
-#ifdef HAVE_SELINUX
-        if (!use_selinux())
-                return;
-
-        setsockcreatecon(NULL);
-#endif
-}
-
-void label_free(const char *label) {
-
-#ifdef HAVE_SELINUX
-        if (!use_selinux())
-                return;
-
-        freecon((security_context_t) label);
-#endif
-}
-
-static int label_mkdir(
-        const char *path,
-        mode_t mode) {
-
-#ifdef HAVE_SELINUX
-        int r;
-        security_context_t fcon = NULL;
-
-        if (use_selinux() && label_hnd) {
-                if (path[0] == '/') {
-                        r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
-                }
-                else {
-                        char *cwd = NULL;
-                        char *newpath = NULL;
-                        cwd = getcwd(NULL,0);
-                        if ((! cwd) || (asprintf(&newpath, "%s/%s",cwd,path) < 0)) {
-                                free(cwd);
-                                return -errno;
-                        }
-                        r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
-                        free(cwd);
-                        free(newpath);
-                }
-
-                if (r == 0)
-                        r = setfscreatecon(fcon);
-
-                if ((r < 0) && (errno != ENOENT)) {
-                        log_error("Failed to set security context %s for %s", fcon, path);
-
-                        if (security_getenforce() == 1)
-                                goto finish;
-                }
-        }
-        r = mkdir(path, mode);
-
-finish:
-        if (use_selinux() && label_hnd) {
-                setfscreatecon(NULL);
-                freecon(fcon);
-        }
-
-        return r;
-#else
-        return mkdir(path, mode);
-#endif
-}
+#include "label.h"
+#include "exit-status.h"
 
 bool streq_ptr(const char *a, const char *b) {
 
@@ -1913,6 +1659,63 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
+char *format_timestamp_pretty(char *buf, size_t l, usec_t t) {
+        usec_t n, d;
+
+        n = now(CLOCK_REALTIME);
+
+        if (t <= 0 || t > n || t + USEC_PER_DAY*7 <= t)
+                return NULL;
+
+        d = n - t;
+
+        if (d >= USEC_PER_YEAR)
+                snprintf(buf, l, "%llu years and %llu months ago",
+                         (unsigned long long) (d / USEC_PER_YEAR),
+                         (unsigned long long) ((d % USEC_PER_YEAR) / USEC_PER_MONTH));
+        else if (d >= USEC_PER_MONTH)
+                snprintf(buf, l, "%llu months and %llu days ago",
+                         (unsigned long long) (d / USEC_PER_MONTH),
+                         (unsigned long long) ((d % USEC_PER_MONTH) / USEC_PER_DAY));
+        else if (d >= USEC_PER_WEEK)
+                snprintf(buf, l, "%llu weeks and %llu days ago",
+                         (unsigned long long) (d / USEC_PER_WEEK),
+                         (unsigned long long) ((d % USEC_PER_WEEK) / USEC_PER_DAY));
+        else if (d >= 2*USEC_PER_DAY)
+                snprintf(buf, l, "%llu days ago", (unsigned long long) (d / USEC_PER_DAY));
+        else if (d >= 25*USEC_PER_HOUR)
+                snprintf(buf, l, "1 day and %lluh ago",
+                         (unsigned long long) ((d - USEC_PER_DAY) / USEC_PER_HOUR));
+        else if (d >= 6*USEC_PER_HOUR)
+                snprintf(buf, l, "%lluh ago",
+                         (unsigned long long) (d / USEC_PER_HOUR));
+        else if (d >= USEC_PER_HOUR)
+                snprintf(buf, l, "%lluh %llumin ago",
+                         (unsigned long long) (d / USEC_PER_HOUR),
+                         (unsigned long long) ((d % USEC_PER_HOUR) / USEC_PER_MINUTE));
+        else if (d >= 5*USEC_PER_MINUTE)
+                snprintf(buf, l, "%llumin ago",
+                         (unsigned long long) (d / USEC_PER_MINUTE));
+        else if (d >= USEC_PER_MINUTE)
+                snprintf(buf, l, "%llumin %llus ago",
+                         (unsigned long long) (d / USEC_PER_MINUTE),
+                         (unsigned long long) ((d % USEC_PER_MINUTE) / USEC_PER_SEC));
+        else if (d >= USEC_PER_SEC)
+                snprintf(buf, l, "%llus ago",
+                         (unsigned long long) (d / USEC_PER_SEC));
+        else if (d >= USEC_PER_MSEC)
+                snprintf(buf, l, "%llums ago",
+                         (unsigned long long) (d / USEC_PER_MSEC));
+        else if (d > 0)
+                snprintf(buf, l, "%lluus ago",
+                         (unsigned long long) d);
+        else
+                snprintf(buf, l, "now");
+
+        buf[l-1] = 0;
+        return buf;
+}
+
 char *format_timespan(char *buf, size_t l, usec_t t) {
         static const struct {
                 const char *suffix;
@@ -2653,6 +2456,16 @@ bool is_clean_exit(int code, int status) {
         return false;
 }
 
+bool is_clean_exit_lsb(int code, int status) {
+
+        if (is_clean_exit(code, status))
+                return true;
+
+        return
+                code == CLD_EXITED &&
+                (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
+}
+
 bool is_device_path(const char *path) {
 
         /* Returns true on paths that refer to a device, either in
@@ -2748,18 +2561,6 @@ char* gethostname_malloc(void) {
         return strdup(u.sysname);
 }
 
-int getmachineid_malloc(char **b) {
-        int r;
-
-        assert(b);
-
-        if ((r = read_one_line_file("/var/lib/dbus/machine-id", b)) < 0)
-                return r;
-
-        strstrip(*b);
-        return 0;
-}
-
 char* getlogname_malloc(void) {
         uid_t uid;
         long bufsize;
@@ -2798,11 +2599,12 @@ char* getlogname_malloc(void) {
 
 int getttyname_malloc(char **r) {
         char path[PATH_MAX], *p, *c;
+        int k;
 
         assert(r);
 
-        if (ttyname_r(STDIN_FILENO, path, sizeof(path)) < 0)
-                return -errno;
+        if ((k = ttyname_r(STDIN_FILENO, path, sizeof(path))) != 0)
+                return -k;
 
         char_array_0(path);
 
@@ -3085,18 +2887,18 @@ char *replace_env(const char *format, char **env) {
 
                 case VARIABLE:
                         if (*e == '}') {
-                                char *t;
+                                const char *t;
 
-                                if ((t = strv_env_get_with_length(env, word+2, e-word-2))) {
-                                        if (!(k = strappend(r, t)))
-                                                goto fail;
+                                if (!(t = strv_env_get_with_length(env, word+2, e-word-2)))
+                                        t = "";
 
-                                        free(r);
-                                        r = k;
+                                if (!(k = strappend(r, t)))
+                                        goto fail;
 
-                                        word = e+1;
-                                }
+                                free(r);
+                                r = k;
 
+                                word = e+1;
                                 state = WORD;
                         }
                         break;
@@ -3126,36 +2928,39 @@ char **replace_env_argv(char **argv, char **env) {
         STRV_FOREACH(i, argv) {
 
                 /* If $FOO appears as single word, replace it by the split up variable */
-                if ((*i)[0] == '$') {
-                        char *e = strv_env_get(env, *i+1);
+                if ((*i)[0] == '$' && (*i)[1] != '{') {
+                        char *e;
+                        char **w, **m;
+                        unsigned q;
 
-                        if (e) {
-                                char **w, **m;
-                                unsigned q;
+                        if ((e = strv_env_get(env, *i+1))) {
 
                                 if (!(m = strv_split_quoted(e))) {
                                         r[k] = NULL;
                                         strv_free(r);
                                         return NULL;
                                 }
+                        } else
+                                m = NULL;
 
-                                q = strv_length(m);
-                                l = l + q - 1;
+                        q = strv_length(m);
+                        l = l + q - 1;
 
-                                if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
-                                        r[k] = NULL;
-                                        strv_free(r);
-                                        strv_free(m);
-                                        return NULL;
-                                }
+                        if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
+                                r[k] = NULL;
+                                strv_free(r);
+                                strv_free(m);
+                                return NULL;
+                        }
 
-                                r = w;
+                        r = w;
+                        if (m) {
                                 memcpy(r + k, m, q * sizeof(char*));
                                 free(m);
-
-                                k += q;
-                                continue;
                         }
+
+                        k += q;
+                        continue;
                 }
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
@@ -3242,6 +3047,31 @@ char *ellipsize(const char *s, unsigned length, unsigned percent) {
                length - x - 3);
 
         return r;
+}
+
+int touch(const char *path) {
+        int fd;
+
+        assert(path);
+
+        if ((fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0666)) < 0)
+                return -errno;
+
+        close_nointr_nofail(fd);
+        return 0;
+}
+
+char *unquote(const char *s, const char quote) {
+        size_t l;
+        assert(s);
+
+        if ((l = strlen(s)) < 2)
+                return strdup(s);
+
+        if (s[0] == quote && s[l-1] == quote)
+                return strndup(s+1, l-2);
+
+        return strdup(s);
 }
 
 static const char *const ioprio_class_table[] = {

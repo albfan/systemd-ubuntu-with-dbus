@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -27,7 +27,6 @@
 #include <sys/signalfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utmpx.h>
 #include <sys/poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
@@ -38,6 +37,10 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
+#ifdef HAVE_AUDIT
+#include <libaudit.h>
+#endif
+
 #include "manager.h"
 #include "hashmap.h"
 #include "macro.h"
@@ -47,7 +50,6 @@
 #include "ratelimit.h"
 #include "cgroup.h"
 #include "mount-setup.h"
-#include "utmp-wtmp.h"
 #include "unit-name.h"
 #include "dbus-unit.h"
 #include "dbus-job.h"
@@ -55,6 +57,7 @@
 #include "path-lookup.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -202,6 +205,10 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
 
+#ifdef HAVE_AUDIT
+        m->audit_fd = -1;
+#endif
+
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -244,6 +251,11 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init(m)) < 0)
                 goto fail;
+
+#ifdef HAVE_AUDIT
+        if ((m->audit_fd = audit_open()) < 0)
+                log_error("Failed to connect to audit log: %m");
+#endif
 
         *_m = m;
         return 0;
@@ -429,6 +441,11 @@ void manager_free(Manager *m) {
         if (m->notify_watch.fd >= 0)
                 close_nointr_nofail(m->notify_watch.fd);
 
+#ifdef HAVE_AUDIT
+        if (m->audit_fd >= 0)
+                audit_close(m->audit_fd);
+#endif
+
         free(m->notify_socket);
 
         lookup_paths_free(&m->lookup_paths);
@@ -566,10 +583,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 assert(m->n_deserializing > 0);
                 m->n_deserializing --;
         }
-
-        /* Now that the initial devices are available, let's see if we
-         * can write the utmp file */
-        manager_write_utmp_reboot(m);
 
         return r;
 }
@@ -779,7 +792,8 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                                 d = j;
                                         else
                                                 d = k;
-                                }
+                                } else
+                                        d = j;
 
                         } else if (!j->matters_to_anchor)
                                 d = j;
@@ -812,7 +826,7 @@ static int transaction_merge_jobs(Manager *m, DBusError *e) {
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
-                        if ((r = job_type_merge(&t, k->type)) >= 0)
+                        if (job_type_merge(&t, k->type) >= 0)
                                 continue;
 
                         /* OK, we could not merge all jobs for this
@@ -1281,7 +1295,6 @@ rollback:
 
 static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool override, bool *is_new) {
         Job *j, *f;
-        int r;
 
         assert(m);
         assert(unit);
@@ -1314,7 +1327,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
 
         LIST_PREPEND(Job, transaction, f, j);
 
-        if ((r = hashmap_replace(m->transaction_jobs, unit, f)) < 0) {
+        if (hashmap_replace(m->transaction_jobs, unit, f) < 0) {
                 job_free(j);
                 return NULL;
         }
@@ -1380,9 +1393,15 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (type != JOB_STOP &&
-            unit->meta.load_state != UNIT_LOADED) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load. See logs for details.", unit->meta.id);
+        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_FAILED) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
+                return -EINVAL;
+        }
+
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_FAILED) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the logs.",
+                               unit->meta.id,
+                               strerror(-unit->meta.load_error));
                 return -EINVAL;
         }
 
@@ -1768,7 +1787,7 @@ static int manager_process_notify_fd(Manager *m) {
                         if (n >= 0)
                                 return -EIO;
 
-                        if (errno == EAGAIN)
+                        if (errno == EAGAIN || errno == EINTR)
                                 break;
 
                         return -errno;
@@ -1867,7 +1886,9 @@ static int manager_dispatch_sigchld(Manager *m) {
                           (long unsigned) si.si_pid,
                           sigchld_code_to_string(si.si_code),
                           si.si_status,
-                          strna(si.si_code == CLD_EXITED ? exit_status_to_string(si.si_status) : signal_to_string(si.si_status)));
+                          strna(si.si_code == CLD_EXITED
+                                ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
+                                : signal_to_string(si.si_status)));
 
                 if (!u)
                         continue;
@@ -1910,7 +1931,7 @@ static int manager_process_signal_fd(Manager *m) {
                         if (n >= 0)
                                 return -EIO;
 
-                        if (errno == EAGAIN)
+                        if (errno == EINTR || errno == EAGAIN)
                                 break;
 
                         return -errno;
@@ -2234,70 +2255,30 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
         return 0;
 }
 
-static bool manager_utmp_good(Manager *m) {
-        int r;
+void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
 
-        assert(m);
+#ifdef HAVE_AUDIT
+        char *p;
 
-        if ((r = mount_path_is_mounted(m, _PATH_UTMPX)) <= 0) {
-
-                if (r < 0)
-                        log_warning("Failed to determine whether " _PATH_UTMPX " is mounted: %s", strerror(-r));
-
-                return false;
-        }
-
-        return true;
-}
-
-void manager_write_utmp_reboot(Manager *m) {
-        int r;
-
-        assert(m);
-
-        if (m->utmp_reboot_written)
+        if (m->audit_fd < 0)
                 return;
 
-        if (m->running_as != MANAGER_SYSTEM)
+        /* Don't generate audit events if the service was already
+         * started and we're just deserializing */
+        if (m->n_deserializing > 0)
                 return;
 
-        if (!manager_utmp_good(m))
-                return;
-
-        if ((r = utmp_put_reboot(m->startup_timestamp.realtime)) < 0) {
-
-                if (r != -ENOENT && r != -EROFS)
-                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
-
+        if (!(p = unit_name_to_prefix_and_instance(u->meta.id))) {
+                log_error("Failed to allocate unit name for audit message: %s", strerror(ENOMEM));
                 return;
         }
 
-        m->utmp_reboot_written = true;
-}
+        if (audit_log_user_comm_message(m->audit_fd, type, "", p, NULL, NULL, NULL, success) < 0)
+                log_error("Failed to send audit message: %m");
 
-void manager_write_utmp_runlevel(Manager *m, Unit *u) {
-        int runlevel, r;
+        free(p);
+#endif
 
-        assert(m);
-        assert(u);
-
-        if (u->meta.type != UNIT_TARGET)
-                return;
-
-        if (m->running_as != MANAGER_SYSTEM)
-                return;
-
-        if (!manager_utmp_good(m))
-                return;
-
-        if ((runlevel = target_get_runlevel(TARGET(u))) <= 0)
-                return;
-
-        if ((r = utmp_put_runlevel(0, runlevel, 0)) < 0) {
-
-                if (r != -ENOENT && r != -EROFS)
-                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
-        }
 }
 
 void manager_dispatch_bus_name_owner_changed(
@@ -2384,6 +2365,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        fprintf(f, "startup-timestamp=%llu %llu\n\n",
+                (unsigned long long) m->startup_timestamp.realtime,
+                (unsigned long long) m->startup_timestamp.monotonic);
+
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->meta.id != t)
                         continue;
@@ -2416,15 +2401,47 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_deserializing ++;
 
         for (;;) {
+                char line[1024], *l;
+
+                if (!fgets(line, sizeof(line), f)) {
+                        if (feof(f))
+                                r = 0;
+                        else
+                                r = -errno;
+
+                        goto finish;
+                }
+
+                char_array_0(line);
+                l = strstrip(line);
+
+                if (l[0] == 0)
+                        break;
+
+                if (startswith(l, "startup-timestamp=")) {
+                        unsigned long long a, b;
+
+                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
+                                log_debug("Failed to parse startup timestamp value %s", l+18);
+                        else {
+                                m->startup_timestamp.realtime = a;
+                                m->startup_timestamp.monotonic = b;
+                        }
+                } else
+                        log_debug("Unknown serialization item '%s'", l);
+        }
+
+        for (;;) {
                 Unit *u;
                 char name[UNIT_NAME_MAX+2];
 
                 /* Start marker */
                 if (!fgets(name, sizeof(name), f)) {
                         if (feof(f))
-                                break;
+                                r = 0;
+                        else
+                                r = -errno;
 
-                        r = -errno;
                         goto finish;
                 }
 
@@ -2437,14 +2454,12 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         goto finish;
         }
 
+finish:
         if (ferror(f)) {
                 r = -EIO;
                 goto finish;
         }
 
-        r = 0;
-
-finish:
         assert(m->n_deserializing > 0);
         m->n_deserializing --;
 

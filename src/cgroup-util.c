@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -481,7 +481,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         else
                 p = controller;
 
-        if (asprintf(&mp, "/cgroup/%s", p) < 0)
+        if (asprintf(&mp, "/sys/fs/cgroup/%s", p) < 0)
                 return -ENOMEM;
 
         if ((r = path_is_mount_point(mp)) <= 0) {
@@ -737,10 +737,8 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         free(fs);
         fs = NULL;
-        if ((r = cg_get_path(controller, NULL, "notify_on_release", &fs)) < 0) {
-                r = -ENOMEM;
+        if ((r = cg_get_path(controller, NULL, "notify_on_release", &fs)) < 0)
                 goto finish;
-        }
 
         free(contents);
         contents = NULL;
@@ -929,7 +927,7 @@ int cg_fix_path(const char *path, char **result) {
 
         /* First check if it already is a filesystem path */
         if (path_is_absolute(path) &&
-            path_startswith(path, "/cgroup") &&
+            path_startswith(path, "/sys/fs/cgroup") &&
             access(path, F_OK) >= 0) {
 
                 if (!(t = strdup(path)))

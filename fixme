@@ -1,21 +1,9 @@
-* dot output for --test for 'initial description'
+* oneshot services which do not remain: 'exited' instead of 'dead'?
+  it should be visible in 'systemctl' that they have been run
 
-* check 'disable'
-  <Viking-Ice>    "Warning: Unit file changed in disk, 'systemctl --system daemon-reload' recomended
-  <kay>           when does it do that?
-  <Viking-Ice>    if you disable the service
+* systemd.log_level=debug should overwrite 'quiet' ?
 
-* fixup var-run/var-lock tmpfs mounts. we need:
-    touch /var/run/utmp
-    chown root:utmp /var/run/utmp
-    mkdir -p /var/lock/subsys
-
-* downgrade warnings for non-existent services pulled-in
-  by soft dependencies, like:
-    init[1]: Failed to load configuration for isdn.service: No such file or directory
-
-* somehow fix the start of getty on tty1, which clears the screen, and mixes
-  its output with systemd bootup messages
+* dot output for --test showing the 'initial transaction'
 
 * have a simple syslog bridge providing /dev/log and forward messages
   to /dev/kmsg. at the moment the real syslog can be started, the bridge
@@ -29,8 +17,6 @@
 * implicitly import "defaults" settings file into all types
 
 * add #ifdefs for non-sysv builds
-
-* reinvestigate random seed, hwclock
 
 * "disabled" load state?
 
@@ -54,17 +40,7 @@
 
 * write utmp record a la upstart for processes
 
-* follow property change dbus spec
-
-* selinux policy loading/socket stuff
-
-* systemctl status $PID, systemctl stop $PID!
-
-* place /etc/inittab with explaining blurb.
-
-* vielleicht implizit immer auf syslog dependen?
-
-* debian deadlock when partition set to noauto
+* selinux policy loading
 
 * fingerprint.target, wireless.target, gps.target
 
@@ -72,32 +48,60 @@
 
 * fix merging in .swap units
 
-* pahole
-
 * chkconfig/systemd-install glue
 
 * io priority during initialization
 
-* if a service fails too often, make the service enter maintainence mode, and the socket, too.
+* if a service fails too often, make the service enter maintenance mode, and the socket, too.
 
-* don't show file not found msgs for irrelevant units
+* systemctl: warning wenn [Install] leer ist bei enable
 
-* hide plymouth in multi-user mode
+* bash completion a la gdbus
+
+* [Install] section rausmachen für early boot krams, uznd per default nach /lib linken
+
+* systemctl list-jobs deps anzeigen
+
+* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
+
+* oom_score_adj
+
+* accountsservice is dod
+
+* follow LSB exit codes spec in "systemctl start"
+
+* auditd service files
+
+* auto-serial-getty vs. isolate
+
+* add RefuseManualIsolate= (default on?)
+
+* add systemctl switch to dump transaction without executing it
+
+* shell wenn fsck im arsch is
+
+* system.conf/session.conf brauch ne man page
+
+* exec /sbin/poweroff als PID 1 und shutdown
 
 External:
 
-* sysv functions should color when stdout is tty, not stdin
+* make sure MountOnPlug und MountAuto und SwapOnPlug is off in Fedora
 
-* agetty should not modify baudrate
+* place /etc/inittab with explaining blurb.
 
-* ck logging, ssh readahead
+* pam_securetty should honour console=
+
+* procps, psmisc, sysvinit-tools, hostname → util-linux-ng
+
+* nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
+
+* make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
+
+* ck logging, ssd readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421
-
-* patch /etc/init.d/functions with:
-
-  if [ $PPID -ne 1 && mountpoint /cgroup/systemd ] ; then echo "You suck!" ; fi
 
 https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
 https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
@@ -108,6 +112,16 @@ https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
 https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
 http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
 http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
+https://bugzilla.redhat.com/show_bug.cgi?id=617328 -- ntp
+https://bugzilla.redhat.com/show_bug.cgi?id=617320 -- at
+https://bugzilla.redhat.com/show_bug.cgi?id=617326 -- fprintd
+https://bugzilla.redhat.com/show_bug.cgi?id=617333 -- yum
+https://bugzilla.redhat.com/show_bug.cgi?id=617317 -- acpid
+https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
+https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
+https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
+https://bugzilla.redhat.com/show_bug.cgi?id=617316 -- abrt
+http://sources.redhat.com/bugzilla/show_bug.cgi?id=11930 -- glibc
 
 Regularly:
 
@@ -118,3 +132,7 @@ Regularly:
 * Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
 
 * %m in printf() instead of strerror();
+
+* pahole
+
+* CFLAGS="-Wl,--gc-sections -Wl,--print-gc-sections -ffunction-sections -fdata-sections"

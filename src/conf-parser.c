@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -122,7 +122,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 return 0;
         }
 
-        if (sections && !strv_contains((char**) sections, *section))
+        if (sections && (!*section || !strv_contains((char**) sections, *section)))
                 return 0;
 
         if (!(e = strchr(l, '='))) {

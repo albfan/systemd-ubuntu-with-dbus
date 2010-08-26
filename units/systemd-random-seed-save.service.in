@@ -6,16 +6,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Show Plymouth Shutdown Screen
-After=getty@tty1.service prefdm.service
+Description=Save Random Seed
 DefaultDependencies=no
+Before=poweroff.service reboot.service halt.service killall.service
+Conflicts=systemd-random-seed-load.service
 
 [Service]
-ExecStart=/sbin/plymouthd --mode=shutdown
-ExecStartPost=-/usr/bin/plymouth --sysinit
-ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Shutting Down'
-Type=forking
+Type=oneshot
+ExecStart=@rootlibexecdir@/systemd-random-seed save
 
 [Install]
 WantedBy=shutdown.target

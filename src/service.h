@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef fooservicehfoo
 #define fooservicehfoo
@@ -33,7 +33,7 @@ typedef enum ServiceState {
         SERVICE_START,
         SERVICE_START_POST,
         SERVICE_RUNNING,
-        SERVICE_EXITED,            /* Nothing is running anymore, but ValidNoProcess is true, ehnce this is OK */
+        SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true, ehnce this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_SIGTERM,
@@ -58,7 +58,7 @@ typedef enum ServiceRestart {
 typedef enum ServiceType {
         SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons) */
         SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
-        SERVICE_FINISH,   /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
+        SERVICE_ONESHOT,  /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
         _SERVICE_TYPE_MAX,
@@ -109,7 +109,7 @@ struct Service {
 
         bool permissions_start_only;
         bool root_directory_start_only;
-        bool valid_no_process;
+        bool remain_after_exit;
 
         /* If we shut down, remember why */
         bool failure:1;

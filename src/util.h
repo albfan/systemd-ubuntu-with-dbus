@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef fooutilhfoo
 #define fooutilhfoo
@@ -52,15 +52,19 @@ typedef struct dual_timestamp {
 #define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
 #define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
 #define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
+#define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
+#define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
 
 #define FORMAT_TIMESTAMP_MAX 64
+#define FORMAT_TIMESTAMP_PRETTY_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
 
 #define ANSI_HIGHLIGHT_ON "\x1B[1;31m"
+#define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
 usec_t now(clockid_t clock);
@@ -247,11 +251,13 @@ bool ignore_file(const char *filename);
 bool chars_intersect(const char *a, const char *b);
 
 char *format_timestamp(char *buf, size_t l, usec_t t);
+char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
 
 bool is_clean_exit(int code, int status);
+bool is_clean_exit_lsb(int code, int status);
 
 unsigned long long random_ull(void);
 
@@ -318,7 +324,6 @@ void sigset_add_many(sigset_t *ss, ...);
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
 int getttyname_malloc(char **r);
-int getmachineid_malloc(char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
@@ -335,6 +340,13 @@ int columns(void);
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, unsigned length, unsigned percent);
+
+int touch(const char *path);
+
+char *unquote(const char *s, const char quote);
+
+#define NULSTR_FOREACH(i, l) \
+        for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
@@ -359,15 +371,5 @@ int ip_tos_from_string(const char *s);
 
 const char *signal_to_string(int i);
 int signal_from_string(const char *s);
-
-int label_init(void);
-int label_fix(const char *path);
-void label_finish(void);
-int label_socket_set(const char *label);
-void label_socket_clear(void);
-int label_fifofile_set(const char *label, const char *path);
-void label_file_clear(void);
-void label_free(const char *label);
-int label_get_socket_label_from_exe(const char *exe, char **label);
 
 #endif

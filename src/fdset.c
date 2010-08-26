@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -49,7 +49,7 @@ void fdset_free(FDSet *s) {
                  * here, so that the EBADFD that valgrind will return
                  * us on close() doesn't influence us */
 
-                log_warning("Closing left-over fd %i", PTR_TO_FD(p));
+                /* log_warning("Closing left-over fd %i", PTR_TO_FD(p)); */
                 close_nointr(PTR_TO_FD(p));
         }
 
@@ -144,7 +144,6 @@ finish:
                 set_free(MAKE_SET(s));
 
         return r;
-
 }
 
 int fdset_cloexec(FDSet *fds, bool b) {

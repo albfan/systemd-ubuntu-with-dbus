@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -346,7 +346,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                           dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! API D-Bus connection terminated.");
+                log_debug("API D-Bus connection terminated.");
                 bus_done_api(m);
 
         } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
@@ -385,7 +385,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
 
                         r = manager_load_unit(m, name, NULL, &error, &u);
 
-                        if (r >= 0 && u->meta.only_by_dependency)
+                        if (r >= 0 && u->meta.refuse_manual_start)
                                 r = -EPERM;
 
                         if (r >= 0)
@@ -454,7 +454,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                           dbus_message_get_path(message));
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! System D-Bus connection terminated.");
+                log_debug("System D-Bus connection terminated.");
                 bus_done_system(m);
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
@@ -816,7 +816,7 @@ static int bus_init_system(Manager *m) {
 
         if (m->api_bus != m->system_bus) {
                 char *id;
-                log_info("Successfully connected to system D-Bus bus %s as %s",
+                log_debug("Successfully connected to system D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->system_bus))),
                          strnull(dbus_bus_get_unique_name(m->system_bus)));
                 dbus_free(id);
@@ -902,7 +902,7 @@ static int bus_init_api(Manager *m) {
 
         if (m->api_bus != m->system_bus) {
                 char *id;
-                log_info("Successfully connected to API D-Bus bus %s as %s",
+                log_debug("Successfully connected to API D-Bus bus %s as %s",
                          strnull((id = dbus_connection_get_server_id(m->api_bus))),
                          strnull(dbus_bus_get_unique_name(m->api_bus)));
                 dbus_free(id);
@@ -1247,6 +1247,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusConnection *c, DBu
                         if (!dbus_message_iter_close_container(&iter, &sub))
                                 goto oom;
                 }
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "GetAll") && properties) {
                 const char *interface;
                 const BusProperty *p;
@@ -1610,4 +1611,42 @@ bool bus_connection_has_subscriber(Manager *m, DBusConnection *c) {
         assert(c);
 
         return !set_isempty(BUS_CONNECTION_SUBSCRIBED(m, c));
+}
+
+DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties) {
+        DBusMessage *m;
+        DBusMessageIter iter, sub;
+        const char *i;
+
+        assert(interface);
+        assert(properties);
+
+        if (!(m = dbus_message_new_signal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged")))
+                goto oom;
+
+        dbus_message_iter_init_append(m, &iter);
+
+        /* We won't send any property values, since they might be
+         * large and sometimes not cheap to generated */
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &sub) ||
+            !dbus_message_iter_close_container(&iter, &sub) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "s", &sub))
+                goto oom;
+
+        NULSTR_FOREACH(i, properties)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &i))
+                        goto oom;
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                goto oom;
+
+        return m;
+
+oom:
+        if (m)
+                dbus_message_unref(m);
+
+        return NULL;
 }

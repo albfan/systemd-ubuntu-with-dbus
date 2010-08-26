@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -40,6 +40,7 @@
 #include "missing.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "label.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -165,6 +166,7 @@ static int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
+        u->meta.no_gc = true;
         s->service = SERVICE(u);
         return 0;
 }
@@ -444,14 +446,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (p->type == SOCKET_SOCKET) {
                         const char *t;
                         int r;
-                        char *k;
+                        char *k = NULL;
 
                         if ((r = socket_address_print(&p->address, &k)) < 0)
                                 t = strerror(-r);
                         else
                                 t = k;
 
-                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), k);
+                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), t);
                         free(k);
                 } else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
@@ -657,7 +659,6 @@ static int fifo_address_create(
                 const char *path,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label,
                 int *_fd) {
 
         int fd = -1, r = 0;
@@ -669,7 +670,7 @@ static int fifo_address_create(
 
         mkdir_parents(path, directory_mode);
 
-        if ((r = label_fifofile_set(label, path)) < 0)
+        if ((r = label_fifofile_set(path)) < 0)
                 goto fail;
 
         /* Enforce the right access mode for the fifo */
@@ -723,14 +724,9 @@ static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
         char *label = NULL;
+        bool know_label = false;
 
         assert(s);
-
-        if ((r = socket_instantiate_service(s)) < 0)
-                return r;
-
-        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
-                return r;
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -738,6 +734,17 @@ static int socket_open_fds(Socket *s) {
                         continue;
 
                 if (p->type == SOCKET_SOCKET) {
+
+                        if (!know_label) {
+
+                                if ((r = socket_instantiate_service(s)) < 0)
+                                        return r;
+
+                                if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
+                                        return r;
+
+                                know_label = true;
+                        }
 
                         if ((r = socket_address_listen(
                                              &p->address,
@@ -759,7 +766,6 @@ static int socket_open_fds(Socket *s) {
                                              p->path,
                                              s->directory_mode,
                                              s->socket_mode,
-                                             label,
                                              &p->fd)) < 0)
                                 goto rollback;
 
@@ -1202,6 +1208,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                 s->service = NULL;
                 s->n_accepted ++;
 
+                service->meta.no_gc = false;
+
                 unit_choose_id(UNIT(service), name);
                 free(name);
 
@@ -1213,6 +1221,9 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(service), JOB_REPLACE, true, &error, NULL)) < 0)
                         goto fail;
+
+                /* Notify clients about changed counters */
+                unit_add_to_dbus_queue(UNIT(s));
         }
 
         return;
@@ -1371,7 +1382,6 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int socket_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Socket *s = SOCKET(u);
-        int r;
 
         assert(u);
         assert(key);
@@ -1396,14 +1406,14 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
         } else if (streq(key, "n-accepted")) {
                 unsigned k;
 
-                if ((r = safe_atou(value, &k)) < 0)
+                if (safe_atou(value, &k) < 0)
                         log_debug("Failed to parse n-accepted value %s", value);
                 else
                         s->n_accepted += k;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
-                if ((r = parse_pid(value, &pid)) < 0)
+                if (parse_pid(value, &pid) < 0)
                         log_debug("Failed to parse control-pid value %s", value);
                 else
                         s->control_pid = pid;
@@ -1591,6 +1601,9 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         assert_not_reached("Uh, control process died at wrong time.");
                 }
         }
+
+        /* Notify clients about changed exit status */
+        unit_add_to_dbus_queue(u);
 }
 
 static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
@@ -1662,7 +1675,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
                 if (p->fd >= 0)
                         rn_fds++;
 
-        if (!(rfds = new(int, rn_fds)) < 0)
+        if (!(rfds = new(int, rn_fds)))
                 return -ENOMEM;
 
         k = 0;
@@ -1771,5 +1784,7 @@ const UnitVTable socket_vtable = {
 
         .reset_maintenance = socket_reset_maintenance,
 
-        .bus_message_handler = bus_socket_message_handler
+        .bus_interface = "org.freedesktop.systemd1.Socket",
+        .bus_message_handler = bus_socket_message_handler,
+        .bus_invalidating_properties =  bus_socket_invalidating_properties
 };

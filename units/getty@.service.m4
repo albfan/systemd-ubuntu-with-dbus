@@ -22,9 +22,15 @@ m4_ifdef(`TARGET_ARCH',
 After=rc-local.service
 )m4_dnl
 
+# If additional gettys are spawned during boot (possibly by
+# systemd-auto-console-getty) then we should make sure that this is
+# synchronized before getty.target, even though getty.target didn't
+# actually pull it in.
+Before=getty.target
+
 [Service]
 Environment=TERM=linux
-ExecStart=GETTY %I
+ExecStart=-GETTY %I
 Restart=restart-always
 RestartSec=0
 KillMode=process-group

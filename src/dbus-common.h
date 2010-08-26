@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef foodbuscommonhfoo
 #define foodbuscommonhfoo
@@ -27,5 +27,7 @@
 int bus_check_peercred(DBusConnection *c);
 
 int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private_bus, DBusError *error);
+
+const char *bus_error_message(const DBusError *error);
 
 #endif

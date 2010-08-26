@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef foounithfoo
 #define foounithfoo
@@ -180,14 +180,18 @@ struct Meta {
         /* Used during GC sweeps */
         unsigned gc_marker;
 
+        /* When deserializing, temporarily store the job type for this
+         * unit here, if there was a job scheduled */
+        int deserialized_job; /* This is actually of type JobType */
+
+        /* Error code when we didn't manage to load the unit (negative) */
+        int load_error;
+
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
-
-        /* Refuse manual starting, allow starting only indirectly via dependency. */
-        bool only_by_dependency;
 
         /* Create default depedencies */
         bool default_dependencies;
@@ -195,9 +199,11 @@ struct Meta {
         /* Bring up this unit even if a dependency fails to start */
         bool ignore_dependency_failure;
 
-        /* When deserializing, temporarily store the job type for this
-         * unit here, if there was a job scheduled */
-        int deserialized_job; /* This is actually of type JobType */
+        /* Refuse manual starting, allow starting only indirectly via dependency. */
+        bool refuse_manual_start;
+
+        /* Don't allow the user to stop this unit manually, allow stopping only indirectly via dependency. */
+        bool refuse_manual_stop;
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;
@@ -205,6 +211,10 @@ struct Meta {
         bool in_gc_queue:1;
 
         bool sent_dbus_new_signal:1;
+
+        bool no_gc:1;
+
+        bool in_audit:1;
 };
 
 #include "service.h"
@@ -324,6 +334,14 @@ struct UnitVTable {
         /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 
+        /* When sending out PropertiesChanged signal, which properties
+         * shall be invalidated? This is a NUL seperated list of
+         * strings, to minimize relocations a little. */
+        const char *bus_invalidating_properties;
+
+        /* The interface name */
+        const char *bus_interface;
+
         /* Can units of this type have multiple names? */
         bool no_alias:1;
 
@@ -413,7 +431,6 @@ Unit *unit_follow_merge(Unit *u);
 
 int unit_load_fragment_and_dropin(Unit *u);
 int unit_load_fragment_and_dropin_optional(Unit *u);
-int unit_load_nop(Unit *u);
 int unit_load(Unit *unit);
 
 const char *unit_description(Unit *u);
@@ -477,9 +494,6 @@ bool unit_need_daemon_reload(Unit *u);
 void unit_reset_maintenance(Unit *u);
 
 Unit *unit_following(Unit *u);
-
-const char *unit_type_to_string(UnitType i);
-UnitType unit_type_from_string(const char *s);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

@@ -50,6 +50,7 @@ AM_CPPFLAGS = \
 	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DRUNTIME_DIR=\"$(localstatedir)/run\" \
+	-DRANDOM_SEED=\"$(localstatedir)/lib/random-seed\" \
 	-I $(top_srcdir)/src
 
 rootbin_PROGRAMS = \
@@ -68,13 +69,21 @@ endif
 rootlibexec_PROGRAMS = \
 	systemd-logger \
 	systemd-cgroups-agent \
-	systemd-initctl
+	systemd-initctl \
+	systemd-update-utmp \
+	systemd-random-seed \
+	systemd-shutdownd \
+	systemd-auto-serial-getty \
+	systemd-modules-load \
+	systemd-remount-api-vfs \
+	systemd-kmsg-syslogd
 
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
 	test-ns \
 	test-loopback \
+	test-hostname \
 	test-daemon \
 	test-cgroup \
 	test-env-replace
@@ -134,6 +143,8 @@ dist_systemunit_DATA = \
 	units/dbus.target \
 	units/systemd-initctl.socket \
 	units/systemd-logger.socket \
+	units/systemd-shutdownd.socket \
+	units/systemd-kmsg-syslogd.socket \
 	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
 	units/dev-mqueue.automount \
@@ -144,8 +155,15 @@ dist_systemunit_DATA = \
 	units/sys-kernel-debug.mount \
 	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
+	units/tmp.mount \
 	units/var-lock.mount \
+	units/var-lock.service \
 	units/var-run.mount \
+	units/var-run.service \
+	units/hwclock-load.service \
+	units/hwclock-save.service \
+	units/sysctl.service \
+	units/remount-rootfs.service \
 	units/printer.target \
 	units/bluetooth.target \
 	units/smartcard.target
@@ -153,11 +171,21 @@ dist_systemunit_DATA = \
 nodist_systemunit_DATA = \
 	units/sysinit.target \
 	units/getty@.service \
+	units/serial-getty@.service \
 	units/graphical.target \
 	units/remote-fs.target \
 	units/multi-user.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
+	units/systemd-shutdownd.service \
+	units/systemd-kmsg-syslogd.service \
+	units/systemd-auto-serial-getty.service \
+	units/systemd-modules-load.service \
+	units/systemd-remount-api-vfs.service \
+	units/systemd-update-utmp-runlevel.service \
+	units/systemd-update-utmp-shutdown.service \
+	units/systemd-random-seed-save.service \
+	units/systemd-random-seed-load.service \
 	units/syslog.target
 
 dist_sessionunit_DATA = \
@@ -170,11 +198,21 @@ nodist_sessionunit_DATA = \
 EXTRA_DIST = \
 	units/sysinit.target.m4 \
 	units/getty@.service.m4 \
+	units/serial-getty@.service.m4 \
 	units/graphical.target.m4 \
 	units/multi-user.target.m4 \
 	units/remote-fs.target.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
+	units/systemd-shutdownd.service.in \
+	units/systemd-kmsg-syslogd.service.in \
+	units/systemd-auto-serial-getty.service.in \
+	units/systemd-modules-load.service.in \
+	units/systemd-remount-api-vfs.service.in \
+	units/systemd-update-utmp-runlevel.service.in \
+	units/systemd-update-utmp-shutdown.service.in \
+	units/systemd-random-seed-save.service.in \
+	units/systemd-random-seed-load.service.in \
 	units/syslog.target.in \
 	units/session/exit.service.in \
 	systemd.pc.in
@@ -190,7 +228,9 @@ dist_systemunit_DATA += \
 	units/fedora/sysinit.service \
 	units/fedora/single.service \
 	units/fedora/plymouth-quit.service \
-	units/fedora/plymouth-shutdown.service
+	units/fedora/plymouth-reboot.service \
+	units/fedora/plymouth-poweroff.service \
+	units/fedora/plymouth-halt.service
 endif
 if TARGET_DEBIAN
 dist_systemunit_DATA += \
@@ -242,6 +282,7 @@ noinst_LTLIBRARIES = \
 
 libsystemd_basic_la_SOURCES = \
         src/util.c \
+	src/label.c \
         src/hashmap.c \
         src/set.c \
         src/strv.c \
@@ -249,6 +290,13 @@ libsystemd_basic_la_SOURCES = \
         src/socket-util.c \
         src/log.c \
         src/ratelimit.c
+
+libsystemd_basic_la_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(SELINUX_CFLAGS)
+
+libsystemd_basic_la_LIBADD = \
+	$(SELINUX_LIBS)
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
@@ -268,6 +316,7 @@ libsystemd_core_la_SOURCES = \
 	src/path.c \
         src/load-dropin.c \
         src/execute.c \
+	src/exit-status.c \
         src/dbus.c \
         src/dbus-manager.c \
         src/dbus-unit.c \
@@ -288,8 +337,6 @@ libsystemd_core_la_SOURCES = \
 	src/hostname-setup.c \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
-	src/modprobe-setup.c \
-	src/utmp-wtmp.c \
 	src/specifier.c \
 	src/unit-name.c \
 	src/fdset.c \
@@ -300,7 +347,10 @@ libsystemd_core_la_SOURCES = \
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(LIBWRAP_CFLAGS) \
+	$(PAM_CFLAGS) \
+	$(AUDIT_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
@@ -308,7 +358,7 @@ libsystemd_core_la_LIBADD = \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
-	$(SELINUX_LIBS)
+	$(AUDIT_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -328,7 +378,10 @@ EXTRA_DIST += \
 	src/special.h \
 	src/dbus-common.h \
 	src/bus-errors.h \
-	src/cgroup-show.h
+	src/cgroup-show.h \
+	src/utmp-wtmp.h \
+	src/build.h \
+	src/shutdownd.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -439,6 +492,13 @@ test_loopback_SOURCES = \
 test_loopback_LDADD = \
 	libsystemd-basic.la
 
+test_hostname_SOURCES = \
+	src/test-hostname.c \
+	src/hostname-setup.c
+
+test_hostname_LDADD = \
+	libsystemd-basic.la
+
 test_daemon_SOURCES = \
 	src/test-daemon.c \
 	src/sd-daemon.c
@@ -487,6 +547,72 @@ systemd_initctl_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
+systemd_update_utmp_SOURCES = \
+	src/update-utmp.c \
+	src/dbus-common.c \
+	src/utmp-wtmp.c
+
+systemd_update_utmp_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+	$(AUDIT_CFLAGS)
+
+systemd_update_utmp_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS) \
+	$(AUDIT_LIBS)
+
+systemd_random_seed_SOURCES = \
+	src/random-seed.c
+
+systemd_random_seed_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_random_seed_LDADD = \
+	libsystemd-basic.la
+
+systemd_shutdownd_SOURCES = \
+	src/utmp-wtmp.c \
+	src/sd-daemon.c \
+	src/shutdownd.c
+
+systemd_shutdownd_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_shutdownd_LDADD = \
+	libsystemd-basic.la
+
+systemd_auto_serial_getty_SOURCES = \
+	src/auto-serial-getty.c \
+	src/dbus-common.c
+
+systemd_auto_serial_getty_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_auto_serial_getty_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS)
+
+systemd_modules_load_SOURCES = \
+	src/modules-load.c
+
+systemd_modules_load_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_modules_load_LDADD = \
+	libsystemd-basic.la
+
+systemd_remount_api_vfs_SOURCES = \
+	src/remount-api-vfs.c \
+	src/mount-setup.c
+
+systemd_remount_api_vfs_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_remount_api_vfs_LDADD = \
+	libsystemd-basic.la
+
 systemd_cgroups_agent_SOURCES = \
 	src/cgroups-agent.c \
 	src/dbus-common.c
@@ -499,6 +625,17 @@ systemd_cgroups_agent_LDADD = \
 	libsystemd-basic.la \
 	$(DBUS_LIBS)
 
+systemd_kmsg_syslogd_SOURCES = \
+	src/kmsg-syslogd.c \
+	src/sd-daemon.c \
+	src/fdset.c
+
+systemd_kmsg_syslogd_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_kmsg_syslogd_LDADD = \
+	libsystemd-basic.la
+
 systemctl_SOURCES = \
 	src/systemctl.c \
 	src/utmp-wtmp.c \
@@ -506,7 +643,8 @@ systemctl_SOURCES = \
 	src/path-lookup.c \
 	src/sd-daemon.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+	src/exit-status.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -704,21 +842,44 @@ install-data-hook:
 		$(DESTDIR)$(sessionunitdir) \
 		$(DESTDIR)$(systemunitdir)/sockets.target.wants \
 		$(DESTDIR)$(systemunitdir)/sysinit.target.wants \
+		$(DESTDIR)$(systemunitdir)/shutdown.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel1.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel2.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel3.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel4.target.wants \
+		$(DESTDIR)$(systemunitdir)/runlevel5.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system \
 		$(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/system/graphical.target.wants \
 		$(DESTDIR)$(pkgsysconfdir)/session \
 		$(DESTDIR)$(sysconfdir)/xdg/systemd
-	$(MKDIR_P) -m 0755 $(DESTDIR)/cgroup || \
-		echo "Don't forget to create /cgroup! Couldn't create it for you, continuing anyway."
 	( cd $(DESTDIR)$(sysconfdir)/xdg/systemd/ && \
 		rm -f session && \
 		$(LN_S) $(pkgsysconfdir)/session session )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-logger.socket && \
+		rm -f systemd-initctl.socket systemd-logger.socket systemd-shutdownd.socket && \
 		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
-		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket )
+		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
+		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel1.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel2.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel3.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel4.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/runlevel5.target.wants && \
+		rm -f systemd-update-utmp-runlevel.service && \
+		$(LN_S) ../systemd-update-utmp-runlevel.service )
+	( cd $(DESTDIR)$(systemunitdir)/shutdown.target.wants && \
+		rm -f systemd-update-utmp-shutdown.service && \
+		$(LN_S) ../systemd-update-utmp-shutdown.service )
 	( cd $(DESTDIR)$(sessionunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -728,28 +889,28 @@ install-data-hook:
 		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
 		$(LN_S) $(systemunitdir)/printer.target printer.target)
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f runlevel0.target runlevel1.target runlevel6.target && \
+		rm -f runlevel0.target runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target runlevel6.target && \
 		$(LN_S) poweroff.target runlevel0.target && \
 		$(LN_S) rescue.target runlevel1.target && \
+		$(LN_S) multi-user.target runlevel2.target && \
+		$(LN_S) multi-user.target runlevel3.target && \
+		$(LN_S) multi-user.target runlevel4.target && \
+		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f default.target ctrl-alt-del.target kbrequest.target && \
 		$(LN_S) $(systemunitdir)/graphical.target default.target && \
 		$(LN_S) $(systemunitdir)/reboot.target ctrl-alt-del.target && \
-		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target && \
-		rm -f runlevel2.target runlevel3.target runlevel4.target runlevel5.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel2.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel3.target && \
-		$(LN_S) $(systemunitdir)/multi-user.target runlevel4.target && \
-		$(LN_S) $(systemunitdir)/graphical.target runlevel5.target )
+		$(LN_S) $(systemunitdir)/rescue.target kbrequest.target )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
+		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service systemd-auto-serial-getty.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
 		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service && \
+		$(LN_S) $(systemunitdir)/systemd-auto-serial-getty.service systemd-auto-serial-getty.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f getty.target remote-fs.target && \
 		$(LN_S) $(systemunitdir)/getty.target getty.target && \
@@ -771,8 +932,11 @@ install-data-hook:
 if TARGET_FEDORA
 	$(MKDIR_P) -m 0755 \
 		$(DESTDIR)$(SYSTEM_SYSVINIT_PATH) \
+		$(DESTDIR)$(systemunitdir)/reboot.target.wants \
+		$(DESTDIR)$(systemunitdir)/poweroff.target.wants \
+		$(DESTDIR)$(systemunitdir)/halt.target.wants \
 		$(DESTDIR)$(systemunitdir)/rescue.target.wants \
-		$(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants
+		$(DESTDIR)$(systemunitdir)/multi-user.target.wants
 	( cd $(DESTDIR)$(pkgsysconfdir)/system && \
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service display-manager.service )
@@ -780,15 +944,23 @@ if TARGET_FEDORA
 		rm -f prefdm.service && \
 		$(LN_S) $(systemunitdir)/prefdm.service prefdm.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
-		rm -f rc-local.service plymouth-quit.service && \
-		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service && \
-		$(LN_S) $(systemunitdir)/plymouth-quit.service plymouth-quit.service )
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
 	( cd $(DESTDIR)$(systemunitdir)/rescue.target.wants && \
 		rm -f single.service && \
 		$(LN_S) $(systemunitdir)/single.service single.service )
-	( cd $(DESTDIR)$(pkgsysconfdir)/system/shutdown.target.wants && \
-		rm -f plymouth-shutdown.service && \
-		$(LN_S) $(systemunitdir)/plymouth-shutdown.service plymouth-shutdown.service )
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f plymouth-quit.service && \
+		$(LN_S) ../plymouth-quit.service plymouth-quit.service )
+	( cd $(DESTDIR)$(systemunitdir)/reboot.target.wants && \
+		rm -f plymouth-reboot.service && \
+		$(LN_S) ../plymouth-reboot.service plymouth-reboot.service )
+	( cd $(DESTDIR)$(systemunitdir)/poweroff.target.wants && \
+		rm -f plymouth-poweroff.service && \
+		$(LN_S) ../plymouth-poweroff.service plymouth-poweroff.service )
+	( cd $(DESTDIR)$(systemunitdir)/halt.target.wants && \
+		rm -f plymouth-halt.service && \
+		$(LN_S) ../plymouth-halt.service plymouth-halt.service )
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f local.service && \
 		$(LN_S) rc-local.service local.service )

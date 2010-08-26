@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -19,18 +19,19 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "modprobe-setup.h"
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <fcntl.h>
 
+#include "hostname-setup.h"
 #include "util.h"
 
-int modprobe_setup(bool nomodules) {
+int main(int argc, char* argv[]) {
         int r;
 
-        if (!nomodules)
-                return 0;
+        if ((r = hostname_setup()) < 0)
+                fprintf(stderr, "hostname: %s\n", strerror(-r));
 
-        if ((r = write_one_line_file("/proc/sys/kernel/modprobe", "/bin/true")) < 0)
-                log_error("Failed to write /proc/sys/kernel/modprobe: %m");
-
-        return r;
+        return 0;
 }

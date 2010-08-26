@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 #ifndef foodbusdevicehfoo
 #define foodbusdevicehfoo
@@ -29,5 +29,6 @@
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message);
 
 extern const char bus_device_interface[];
+extern const char bus_device_invalidating_properties[];
 
 #endif

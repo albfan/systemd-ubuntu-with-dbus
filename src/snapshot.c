@@ -1,4 +1,4 @@
-/*-*- Mode: C; c-basic-offset: 8 -*-*/
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   This file is part of systemd.
@@ -292,5 +292,6 @@ const UnitVTable snapshot_vtable = {
         .active_state = snapshot_active_state,
         .sub_state_to_string = snapshot_sub_state_to_string,
 
+        .bus_interface = "org.freedesktop.systemd1.Snapshot",
         .bus_message_handler = bus_snapshot_message_handler
 };
