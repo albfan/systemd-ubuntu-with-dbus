@@ -20,6 +20,6 @@ Description=Kill All Processes
 DefaultDependencies=no
 
 [Service]
-Type=finish
-ValidNoProcess=yes
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=/etc/init.d/sendsigs stop
