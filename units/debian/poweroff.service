@@ -22,7 +22,7 @@ Requires=shutdown.target killall.service
 After=shutdown.target killall.service
 
 [Service]
-Type=finish
-ValidNoProcess=yes
+Type=oneshot
+RemainAfterExit=yes
 Environment=RUNLEVEL=0
 ExecStart=/etc/init.d/halt stop
