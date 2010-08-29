@@ -2,29 +2,18 @@ systemd for Debian
 ==================
 
 systemd can be installed alongside sysvinit and will not change the
-behaviour of the system out of the box.  This is intentional, but
-might eventually change in the future.  To enable systemd, add
-something like:
+behaviour of the system out of the box.  This is intentional.  To test
+systemd, add:
 
 init=/bin/systemd
 
-to the kernel command line and then rebooting.
+to the kernel command line and then rebooting, or install the
+systemd-sysv package.
 
 Known bugs and problems
 =======================
 
-There is a race condition between / being mounted read-write and udev
-calling ifup on network interfaces.  This will, in some cases, cause
-interfaces which have "allow-hotplug" set for them, but not "auto"
-fail to come up.  This is a known bug and being fixed in udev's
-net.agent.
+The PAM module makes su exit with an error after running the command,
+hiding the real exit status of the process.
 
-The error reporting when you have loops or unsatisfiable conditions
-between init scripts is not very good, it will cause systemctl to
-respond with "invalid argument".  Inspecting the dmesg can give useful
-clues in that case.
-
-Restarting DBus breaks systemctl, since there is then no way to
-connect to the bus that systemd thinks it's connected to.
-
- -- Tollef Fog Heen <tfheen@debian.org>, Sat,  5 Jun 2010 18:41:06 +0200
+ -- Tollef Fog Heen <tfheen@debian.org>, Sun, 29 Aug 2010 10:39:57 +0200
