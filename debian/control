@@ -26,7 +26,7 @@ Package: systemd-sysv
 Architecture: linux-any
 Section: admin
 Priority: extra
-Conflicts: sysvinit
+Conflicts: sysvinit, upstart, runit-run
 Replaces: sysvinit
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: system and session manager - SysV links
