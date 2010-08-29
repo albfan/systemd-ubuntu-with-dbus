@@ -13,7 +13,7 @@ m4_dnl
 m4_ifdef(`FOR_SYSTEM',
 m4_dnl When running in system mode we need the network up
 Requires=network.target
-After=network.target
+After=network.target local-fs.target mountnfs.service mountnfs-bootclean.service
 )m4_dnl
 
 [Install]
