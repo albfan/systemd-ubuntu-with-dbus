@@ -12,6 +12,8 @@ Package: systemd
 Architecture: linux-any
 Section: admin
 Priority: extra
+Recommends: libpam-systemd
+Suggests: systemd-gui
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: system and session manager
  systemd is a replacement for sysvinit.  It is dependency-based and
@@ -40,3 +42,36 @@ Description: system and session manager - SysV links
  .
  This package provides the manual pages and links needed for systemd
  to replace sysvinit.
+
+Package: libpam-systemd
+Architecture: linux-any
+Section: admin
+Priority: extra
+Depends: systemd, ${shlibs:Depends}, ${misc:Depends}
+Description: system and session manager - PAM module
+ systemd is a replacement for sysvinit.  It is dependency-based and
+ able to read the LSB init script headers in addition to parsing rcN.d
+ links as hints.
+ .
+ It also provides process supervision using cgroups and the ability to
+ not only depend on other init script being started, but also
+ availability of a given mount point or dbus service.
+ .
+ This package contains the PAM module which registers user sessions in
+ the systemd control group hierarchy
+
+Package: systemd-gui
+Architecture: linux-any
+Section: admin
+Priority: extra
+Depends: systemd, ${shlibs:Depends}, ${misc:Depends}
+Description: system and session manager - GUI
+ systemd is a replacement for sysvinit.  It is dependency-based and
+ able to read the LSB init script headers in addition to parsing rcN.d
+ links as hints.
+ .
+ It also provides process supervision using cgroups and the ability to
+ not only depend on other init script being started, but also
+ availability of a given mount point or dbus service.
+ .
+ This package contains the graphical frontend for systemd.
