@@ -1,3 +1,0 @@
-[Unit]
-Names=shutdown.target
-Description=Shutdown

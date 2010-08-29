@@ -1,4 +1,0 @@
-[Unit]
-Description=Compatibility for Runlevel 3
-Requires=multi-user.target
-After=multi-user.target

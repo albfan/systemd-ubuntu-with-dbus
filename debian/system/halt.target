@@ -1,3 +1,0 @@
-[Unit]
-Description=Halt
-Requires=halt.service

@@ -1,5 +1,0 @@
-[Unit]
-Description=Multi-User Target
-Requires=basic.target
-After=basic.target
-Names=runlevel2.target
