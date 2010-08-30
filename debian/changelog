@@ -1,3 +1,10 @@
+systemd (8-2) experimental; urgency=low
+
+  * Hardcode udev rules dir in configure call.
+  * Remove README.source as it's no longer accurate.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Mon, 30 Aug 2010 21:10:26 +0200
+
 systemd (8-1) experimental; urgency=low
 
   * New upstream release
