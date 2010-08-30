@@ -18,8 +18,11 @@
 [Unit]
 Description=Kill All Processes
 DefaultDependencies=no
+After=shutdown.target
+RefuseManualStart=yes
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/etc/init.d/sendsigs stop
+StandardOutput=tty

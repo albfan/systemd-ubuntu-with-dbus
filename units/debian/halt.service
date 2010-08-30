@@ -18,8 +18,8 @@
 [Unit]
 Description=Halt
 DefaultDependencies=no
-Requires=shutdown.target killall.service
-After=shutdown.target killall.service
+Requires=shutdown.target umount.target killall.service
+After=shutdown.target umount.target killall.service
 
 [Service]
 Type=oneshot
@@ -27,3 +27,4 @@ RemainAfterExit=yes
 Environment=INIT_HALT=HALT
 Environment=RUNLEVEL=0
 ExecStart=/etc/init.d/halt stop
+StandardOutput=tty
