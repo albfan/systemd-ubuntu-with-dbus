@@ -1,0 +1,6 @@
+Name: Register user sessions in the systemd control group hierarchy
+Default: yes
+Priority: 0
+Session-Type: Additional
+Session:
+	optional	pam_systemd.so
