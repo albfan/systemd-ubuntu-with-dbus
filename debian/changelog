@@ -1,3 +1,9 @@
+systemd (8-3) UNRELEASED; urgency=low
+
+  * Add pam-auth-update calls to libpam-systemd's postinst and prerm
+
+ --
+
 systemd (8-2) experimental; urgency=low
 
   * Hardcode udev rules dir in configure call.
