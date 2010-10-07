@@ -1,22 +1,13 @@
+* do not throw error when .service file is linked to /dev/null
+
 * oneshot services which do not remain: 'exited' instead of 'dead'?
   it should be visible in 'systemctl' that they have been run
 
-* systemd.log_level=debug should overwrite 'quiet' ?
-
 * dot output for --test showing the 'initial transaction'
-
-* have a simple syslog bridge providing /dev/log and forward messages
-  to /dev/kmsg. at the moment the real syslog can be started, the bridge
-  is stopped and the open /dev/log fd to the real syslog. that way we
-  don't lose any early log message, and simple systems have full syslog
-  support in the kernel ringbuffer, without any syslog service or disk
-  access
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
 
 * implicitly import "defaults" settings file into all types
-
-* add #ifdefs for non-sysv builds
 
 * "disabled" load state?
 
@@ -24,7 +15,6 @@
   into killing mode?
 
 * port over to LISTEN_FDS/LISTEN_PID:
-
    - uuidd    DONE
    - dbus     DONE
    - rsyslog  DONE
@@ -44,7 +34,7 @@
 
 * fingerprint.target, wireless.target, gps.target
 
-* set_put(), hashmap_put() return values checken. i.e. == 0 macht kein free()!
+* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
 * fix merging in .swap units
 
@@ -52,41 +42,63 @@
 
 * io priority during initialization
 
-* if a service fails too often, make the service enter maintenance mode, and the socket, too.
+* if a service fails too often, make the service enter failed mode, and the socket, too.
 
-* systemctl: warning wenn [Install] leer ist bei enable
+* systemctl enable - warn about empty [Install] section
 
 * bash completion a la gdbus
 
-* [Install] section rausmachen für early boot krams, uznd per default nach /lib linken
+* systemctl list-jobs - show dependencies
 
-* systemctl list-jobs deps anzeigen
+* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= with !
 
-* ConditionFileExists=, ConditionKernelCommandLine=, ConditionEnvironment= mit !
-
-* oom_score_adj
-
-* accountsservice is dod
-
-* follow LSB exit codes spec in "systemctl start"
+* accountsservice is borked
 
 * auditd service files
 
-* auto-serial-getty vs. isolate
-
-* add RefuseManualIsolate= (default on?)
-
 * add systemctl switch to dump transaction without executing it
 
-* shell wenn fsck im arsch is
+* system.conf/session.conf man page
 
-* system.conf/session.conf brauch ne man page
+* exec /sbin/poweroff as PID 1 and do the shutdown
 
-* exec /sbin/poweroff als PID 1 und shutdown
+* kexec, suspend, resume
+
+* passphrase agent https://bugs.freedesktop.org/show_bug.cgi?id=30038
+
+* support dbus introspection in mid-level object paths, i.e. in /org/freedesktop/systemd/units/.
+
+* systemctl auto-pager a la git
+
+* fsck setup
+
+* merge CK
+
+* ask-password tty agent, ask-password plymouth agent
+
+* ask-password tty timeout
+
+* properly handle multiple inotify events per read() in path.c and util.c
+
+* readahead: btrfs/LVM SSD detection
+
+* document locale.conf, vconsole.conf and possibly the tempfiles.d and modules-load.d mechanism.
+
+* beefed up tmpwatch that reads tmpfiles.d
+
+* use /sbin/swapon
+
+* enable syslog.socket by default, activating our kmsg bridge
+
+* Restart=on-failure and Restart=on-abort
+
+* kill sessions on shutdown
+
+* when processes remain in a service even though the start command failed enter active
+
+* fix plymouth socket, when plymouth started to use a clean one
 
 External:
-
-* make sure MountOnPlug und MountAuto und SwapOnPlug is off in Fedora
 
 * place /etc/inittab with explaining blurb.
 
@@ -97,8 +109,6 @@ External:
 * nologin nach /var/run https://bugzilla.redhat.com/show_bug.cgi?id=624489
 
 * make sysinit honour forcefsck/fastboot from the kernel command line fsck.mode=auto|force|skip
-
-* ck logging, ssd readahead
 
 * pam: fix double sudo session cleanup:
   http://www.gratisoft.us/bugzilla/show_bug.cgi?id=421

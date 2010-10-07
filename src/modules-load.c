@@ -31,7 +31,7 @@
 #include "util.h"
 #include "strv.h"
 
-/* This reads all module names listed in /etc/modules.d/?*.modules and
+/* This reads all module names listed in /etc/modules-load.d/?*.conf and
  * loads them into the kernel. This follows roughly Debian's way to
  * handle modules, but uses a directory of fragments instead of a
  * single /etc/modules file. */
@@ -46,18 +46,18 @@ static int scandir_filter(const struct dirent *d) {
             d->d_type != DT_LNK)
                 return 0;
 
-        return endswith(d->d_name, ".modules");
+        return endswith(d->d_name, ".conf");
 }
 
 int main(int argc, char *argv[]) {
         struct dirent **de = NULL;
-        int r = 1, n, i;
+        int r = EXIT_FAILURE, n, i;
         char **arguments = NULL;
         unsigned n_arguments = 0, n_allocated = 0;
 
         if (argc > 1) {
                 log_error("This program takes no argument.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -71,29 +71,29 @@ int main(int argc, char *argv[]) {
 
         n_arguments = n_allocated = 3;
 
-        if ((n = scandir("/etc/modules.d/", &de, scandir_filter, alphasort)) < 0) {
+        if ((n = scandir("/etc/modules-load.d/", &de, scandir_filter, alphasort)) < 0) {
 
                 if (errno == ENOENT)
-                        r = 0;
+                        r = EXIT_SUCCESS;
                 else
-                        log_error("Failed to enumerate /etc/modules.d/ files: %m");
+                        log_error("Failed to enumerate /etc/modules-load.d/ files: %m");
 
                 goto finish;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
         for (i = 0; i < n; i++) {
                 int k;
                 char *fn;
                 FILE *f;
 
-                k = asprintf(&fn, "/etc/modules.d/%s", de[i]->d_name);
+                k = asprintf(&fn, "/etc/modules-load.d/%s", de[i]->d_name);
                 free(de[i]);
 
                 if (k < 0) {
                         log_error("Failed to allocate file name.");
-                        r = 1;
+                        r = EXIT_FAILURE;
                         continue;
                 }
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 
                 if (!f) {
                         log_error("Failed to open %s: %m", fn);
-                        r = 1;
+                        r = EXIT_FAILURE;
                         continue;
                 }
 
@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
                                 if (!(a = realloc(arguments, sizeof(char*) * (m+1)))) {
                                         log_error("Failed to increase module array size.");
                                         free(t);
-                                        r = 1;
+                                        r = EXIT_FAILURE;
                                         continue;
                                 }
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (ferror(f)) {
-                        r = 1;
+                        r = EXIT_FAILURE;
                         log_error("Failed to read from file: %m");
                 }
 
@@ -158,7 +158,7 @@ finish:
                 execv("/sbin/modprobe", arguments);
 
                 log_error("Failed to execute /sbin/modprobe: %m");
-                r = 1;
+                r = EXIT_FAILURE;
         }
 
         strv_free(arguments);

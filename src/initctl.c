@@ -68,27 +68,32 @@ struct Fifo {
         LIST_FIELDS(Fifo, fifo);
 };
 
-static const char *translate_runlevel(int runlevel) {
+static const char *translate_runlevel(int runlevel, bool *isolate) {
         static const struct {
                 const int runlevel;
                 const char *special;
+                bool isolate;
         } table[] = {
-                { '0', SPECIAL_POWEROFF_TARGET },
-                { '1', SPECIAL_RESCUE_TARGET },
-                { 's', SPECIAL_RESCUE_TARGET },
-                { 'S', SPECIAL_RESCUE_TARGET },
-                { '2', SPECIAL_RUNLEVEL2_TARGET },
-                { '3', SPECIAL_RUNLEVEL3_TARGET },
-                { '4', SPECIAL_RUNLEVEL4_TARGET },
-                { '5', SPECIAL_RUNLEVEL5_TARGET },
-                { '6', SPECIAL_REBOOT_TARGET },
+                { '0', SPECIAL_POWEROFF_TARGET,  false },
+                { '1', SPECIAL_RESCUE_TARGET,    true  },
+                { 's', SPECIAL_RESCUE_TARGET,    true  },
+                { 'S', SPECIAL_RESCUE_TARGET,    true  },
+                { '2', SPECIAL_RUNLEVEL2_TARGET, true  },
+                { '3', SPECIAL_RUNLEVEL3_TARGET, true  },
+                { '4', SPECIAL_RUNLEVEL4_TARGET, true  },
+                { '5', SPECIAL_RUNLEVEL5_TARGET, true  },
+                { '6', SPECIAL_REBOOT_TARGET,    false },
         };
 
         unsigned i;
 
+        assert(isolate);
+
         for (i = 0; i < ELEMENTSOF(table); i++)
-                if (table[i].runlevel == runlevel)
+                if (table[i].runlevel == runlevel) {
+                        *isolate = table[i].isolate;
                         return table[i].special;
+                }
 
         return NULL;
 }
@@ -97,18 +102,24 @@ static void change_runlevel(Server *s, int runlevel) {
         const char *target;
         DBusMessage *m = NULL, *reply = NULL;
         DBusError error;
-        const char *replace = "replace";
+        const char *mode;
+        bool isolate = false;
 
         assert(s);
 
         dbus_error_init(&error);
 
-        if (!(target = translate_runlevel(runlevel))) {
+        if (!(target = translate_runlevel(runlevel, &isolate))) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
                 goto finish;
         }
 
-        log_debug("Running request %s", target);
+        if (isolate)
+                mode = "isolate";
+        else
+                mode = "replace";
+
+        log_debug("Running request %s/start/%s", target, mode);
 
         if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
                 log_error("Could not allocate message.");
@@ -117,7 +128,7 @@ static void change_runlevel(Server *s, int runlevel) {
 
         if (!dbus_message_append_args(m,
                                       DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &replace,
+                                      DBUS_TYPE_STRING, &mode,
                                       DBUS_TYPE_INVALID)) {
                 log_error("Could not attach target and flag information to message.");
                 goto finish;
@@ -232,8 +243,9 @@ static void server_done(Server *s) {
                 close_nointr_nofail(s->epoll_fd);
 
         if (s->bus) {
-               dbus_connection_close(s->bus);
-               dbus_connection_unref(s->bus);
+                dbus_connection_flush(s->bus);
+                dbus_connection_close(s->bus);
+                dbus_connection_unref(s->bus);
         }
 }
 
@@ -335,16 +347,16 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
 int main(int argc, char *argv[]) {
         Server server;
-        int r = 3, n;
+        int r = EXIT_FAILURE, n;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (argc > 1) {
                 log_error("This program does not take arguments.");
-                return 1;
+                return EXIT_FAILURE;
         }
 
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
@@ -353,16 +365,16 @@ int main(int argc, char *argv[]) {
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
-                return 1;
+                return EXIT_FAILURE;
         }
 
         if (n <= 0 || n > SERVER_FD_MAX) {
                 log_error("No or too many file descriptors passed.");
-                return 2;
+                return EXIT_FAILURE;
         }
 
         if (server_init(&server, (unsigned) n) < 0)
-                return 2;
+                return EXIT_FAILURE;
 
         log_debug("systemd-initctl running as pid %lu", (unsigned long) getpid());
 
@@ -392,7 +404,7 @@ int main(int argc, char *argv[]) {
                         goto fail;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
         log_debug("systemd-initctl stopped as pid %lu", (unsigned long) getpid());
 

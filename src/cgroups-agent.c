@@ -21,6 +21,8 @@
 
 #include <dbus/dbus.h>
 
+#include <stdlib.h>
+
 #include "log.h"
 #include "dbus-common.h"
 
@@ -28,7 +30,7 @@ int main(int argc, char *argv[]) {
         DBusError error;
         DBusConnection *bus = NULL;
         DBusMessage *m = NULL;
-        int r = 1;
+        int r = EXIT_FAILURE;
 
         dbus_error_init(&error);
 
@@ -41,22 +43,20 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        /* If possible we go via the system bus, to make sure that
-         * session instances get the messages. If not possible we talk
-         * to the system instance directly. */
-        if (!(bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
 
-                dbus_error_free(&error);
+        /* We send this event to the private D-Bus socket and then the
+         * system instance will forward this to the system bus. We do
+         * this to avoid an actviation loop when we start dbus when we
+         * are called when the dbus service is shut down. */
 
-                if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
-                        log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
-                        goto finish;
-                }
+        if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", &error))) {
+                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
+                goto finish;
+        }
 
-                if (bus_check_peercred(bus) < 0) {
-                        log_error("Bus owner not root.");
-                        goto finish;
-                }
+        if (bus_check_peercred(bus) < 0) {
+                log_error("Bus owner not root.");
+                goto finish;
         }
 
         if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1/agent", "org.freedesktop.systemd1.Agent", "Released"))) {
@@ -72,17 +72,19 @@ int main(int argc, char *argv[]) {
         }
 
         if (!dbus_connection_send(bus, m, NULL)) {
-                log_error("Failed to send signal message.");
+                log_error("Failed to send signal message on private connection.");
                 goto finish;
         }
 
-        r = 0;
+        r = EXIT_SUCCESS;
 
 finish:
         if (bus) {
+                dbus_connection_flush(bus);
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
+
 
         if (m)
                 dbus_message_unref(m);

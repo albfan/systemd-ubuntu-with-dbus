@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[8],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[11],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -27,6 +27,7 @@ AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax subdi
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
 AC_CANONICAL_HOST
+AC_DEFINE_UNQUOTED([CANONICAL_HOST], "$host", [Canonical host string.])
 
 AM_SILENT_RULES([yes])
 
@@ -85,7 +86,12 @@ CC_CHECK_CFLAGS_APPEND([ \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
-        -fno-strict-aliasing])
+        -fno-strict-aliasing \
+        -fvisibility=hidden \
+        -ffunction-sections \
+        -fdata-sections \
+        -Wl,--as-needed \
+        -Wl,--gc-sections])
 
 LT_PREREQ(2.2)
 LT_INIT
@@ -226,7 +232,7 @@ AC_SUBST(AUDIT_LIBS)
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 libnotify ],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)
@@ -262,6 +268,7 @@ if test "z$with_distro" = "z"; then
         fi
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
+AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
 
 # Default generic names
 SPECIAL_SYSLOG_SERVICE=syslog.service
@@ -309,7 +316,8 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_ARCH=1
                 ;;
         gentoo)
-                SYSTEM_SYSVRCND_PATH=/etc
+                SYSTEM_SYSVINIT_PATH=
+                SYSTEM_SYSVRCND_PATH=
                 SPECIAL_SYSLOG_SERVICE=syslog-ng.service
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
                 M4_DISTRO_FLAG=-DTARGET_GENTOO=1
@@ -321,10 +329,6 @@ case $with_distro in
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
         other)
-                AS_IF([test "x$with_sysvinit_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvinit-path= to configure])])
-                AS_IF([test "x$with_sysvrcd_path" = "x"],
-                        [AC_MSG_ERROR([With --distro=other, you must pass --with-sysvrcd-path= to configure])])
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
                 ;;
@@ -355,6 +359,15 @@ AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
 AC_SUBST(SPECIAL_SYSLOG_SERVICE)
 AC_SUBST(M4_DISTRO_FLAG)
+
+if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
+        AC_DEFINE(HAVE_SYSV_COMPAT, [], [SysV init scripts and rcN.d links are supported.])
+        SYSTEM_SYSV_COMPAT="yes"
+elif test "x${SYSTEM_SYSVINIT_PATH}" != "x" -o "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
+        AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
+else
+        SYSTEM_SYSV_COMPAT="no"
+fi
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
@@ -415,12 +428,15 @@ echo "
         $PACKAGE_NAME $VERSION
 
         Distribution:            ${with_distro}
+        SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         Gtk:                     ${have_gtk}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
+        AUDIT:                   ${have_audit}
+        SELinux:                 ${have_selinux}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}

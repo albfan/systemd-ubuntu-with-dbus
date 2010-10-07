@@ -41,14 +41,14 @@ typedef enum ServiceState {
         SERVICE_STOP_POST,
         SERVICE_FINAL_SIGTERM,     /* In case the STOP_POST executable hangs, we shoot that down, too */
         SERVICE_FINAL_SIGKILL,
-        SERVICE_MAINTENANCE,
+        SERVICE_FAILED,
         SERVICE_AUTO_RESTART,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1
 } ServiceState;
 
 typedef enum ServiceRestart {
-        SERVICE_ONCE,
+        SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
@@ -106,6 +106,7 @@ struct Service {
         ExecCommand *control_command;
         ServiceExecCommand control_command_id;
         pid_t main_pid, control_pid;
+        int socket_fd;
 
         bool permissions_start_only;
         bool root_directory_start_only;
@@ -117,14 +118,14 @@ struct Service {
         bool bus_name_good:1;
         bool forbid_restart:1;
         bool got_socket_fd:1;
+#ifdef HAVE_SYSV_COMPAT
         bool sysv_has_lsb:1;
         bool sysv_enabled:1;
-
-        int socket_fd;
         int sysv_start_priority;
 
         char *sysv_path;
         char *sysv_runlevels;
+#endif
 
         char *bus_name;
 
@@ -132,7 +133,8 @@ struct Service {
 
         RateLimit ratelimit;
 
-        struct Socket *socket;
+        struct Socket *accept_socket;
+        Set *configured_sockets;
 
         Watch timer_watch;
 

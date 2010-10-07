@@ -27,14 +27,16 @@
 #include "strv.h"
 #include "bus-errors.h"
 
-#define BUS_MANAGER_INTERFACE                                           \
-        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"      \
+#define BUS_MANAGER_INTERFACE_BEGIN                                     \
+        " <interface name=\"org.freedesktop.systemd1.Manager\">\n"
+
+#define BUS_MANAGER_INTERFACE_METHODS                                   \
         "  <method name=\"GetUnit\">\n"                                 \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"GetUnitByPID\">\n"                            \
-        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"         \
+        "   <arg name=\"pid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>\n"        \
         "  </method>\n"                                                 \
         "  <method name=\"LoadUnit\">\n"                                \
@@ -76,7 +78,7 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"ResetMaintenanceUnit\">\n"                    \
+        "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
@@ -84,7 +86,7 @@
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
         "  <method name=\"ClearJobs\"/>\n"                              \
-        "  <method name=\"ResetMaintenance\"/>\n"                       \
+        "  <method name=\"ResetFailed\"/>\n"                            \
         "  <method name=\"ListUnits\">\n"                               \
         "   <arg name=\"units\" type=\"a(ssssssouso)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
@@ -107,7 +109,9 @@
         "  </method>\n"                                                 \
         "  <method name=\"UnsetEnvironment\">\n"                        \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
-        "  </method>\n"                                                 \
+        "  </method>\n"
+
+#define BUS_MANAGER_INTERFACE_SIGNALS                                   \
         "  <signal name=\"UnitNew\">\n"                                 \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"unit\" type=\"o\"/>\n"                          \
@@ -124,7 +128,10 @@
         "   <arg name=\"id\" type=\"u\"/>\n"                            \
         "   <arg name=\"job\" type=\"o\"/>\n"                           \
         "   <arg name=\"success\" type=\"b\"/>\n"                       \
-        "  </signal>"                                                   \
+        "  </signal>"
+
+
+#define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -132,18 +139,37 @@
         "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"NJobs\" type=\"u\" access=\"read\"/>\n"     \
+        "  <property name=\"NInstalledJobs\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"NFailedJobs\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"Progress\" type=\"d\" access=\"read\"/>\n"  \
         "  <property name=\"Environment\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"
+
+#ifdef HAVE_SYSV_COMPAT
+#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
+        "  <property name=\"SysVConsole\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SysVInitPath\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"SysVRcndPath\" type=\"as\" access=\"read\"/>\n"
+#else
+#define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV
+#endif
+
+#define BUS_MANAGER_INTERFACE_END                                       \
         " </interface>\n"
+
+#define BUS_MANAGER_INTERFACE                                           \
+        BUS_MANAGER_INTERFACE_BEGIN                                     \
+        BUS_MANAGER_INTERFACE_METHODS                                   \
+        BUS_MANAGER_INTERFACE_SIGNALS                                   \
+        BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
+        BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
+        BUS_MANAGER_INTERFACE_END
 
 #define INTROSPECTION_BEGIN                                             \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -220,6 +246,24 @@ static int bus_manager_append_n_jobs(Manager *m, DBusMessageIter *i, const char 
         return 0;
 }
 
+static int bus_manager_append_progress(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        double d;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        if (dual_timestamp_is_set(&m->finish_timestamp))
+                d = 1.0;
+        else
+                d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_DOUBLE, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static const char *message_get_sender_with_fallback(DBusMessage *m) {
         const char *s;
 
@@ -241,21 +285,27 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
+                { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },
+                { "org.freedesktop.systemd1.Manager", "NFailedJobs",   bus_property_append_uint32,    "u",  &m->n_failed_jobs  },
+                { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  NULL               },
                 { "org.freedesktop.systemd1.Manager", "Environment",   bus_property_append_strv,      "as", m->environment     },
                 { "org.freedesktop.systemd1.Manager", "ConfirmSpawn",  bus_property_append_bool,      "b",  &m->confirm_spawn  },
                 { "org.freedesktop.systemd1.Manager", "ShowStatus",    bus_property_append_bool,      "b",  &m->show_status    },
-                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "UnitPath",      bus_property_append_strv,      "as", m->lookup_paths.unit_path },
-                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
-                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
                 { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
+#ifdef HAVE_SYSV_COMPAT
+                { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
+                { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
+                { "org.freedesktop.systemd1.Manager", "SysVRcndPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvrcnd_path },
+#endif
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
@@ -403,14 +453,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenance")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailed")) {
 
-                manager_reset_maintenance(m);
+                manager_reset_failed(m);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetMaintenanceUnit")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ResetFailedUnit")) {
                 const char *name;
                 Unit *u;
 
@@ -426,7 +476,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         return bus_send_error_reply(m, connection, message, &error, -ENOENT);
                 }
 
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

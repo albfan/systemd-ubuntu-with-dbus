@@ -9,12 +9,10 @@
 Description=Load Kernel Modules
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-modules-load
-
-[Install]
-WantedBy=sysinit.target

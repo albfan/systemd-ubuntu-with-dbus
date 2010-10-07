@@ -9,12 +9,10 @@
 Description=Remount API VFS
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target local-fs.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
+Before=local-fs.target shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-remount-api-vfs
-
-[Install]
-WantedBy=sysinit.target

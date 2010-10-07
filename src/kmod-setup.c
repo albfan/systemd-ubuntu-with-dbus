@@ -41,7 +41,7 @@ int kmod_setup(void) {
         ExecCommand command;
         ExecContext context;
         pid_t pid;
-        int status, r;
+        int r;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i += 2) {
 
@@ -73,36 +73,10 @@ int kmod_setup(void) {
         r = exec_spawn(&command, NULL, &context, NULL, 0, NULL, false, false, false, false, NULL, &pid);
         exec_context_done(&context);
 
-        if (r < 0)
+        if (r < 0) {
+                log_error("Failed to spawn %s: %s", cmdline[0], strerror(-r));
                 return r;
-
-        for (;;) {
-                if (waitpid(pid, &status, 0) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
-
-                break;
         }
 
-        if (WIFEXITED(status)) {
-                if (WEXITSTATUS(status) != 0) {
-                        log_warning("/sbin/modprobe failed with error code %i.", WEXITSTATUS(status));
-                        return -EPROTO;
-                }
-
-                log_debug("/sbin/modprobe succeeded.");
-                return 0;
-        }
-
-        if (WIFSIGNALED(status)) {
-                log_warning("/sbin/modprobe terminated by signal %s.", signal_to_string(WTERMSIG(status)));
-                return -EPROTO;
-        }
-
-        log_warning("/sbin/modprobe failed due to unknown reason.");
-        return -EPROTO;
+        return wait_for_terminate_and_warn(cmdline[0], pid);
 }
