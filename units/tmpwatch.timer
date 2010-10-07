@@ -6,11 +6,8 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Automatically Spawn getty on Serial Kernel Console
+Description=Daily Cleanup of Temporary Directories
 
-[Service]
-Type=oneshot
-ExecStart=@rootlibexecdir@/systemd-auto-serial-getty
-
-[Install]
-WantedBy=getty.target
+[Timer]
+OnBootSec=1d
+OnUnitActiveSec=1d

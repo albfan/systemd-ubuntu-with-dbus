@@ -42,7 +42,20 @@
 #include "unit-name.h"
 #include "bus-errors.h"
 
-#define COMMENTS "#;\n"
+#ifndef HAVE_SYSV_COMPAT
+static int config_parse_warn_compat(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        log_debug("[%s:%u] Support for option %s= has been disabled at compile time and is ignored", filename, line, lvalue);
+        return 0;
+}
+#endif
 
 static int config_parse_deps(
                 const char *filename,
@@ -299,7 +312,7 @@ static int config_parse_nice(
         return 0;
 }
 
-static int config_parse_oom_adjust(
+static int config_parse_oom_score_adjust(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -317,17 +330,17 @@ static int config_parse_oom_adjust(
         assert(data);
 
         if ((r = safe_atoi(rvalue, &oa)) < 0) {
-                log_error("[%s:%u] Failed to parse OOM adjust value, ignoring: %s", filename, line, rvalue);
+                log_error("[%s:%u] Failed to parse the OOM score adjust value, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        if (oa < OOM_DISABLE || oa > OOM_ADJUST_MAX) {
-                log_error("[%s:%u] OOM adjust value out of range, ignoring: %s", filename, line, rvalue);
+        if (oa < OOM_SCORE_ADJ_MIN || oa > OOM_SCORE_ADJ_MAX) {
+                log_error("[%s:%u] OOM score adjust value out of range, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
 
-        c->oom_adjust = oa;
-        c->oom_adjust_set = true;
+        c->oom_score_adjust = oa;
+        c->oom_score_adjust_set = true;
 
         return 0;
 }
@@ -961,6 +974,7 @@ static int config_parse_cgroup(
         return 0;
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static int config_parse_sysv_priority(
                 const char *filename,
                 unsigned line,
@@ -986,6 +1000,7 @@ static int config_parse_sysv_priority(
         *priority = (int) i;
         return 0;
 }
+#endif
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
@@ -1211,6 +1226,94 @@ static int config_parse_path_unit(
         return 0;
 }
 
+static int config_parse_socket_service(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Socket *s = data;
+        int r;
+        DBusError error;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
+
+        if (!endswith(rvalue, ".service")) {
+                log_error("[%s:%u] Unit must be of type service, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if ((r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, (Unit**) &s->service)) < 0) {
+                log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
+                dbus_error_free(&error);
+                return 0;
+        }
+
+        return 0;
+}
+
+static int config_parse_service_sockets(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Service *s = data;
+        int r;
+        DBusError error;
+        char *state, *w;
+        size_t l;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        dbus_error_init(&error);
+
+        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                char *t;
+                Unit *sock;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                if (!endswith(t, ".socket")) {
+                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
+                        free(t);
+                        continue;
+                }
+
+                r = manager_load_unit(s->meta.manager, t, NULL, &error, &sock);
+                free(t);
+
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
+                        dbus_error_free(&error);
+                        continue;
+                }
+
+                if ((r = set_ensure_allocated(&s->configured_sockets, trivial_hash_func, trivial_compare_func)) < 0)
+                        return r;
+
+                if ((r = set_put(s->configured_sockets, sock)) < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int config_parse_env_file(
                 const char *filename,
                 unsigned line,
@@ -1425,7 +1528,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_path,             "PATH" },
                 { config_parse_strv,             "STRING [...]" },
                 { config_parse_nice,             "NICE" },
-                { config_parse_oom_adjust,       "OOMADJUST" },
+                { config_parse_oom_score_adjust, "OOMSCOREADJUST" },
                 { config_parse_io_class,         "IOCLASS" },
                 { config_parse_io_priority,      "IOPRIORITY" },
                 { config_parse_cpu_sched_policy, "CPUSCHEDPOLICY" },
@@ -1448,7 +1551,11 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_exec,             "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,     "SERVICETYPE" },
                 { config_parse_service_restart,  "SERVICERESTART" },
+#ifdef HAVE_SYSV_COMPAT
                 { config_parse_sysv_priority,    "SYSVPRIORITY" },
+#else
+                { config_parse_warn_compat,      "NOTSUPPORTED" },
+#endif
                 { config_parse_kill_mode,        "KILLMODE" },
                 { config_parse_kill_signal,      "SIGNAL" },
                 { config_parse_listen,           "SOCKET [...]" },
@@ -1515,7 +1622,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Group",                  config_parse_string_printf,   &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
-                { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
+                { "OOMScoreAdjust",         config_parse_oom_score_adjust,&(context),                                      section   }, \
                 { "IOSchedulingClass",      config_parse_io_class,        &(context),                                      section   }, \
                 { "IOSchedulingPriority",   config_parse_io_priority,     &(context),                                      section   }, \
                 { "CPUSchedulingPolicy",    config_parse_cpu_sched_policy,&(context),                                      section   }, \
@@ -1580,6 +1687,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "RefuseManualStart",      config_parse_bool,            &u->meta.refuse_manual_start,                    "Unit"    },
                 { "RefuseManualStop",       config_parse_bool,            &u->meta.refuse_manual_stop,                     "Unit"    },
+                { "AllowIsolate",           config_parse_bool,            &u->meta.allow_isolate,                          "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
                 { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
@@ -1598,10 +1706,15 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "RemainAfterExit",        config_parse_bool,            &u->service.remain_after_exit,                   "Service" },
+#ifdef HAVE_SYSV_COMPAT
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
+#else
+                { "SysVStartPriority",      config_parse_warn_compat,     NULL,                                            "Service" },
+#endif
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
+                { "Sockets",                config_parse_service_sockets, &u->service,                                     "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
@@ -1630,6 +1743,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PipeSize",               config_parse_size,            &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            &u->socket.free_bind,                            "Socket"  },
                 { "TCPCongestion",          config_parse_string,          &u->socket.tcp_congestion,                       "Socket"  },
+                { "Service",                config_parse_socket_service,  &u->socket,                                      "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },
@@ -1822,9 +1936,19 @@ int unit_load_fragment(Unit *u) {
                 }
 
         /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path)
+        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path) {
+
                 if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
                         return r;
+
+                if (u->meta.load_state == UNIT_STUB) {
+                        /* Hmm, this didn't work? Then let's get rid
+                         * of the fragment path stored for us, so that
+                         * we don't point to an invalid location. */
+                        free(u->meta.fragment_path);
+                        u->meta.fragment_path = NULL;
+                }
+        }
 
         /* Look for a template */
         if (u->meta.load_state == UNIT_STUB && u->meta.instance) {

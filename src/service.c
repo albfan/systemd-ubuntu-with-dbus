@@ -38,6 +38,7 @@
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
 
+#ifdef HAVE_SYSV_COMPAT
 typedef enum RunlevelType {
         RUNLEVEL_UP,
         RUNLEVEL_DOWN,
@@ -80,6 +81,7 @@ static const struct {
 #define RUNLEVELS_UP "12345"
 /* #define RUNLEVELS_DOWN "06" */
 /* #define RUNLEVELS_BOOT "bBsS" */
+#endif
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -95,7 +97,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_MAINTENANCE] = UNIT_MAINTENANCE,
+        [SERVICE_FAILED] = UNIT_FAILED,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
 };
 
@@ -108,7 +110,9 @@ static void service_init(Unit *u) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
         s->timer_watch.type = WATCH_INVALID;
+#ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
+#endif
         s->socket_fd = -1;
 
         exec_context_init(&s->exec_context);
@@ -174,11 +178,11 @@ static void service_close_socket_fd(Service *s) {
 static void service_connection_unref(Service *s) {
         assert(s);
 
-        if (!s->socket)
+        if (!s->accept_socket)
                 return;
 
-        socket_connection_unref(s->socket);
-        s->socket = NULL;
+        socket_connection_unref(s->accept_socket);
+        s->accept_socket = NULL;
 }
 
 static void service_done(Unit *u) {
@@ -189,11 +193,13 @@ static void service_done(Unit *u) {
         free(s->pid_file);
         s->pid_file = NULL;
 
+#ifdef HAVE_SYSV_COMPAT
         free(s->sysv_path);
         s->sysv_path = NULL;
 
         free(s->sysv_runlevels);
         s->sysv_runlevels = NULL;
+#endif
 
         free(s->status_text);
         s->status_text = NULL;
@@ -216,9 +222,12 @@ static void service_done(Unit *u) {
         service_close_socket_fd(s);
         service_connection_unref(s);
 
+        set_free(s->configured_sockets);
+
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static char *sysv_translate_name(const char *name) {
         char *r;
 
@@ -231,6 +240,11 @@ static char *sysv_translate_name(const char *name) {
         else if (endswith(name, ".sh"))
                 /* Drop Debian-style .sh suffix */
                 strcpy(stpcpy(r, name) - 3, ".service");
+#ifdef TARGET_ARCH
+        else if (startswith(name, "@"))
+                /* Drop Arch-style background prefix */
+                strcpy(stpcpy(r, name + 1), ".service");
+#endif
         else
                 /* Normal init scripts */
                 strcpy(stpcpy(r, name), ".service");
@@ -238,39 +252,80 @@ static char *sysv_translate_name(const char *name) {
         return r;
 }
 
-static int sysv_translate_facility(const char *name, char **_r) {
+static int sysv_translate_facility(const char *name, const char *filename, char **_r) {
+
+        /* We silently ignore the $ prefix here. According to the LSB
+         * spec it simply indicates whether something is a
+         * standardized name or a distribution-specific one. Since we
+         * just follow what already exists and do not introduce new
+         * uses or names we don't care who introduced a new name. */
 
         static const char * const table[] = {
                 /* LSB defined facilities */
-                "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
-                "$network",   SPECIAL_NETWORK_TARGET,
-                "$named",     SPECIAL_NSS_LOOKUP_TARGET,
-                "$portmap",   SPECIAL_RPCBIND_TARGET,
-                "$remote_fs", SPECIAL_REMOTE_FS_TARGET,
-                "$syslog",    SPECIAL_SYSLOG_TARGET,
-                "$time",      SPECIAL_RTC_SET_TARGET,
+                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
+                "network",              SPECIAL_NETWORK_TARGET,
+                "named",                SPECIAL_NSS_LOOKUP_TARGET,
+                "portmap",              SPECIAL_RPCBIND_TARGET,
+                "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
+                "syslog",               SPECIAL_SYSLOG_TARGET,
+                "time",                 SPECIAL_RTC_SET_TARGET,
 
                 /* Debian extensions */
-                "$mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "$mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "$x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE
+#ifdef TARGET_DEBIAN
+                "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+#endif
+                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
+
+#ifdef TARGET_FEDORA
+                /* Fedora extensions */
+                "MTA",                  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "smtpdaemon",           SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "httpd",                SPECIAL_HTTP_DAEMON_TARGET,
+#endif
+
+                /* SuSE extensions */
+                "null",                 NULL
+
         };
 
         unsigned i;
         char *r;
+        const char *n;
 
-        for (i = 0; i < ELEMENTSOF(table); i += 2)
-                if (streq(table[i], name)) {
-                        if (!(r = strdup(table[i+1])))
-                                return -ENOMEM;
+        assert(name);
+        assert(_r);
 
-                        goto finish;
-                }
+        n = *name == '$' ? name + 1 : name;
+
+        for (i = 0; i < ELEMENTSOF(table); i += 2) {
+
+                if (!streq(table[i], n))
+                        continue;
+
+                if (!table[i+1])
+                        return 0;
+
+                if (!(r = strdup(table[i+1])))
+                        return -ENOMEM;
+
+                goto finish;
+        }
+
+        /* If we don't know this name, fallback heuristics to figure
+         * out whether something is a target or an service alias. */
 
         if (*name == '$')
+                /* Facilities starting with $ are most likely targets */
+                r = unit_name_build(n, NULL, ".target");
+        else if (filename && streq(name, filename))
+                /* Names equalling the file name of the services are redundant */
                 return 0;
+        else
+                /* Everything else we assume to be normal service names */
+                r = sysv_translate_name(n);
 
-        if (!(r = sysv_translate_name(name)))
+        if (!r)
                 return -ENOMEM;
 
 finish:
@@ -303,13 +358,16 @@ static int sysv_fix_order(Service *s) {
                 if (s == t)
                         continue;
 
+                if (t->meta.load_state != UNIT_LOADED)
+                        continue;
+
                 if (t->sysv_start_priority < 0)
                         continue;
 
                 /* If both units have modern headers we don't care
                  * about the priorities */
-                if ((!s->sysv_path || s->sysv_has_lsb) &&
-                    (!t->sysv_path || t->sysv_has_lsb))
+                if ((s->meta.fragment_path || s->sysv_has_lsb) &&
+                    (t->meta.fragment_path || t->sysv_has_lsb))
                         continue;
 
                 special_s = s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels);
@@ -387,6 +445,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 LSB,
                 LSB_DESCRIPTION
         } state = NORMAL;
+        char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL, *description;
 
         assert(s);
         assert(path);
@@ -477,24 +536,27 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "description:") &&
-                                   !u->meta.description) {
+                        } else if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;
+                                const char *j;
 
                                 if (t[k-1] == '\\') {
                                         state = DESCRIPTION;
                                         t[k-1] = 0;
                                 }
 
-                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+12)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(chkconfig_description);
+                                chkconfig_description = d;
 
                         } else if (startswith_no_case(t, "pidfile:")) {
 
@@ -523,21 +585,29 @@ static int service_load_sysv_path(Service *s, const char *path) {
                          * continuation */
 
                         size_t k = strlen(t);
-                        char *d;
+                        char *j;
 
                         if (t[k-1] == '\\')
                                 t[k-1] = 0;
                         else
                                 state = NORMAL;
 
-                        assert(u->meta.description);
-                        if (asprintf(&d, "%s %s", u->meta.description, strstrip(t)) < 0) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if ((j = strstrip(t)) && *j) {
+                                char *d = NULL;
 
-                        free(u->meta.description);
-                        u->meta.description = d;
+                                if (chkconfig_description)
+                                        asprintf(&d, "%s %s", chkconfig_description, j);
+                                else
+                                        d = strdup(j);
+
+                                if (!d) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(chkconfig_description);
+                                chkconfig_description = d;
+                        }
 
                 } else if (state == LSB || state == LSB_DESCRIPTION) {
 
@@ -555,7 +625,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, &m);
+                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
                                         free(n);
 
                                         if (r < 0)
@@ -566,15 +636,21 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else if (s->sysv_enabled)
-                                                r = unit_add_two_dependencies_by_name_inverse(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
-                                        else
-                                                r = unit_add_dependency_by_name_inverse(u, UNIT_AFTER, m, NULL, true);
+                                        else {
+                                                r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
 
-                                        free(m);
+                                                if (s->sysv_enabled) {
+                                                        int k;
+
+                                                        if ((k = unit_add_dependency_by_name_inverse(u, UNIT_WANTS, m, NULL, true)) < 0)
+                                                                r = k;
+                                                }
+                                        }
 
                                         if (r < 0)
-                                                goto finish;
+                                                log_error("[%s:%u] Failed to add LSB Provides name %s, ignoring: %s", path, line, m, strerror(-r));
+
+                                        free(m);
                                 }
 
                         } else if (startswith_no_case(t, "Required-Start:") ||
@@ -594,7 +670,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 goto finish;
                                         }
 
-                                        r = sysv_translate_facility(n, &m);
+                                        r = sysv_translate_facility(n, file_name_from_path(path), &m);
                                         free(n);
 
                                         if (r < 0)
@@ -604,10 +680,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 continue;
 
                                         r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
-                                        free(m);
 
                                         if (r < 0)
-                                                goto finish;
+                                                log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", path, line, m, strerror(-r));
+
+                                        free(m);
                                 }
                         } else if (startswith_no_case(t, "Default-Start:")) {
                                 char *k, *d;
@@ -626,35 +703,37 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "Description:") &&
-                                   !u->meta.description) {
-                                char *d;
-
-                                /* We use the long description only if
-                                 * no short description is set. */
+                        } else if (startswith_no_case(t, "Description:")) {
+                                char *d, *j;
 
                                 state = LSB_DESCRIPTION;
 
-                                if (!(d = strappend("LSB: ", strstrip(t+12)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+12)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(long_description);
+                                long_description = d;
 
                         } else if (startswith_no_case(t, "Short-Description:")) {
-                                char *d;
+                                char *d, *j;
 
                                 state = LSB;
 
-                                if (!(d = strappend("LSB: ", strstrip(t+18)))) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                                if ((j = strstrip(t+18)) && *j) {
+                                        if (!(d = strdup(j))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+                                } else
+                                        d = NULL;
 
-                                free(u->meta.description);
-                                u->meta.description = d;
+                                free(short_description);
+                                short_description = d;
 
                         } else if (startswith_no_case(t, "X-Interactive:")) {
                                 int b;
@@ -672,16 +751,25 @@ static int service_load_sysv_path(Service *s, const char *path) {
                         } else if (state == LSB_DESCRIPTION) {
 
                                 if (startswith(l, "#\t") || startswith(l, "#  ")) {
-                                        char *d;
+                                        char *j;
 
-                                        assert(u->meta.description);
-                                        if (asprintf(&d, "%s %s", u->meta.description, t) < 0) {
-                                                r = -ENOMEM;
-                                                goto finish;
+                                        if ((j = strstrip(t)) && *j) {
+                                                char *d = NULL;
+
+                                                if (long_description)
+                                                        asprintf(&d, "%s %s", long_description, t);
+                                                else
+                                                        d = strdup(j);
+
+                                                if (!d) {
+                                                        r = -ENOMEM;
+                                                        goto finish;
+                                                }
+
+                                                free(long_description);
+                                                long_description = d;
                                         }
 
-                                        free(u->meta.description);
-                                        u->meta.description = d;
                                 } else
                                         state = LSB;
                         }
@@ -707,11 +795,34 @@ static int service_load_sysv_path(Service *s, const char *path) {
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
         s->remain_after_exit = true;
-        s->restart = SERVICE_ONCE;
+        s->restart = SERVICE_RESTART_NO;
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
                 ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
+
+        /* We use the long description only if
+         * no short description is set. */
+
+        if (short_description)
+                description = short_description;
+        else if (chkconfig_description)
+                description = chkconfig_description;
+        else if (long_description)
+                description = long_description;
+        else
+                description = NULL;
+
+        if (description) {
+                char *d;
+
+                if (!(d = strappend("LSB: ", description))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                u->meta.description = d;
+        }
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -720,6 +831,10 @@ finish:
 
         if (f)
                 fclose(f);
+
+        free(short_description);
+        free(long_description);
+        free(chkconfig_description);
 
         return r;
 }
@@ -808,22 +923,7 @@ static int service_load_sysv(Service *s) {
 
         return 0;
 }
-
-static int service_add_bus_name(Service *s) {
-        char *n;
-        int r;
-
-        assert(s);
-        assert(s->bus_name);
-
-        if (asprintf(&n, "dbus-%s.service", s->bus_name) < 0)
-                return 0;
-
-        r = unit_merge_by_name(UNIT(s), n);
-        free(n);
-
-        return r;
-}
+#endif
 
 static int service_verify(Service *s) {
         assert(s);
@@ -889,10 +989,12 @@ static int service_load(Unit *u) {
         if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
+#ifdef HAVE_SYSV_COMPAT
         /* Load a classic init script as a fallback, if we couldn't find anything */
         if (u->meta.load_state == UNIT_STUB)
                 if ((r = service_load_sysv(s)) < 0)
                         return r;
+#endif
 
         /* Still nothing found? Then let's give up */
         if (u->meta.load_state == UNIT_STUB)
@@ -911,16 +1013,14 @@ static int service_load(Unit *u) {
                 if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
 
+#ifdef HAVE_SYSV_COMPAT
                 if ((r = sysv_fix_order(s)) < 0)
                         return r;
+#endif
 
-                if (s->bus_name) {
-                        if ((r = service_add_bus_name(s)) < 0)
-                                return r;
-
+                if (s->bus_name)
                         if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
                                 return r;
-                }
 
                 if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
                         s->notify_access = NOTIFY_MAIN;
@@ -1000,6 +1100,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
+#ifdef HAVE_SYSV_COMPAT
         if (s->sysv_path)
                 fprintf(f,
                         "%sSysV Init Script Path: %s\n"
@@ -1017,6 +1118,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->sysv_runlevels)
                 fprintf(f, "%sSysVRunLevels: %s\n",
                         prefix, s->sysv_runlevels);
+#endif
 
         if (s->status_text)
                 fprintf(f, "%sStatus Text: %s\n",
@@ -1077,6 +1179,9 @@ static int service_get_sockets(Service *s, Set **_set) {
         if (s->socket_fd >= 0)
                 return 0;
 
+        if (!set_isempty(s->configured_sockets))
+                return 0;
+
         /* Collects all Socket objects that belong to this
          * service. Note that a service might have multiple sockets
          * via multiple names. */
@@ -1116,23 +1221,30 @@ fail:
 
 static int service_notify_sockets_dead(Service *s) {
         Iterator i;
-        Set *set;
+        Set *set, *free_set = NULL;
         Socket *sock;
         int r;
 
         assert(s);
 
+        /* Notifies all our sockets when we die */
+
         if (s->socket_fd >= 0)
                 return 0;
 
-        /* Notifies all our sockets when we die */
-        if ((r = service_get_sockets(s, &set)) < 0)
-                return r;
+        if (!set_isempty(s->configured_sockets))
+                set = s->configured_sockets;
+        else {
+                if ((r = service_get_sockets(s, &free_set)) < 0)
+                        return r;
+
+                set = free_set;
+        }
 
         SET_FOREACH(sock, set, i)
                 socket_notify_service_dead(sock);
 
-        set_free(set);
+        set_free(free_set);
 
         return 0;
 }
@@ -1188,7 +1300,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_STOP_POST ||
             state == SERVICE_FINAL_SIGTERM ||
             state == SERVICE_FINAL_SIGKILL ||
-            state == SERVICE_MAINTENANCE ||
+            state == SERVICE_FAILED ||
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets_dead(s);
 
@@ -1290,7 +1402,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         int r;
         int *rfds = NULL;
         unsigned rn_fds = 0;
-        Set *set;
+        Set *set, *free_set = NULL;
         Socket *sock;
 
         assert(s);
@@ -1300,8 +1412,14 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         if (s->socket_fd >= 0)
                 return 0;
 
-        if ((r = service_get_sockets(s, &set)) < 0)
-                return r;
+        if (!set_isempty(s->configured_sockets))
+                set = s->configured_sockets;
+        else {
+                if ((r = service_get_sockets(s, &free_set)) < 0)
+                        return r;
+
+                set = free_set;
+        }
 
         SET_FOREACH(sock, set, i) {
                 int *cfds;
@@ -1338,7 +1456,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         *fds = rfds;
         *n_fds = rn_fds;
 
-        set_free(set);
+        set_free(free_set);
 
         return 0;
 
@@ -1512,7 +1630,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else
-                service_set_state(s, s->failure ? SERVICE_MAINTENANCE : SERVICE_DEAD);
+                service_set_state(s, s->failure ? SERVICE_FAILED : SERVICE_DEAD);
 
         s->forbid_restart = false;
 
@@ -1561,7 +1679,8 @@ fail:
 
 static void service_enter_signal(Service *s, ServiceState state, bool success) {
         int r;
-        bool sent = false;
+        Set *pid_set = NULL;
+        bool wait_for_exit = false;
 
         assert(s);
 
@@ -1571,38 +1690,53 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         if (s->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->main_pid > 0) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -s->main_pid :
+                                 s->main_pid, sig) < 0 && errno != ESRCH)
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
-                                if (r != -EAGAIN && r != -ESRCH)
-                                        goto fail;
-                        } else
-                                sent = true;
+                                log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
+                        else
+                                wait_for_exit = true;
                 }
 
-                if (!sent) {
-                        r = 0;
+                if (s->control_pid > 0) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -s->control_pid :
+                                 s->control_pid, sig) < 0 && errno != ESRCH)
 
-                        if (s->main_pid > 0) {
-                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
-                                        r = -errno;
-                                else
-                                        sent = true;
-                        }
+                                log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
+                        else
+                                wait_for_exit = true;
+                }
 
-                        if (s->control_pid > 0) {
-                                if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
-                                        r = -errno;
-                                else
-                                        sent = true;
-                        }
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
 
-                        if (r < 0)
+                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
+
+                        /* Exclude the main/control pids from being killed via the cgroup */
+                        if (s->main_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(s->main_pid))) < 0)
+                                        goto fail;
+
+                        if (s->control_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
+                                        goto fail;
+
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                        log_warning("Failed to kill control group: %s", strerror(-r));
+                        } else if (r > 0)
+                                wait_for_exit = true;
+
+                        set_free(pid_set);
                 }
         }
 
-        if (sent && (s->main_pid > 0 || s->control_pid > 0)) {
+        if (wait_for_exit) {
                 if (s->timeout_usec > 0)
                         if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                                 goto fail;
@@ -1622,6 +1756,9 @@ fail:
                 service_enter_stop_post(s, false);
         else
                 service_enter_dead(s, false, true);
+
+        if (pid_set)
+                set_free(pid_set);
 }
 
 static void service_enter_stop(Service *s, bool success) {
@@ -1813,7 +1950,7 @@ static void service_enter_restart(Service *s) {
 
         service_enter_dead(s, true, false);
 
-        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, NULL, NULL)) < 0)
+        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s), JOB_FAIL, false, &error, NULL)) < 0)
                 goto fail;
 
         log_debug("%s scheduled restart job.", s->meta.id);
@@ -1957,20 +2094,12 @@ static int service_start(Unit *u) {
             s->state == SERVICE_START_POST)
                 return 0;
 
-        assert(s->state == SERVICE_DEAD || s->state == SERVICE_MAINTENANCE || s->state == SERVICE_AUTO_RESTART);
+        assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED || s->state == SERVICE_AUTO_RESTART);
 
         /* Make sure we don't enter a busy loop of some kind. */
         if (!ratelimit_test(&s->ratelimit)) {
                 log_warning("%s start request repeated too quickly, refusing to start.", u->meta.id);
                 return -ECANCELED;
-        }
-
-        if ((s->exec_context.std_input == EXEC_INPUT_SOCKET ||
-             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
-             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) &&
-            s->socket_fd < 0) {
-                log_warning("%s can only be started with a per-connection socket.", u->meta.id);
-                return -EINVAL;
         }
 
         s->failure = false;
@@ -2240,6 +2369,7 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static bool service_check_gc(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -2247,6 +2377,7 @@ static bool service_check_gc(Unit *u) {
 
         return !!s->sysv_path;
 }
+#endif
 
 static bool service_check_snapshot(Unit *u) {
         Service *s = SERVICE(u);
@@ -2263,7 +2394,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (s->sysv_path)
+        if (!s->meta.fragment_path)
                 success = is_clean_exit_lsb(code, status);
         else
                 success = is_clean_exit(code, status);
@@ -2511,7 +2642,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintenance mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
                 service_enter_dead(s, false, true);
                 break;
 
@@ -2542,6 +2673,20 @@ static void service_cgroup_notify_event(Unit *u) {
 
         case SERVICE_RUNNING:
                 service_enter_running(s, true);
+                break;
+
+        case SERVICE_STOP_SIGTERM:
+        case SERVICE_STOP_SIGKILL:
+                if (main_pid_good(s) <= 0 && !control_pid_good(s))
+                        service_enter_stop_post(s, true);
+
+                break;
+
+        case SERVICE_FINAL_SIGTERM:
+        case SERVICE_FINAL_SIGKILL:
+                if (main_pid_good(s) <= 0 && !control_pid_good(s))
+                        service_enter_dead(s, true, true);
+
                 break;
 
         default:
@@ -2618,14 +2763,78 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         unit_add_to_dbus_queue(u);
 }
 
+#ifdef HAVE_SYSV_COMPAT
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
         DIR *d = NULL;
         char *path = NULL, *fpath = NULL, *name = NULL;
+        Set *runlevel_services[ELEMENTSOF(rcnd_table)], *shutdown_services = NULL;
+        Unit *service;
+        Iterator j;
         int r;
+#ifdef TARGET_ARCH
+        Unit *previous = NULL;
+        char *arch_daemons = NULL;
+        char *arch_daemons_stripped = NULL;
+        char **arch_daemons_split = NULL;
+#endif
 
         assert(m);
+
+#ifdef TARGET_ARCH
+        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
+                                "DAEMONS", &arch_daemons,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
+
+        } else if (arch_daemons) {
+                if (!(arch_daemons_stripped = strchr(arch_daemons, '(')))
+                        arch_daemons_stripped = arch_daemons;
+                else
+                        arch_daemons_stripped++; /* strip start paren */
+
+                arch_daemons_stripped[strcspn(arch_daemons_stripped, ")")] = 0; /* strip end paren */
+
+                if (!(arch_daemons_split = strv_split_quoted(arch_daemons_stripped))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                STRV_FOREACH(p, arch_daemons_split) {
+
+                        free(name);
+                        name = NULL;
+
+                        if (**p == '!') /* daemons prefixed with ! are disabled, so ignore them */
+                                continue;
+
+                        if (!(name = sysv_translate_name(*p))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if ((r = manager_load_unit_prepare(m, name, NULL, NULL, &service)) < 0) {
+                                log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
+                                continue;
+                        }
+
+                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, "multi-user.target", NULL, true)) < 0)
+                                goto finish;
+
+                        if (previous)
+                                if ((r = unit_add_dependency(service, UNIT_AFTER, previous, true)) < 0)
+                                        goto finish;
+
+                        if (**p != '@') /* daemons prefixed with @ can be started in the background */
+                                previous = service;
+                }
+        }
+#endif
+
+        zero(runlevel_services);
 
         STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
@@ -2649,7 +2858,6 @@ static int service_enumerate(Manager *m) {
                         }
 
                         while ((de = readdir(d))) {
-                                Unit *service;
                                 int a, b;
 
                                 if (ignore_file(de->d_name))
@@ -2693,53 +2901,69 @@ static int service_enumerate(Manager *m) {
                                         continue;
                                 }
 
-                                if (de->d_name[0] == 'S' &&
-                                    (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
-                                        SERVICE(service)->sysv_start_priority =
-                                                MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
-                                        SERVICE(service)->sysv_enabled = true;
-                                }
+                                if (de->d_name[0] == 'S')  {
 
-                                manager_dispatch_load_queue(m);
-                                service = unit_follow_merge(service);
+                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
+                                                SERVICE(service)->sysv_start_priority =
+                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
 
-                                /* If this is a native service, rely
-                                 * on native ways to pull in a
-                                 * service, don't pull it in via sysv
-                                 * rcN.d links. */
-                                if (service->meta.fragment_path)
-                                        continue;
+                                                SERVICE(service)->sysv_enabled = true;
+                                        }
 
-                                if (de->d_name[0] == 'S') {
+                                        if ((r = set_ensure_allocated(&runlevel_services[i], trivial_hash_func, trivial_compare_func)) < 0)
+                                                goto finish;
 
-                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
+                                        if ((r = set_put(runlevel_services[i], service)) < 0)
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN ||
                                             rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
 
-                                        /* We honour K links only for
-                                         * halt/reboot. For the normal
-                                         * runlevels we assume the
-                                         * stop jobs will be
-                                         * implicitly added by the
-                                         * core logic. Also, we don't
-                                         * really distuingish here
-                                         * between the runlevels 0 and
-                                         * 6 and just add them to the
-                                         * special shutdown target. On
-                                         * SUSE the boot.d/ runlevel
-                                         * is also used for shutdown,
-                                         * so we add links for that
-                                         * too to the shutdown
-                                         * target.*/
+                                        if ((r = set_ensure_allocated(&shutdown_services, trivial_hash_func, trivial_compare_func)) < 0)
+                                                goto finish;
 
-                                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                                        if ((r = set_put(shutdown_services, service)) < 0)
                                                 goto finish;
                                 }
                         }
                 }
+
+        /* Now we loaded all stubs and are aware of the lowest
+        start-up priority for all services, not let's actually load
+        the services, this will also tell us which services are
+        actually native now */
+        manager_dispatch_load_queue(m);
+
+        /* If this is a native service, rely on native ways to pull in
+         * a service, don't pull it in via sysv rcN.d links. */
+        for (i = 0; i < ELEMENTSOF(rcnd_table); i ++)
+                SET_FOREACH(service, runlevel_services[i], j) {
+                        service = unit_follow_merge(service);
+
+                        if (service->meta.fragment_path)
+                                continue;
+
+                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, rcnd_table[i].target, NULL, true)) < 0)
+                                goto finish;
+                }
+
+        /* We honour K links only for halt/reboot. For the normal
+         * runlevels we assume the stop jobs will be implicitly added
+         * by the core logic. Also, we don't really distuingish here
+         * between the runlevels 0 and 6 and just add them to the
+         * special shutdown target. On SUSE the boot.d/ runlevel is
+         * also used for shutdown, so we add links for that too to the
+         * shutdown target.*/
+        SET_FOREACH(service, shutdown_services, j) {
+                service = unit_follow_merge(service);
+
+                if (service->meta.fragment_path)
+                        continue;
+
+                if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true)) < 0)
+                        goto finish;
+        }
 
         r = 0;
 
@@ -2747,12 +2971,21 @@ finish:
         free(path);
         free(fpath);
         free(name);
+#ifdef TARGET_ARCH
+        free(arch_daemons);
+        free(arch_daemons_split);
+#endif
+
+        for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
+                set_free(runlevel_services[i]);
+        set_free(shutdown_services);
 
         if (d)
                 closedir(d);
 
         return r;
 }
+#endif
 
 static void service_bus_name_owner_change(
                 Unit *u,
@@ -2839,17 +3072,17 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock) {
 
         s->socket_fd = fd;
         s->got_socket_fd = true;
-        s->socket = sock;
+        s->accept_socket = sock;
 
         return 0;
 }
 
-static void service_reset_maintenance(Unit *u) {
+static void service_reset_failed(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
 
-        if (s->state == SERVICE_MAINTENANCE)
+        if (s->state == SERVICE_FAILED)
                 service_set_state(s, SERVICE_DEAD);
 
         s->failure = false;
@@ -2869,16 +3102,16 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_STOP_POST] = "stop-post",
         [SERVICE_FINAL_SIGTERM] = "final-sigterm",
         [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-        [SERVICE_MAINTENANCE] = "maintenance",
+        [SERVICE_FAILED] = "failed",
         [SERVICE_AUTO_RESTART] = "auto-restart",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
-        [SERVICE_ONCE] = "once",
-        [SERVICE_RESTART_ON_SUCCESS] = "restart-on-success",
-        [SERVICE_RESTART_ALWAYS] = "restart-always",
+        [SERVICE_RESTART_NO] = "no",
+        [SERVICE_RESTART_ON_SUCCESS] = "on-success",
+        [SERVICE_RESTART_ALWAYS] = "always",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
@@ -2936,13 +3169,15 @@ const UnitVTable service_vtable = {
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
 
+#ifdef HAVE_SYSV_COMPAT
         .check_gc = service_check_gc,
+#endif
         .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
 
-        .reset_maintenance = service_reset_maintenance,
+        .reset_failed = service_reset_failed,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,
@@ -2954,5 +3189,7 @@ const UnitVTable service_vtable = {
         .bus_message_handler = bus_service_message_handler,
         .bus_invalidating_properties =  bus_service_invalidating_properties,
 
+#ifdef HAVE_SYSV_COMPAT
         .enumerate = service_enumerate
+#endif
 };

@@ -54,7 +54,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_MAINTENANCE] = UNIT_MAINTENANCE
+        [SOCKET_FAILED] = UNIT_FAILED
 };
 
 static void socket_init(Unit *u) {
@@ -129,8 +129,10 @@ static void socket_done(Unit *u) {
         LIST_FOREACH(units_per_type, i, u->meta.manager->units_per_type[UNIT_SERVICE]) {
                 Service *service = (Service *) i;
 
-                if (service->socket == s)
-                        service->socket = NULL;
+                if (service->accept_socket == s)
+                        service->accept_socket = NULL;
+
+                set_remove(service->configured_sockets, s);
         }
 }
 
@@ -209,6 +211,11 @@ static int socket_verify(Socket *s) {
 
         if (s->accept && s->max_connections <= 0) {
                 log_error("%s's MaxConnection setting too small. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
+        if (s->accept && s->service) {
+                log_error("Explicit service configuration for accepting sockets not supported on %s. Refusing.", s->meta.id);
                 return -EINVAL;
         }
 
@@ -315,8 +322,10 @@ static int socket_load(Unit *u) {
         if (u->meta.load_state == UNIT_LOADED) {
 
                 if (have_non_accept_socket(s)) {
-                        if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
-                                return r;
+
+                        if (!s->service)
+                                if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)) < 0)
+                                        return r;
 
                         if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service), true)) < 0)
                                 return r;
@@ -385,7 +394,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
                 prefix, yes_no(s->free_bind),
-                prefix, s->tcp_congestion);
+                prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -634,7 +643,13 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int r, x;
 
                 r = setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl));
-                x = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &s->ip_ttl, sizeof(s->ip_ttl));
+
+                if (socket_ipv6_is_supported())
+                        x = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &s->ip_ttl, sizeof(s->ip_ttl));
+                else {
+                        x = -1;
+                        errno = EAFNOSUPPORT;
+                }
 
                 if (r < 0 && x < 0)
                         log_warning("IP_TTL/IPV6_UNICAST_HOPS failed: %m");
@@ -964,7 +979,7 @@ static void socket_enter_dead(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        socket_set_state(s, s->failure ? SOCKET_MAINTENANCE : SOCKET_DEAD);
+        socket_set_state(s, s->failure ? SOCKET_FAILED : SOCKET_DEAD);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, bool success);
@@ -997,7 +1012,8 @@ fail:
 
 static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         int r;
-        bool sent = false;
+        Set *pid_set = NULL;
+        bool wait_for_exit = false;
 
         assert(s);
 
@@ -1007,23 +1023,39 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         if (s->exec_context.kill_mode != KILL_NONE) {
                 int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
-                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+                if (s->control_pid > 0) {
+                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                 -s->control_pid :
+                                 s->control_pid, sig) < 0 && errno != ESRCH)
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig)) < 0) {
-                                if (r != -EAGAIN && r != -ESRCH)
-                                        goto fail;
-                        } else
-                                sent = true;
+                                log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
+                        else
+                                wait_for_exit = true;
                 }
 
-                if (!sent && s->control_pid > 0)
-                        if (kill(s->exec_context.kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
-                                r = -errno;
+                if (s->exec_context.kill_mode == KILL_CONTROL_GROUP) {
+
+                        if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func))) {
+                                r = -ENOMEM;
                                 goto fail;
                         }
+
+                        /* Exclude the control pid from being killed via the cgroup */
+                        if (s->control_pid > 0)
+                                if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
+                                        goto fail;
+
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                        log_warning("Failed to kill control group: %s", strerror(-r));
+                        } else if (r > 0)
+                                wait_for_exit = true;
+
+                        set_free(pid_set);
+                }
         }
 
-        if (sent && s->control_pid > 0) {
+        if (wait_for_exit) {
                 if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                         goto fail;
 
@@ -1042,6 +1074,9 @@ fail:
                 socket_enter_stop_post(s, false);
         else
                 socket_enter_dead(s, false);
+
+        if (pid_set)
+                set_free(pid_set);
 }
 
 static void socket_enter_stop_pre(Socket *s, bool success) {
@@ -1147,7 +1182,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
-        if (s->meta.job && s->meta.job->type == JOB_STOP) {
+        if (unit_pending_inactive(UNIT(s))) {
                 if (cfd >= 0)
                         close_nointr_nofail(cfd);
                 else  {
@@ -1164,8 +1199,27 @@ static void socket_enter_running(Socket *s, int cfd) {
         }
 
         if (cfd < 0) {
-                if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
-                        goto fail;
+                bool pending = false;
+                Meta *i;
+
+                /* If there's already a start pending don't bother to
+                 * do anything */
+                LIST_FOREACH(units_per_type, i, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+                        Service *service = (Service *) i;
+
+                        if (!set_get(service->configured_sockets, s))
+                                continue;
+
+                        if (!unit_pending_active(UNIT(service)))
+                                continue;
+
+                        pending = true;
+                        break;
+                }
+
+                if (!pending)
+                        if ((r = manager_add_job(s->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, &error, NULL)) < 0)
+                                goto fail;
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
@@ -1295,12 +1349,12 @@ static int socket_start(Unit *u) {
                 /* If the service is alredy actvie we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
-                    s->service->state != SERVICE_MAINTENANCE &&
+                    s->service->state != SERVICE_FAILED &&
                     s->service->state != SERVICE_AUTO_RESTART)
                         return -EBUSY;
         }
 
-        assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTENANCE);
+        assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);
 
         s->failure = false;
         socket_enter_start_pre(s);
@@ -1650,7 +1704,7 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintenance mode.", u->meta.id);
+                log_warning("%s still around after SIGKILL (2). Entering failed mode.", u->meta.id);
                 socket_enter_dead(s, false);
                 break;
 
@@ -1719,12 +1773,12 @@ void socket_connection_unref(Socket *s) {
         log_debug("%s: One connection closed, %u left.", s->meta.id, s->n_connections);
 }
 
-static void socket_reset_maintenance(Unit *u) {
+static void socket_reset_failed(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(s);
 
-        if (s->state == SOCKET_MAINTENANCE)
+        if (s->state == SOCKET_FAILED)
                 socket_set_state(s, SOCKET_DEAD);
 
         s->failure = false;
@@ -1742,7 +1796,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = "stop-post",
         [SOCKET_FINAL_SIGTERM] = "final-sigterm",
         [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_MAINTENANCE] = "maintenance"
+        [SOCKET_FAILED] = "failed"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
@@ -1782,7 +1836,7 @@ const UnitVTable socket_vtable = {
         .sigchld_event = socket_sigchld_event,
         .timer_event = socket_timer_event,
 
-        .reset_maintenance = socket_reset_maintenance,
+        .reset_failed = socket_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_message_handler = bus_socket_message_handler,

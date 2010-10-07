@@ -123,7 +123,8 @@
                                 <term><option>--full</option></term>
 
                                 <listitem><para>Do not ellipsize unit
-                                names in the output of
+                                names and truncate unit descriptions
+                                in the output of
                                 <command>list-units</command> and
                                 <command>list-jobs</command>.</para></listitem>
                         </varlistentry>
@@ -154,13 +155,13 @@
                         <varlistentry>
                                 <term><option>--no-block</option></term>
 
-				<listitem><para>Do not synchronously wait for
-				the requested operation to finish. If this is
-				not specified the job will be verified,
-				enqueued and <command>systemctl</command> will
-				wait until it is completed. By passing this
-				argument it is only verified and
-				enqueued.</para></listitem> </varlistentry>
+                                <listitem><para>Do not synchronously wait for
+                                the requested operation to finish. If this is
+                                not specified the job will be verified,
+                                enqueued and <command>systemctl</command> will
+                                wait until it is completed. By passing this
+                                argument it is only verified and
+                                enqueued.</para></listitem> </varlistentry>
 
                         <varlistentry>
                                 <term><option>--system</option></term>
@@ -341,8 +342,21 @@
 
                                 <listitem><para>Start the unit
                                 specified on the command line and its
-                                dependencies and stop all
-                                others.</para></listitem>
+                                dependencies and stop all others.</para>
+
+                                <para>This is similar to changing the
+                                runlevel in a traditional init system. The
+                                <command>isolate</command> command will
+                                immediately stop processes that are not
+                                enabled in the new unit, possibly including
+                                the graphical environment or terminal you
+                                are currently using.</para>
+
+                                <para>Note that this works only on units
+                                where <option>AllowIsolate=</option> is
+                                enabled. See
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>is-active [NAME...]</command></term>
@@ -395,18 +409,19 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>reset-maintenance [NAME...]</command></term>
+                                <term><command>reset-failed [NAME...]</command></term>
 
-                                <listitem><para>Reset maintenance
-                                state of the specified units, or if no
-                                unit name is passed of all units. When
-                                a unit fails in some way (i.e. process
-                                exiting with non-zero error code,
-                                terminating abnormally or timing out)
-                                it will automatically enter
-                                maintenance state and its exit codes
-                                and status is recorded for
-                                introspection by the administrator
+                                <listitem><para>Reset the
+                                '<literal>failed</literal>' state of the
+                                specified units, or if no unit name is
+                                passed of all units. When a unit fails
+                                in some way (i.e. process exiting with
+                                non-zero error code, terminating
+                                abnormally or timing out) it will
+                                automatically enter the
+                                '<literal>failed</literal>' state and
+                                its exit code and status is recorded
+                                for introspection by the administrator
                                 until the service is restarted or
                                 reset with this
                                 command.</para></listitem>
@@ -430,7 +445,7 @@
                                 does not have the effect that any of
                                 the units enabled are also started at
                                 the same time. If this is desired a
-                                seperate <command>start</command>
+                                separate <command>start</command>
                                 command must be invoked for the
                                 unit.</para>
 

@@ -205,6 +205,24 @@ int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *prope
         return 0;
 }
 
+int bus_unit_append_can_isolate(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_can_isolate(u) &&
+                !u->meta.refuse_manual_start;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         DBusMessageIter sub;
@@ -349,9 +367,9 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetMaintenance")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetFailed")) {
 
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;

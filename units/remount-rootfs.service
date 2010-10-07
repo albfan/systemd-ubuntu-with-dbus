@@ -9,12 +9,10 @@
 Description=Remount Root FS
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target local-fs.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service fsck.target
+Before=local-fs.target shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/mount / -o remount
-
-[Install]
-WantedBy=sysinit.target

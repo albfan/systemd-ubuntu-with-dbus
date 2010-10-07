@@ -49,6 +49,7 @@
 #include <netinet/ip.h>
 #include <linux/kd.h>
 #include <dlfcn.h>
+#include <sys/wait.h>
 
 #include "macro.h"
 #include "util.h"
@@ -503,7 +504,7 @@ finish:
 int read_one_line_file(const char *fn, char **line) {
         FILE *f;
         int r;
-        char t[2048], *c;
+        char t[LINE_MAX], *c;
 
         assert(fn);
         assert(line);
@@ -526,6 +527,155 @@ int read_one_line_file(const char *fn, char **line) {
 
 finish:
         fclose(f);
+        return r;
+}
+
+int read_full_file(const char *fn, char **contents) {
+        FILE *f;
+        int r;
+        size_t n, l;
+        char *buf = NULL;
+        struct stat st;
+
+        if (!(f = fopen(fn, "re")))
+                return -errno;
+
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        n = st.st_size > 0 ? st.st_size : LINE_MAX;
+        l = 0;
+
+        for (;;) {
+                char *t;
+                size_t k;
+
+                if (!(t = realloc(buf, n+1))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                buf = t;
+                k = fread(buf + l, 1, n - l, f);
+
+                if (k <= 0) {
+                        if (ferror(f)) {
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        break;
+                }
+
+                l += k;
+                n *= 2;
+
+                /* Safety check */
+                if (n > 4*1024*1024) {
+                        r = -E2BIG;
+                        goto finish;
+                }
+        }
+
+        if (buf)
+                buf[l] = 0;
+        else if (!(buf = calloc(1, 1))) {
+                r = -errno;
+                goto finish;
+        }
+
+        *contents = buf;
+        buf = NULL;
+
+        r = 0;
+
+finish:
+        fclose(f);
+        free(buf);
+
+        return r;
+}
+
+int parse_env_file(
+                const char *fname,
+                const char *separator, ...) {
+
+        int r = 0;
+        char *contents, *p;
+
+        assert(fname);
+        assert(separator);
+
+        if ((r = read_full_file(fname, &contents)) < 0)
+                return r;
+
+        p = contents;
+        for (;;) {
+                const char *key = NULL;
+
+                p += strspn(p, separator);
+                p += strspn(p, WHITESPACE);
+
+                if (!*p)
+                        break;
+
+                if (!strchr(COMMENTS, *p)) {
+                        va_list ap;
+                        char **value;
+
+                        va_start(ap, separator);
+                        while ((key = va_arg(ap, char *))) {
+                                size_t n;
+                                char *v;
+
+                                value = va_arg(ap, char **);
+
+                                n = strlen(key);
+                                if (strncmp(p, key, n) != 0 ||
+                                    p[n] != '=')
+                                        continue;
+
+                                p += n + 1;
+                                n = strcspn(p, separator);
+
+                                if (n >= 2 &&
+                                    strchr(QUOTES, p[0]) &&
+                                    p[n-1] == p[0])
+                                        v = strndup(p+1, n-2);
+                                else
+                                        v = strndup(p, n);
+
+                                if (!v) {
+                                        r = -ENOMEM;
+                                        va_end(ap);
+                                        goto fail;
+                                }
+
+                                if (v[0] == '\0') {
+                                        /* return empty value strings as NULL */
+                                        free(v);
+                                        v = NULL;
+                                }
+
+                                free(*value);
+                                *value = v;
+
+                                p += n;
+
+                                r ++;
+                                break;
+                        }
+                        va_end(ap);
+                }
+
+                if (!key)
+                        p += strcspn(p, separator);
+        }
+
+fail:
+        free(contents);
         return r;
 }
 
@@ -1865,9 +2015,13 @@ int read_one_char(FILE *f, char *ret, bool *need_nl) {
 }
 
 int ask(char *ret, const char *replies, const char *text, ...) {
+        bool on_tty;
+
         assert(ret);
         assert(replies);
         assert(text);
+
+        on_tty = isatty(STDOUT_FILENO);
 
         for (;;) {
                 va_list ap;
@@ -1875,13 +2029,15 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 int r;
                 bool need_nl = true;
 
-                fputs("\x1B[1m", stdout);
+                if (on_tty)
+                        fputs("\x1B[1m", stdout);
 
                 va_start(ap, text);
                 vprintf(text, ap);
                 va_end(ap);
 
-                fputs("\x1B[0m", stdout);
+                if (on_tty)
+                        fputs("\x1B[0m", stdout);
 
                 fflush(stdout);
 
@@ -1917,9 +2073,9 @@ int reset_terminal(int fd) {
 
         assert(fd >= 0);
 
-        /* First, unlock termios */
-        zero(termios);
-        ioctl(fd, TIOCSLCKTRMIOS, &termios);
+        /* We leave locked terminal attributes untouched, so that
+         * Plymouth may set whatever it wants to set, and we don't
+         * interfere with that. */
 
         /* Disable exclusive mode, just in case */
         ioctl(fd, TIOCNXCL);
@@ -2835,6 +2991,32 @@ void status_welcome(void) {
 
         status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
         free(r);
+
+#elif defined(TARGET_GENTOO)
+        char *r;
+
+        if (read_one_line_file("/etc/gentoo-release", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        status_printf("Welcome to \x1B[1;34m%s\x1B[0m!\n", r); /* Light Blue for Gentoo */
+
+        free(r);
+
+#elif defined(TARGET_DEBIAN)
+        char *r;
+
+        if (read_one_line_file("/etc/debian_version", &r) < 0)
+                return;
+
+        truncate_nl(r);
+
+        status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
+
+        free(r);
+#elif defined(TARGET_ARCH)
+        status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
 #else
 #warning "You probably should add a welcome text logic here."
 #endif
@@ -2988,7 +3170,7 @@ int columns(void) {
                 struct winsize ws;
                 zero(ws);
 
-                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
+                if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
                         parsed_columns = ws.ws_col;
         }
 
@@ -3061,17 +3243,69 @@ int touch(const char *path) {
         return 0;
 }
 
-char *unquote(const char *s, const char quote) {
+char *unquote(const char *s, const char* quotes) {
         size_t l;
         assert(s);
 
         if ((l = strlen(s)) < 2)
                 return strdup(s);
 
-        if (s[0] == quote && s[l-1] == quote)
+        if (strchr(quotes, s[0]) && s[l-1] == s[0])
                 return strndup(s+1, l-2);
 
         return strdup(s);
+}
+
+int wait_for_terminate(pid_t pid, siginfo_t *status) {
+        assert(pid >= 1);
+        assert(status);
+
+        for (;;) {
+                zero(*status);
+
+                if (waitid(P_PID, pid, status, WEXITED) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        return -errno;
+                }
+
+                return 0;
+        }
+}
+
+int wait_for_terminate_and_warn(const char *name, pid_t pid) {
+        int r;
+        siginfo_t status;
+
+        assert(name);
+        assert(pid > 1);
+
+        if ((r = wait_for_terminate(pid, &status)) < 0) {
+                log_warning("Failed to wait for %s: %s", name, strerror(-r));
+                return r;
+        }
+
+        if (status.si_code == CLD_EXITED) {
+                if (status.si_status != 0) {
+                        log_warning("%s failed with error code %i.", name, status.si_status);
+                        return -EPROTO;
+                }
+
+                log_debug("%s succeeded.", name);
+                return 0;
+
+        } else if (status.si_code == CLD_KILLED ||
+                   status.si_code == CLD_DUMPED) {
+
+                log_warning("%s terminated by signal %s.", name, signal_to_string(status.si_status));
+                return -EPROTO;
+        }
+
+        log_warning("%s failed due to unknown reason.", name);
+        return -EPROTO;
+
 }
 
 static const char *const ioprio_class_table[] = {
@@ -3188,7 +3422,9 @@ static const char *const signal_table[] = {
         [SIGPIPE] = "PIPE",
         [SIGALRM] = "ALRM",
         [SIGTERM] = "TERM",
-        [SIGSTKFLT] = "STKFLT",
+#ifdef SIGSTKFLT
+        [SIGSTKFLT] = "STKFLT",  /* Linux on SPARC doesn't know SIGSTKFLT */
+#endif
         [SIGCHLD] = "CHLD",
         [SIGCONT] = "CONT",
         [SIGSTOP] = "STOP",

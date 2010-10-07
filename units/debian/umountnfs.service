@@ -6,16 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Lock Directory
+Description=Umount all network file systems
 DefaultDependencies=no
-Requires=var-lock.mount
-After=var-lock.mount
-Before=local-fs.target
+After=killall.service
+Before=reboot.service poweroff.service halt.service umountfs.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/mkdir -p /var/lock/subsys
-
-[Install]
-WantedBy=local-fs.target
+ExecStart=/etc/init.d/umountnfs.sh stop
+StandardOutput=tty

@@ -36,6 +36,7 @@
 #include <pwd.h>
 #include <sys/mount.h>
 #include <linux/fs.h>
+#include <linux/oom.h>
 
 #ifdef HAVE_PAM
 #include <security/pam_appl.h>
@@ -52,6 +53,7 @@
 #include "namespace.h"
 #include "tcpwrap.h"
 #include "exit-status.h"
+#include "missing.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -172,7 +174,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
         sa.sa.sa_family = AF_UNIX;
         strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (connect(fd, &sa.sa, sizeof(sa_family_t) + 1 + sizeof(LOGGER_SOCKET) - 1) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + sizeof(LOGGER_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -1038,6 +1040,11 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                 }
 
+                /* If a socket is connected to STDIN/STDOUT/STDERR, we
+                 * must sure to drop O_NONBLOCK */
+                if (socket_fd >= 0)
+                        fd_nonblock(socket_fd, false);
+
                 if (!keep_stdin)
                         if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
                                 r = EXIT_STDIN;
@@ -1061,15 +1068,27 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                if (context->oom_adjust_set) {
+                if (context->oom_score_adjust_set) {
                         char t[16];
 
-                        snprintf(t, sizeof(t), "%i", context->oom_adjust);
+                        snprintf(t, sizeof(t), "%i", context->oom_score_adjust);
                         char_array_0(t);
 
-                        if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
-                                r = EXIT_OOM_ADJUST;
-                                goto fail;
+                        if (write_one_line_file("/proc/self/oom_score_adj", t) < 0) {
+                                /* Compatibility with Linux <= 2.6.35 */
+
+                                int adj;
+
+                                adj = (context->oom_score_adjust * -OOM_DISABLE) / OOM_SCORE_ADJ_MAX;
+                                adj = CLAMP(adj, OOM_DISABLE, OOM_ADJUST_MAX);
+
+                                snprintf(t, sizeof(t), "%i", adj);
+                                char_array_0(t);
+
+                                if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
+                                        r = EXIT_OOM_ADJUST;
+                                        goto fail;
+                                }
                         }
                 }
 
@@ -1456,10 +1475,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sNice: %i\n",
                         prefix, c->nice);
 
-        if (c->oom_adjust_set)
+        if (c->oom_score_adjust_set)
                 fprintf(f,
-                        "%sOOMAdjust: %i\n",
-                        prefix, c->oom_adjust);
+                        "%sOOMScoreAdjust: %i\n",
+                        prefix, c->oom_score_adjust);
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i])

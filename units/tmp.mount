@@ -14,6 +14,3 @@ What=tmpfs
 Where=/tmp
 Type=tmpfs
 Options=mode=1777
-
-[Install]
-WantedBy=local-fs.target

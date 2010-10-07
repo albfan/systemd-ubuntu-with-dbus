@@ -92,7 +92,7 @@ static int manager_setup_notify(Manager *m) {
         else
                 strncpy(sa.un.sun_path+1, NOTIFY_SOCKET, sizeof(sa.un.sun_path)-1);
 
-        if (bind(m->notify_watch.fd, &sa.sa, sizeof(sa_family_t) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }
@@ -111,6 +111,8 @@ static int manager_setup_notify(Manager *m) {
 
         if (!(m->notify_socket = strdup(sa.un.sun_path+1)))
                 return -ENOMEM;
+
+        log_debug("Using notification socket %s", m->notify_socket);
 
         return 0;
 }
@@ -447,6 +449,7 @@ void manager_free(Manager *m) {
 #endif
 
         free(m->notify_socket);
+        free(m->console);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -979,14 +982,14 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
 
                 if (delete) {
-                        log_warning("Breaking ordering cycle by deleting job %s/%s", k->unit->meta.id, job_type_to_string(k->type));
+                        log_warning("Breaking ordering cycle by deleting job %s/%s", delete->unit->meta.id, job_type_to_string(delete->type));
                         transaction_delete_unit(m, delete->unit);
                         return -EAGAIN;
                 }
 
                 log_error("Unable to break cycle");
 
-                dbus_set_error(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC, "Transaction order is cyclic. See logs for details.");
+                dbus_set_error(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC, "Transaction order is cyclic. See system logs for details.");
                 return -ENOEXEC;
         }
 
@@ -1179,6 +1182,7 @@ static int transaction_apply(Manager *m) {
 
                 j->unit->meta.job = j;
                 j->installed = true;
+                m->n_installed_jobs ++;
 
                 /* We're fully installed. Now let's free data we don't
                  * need anymore. */
@@ -1223,7 +1227,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         /* Second step: Try not to stop any running services if
          * we don't have to. Don't try to reverse running
          * jobs if we don't have to. */
-        transaction_minimize_impact(m);
+        if (mode != JOB_ISOLATE)
+                transaction_minimize_impact(m);
 
         /* Third step: Drop redundant jobs */
         transaction_drop_redundant(m);
@@ -1393,13 +1398,13 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_FAILED) {
+        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_ERROR) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
                 return -EINVAL;
         }
 
-        if (type != JOB_STOP && unit->meta.load_state == UNIT_FAILED) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the logs.",
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_ERROR) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the system logs.",
                                unit->meta.id,
                                strerror(-unit->meta.load_error));
                 return -EINVAL;
@@ -1428,13 +1433,17 @@ static int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
-                                        dbus_error_free(e);
+
+                                        if (e)
+                                                dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
-                                        dbus_error_free(e);
+
+                                        if (e)
+                                                dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
@@ -1444,7 +1453,9 @@ static int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
-                                        dbus_error_free(e);
+
+                                        if (e)
+                                                dbus_error_free(e);
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
@@ -1492,7 +1503,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                         continue;
 
                 /* No need to stop inactive jobs */
-                if (UNIT_IS_INACTIVE_OR_MAINTENANCE(unit_active_state(u)))
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                         continue;
 
                 /* Is there already something listed for this? */
@@ -1520,7 +1531,12 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                 return -EINVAL;
         }
 
-        log_debug("Trying to enqueue job %s/%s", unit->meta.id, job_type_to_string(type));
+        if (mode == JOB_ISOLATE && !unit->meta.allow_isolate) {
+                dbus_set_error(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return -EPERM;
+        }
+
+        log_debug("Trying to enqueue job %s/%s/%s", unit->meta.id, job_type_to_string(type), job_mode_to_string(mode));
 
         if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, e, &ret)) < 0) {
                 transaction_abort(m);
@@ -2157,6 +2173,8 @@ int manager_loop(Manager *m) {
         set_free_free(m->unit_path_cache);
         m->unit_path_cache = NULL;
 
+        manager_check_finished(m);
+
         /* There might still be some zombies hanging around from
          * before we were exec()'ed. Leat's reap them */
         if ((r = manager_dispatch_sigchld(m)) < 0)
@@ -2279,6 +2297,75 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         free(p);
 #endif
 
+}
+
+void manager_send_unit_plymouth(Manager *m, Unit *u) {
+        int fd = -1;
+        union sockaddr_union sa;
+        int n = 0;
+        char *message = NULL;
+        ssize_t r;
+
+        /* Don't generate plymouth events if the service was already
+         * started and we're just deserializing */
+        if (m->n_deserializing > 0)
+                return;
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        if (u->meta.type != UNIT_SERVICE &&
+            u->meta.type != UNIT_MOUNT &&
+            u->meta.type != UNIT_SWAP)
+                return;
+
+        /* We set SOCK_NONBLOCK here so that we rather drop the
+         * message then wait for plymouth */
+        if ((fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
+                log_error("socket() failed: %m");
+                return;
+        }
+
+        zero(sa);
+        sa.sa.sa_family = AF_UNIX;
+        strncpy(sa.un.sun_path+1, "/ply-boot-protocol", sizeof(sa.un.sun_path)-1);
+        if (connect(fd, &sa.sa, sizeof(sa.un)) < 0) {
+
+                if (errno != EPIPE &&
+                    errno != EAGAIN &&
+                    errno != ENOENT &&
+                    errno != ECONNREFUSED &&
+                    errno != ECONNRESET &&
+                    errno != ECONNABORTED)
+                        log_error("connect() failed: %m");
+
+                goto finish;
+        }
+
+        if (asprintf(&message, "U\002%c%s%n", (int) (strlen(u->meta.id) + 1), u->meta.id, &n) < 0) {
+                log_error("Out of memory");
+                goto finish;
+        }
+
+        errno = 0;
+        if ((r = write(fd, message, n + 1)) != n + 1) {
+
+                if (errno != EPIPE &&
+                    errno != EAGAIN &&
+                    errno != ENOENT &&
+                    errno != ECONNREFUSED &&
+                    errno != ECONNRESET &&
+                    errno != ECONNABORTED)
+                        log_error("Failed to write Plymouth message: %m");
+
+                goto finish;
+        }
+
+finish:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        free(message);
 }
 
 void manager_dispatch_bus_name_owner_changed(
@@ -2543,14 +2630,71 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
         return false;
 }
 
-void manager_reset_maintenance(Manager *m) {
+void manager_reset_failed(Manager *m) {
         Unit *u;
         Iterator i;
 
         assert(m);
 
         HASHMAP_FOREACH(u, m->units, i)
-                unit_reset_maintenance(u);
+                unit_reset_failed(u);
+}
+
+int manager_set_console(Manager *m, const char *console) {
+        char *c;
+
+        assert(m);
+
+        if (!(c = strdup(console)))
+                return -ENOMEM;
+
+        free(m->console);
+        m->console = c;
+
+        log_debug("Using kernel console %s", c);
+
+        return 0;
+}
+
+bool manager_unit_pending_inactive(Manager *m, const char *name) {
+        Unit *u;
+
+        assert(m);
+        assert(name);
+
+        /* Returns true if the unit is inactive or going down */
+        if (!(u = manager_get_unit(m, name)))
+                return true;
+
+        return unit_pending_inactive(u);
+}
+
+void manager_check_finished(Manager *m) {
+        char userspace[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+
+        assert(m);
+
+        if (dual_timestamp_is_set(&m->finish_timestamp))
+                return;
+
+        if (hashmap_size(m->jobs) > 0)
+                return;
+
+        dual_timestamp_get(&m->finish_timestamp);
+
+        if (m->running_as == MANAGER_SYSTEM)
+                log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                         format_timespan(kernel, sizeof(kernel),
+                                         m->startup_timestamp.monotonic),
+                         format_timespan(userspace, sizeof(userspace),
+                                         m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                         format_timespan(sum, sizeof(sum),
+                                         m->finish_timestamp.monotonic));
+        else
+                log_debug("Startup finished in %s.",
+                          format_timespan(userspace, sizeof(userspace),
+                                          m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));
+
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

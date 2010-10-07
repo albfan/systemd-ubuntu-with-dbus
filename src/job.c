@@ -271,7 +271,7 @@ bool job_type_is_redundant(JobType a, UnitActiveState b) {
         case JOB_STOP:
                 return
                         b == UNIT_INACTIVE ||
-                        b == UNIT_MAINTENANCE;
+                        b == UNIT_FAILED;
 
         case JOB_VERIFY_ACTIVE:
                 return
@@ -417,7 +417,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_ACTIVATING) {
+                        if (t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
                                 r = unit_start(j->unit);
                         } else
@@ -427,7 +427,7 @@ int job_run_and_invalidate(Job *j) {
 
                 case JOB_TRY_RESTART: {
                         UnitActiveState t = unit_active_state(j->unit);
-                        if (t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_DEACTIVATING)
+                        if (t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_DEACTIVATING)
                                 r = -ENOEXEC;
                         else if (t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
@@ -478,14 +478,18 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 return 0;
         }
 
+        j->failed = !success;
+
         log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
 
-        j->failed = !success;
+        if (j->failed)
+                j->manager->n_failed_jobs ++;
+
         u = j->unit;
         t = j->type;
         job_free(j);
 
-        if (!success)
+        if (!success && j->type == JOB_START)
                 unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u));
 
         /* Fail depending jobs on failure */
@@ -539,6 +543,8 @@ int job_finish_and_invalidate(Job *j, bool success) {
         SET_FOREACH(other, u->meta.dependencies[UNIT_BEFORE], i)
                 if (other->meta.job)
                         job_add_to_run_queue(other->meta.job);
+
+        manager_check_finished(u->meta.manager);
 
         return 0;
 }

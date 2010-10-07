@@ -38,6 +38,7 @@
 #include "hostname-setup.h"
 #include "loopback-setup.h"
 #include "kmod-setup.h"
+#include "locale-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -63,9 +64,12 @@ static bool arg_crash_shell = false;
 static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
+#ifdef HAVE_SYSV_COMPAT
 static bool arg_sysv_console = true;
+#endif
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
+static char *arg_console = NULL;
 
 static FILE* serialization = NULL;
 
@@ -118,12 +122,13 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
 
                 } else {
-                        int status;
+                        siginfo_t status;
+                        int r;
 
                         /* Order things nicely. */
-                        if (waitpid(pid, &status, 0) < 0)
-                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(errno));
-                        else if (!WCOREDUMP(status))
+                        if ((r = wait_for_terminate(pid, &status)) < 0)
+                                log_error("Caught <%s>, waitpid() failed: %s", signal_to_string(sig), strerror(-r));
+                        else if (status.si_code != CLD_DUMPED)
                                 log_error("Caught <%s>, core dump failed.", signal_to_string(sig));
                         else
                                 log_error("Caught <%s>, dumped core as pid %lu.", signal_to_string(sig), (unsigned long) pid);
@@ -233,15 +238,16 @@ static int set_default_unit(const char *u) {
 static int parse_proc_cmdline_word(const char *word) {
 
         static const char * const rlmap[] = {
-                "single", SPECIAL_RESCUE_TARGET,
-                "-s",     SPECIAL_RESCUE_TARGET,
-                "s",      SPECIAL_RESCUE_TARGET,
-                "S",      SPECIAL_RESCUE_TARGET,
-                "1",      SPECIAL_RESCUE_TARGET,
-                "2",      SPECIAL_RUNLEVEL2_TARGET,
-                "3",      SPECIAL_RUNLEVEL3_TARGET,
-                "4",      SPECIAL_RUNLEVEL4_TARGET,
-                "5",      SPECIAL_RUNLEVEL5_TARGET
+                "emergency", SPECIAL_EMERGENCY_TARGET,
+                "single",    SPECIAL_RESCUE_TARGET,
+                "-s",        SPECIAL_RESCUE_TARGET,
+                "s",         SPECIAL_RESCUE_TARGET,
+                "S",         SPECIAL_RESCUE_TARGET,
+                "1",         SPECIAL_RESCUE_TARGET,
+                "2",         SPECIAL_RUNLEVEL2_TARGET,
+                "3",         SPECIAL_RUNLEVEL3_TARGET,
+                "4",         SPECIAL_RUNLEVEL4_TARGET,
+                "5",         SPECIAL_RUNLEVEL5_TARGET,
         };
 
         assert(word);
@@ -308,7 +314,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
                 else
                         arg_show_status = r;
-
+#ifdef HAVE_SYSV_COMPAT
         } else if (startswith(word, "systemd.sysv_console=")) {
                 int r;
 
@@ -316,6 +322,7 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
                 else
                         arg_sysv_console = r;
+#endif
 
         } else if (startswith(word, "systemd.")) {
 
@@ -328,16 +335,40 @@ static int parse_proc_cmdline_word(const char *word) {
                          "systemd.crash_chvt=N                     Change to VT #N on crash\n"
                          "systemd.confirm_spawn=0|1                Confirm every process spawn\n"
                          "systemd.show_status=0|1                  Show status updates on the console during bootup\n"
+#ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
+#endif
                          "systemd.log_target=console|kmsg|syslog|syslog-org-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n");
 
+        } else if (startswith(word, "console=")) {
+                const char *k;
+                size_t l;
+                char *w = NULL;
+
+                k = word + 8;
+                l = strcspn(k, ",");
+
+                /* Ignore the console setting if set to a VT */
+                if (l < 4 ||
+                    !startswith(k, "tty") ||
+                    k[3+strspn(k+3, "0123456789")] != 0) {
+
+                        if (!(w = strndup(k, l)))
+                                return -ENOMEM;
+                }
+
+                free(arg_console);
+                arg_console = w;
+
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
+#ifdef HAVE_SYSV_COMPAT
                 arg_sysv_console = false;
+#endif
         } else {
                 unsigned i;
 
@@ -481,7 +512,9 @@ static int parse_config_file(void) {
                 { "DumpCore",    config_parse_bool,         &arg_dump_core,     "Manager" },
                 { "CrashShell",  config_parse_bool,         &arg_crash_shell,   "Manager" },
                 { "ShowStatus",  config_parse_bool,         &arg_show_status,   "Manager" },
+#ifdef HAVE_SYSV_COMPAT
                 { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
+#endif
                 { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
                 { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
@@ -586,7 +619,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "crash-shell",              no_argument,       NULL, ARG_CRASH_SHELL              },
                 { "confirm-spawn",            no_argument,       NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
+#ifdef HAVE_SYSV_COMPAT
                 { "sysv-console",             optional_argument, NULL, ARG_SYSV_CONSOLE             },
+#endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
                 { NULL,                       0,                 NULL, 0                            }
@@ -690,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 arg_show_status = true;
                         break;
-
+#ifdef HAVE_SYSV_COMPAT
                 case ARG_SYSV_CONSOLE:
 
                         if (optarg) {
@@ -702,6 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 arg_sysv_console = true;
                         break;
+#endif
 
                 case ARG_DESERIALIZE: {
                         int fd;
@@ -789,7 +825,9 @@ static int help(void) {
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
                "     --show-status[=0|1]         Show status updates on the console during bootup\n"
+#ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
+#endif
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
@@ -855,7 +893,7 @@ fail:
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        int r, retval = 1;
+        int r, retval = EXIT_FAILURE;
         FDSet *fds = NULL;
         bool reexecute = false;
 
@@ -916,10 +954,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         } else if (arg_action == ACTION_DONE) {
-                retval = 0;
+                retval = EXIT_SUCCESS;
                 goto finish;
         }
 
@@ -971,15 +1009,19 @@ int main(int argc, char *argv[]) {
                 install_crash_handler();
 
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
-                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES ")", manager_running_as_to_string(arg_running_as));
+                 PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+                locale_setup();
+
                 if (arg_show_status)
                         status_welcome();
 
                 kmod_setup();
                 hostname_setup();
                 loopback_setup();
+
+                mkdir_p("/dev/.systemd/ask-password/", 0755);
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
@@ -989,9 +1031,14 @@ int main(int argc, char *argv[]) {
 
         m->confirm_spawn = arg_confirm_spawn;
         m->show_status = arg_show_status;
+#ifdef HAVE_SYSV_COMPAT
         m->sysv_console = arg_sysv_console;
+#endif
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
+
+        if (arg_console)
+                manager_set_console(m, arg_console);
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1048,7 +1095,7 @@ int main(int argc, char *argv[]) {
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
-                        retval = 0;
+                        retval = EXIT_SUCCESS;
                         goto finish;
                 }
         }
@@ -1062,7 +1109,7 @@ int main(int argc, char *argv[]) {
                 switch (m->exit_code) {
 
                 case MANAGER_EXIT:
-                        retval = 0;
+                        retval = EXIT_SUCCESS;
                         log_debug("Exit.");
                         goto finish;
 
@@ -1090,8 +1137,11 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
+        free(arg_console);
 
         dbus_shutdown();
+
+        label_finish();
 
         if (reexecute) {
                 const char *args[15];
@@ -1128,10 +1178,12 @@ finish:
                 else
                         args[i++] = "--show-status=0";
 
+#ifdef HAVE_SYSV_COMPAT
                 if (arg_sysv_console)
                         args[i++] = "--sysv-console=1";
                 else
                         args[i++] = "--sysv-console=0";
+#endif
 
                 snprintf(sfd, sizeof(sfd), "%i", fileno(serialization));
                 char_array_0(sfd);
@@ -1156,8 +1208,6 @@ finish:
 
         if (getpid() == 1)
                 freeze();
-
-        label_finish();
 
         return retval;
 }

@@ -9,9 +9,11 @@
 
 [Unit]
 Description=Power-Off
+DefaultDependencies=no
 Names=runlevel0.target
 Requires=poweroff.service
 After=poweroff.service
+AllowIsolate=yes
 
 [Install]
 Alias=ctrl-alt-del.target

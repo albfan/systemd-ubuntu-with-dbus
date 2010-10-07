@@ -6,16 +6,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Runtime Directory
+Description=Replay Read-Ahead Data
 DefaultDependencies=no
-Requires=var-run.mount
-After=var-run.mount
-Before=local-fs.target
+Conflicts=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
-Type=oneshot
+Type=notify
+ExecStart=@rootlibexecdir@/systemd-readahead-replay
 RemainAfterExit=yes
-ExecStart=/bin/touch /var/run/utmp ; /bin/chmod 0664 /var/run/utmp ; /bin/chown root:utmp /var/run/utmp
 
 [Install]
-WantedBy=local-fs.target
+WantedBy=default.target

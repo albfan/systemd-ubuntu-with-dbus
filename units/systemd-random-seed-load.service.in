@@ -8,13 +8,11 @@
 [Unit]
 Description=Load Random Seed
 DefaultDependencies=no
-After=local-fs.target
+Wants=local-fs.target
 Conflicts=shutdown.target
-Before=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service local-fs.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot
 ExecStart=@rootlibexecdir@/systemd-random-seed load
-
-[Install]
-WantedBy=sysinit.target

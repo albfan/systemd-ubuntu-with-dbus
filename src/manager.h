@@ -139,6 +139,9 @@ struct Manager {
         char **environment;
 
         dual_timestamp startup_timestamp;
+        dual_timestamp finish_timestamp;
+
+        char *console;
 
         /* Data specific to the device subsystem */
         struct udev* udev;
@@ -200,11 +203,16 @@ struct Manager {
 
         bool show_status;
         bool confirm_spawn;
+#ifdef HAVE_SYSV_COMPAT
         bool sysv_console;
+#endif
         bool mount_auto;
         bool swap_auto;
 
         int n_deserializing;
+
+        unsigned n_installed_jobs;
+        unsigned n_failed_jobs;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
@@ -237,6 +245,8 @@ unsigned manager_dispatch_load_queue(Manager *m);
 unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
+int manager_set_console(Manager *m, const char *console);
+
 int manager_loop(Manager *m);
 
 void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
@@ -251,9 +261,14 @@ int manager_reload(Manager *m);
 
 bool manager_is_booting_or_shutting_down(Manager *m);
 
-void manager_reset_maintenance(Manager *m);
+void manager_reset_failed(Manager *m);
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
+void manager_send_unit_plymouth(Manager *m, Unit *u);
+
+bool manager_unit_pending_inactive(Manager *m, const char *name);
+
+void manager_check_finished(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

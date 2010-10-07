@@ -39,7 +39,6 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 
-#define UNIT_NAME_MAX 256
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
@@ -61,7 +60,7 @@ enum UnitType {
 enum UnitLoadState {
         UNIT_STUB,
         UNIT_LOADED,
-        UNIT_FAILED,
+        UNIT_ERROR,
         UNIT_MERGED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
@@ -71,7 +70,7 @@ enum UnitActiveState {
         UNIT_ACTIVE,
         UNIT_RELOADING,
         UNIT_INACTIVE,
-        UNIT_MAINTENANCE,
+        UNIT_FAILED,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
         _UNIT_ACTIVE_STATE_MAX,
@@ -87,11 +86,11 @@ static inline bool UNIT_IS_ACTIVE_OR_ACTIVATING(UnitActiveState t) {
 }
 
 static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE || t == UNIT_DEACTIVATING;
+        return t == UNIT_INACTIVE || t == UNIT_FAILED || t == UNIT_DEACTIVATING;
 }
 
-static inline bool UNIT_IS_INACTIVE_OR_MAINTENANCE(UnitActiveState t) {
-        return t == UNIT_INACTIVE || t == UNIT_MAINTENANCE;
+static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
+        return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
 
 enum UnitDependency {
@@ -205,6 +204,9 @@ struct Meta {
         /* Don't allow the user to stop this unit manually, allow stopping only indirectly via dependency. */
         bool refuse_manual_stop;
 
+        /* Allow isolation requests */
+        bool allow_isolate;
+
         bool in_load_queue:1;
         bool in_dbus_queue:1;
         bool in_cleanup_queue:1;
@@ -301,8 +303,8 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
-        /* Reset maintenance state if we are in maintainance state */
-        void (*reset_maintenance)(Unit *u);
+        /* Reset failed state if we are in failed state */
+        void (*reset_failed)(Unit *u);
 
         /* Called whenever any of the cgroups this unit watches for
          * ran empty */
@@ -335,7 +337,7 @@ struct UnitVTable {
         void (*shutdown)(Manager *m);
 
         /* When sending out PropertiesChanged signal, which properties
-         * shall be invalidated? This is a NUL seperated list of
+         * shall be invalidated? This is a NUL separated list of
          * strings, to minimize relocations a little. */
         const char *bus_invalidating_properties;
 
@@ -359,7 +361,7 @@ struct UnitVTable {
         /* Exclude from automatic gc */
         bool no_gc:1;
 
-        /* Exclude from isolation requests */
+        /* Exclude from stopping on isolation requests */
         bool no_isolate:1;
 
         /* Show status updates on the console */
@@ -445,6 +447,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix);
 
 bool unit_can_reload(Unit *u);
 bool unit_can_start(Unit *u);
+bool unit_can_isolate(Unit *u);
 
 int unit_start(Unit *u);
 int unit_stop(Unit *u);
@@ -491,9 +494,17 @@ void unit_status_printf(Unit *u, const char *format, ...);
 
 bool unit_need_daemon_reload(Unit *u);
 
-void unit_reset_maintenance(Unit *u);
+void unit_reset_failed(Unit *u);
 
 Unit *unit_following(Unit *u);
+
+bool unit_pending_inactive(Unit *u);
+bool unit_pending_active(Unit *u);
+
+int unit_add_default_target_dependency(Unit *u, Unit *target);
+
+UnitType unit_name_to_type(const char *n);
+bool unit_name_is_valid(const char *n);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

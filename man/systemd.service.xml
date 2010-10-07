@@ -290,10 +290,13 @@
                                 by the string value of the environment
                                 variable of the same name. Also
                                 <literal>$FOO</literal> may appear as
-                                seperate word on the command line in
+                                separate word on the command line in
                                 which case the variable is replaced by
-                                its value split at
-                                whitespaces.</para></listitem>
+                                its value split at whitespaces. Note
+                                that the first argument (i.e. the
+                                binary to execute) may not be a
+                                variable, and must be a literal and
+                                absolute path name.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -304,9 +307,9 @@
                                 the command in
                                 <varname>ExecStart=</varname>. Multiple
                                 command lines may be concatenated in a
-                                single directive, by seperating them
+                                single directive, by separating them
                                 by semicolons (these semicolons must
-                                be passed as seperate words). In that
+                                be passed as separate words). In that
                                 case, the commands are executed one
                                 after the other,
                                 serially. Alternatively, these
@@ -425,17 +428,17 @@
                                 <listitem><para>Configures whether the
                                 main service process shall be restarted when
                                 it exists. Takes one of
-                                <option>once</option>,
-                                <option>restart-on-success</option> or
-                                <option>restart-always</option>. If
-                                set to <option>once</option> (the
+                                <option>no</option>,
+                                <option>on-success</option> or
+                                <option>always</option>. If
+                                set to <option>no</option> (the
                                 default) the service will not be
                                 restarted when it exits. If set to
-                                <option>restart-on-success</option> it
+                                <option>on-success</option> it
                                 will be restarted only when it exited
                                 cleanly, i.e. terminated with an exit
                                 code of 0. If set to
-                                <option>restart-always</option> the
+                                <option>always</option> the
                                 service will be restarted regardless
                                 whether it exited cleanly or not, or
                                 got terminated abnormally by a
@@ -597,6 +600,33 @@
                                 open access to the notification socket
                                 when using
                                 <varname>Type=notify</varname> (see above).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Sockets=</varname></term>
+                                <listitem><para>Specifies the name of
+                                the socket units this service shall
+                                inherit the sockets from when the
+                                service (ignoring the different suffix
+                                of course) is started. Normally it
+                                should not be necessary to use this
+                                setting as all sockets whose unit
+                                shares the same name as the service
+                                are passed to the spawned
+                                process.</para>
+
+                                <para>Note that the same socket may be
+                                passed to multiple processes at the
+                                same time. Also note that a different
+                                service may be activated on incoming
+                                traffic than inherits the sockets. Or
+                                in other words: The
+                                <varname>Service=</varname> setting of
+                                <filename>.socket</filename> units
+                                doesn't have to match the inverse of the
+                                <varname>Sockets=</varname> setting of
+                                the <filename>.service</filename> it
+                                refers to.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

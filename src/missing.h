@@ -28,6 +28,11 @@
 #include <sys/syscall.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <linux/oom.h>
+
+#ifdef HAVE_AUDIT
+#include <libaudit.h>
+#endif
 
 #include "macro.h"
 
@@ -51,16 +56,70 @@
 #define IP_FREEBIND 15
 #endif
 
+#ifndef OOM_SCORE_ADJ_MIN
+#define OOM_SCORE_ADJ_MIN (-1000)
+#endif
+
+#ifndef OOM_SCORE_ADJ_MAX
+#define OOM_SCORE_ADJ_MAX 1000
+#endif
+
+#ifndef AUDIT_SERVICE_START
+#define AUDIT_SERVICE_START 1130 /* Service (daemon) start */
+#endif
+
+#ifndef AUDIT_SERVICE_STOP
+#define AUDIT_SERVICE_STOP 1131 /* Service (daemon) stop */
+#endif
+
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
 
-#ifndef AUDIT_SERVICE_START
-#define AUDIT_SERVICE_START     1130    /* Service (daemon) start */
+#ifdef __x86_64__
+#ifndef __NR_fanotify_init
+#define __NR_fanotify_init 300
+#endif
+#ifndef __NR_fanotify_mark
+#define __NR_fanotify_mark 301
+#endif
+#else
+#ifndef __NR_fanotify_init
+#define __NR_fanotify_init 338
+#endif
+#ifndef __NR_fanotify_mark
+#define __NR_fanotify_mark 339
+#endif
 #endif
 
-#ifndef AUDIT_SERVICE_STOP
-#define AUDIT_SERVICE_STOP      1131    /* Service (daemon) stop */
+static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) {
+        return syscall(__NR_fanotify_init, flags, event_f_flags);
+}
+
+static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
+                                int dfd, const char *pathname) {
+        return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
+}
+
+#ifndef BTRFS_IOCTL_MAGIC
+#define BTRFS_IOCTL_MAGIC 0x94
+#endif
+
+#ifndef BTRFS_PATH_NAME_MAX
+#define BTRFS_PATH_NAME_MAX 4087
+#endif
+
+struct btrfs_ioctl_vol_args {
+        int64_t fd;
+        char name[BTRFS_PATH_NAME_MAX + 1];
+};
+
+#ifndef BTRFS_IOC_DEFRAG
+#define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_SUPER_MAGIC
+#define BTRFS_SUPER_MAGIC 0x9123683E
 #endif
 
 #endif

@@ -9,12 +9,10 @@
 Description=Apply Kernel Variables
 DefaultDependencies=no
 Conflicts=shutdown.target
-Before=shutdown.target
+After=systemd-readahead-collect.service systemd-readahead-replay.service
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/sysctl -e -q -p /etc/sysctl.conf
-
-[Install]
-WantedBy=sysinit.target
