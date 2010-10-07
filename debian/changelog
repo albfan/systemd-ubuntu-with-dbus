@@ -3,6 +3,7 @@ systemd (11-1) UNRELEASED; urgency=low
   * New upstream version.  Closes: #597284
   * Add pam-auth-update calls to libpam-systemd's postinst and prerm
   * Make systemd-sysv depend on systemd
+  * Now mounts the cgroup fs in /sys/fs/cgroup.  Closes: #595966
 
  --
 
