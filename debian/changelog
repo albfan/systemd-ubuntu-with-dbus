@@ -1,5 +1,6 @@
-systemd (8-3) UNRELEASED; urgency=low
+systemd (11-1) UNRELEASED; urgency=low
 
+  * New upstream version.  Closes: #597284
   * Add pam-auth-update calls to libpam-systemd's postinst and prerm
 
  --
