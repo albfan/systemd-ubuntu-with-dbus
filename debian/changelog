@@ -1,11 +1,12 @@
-systemd (11-1) UNRELEASED; urgency=low
+systemd (11-1) experimental; urgency=low
 
   * New upstream version.  Closes: #597284
   * Add pam-auth-update calls to libpam-systemd's postinst and prerm
   * Make systemd-sysv depend on systemd
   * Now mounts the cgroup fs in /sys/fs/cgroup.  Closes: #595966
+  * Add libnotify-dev to build-depends (needed for systemadm)
 
- --
+ -- Tollef Fog Heen <tfheen@debian.org>  Thu, 07 Oct 2010 22:01:19 +0200
 
 systemd (8-2) experimental; urgency=low
 
