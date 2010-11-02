@@ -7,6 +7,7 @@ systemd (11-2) experimental; urgency=low
     correctly upstream.
   * Stop shipping /cgroup in the package.
   * Remove tmpwatch services, Debian doesn't have or use tmpwatch.
+  * Make sure to enable GTK bits.
 
  --
 

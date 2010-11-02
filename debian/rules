@@ -12,7 +12,7 @@ override_dh_install:
 	find ./debian/systemd/lib -name tmpwatch.\* -delete
 
 override_dh_auto_configure:
-	dh_auto_configure -- --with-rootdir= --with-udevrulesdir=/lib/udev/rules.d
+	dh_auto_configure -- --with-rootdir= --with-udevrulesdir=/lib/udev/rules.d --with-gtk
 
 %:
 	dh --parallel $@
