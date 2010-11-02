@@ -5,6 +5,7 @@ systemd (11-2) experimental; urgency=low
   * Add missing #DEBHELPER# token to libpam-systemd
   * Stop messing with runlevel5/multi-user.target symlink, this is handled
     correctly upstream.
+  * Stop shipping /cgroup in the package.
 
  --
 
