@@ -5,6 +5,7 @@
 
 override_dh_install:
 	rm debian/tmp/usr/share/doc/systemd/LICENSE
+	rm debian/tmp/lib/security/pam_systemd.la
 	dh_install -O--parallel --fail-missing
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
 	sed -i 's/#\(Mount\|Swap\)Auto=yes/\1Auto=no/' debian/systemd/etc/systemd/system.conf
@@ -12,12 +13,6 @@ override_dh_install:
 
 override_dh_auto_configure:
 	dh_auto_configure -- --with-rootdir= --with-udevrulesdir=/lib/udev/rules.d
-
-override_dh_auto_install:
-	dh_auto_install
-	rm debian/tmp/lib/systemd/system/runlevel5.target
-	rm debian/tmp/lib/security/pam_systemd.la
-	dh_link /lib/systemd/system/multi-user.target lib/systemd/system/runlevel5.target
 
 %:
 	dh --parallel $@

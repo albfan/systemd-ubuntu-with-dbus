@@ -3,6 +3,8 @@ systemd (11-2) experimental; urgency=low
   * Tighten depends from systemd-* on systemd to ensure they're upgraded
     in lockstep.  Thanks to Michael Biebl for the patch.
   * Add missing #DEBHELPER# token to libpam-systemd
+  * Stop messing with runlevel5/multi-user.target symlink, this is handled
+    correctly upstream.
 
  --
 
