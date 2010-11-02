@@ -9,8 +9,10 @@ systemd (11-2) experimental; urgency=low
   * Remove tmpwatch services, Debian doesn't have or use tmpwatch.
   * Make sure to enable GTK bits.
   * Ship password agent
+  * Clean up cgroups properly on upgrades, thanks to Michael Biebl for the
+    patch.  Closes: #599577
 
- --
+ -- Tollef Fog Heen <tfheen@debian.org>  Tue, 02 Nov 2010 21:47:10 +0100
 
 systemd (11-1) experimental; urgency=low
 
