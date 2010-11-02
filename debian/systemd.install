@@ -2,6 +2,7 @@ etc
 bin/systemd
 bin/systemctl
 bin/systemd-notify
+bin/systemd-ask-password
 lib/systemd/
 lib/udev/rules.d/99-systemd.rules
 usr/bin/systemd-cgls
@@ -16,3 +17,4 @@ usr/share/dbus-1
 usr/share/doc
 usr/share/pkgconfig
 usr/share/systemd/session
+usr/share/polkit-1
