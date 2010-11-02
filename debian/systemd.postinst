@@ -1,0 +1,12 @@
+#! /bin/sh
+
+set -e
+
+if [ -n "$2" ]; then
+    systemctl daemon-reexec || true
+    if [ -d /cgroup ]; then
+	rmdir --ignore-fail-on-non-empty /cgroup
+    fi
+fi
+
+#DEBHELPER#
