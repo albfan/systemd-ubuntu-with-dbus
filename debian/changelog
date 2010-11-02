@@ -1,3 +1,10 @@
+systemd (11-2) experimental; urgency=low
+
+  * Tighten depends from systemd-* on systemd to ensure they're upgraded
+    in lockstep.  Thanks to Michael Biebl for the patch.
+
+ --
+
 systemd (11-1) experimental; urgency=low
 
   * New upstream version.  Closes: #597284

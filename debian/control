@@ -30,7 +30,7 @@ Section: admin
 Priority: extra
 Conflicts: sysvinit, upstart, runit-run
 Replaces: sysvinit
-Depends: ${shlibs:Depends}, ${misc:Depends}, systemd
+Depends: systemd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: system and session manager - SysV links
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -47,7 +47,7 @@ Package: libpam-systemd
 Architecture: linux-any
 Section: admin
 Priority: extra
-Depends: systemd, ${shlibs:Depends}, ${misc:Depends}
+Depends: systemd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: system and session manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -64,7 +64,7 @@ Package: systemd-gui
 Architecture: linux-any
 Section: admin
 Priority: extra
-Depends: systemd, ${shlibs:Depends}, ${misc:Depends}
+Depends: systemd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: system and session manager - GUI
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
