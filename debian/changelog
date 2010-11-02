@@ -6,6 +6,7 @@ systemd (11-2) experimental; urgency=low
   * Stop messing with runlevel5/multi-user.target symlink, this is handled
     correctly upstream.
   * Stop shipping /cgroup in the package.
+  * Remove tmpwatch services, Debian doesn't have or use tmpwatch.
 
  --
 
