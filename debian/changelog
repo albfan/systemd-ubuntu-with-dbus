@@ -1,3 +1,10 @@
+systemd (13-1) experimental; urgency=low
+
+  * New upstream version, thanks a lot to Michael Biebl for help with
+    preparing this version.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
+
 systemd (11-2) experimental; urgency=low
 
   * Tighten depends from systemd-* on systemd to ensure they're upgraded
