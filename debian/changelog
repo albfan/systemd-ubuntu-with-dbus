@@ -2,6 +2,7 @@ systemd (13-1) experimental; urgency=low
 
   * New upstream version, thanks a lot to Michael Biebl for help with
     preparing this version.
+  * Add libaudit-dev to build-depends
 
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
 
