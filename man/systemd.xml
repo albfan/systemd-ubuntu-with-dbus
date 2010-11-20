@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd</refname>
                 <refname>init</refname>
-                <refpurpose>systemd System and Session Manager</refpurpose>
+                <refpurpose>systemd System and Service Manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -60,7 +60,7 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>systemd is a system and session manager for
+                <para>systemd is a system and service manager for
                 Linux operating systems. When run as first process on
                 boot (as PID 1), it acts as init system that brings
                 up and maintains userspace services.</para>
@@ -77,7 +77,7 @@
                 <para>When run as system instance, systemd interprets
                 the configuration file
                 <filename>system.conf</filename>, otherwise
-                <filename>session.conf</filename>. See
+                <filename>user.conf</filename>. See
                 <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information.</para>
         </refsect1>
@@ -136,44 +136,59 @@
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--system</option></term>
-                                <term><option>--session</option></term>
+                                <term><option>--user</option></term>
 
                                 <listitem><para>Tell systemd to run a
-                                system instance (resp. session
+                                system instance (resp. user
                                 instance), even if the process ID is
-                                not 1 (resp. is 1), i.e. systemd is not
-                                (resp. is) run as init process.
+                                not 1 (resp. is 1), i.e. systemd is
+                                not (resp. is) run as init process.
                                 Normally it should not be necessary to
                                 pass these options, as systemd
                                 automatically detects the mode it is
                                 started in. These options are hence of
-                                little use except for
-                                debugging.</para></listitem>
+                                little use except for debugging. Note
+                                that it is not supported booting and
+                                maintaining a full system with systemd
+                                running in <option>--system</option>
+                                mode, but PID not 1. In practice,
+                                passing <option>--system</option> explicitly is
+                                only useful in conjunction with
+                                <option>--test</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--dump-core</option></term>
 
-                                <listitem><para>Dump core on crash. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Dump core on
+                                crash. This switch has no effect when
+                                run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--crash-shell</option></term>
 
-                                <listitem><para>Run shell on crash. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Run shell on
+                                crash. This switch has no effect when
+                                run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--confirm-spawn</option></term>
 
-                                <listitem><para>Ask for confirmation when spawning processes. This switch has no effect when run as session instance.</para></listitem>
+                                <listitem><para>Ask for confirmation
+                                when spawning processes. This switch
+                                has no effect when run as user
+                                instance.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--show-status=</option></term>
 
                                 <listitem><para>Show terse service
                                 status information while booting. This
-                                switch has no effect when run as
-                                session instance. Takes a boolean
-                                argument which may be omitted
-                                which is interpreted as
+                                switch has no effect when run as user
+                                instance. Takes a boolean argument
+                                which may be omitted which is
+                                interpreted as
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -182,7 +197,7 @@
                                 <listitem><para>Controls whether
                                 output of SysV init scripts will be
                                 directed to the console. This switch
-                                has no effect when run as session
+                                has no effect when run as user
                                 instance. Takes a boolean argument
                                 which may be omitted which is
                                 interpreted as
@@ -317,9 +332,9 @@
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                         <listitem><para>Swap units are very similar to
-                        mount units and encapsulated memory swap
+                        mount units and encapsulate memory swap
                         partitions or files of the operating
-                        systemd. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+                        system. They are described in <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
                         <listitem><para>Path units may be used
                         to activate other services when file system
@@ -330,7 +345,7 @@
 
                 <para>Units are named as their configuration
                 files. Some units have special semantics. A detailed
-                list you may find in
+                list is available in
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                 <para>systemd knows various kinds of dependencies,
@@ -355,7 +370,7 @@
                 this.</para>
 
                 <para>Application programs and units (via
-                dependencies) may requests state changes of units. In
+                dependencies) may request state changes of units. In
                 systemd, these requests are encapsulated as 'jobs' and
                 maintained in a job queue. Jobs may succeed or can
                 fail, their execution is ordered based on the ordering
@@ -483,10 +498,10 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>Session unit directories</term>
+                                <term>User unit directories</term>
 
                                 <listitem><para>Similar rules apply
-                                for the session unit
+                                for the user unit
                                 directories. However, here the <ulink
                                 url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
                                 Base Directory specification</ulink>
@@ -494,11 +509,11 @@
                                 units. Applications should place their
                                 unit files in the directory returned
                                 by <command>pkg-config systemd
-                                --variable=systemdsessionunitdir</command>. Global
+                                --variable=systemduserunitdir</command>. Global
                                 configuration is done in the directory
                                 reported by <command>pkg-config
                                 systemd
-                                --variable=systemdsessionconfdir</command>. The
+                                --variable=systemduserconfdir</command>. The
                                 <command>enable</command> and
                                 <command>disable</command> commands of
                                 the
@@ -559,12 +574,12 @@
                                 to <command>systemctl
                                 daemon-reexec</command>.</para>
 
-                                <para>systemd session managers will
+                                <para>systemd user managers will
                                 start the
                                 <filename>exit.target</filename> unit
                                 when this signal is received. This is
                                 mostly equivalent to
-                                <command>systemctl --session start
+                                <command>systemctl --user start
                                 exit.target</command>.</para></listitem>
                         </varlistentry>
 
@@ -579,7 +594,7 @@
                                 <command>systemctl start
                                 ctl-alt-del.target</command>.</para>
 
-                                <para>systemd session managers
+                                <para>systemd user managers
                                 treat this signal the same way as
                                 SIGTERM.</para></listitem>
                         </varlistentry>
@@ -596,7 +611,7 @@
                                 kbrequest.target</command>.</para>
 
                                 <para>This signal is ignored by
-                                systemd session
+                                systemd user
                                 managers.</para></listitem>
                         </varlistentry>
 
@@ -751,7 +766,7 @@
                                 <term><varname>$XDG_DATA_HOME</varname></term>
                                 <term><varname>$XDG_DATA_DIRS</varname></term>
 
-                                <listitem><para>The systemd session
+                                <listitem><para>The systemd user
                                 manager uses these variables in
                                 accordance to the <ulink
                                 url="http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
@@ -845,8 +860,8 @@
                                 <listitem><para>Takes a boolean
                                 argument. If <option>true</option>
                                 systemd spawns a shell when it
-                                crashes. Otherwise no core dump is
-                                created. Defaults to
+                                crashes. Otherwise no shell is
+                                spawned. Defaults to
                                 <option>false</option>, for security
                                 reasons, as the shell is not protected
                                 by any password

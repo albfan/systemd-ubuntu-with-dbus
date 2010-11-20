@@ -298,7 +298,9 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool ig
 
         if (rem)
                 if ((r = cg_rmdir(controller, path)) < 0) {
-                        if (ret >= 0 && r != -ENOENT)
+                        if (ret >= 0 &&
+                            r != -ENOENT &&
+                            r != -EBUSY)
                                 ret = r;
                 }
 
@@ -319,16 +321,17 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
         assert(controller);
 
         /* This safely kills all processes; first it sends a SIGTERM,
-         * then checks 8 times after 50ms whether the group is
-         * now empty, and finally kills everything that is left with
-         * SIGKILL */
+         * then checks 8 times after 200ms whether the group is now
+         * empty, then kills everything that is left with SIGKILL and
+         * finally checks 5 times after 200ms each whether the group
+         * is finally empty. */
 
-        for (i = 0; i < 10; i++) {
+        for (i = 0; i < 15; i++) {
                 int sig, r;
 
                 if (i <= 0)
                         sig = SIGTERM;
-                else if (i >= 9)
+                else if (i == 9)
                         sig = SIGKILL;
                 else
                         sig = 0;
@@ -336,7 +339,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
                 if ((r = cg_kill_recursive(controller, path, sig, true, rem, NULL)) <= 0)
                         return r;
 
-                usleep(50 * USEC_PER_MSEC);
+                usleep(200 * USEC_PER_MSEC);
         }
 
         return 0;
@@ -459,7 +462,9 @@ int cg_migrate_recursive(const char *controller, const char *from, const char *t
 
         if (rem)
                 if ((r = cg_rmdir(controller, from)) < 0) {
-                        if (ret >= 0 && r != -ENOENT)
+                        if (ret >= 0 &&
+                            r != -ENOENT &&
+                            r != -EBUSY)
                                 ret = r;
                 }
 

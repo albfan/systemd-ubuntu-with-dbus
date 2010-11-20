@@ -108,7 +108,7 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
                 return;
 
         if (c->wall_message[0])
-                utmp_wall(c->wall_message);
+                utmp_wall(c->wall_message, NULL);
         else {
                 char date[FORMAT_TIMESTAMP_MAX];
                 const char* prefix;
@@ -126,7 +126,7 @@ static void warn_wall(usec_t n, struct shutdownd_command *c) {
                 if (asprintf(&l, "%s%s!", prefix, format_timestamp(date, sizeof(date), c->elapse)) < 0)
                         log_error("Failed to allocate wall message");
                 else {
-                        utmp_wall(l);
+                        utmp_wall(l, NULL);
                         free(l);
                 }
         }
@@ -318,10 +318,10 @@ int main(int argc, char *argv[]) {
                 if (pollfd[FD_NOLOGIN_TIMER].revents) {
                         int e;
 
-                        log_info("Creating /etc/nologin, blocking further logins...");
+                        log_info("Creating /var/run/nologin, blocking further logins...");
 
-                        if ((e = touch("/etc/nologin")) < 0)
-                                log_error("Failed to create /etc/nologin: %s", strerror(-e));
+                        if ((e = write_one_line_file("/var/run/nologin", "System is going down.")) < 0)
+                                log_error("Failed to create /var/run/nologin: %s", strerror(-e));
                         else
                                 unlink_nologin = true;
 
@@ -346,7 +346,7 @@ finish:
                         close_nointr_nofail(pollfd[i].fd);
 
         if (unlink_nologin)
-                unlink("/etc/nologin");
+                unlink("/var/run/nologin");
 
         if (exec_shutdown) {
                 char sw[3];

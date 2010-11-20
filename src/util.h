@@ -31,6 +31,8 @@
 #include <signal.h>
 #include <sched.h>
 #include <limits.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include "macro.h"
 
@@ -82,6 +84,7 @@ usec_t timeval_load(const struct timeval *tv);
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
+#define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
 
 bool streq_ptr(const char *a, const char *b);
 
@@ -262,6 +265,7 @@ char *format_timestamp_pretty(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t);
 
 int make_stdio(int fd);
+int make_null_stdio(void);
 
 bool is_clean_exit(int code, int status);
 bool is_clean_exit_lsb(int code, int status);
@@ -355,8 +359,26 @@ char *unquote(const char *s, const char *quotes);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
-#define NULSTR_FOREACH(i, l) \
+_noreturn_ void freeze(void);
+
+bool null_or_empty(struct stat *st);
+
+DIR *xopendirat(int dirfd, const char *name);
+
+void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t);
+void dual_timestamp_deserialize(const char *value, dual_timestamp *t);
+
+char *fstab_node_to_udev_node(const char *p);
+
+void filter_environ(const char *prefix);
+
+const char *default_term_for_tty(const char *tty);
+
+#define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
+
+#define NULSTR_FOREACH_PAIR(i, j, l)                             \
+        for ((i) = (l), (j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
 
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
@@ -381,5 +403,7 @@ int ip_tos_from_string(const char *s);
 
 const char *signal_to_string(int i);
 int signal_from_string(const char *s);
+
+int signal_from_string_try_harder(const char *s);
 
 #endif

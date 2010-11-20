@@ -78,11 +78,15 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
-        if (t->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+        if (t->meta.manager->running_as == MANAGER_SYSTEM) {
+                if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+                if ((r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+        }
+
+        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int timer_load(Unit *u) {
@@ -161,9 +165,7 @@ static int timer_coldplug(Unit *u) {
 
         if (t->deserialized_state != t->state) {
 
-                if (t->deserialized_state == TIMER_WAITING ||
-                    t->deserialized_state == TIMER_RUNNING ||
-                    t->deserialized_state == TIMER_ELAPSED)
+                if (t->deserialized_state == TIMER_WAITING)
                         timer_enter_waiting(t, false);
                 else
                         timer_set_state(t, t->deserialized_state);
@@ -197,9 +199,9 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                 switch (v->base) {
 
                 case TIMER_ACTIVE:
-                        if (state_translation_table[t->state] == UNIT_ACTIVE) {
+                        if (state_translation_table[t->state] == UNIT_ACTIVE)
                                 base = t->meta.inactive_exit_timestamp.monotonic;
-                        } else
+                        else
                                 base = n;
                         break;
 

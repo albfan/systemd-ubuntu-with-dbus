@@ -39,11 +39,12 @@ struct CGroupBonding {
         /* For the Manager::cgroup_bondings hashmap */
         LIST_FIELDS(CGroupBonding, by_path);
 
-        /* When shutting down, remove cgroup? */
-        bool clean_up:1;
+        /* When shutting down, remove cgroup? Are our own tasks the
+         * only ones in this group?*/
+        bool ours:1;
 
-        /* When our tasks are the only ones in this group */
-        bool only_us:1;
+        /* If we cannot create this group, or add a process to it, is this fatal? */
+        bool essential:1;
 
         /* This cgroup is realized */
         bool realized:1;
@@ -70,6 +71,9 @@ int cgroup_bonding_is_empty_list(CGroupBonding *first);
 CGroupBonding *cgroup_bonding_find_list(CGroupBonding *first, const char *controller);
 
 char *cgroup_bonding_to_string(CGroupBonding *b);
+
+pid_t cgroup_bonding_search_main_pid(CGroupBonding *b);
+pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *b);
 
 #include "manager.h"
 

@@ -46,7 +46,7 @@ int cgroup_bonding_realize(CGroupBonding *b) {
 
         b->realized = true;
 
-        if (b->only_us && b->clean_up)
+        if (b->ours)
                 cg_trim(b->controller, b->path, false);
 
         return 0;
@@ -57,7 +57,7 @@ int cgroup_bonding_realize_list(CGroupBonding *first) {
         int r;
 
         LIST_FOREACH(by_unit, b, first)
-                if ((r = cgroup_bonding_realize(b)) < 0)
+                if ((r = cgroup_bonding_realize(b)) < 0 && b->essential)
                         return r;
 
         return 0;
@@ -71,16 +71,18 @@ void cgroup_bonding_free(CGroupBonding *b) {
 
                 LIST_REMOVE(CGroupBonding, by_unit, b->unit->meta.cgroup_bondings, b);
 
-                assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
-                LIST_REMOVE(CGroupBonding, by_path, f, b);
+                if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                        assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
+                        LIST_REMOVE(CGroupBonding, by_path, f, b);
 
-                if (f)
-                        hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
-                else
-                        hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                        if (f)
+                                hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
+                        else
+                                hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                }
         }
 
-        if (b->realized && b->only_us && b->clean_up) {
+        if (b->realized && b->ours) {
 
                 if (cgroup_bonding_is_empty(b) > 0)
                         cg_delete(b->controller, b->path);
@@ -103,7 +105,7 @@ void cgroup_bonding_free_list(CGroupBonding *first) {
 void cgroup_bonding_trim(CGroupBonding *b, bool delete_root) {
         assert(b);
 
-        if (b->realized && b->only_us && b->clean_up)
+        if (b->realized && b->ours)
                 cg_trim(b->controller, b->path, delete_root);
 }
 
@@ -132,22 +134,19 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         int r;
 
         LIST_FOREACH(by_unit, b, first)
-                if ((r = cgroup_bonding_install(b, pid)) < 0)
+                if ((r = cgroup_bonding_install(b, pid)) < 0 && b->essential)
                         return r;
 
         return 0;
 }
 
 int cgroup_bonding_kill(CGroupBonding *b, int sig, Set *s) {
-        int r;
-
         assert(b);
         assert(sig >= 0);
 
-        if ((r = cgroup_bonding_realize(b)) < 0)
-                return r;
-
-        assert(b->realized);
+        /* Don't kill cgroups that aren't ours */
+        if (!b->realized || !b->ours)
+                return 0;
 
         return cg_kill_recursive(b->controller, b->path, sig, true, false, s);
 }
@@ -196,7 +195,7 @@ int cgroup_bonding_is_empty(CGroupBonding *b) {
                 return 1;
 
         /* It's not only us using this cgroup, so we just don't know */
-        return b->only_us ? 0 : -EAGAIN;
+        return b->ours ? 0 : -EAGAIN;
 }
 
 int cgroup_bonding_is_empty_list(CGroupBonding *first) {
@@ -230,8 +229,12 @@ int manager_setup_cgroup(Manager *m) {
         if ((r = cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 0, &current)) < 0)
                 goto finish;
 
-        snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
-        char_array_0(suffix);
+        if (m->running_as == MANAGER_SYSTEM)
+                strcpy(suffix, "/system");
+        else {
+                snprintf(suffix, sizeof(suffix), "/systemd-%lu", (unsigned long) getpid());
+                char_array_0(suffix);
+        }
 
         free(m->cgroup_hierarchy);
         if (endswith(current, suffix)) {
@@ -255,7 +258,7 @@ int manager_setup_cgroup(Manager *m) {
         log_debug("Using cgroup controller " SYSTEMD_CGROUP_CONTROLLER ". File system hierarchy is at %s.", path);
 
         /* 3. Install agent */
-        if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, CGROUP_AGENT_PATH)) < 0)
+        if ((r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH)) < 0)
                 log_warning("Failed to install release agent, ignoring: %s", strerror(-r));
         else if (r > 0)
                 log_debug("Installed release agent.");
@@ -368,7 +371,7 @@ Unit* cgroup_unit_by_pid(Manager *m, pid_t pid) {
                 if (!b->unit)
                         continue;
 
-                if (b->only_us)
+                if (b->ours)
                         return b->unit;
         }
 
@@ -396,4 +399,55 @@ char *cgroup_bonding_to_string(CGroupBonding *b) {
                 return NULL;
 
         return r;
+}
+
+pid_t cgroup_bonding_search_main_pid(CGroupBonding *b) {
+        FILE *f;
+        pid_t pid = 0, npid;
+        int r;
+
+        assert(b);
+
+        if (!b->ours)
+                return 0;
+
+        if ((r = cg_enumerate_processes(b->controller, b->path, &f)) < 0)
+                return 0;
+
+        while ((r = cg_read_pid(f, &npid)) > 0)  {
+
+                if (npid == pid)
+                        continue;
+
+                if (pid != 0) {
+                        /* Dang, there's more than one PID in this
+                         * group, so we don't know what process is the
+                         * main process. */
+                        pid = 0;
+                        break;
+                }
+
+                pid = npid;
+        }
+
+        fclose(f);
+
+        return pid;
+}
+
+pid_t cgroup_bonding_search_main_pid_list(CGroupBonding *first) {
+        CGroupBonding *b;
+        pid_t pid;
+
+        /* Try to find a main pid from this cgroup, but checking if
+         * there's only one PID in the cgroup and returning it. Later
+         * on we might want to add additional, smarter heuristics
+         * here. */
+
+        LIST_FOREACH(by_unit, b, first)
+                if ((pid = cgroup_bonding_search_main_pid(b)) != 0)
+                        return pid;
+
+        return 0;
+
 }

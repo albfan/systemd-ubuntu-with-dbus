@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>systemctl</refname>
-                <refpurpose>Control the systemd system and session manager</refpurpose>
+                <refpurpose>Control the systemd system and service manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -59,7 +59,7 @@
                 <para><command>systemctl</command> may be used to
                 introspect and control the state of the
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                system and session manager.</para>
+                system and service manager.</para>
         </refsect1>
 
         <refsect1>
@@ -74,6 +74,13 @@
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a short version
+                                string and exits.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -171,10 +178,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--session</option></term>
+                                <term><option>--user</option></term>
 
                                 <listitem><para>Talk to the systemd
-                                session manager of the calling user.</para></listitem>
+                                manager of the calling user.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -217,10 +224,10 @@
                                 <listitem><para>When used with
                                 <command>enable</command> and
                                 <command>disable</command>, operate on the
-                                global session configuŕation
+                                global user configuŕation
                                 directory, thus enabling or disabling
                                 a unit file globally for all future
-                                sessions of all users.</para></listitem>
+                                logins of all users.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -235,12 +242,100 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--no-ask-password</option></term>
+
+                                <listitem><para>When used with
+                                <command>start</command> and related
+                                commands, disables asking for
+                                passwords. Background services may
+                                require input of a password or
+                                passphrase string, for example to
+                                unlock system hard disks or
+                                cryptographic certificates. Unless
+                                this option is specified and the
+                                command is invoked from a terminal
+                                <command>systemctl</command> will
+                                query the user on the terminal for the
+                                necessary secrets. Use this option to
+                                switch this behaviour off. In this
+                                case the password must be supplied by
+                                some other means (for example
+                                graphical password agents) or the
+                                service might fail.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--kill-mode=</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose the
+                                mode how to kill the selected
+                                processes. Must be one of
+                                <option>control-group</option>,
+                                <option>process-group</option> or
+                                <option>process</option> to select
+                                whether to kill the entire control
+                                group, the process group or only the
+                                selected process itself. If ommitted
+                                defaults to
+                                <option>control-group</option> if
+                                <option>--kill-who=all</option> is
+                                set, or <option>process</option>
+                                otherwise. You probably never need to
+                                use this switch.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--kill-who=</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose which
+                                processes to kill. Must be one of
+                                <option>main</option>,
+                                <option>control</option> or
+                                <option>all</option> to select whether
+                                to kill only the main process of the
+                                unit, the control process or all
+                                processes of the unit. If ommitted
+                                defaults to
+                                <option>all</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>---signal=</option></term>
+                                <term><option>-s</option></term>
+
+                                <listitem><para>When used with
+                                <command>kill</command>, choose which
+                                signal to send to selected
+                                processes. Must be one of the well
+                                know signal specifiers such as
+                                SIGTERM, SIGINT or SIGSTOP. If
+                                ommitted defaults to
+                                <option>SIGTERM</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--force</option></term>
+                                <term><option>-f</option></term>
 
                                 <listitem><para>When used with
                                 <command>enable</command>, override any
                                 existing conflicting
                                 symlinks.</para></listitem>
+
+                                <listitem><para>When used with
+                                <command>halt</command>,
+                                <command>poweroff</command>,
+                                <command>reboot</command> or
+                                <command>kexec</command> execute
+                                selected operation without shutting
+                                down all units. However, all processes
+                                will be killed forcibly and all file
+                                systems are unmounted or remounted
+                                read-only. This is hence a drastic but
+                                relatively safe option to request an
+                                immediate reboot.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -357,6 +452,18 @@
                                 enabled. See
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>kill [NAME...]</command></term>
+
+                                <listitem><para>Send a signal to one
+                                or more processes of the unit. Use
+                                <option>--kill-who=</option> to select
+                                which process to kill. Use
+                                <option>--kill-mode=</option> to
+                                select the kill mode and
+                                <option>--signal=</option> to select
+                                the signal to send.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>is-active [NAME...]</command></term>
@@ -491,11 +598,11 @@
 
                                 <para>Depending on whether
                                 <option>--system</option>,
-                                <option>--session</option> or
+                                <option>--user</option> or
                                 <option>--global</option> is specified
                                 this enables the unit for the system,
-                                for sessions of the calling user only
-                                or for all future session of all
+                                for the calling user only
+                                or for all future logins of all
                                 users. Note that in the latter case no
                                 systemd daemon configuration is
                                 reloaded.</para>
@@ -536,7 +643,7 @@
 
                                 <para>This command honours
                                 <option>--system</option>,
-                                <option>--session</option>,
+                                <option>--user</option>,
                                 <option>--global</option> in a similar
                                 way as
                                 <command>enable</command>.</para>
@@ -705,16 +812,6 @@
                                 accessible.</para></listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><command>daemon-exit</command></term>
-
-                                <listitem><para>Ask the systemd
-                                manager to quit. This is only
-                                supported for session managers
-                                (i.e. in conjunction with the
-                                <option>--session</option> option) and
-                                will fail otherwise.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><command>show-environment</command></term>
 
                                 <listitem><para>Dump the systemd
@@ -746,36 +843,6 @@
                                 is only removed if it has the
                                 specified value.</para></listitem>
                         </varlistentry>
-
-                        <varlistentry>
-                                <term><command>halt</command></term>
-
-                                <listitem><para>Shut down and halt the
-                                system. This is mostly equivalent to
-                                <command>start halt.target</command>
-                                but also prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>poweroff</command></term>
-
-                                <listitem><para>Shut down and
-                                power-off the system. This is mostly
-                                equivalent to <command>start
-                                poweroff.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>reboot</command></term>
-
-                                <listitem><para>Shut down and
-                                reboot the system. This is mostly
-                                equivalent to <command>start
-                                reboot.target</command> but also
-                                prints a wall message to all
-                                users.</para></listitem>
-                        </varlistentry>
                         <varlistentry>
                                 <term><command>default</command></term>
 
@@ -803,6 +870,82 @@
                                 emergency.target</command> but also
                                 prints a wall message to all
                                 users.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>halt</command></term>
+
+                                <listitem><para>Shut down and halt the
+                                system. This is mostly equivalent to
+                                <command>start halt.target</command>
+                                but also prints a wall message to all
+                                users.  If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                system halt.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>poweroff</command></term>
+
+                                <listitem><para>Shut down and
+                                power-off the system. This is mostly
+                                equivalent to <command>start
+                                poweroff.target</command> but also
+                                prints a wall message to all
+                                users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                powering off.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>reboot</command></term>
+
+                                <listitem><para>Shut down and
+                                reboot the system. This is mostly
+                                equivalent to <command>start
+                                reboot.target</command> but also
+                                prints a wall message to all
+                                users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                reboot.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>kexec</command></term>
+
+                                <listitem><para>Shut down and reboot
+                                the system via kexec. This is mostly
+                                equivalent to <command>start
+                                kexec.target</command> but also prints
+                                a wall message to all users. If
+                                combined with <option>--force</option>
+                                shutdown of all running services is
+                                skipped, however all processes killed
+                                and all file systems unmounted or
+                                mounted read-only, immediately
+                                followed by the
+                                reboot.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><command>exit</command></term>
+
+                                <listitem><para>Ask the systemd
+                                manager to quit. This is only
+                                supported for user service managers
+                                (i.e. in conjunction with the
+                                <option>--user</option> option) and
+                                will fail otherwise.</para></listitem>
                         </varlistentry>
                 </variablelist>
 

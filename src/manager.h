@@ -41,13 +41,17 @@ typedef enum ManagerExitCode {
         MANAGER_EXIT,
         MANAGER_RELOAD,
         MANAGER_REEXECUTE,
+        MANAGER_REBOOT,
+        MANAGER_POWEROFF,
+        MANAGER_HALT,
+        MANAGER_KEXEC,
         _MANAGER_EXIT_CODE_MAX,
         _MANAGER_EXIT_CODE_INVALID = -1
 } ManagerExitCode;
 
 typedef enum ManagerRunningAs {
         MANAGER_SYSTEM,
-        MANAGER_SESSION,
+        MANAGER_USER,
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;
@@ -60,6 +64,7 @@ enum WatchType {
         WATCH_UNIT_TIMER,
         WATCH_JOB_TIMER,
         WATCH_MOUNT,
+        WATCH_SWAP,
         WATCH_UDEV,
         WATCH_DBUS_WATCH,
         WATCH_DBUS_TIMEOUT
@@ -137,11 +142,14 @@ struct Manager {
         Set *unit_path_cache;
 
         char **environment;
+        char **default_controllers;
 
+        dual_timestamp initrd_timestamp;
         dual_timestamp startup_timestamp;
         dual_timestamp finish_timestamp;
 
         char *console;
+        char *generator_unit_path;
 
         /* Data specific to the device subsystem */
         struct udev* udev;
@@ -155,6 +163,9 @@ struct Manager {
 
         /* Data specific to the swap filesystem */
         FILE *proc_swaps;
+        Hashmap *swaps_by_proc_swaps;
+        bool request_reload;
+        Watch swap_watch;
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *api_bus, *system_bus;
@@ -195,7 +206,7 @@ struct Manager {
 
         /* Flags */
         ManagerRunningAs running_as;
-        ManagerExitCode exit_code:4;
+        ManagerExitCode exit_code:5;
 
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
@@ -246,6 +257,7 @@ unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_set_console(Manager *m, const char *console);
+int manager_set_default_controllers(Manager *m, char **controllers);
 
 int manager_loop(Manager *m);
 
@@ -269,6 +281,9 @@ void manager_send_unit_plymouth(Manager *m, Unit *u);
 bool manager_unit_pending_inactive(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
+
+void manager_run_generators(Manager *m);
+void manager_undo_generators(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/prctl.h>
 
 #include "manager.h"
 #include "log.h"
@@ -39,6 +40,7 @@
 #include "loopback-setup.h"
 #include "kmod-setup.h"
 #include "locale-setup.h"
+#include "selinux-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -47,6 +49,7 @@
 #include "missing.h"
 #include "label.h"
 #include "build.h"
+#include "strv.h"
 
 static enum {
         ACTION_RUN,
@@ -70,13 +73,9 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char *arg_console = NULL;
+static char **arg_default_controllers = NULL;
 
 static FILE* serialization = NULL;
-
-_noreturn_ static void freeze(void) {
-        for (;;)
-                pause();
-}
 
 static void nop_handler(int sig) {
 }
@@ -183,20 +182,6 @@ static void install_crash_handler(void) {
         sa.sa_flags = SA_NODEFER;
 
         sigaction_many(&sa, SIGNALS_CRASH_HANDLER, -1);
-}
-
-static int make_null_stdio(void) {
-        int null_fd, r;
-
-        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0) {
-                log_error("Failed to open /dev/null: %m");
-                return -errno;
-        }
-
-        if ((r = make_stdio(null_fd)) < 0)
-                log_warning("Failed to dup2() device: %s", strerror(-r));
-
-        return r;
 }
 
 static int console_setup(bool do_reset) {
@@ -338,7 +323,7 @@ static int parse_proc_cmdline_word(const char *word) {
 #ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
 #endif
-                         "systemd.log_target=console|kmsg|syslog|syslog-org-kmsg|null\n"
+                         "systemd.log_target=console|kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
@@ -519,6 +504,7 @@ static int parse_config_file(void) {
                 { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
                 { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
                 { "SwapAuto",    config_parse_bool,         &arg_swap_auto,     "Manager" },
+                { "DefaultControllers", config_parse_strv,  &arg_default_controllers, "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -531,7 +517,7 @@ static int parse_config_file(void) {
         const char *fn;
         int r;
 
-        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : SESSION_CONFIG_FILE;
+        fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
 
         if (!(f = fopen(fn, "re"))) {
                 if (errno == ENOENT)
@@ -550,11 +536,9 @@ static int parse_config_file(void) {
 }
 
 static int parse_proc_cmdline(void) {
-        char *line;
+        char *line, *w, *state;
         int r;
-        char *w;
         size_t l;
-        char *state;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
@@ -592,7 +576,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_LOCATION,
                 ARG_UNIT,
                 ARG_SYSTEM,
-                ARG_SESSION,
+                ARG_USER,
                 ARG_TEST,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_CORE,
@@ -611,7 +595,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
-                { "session",                  no_argument,       NULL, ARG_SESSION                  },
+                { "user",                     no_argument,       NULL, ARG_USER                     },
                 { "test",                     no_argument,       NULL, ARG_TEST                     },
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
@@ -690,8 +674,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_running_as = MANAGER_SYSTEM;
                         break;
 
-                case ARG_SESSION:
-                        arg_running_as = MANAGER_SESSION;
+                case ARG_USER:
+                        arg_running_as = MANAGER_USER;
                         break;
 
                 case ARG_TEST:
@@ -813,14 +797,14 @@ static int parse_argv(int argc, char *argv[]) {
 static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
-               "Starts up and maintains the system or a session.\n\n"
+               "Starts up and maintains the system or user services.\n\n"
                "  -h --help                      Show this help\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --introspect[=INTERFACE]    Extract D-Bus interface data\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
-               "     --session                   Run a session instance\n"
+               "     --user                      Run a user instance\n"
                "     --dump-core                 Dump core on crash\n"
                "     --crash-shell               Run shell on crash\n"
                "     --confirm-spawn             Ask for confirmation when spawning processes\n"
@@ -891,11 +875,50 @@ fail:
         return r;
 }
 
+static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
+        const char *e;
+        unsigned long long a, b;
+
+        assert(t);
+
+        if (!(e = getenv("RD_TIMESTAMP")))
+                return NULL;
+
+        if (sscanf(e, "%llu %llu", &a, &b) != 2)
+                return NULL;
+
+        t->realtime = (usec_t) a;
+        t->monotonic = (usec_t) b;
+
+        return t;
+}
+
+static void test_mtab(void) {
+        char *p;
+
+        if (readlink_malloc("/etc/mtab", &p) >= 0) {
+                bool b;
+
+                b = streq(p, "/proc/self/mounts");
+                free(p);
+
+                if (b)
+                        return;
+        }
+
+        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
+                  "This is not supported anymore. "
+                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
         FDSet *fds = NULL;
         bool reexecute = false;
+        const char *shutdown_verb = NULL;
+        dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
+        char systemd[] = "systemd";
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatbility support for SysV, where
@@ -907,6 +930,14 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
+        /* If we get started via the /sbin/init symlink then we are
+           called 'init'. After a subsequent reexecution we are then
+           called 'systemd'. That is confusing, hence let's call us
+           systemd right-away. */
+
+        program_invocation_short_name = systemd;
+        prctl(PR_SET_NAME, systemd);
+
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
         log_set_max_level(LOG_INFO);
@@ -915,10 +946,15 @@ int main(int argc, char *argv[]) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
 
+                /* This might actually not return, but cause a
+                 * reexecution */
+                if (selinux_setup(argv) < 0)
+                        goto finish;
+
                 if (label_init() < 0)
                         goto finish;
         } else {
-                arg_running_as = MANAGER_SESSION;
+                arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_CONSOLE);
         }
 
@@ -979,6 +1015,17 @@ int main(int argc, char *argv[]) {
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                arg_running_as == MANAGER_SYSTEM);
 
+        if (arg_running_as == MANAGER_SYSTEM) {
+                /* Parse the data passed to us by the initrd and unset it */
+                parse_initrd_timestamp(&initrd_timestamp);
+                filter_environ("RD_");
+
+                /* Unset some environment variables passed in from the
+                 * kernel that don't really make sense for us. */
+                unsetenv("HOME");
+                unsetenv("TERM");
+        }
+
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
@@ -1022,6 +1069,8 @@ int main(int argc, char *argv[]) {
                 loopback_setup();
 
                 mkdir_p("/dev/.systemd/ask-password/", 0755);
+
+                test_mtab();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {
@@ -1037,8 +1086,14 @@ int main(int argc, char *argv[]) {
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
 
+        if (dual_timestamp_is_set(&initrd_timestamp))
+                m->initrd_timestamp = initrd_timestamp;
+
         if (arg_console)
                 manager_set_console(m, arg_console);
+
+        if (arg_default_controllers)
+                manager_set_default_controllers(m, arg_default_controllers);
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1065,8 +1120,10 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->meta.load_state != UNIT_LOADED)
+                } else if (target->meta.load_state == UNIT_ERROR)
                         log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
+                else if (target->meta.load_state == UNIT_MASKED)
+                        log_error("Default target masked.");
 
                 if (!target || target->meta.load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
@@ -1075,11 +1132,16 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->meta.load_state != UNIT_LOADED) {
+                        } else if (target->meta.load_state == UNIT_ERROR) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
+                                goto finish;
+                        } else if (target->meta.load_state == UNIT_MASKED) {
+                                log_error("Rescue target masked.");
                                 goto finish;
                         }
                 }
+
+                assert(target->meta.load_state == UNIT_LOADED);
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By units:\n");
@@ -1127,6 +1189,23 @@ int main(int argc, char *argv[]) {
                         log_notice("Reexecuting.");
                         goto finish;
 
+                case MANAGER_REBOOT:
+                case MANAGER_POWEROFF:
+                case MANAGER_HALT:
+                case MANAGER_KEXEC: {
+                        static const char * const table[_MANAGER_EXIT_CODE_MAX] = {
+                                [MANAGER_REBOOT] = "reboot",
+                                [MANAGER_POWEROFF] = "poweroff",
+                                [MANAGER_HALT] = "halt",
+                                [MANAGER_KEXEC] = "kexec"
+                        };
+
+                        assert_se(shutdown_verb = table[m->exit_code]);
+
+                        log_notice("Shutting down.");
+                        goto finish;
+                }
+
                 default:
                         assert_not_reached("Unknown exit code.");
                 }
@@ -1138,6 +1217,7 @@ finish:
 
         free(arg_default_unit);
         free(arg_console);
+        strv_free(arg_default_controllers);
 
         dbus_shutdown();
 
@@ -1162,7 +1242,7 @@ finish:
                 if (arg_running_as == MANAGER_SYSTEM)
                         args[i++] = "--system";
                 else
-                        args[i++] = "--session";
+                        args[i++] = "--user";
 
                 if (arg_dump_core)
                         args[i++] = "--dump-core";
@@ -1205,6 +1285,17 @@ finish:
 
         if (fds)
                 fdset_free(fds);
+
+        if (shutdown_verb) {
+                const char * command_line[] = {
+                        SYSTEMD_SHUTDOWN_BINARY_PATH,
+                        shutdown_verb,
+                        NULL
+                };
+
+                execv(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line);
+                log_error("Failed to execute shutdown binary, freezing: %m");
+        }
 
         if (getpid() == 1)
                 freeze();

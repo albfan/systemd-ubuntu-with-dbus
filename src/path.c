@@ -39,6 +39,17 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_FAILED] = UNIT_FAILED
 };
 
+static void path_unwatch_one(Path *p, PathSpec *s) {
+
+        if (s->inotify_fd < 0)
+                return;
+
+        unit_unwatch_fd(UNIT(p), &s->watch);
+
+        close_nointr_nofail(s->inotify_fd);
+        s->inotify_fd = -1;
+}
+
 static void path_done(Unit *u) {
         Path *p = PATH(u);
         PathSpec *s;
@@ -46,7 +57,9 @@ static void path_done(Unit *u) {
         assert(p);
 
         while ((s = p->specs)) {
+                path_unwatch_one(p, s);
                 LIST_REMOVE(PathSpec, spec, p->specs, s);
+                free(s->path);
                 free(s);
         }
 }
@@ -106,11 +119,15 @@ static int path_add_default_dependencies(Path *p) {
 
         assert(p);
 
-        if (p->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+        if (p->meta.manager->running_as == MANAGER_SYSTEM) {
+                if ((r = unit_add_dependency_by_name(UNIT(p), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_SHUTDOWN_TARGET, NULL, true);
+                if ((r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true)) < 0)
+                        return r;
+        }
+
+        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
 static int path_load(Unit *u) {
@@ -164,22 +181,11 @@ static void path_dump(Unit *u, FILE *f, const char *prefix) {
                         s->path);
 }
 
-static void path_unwatch_one(Path *p, PathSpec *s) {
-
-        if (s->inotify_fd < 0)
-                return;
-
-        unit_unwatch_fd(UNIT(p), &s->watch);
-
-        close_nointr_nofail(s->inotify_fd);
-        s->inotify_fd = -1;
-}
-
 static int path_watch_one(Path *p, PathSpec *s) {
         static const int flags_table[_PATH_TYPE_MAX] = {
-                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF,
+                [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
-                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_CREATE|IN_MOVED_TO
+                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
         };
 
         bool exists = false;
@@ -217,9 +223,9 @@ static int path_watch_one(Path *p, PathSpec *s) {
 
                 *slash = 0;
 
-                flags = IN_DELETE_SELF|IN_MOVE_SELF;
+                flags = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB;
                 if (!exists)
-                        flags |= IN_CREATE | IN_MOVED_TO | IN_ATTRIB;
+                        flags |= IN_CREATE | IN_MOVED_TO;
 
                 if (inotify_add_watch(s->inotify_fd, k, flags) >= 0)
                         exists = true;
@@ -263,7 +269,8 @@ static void path_set_state(Path *p, PathState state) {
         old_state = p->state;
         p->state = state;
 
-        if (state != PATH_WAITING)
+        if (state != PATH_WAITING &&
+            (state != PATH_RUNNING || p->inotify_triggered))
                 path_unwatch(p);
 
         if (state != old_state)
@@ -275,7 +282,7 @@ static void path_set_state(Path *p, PathState state) {
         unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state]);
 }
 
-static void path_enter_waiting(Path *p, bool initial);
+static void path_enter_waiting(Path *p, bool initial, bool recheck);
 
 static int path_coldplug(Unit *u) {
         Path *p = PATH(u);
@@ -287,7 +294,7 @@ static int path_coldplug(Unit *u) {
 
                 if (p->deserialized_state == PATH_WAITING ||
                     p->deserialized_state == PATH_RUNNING)
-                        path_enter_waiting(p, true);
+                        path_enter_waiting(p, true, true);
                 else
                         path_set_state(p, p->deserialized_state);
         }
@@ -318,6 +325,11 @@ static void path_enter_running(Path *p) {
         if ((r = manager_add_job(p->meta.manager, JOB_START, p->unit, JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
+        p->inotify_triggered = false;
+
+        if ((r = path_watch(p)) < 0)
+                goto fail;
+
         path_set_state(p, PATH_RUNNING);
         return;
 
@@ -329,10 +341,13 @@ fail:
 }
 
 
-static void path_enter_waiting(Path *p, bool initial) {
+static void path_enter_waiting(Path *p, bool initial, bool recheck) {
         PathSpec *s;
         int r;
         bool good = false;
+
+        if (!recheck)
+                goto waiting;
 
         LIST_FOREACH(spec, s, p->specs) {
 
@@ -342,9 +357,13 @@ static void path_enter_waiting(Path *p, bool initial) {
                         good = access(s->path, F_OK) >= 0;
                         break;
 
-                case PATH_DIRECTORY_NOT_EMPTY:
-                        good = dir_is_empty(s->path) == 0;
+                case PATH_DIRECTORY_NOT_EMPTY: {
+                        int k;
+
+                        k = dir_is_empty(s->path);
+                        good = !(k == -ENOENT || k > 0);
                         break;
+                }
 
                 case PATH_CHANGED: {
                         bool b;
@@ -364,10 +383,12 @@ static void path_enter_waiting(Path *p, bool initial) {
         }
 
         if (good) {
+                log_debug("%s got triggered.", p->meta.id);
                 path_enter_running(p);
                 return;
         }
 
+waiting:
         if ((r = path_watch(p)) < 0)
                 goto fail;
 
@@ -389,7 +410,8 @@ static int path_start(Unit *u) {
                 return -ENOENT;
 
         p->failure = false;
-path_enter_waiting(p, true);
+        path_enter_waiting(p, true, true);
+
         return 0;
 }
 
@@ -452,16 +474,19 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Path *p = PATH(u);
         int l;
         ssize_t k;
-        struct inotify_event *buf = NULL;
+        uint8_t *buf = NULL;
+        struct inotify_event *e;
         PathSpec *s;
+        bool changed;
 
         assert(p);
         assert(fd >= 0);
 
-        if (p->state != PATH_WAITING)
+        if (p->state != PATH_WAITING &&
+            p->state != PATH_RUNNING)
                 return;
 
-        log_debug("inotify wakeup on %s.", u->meta.id);
+        /* log_debug("inotify wakeup on %s.", u->meta.id); */
 
         if (events != EPOLLIN) {
                 log_error("Got Invalid poll event on inotify.");
@@ -492,16 +517,31 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        if ((size_t) k < sizeof(struct inotify_event) ||
-            (size_t) k < sizeof(struct inotify_event) + buf->len) {
-                log_error("inotify event too small.");
-                goto fail;
+        /* If we are already running, then remember that one event was
+         * dispatched so that we restart the service only if something
+         * actually changed on disk */
+        p->inotify_triggered = true;
+
+        e = (struct inotify_event*) buf;
+
+        changed = false;
+        while (k > 0) {
+                size_t step;
+
+                if (s->type == PATH_CHANGED && s->primary_wd == e->wd)
+                        changed = true;
+
+                step = sizeof(struct inotify_event) + e->len;
+                assert(step <= (size_t) k);
+
+                e = (struct inotify_event*) ((uint8_t*) e + step);
+                k -= step;
         }
 
-        if (s->type == PATH_CHANGED && s->primary_wd == buf->wd)
+        if (changed)
                 path_enter_running(p);
         else
-                path_enter_waiting(p, false);
+                path_enter_waiting(p, false, true);
 
         free(buf);
 
@@ -546,7 +586,11 @@ void path_unit_notify(Unit *u, UnitActiveState new_state) {
 
                 if (p->state == PATH_RUNNING && new_state == UNIT_INACTIVE) {
                         log_debug("%s got notified about unit deactivation.", p->meta.id);
-                        path_enter_waiting(p, false);
+
+                        /* Hmm, so inotify was triggered since the
+                         * last activation, so I guess we need to
+                         * recheck what is going on. */
+                        path_enter_waiting(p, false, p->inotify_triggered);
                 }
         }
 

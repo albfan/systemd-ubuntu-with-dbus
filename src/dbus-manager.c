@@ -48,6 +48,12 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"StartUnitReplace\">\n"                        \
+        "   <arg name=\"old_unit\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"new_unit\" type=\"s\" direction=\"in\"/>\n"     \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
+        "  </method>\n"                                                 \
         "  <method name=\"StopUnit\">\n"                                \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
@@ -78,6 +84,12 @@
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"                                                 \
+        "  <method name=\"KillUnit\">\n"                                \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
+        "  </method>\n"                                                 \
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
@@ -104,6 +116,10 @@
         "  <method name=\"Reload\"/>\n"                                 \
         "  <method name=\"Reexecute\"/>\n"                              \
         "  <method name=\"Exit\"/>\n"                                   \
+        "  <method name=\"Reboot\"/>\n"                                 \
+        "  <method name=\"PowerOff\"/>\n"                               \
+        "  <method name=\"Halt\"/>\n"                                   \
+        "  <method name=\"KExec\"/>\n"                                  \
         "  <method name=\"SetEnvironment\">\n"                          \
         "   <arg name=\"names\" type=\"as\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
@@ -134,7 +150,9 @@
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"InitRDTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"StartupTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
@@ -149,7 +167,9 @@
         "  <property name=\"NotifySocket\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"MountAuto\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"
+        "  <property name=\"SwapAuto\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n"
+                                                                        \
 
 #ifdef HAVE_SYSV_COMPAT
 #define BUS_MANAGER_INTERFACE_PROPERTIES_SYSV                           \
@@ -284,6 +304,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Manager", "Version",       bus_property_append_string,    "s",  PACKAGE_STRING     },
                 { "org.freedesktop.systemd1.Manager", "RunningAs",     bus_manager_append_running_as, "s",  &m->running_as     },
+                { "org.freedesktop.systemd1.Manager", "InitRDTimestamp", bus_property_append_uint64,  "t",  &m->initrd_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "StartupTimestamp", bus_property_append_uint64, "t",  &m->startup_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "FinishTimestamp", bus_property_append_uint64,  "t",  &m->finish_timestamp.realtime },
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  NULL               },
@@ -300,7 +321,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "NotifySocket",  bus_property_append_string,    "s",  m->notify_socket   },
                 { "org.freedesktop.systemd1.Manager", "ControlGroupHierarchy", bus_property_append_string, "s", m->cgroup_hierarchy },
                 { "org.freedesktop.systemd1.Manager", "MountAuto",     bus_property_append_bool,      "b",  &m->mount_auto     },
-                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto     },
+                { "org.freedesktop.systemd1.Manager", "SwapAuto",      bus_property_append_bool,      "b",  &m->swap_auto      },
+                { "org.freedesktop.systemd1.Manager", "DefaultControllers", bus_property_append_strv, "as", m->default_controllers },
 #ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Manager", "SysVConsole",   bus_property_append_bool,      "b",  &m->sysv_console   },
                 { "org.freedesktop.systemd1.Manager", "SysVInitPath",  bus_property_append_strv,      "as", m->lookup_paths.sysvinit_path },
@@ -404,6 +426,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnit"))
                 job_type = JOB_START;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
+                job_type = JOB_START;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StopUnit"))
                 job_type = JOB_STOP;
         else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadUnit"))
@@ -418,6 +442,40 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReloadOrTryRestartUnit")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KillUnit")) {
+                const char *name, *swho, *smode;
+                int32_t signo;
+                Unit *u;
+                KillMode mode;
+                KillWho who;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if ((mode = kill_mode_from_string(smode)) < 0 ||
+                    (who = kill_who_from_string(swho)) < 0 ||
+                    signo <= 0 ||
+                    signo >= _NSIG)
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (!(u = manager_get_unit(m, name))) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                }
+
+                if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetJob")) {
                 uint32_t id;
                 Job *j;
@@ -799,7 +857,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Exit")) {
 
                 if (m->running_as == MANAGER_SYSTEM) {
-                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for session managers.");
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Exit is only supported for user service managers.");
                         return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
                 }
 
@@ -807,6 +865,54 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 m->exit_code = MANAGER_EXIT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reboot")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Reboot is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_REBOOT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PowerOff")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Powering off is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_POWEROFF;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Halt")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "Halting is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_HALT;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "KExec")) {
+
+                if (m->running_as != MANAGER_SYSTEM) {
+                        dbus_set_error(&error, BUS_ERROR_NOT_SUPPORTED, "kexec is only supported for system managers.");
+                        return bus_send_error_reply(m, connection, message, &error, -ENOTSUP);
+                }
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                m->exit_code = MANAGER_KEXEC;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetEnvironment")) {
                 char **l = NULL, **e = NULL;
@@ -858,18 +964,39 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 return bus_default_message_handler(m, connection, message, NULL, properties);
 
         if (job_type != _JOB_TYPE_INVALID) {
-                const char *name, *smode;
+                const char *name, *smode, *old_name = NULL;
                 JobMode mode;
                 Job *j;
                 Unit *u;
+                bool b;
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_STRING, &smode,
-                                    DBUS_TYPE_INVALID))
+                if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartUnitReplace"))
+                        b = dbus_message_get_args(
+                                        message,
+                                        &error,
+                                        DBUS_TYPE_STRING, &old_name,
+                                        DBUS_TYPE_STRING, &name,
+                                        DBUS_TYPE_STRING, &smode,
+                                        DBUS_TYPE_INVALID);
+                else
+                        b = dbus_message_get_args(
+                                        message,
+                                        &error,
+                                        DBUS_TYPE_STRING, &name,
+                                        DBUS_TYPE_STRING, &smode,
+                                        DBUS_TYPE_INVALID);
+
+                if (!b)
                         return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if (old_name)
+                        if (!(u = manager_get_unit(m, old_name)) ||
+                            !u->meta.job ||
+                            u->meta.job->type != JOB_START) {
+                                dbus_set_error(&error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
+                                return bus_send_error_reply(m, connection, message, &error, -ENOENT);
+                        }
+
 
                 if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID) {
                         dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);

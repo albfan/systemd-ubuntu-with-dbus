@@ -433,7 +433,7 @@ static int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", l) == 0)
+                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
                                 break;
 
                         k++;
@@ -444,7 +444,7 @@ static int config_parse_exec(
 
                 k = 0;
                 FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                        if (strncmp(w, ";", l) == 0)
+                        if (strncmp(w, ";", MAX(l, 1U)) == 0)
                                 break;
 
                         if (honour_argv0 && w == rvalue) {
@@ -1002,6 +1002,32 @@ static int config_parse_sysv_priority(
 }
 #endif
 
+static int config_parse_fsck_passno(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *passno = data;
+        int r, i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
+                log_error("[%s:%u] Failed to parse fsck pass number, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        *passno = (int) i;
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 static int config_parse_kill_signal(
@@ -1021,11 +1047,7 @@ static int config_parse_kill_signal(
         assert(rvalue);
         assert(sig);
 
-        if ((r = signal_from_string(rvalue)) <= 0)
-                if (startswith(rvalue, "SIG"))
-                        r = signal_from_string(rvalue+3);
-
-        if (r <= 0) {
+        if ((r = signal_from_string_try_harder(rvalue)) <= 0) {
                 log_error("[%s:%u] Failed to parse kill signal, ignoring: %s", filename, line, rvalue);
                 return 0;
         }
@@ -1055,11 +1077,11 @@ static int config_parse_mount_flags(
         assert(data);
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                if (strncmp(w, "shared", l) == 0)
+                if (strncmp(w, "shared", MAX(l, 6U)) == 0)
                         flags |= MS_SHARED;
-                else if (strncmp(w, "slave", l) == 0)
+                else if (strncmp(w, "slave", MAX(l, 5U)) == 0)
                         flags |= MS_SLAVE;
-                else if (strncmp(w, "private", l) == 0)
+                else if (strncmp(w, "private", MAX(l, 7U)) == 0)
                         flags |= MS_PRIVATE;
                 else {
                         log_error("[%s:%u] Failed to parse mount flags, ignoring: %s", filename, line, rvalue);
@@ -1400,6 +1422,105 @@ static int config_parse_ip_tos(
         return 0;
 }
 
+static int config_parse_condition_path(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        bool negate;
+        Condition *c;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((negate = rvalue[0] == '!'))
+                rvalue++;
+
+        if (!path_is_absolute(rvalue)) {
+                log_error("[%s:%u] Path in condition not absolute, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (!(c = condition_new(streq(lvalue, "ConditionPathExists") ? CONDITION_PATH_EXISTS : CONDITION_DIRECTORY_NOT_EMPTY,
+                                rvalue, negate)))
+                return -ENOMEM;
+
+        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        return 0;
+}
+
+static int config_parse_condition_kernel(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        bool negate;
+        Condition *c;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((negate = rvalue[0] == '!'))
+                rvalue++;
+
+        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, negate)))
+                return -ENOMEM;
+
+        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        return 0;
+}
+
+static int config_parse_condition_null(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = data;
+        Condition *c;
+        bool negate;
+        int b;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((negate = rvalue[0] == '!'))
+                rvalue++;
+
+        if ((b = parse_boolean(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse boolean value in condition, ignoring: %s", filename, line, rvalue);
+                return 0;
+        }
+
+        if (!b)
+                negate = !negate;
+
+        if (!(c = condition_new(CONDITION_NULL, NULL, negate)))
+                return -ENOMEM;
+
+        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 
 #define FOLLOW_MAX 8
@@ -1431,7 +1552,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = file_name_from_path(*filename);
 
-                if (unit_name_is_valid(name)) {
+                if (unit_name_is_valid(name, false)) {
                         if (!(id = set_get(names, name))) {
 
                                 if (!(id = strdup(name)))
@@ -1571,6 +1692,9 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_path_unit,        "UNIT" },
                 { config_parse_notify_access,    "ACCESS" },
                 { config_parse_ip_tos,           "TOS" },
+                { config_parse_condition_path,   "CONDITION" },
+                { config_parse_condition_kernel, "CONDITION" },
+                { config_parse_condition_null,   "CONDITION" },
         };
 
         assert(f);
@@ -1669,7 +1793,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "TCPWrapName",            config_parse_string_printf,   &(context).tcpwrap_name,                         section   }, \
                 { "PAMName",                config_parse_string_printf,   &(context).pam_name,                             section   }, \
                 { "KillMode",               config_parse_kill_mode,       &(context).kill_mode,                            section   }, \
-                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }
+                { "KillSignal",             config_parse_kill_signal,     &(context).kill_signal,                          section   }, \
+                { "UtmpIdentifier",         config_parse_string_printf,   &(context).utmp_id,                              section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Unit"    },
@@ -1679,18 +1804,21 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Unit"    },
                 { "RequisiteOverridable",   config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE_OVERRIDABLE),         "Unit"    },
                 { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Unit"    },
+                { "BindTo",                 config_parse_deps,            UINT_TO_PTR(UNIT_BIND_TO),                       "Unit"    },
                 { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Unit"    },
                 { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Unit"    },
                 { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Unit"    },
                 { "OnFailure",              config_parse_deps,            UINT_TO_PTR(UNIT_ON_FAILURE),                    "Unit"    },
-                { "RecursiveStop",          config_parse_bool,            &u->meta.recursive_stop,                         "Unit"    },
                 { "StopWhenUnneeded",       config_parse_bool,            &u->meta.stop_when_unneeded,                     "Unit"    },
                 { "RefuseManualStart",      config_parse_bool,            &u->meta.refuse_manual_start,                    "Unit"    },
                 { "RefuseManualStop",       config_parse_bool,            &u->meta.refuse_manual_stop,                     "Unit"    },
                 { "AllowIsolate",           config_parse_bool,            &u->meta.allow_isolate,                          "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            &u->meta.default_dependencies,                   "Unit"    },
-                { "IgnoreDependencyFailure",config_parse_bool,            &u->meta.ignore_dependency_failure,              "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            &u->meta.job_timeout,                            "Unit"    },
+                { "ConditionPathExists",    config_parse_condition_path,  u,                                               "Unit"    },
+                { "ConditionDirectoryNotEmpty", config_parse_condition_path,  u,                                           "Unit"    },
+                { "ConditionKernelCommandLine", config_parse_condition_kernel, u,                                          "Unit"    },
+                { "ConditionNull",          config_parse_condition_null,  u,                                               "Unit"    },
 
                 { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
@@ -1715,6 +1843,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "BusName",                config_parse_string_printf,   &u->service.bus_name,                            "Service" },
                 { "NotifyAccess",           config_parse_notify_access,   &u->service.notify_access,                       "Service" },
                 { "Sockets",                config_parse_service_sockets, &u->service,                                     "Service" },
+                { "FsckPassNo",             config_parse_fsck_passno,     &u->service.fsck_passno,                         "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
@@ -1883,9 +2012,15 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
         }
 
-        /* Now, parse the file contents */
-        if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
-                goto finish;
+        if (null_or_empty(&st))
+                u->meta.load_state = UNIT_MASKED;
+        else {
+                /* Now, parse the file contents */
+                if ((r = config_parse(filename, f, sections, items, false, u)) < 0)
+                        goto finish;
+
+                u->meta.load_state = UNIT_LOADED;
+        }
 
         free(u->meta.fragment_path);
         u->meta.fragment_path = filename;
@@ -1893,7 +2028,6 @@ static int load_from_path(Unit *u, const char *path) {
 
         u->meta.fragment_mtime = timespec_load(&st.st_mtim);
 
-        u->meta.load_state = UNIT_LOADED;
         r = 0;
 
 finish:

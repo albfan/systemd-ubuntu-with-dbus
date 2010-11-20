@@ -10,8 +10,8 @@
 [Unit]
 Description=Multi-User
 Requires=basic.target
-Conflicts=rescue.target
-After=basic.target rescue.target
+Conflicts=rescue.service rescue.target
+After=basic.target rescue.service rescue.target
 m4_dnl
 m4_ifdef(`TARGET_FEDORA',
 m4_dnl On Fedora Runlevel 3 is multi-user
@@ -26,8 +26,10 @@ m4_ifdef(`TARGET_SUSE',
 Names=runlevel3.target
 )m4_dnl
 m4_ifdef(`TARGET_DEBIAN',
-m4_dnl On Debian Runlevel 2, 3, 4 and 5 are multi-user
+m4_ifdef(`TARGET_UBUNTU',
+m4_dnl On Debian/Ubuntu Runlevel 2, 3, 4 and 5 are multi-user
 Names=runlevel2.target runlevel3.target runlevel4.target runlevel5.target
+)m4_dnl
 )m4_dnl
 AllowIsolate=yes
 

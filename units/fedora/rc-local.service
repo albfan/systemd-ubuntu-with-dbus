@@ -7,17 +7,12 @@
 
 [Unit]
 Description=/etc/rc.local Compatibility
-
-# The rcN.d symlink uses the name "local" while the script itself is
-# called "rc.local", hence carry both names here.
-Names=rc-local.service local.service
+ConditionPathExists=/etc/rc.local
 
 [Service]
+Type=forking
 ExecStart=/etc/rc.local start
 TimeoutSec=0
 StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
-
-[Install]
-WantedBy=multi-user.target

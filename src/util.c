@@ -495,6 +495,9 @@ int write_one_line_file(const char *fn, const char *line) {
                 goto finish;
         }
 
+        if (!endswith(line, "\n"))
+                fputc('\n', f);
+
         r = 0;
 finish:
         fclose(f);
@@ -1681,6 +1684,8 @@ bool ignore_file(const char *filename) {
         return
                 filename[0] == '.' ||
                 streq(filename, "lost+found") ||
+                streq(filename, "aquota.user") ||
+                streq(filename, "aquota.group") ||
                 endswith(filename, "~") ||
                 endswith(filename, ".rpmnew") ||
                 endswith(filename, ".rpmsave") ||
@@ -2247,26 +2252,34 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                 assert(notify >= 0);
 
                 for (;;) {
-                        struct inotify_event e;
+                        uint8_t inotify_buffer[sizeof(struct inotify_event) + FILENAME_MAX];
                         ssize_t l;
+                        struct inotify_event *e;
 
-                        if ((l = read(notify, &e, sizeof(e))) != sizeof(e)) {
+                        if ((l = read(notify, &inotify_buffer, sizeof(inotify_buffer))) < 0) {
 
-                                if (l < 0) {
+                                if (errno == EINTR)
+                                        continue;
 
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        r = -errno;
-                                } else
-                                        r = -EIO;
-
+                                r = -errno;
                                 goto fail;
                         }
 
-                        if (e.wd != wd || !(e.mask & IN_CLOSE)) {
-                                r = -EIO;
-                                goto fail;
+                        e = (struct inotify_event*) inotify_buffer;
+
+                        while (l > 0) {
+                                size_t step;
+
+                                if (e->wd != wd || !(e->mask & IN_CLOSE)) {
+                                        r = -EIO;
+                                        goto fail;
+                                }
+
+                                step = sizeof(struct inotify_event) + e->len;
+                                assert(step <= (size_t) l);
+
+                                e = (struct inotify_event*) ((uint8_t*) e + step);
+                                l -= step;
                         }
 
                         break;
@@ -2593,6 +2606,15 @@ int make_stdio(int fd) {
                 return -errno;
 
         return 0;
+}
+
+int make_null_stdio(void) {
+        int null_fd;
+
+        if ((null_fd = open("/dev/null", O_RDWR|O_NOCTTY)) < 0)
+                return -errno;
+
+        return make_stdio(null_fd);
 }
 
 bool is_clean_exit(int code, int status) {
@@ -2960,66 +2982,113 @@ void status_printf(const char *format, ...) {
 }
 
 void status_welcome(void) {
+        char *pretty_name = NULL, *ansi_color = NULL;
+        const char *const_pretty = NULL, *const_color = NULL;
+        int r;
+
+        if ((r = parse_env_file("/etc/os-release", NEWLINE,
+                                "PRETTY_NAME", &pretty_name,
+                                "ANSI_COLOR", &ansi_color,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/os-release: %s", strerror(-r));
+        }
 
 #if defined(TARGET_FEDORA)
-        char *r;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/system-release", &pretty_name)) < 0) {
 
-        if (read_one_line_file("/etc/system-release", &r) < 0)
-                return;
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/system-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        truncate_nl(r);
+        if (!ansi_color && pretty_name) {
 
-        /* This tries to mimic the color magic the old Red Hat sysinit
-         * script did. */
+                /* This tries to mimic the color magic the old Red Hat sysinit
+                 * script did. */
 
-        if (startswith(r, "Red Hat"))
-                status_printf("Welcome to \x1B[0;31m%s\x1B[0m!\n", r); /* Red for RHEL */
-        else if (startswith(r, "Fedora"))
-                status_printf("Welcome to \x1B[0;34m%s\x1B[0m!\n", r); /* Blue for Fedora */
-        else
-                status_printf("Welcome to %s!\n", r);
-
-        free(r);
+                if (startswith(pretty_name, "Red Hat"))
+                        const_color = "0;31"; /* Red for RHEL */
+                else if (startswith(pretty_name, "Fedora"))
+                        const_color = "0;34"; /* Blue for Fedora */
+        }
 
 #elif defined(TARGET_SUSE)
-        char *r;
 
-        if (read_one_line_file("/etc/SuSE-release", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/SuSE-release", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/SuSE-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to \x1B[0;32m%s\x1B[0m!\n", r); /* Green for SUSE */
-        free(r);
+        if (!ansi_color)
+                const_color = "0;32"; /* Green for openSUSE */
 
 #elif defined(TARGET_GENTOO)
-        char *r;
 
-        if (read_one_line_file("/etc/gentoo-release", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/gentoo-release", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/gentoo-release: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to \x1B[1;34m%s\x1B[0m!\n", r); /* Light Blue for Gentoo */
-
-        free(r);
+        if (!ansi_color)
+                const_color = "1;34"; /* Light Blue for Gentoo */
 
 #elif defined(TARGET_DEBIAN)
-        char *r;
 
-        if (read_one_line_file("/etc/debian_version", &r) < 0)
-                return;
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/debian_version", &pretty_name)) < 0) {
 
-        truncate_nl(r);
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
+                } else
+                        truncate_nl(pretty_name);
+        }
 
-        status_printf("Welcome to Debian \x1B[1;31m%s\x1B[0m!\n", r); /* Light Red for Debian */
+        if (!ansi_color)
+                const_color = "1;31"; /* Light Red for Debian */
 
-        free(r);
+#elif defined(TARGET_UBUNTU)
+
+        if ((r = parse_env_file("/etc/lsb-release", NEWLINE,
+                                "DISTRIB_DESCRIPTION", &pretty_name,
+                                NULL)) < 0) {
+
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/lsb-release: %s", strerror(-r));
+        }
+
+        if (!ansi_color)
+                const_color = "0;33"; /* Orange/Brown for Ubuntu */
+
 #elif defined(TARGET_ARCH)
-        status_printf("Welcome to \x1B[1;36mArch Linux\x1B[0m!\n"); /* Cyan for Arch */
-#else
-#warning "You probably should add a welcome text logic here."
+
+        if (!pretty_name)
+                const_pretty = "Arch Linux";
+
+        if (!ansi_color)
+                const_color = "1;36"; /* Cyan for Arch */
 #endif
+
+        if (!pretty_name && !const_pretty)
+                const_pretty = "Linux";
+
+        if (!ansi_color && !const_color)
+                const_color = "1";
+
+        status_printf("Welcome to \x1B[%sm%s\x1B[0m!\n",
+                      const_color ? const_color : ansi_color,
+                      const_pretty ? const_pretty : pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
@@ -3306,6 +3375,150 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         log_warning("%s failed due to unknown reason.", name);
         return -EPROTO;
 
+}
+
+void freeze(void) {
+        for (;;)
+                pause();
+}
+
+bool null_or_empty(struct stat *st) {
+        assert(st);
+
+        if (S_ISREG(st->st_mode) && st->st_size <= 0)
+                return true;
+
+        if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode))
+                return true;
+
+        return false;
+}
+
+DIR *xopendirat(int fd, const char *name) {
+        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+}
+
+int signal_from_string_try_harder(const char *s) {
+        int signo;
+        assert(s);
+
+        if ((signo = signal_from_string(s)) <= 0)
+                if (startswith(s, "SIG"))
+                        return signal_from_string(s+3);
+
+        return signo;
+}
+
+void dual_timestamp_serialize(FILE *f, const char *name, dual_timestamp *t) {
+
+        assert(f);
+        assert(name);
+        assert(t);
+
+        if (!dual_timestamp_is_set(t))
+                return;
+
+        fprintf(f, "%s=%llu %llu\n",
+                name,
+                (unsigned long long) t->realtime,
+                (unsigned long long) t->monotonic);
+}
+
+void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
+        unsigned long long a, b;
+
+        assert(value);
+        assert(t);
+
+        if (sscanf(value, "%lli %llu", &a, &b) != 2)
+                log_debug("Failed to parse finish timestamp value %s", value);
+        else {
+                t->realtime = a;
+                t->monotonic = b;
+        }
+}
+
+char *fstab_node_to_udev_node(const char *p) {
+        char *dn, *t, *u;
+        int r;
+
+        /* FIXME: to follow udev's logic 100% we need to leave valid
+         * UTF8 chars unescaped */
+
+        if (startswith(p, "LABEL=")) {
+
+                if (!(u = unquote(p+6, "\"\'")))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
+                        return NULL;
+
+                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
+                free(t);
+
+                if (r < 0)
+                        return NULL;
+
+                return dn;
+        }
+
+        if (startswith(p, "UUID=")) {
+
+                if (!(u = unquote(p+5, "\"\'")))
+                        return NULL;
+
+                t = xescape(u, "/ ");
+                free(u);
+
+                if (!t)
+                        return NULL;
+
+                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
+                free(t);
+
+                if (r < 0)
+                        return NULL;
+
+                return dn;
+        }
+
+        return strdup(p);
+}
+
+void filter_environ(const char *prefix) {
+        int i, j;
+        assert(prefix);
+
+        if (!environ)
+                return;
+
+        for (i = 0, j = 0; environ[i]; i++) {
+
+                if (startswith(environ[i], prefix))
+                        continue;
+
+                environ[j++] = environ[i];
+        }
+
+        environ[j] = NULL;
+}
+
+const char *default_term_for_tty(const char *tty) {
+        assert(tty);
+
+        if (startswith(tty, "/dev/"))
+                tty += 5;
+
+        if (startswith(tty, "tty") &&
+            tty[3] >= '0' && tty[3] <= '9')
+                return "TERM=linux";
+
+        /* FIXME: Proper handling of /dev/console would be cool */
+
+        return "TERM=vt100-nav";
 }
 
 static const char *const ioprio_class_table[] = {
