@@ -50,6 +50,8 @@ typedef enum ServiceState {
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
+        SERVICE_RESTART_ON_FAILURE,
+        SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
         _SERVICE_RESTART_INVALID = -1
@@ -107,6 +109,8 @@ struct Service {
         ServiceExecCommand control_command_id;
         pid_t main_pid, control_pid;
         int socket_fd;
+
+        int fsck_passno;
 
         bool permissions_start_only;
         bool root_directory_start_only;

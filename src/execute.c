@@ -54,6 +54,7 @@
 #include "tcpwrap.h"
 #include "exit-status.h"
 #include "missing.h"
+#include "utmp-wtmp.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -1129,6 +1130,9 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
+                if (context->utmp_id)
+                        utmp_put_init_process(0, context->utmp_id, getpid(), getsid(0), context->tty_path);
+
                 if (context->user) {
                         username = context->user;
                         if (get_user_creds(&username, &uid, &gid, &home) < 0) {
@@ -1248,7 +1252,7 @@ int exec_spawn(ExecCommand *command,
                                 }
                 }
 
-                if (!(our_env = new0(char*, 6))) {
+                if (!(our_env = new0(char*, 7))) {
                         r = EXIT_MEMORY;
                         goto fail;
                 }
@@ -1273,7 +1277,15 @@ int exec_spawn(ExecCommand *command,
                                 goto fail;
                         }
 
-                assert(n_env <= 6);
+                if (is_terminal_input(context->std_input) ||
+                    context->std_output == EXEC_OUTPUT_TTY ||
+                    context->std_error == EXEC_OUTPUT_TTY)
+                        if (!(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                assert(n_env <= 7);
 
                 if (!(final_env = strv_env_merge(
                                       4,
@@ -1604,6 +1616,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sKillSignal: SIG%s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal));
+
+        if (c->utmp_id)
+                fprintf(f,
+                        "%sUtmpIdentifier: %s\n",
+                        prefix, c->utmp_id);
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {
@@ -1614,7 +1631,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
         dual_timestamp_get(&s->start_timestamp);
 }
 
-void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
+void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status, const char *utmp_id) {
         assert(s);
 
         if ((s->pid && s->pid != pid) ||
@@ -1626,6 +1643,9 @@ void exec_status_exit(ExecStatus *s, pid_t pid, int code, int status) {
 
         s->code = code;
         s->status = status;
+
+        if (utmp_id)
+                utmp_put_dead_process(utmp_id, pid, code, status);
 }
 
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
@@ -1785,6 +1805,8 @@ static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
         [EXEC_INPUT_SOCKET] = "socket"
 };
 
+DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_INHERIT] = "inherit",
         [EXEC_OUTPUT_NULL] = "null",
@@ -1796,4 +1818,19 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
-DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+static const char* const kill_mode_table[_KILL_MODE_MAX] = {
+        [KILL_CONTROL_GROUP] = "control-group",
+        [KILL_PROCESS_GROUP] = "process-group",
+        [KILL_PROCESS] = "process",
+        [KILL_NONE] = "none"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
+
+static const char* const kill_who_table[_KILL_WHO_MAX] = {
+        [KILL_MAIN] = "main",
+        [KILL_CONTROL] = "control",
+        [KILL_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_who, KillWho);

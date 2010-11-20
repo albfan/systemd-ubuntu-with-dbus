@@ -367,6 +367,34 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ReloadOrTryRestart")) {
                 reload_if_possible = true;
                 job_type = JOB_TRY_RESTART;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Kill")) {
+                const char *swho, *smode;
+                int32_t signo;
+                KillMode mode;
+                KillWho who;
+                int r;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &swho,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INT32, &signo,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if ((mode = kill_mode_from_string(smode)) < 0 ||
+                    (who = kill_who_from_string(swho)) < 0 ||
+                    signo <= 0 ||
+                    signo >= _NSIG)
+                        return bus_send_error_reply(m, connection, message, &error, -EINVAL);
+
+                if ((r = unit_kill(u, who, mode, signo, &error)) < 0)
+                        return bus_send_error_reply(m, connection, message, &error, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "ResetFailed")) {
 
                 unit_reset_failed(u);
@@ -454,10 +482,85 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         Manager *m = data;
         Unit *u;
         int r;
+        DBusMessage *reply;
 
         assert(connection);
         assert(message);
         assert(m);
+
+        if (streq(dbus_message_get_path(message), "/org/freedesktop/systemd1/unit")) {
+                /* Be nice to gdbus and return introspection data for our mid-level paths */
+
+                if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
+                        char *introspection = NULL;
+                        FILE *f;
+                        Iterator i;
+                        const char *k;
+                        size_t size;
+
+                        if (!(reply = dbus_message_new_method_return(message)))
+                                goto oom;
+
+                        /* We roll our own introspection code here, instead of
+                         * relying on bus_default_message_handler() because we
+                         * need to generate our introspection string
+                         * dynamically. */
+
+                        if (!(f = open_memstream(&introspection, &size)))
+                                goto oom;
+
+                        fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                              "<node>\n", f);
+
+                        fputs(BUS_INTROSPECTABLE_INTERFACE, f);
+                        fputs(BUS_PEER_INTERFACE, f);
+
+                        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+                                char *p;
+
+                                if (k != u->meta.id)
+                                        continue;
+
+                                if (!(p = bus_path_escape(k))) {
+                                        fclose(f);
+                                        free(introspection);
+                                        goto oom;
+                                }
+
+                                fprintf(f, "<node name=\"%s\"/>", p);
+                                free(p);
+                        }
+
+                        fputs("</node>\n", f);
+
+                        if (ferror(f)) {
+                                fclose(f);
+                                free(introspection);
+                                goto oom;
+                        }
+
+                        fclose(f);
+
+                        if (!introspection)
+                                goto oom;
+
+                        if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
+                                free(introspection);
+                                goto oom;
+                        }
+
+                        free(introspection);
+
+                        if (!dbus_connection_send(connection, reply, NULL))
+                                goto oom;
+
+                        dbus_message_unref(reply);
+
+                        return DBUS_HANDLER_RESULT_HANDLED;
+                }
+
+                return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+        }
 
         if ((r = manager_get_unit_from_dbus_path(m, dbus_message_get_path(message), &u)) < 0) {
 
@@ -471,6 +574,12 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection *connection, DB
         }
 
         return bus_unit_message_dispatch(u, connection, message);
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 const DBusObjectPathVTable bus_unit_vtable = {

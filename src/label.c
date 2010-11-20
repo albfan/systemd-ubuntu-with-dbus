@@ -51,6 +51,9 @@ int label_init(void) {
         if (!use_selinux())
                 return 0;
 
+        if (label_hnd)
+                return 0;
+
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
@@ -76,11 +79,20 @@ int label_fix(const char *path) {
         if (r == 0) {
                 r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
 
+                /* If there's no label to set, then exit without warning */
+                if (r < 0 && errno == ENOENT)
+                        return 0;
+
                 if (r == 0) {
                         r = setfilecon(path, fcon);
                         freecon(fcon);
+
+                        /* If the FS doesn't support labels, then exit without warning */
+                        if (r < 0 && errno == ENOTSUP)
+                                return 0;
                 }
         }
+
         if (r < 0) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Unable to fix label of %s: %m", path);
@@ -161,6 +173,31 @@ int label_fifofile_set(const char *path) {
         return r;
 }
 
+int label_symlinkfile_set(const char *path) {
+        int r = 0;
+
+#ifdef HAVE_SELINUX
+        security_context_t filecon = NULL;
+
+        if (!use_selinux() || !label_hnd)
+                return 0;
+
+        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK)) == 0) {
+                if ((r = setfscreatecon(filecon)) < 0) {
+                        log_error("Failed to set SELinux file context on %s: %m", path);
+                        r = -errno;
+                }
+
+                freecon(filecon);
+        }
+
+        if (r < 0 && security_getenforce() == 0)
+                r = 0;
+#endif
+
+        return r;
+}
+
 int label_socket_set(const char *label) {
 
 #ifdef HAVE_SELINUX
@@ -221,20 +258,15 @@ int label_mkdir(
 
         if (use_selinux() && label_hnd) {
 
-                if (path[0] == '/')
+                if (path_is_absolute(path))
                         r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
                 else {
-                        char *cwd = NULL, *newpath = NULL;
+                        char *newpath = NULL;
 
-                        cwd = get_current_dir_name();
-
-                        if (cwd || asprintf(&newpath, "%s/%s", cwd, path) < 0) {
-                                free(cwd);
-                                return -errno;
-                        }
+                        if (!(newpath = path_make_absolute_cwd(path)))
+                                return -ENOMEM;
 
                         r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
-                        free(cwd);
                         free(newpath);
                 }
 

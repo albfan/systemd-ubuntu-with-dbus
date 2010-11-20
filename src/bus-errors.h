@@ -37,11 +37,13 @@
 #define BUS_ERROR_ONLY_BY_DEPENDENCY "org.freedesktop.systemd1.OnlyByDependency"
 #define BUS_ERROR_NO_ISOLATION "org.freedesktop.systemd1.NoIsolation"
 #define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
+#define BUS_ERROR_MASKED "org.freedesktop.systemd1.Masked"
 #define BUS_ERROR_JOB_TYPE_NOT_APPLICABLE "org.freedesktop.systemd1.JobTypeNotApplicable"
 #define BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE "org.freedesktop.systemd1.TransactionIsDestructive"
 #define BUS_ERROR_TRANSACTION_JOBS_CONFLICTING "org.freedesktop.systemd1.TransactionJobsConflicting"
 #define BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC "org.freedesktop.systemd1.TransactionOrderIsCyclic"
 #define BUS_ERROR_SHUTTING_DOWN "org.freedesktop.systemd1.ShuttingDown"
+#define BUS_ERROR_NO_SUCH_PROCESS "org.freedesktop.systemd1.NoSuchProcess"
 
 static inline const char *bus_error(const DBusError *e, int r) {
         if (e && e->message)

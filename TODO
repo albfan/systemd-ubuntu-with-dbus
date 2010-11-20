@@ -1,0 +1,121 @@
+* check if bind mounts work:
+    https://bugzilla.novell.com/show_bug.cgi?id=652762
+
+* oneshot services which do not remain: 'exited' instead of 'dead'?
+  it should be visible in 'systemctl' that they have been run
+
+* dot output for --test showing the 'initial transaction'
+
+* calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
+
+* implicitly import "defaults" settings file into all types
+
+* port over to LISTEN_FDS/LISTEN_PID:
+   - uuidd    DONE
+   - dbus     DONE
+   - rsyslog  DONE
+   - rpcbind (/var/run/rpcbind.sock!) DONE
+   - cups     DONE
+   - avahi-daemon (/var/run/avahi-daemon/socket) DONE
+   - ssh      CLASSIC
+   - postfix, saslauthd
+   - apache/samba
+   - libvirtd (/var/run/libvirt/libvirt-sock-ro)
+   - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
+   - distccd
+
+* fingerprint.target, wireless.target, gps.target
+
+* set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
+
+* chkconfig/systemd-install glue
+
+* io priority during initialization
+
+* if a service fails too often, make the service enter failed mode, and the socket, too.
+
+* systemctl list-jobs - show dependencies
+
+* accountsservice is borked
+
+* auditd service files
+
+* add systemctl switch to dump transaction without executing it
+
+* suspend, resume
+
+* systemctl auto-pager a la git
+
+* merge CK
+
+* start getty 2-6 only when actual vt switch happens
+  (same model as socket on-demand activation)
+
+* readahead: btrfs/LVM SSD detection
+
+* man pages for: locale.conf, vconsole.conf, modules-load.d, /etc/os-release
+
+* when processes remain in a service even though the start command failed enter active
+
+* add seperate man page for [Install] settings
+
+* only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
+
+* systemctl condrestart should return 0 if service isn't running
+
+* tmpfiles: allow specification of .conf files on cmdline
+
+* allow runtime changing of log level and target
+
+* automatically determine TERM= based on tty name even for /dev/console
+
+* fix hotplug transactions
+
+* isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
+
+External:
+
+* make cryptsetup lower --iter-time
+
+* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
+
+* patch kernel for cpu feature modalias for autoloading aes/kvm/...
+
+* place /etc/inittab with explaining blurb.
+
+* pam_securetty should honour console=
+
+* procps, psmisc, sysvinit-tools, hostname → util-linux-ng
+
+https://bugzilla.redhat.com/show_bug.cgi?id=614245 -- plymouth
+https://bugzilla.redhat.com/show_bug.cgi?id=612789 -- umount /cgroup on halt
+https://bugzilla.redhat.com/show_bug.cgi?id=612728 -- /etc/rc.d/init.d/functions
+https://bugzilla.redhat.com/show_bug.cgi?id=612712 -- pam_systemd
+https://bugs.freedesktop.org/show_bug.cgi?id=29193 -- accountsservice
+https://bugs.freedesktop.org/show_bug.cgi?id=29194 -- ConsoleKit
+https://bugs.freedesktop.org/show_bug.cgi?id=29205 -- udisks
+http://article.gmane.org/gmane.linux.bluez.kernel/6479 -- bluez
+http://www.spinics.net/lists/linux-nfs/msg14371.html -- rpcbind
+https://bugzilla.redhat.com/show_bug.cgi?id=617328 -- ntp
+https://bugzilla.redhat.com/show_bug.cgi?id=617320 -- at
+https://bugzilla.redhat.com/show_bug.cgi?id=617326 -- fprintd
+https://bugzilla.redhat.com/show_bug.cgi?id=617333 -- yum
+https://bugzilla.redhat.com/show_bug.cgi?id=617317 -- acpid
+https://bugzilla.redhat.com/show_bug.cgi?id=617327 -- gpm
+https://bugzilla.redhat.com/show_bug.cgi?id=617330 -- pcsc-lite
+https://bugzilla.redhat.com/show_bug.cgi?id=617321 -- audit
+https://bugzilla.redhat.com/show_bug.cgi?id=617316 -- abrt
+
+Regularly:
+
+* look for close() vs. close_nointr() vs. close_nointr_nofail()
+
+* check for strerror(r) instead of strerror(-r)
+
+* Use PR_SET_PROCTITLE_AREA if it becomes available in the kernel
+
+* %m in printf() instead of strerror();
+
+* pahole
+
+* CFLAGS="-Wl,--gc-sections -Wl,--print-gc-sections -ffunction-sections -fdata-sections"

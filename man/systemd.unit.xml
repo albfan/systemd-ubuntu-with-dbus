@@ -182,13 +182,25 @@
                 <literal>%i</literal> specifier in many of the
                 configuration options. Other specifiers that may be
                 used are <literal>%n</literal>, <literal>%N</literal>,
-                <literal>%p</literal>, <literal>%P</literal> and
-                <literal>%I</literal>, for the full unit name, the
-                unescaped unit name, the prefix name, the unescaped
-                prefix name and the unescaped instance name,
-                respectively. The prefix name here refers to the
-                string before the @, i.e. "getty" in the example
-                above, where "tty3" is the instance name.</para>
+                <literal>%p</literal>, <literal>%P</literal>,
+                <literal>%I</literal> and <literal>%f</literal>, for
+                the full unit name, the unescaped unit name, the
+                prefix name, the unescaped prefix name, the unescaped
+                instance name and the unescaped filename,
+                respectively. The unescaped filename is either the
+                unescaped instance name (if set) with / prepended (if
+                necessary), or the prefix name similarly prepended
+                with /. The prefix name here refers to the string
+                before the @, i.e. "getty" in the example above, where
+                "tty3" is the instance name.</para>
+
+                <para>If a unit file is empty (i.e. has the file size
+                0) or is symlinked to <filename>/dev/null</filename>
+                its configuration will not be loaded and it appears
+                with a load state of <literal>masked</literal>, and
+                cannot be activated. Use this as an effective way to
+                fully disable a unit, making it impossible to start it
+                even manually.</para>
 
                 <para>The unit file format is covered by the
                 <ulink
@@ -269,7 +281,6 @@
                                 services.</para></listitem>
                         </varlistentry>
 
-
                         <varlistentry>
                                 <term><varname>RequiresOverridable=</varname></term>
 
@@ -326,6 +337,23 @@
                                 <filename>.wants/</filename> directory
                                 accompanying the unit file. For
                                 details see above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BindTo=</varname></term>
+
+                                <listitem><para>Configures requirement
+                                dependencies, very similar in style to
+                                <varname>Requires=</varname>, however
+                                in addition to this behaviour it also
+                                declares that this unit is stopped
+                                when any of the units listed suddenly
+                                disappears. Units can suddenly,
+                                unexpectedly disappear if a service
+                                terminates on its own choice, a device
+                                is unplugged or a mount point
+                                unmounted without involvement of
+                                systemd.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -429,26 +457,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>RecursiveStop=</varname></term>
-
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option> and
-                                the unit stops without being requested
-                                by the user, all units
-                                depending on it will be stopped as
-                                well. (e.g. if a service exits or
-                                crashes on its own behalf, units using
-                                it will be stopped) Note that normally
-                                if a unit stops without a user request,
-                                units depending on it will not be
-                                terminated. Only if the user requested
-                                shutdown of a unit, all units depending
-                                on that unit will be shut down as well
-                                and at the same time. Defaults to
-                                <option>false</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean
@@ -536,20 +544,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>IgnoreDependencyFailure=</varname></term>
-
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option> and
-                                a requirement dependency of this unit
-                                fails to start up this unit will be
-                                started nonetheless, ignoring that
-                                failure. If <option>false</option>
-                                (the default) and a dependency unit
-                                fails the unit will immediately fail
-                                too and the job is removed.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>JobTimeoutSec=</varname></term>
 
                                 <listitem><para>When clients are
@@ -577,6 +571,63 @@
                                 change.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionDirectoryNotEmpty=</varname></term>
+                                <term><varname>ConditionKernelCommandLine=</varname></term>
+                                <term><varname>ConditionNull=</varname></term>
+
+                                <listitem><para>Before starting a unit
+                                verify that the specified condition is
+                                true. With
+                                <varname>ConditionPathExists=</varname>
+                                a file existance condition can be
+                                checked before a unit is started. If
+                                the specified absolute path name does
+                                not exist startup of a unit will not
+                                actually happen, however the unit is
+                                still useful for ordering purposes in
+                                this case. The condition is checked at
+                                the time the queued start job is to be
+                                executed. If the absolute path name
+                                passed to
+                                <varname>ConditionPathExists=</varname>
+                                is prefixed with an exclamation mark
+                                (!), the test is negated, and the unit
+                                only started if the path does not
+                                exist. <varname>ConditionDirectoryNotEmpty=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a cetrain path is
+                                exists and is a non-empty
+                                directory. Similarly
+                                <varname>ConditionKernelCommandLine=</varname>
+                                may be used to check whether a
+                                specific kernel command line option is
+                                set (or if prefixed with the
+                                exclamation mark unset). The argument
+                                must either be a single word, or an
+                                assignment (i.e. two words, seperated
+                                by the equality sign). In the former
+                                case the kernel command line is
+                                searched for the word appearing as is,
+                                or as left hand side of an
+                                assignment. In the latter case the
+                                exact assignment is looked for with
+                                right and left hand side
+                                matching. Finally,
+                                <varname>ConditionNull=</varname> may
+                                be used to add a constant condition
+                                check value to the unit. It takes a
+                                boolean argument. If set to
+                                <varname>false</varname> the condition
+                                will always fail, otherwise
+                                succeed. If multiple conditions are
+                                specified the unit will be executed
+                                iff at least one of them applies
+                                (i.e. a logical OR is
+                                applied).</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>Unit file may include a [Install] section, which

@@ -30,7 +30,7 @@ int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);
 
-bool unit_name_is_valid_no_type(const char *n);
+bool unit_name_is_valid_no_type(const char *n, bool template_ok);
 bool unit_prefix_is_valid(const char *p);
 bool unit_instance_is_valid(const char *i);
 
@@ -42,6 +42,8 @@ char *unit_name_build_escape(const char *prefix, const char *instance, const cha
 char *unit_name_escape(const char *f);
 char *unit_name_unescape(const char *f);
 
+char *unit_name_path_unescape(const char *f);
+
 bool unit_name_is_template(const char *n);
 
 char *unit_name_replace_instance(const char *f, const char *i);
@@ -49,6 +51,7 @@ char *unit_name_replace_instance(const char *f, const char *i);
 char *unit_name_template(const char *f);
 
 char *unit_name_from_path(const char *path, const char *suffix);
+char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix);
 char *unit_name_to_path(const char *name);
 
 #endif

@@ -154,10 +154,10 @@ static int automount_add_default_dependencies(Automount *a) {
 
         if (a->meta.manager->running_as == MANAGER_SYSTEM) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
         }
 
@@ -763,7 +763,16 @@ static void automount_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         switch (packet.hdr.type) {
 
         case autofs_ptype_missing_direct:
-                log_debug("Got direct mount request for %s", packet.v5_packet.name);
+
+                if (packet.v5_packet.pid > 0) {
+                        char *p = NULL;
+
+                        get_process_name(packet.v5_packet.pid, &p);
+                        log_debug("Got direct mount request for %s, triggered by %lu (%s)", packet.v5_packet.name, (unsigned long) packet.v5_packet.pid, strna(p));
+                        free(p);
+
+                } else
+                        log_debug("Got direct mount request for %s", packet.v5_packet.name);
 
                 if (!a->tokens)
                         if (!(a->tokens = set_new(trivial_hash_func, trivial_compare_func))) {

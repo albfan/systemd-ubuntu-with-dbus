@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[11],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[13],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -111,10 +111,6 @@ AC_SUBST(UDEV_LIBS)
 PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
-
-PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
-AC_SUBST(DBUSGLIB_CFLAGS)
-AC_SUBST(DBUSGLIB_LIBS)
 
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
@@ -229,10 +225,23 @@ else
 fi
 AC_SUBST(AUDIT_LIBS)
 
+have_libcryptsetup=no
+AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
+if test "x$enable_libcryptsetup" != "xno"; then
+        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup ],
+                [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
+        AC_SUBST(LIBCRYPTSETUP_CFLAGS)
+        AC_SUBST(LIBCRYPTSETUP_LIBS)
+        if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
+             AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 libnotify ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 gio-unix-2.0 ],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)
@@ -242,7 +251,17 @@ if test "x$enable_gtk" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
-AM_PROG_VALAC([0.9])
+if test "$have_gtk" = "yes"; then
+        PKG_CHECK_MODULES(DBUSGLIB, [ dbus-glib-1 ])
+        AC_SUBST(DBUSGLIB_CFLAGS)
+        AC_SUBST(DBUSGLIB_LIBS)
+
+        PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify >= 0.7.0 ])
+        AC_SUBST(LIBNOTIFY_CFLAGS)
+        AC_SUBST(LIBNOTIFY_LIBS)
+fi
+
+AM_PROG_VALAC([0.11])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 
@@ -251,7 +270,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, arch, gentoo, slackware or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -259,6 +278,9 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/redhat-release,with_distro="fedora")
                 AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
                 AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
+                if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
+                        with_distro="ubuntu"
+                fi
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
                 AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
                 AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
@@ -305,8 +327,14 @@ case $with_distro in
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
-                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
+                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
                 M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
+                ;;
+        ubuntu)
+                SYSTEM_SYSVRCND_PATH=/etc
+                SPECIAL_SYSLOG_SERVICE=rsyslog.service
+                AC_DEFINE(TARGET_UBUNTU, [], [Target is Ubuntu])
+                M4_DISTRO_FLAG=-DTARGET_UBUNTU=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
@@ -372,6 +400,8 @@ fi
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
+AM_CONDITIONAL(TARGET_UBUNTU, test x"$with_distro" = xubuntu)
+AM_CONDITIONAL(TARGET_DEBIAN_OR_UBUNTU, test x"$with_distro" = xdebian -o x"$with_distro" = xubuntu)
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
@@ -433,6 +463,7 @@ echo "
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Syslog service:          ${SPECIAL_SYSLOG_SERVICE}
         Gtk:                     ${have_gtk}
+        libcryptsetup:           ${have_libcryptsetup}
         tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}

@@ -164,11 +164,16 @@ static int manager_setup_signals(Manager *m) {
                         SIGWINCH,    /* Kernel sends us this on kbrequest (alt-arrowup) */
                         SIGPWR,      /* Some kernel drivers and upsd send us this on power failure */
                         SIGRTMIN+0,  /* systemd: start default.target */
-                        SIGRTMIN+1,  /* systemd: start rescue.target */
+                        SIGRTMIN+1,  /* systemd: isolate rescue.target */
                         SIGRTMIN+2,  /* systemd: isolate emergency.target */
                         SIGRTMIN+3,  /* systemd: start halt.target */
                         SIGRTMIN+4,  /* systemd: start poweroff.target */
                         SIGRTMIN+5,  /* systemd: start reboot.target */
+                        SIGRTMIN+6,  /* systemd: start kexec.target */
+                        SIGRTMIN+13, /* systemd: Immediate halt */
+                        SIGRTMIN+14, /* systemd: Immediate poweroff */
+                        SIGRTMIN+15, /* systemd: Immediate reboot */
+                        SIGRTMIN+16, /* systemd: Immediate kexec */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -211,10 +216,13 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->audit_fd = -1;
 #endif
 
-        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = -1;
+        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = m->dev_autofs_fd = m->swap_watch.fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         if (!(m->environment = strv_copy(environ)))
+                goto fail;
+
+        if (!(m->default_controllers = strv_new("cpu", NULL)))
                 goto fail;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
@@ -428,6 +436,8 @@ void manager_free(Manager *m) {
          * around */
         manager_shutdown_cgroup(m, m->exit_code != MANAGER_REEXECUTE);
 
+        manager_undo_generators(m);
+
         bus_done(m);
 
         hashmap_free(m->units);
@@ -453,6 +463,8 @@ void manager_free(Manager *m) {
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
+
+        strv_free(m->default_controllers);
 
         hashmap_free(m->cgroup_bondings);
         set_free_free(m->unit_path_cache);
@@ -561,6 +573,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r, q;
 
         assert(m);
+
+        manager_run_generators(m);
 
         manager_build_unit_path_cache(m);
 
@@ -898,7 +912,7 @@ static void transaction_drop_redundant(Manager *m) {
                         LIST_FOREACH(transaction, k, j) {
 
                                 if (!job_is_anchor(k) &&
-                                    job_type_is_redundant(k->type, unit_active_state(k->unit)))
+                                    (j->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))))
                                         continue;
 
                                 changes_something = true;
@@ -908,7 +922,7 @@ static void transaction_drop_redundant(Manager *m) {
                         if (changes_something)
                                 continue;
 
-                        log_debug("Found redundant job %s/%s, dropping.", j->unit->meta.id, job_type_to_string(j->type));
+                        /* log_debug("Found redundant job %s/%s, dropping.", j->unit->meta.id, job_type_to_string(j->type)); */
                         transaction_delete_job(m, j, false);
                         again = true;
                         break;
@@ -1060,10 +1074,15 @@ static void transaction_collect_garbage(Manager *m) {
                 again = false;
 
                 HASHMAP_FOREACH(j, m->transaction_jobs, i) {
-                        if (j->object_list)
+                        if (j->object_list) {
+                                /* log_debug("Keeping job %s/%s because of %s/%s", */
+                                /*           j->unit->meta.id, job_type_to_string(j->type), */
+                                /*           j->object_list->subject ? j->object_list->subject->unit->meta.id : "root", */
+                                /*           j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root"); */
                                 continue;
+                        }
 
-                        log_debug("Garbage collecting job %s/%s", j->unit->meta.id, job_type_to_string(j->type));
+                        /* log_debug("Garbage collecting job %s/%s", j->unit->meta.id, job_type_to_string(j->type)); */
                         transaction_delete_job(m, j, true);
                         again = true;
                         break;
@@ -1128,7 +1147,8 @@ static void transaction_minimize_impact(Manager *m) {
                                         j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
 
                                 changes_existing_job =
-                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->type);
+                                        j->unit->meta.job &&
+                                        job_type_is_conflicting(j->type, j->unit->meta.job->type);
 
                                 if (!stops_running_service && !changes_existing_job)
                                         continue;
@@ -1174,8 +1194,10 @@ static int transaction_apply(Manager *m) {
         }
 
         while ((j = hashmap_steal_first(m->transaction_jobs))) {
-                if (j->installed)
+                if (j->installed) {
+                        /* log_debug("Skipping already installed job %s/%s as %u", j->unit->meta.id, job_type_to_string(j->type), (unsigned) j->id); */
                         continue;
+                }
 
                 if (j->unit->meta.job)
                         job_free(j->unit->meta.job);
@@ -1193,6 +1215,8 @@ static int transaction_apply(Manager *m) {
                 job_add_to_run_queue(j);
                 job_add_to_dbus_queue(j);
                 job_start_timer(j);
+
+                log_debug("Installed new job %s/%s as %u", j->unit->meta.id, job_type_to_string(j->type), (unsigned) j->id);
         }
 
         /* As last step, kill all remaining job dependencies. */
@@ -1227,7 +1251,7 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         /* Second step: Try not to stop any running services if
          * we don't have to. Don't try to reverse running
          * jobs if we don't have to. */
-        if (mode != JOB_ISOLATE)
+        if (mode == JOB_FAIL)
                 transaction_minimize_impact(m);
 
         /* Third step: Drop redundant jobs */
@@ -1340,7 +1364,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool o
         if (is_new)
                 *is_new = true;
 
-        log_debug("Added job %s/%s to transaction.", unit->meta.id, job_type_to_string(type));
+        /* log_debug("Added job %s/%s to transaction.", unit->meta.id, job_type_to_string(type)); */
 
         return j;
 }
@@ -1398,15 +1422,24 @@ static int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
 
-        if (unit->meta.load_state != UNIT_LOADED && unit->meta.load_state != UNIT_ERROR) {
+        if (unit->meta.load_state != UNIT_LOADED &&
+            unit->meta.load_state != UNIT_ERROR &&
+            unit->meta.load_state != UNIT_MASKED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->meta.id);
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->meta.load_state == UNIT_ERROR) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s failed to load: %s. You might find more information in the system logs.",
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                               "Unit %s failed to load: %s. "
+                               "See system logs and 'systemctl status' for details.",
                                unit->meta.id,
                                strerror(-unit->meta.load_error));
+                return -EINVAL;
+        }
+
+        if (type != JOB_STOP && unit->meta.load_state == UNIT_MASKED) {
+                dbus_set_error(e, BUS_ERROR_MASKED, "Unit %s is masked.", unit->meta.id);
                 return -EINVAL;
         }
 
@@ -1424,14 +1457,45 @@ static int transaction_add_job_and_dependencies(
                 return -ENOMEM;
 
         if (is_new) {
+                Set *following;
+
+                /* If we are following some other unit, make sure we
+                 * add all dependencies of everybody following. */
+                if (unit_following_set(ret->unit, &following) > 0) {
+                        SET_FOREACH(dep, following, i)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, false, override, false, e, NULL)) < 0) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+
+                        set_free(following);
+                }
+
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0) {
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BIND_TO], i)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0) {
+
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1447,11 +1511,17 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, false, e, NULL)) < 0) {
+
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, e, NULL)) < 0 && r != -EBADR) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1459,18 +1529,44 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, true, e, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, true, e, NULL)) < 0) {
+
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, false, override, false, e, NULL)) < 0) {
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0) {
+
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
+
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BOUND_BY], i)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0) {
+
+                                        if (r != -EBADR)
+                                                goto fail;
+
+                                        if (e)
+                                                dbus_error_free(e);
+                                }
                 }
 
                 /* JOB_VERIFY_STARTED, JOB_RELOAD require no dependency handling */
@@ -1503,7 +1599,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                         continue;
 
                 /* No need to stop inactive jobs */
-                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)) && !u->meta.job)
                         continue;
 
                 /* Is there already something listed for this? */
@@ -1632,7 +1728,7 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         if (!name)
                 name = file_name_from_path(path);
 
-        if (!unit_name_is_valid(name)) {
+        if (!unit_name_is_valid(name, false)) {
                 dbus_set_error(e, BUS_ERROR_INVALID_NAME, "Unit name %s is not valid.", name);
                 return -EINVAL;
         }
@@ -1924,7 +2020,7 @@ static int manager_start_target(Manager *m, const char *name, JobMode mode) {
 
         dbus_error_init(&error);
 
-        log_info("Activating special unit %s", name);
+        log_debug("Activating special unit %s", name);
 
         if ((r = manager_add_job_by_name(m, JOB_START, name, mode, true, &error, NULL)) < 0)
                 log_error("Failed to enqueue %s job: %s", name, bus_error(&error, r));
@@ -1978,7 +2074,7 @@ static int manager_process_signal_fd(Manager *m) {
                         }
 
                         /* Run the exit target if there is one, if not, just exit. */
-                        if (manager_start_target(m, SPECIAL_EXIT_SERVICE, JOB_REPLACE) < 0) {
+                        if (manager_start_target(m, SPECIAL_EXIT_TARGET, JOB_REPLACE) < 0) {
                                 m->exit_code = MANAGER_EXIT;
                                 return 0;
                         }
@@ -2049,19 +2145,35 @@ static int manager_process_signal_fd(Manager *m) {
                         break;
 
                 default: {
-                        static const char * const table[] = {
+                        /* Starting SIGRTMIN+0 */
+                        static const char * const target_table[] = {
                                 [0] = SPECIAL_DEFAULT_TARGET,
                                 [1] = SPECIAL_RESCUE_TARGET,
                                 [2] = SPECIAL_EMERGENCY_TARGET,
                                 [3] = SPECIAL_HALT_TARGET,
                                 [4] = SPECIAL_POWEROFF_TARGET,
-                                [5] = SPECIAL_REBOOT_TARGET
+                                [5] = SPECIAL_REBOOT_TARGET,
+                                [6] = SPECIAL_KEXEC_TARGET
+                        };
+
+                        /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
+                        static const ManagerExitCode code_table[] = {
+                                [0] = MANAGER_HALT,
+                                [1] = MANAGER_POWEROFF,
+                                [2] = MANAGER_REBOOT,
+                                [3] = MANAGER_KEXEC
                         };
 
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(table)) {
-                                manager_start_target(m, table[sfsi.ssi_signo - SIGRTMIN],
+                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
+                                manager_start_target(m, target_table[sfsi.ssi_signo - SIGRTMIN],
                                                      (sfsi.ssi_signo == 1 || sfsi.ssi_signo == 2) ? JOB_ISOLATE : JOB_REPLACE);
+                                break;
+                        }
+
+                        if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
+                            (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
+                                m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
                                 break;
                         }
 
@@ -2084,6 +2196,9 @@ static int process_event(Manager *m, struct epoll_event *ev) {
         assert(ev);
 
         assert(w = ev->data.ptr);
+
+        if (w->type == WATCH_INVALID)
+                return 0;
 
         switch (w->type) {
 
@@ -2141,6 +2256,11 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 mount_fd_event(m, ev->events);
                 break;
 
+        case WATCH_SWAP:
+                /* Some swap table change, intended for the swap subsystem */
+                swap_fd_event(m, ev->events);
+                break;
+
         case WATCH_UDEV:
                 /* Some notification from udev, intended for the device subsystem */
                 device_fd_event(m, ev->events);
@@ -2155,6 +2275,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 break;
 
         default:
+                log_error("event type=%i", w->type);
                 assert_not_reached("Unknown epoll event type.");
         }
 
@@ -2206,6 +2327,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
+                        continue;
+
+                if (swap_dispatch_reload(m) > 0)
                         continue;
 
                 if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
@@ -2328,8 +2452,8 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path+1, "/ply-boot-protocol", sizeof(sa.un.sun_path)-1);
-        if (connect(fd, &sa.sa, sizeof(sa.un)) < 0) {
+        strncpy(sa.un.sun_path+1, "/org/freedesktop/plymouthd", sizeof(sa.un.sun_path)-1);
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
 
                 if (errno != EPIPE &&
                     errno != EAGAIN &&
@@ -2452,9 +2576,11 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
-        fprintf(f, "startup-timestamp=%llu %llu\n\n",
-                (unsigned long long) m->startup_timestamp.realtime,
-                (unsigned long long) m->startup_timestamp.monotonic);
+        dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
+        dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
+        dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
+
+        fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->meta.id != t)
@@ -2505,16 +2631,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (l[0] == 0)
                         break;
 
-                if (startswith(l, "startup-timestamp=")) {
-                        unsigned long long a, b;
-
-                        if (sscanf(l+18, "%lli %llu", &a, &b) != 2)
-                                log_debug("Failed to parse startup timestamp value %s", l+18);
-                        else {
-                                m->startup_timestamp.realtime = a;
-                                m->startup_timestamp.monotonic = b;
-                        }
-                } else
+                if (startswith(l, "initrd-timestamp="))
+                        dual_timestamp_deserialize(l+17, &m->initrd_timestamp);
+                else if (startswith(l, "startup-timestamp="))
+                        dual_timestamp_deserialize(l+18, &m->startup_timestamp);
+                else if (startswith(l, "finish-timestamp="))
+                        dual_timestamp_deserialize(l+17, &m->finish_timestamp);
+                else
                         log_debug("Unknown serialization item '%s'", l);
         }
 
@@ -2578,11 +2701,16 @@ int manager_reload(Manager *m) {
 
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
+        manager_undo_generators(m);
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
         if ((q = lookup_paths_init(&m->lookup_paths, m->running_as)) < 0)
                 r = q;
+
+        manager_run_generators(m);
+
+        manager_build_unit_path_cache(m);
 
         m->n_deserializing ++;
 
@@ -2670,7 +2798,7 @@ bool manager_unit_pending_inactive(Manager *m, const char *name) {
 }
 
 void manager_check_finished(Manager *m) {
-        char userspace[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+        char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
 
         assert(m);
 
@@ -2682,24 +2810,206 @@ void manager_check_finished(Manager *m) {
 
         dual_timestamp_get(&m->finish_timestamp);
 
-        if (m->running_as == MANAGER_SYSTEM)
-                log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
-                         format_timespan(kernel, sizeof(kernel),
-                                         m->startup_timestamp.monotonic),
-                         format_timespan(userspace, sizeof(userspace),
-                                         m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
-                         format_timespan(sum, sizeof(sum),
-                                         m->finish_timestamp.monotonic));
-        else
+        if (m->running_as == MANAGER_SYSTEM) {
+                if (dual_timestamp_is_set(&m->initrd_timestamp)) {
+                        log_info("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel),
+                                                 m->initrd_timestamp.monotonic),
+                                 format_timespan(initrd, sizeof(initrd),
+                                                 m->startup_timestamp.monotonic - m->initrd_timestamp.monotonic),
+                                 format_timespan(userspace, sizeof(userspace),
+                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                                 format_timespan(sum, sizeof(sum),
+                                                 m->finish_timestamp.monotonic));
+                } else
+                        log_info("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                                 format_timespan(kernel, sizeof(kernel),
+                                                 m->startup_timestamp.monotonic),
+                                 format_timespan(userspace, sizeof(userspace),
+                                                 m->finish_timestamp.monotonic - m->startup_timestamp.monotonic),
+                                 format_timespan(sum, sizeof(sum),
+                                                 m->finish_timestamp.monotonic));
+        } else
                 log_debug("Startup finished in %s.",
                           format_timespan(userspace, sizeof(userspace),
                                           m->finish_timestamp.monotonic - m->startup_timestamp.monotonic));
 
 }
 
+void manager_run_generators(Manager *m) {
+        DIR *d = NULL;
+        struct dirent *de;
+        Hashmap *pids = NULL;
+        const char *generator_path;
+
+        assert(m);
+
+        generator_path = m->running_as == MANAGER_SYSTEM ? SYSTEM_GENERATOR_PATH : USER_GENERATOR_PATH;
+        if (!(d = opendir(generator_path))) {
+
+                if (errno == ENOENT)
+                        return;
+
+                log_error("Failed to enumerate generator directory: %m");
+                return;
+        }
+
+        if (!m->generator_unit_path) {
+                char *p;
+                char system_path[] = "/dev/.systemd/generator-XXXXXX",
+                        user_path[] = "/tmp/systemd-generator-XXXXXX";
+
+                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {
+                        log_error("Failed to generate generator directory: %m");
+                        goto finish;
+                }
+
+                if (!(m->generator_unit_path = strdup(p))) {
+                        log_error("Failed to allocate generator unit path.");
+                        goto finish;
+                }
+        }
+
+        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
+                log_error("Failed to allocate set.");
+                goto finish;
+        }
+
+        while ((de = readdir(d))) {
+                char *path;
+                pid_t pid;
+                int k;
+
+                if (ignore_file(de->d_name))
+                        continue;
+
+                if (de->d_type != DT_REG &&
+                    de->d_type != DT_LNK &&
+                    de->d_type != DT_UNKNOWN)
+                        continue;
+
+                if (asprintf(&path, "%s/%s", generator_path, de->d_name) < 0) {
+                        log_error("Out of memory");
+                        continue;
+                }
+
+                if ((pid = fork()) < 0) {
+                        log_error("Failed to fork: %m");
+                        free(path);
+                        continue;
+                }
+
+                if (pid == 0) {
+                        const char *arguments[5];
+                        /* Child */
+
+                        arguments[0] = path;
+                        arguments[1] = m->generator_unit_path;
+                        arguments[2] = NULL;
+
+                        execv(path, (char **) arguments);
+
+                        log_error("Failed to execute %s: %m", path);
+                        _exit(EXIT_FAILURE);
+                }
+
+                log_debug("Spawned generator %s as %lu", path, (unsigned long) pid);
+
+                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
+                        log_error("Failed to add PID to set: %s", strerror(-k));
+                        free(path);
+                }
+        }
+
+        while (!hashmap_isempty(pids)) {
+                siginfo_t si;
+                char *path;
+
+                zero(si);
+                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        log_error("waitid() failed: %m");
+                        goto finish;
+                }
+
+                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
+                        if (!is_clean_exit(si.si_code, si.si_status)) {
+                                if (si.si_code == CLD_EXITED)
+                                        log_error("%s exited with exit status %i.", path, si.si_status);
+                                else
+                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
+                        } else
+                                log_debug("Generator %s exited successfully.", path);
+
+                        free(path);
+                }
+        }
+
+        if (rmdir(m->generator_unit_path) >= 0) {
+                /* Uh? we were able to remove this dir? I guess that
+                 * means the directory was empty, hence let's shortcut
+                 * this */
+
+                free(m->generator_unit_path);
+                m->generator_unit_path = NULL;
+                goto finish;
+        }
+
+        if (!strv_find(m->lookup_paths.unit_path, m->generator_unit_path)) {
+                char **l;
+
+                if (!(l = strv_append(m->lookup_paths.unit_path, m->generator_unit_path))) {
+                        log_error("Failed to add generator directory to unit search path: %m");
+                        goto finish;
+                }
+
+                strv_free(m->lookup_paths.unit_path);
+                m->lookup_paths.unit_path = l;
+
+                log_debug("Added generator unit path %s to search path.", m->generator_unit_path);
+        }
+
+finish:
+        if (d)
+                closedir(d);
+
+        if (pids)
+                hashmap_free_free(pids);
+}
+
+void manager_undo_generators(Manager *m) {
+        assert(m);
+
+        if (!m->generator_unit_path)
+                return;
+
+        strv_remove(m->lookup_paths.unit_path, m->generator_unit_path);
+        rm_rf(m->generator_unit_path, false, true);
+
+        free(m->generator_unit_path);
+        m->generator_unit_path = NULL;
+}
+
+int manager_set_default_controllers(Manager *m, char **controllers) {
+        char **l;
+
+        assert(m);
+
+        if (!(l = strv_copy(controllers)))
+                return -ENOMEM;
+
+        strv_free(m->default_controllers);
+        m->default_controllers = l;
+
+        return 0;
+}
+
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
         [MANAGER_SYSTEM] = "system",
-        [MANAGER_SESSION] = "session"
+        [MANAGER_USER] = "user"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_running_as, ManagerRunningAs);

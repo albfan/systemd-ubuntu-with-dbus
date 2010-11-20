@@ -7,16 +7,12 @@
 
 [Unit]
 Description=Show Plymouth Power Off Screen
-After=getty@tty1.service prefdm.service
-Before=killall.service poweroff.service
+After=getty@tty1.service prefdm.service plymouth-start.service
+Before=poweroff.service
 DefaultDependencies=no
 
 [Service]
 ExecStart=/sbin/plymouthd --mode=shutdown
-ExecStartPost=-/usr/bin/plymouth --sysinit
-ExecStartPost=-/usr/bin/plymouth --show-splash
-ExecStartPost=-/usr/bin/plymouth message '--text=Powering Off...'
+ExecStartPost=-/bin/plymouth --show-splash
+ExecStartPost=-/bin/plymouth message '--text=Powering Off...'
 Type=forking
-
-[Install]
-WantedBy=poweroff.target

@@ -35,14 +35,17 @@
 #include "cgroup-util.h"
 #include "macro.h"
 #include "sd-daemon.h"
+#include "strv.h"
 
 static int parse_argv(pam_handle_t *handle,
                       int argc, const char **argv,
                       bool *create_session,
                       bool *kill_session,
-                      bool *kill_user) {
+                      bool *kill_user,
+                      char ***controllers) {
 
         unsigned i;
+        bool controller_set = false;
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -58,6 +61,7 @@ static int parse_argv(pam_handle_t *handle,
 
                         if (create_session)
                                 *create_session = k;
+
                 } else if (startswith(argv[i], "kill-session=")) {
                         if ((k = parse_boolean(argv[i] + 13)) < 0) {
                                 pam_syslog(handle, LOG_ERR, "Failed to parse kill-session= argument.");
@@ -75,11 +79,42 @@ static int parse_argv(pam_handle_t *handle,
 
                         if (kill_user)
                                 *kill_user = k;
+
+                } else if (startswith(argv[i], "controllers=")) {
+
+                        if (controllers) {
+                                char **l;
+
+                                if (!(l = strv_split(argv[i] + 12, ","))) {
+                                        pam_syslog(handle, LOG_ERR, "Out of memory.");
+                                        return -ENOMEM;
+                                }
+
+                                strv_free(*controllers);
+                                *controllers = l;
+                        }
+
+                        controller_set = true;
+
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
                         return -EINVAL;
                 }
         }
+
+        if (!controller_set && controllers) {
+                char **l;
+
+                if (!(l = strv_new("cpu", NULL))) {
+                        pam_syslog(handle, LOG_ERR, "Out of memory");
+                        return -ENOMEM;
+                }
+
+                *controllers = l;
+        }
+
+        if (controllers)
+                strv_remove(*controllers, "name=systemd");
 
         if (kill_session && *kill_session && kill_user)
                 *kill_user = true;
@@ -128,7 +163,7 @@ static uint64_t get_session_id(int *mode) {
                 r = safe_atou32(s, &u);
                 free(s);
 
-                if (r >= 0 && u != (uint32_t) -1) {
+                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
                         *mode = SESSION_ID_AUDIT;
                         return (uint64_t) u;
                 }
@@ -179,45 +214,70 @@ static int get_user_data(
                 const char **ret_username,
                 struct passwd **ret_pw) {
 
-        const char *username;
-        struct passwd *pw;
+        const char *username = NULL;
+        struct passwd *pw = NULL;
         int r;
+        bool have_loginuid = false;
+        char *s;
 
         assert(handle);
         assert(ret_username);
         assert(ret_pw);
 
-        if ((r = pam_get_user(handle, &username, NULL)) != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name.");
-                return r;
+        if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
+                uint32_t u;
+
+                r = safe_atou32(s, &u);
+                free(s);
+
+                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
+                        have_loginuid = true;
+                        pw = pam_modutil_getpwuid(handle, u);
+                }
         }
 
-        if (!username || !*username) {
-                pam_syslog(handle, LOG_ERR, "User name not valid.");
-                return PAM_AUTH_ERR;
+        if (!have_loginuid) {
+                if ((r = pam_get_user(handle, &username, NULL)) != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to get user name.");
+                        return r;
+                }
+
+                if (!username || !*username) {
+                        pam_syslog(handle, LOG_ERR, "User name not valid.");
+                        return PAM_AUTH_ERR;
+                }
+
+                pw = pam_modutil_getpwnam(handle, username);
         }
 
-        if (!(pw = pam_modutil_getpwnam(handle, username))) {
+        if (!pw) {
                 pam_syslog(handle, LOG_ERR, "Failed to get user data.");
                 return PAM_USER_UNKNOWN;
         }
 
         *ret_pw = pw;
-        *ret_username = username;
+        *ret_username = username ? username : pw->pw_name;
 
         return PAM_SUCCESS;
 }
 
-static int create_user_group(pam_handle_t *handle, const char *group, struct passwd *pw, bool attach, bool remember) {
+static int create_user_group(
+                pam_handle_t *handle,
+                const char *controller,
+                const char *group,
+                struct passwd *pw,
+                bool attach,
+                bool remember) {
+
         int r;
 
         assert(handle);
         assert(group);
 
         if (attach)
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, group, 0);
+                r = cg_create_and_attach(controller, group, 0);
         else
-                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, group);
+                r = cg_create(controller, group);
 
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to create cgroup: %s", strerror(-r));
@@ -235,8 +295,8 @@ static int create_user_group(pam_handle_t *handle, const char *group, struct pas
                 }
         }
 
-        if ((r = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, group, 0755, pw->pw_uid, pw->pw_gid)) < 0 ||
-            (r = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, group, 0755, pw->pw_uid, pw->pw_gid)) < 0) {
+        if ((r = cg_set_task_access(controller, group, 0644, pw->pw_uid, pw->pw_gid)) < 0 ||
+            (r = cg_set_group_access(controller, group, 0755, pw->pw_uid, pw->pw_gid)) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to change access modes: %s", strerror(-r));
                 return PAM_SESSION_ERR;
         }
@@ -255,17 +315,18 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         char *buf = NULL;
         int lock_fd = -1;
         bool create_session = true;
+        char **controllers = NULL, **c;
 
         assert(handle);
 
         /* pam_syslog(handle, LOG_DEBUG, "pam-systemd initializing"); */
 
-        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL) < 0)
-                return PAM_SESSION_ERR;
-
         /* Make this a NOP on non-systemd systems */
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
+
+        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, &controllers) < 0)
+                return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
                 goto finish;
@@ -335,7 +396,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 r = asprintf(&buf, "/user/%s/%s", username, id);
         } else
-                r = asprintf(&buf, "/user/%s/no-session", username);
+                r = asprintf(&buf, "/user/%s/master", username);
 
         if (r < 0) {
                 r = PAM_BUF_ERR;
@@ -344,8 +405,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_syslog(handle, LOG_INFO, "Moving new user session for %s into control group %s.", username, buf);
 
-        if ((r = create_user_group(handle, buf, pw, true, true)) != PAM_SUCCESS)
+        if ((r = create_user_group(handle, SYSTEMD_CGROUP_CONTROLLER, buf, pw, true, true)) != PAM_SUCCESS)
                 goto finish;
+
+        /* The additional controllers don't really matter, so we
+         * ignore the return value */
+        STRV_FOREACH(c, controllers)
+                create_user_group(handle, *c, buf, pw, true, false);
 
         r = PAM_SUCCESS;
 
@@ -354,6 +420,8 @@ finish:
 
         if (lock_fd >= 0)
                 close_nointr_nofail(lock_fd);
+
+        strv_free(controllers);
 
         return r;
 }
@@ -369,7 +437,7 @@ static int session_remains(pam_handle_t *handle, const char *user_path) {
 
         while ((r = cg_read_subgroup(d, &subgroup)) > 0) {
 
-                remains = !streq(subgroup, "no-session");
+                remains = !streq(subgroup, "master");
                 free(subgroup);
 
                 if (remains)
@@ -397,15 +465,16 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *id;
         struct passwd *pw;
         const void *created = NULL;
+        char **controllers = NULL, **c;
 
         assert(handle);
-
-        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user) < 0)
-                return PAM_SESSION_ERR;
 
         /* Make this a NOP on non-systemd systems */
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
+
+        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &controllers) < 0)
+                return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
                 goto finish;
@@ -416,9 +485,13 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 goto finish;
         }
 
-        /* We are probably still in some session/no-session dir. Move ourselves out of the way as first step */
+        /* We are probably still in some session/user dir. Move ourselves out of the way as first step */
         if ((r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, "/user", 0)) < 0)
                 pam_syslog(handle, LOG_ERR, "Failed to move us away: %s", strerror(-r));
+
+        STRV_FOREACH(c, controllers)
+                if ((r = cg_attach(*c, "/user", 0)) < 0)
+                        pam_syslog(handle, LOG_ERR, "Failed to move us away in %s hierarchy: %s", *c, strerror(-r));
 
         if (asprintf(&user_path, "/user/%s", username) < 0) {
                 r = PAM_BUF_ERR;
@@ -430,7 +503,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if ((id = pam_getenv(handle, "XDG_SESSION_ID")) && created) {
 
                 if (asprintf(&session_path, "/user/%s/%s", username, id) < 0 ||
-                    asprintf(&nosession_path, "/user/%s/no-session", username) < 0) {
+                    asprintf(&nosession_path, "/user/%s/master", username) < 0) {
                         r = PAM_BUF_ERR;
                         goto finish;
                 }
@@ -444,14 +517,21 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 } else {
                         pam_syslog(handle, LOG_INFO, "Moving remaining processes of user session %s of %s into control group %s.", id, username, nosession_path);
 
-                        /* Migrate processes from session to
-                         * no-session cgroup. First, try to create the
-                         * no-session group in case it doesn't exist
-                         * yet. Also, delete the session group. */
-                        create_user_group(handle, nosession_path, pw, false, false);
+                        /* Migrate processes from session to user
+                         * cgroup. First, try to create the user group
+                         * in case it doesn't exist yet. Also, delete
+                         * the session group. */
+                        create_user_group(handle, SYSTEMD_CGROUP_CONTROLLER, nosession_path, pw, false, false);
 
                         if ((r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, session_path, nosession_path, false, true)) < 0)
                                 pam_syslog(handle, LOG_ERR, "Failed to migrate session cgroup: %s", strerror(-r));
+                }
+
+                STRV_FOREACH(c, controllers) {
+                        create_user_group(handle, *c, nosession_path, pw, false, false);
+
+                        if ((r = cg_migrate_recursive(*c, session_path, nosession_path, false, true)) < 0)
+                                pam_syslog(handle, LOG_ERR, "Failed to migrate session cgroup in hierarchy %s: %s", *c, strerror(-r));
                 }
         }
 
@@ -464,7 +544,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         /* Kill user processes not attached to any session */
         if (kill_user && r == 0) {
 
-                /* Kill no-session cgroup */
+                /* Kill user cgroup */
                 if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)
                         pam_syslog(handle, LOG_ERR, "Failed to kill user cgroup: %s", strerror(-r));
         } else {
@@ -481,6 +561,9 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 } else if (r == 0)
                         r = -EBUSY;
         }
+
+        STRV_FOREACH(c, controllers)
+                cg_trim(*c, user_path, true);
 
         if (r >= 0) {
                 const char *runtime_dir;
@@ -501,6 +584,8 @@ finish:
         free(session_path);
         free(nosession_path);
         free(user_path);
+
+        strv_free(controllers);
 
         return r;
 }

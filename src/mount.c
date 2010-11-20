@@ -35,6 +35,7 @@
 #include "unit-name.h"
 #include "dbus-mount.h"
 #include "special.h"
+#include "bus-errors.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -264,7 +265,7 @@ static int mount_add_target_links(Mount *m) {
         MountParameters *p;
         Unit *tu;
         int r;
-        bool noauto, handle, automount, user;
+        bool noauto, nofail, handle, automount;
 
         assert(m);
 
@@ -276,13 +277,13 @@ static int mount_add_target_links(Mount *m) {
                 return 0;
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
-        user = mount_test_option(p->options, "user") || mount_test_option(p->options, "users");
+        nofail = !!mount_test_option(p->options, "nofail");
         handle = !!mount_test_option(p->options, "comment=systemd.mount") ||
                 m->meta.manager->mount_auto;
         automount = !!mount_test_option(p->options, "comment=systemd.automount");
 
         if (mount_test_option(p->options, "_netdev") ||
-            fstype_is_network(p->fstype)) {
+            (p->fstype && fstype_is_network(p->fstype))) {
                 target = SPECIAL_REMOTE_FS_TARGET;
 
                 if (m->meta.manager->running_as == MANAGER_SYSTEM)
@@ -309,11 +310,12 @@ static int mount_add_target_links(Mount *m) {
                 /* Automatically add mount points that aren't natively
                  * configured to local-fs.target */
                 if (!noauto &&
+                    !nofail &&
                     handle &&
-                    !m->from_fragment)
-                        if (user || m->meta.manager->running_as == MANAGER_SYSTEM)
-                                if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
-                                        return r;
+                    m->from_etc_fstab &&
+                    m->meta.manager->running_as == MANAGER_SYSTEM)
+                        if ((r = unit_add_dependency(tu, UNIT_WANTS, UNIT(m), true)) < 0)
+                                return r;
 
                 return unit_add_dependency(UNIT(m), UNIT_BEFORE, tu, true);
         }
@@ -333,7 +335,7 @@ static bool mount_is_bind(MountParameters *p) {
 
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
-        bool nofail, noauto;
+        int r;
 
         assert(m);
 
@@ -344,18 +346,47 @@ static int mount_add_device_links(Mount *m) {
         else
                 return 0;
 
-        if (!p->what || path_equal(m->where, "/"))
+        if (!p->what)
                 return 0;
 
-        if (mount_is_bind(p))
-                return 0;
+        if (!mount_is_bind(p) && !path_equal(m->where, "/")) {
+                bool nofail, noauto;
 
-        noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
-        nofail = !!mount_test_option(p->options, "nofail");
+                noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
+                nofail = !!mount_test_option(p->options, "nofail");
 
-        return unit_add_node_link(UNIT(m), p->what,
-                                  !noauto && nofail &&
-                                  UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM);
+                if ((r = unit_add_node_link(UNIT(m), p->what,
+                                            !noauto && nofail &&
+                                            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM)) < 0)
+                        return r;
+        }
+
+        if (p->passno > 0 &&
+            UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM &&
+            !path_equal(m->where, "/")) {
+                char *name;
+                Unit *fsck;
+                /* Let's add in the fsck service */
+
+                /* aka SPECIAL_FSCK_SERVICE */
+                if (!(name = unit_name_from_path_instance("fsck", p->what, ".service")))
+                        return -ENOMEM;
+
+                if ((r = manager_load_unit_prepare(m->meta.manager, name, NULL, NULL, &fsck)) < 0) {
+                        log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
+                        free(name);
+                        return r;
+                }
+
+                free(name);
+
+                SERVICE(fsck)->fsck_passno = p->passno;
+
+                if ((r = unit_add_two_dependencies(UNIT(m), UNIT_AFTER, UNIT_REQUIRES, fsck, true)) < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -366,10 +397,10 @@ static int mount_add_default_dependencies(Mount *m) {
         if (m->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
 
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_FSCK_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0)
                         return r;
 
-                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTED_BY, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
         }
 
@@ -423,8 +454,6 @@ static int mount_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
-                const char *what = NULL;
-
                 if (m->meta.fragment_path)
                         m->from_fragment = true;
 
@@ -437,13 +466,6 @@ static int mount_load(Unit *u) {
                 if (!m->meta.description)
                         if ((r = unit_set_description(u, m->where)) < 0)
                                 return r;
-
-                if (m->from_fragment && m->parameters_fragment.what)
-                        what = m->parameters_fragment.what;
-                else if (m->from_etc_fstab && m->parameters_etc_fstab.what)
-                        what = m->parameters_etc_fstab.what;
-                else if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                        what = m->parameters_proc_self_mountinfo.what;
 
                 if ((r = mount_add_device_links(m)) < 0)
                         return r;
@@ -466,7 +488,7 @@ static int mount_load(Unit *u) {
                 if ((r = mount_add_target_links(m)) < 0)
                         return r;
 
-                if ((r = unit_add_default_cgroup(u)) < 0)
+                if ((r = unit_add_default_cgroups(u)) < 0)
                         return r;
 
                 if (m->meta.default_dependencies)
@@ -794,7 +816,7 @@ static void mount_enter_mounting(Mount *m) {
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
-                                "-t", m->parameters_fragment.fstype,
+                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
                                 m->parameters_fragment.options ? "-o" : NULL, m->parameters_fragment.options,
                                 NULL);
         else if (m->from_etc_fstab)
@@ -859,7 +881,7 @@ static void mount_enter_remounting(Mount *m, bool success) {
                                 "/bin/mount",
                                 m->parameters_fragment.what,
                                 m->where,
-                                "-t", m->parameters_fragment.fstype,
+                                "-t", m->parameters_fragment.fstype ? m->parameters_fragment.fstype : "auto",
                                 "-o", o,
                                 NULL);
 
@@ -874,10 +896,8 @@ static void mount_enter_remounting(Mount *m, bool success) {
         else
                 r = -ENOENT;
 
-        if (r < 0) {
-                r = -ENOMEM;
+        if (r < 0)
                 goto fail;
-        }
 
         mount_unwatch_control_pid(m);
 
@@ -902,13 +922,13 @@ static int mount_start(Unit *u) {
          * please! */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGTERM ||
-            m->state == MOUNT_UNMOUNTING_SIGKILL)
+            m->state == MOUNT_UNMOUNTING_SIGKILL ||
+            m->state == MOUNT_MOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGKILL)
                 return -EAGAIN;
 
         /* Already on it! */
-        if (m->state == MOUNT_MOUNTING ||
-            m->state == MOUNT_MOUNTING_SIGTERM ||
-            m->state == MOUNT_MOUNTING_SIGKILL)
+        if (m->state == MOUNT_MOUNTING)
                 return 0;
 
         assert(m->state == MOUNT_DEAD || m->state == MOUNT_FAILED);
@@ -926,14 +946,14 @@ static int mount_stop(Unit *u) {
         /* Already on it */
         if (m->state == MOUNT_UNMOUNTING ||
             m->state == MOUNT_UNMOUNTING_SIGKILL ||
-            m->state == MOUNT_UNMOUNTING_SIGTERM)
+            m->state == MOUNT_UNMOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGTERM ||
+            m->state == MOUNT_MOUNTING_SIGKILL)
                 return 0;
 
         assert(m->state == MOUNT_MOUNTING ||
                m->state == MOUNT_MOUNTING_DONE ||
                m->state == MOUNT_MOUNTED ||
-               m->state == MOUNT_MOUNTING_SIGTERM ||
-               m->state == MOUNT_MOUNTING_SIGKILL ||
                m->state == MOUNT_REMOUNTING ||
                m->state == MOUNT_REMOUNTING_SIGTERM ||
                m->state == MOUNT_REMOUNTING_SIGKILL);
@@ -1057,7 +1077,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         m->failure = m->failure || !success;
 
         if (m->control_command) {
-                exec_status_exit(&m->control_command->exec_status, pid, code, status);
+                exec_status_exit(&m->control_command->exec_status, pid, code, status, m->exec_context.utmp_id);
                 m->control_command = NULL;
                 m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
         }
@@ -1172,6 +1192,7 @@ static int mount_add_one(
                 const char *where,
                 const char *options,
                 const char *fstype,
+                int passno,
                 bool from_proc_self_mountinfo,
                 bool set_flags) {
         int r;
@@ -1191,6 +1212,8 @@ static int mount_add_one(
         /* Ignore API mount points. They should never be referenced in
          * dependencies ever. */
         if (mount_point_is_api(where))
+                return 0;
+        if (mount_point_ignore(where))
                 return 0;
 
         if (streq(fstype, "autofs"))
@@ -1259,6 +1282,8 @@ static int mount_add_one(
         free(p->fstype);
         p->fstype = f;
 
+        p->passno = passno;
+
         unit_add_to_dbus_queue(u);
 
         return 0;
@@ -1272,56 +1297,6 @@ fail:
                 unit_free(u);
 
         return r;
-}
-
-static char *fstab_node_to_udev_node(char *p) {
-        char *dn, *t, *u;
-        int r;
-
-        /* FIXME: to follow udev's logic 100% we need to leave valid
-         * UTF8 chars unescaped */
-
-        if (startswith(p, "LABEL=")) {
-
-                if (!(u = unquote(p+6, "\"\'")))
-                        return NULL;
-
-                t = xescape(u, "/ ");
-                free(u);
-
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
-                free(t);
-
-                if (r < 0)
-                        return NULL;
-
-                return dn;
-        }
-
-        if (startswith(p, "UUID=")) {
-
-                if (!(u = unquote(p+5, "\"\'")))
-                        return NULL;
-
-                t = xescape(u, "/ ");
-                free(u);
-
-                if (!t)
-                        return NULL;
-
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
-                free(t);
-
-                if (r < 0)
-                        return NULL;
-
-                return dn;
-        }
-
-        return strdup(p);
 }
 
 static int mount_find_pri(char *options) {
@@ -1347,7 +1322,7 @@ static int mount_find_pri(char *options) {
 
 static int mount_load_etc_fstab(Manager *m) {
         FILE *f;
-        int r;
+        int r = 0;
         struct mntent* me;
 
         assert(m);
@@ -1358,6 +1333,7 @@ static int mount_load_etc_fstab(Manager *m) {
 
         while ((me = getmntent(f))) {
                 char *where, *what;
+                int k;
 
                 if (!(what = fstab_node_to_udev_node(me->mnt_fsname))) {
                         r = -ENOMEM;
@@ -1380,26 +1356,26 @@ static int mount_load_etc_fstab(Manager *m) {
                         int pri;
 
                         if ((pri = mount_find_pri(me->mnt_opts)) < 0)
-                                r = pri;
+                                k = pri;
                         else
-                                r = swap_add_one(m,
+                                k = swap_add_one(m,
                                                  what,
+                                                 NULL,
                                                  pri,
                                                  !!mount_test_option(me->mnt_opts, MNTOPT_NOAUTO),
                                                  !!mount_test_option(me->mnt_opts, "nofail"),
                                                  !!mount_test_option(me->mnt_opts, "comment=systemd.swapon"),
                                                  false);
                 } else
-                        r = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, false, false);
+                        k = mount_add_one(m, what, where, me->mnt_opts, me->mnt_type, me->mnt_passno, false, false);
 
                 free(what);
                 free(where);
 
                 if (r < 0)
-                        goto finish;
+                        r = k;
         }
 
-        r = 0;
 finish:
 
         endmntent(f);
@@ -1407,7 +1383,7 @@ finish:
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-        int r;
+        int r = 0;
         unsigned i;
         char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
@@ -1457,8 +1433,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         goto finish;
                 }
 
-                if ((r = mount_add_one(m, d, p, o, fstype, true, set_flags)) < 0)
-                        goto finish;
+                if ((k = mount_add_one(m, d, p, o, fstype, 0, true, set_flags)) < 0)
+                        r = k;
 
 clean_up:
                 free(device);
@@ -1470,8 +1446,6 @@ clean_up:
                 free(p);
                 free(o);
         }
-
-        r = 0;
 
 finish:
         free(device);
@@ -1508,7 +1482,7 @@ static int mount_enumerate(Manager *m) {
                 m->mount_watch.fd = fileno(m->proc_self_mountinfo);
 
                 zero(ev);
-                ev.events = EPOLLERR;
+                ev.events = EPOLLPRI;
                 ev.data.ptr = &m->mount_watch;
 
                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
@@ -1533,7 +1507,7 @@ void mount_fd_event(Manager *m, int events) {
         int r;
 
         assert(m);
-        assert(events == EPOLLERR);
+        assert(events & EPOLLPRI);
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting
@@ -1576,7 +1550,7 @@ void mount_fd_event(Manager *m, int events) {
 
                 } else if (mount->just_mounted || mount->just_changed) {
 
-                        /* New or changed entrymount */
+                        /* New or changed mount entry */
 
                         switch (mount->state) {
 
@@ -1614,6 +1588,52 @@ static void mount_reset_failed(Unit *u) {
                 mount_set_state(m, MOUNT_DEAD);
 
         m->failure = false;
+}
+
+static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
+        Mount *m = MOUNT(u);
+        int r = 0;
+        Set *pid_set = NULL;
+
+        assert(m);
+
+        if (who == KILL_MAIN) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Mount units have no main processes");
+                return -EINVAL;
+        }
+
+        if (m->control_pid <= 0 && who == KILL_CONTROL) {
+                dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
+                return -ENOENT;
+        }
+
+        if (m->control_pid > 0)
+                if (kill(mode == KILL_PROCESS_GROUP ? -m->control_pid : m->control_pid, signo) < 0)
+                        r = -errno;
+
+        if (mode == KILL_CONTROL_GROUP) {
+                int q;
+
+                if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
+                        return -ENOMEM;
+
+                /* Exclude the control pid from being killed via the cgroup */
+                if (m->control_pid > 0)
+                        if ((q = set_put(pid_set, LONG_TO_PTR(m->control_pid))) < 0) {
+                                r = q;
+                                goto finish;
+                        }
+
+                if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, pid_set)) < 0)
+                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                                r = q;
+        }
+
+finish:
+        if (pid_set)
+                set_free(pid_set);
+
+        return r;
 }
 
 static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
@@ -1661,6 +1681,8 @@ const UnitVTable mount_vtable = {
         .start = mount_start,
         .stop = mount_stop,
         .reload = mount_reload,
+
+        .kill = mount_kill,
 
         .serialize = mount_serialize,
         .deserialize_item = mount_deserialize_item,

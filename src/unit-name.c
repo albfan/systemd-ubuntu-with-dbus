@@ -32,7 +32,7 @@
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
         ":-_.\\"
 
-bool unit_name_is_valid_no_type(const char *n) {
+bool unit_name_is_valid_no_type(const char *n, bool template_ok) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -63,7 +63,7 @@ bool unit_name_is_valid_no_type(const char *n) {
                 if (at == n)
                         return false;
 
-                if (at[1] == '.')
+                if (!template_ok && at+1 == e)
                         return false;
         }
 
@@ -150,7 +150,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid_no_type(n));
+        assert(unit_name_is_valid_no_type(n, true));
         assert(suffix);
 
         assert_se(e = strrchr(n, '.'));
@@ -272,13 +272,13 @@ char *unit_name_unescape(const char *f) {
                 else if (*f == '\\') {
                         int a, b;
 
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
-                                /* Invalid escape code, let's take it literal then */
+                        if (f[1] != 'x' || (a = unhexchar(f[2])) < 0 ||
+					(b = unhexchar(f[3])) < 0) {
+				/* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                         } else {
                                 *(t++) = (char) ((a << 4) | b);
-                                f += 2;
+                                f += 3;
                         }
                 } else
                         *(t++) = *f;
@@ -377,6 +377,30 @@ char *unit_name_from_path(const char *path, const char *suffix) {
         return r;
 }
 
+char *unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix) {
+        char *p, *r;
+
+        assert(path);
+        assert(suffix);
+
+        if (!(p = strdup(path)))
+                return NULL;
+
+        path_kill_slashes(p);
+
+        path = p[0] == '/' ? p + 1 : p;
+
+        if (path[0] == 0) {
+                free(p);
+                return unit_name_build_escape(prefix, "-", suffix);
+        }
+
+        r = unit_name_build_escape(prefix, path, suffix);
+        free(p);
+
+        return r;
+}
+
 char *unit_name_to_path(const char *name) {
         char *w, *e;
 
@@ -392,6 +416,29 @@ char *unit_name_to_path(const char *name) {
                 return NULL;
 
         if (e[0] != '/') {
+                w = strappend("/", e);
+                free(e);
+
+                if (!w)
+                        return NULL;
+
+                e = w;
+        }
+
+        return e;
+}
+
+char *unit_name_path_unescape(const char *f) {
+        char *e;
+
+        assert(f);
+
+        if (!(e = unit_name_unescape(f)))
+                return NULL;
+
+        if (e[0] != '/') {
+                char *w;
+
                 w = strappend("/", e);
                 free(e);
 

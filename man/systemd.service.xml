@@ -344,7 +344,7 @@
                                 daemon, and may be used for command
                                 lines like the following:
                                 <command>/bin/kill -HUP
-                                $(MAINPID)</command>.</para></listitem>
+                                $MAINPID</command>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -368,7 +368,7 @@
                                 requested. Specifier and environment
                                 variable substitution is supported
                                 (including
-                                <literal>$(MAINPID)</literal>, see
+                                <literal>$MAINPID</literal>, see
                                 above).</para></listitem>
                         </varlistentry>
 
@@ -426,19 +426,28 @@
                         <varlistentry>
                                 <term><varname>Restart=</varname></term>
                                 <listitem><para>Configures whether the
-                                main service process shall be restarted when
-                                it exists. Takes one of
+                                main service process shall be
+                                restarted when it exits. Takes one of
                                 <option>no</option>,
-                                <option>on-success</option> or
-                                <option>always</option>. If
-                                set to <option>no</option> (the
-                                default) the service will not be
-                                restarted when it exits. If set to
-                                <option>on-success</option> it
-                                will be restarted only when it exited
-                                cleanly, i.e. terminated with an exit
-                                code of 0. If set to
-                                <option>always</option> the
+                                <option>on-success</option>,
+                                <option>on-failure</option>,
+                                <option>on-abort</option> or
+                                <option>always</option>. If set to
+                                <option>no</option> (the default) the
+                                service will not be restarted when it
+                                exits. If set to
+                                <option>on-success</option> it will be
+                                restarted only when it exited cleanly,
+                                i.e. terminated with an exit code of
+                                0. If set to
+                                <option>on-failure</option> it will be
+                                restared only when it exited with an
+                                exit code not equalling 0, or when
+                                terminated by a signal. If set to
+                                <option>on-abort</option> it will be
+                                restarted only if it exits due to
+                                reception of an uncaught signal. If
+                                set to <option>always</option> the
                                 service will be restarted regardless
                                 whether it exited cleanly or not, or
                                 got terminated abnormally by a
@@ -548,7 +557,7 @@
                                 group and the control group continues
                                 to exist after stop unless it is
                                 empty. Defaults to
-                                <option>control-croup</option>.</para>
+                                <option>control-group</option>.</para>
 
                                 <para>Processes will first be
                                 terminated via SIGTERM. If then after
@@ -588,7 +597,7 @@
                                 <option>main</option> or
                                 <option>all</option>. If
                                 <option>none</option> no daemon status
-                                updates are accepted by the service
+                                updates are accepted from the service
                                 processes, all status update messages
                                 are ignored. If <option>main</option>
                                 only service updates sent from the
@@ -627,6 +636,33 @@
                                 <varname>Sockets=</varname> setting of
                                 the <filename>.service</filename> it
                                 refers to.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+                                <listitem><para>Set the fsck passno
+                                priority to use to order this service
+                                in relation to other file system
+                                checking services. This option is only
+                                necessary to fix ordering in relation
+                                to fsck jobs automatically created for
+                                all <filename>/etc/fstab</filename>
+                                entries with a value in the fs_passno
+                                column > 0. As such it should only be
+                                used as option for fsck
+                                services. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                same range as
+                                <filename>/etc/fstab</filename>'s
+                                fs_passno column. See
+                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

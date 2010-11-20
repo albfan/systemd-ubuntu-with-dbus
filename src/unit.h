@@ -38,6 +38,7 @@ typedef enum UnitDependency UnitDependency;
 #include "list.h"
 #include "socket-util.h"
 #include "execute.h"
+#include "condition.h"
 
 #define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
@@ -62,6 +63,7 @@ enum UnitLoadState {
         UNIT_LOADED,
         UNIT_ERROR,
         UNIT_MERGED,
+        UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
 };
@@ -100,11 +102,13 @@ enum UnitDependency {
         UNIT_REQUISITE,
         UNIT_REQUISITE_OVERRIDABLE,
         UNIT_WANTS,
+        UNIT_BIND_TO,
 
         /* Inverse of the above */
         UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
+        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
         UNIT_WANTED_BY,               /* inverse of 'wants' */
+        UNIT_BOUND_BY,                /* inverse of 'bind_to' */
 
         /* Negative dependencies */
         UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
@@ -153,6 +157,9 @@ struct Meta {
 
         usec_t job_timeout;
 
+        /* Conditions to check */
+        LIST_HEAD(Condition, conditions);
+
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;
         dual_timestamp active_exit_timestamp;
@@ -186,17 +193,11 @@ struct Meta {
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
 
-        /* If we go down, pull down everything that depends on us, too */
-        bool recursive_stop;
-
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
         /* Create default depedencies */
         bool default_dependencies;
-
-        /* Bring up this unit even if a dependency fails to start */
-        bool ignore_dependency_failure;
 
         /* Refuse manual starting, allow starting only indirectly via dependency. */
         bool refuse_manual_start;
@@ -272,6 +273,8 @@ struct UnitVTable {
         int (*stop)(Unit *u);
         int (*reload)(Unit *u);
 
+        int (*kill)(Unit *u, KillWho w, KillMode m, int signo, DBusError *error);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -326,6 +329,9 @@ struct UnitVTable {
         /* Return the unit this unit is following */
         Unit *(*following)(Unit *u);
 
+        /* Return the set of units that are following each other */
+        int (*following_set)(Unit *u, Set **s);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
@@ -346,11 +352,6 @@ struct UnitVTable {
 
         /* Can units of this type have multiple names? */
         bool no_alias:1;
-
-        /* If true units of this types can never have "Requires"
-         * dependencies, because state changes can only be observed,
-         * not triggered */
-        bool no_requires:1;
 
         /* Instances make no sense for this type */
         bool no_instances:1;
@@ -413,7 +414,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
-int unit_add_default_cgroup(Unit *u);
+int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);
@@ -452,6 +453,8 @@ bool unit_can_isolate(Unit *u);
 int unit_start(Unit *u);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
+
+int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns);
 
@@ -503,8 +506,10 @@ bool unit_pending_active(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
 
+int unit_following_set(Unit *u, Set **s);
+
 UnitType unit_name_to_type(const char *n);
-bool unit_name_is_valid(const char *n);
+bool unit_name_is_valid(const char *n, bool template_ok);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);
@@ -514,8 +519,5 @@ UnitActiveState unit_active_state_from_string(const char *s);
 
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
-
-const char *kill_mode_to_string(KillMode k);
-KillMode kill_mode_from_string(const char *s);
 
 #endif
