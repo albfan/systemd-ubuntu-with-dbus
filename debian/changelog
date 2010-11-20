@@ -1,8 +1,13 @@
 systemd (13-1) experimental; urgency=low
 
+  [ Tollef Fog Heen ]
   * New upstream version, thanks a lot to Michael Biebl for help with
     preparing this version.
   * Add libaudit-dev to build-depends
+
+  [ Michael Biebl ]
+  * Revert upstream change which requires libnotify 0.7 (not yet available in
+    Debian).
 
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
 
