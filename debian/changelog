@@ -8,6 +8,7 @@ systemd (13-1) experimental; urgency=low
   [ Michael Biebl ]
   * Revert upstream change which requires libnotify 0.7 (not yet available in
     Debian).
+  * Use dh-autoreconf for updating the build system.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
 
