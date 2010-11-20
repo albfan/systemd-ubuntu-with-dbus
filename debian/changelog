@@ -4,6 +4,8 @@ systemd (13-1) experimental; urgency=low
   * New upstream version, thanks a lot to Michael Biebl for help with
     preparing this version.
   * Add libaudit-dev to build-depends
+  * /usr/share/systemd/session has been renamed to /usr/share/systemd/user
+    upstream, adjust build system accordingly.
 
   [ Michael Biebl ]
   * Revert upstream change which requires libnotify 0.7 (not yet available in
