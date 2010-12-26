@@ -16,6 +16,9 @@ systemd (15-1) experimental; urgency=low
   * Use dh-autoreconf for updating the build system.
   * Revert upstream commit which uses fsck -l (needs a newer version of
     util-linux).
+  * Explicitly disable cryptsetup support to not accidentally pick up a
+    libcryptsetup dependency in a tainted build environment, as the library
+    is currently installed in /usr/lib.
   * Install lsb-base hook which redirects calls to SysV init scripts to
     systemctl: /etc/init.d/<foo> <action> → systemctl <action> <foo.service>
   * Install a (auto)mount unit to mount /lib/init/rw early during boot.
