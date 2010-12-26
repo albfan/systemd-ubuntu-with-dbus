@@ -42,8 +42,12 @@
 
         <refnamediv>
                 <refname>tmpfiles.d</refname>
-                <refpurpose>configuration for creation, deletion and cleaning of tmpfiles</refpurpose>
+                <refpurpose>Configuration for creation, deletion and cleaning of temporary and volatile files</refpurpose>
         </refnamediv>
+
+        <refsynopsisdiv>
+                <para><filename>/etc/tmpfiles.d/*.conf</filename></para>
+        </refsynopsisdiv>
 
         <refsect1>
                 <title>Description</title>
@@ -55,7 +59,7 @@
 		<filename>/var/run</filename> or
 		<filename>/tmp</filename>).  Each configuration file
 		is named in the style of
-		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename></para>
+		<filename>/etc/tmpfiles.d/&lt;program&gt;.conf</filename>.</para>
         </refsect1>
 
         <refsect1>
@@ -65,11 +69,51 @@
 		containing action, mode, ownership and age
 		fields:</para>
 
-                <programlisting>type path          mode uid  gid  age
+                <programlisting>Type Path          Mode UID  GID  Age
 d    /var/run/user 0755 root root 10d</programlisting>
 
                 <refsect2>
-                        <title>mode</title>
+                        <title>Type</title>
+                        <variablelist>
+                                <varlistentry>
+                                        <term><varname>f</varname></term>
+                                        <listitem><para>Create a file if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>F</varname></term>
+                                        <listitem><para>Create or truncate a file</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>d</varname></term>
+                                        <listitem><para>Create a directory if it doesn't exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>D</varname></term>
+                                        <listitem><para>Create or empty a directory</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>x</varname></term>
+                                        <listitem><para>Ignore a path</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>r</varname></term>
+                                        <listitem><para>Remove a path</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>R</varname></term>
+                                        <listitem><para>Recursively remove a path</para></listitem>
+                                </varlistentry>
+                        </variablelist>
+                </refsect2>
+
+                <refsect2>
+                        <title>Mode</title>
 
                         <para>The file access mode to use for this
                         file or directory. If ommited or when set to -
@@ -78,7 +122,7 @@ d    /var/run/user 0755 root root 10d</programlisting>
                 </refsect2>
 
                 <refsect2>
-                        <title>uid, gid</title>
+                        <title>UID, GID</title>
 
                         <para>The user and group to use for this file
                         or directory. This may either be a numeric
@@ -88,47 +132,7 @@ d    /var/run/user 0755 root root 10d</programlisting>
                 </refsect2>
 
                 <refsect2>
-                        <title>type</title>
-                        <variablelist>
-                                <varlistentry>
-                                        <term><varname>f</varname></term>
-                                        <listitem><para>create a file if it doesn't exist yet</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>F</varname></term>
-                                        <listitem><para>create or truncate a file</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>d</varname></term>
-                                        <listitem><para>create a directory if it doesn't exist yet</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>D</varname></term>
-                                        <listitem><para>create or empty a directory</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>x</varname></term>
-                                        <listitem><para>ignore a path</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>r</varname></term>
-                                        <listitem><para>remove a path</para></listitem>
-                                </varlistentry>
-
-                                <varlistentry>
-                                        <term><varname>R</varname></term>
-                                        <listitem><para>recursively remove a path</para></listitem>
-                                </varlistentry>
-                        </variablelist>
-                </refsect2>
-
-                <refsect2>
-                        <title>age</title>
+                        <title>Age</title>
                         <para>The date field, when set, is used to
                         decide what files to delete when cleaning. If
                         a file or directory is older than the current

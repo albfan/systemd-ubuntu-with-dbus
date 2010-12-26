@@ -55,7 +55,7 @@ static const MountPoint mount_table[] = {
 };
 
 /* These are API file systems that might be mounted by other software,
- * we just list them here so that we know that we should igore them */
+ * we just list them here so that we know that we should ignore them */
 
 static const char * const ignore_paths[] = {
         "/selinux",
@@ -78,7 +78,7 @@ bool mount_point_is_api(const char *path) {
 }
 
 bool mount_point_ignore(const char *path) {
-       unsigned i;
+        unsigned i;
 
         for (i = 0; i < ELEMENTSOF(ignore_paths); i++)
                 if (path_equal(path, ignore_paths[i]))
@@ -138,8 +138,9 @@ static int mount_cgroup_controllers(void) {
         for (;;) {
                 MountPoint p;
                 char *controller, *where;
+                int enabled = false;
 
-                if (fscanf(f, "%ms %*i %*i %*i", &controller) != 1) {
+                if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
 
                         if (feof(f))
                                 break;
@@ -147,6 +148,11 @@ static int mount_cgroup_controllers(void) {
                         log_error("Failed to parse /proc/cgroups.");
                         r = -EIO;
                         goto finish;
+                }
+
+                if (!enabled) {
+                        free(controller);
+                        continue;
                 }
 
                 if (asprintf(&where, "/sys/fs/cgroup/%s", controller) < 0) {

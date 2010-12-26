@@ -28,8 +28,6 @@
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
-* chkconfig/systemd-install glue
-
 * io priority during initialization
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
@@ -53,8 +51,6 @@
 
 * readahead: btrfs/LVM SSD detection
 
-* man pages for: locale.conf, vconsole.conf, modules-load.d, /etc/os-release
-
 * when processes remain in a service even though the start command failed enter active
 
 * add seperate man page for [Install] settings
@@ -72,6 +68,22 @@
 * fix hotplug transactions
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
+
+* alsa rule file, alsa service files, alsa state file → /var/lib, sequencer soll by device node ladbar
+
+* place introspection data in ELF sections, read them with objcopy
+
+* sendmail.service doesn't get rid PID file, fails to kill everything on stop
+
+* global defaults for StandardOuput=xxx
+
+Fedora:
+
+* obsolete readhead in systemd pkg
+
+* chkconfig → systemd enable/daemon-reload glue
+
+* /var/lock, /var/run → what happens if rpm stuff is no %ghosted?
 
 External:
 
