@@ -2,6 +2,7 @@ etc
 bin/systemd
 bin/systemctl
 bin/systemd-notify
+bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
 lib/systemd/
 lib/udev/rules.d/99-systemd.rules
@@ -18,3 +19,6 @@ usr/share/doc
 usr/share/pkgconfig
 usr/share/systemd/user
 usr/share/polkit-1
+debian/lsb-base-logging.sh etc/
+debian/lib-init-rw.automount lib/systemd/system/
+debian/lib-init-rw.mount lib/systemd/system/
