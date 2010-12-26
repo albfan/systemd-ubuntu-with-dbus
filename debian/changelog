@@ -8,6 +8,7 @@ systemd (15-1) experimental; urgency=low
     upstream, adjust build system accordingly.
   * Remove -s from getty serial console invocation.
   * Add dependency on new util-linux to make sure /sbin/agetty exists
+  * Don't mount /var/lock with gid=lock (Debian has no such group).
 
   [ Michael Biebl ]
   * Revert upstream change which requires libnotify 0.7 (not yet available in
