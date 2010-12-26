@@ -7,6 +7,7 @@ systemd (15-1) experimental; urgency=low
   * /usr/share/systemd/session has been renamed to /usr/share/systemd/user
     upstream, adjust build system accordingly.
   * Remove -s from getty serial console invocation.
+  * Add dependency on new util-linux to make sure /sbin/agetty exists
 
   [ Michael Biebl ]
   * Revert upstream change which requires libnotify 0.7 (not yet available in
