@@ -26,7 +26,7 @@ Environment=TERM=vt100-nav
 m4_ifdef(`TARGET_FEDORA',
 ExecStartPre=-/sbin/securetty %I
 )m4_dnl
-ExecStart=-/sbin/agetty -s %I 115200,38400,9600
+ExecStart=-/sbin/agetty %I 115200,38400,9600
 Restart=always
 RestartSec=0
 UtmpIdentifier=%I

@@ -6,6 +6,7 @@ systemd (13-1) experimental; urgency=low
   * Add libaudit-dev to build-depends
   * /usr/share/systemd/session has been renamed to /usr/share/systemd/user
     upstream, adjust build system accordingly.
+  * Remove -s from getty serial console invocation.
 
   [ Michael Biebl ]
   * Revert upstream change which requires libnotify 0.7 (not yet available in
