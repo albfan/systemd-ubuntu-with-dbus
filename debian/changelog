@@ -11,6 +11,7 @@ systemd (13-1) experimental; urgency=low
   * Revert upstream change which requires libnotify 0.7 (not yet available in
     Debian).
   * Use dh-autoreconf for updating the build system.
+  * Install a (auto)mount unit to mount /lib/init/rw early during boot.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
 

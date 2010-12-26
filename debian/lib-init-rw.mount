@@ -1,0 +1,9 @@
+[Unit]
+Description=Debian early rw mount
+DefaultDependencies=no
+
+[Mount]
+What=tmpfs
+Where=/lib/init/rw
+Type=tmpfs
+Options=mode=0755,nosuid
