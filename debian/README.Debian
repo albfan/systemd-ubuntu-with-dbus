@@ -16,4 +16,14 @@ Known bugs and problems
 The PAM module makes su exit with an error after running the command,
 hiding the real exit status of the process.
 
- -- Tollef Fog Heen <tfheen@debian.org>, Sun, 29 Aug 2010 10:39:57 +0200
+ifupdown's postinst has a bug where it ends up creating
+/etc/network/run as a normal directory rather than a symlink to
+/dev/shm or /lib/init/rw.  This can cause network interfaces to not
+start correctly on boot.  The easiest way to fix this is to run:
+
+  mv /etc/network/run /etc/network/run.old
+  ln -s /lib/init/rw/network /etc/network/run
+  mv /etc/nework/run.old/* /etc/network/run
+  rmdir /etc/nework/run.old/
+
+ -- Tollef Fog Heen <tfheen@debian.org>, Sun, 26 Dec 2010 20:29:37 +0100
