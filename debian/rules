@@ -18,11 +18,8 @@ override_dh_install:
 	rm debian/tmp/usr/share/doc/systemd/LICENSE
 	rm debian/tmp/lib/security/pam_systemd.la
 	rm debian/tmp/lib/systemd/system/shutdown.target.wants/hwclock-save.service
-	rm debian/tmp/lib/systemd/system/local-fs.target.wants/remount-rootfs.service
 	dh_install -O--parallel --fail-missing
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
-	sed -i 's/#\(Mount\|Swap\)Auto=yes/\1Auto=no/' debian/systemd/etc/systemd/system.conf
-	find ./debian/systemd/lib -name tmpwatch.\* -delete
 
 %:
 	dh --parallel --with autoreconf $@
