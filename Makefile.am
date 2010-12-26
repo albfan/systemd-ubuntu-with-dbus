@@ -317,7 +317,8 @@ EXTRA_DIST = \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
-	systemd.pc.in
+	systemd.pc.in \
+	introspect.awk
 
 if TARGET_FEDORA
 dist_systemunit_DATA += \
@@ -340,10 +341,6 @@ dist_systemunit_DATA += \
 	units/debian/reboot.service
 endif
 
-if TARGET_GENTOO
-dist_systemunit_DATA += \
-	units/gentoo/xdm.service
-endif
 
 if TARGET_ARCH
 dist_systemunit_DATA += \
@@ -512,7 +509,12 @@ MANPAGES = \
 	man/shutdown.8 \
 	man/pam_systemd.8 \
 	man/systemd.conf.5 \
-	man/tmpfiles.d.5
+	man/tmpfiles.d.5 \
+	man/hostname.5 \
+	man/vconsole.conf.5 \
+	man/locale.conf.5 \
+	man/os-release.5 \
+	man/modules-load.d.5
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -1120,8 +1122,12 @@ CLEANFILES += \
 	${XML_IN_FILES:.xml.in=.html.in}
 endif
 
+DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
+
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)SYSTEMD_SKIP_API_MOUNTS=1 ./systemd --introspect=${@:.xml=} > $@
+	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
 CLEANFILES += \
 	$(dbusinterface_DATA)
@@ -1306,14 +1312,6 @@ if TARGET_FEDORA
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
-if TARGET_GENTOO
-	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f display-manager.service && \
-		$(LN_S) xdm.service display-manager.service )
-	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
-		rm -f display-manager.service && \
-		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
-endif
 if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \
@@ -1336,8 +1334,3 @@ upload: all distcheck
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
-
-# Opt out from a few services on Fedora for now, as long as rc.sysinit does this job
-fedora: install
-	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-run.mount
-	rm $(DESTDIR)/lib/systemd/system/local-fs.target.wants/var-lock.mount

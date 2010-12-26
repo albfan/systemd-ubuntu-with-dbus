@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[13],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[15],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -47,6 +47,9 @@ AC_PROG_CC_C99
 AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS
+
+AC_CHECK_TOOL(OBJCOPY, objcopy)
+AC_CHECK_TOOL(STRINGS, strings)
 
 CC_CHECK_CFLAGS_APPEND([ \
         -pipe \

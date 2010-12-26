@@ -2338,7 +2338,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
         return 0;
 }
 
-static int show_one(DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
+static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
         DBusMessage *m = NULL, *reply = NULL;
         const char *interface = "";
         int r;
@@ -2438,7 +2438,8 @@ static int show_one(DBusConnection *bus, const char *path, bool show_properties,
                 print_status_info(&info);
 
         if (!streq_ptr(info.active_state, "active") &&
-            !streq_ptr(info.active_state, "reloading"))
+            !streq_ptr(info.active_state, "reloading") &&
+            streq(verb, "status"))
                 /* According to LSB: "program not running" */
                 r = 3;
 
@@ -2477,7 +2478,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                 /* If not argument is specified inspect the manager
                  * itself */
 
-                ret = show_one(bus, "/org/freedesktop/systemd1", show_properties, &new_line);
+                ret = show_one(args[0], bus, "/org/freedesktop/systemd1", show_properties, &new_line);
                 goto finish;
         }
 
@@ -2611,7 +2612,7 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
-                if ((r = show_one(bus, path, show_properties, &new_line)) != 0)
+                if ((r = show_one(args[0], bus, path, show_properties, &new_line)) != 0)
                         ret = r;
 
                 dbus_message_unref(m);
@@ -3886,6 +3887,68 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         }
 
         if (!f) {
+#if defined(TARGET_FEDORA) && defined (HAVE_SYSV_COMPAT)
+
+                if (endswith(i->name, ".service")) {
+                        char *sysv;
+                        bool exists;
+
+                        if (asprintf(&sysv, SYSTEM_SYSVINIT_PATH "/%s", i->name) < 0) {
+                                log_error("Out of memory");
+                                return -ENOMEM;
+                        }
+
+                        sysv[strlen(sysv) - sizeof(".service") + 1] = 0;
+                        exists = access(sysv, F_OK) >= 0;
+
+                        if (exists) {
+                                pid_t pid;
+                                siginfo_t status;
+
+                                const char *argv[] = {
+                                        "/sbin/chkconfig",
+                                        NULL,
+                                        NULL,
+                                        NULL
+                                };
+
+                                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", i->name);
+
+                                argv[1] = file_name_from_path(sysv);
+                                argv[2] =
+                                        streq(verb, "enable") ? "on" :
+                                        streq(verb, "disable") ? "off" : NULL;
+
+                                log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
+
+                                if ((pid = fork()) < 0) {
+                                        log_error("Failed to fork: %m");
+                                        free(sysv);
+                                        return -errno;
+                                } else if (pid == 0) {
+                                        execv(argv[0], (char**) argv);
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                free(sysv);
+
+                                if ((r = wait_for_terminate(pid, &status)) < 0)
+                                        return r;
+
+                                if (status.si_code == CLD_EXITED) {
+                                        if (status.si_status == 0 && (streq(verb, "enable") || streq(verb, "disable")))
+                                                n_symlinks ++;
+
+                                        return status.si_status == 0 ? 0 : -EINVAL;
+                                } else
+                                        return -EPROTO;
+                        }
+
+                        free(sysv);
+                }
+
+#endif
+
                 log_error("Couldn't find %s.", i->name);
                 return -ENOENT;
         }
