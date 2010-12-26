@@ -13,6 +13,8 @@ systemd (15-1) experimental; urgency=low
   * Revert upstream change which requires libnotify 0.7 (not yet available in
     Debian).
   * Use dh-autoreconf for updating the build system.
+  * Revert upstream commit which uses fsck -l (needs a newer version of
+    util-linux).
   * Install lsb-base hook which redirects calls to SysV init scripts to
     systemctl: /etc/init.d/<foo> <action> → systemctl <action> <foo.service>
   * Install a (auto)mount unit to mount /lib/init/rw early during boot.
