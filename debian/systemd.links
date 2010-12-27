@@ -40,6 +40,11 @@
 /dev/null /lib/systemd/system/cryptdisks.service
 /dev/null /lib/systemd/system/cryptdisks-early.service
 
+# Single user mode is implemented natively, don't use legacy SysV init scripts
+# to avoid spawning sulogin twice.
+/dev/null /lib/systemd/system/single.service
+/dev/null /lib/systemd/system/killprocs.service
+
 # Mount /lib/init/rw during early startup
 /lib/systemd/system/lib-init-rw.automount /lib/systemd/system/local-fs.target.wants/lib-init-rw.automount
 
