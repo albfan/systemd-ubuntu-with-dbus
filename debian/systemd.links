@@ -11,7 +11,7 @@
 /dev/null /lib/systemd/system/rmnologin.service
 /dev/null /lib/systemd/system/bootmisc.service
 
-# Although bootloogd is disabled by default (via /etc/default/bootlogd)
+# Although bootlogd is disabled by default (via /etc/default/bootlogd)
 # by masking them we avoid spawning a shell uselessly thrice during boot.
 # Besides, bootlogd doesn't look particularly useful in a systemd world.
 /dev/null /lib/systemd/system/bootlogd.service
