@@ -24,4 +24,4 @@ override_dh_install:
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
 
 %:
-	dh --parallel --with autoreconf $@
+	dh $@ --parallel --with autoreconf
