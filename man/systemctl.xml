@@ -154,7 +154,7 @@
                                 <listitem><para>Suppress output to
                                 STDOUT in
                                 <command>snapshot</command>,
-                                <command>check</command>,
+                                <command>is-active</command>,
                                 <command>enable</command> and
                                 <command>disable</command>.</para></listitem>
                         </varlistentry>
@@ -169,6 +169,13 @@
                                 wait until it is completed. By passing this
                                 argument it is only verified and
                                 enqueued.</para></listitem> </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+				<listitem><para>Do not pipe output into a
+				pager.</para></listitem>
+			</varlistentry>
 
                         <varlistentry>
                                 <term><option>--system</option></term>
@@ -224,7 +231,7 @@
                                 <listitem><para>When used with
                                 <command>enable</command> and
                                 <command>disable</command>, operate on the
-                                global user configuŕation
+                                global user configuration
                                 directory, thus enabling or disabling
                                 a unit file globally for all future
                                 logins of all users.</para></listitem>
@@ -257,7 +264,7 @@
                                 <command>systemctl</command> will
                                 query the user on the terminal for the
                                 necessary secrets. Use this option to
-                                switch this behaviour off. In this
+                                switch this behavior off. In this
                                 case the password must be supplied by
                                 some other means (for example
                                 graphical password agents) or the
@@ -276,7 +283,7 @@
                                 <option>process</option> to select
                                 whether to kill the entire control
                                 group, the process group or only the
-                                selected process itself. If ommitted
+                                selected process itself. If omitted
                                 defaults to
                                 <option>control-group</option> if
                                 <option>--kill-who=all</option> is
@@ -296,22 +303,22 @@
                                 <option>all</option> to select whether
                                 to kill only the main process of the
                                 unit, the control process or all
-                                processes of the unit. If ommitted
+                                processes of the unit. If omitted
                                 defaults to
                                 <option>all</option>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>---signal=</option></term>
+                                <term><option>--signal=</option></term>
                                 <term><option>-s</option></term>
 
                                 <listitem><para>When used with
                                 <command>kill</command>, choose which
                                 signal to send to selected
                                 processes. Must be one of the well
-                                know signal specifiers such as
+                                known signal specifiers such as
                                 SIGTERM, SIGINT or SIGSTOP. If
-                                ommitted defaults to
+                                omitted defaults to
                                 <option>SIGTERM</option>.</para></listitem>
                         </varlistentry>
 
@@ -416,21 +423,31 @@
                                 units specified on the command
                                 line. If the units are not running yet
                                 the operation will
-                                fail.</para></listitem>
+                                fail. Note that for compatibility
+                                with Red Hat init scripts
+                                <command>condrestart</command> is
+                                equivalent to this command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>reload-or-restart [NAME...]</command></term>
+
+                                <listitem><para>Reload one or more
+                                units if they support it. If not,
+                                restart them instead. If the units
+                                are not running yet they will be
+                                started.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><command>reload-or-try-restart [NAME...]</command></term>
 
                                 <listitem><para>Reload one or more
                                 units if they support it. If not,
-                                restart them instead. Note that for
-                                compatibility with SysV and Red Hat
-                                init scripts
-                                <command>force-reload</command> and
-                                <command>condrestart</command> may be
-                                used as equivalent commands to
-                                <command>reload-or-try-restart</command>.</para></listitem>
+                                restart them instead. If the units
+                                are not running yet the operation
+                                will fail. Note that for
+                                compatibility with SysV init scripts
+                                <command>force-reload</command> is
+                                equivalent to this command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>isolate [NAME]</command></term>
@@ -469,7 +486,7 @@
                                 <term><command>is-active [NAME...]</command></term>
 
                                 <listitem><para>Check whether any of
-                                the specified units is active
+                                the specified units are active
                                 (i.e. running). Returns an exit code
                                 0 if at least one is active, non-zero
                                 otherwise. Unless
@@ -569,7 +586,7 @@
                                 administrator is free to make
                                 additional changes manually, by
                                 placing or removing symlinks in the
-                                directory. This is particular useful
+                                directory. This is particularly useful
                                 to create configurations that deviate
                                 from the suggested default
                                 installation. In this case the
@@ -641,7 +658,7 @@
                                 <option>--quiet</option>.</para>
                                 </listitem>
 
-                                <para>This command honours
+                                <para>This command honors
                                 <option>--system</option>,
                                 <option>--user</option>,
                                 <option>--global</option> in a similar
@@ -700,7 +717,7 @@
                                 <listitem><para>Cancel one or more
                                 jobs specified on the command line by
                                 their numeric job
-                                IDs. If not job id is specified cancels all jobs that are pending.</para></listitem>
+                                IDs. If no job id is specified, cancel all pending jobs.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>monitor</command></term>
@@ -756,7 +773,7 @@
 
                                 <para>A snapshot refers to a saved
                                 state of the systemd manager. It is
-                                implemented itself as unit that is
+                                implemented itself as a unit that is
                                 generated dynamically with this
                                 command and has dependencies on all
                                 units active at the time. At a later
@@ -881,8 +898,8 @@
                                 users.  If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes killed
-                                and all file systems unmounted or
+                                skipped, however all processes are killed
+                                and all file systems are unmounted or
                                 mounted read-only, immediately
                                 followed by the
                                 system halt.</para></listitem>
@@ -898,8 +915,8 @@
                                 users. If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes killed
-                                and all file systems unmounted or
+                                skipped, however all processes are killed
+                                and all file systems are unmounted or
                                 mounted read-only, immediately
                                 followed by the
                                 powering off.</para></listitem>
@@ -915,8 +932,8 @@
                                 users. If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes killed
-                                and all file systems unmounted or
+                                skipped, however all processes are killed
+                                and all file systems are unmounted or
                                 mounted read-only, immediately
                                 followed by the
                                 reboot.</para></listitem>
@@ -931,8 +948,8 @@
                                 a wall message to all users. If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes killed
-                                and all file systems unmounted or
+                                skipped, however all processes are killed
+                                and all file systems are unmounted or
                                 mounted read-only, immediately
                                 followed by the
                                 reboot.</para></listitem>

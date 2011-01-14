@@ -15,6 +15,9 @@ After=rc-local.service
 m4_ifdef(`TARGET_ARCH',
 After=rc-local.service
 )m4_dnl
+m4_ifdef(`TARGET_FRUGALWARE',
+After=local.service
+)m4_dnl
 
 # If additional gettys are spawned during boot then we should make
 # sure that this is synchronized before getty.target, even though
@@ -28,6 +31,10 @@ Restart=always
 RestartSec=0
 UtmpIdentifier=%I
 KillMode=process-group
+
+# Unset locale for the console getty since the console has problems
+# displaying some internationalized messages.
+Environment=LANG= LC_CTYPE= LC_NUMERIC= LC_TIME= LC_COLLATE= LC_MONETARY= LC_MESSAGE= LC_PAPER= LC_NAME= LC_ADDRESS= LC_TELEPHONE= LC_MEASUREMENT= LC_IDENTIFICATION=
 
 # Some login implementations ignore SIGTERM, so we send SIGHUP
 # instead, to ensure that login terminates cleanly.

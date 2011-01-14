@@ -3047,12 +3047,20 @@ void status_welcome(void) {
 #elif defined(TARGET_DEBIAN)
 
         if (!pretty_name) {
-                if ((r = read_one_line_file("/etc/debian_version", &pretty_name)) < 0) {
+                char *version;
+
+                if ((r = read_one_line_file("/etc/debian_version", &version)) < 0) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                } else {
+                        truncate_nl(version);
+                        pretty_name = strappend("Debian ", version);
+                        free(version);
+
+                        if (!pretty_name)
+                                log_warning("Failed to allocate Debian version string.");
+                }
         }
 
         if (!ansi_color)
@@ -3071,13 +3079,6 @@ void status_welcome(void) {
         if (!ansi_color)
                 const_color = "0;33"; /* Orange/Brown for Ubuntu */
 
-#elif defined(TARGET_ARCH)
-
-        if (!pretty_name)
-                const_pretty = "Arch Linux";
-
-        if (!ansi_color)
-                const_color = "1;36"; /* Cyan for Arch */
 #endif
 
         if (!pretty_name && !const_pretty)
@@ -3089,6 +3090,9 @@ void status_welcome(void) {
         status_printf("Welcome to \x1B[%sm%s\x1B[0m!\n",
                       const_color ? const_color : ansi_color,
                       const_pretty ? const_pretty : pretty_name);
+
+        free(ansi_color);
+        free(pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
@@ -3325,6 +3329,44 @@ char *unquote(const char *s, const char* quotes) {
         return strdup(s);
 }
 
+char *normalize_env_assignment(const char *s) {
+        char *name, *value, *p, *r;
+
+        p = strchr(s, '=');
+
+        if (!p) {
+                if (!(r = strdup(s)))
+                        return NULL;
+
+                return strstrip(r);
+        }
+
+        if (!(name = strndup(s, p - s)))
+                return NULL;
+
+        if (!(p = strdup(p+1))) {
+                free(name);
+                return NULL;
+        }
+
+        value = unquote(strstrip(p), QUOTES);
+        free(p);
+
+        if (!value) {
+                free(p);
+                free(name);
+                return NULL;
+        }
+
+        if (asprintf(&r, "%s=%s", name, value) < 0)
+                r = NULL;
+
+        free(value);
+        free(name);
+
+        return r;
+}
+
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
         assert(pid >= 1);
         assert(status);
@@ -3378,6 +3420,8 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 }
 
 void freeze(void) {
+        sync();
+
         for (;;)
                 pause();
 }
@@ -3394,8 +3438,19 @@ bool null_or_empty(struct stat *st) {
         return false;
 }
 
-DIR *xopendirat(int fd, const char *name) {
-        return fdopendir(openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC));
+DIR *xopendirat(int fd, const char *name, int flags) {
+        int nfd;
+        DIR *d;
+
+        if ((nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags)) < 0)
+                return NULL;
+
+        if (!(d = fdopendir(nfd))) {
+                close_nointr_nofail(nfd);
+                return NULL;
+        }
+
+        return d;
 }
 
 int signal_from_string_try_harder(const char *s) {
@@ -3518,7 +3573,7 @@ const char *default_term_for_tty(const char *tty) {
 
         /* FIXME: Proper handling of /dev/console would be cool */
 
-        return "TERM=vt100-nav";
+        return "TERM=vt100";
 }
 
 static const char *const ioprio_class_table[] = {
