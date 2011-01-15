@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[15],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[16],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -260,11 +260,14 @@ if test "$have_gtk" = "yes"; then
         AC_SUBST(DBUSGLIB_LIBS)
 
         PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
+        PKG_CHECK_EXISTS([ libnotify >= 0.7.0 ], [ libnotify07=yes ])
+
         AC_SUBST(LIBNOTIFY_CFLAGS)
         AC_SUBST(LIBNOTIFY_LIBS)
 fi
+AM_CONDITIONAL(LIBNOTIFY07, [ test "$libnotify07" = "yes" ])
 
-AM_PROG_VALAC([0.9])
+AM_PROG_VALAC([0.10])
 AC_SUBST(VAPIDIR)
 AM_CONDITIONAL(HAVE_VALAC, test x"$VALAC" != x)
 
@@ -287,6 +290,7 @@ if test "z$with_distro" = "z"; then
                 AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
                 AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
                 AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
+                AC_CHECK_FILE(/etc/frugalware-release,with_distro="frugalware")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
@@ -359,6 +363,12 @@ case $with_distro in
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
                 M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
                 ;;
+        frugalware)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
+                M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
                         [AC_MSG_ERROR([With --distro=other, you must pass --with-syslog-service= to configure])])
@@ -400,6 +410,12 @@ else
         SYSTEM_SYSV_COMPAT="no"
 fi
 
+AC_ARG_WITH([tty-gid],
+        [AS_HELP_STRING([--with-tty-gid=GID],
+                [Specify the numeric GID of the 'tty' group])],
+        [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
+        [])
+
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
@@ -408,6 +424,7 @@ AM_CONDITIONAL(TARGET_DEBIAN_OR_UBUNTU, test x"$with_distro" = xdebian -o x"$wit
 AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
+AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 

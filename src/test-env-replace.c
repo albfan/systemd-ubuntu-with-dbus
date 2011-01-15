@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        char **i, **r;
+        char **i, **r, *t, **a, **b;
 
         r = replace_env_argv((char**) line, (char**) env);
 
@@ -56,4 +56,64 @@ int main(int argc, char *argv[]) {
 
         strv_free(r);
 
+        t = normalize_env_assignment("foo=bar");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("=bar");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("foo=");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("=");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\"waldo\"");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\"waldo");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=waldo\"");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\'");
+        printf("%s\n", t);
+        free(t);
+
+        t = normalize_env_assignment("a=\'\'");
+        printf("%s\n", t);
+        free(t);
+
+        a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", NULL);
+        b = strv_new("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES", NULL);
+
+        r = strv_env_merge(2, a, b);
+        strv_free(a);
+        strv_free(b);
+
+        STRV_FOREACH(i, r)
+                printf("%s\n", *i);
+
+        printf("CLEANED UP:\n");
+
+        r = strv_env_clean(r);
+
+        STRV_FOREACH(i, r)
+                printf("%s\n", *i);
+
+        strv_free(r);
+
+        return 0;
 }

@@ -65,6 +65,7 @@ static bool arg_user = false;
 static bool arg_global = false;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
+static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
 static bool arg_no_wall = false;
@@ -109,10 +110,19 @@ static enum dot {
 
 static bool private_bus = false;
 
+static pid_t pager_pid = 0;
+
 static int daemon_reload(DBusConnection *bus, char **args, unsigned n);
+static void pager_open(void);
 
 static bool on_tty(void) {
         static int t = -1;
+
+        /* Note that this is invoked relatively early, before we start
+         * the pager. That means the value we return reflects whether
+         * we originally were started on a tty, not if we currently
+         * are. But this is intended, since we want color, and so on
+         * when run in our own pager. */
 
         if (_unlikely_(t < 0))
                 t = isatty(STDOUT_FILENO) > 0;
@@ -417,6 +427,8 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         assert(bus);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -763,6 +775,8 @@ static int list_jobs(DBusConnection *bus, char **args, unsigned n) {
         dbus_error_init(&error);
 
         assert(bus);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -2474,6 +2488,9 @@ static int show(DBusConnection *bus, char **args, unsigned n) {
 
         show_properties = !streq(args[0], "status");
 
+        if (show_properties)
+                pager_open();
+
         if (show_properties && n <= 1) {
                 /* If not argument is specified inspect the manager
                  * itself */
@@ -2857,6 +2874,8 @@ static int dump(DBusConnection *bus, char **args, unsigned n) {
 
         dbus_error_init(&error);
 
+        pager_open();
+
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
                               "/org/freedesktop/systemd1",
@@ -3218,6 +3237,8 @@ static int show_enviroment(DBusConnection *bus, char **args, unsigned n) {
                 *property = "Environment";
 
         dbus_error_init(&error);
+
+        pager_open();
 
         if (!(m = dbus_message_new_method_call(
                               "org.freedesktop.systemd1",
@@ -4110,6 +4131,7 @@ static int systemctl_help(void) {
                "                      pending\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
+               "     --no-pager       Do not pipe output into a pager.\n"
                "     --system         Connect to system manager\n"
                "     --user           Connect to user service manager\n"
                "     --order          When generating graph for dot, show only order\n"
@@ -4249,6 +4271,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
+                ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ORDER,
                 ARG_REQUIRE,
@@ -4272,6 +4295,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
                 { "quiet",     no_argument,       NULL, 'q'           },
                 { "order",     no_argument,       NULL, ARG_ORDER     },
@@ -4346,6 +4370,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case ARG_NO_WALL:
@@ -5274,6 +5302,81 @@ static int runlevel_main(void) {
         return 0;
 }
 
+static void pager_open(void) {
+        int fd[2];
+        const char *pager;
+
+        if (pager_pid > 0)
+                return;
+
+        if (!on_tty() || arg_no_pager)
+                return;
+
+        if ((pager = getenv("PAGER")))
+                if (!*pager || streq(pager, "cat"))
+                        return;
+
+        if (pipe(fd) < 0) {
+                log_error("Failed to create pager pipe: %m");
+                return;
+        }
+
+        pager_pid = fork();
+        if (pager_pid < 0) {
+                log_error("Failed to fork pager: %m");
+                close_pipe(fd);
+                return;
+        }
+
+        /* In the child start the pager */
+        if (pager_pid == 0) {
+
+                dup2(fd[0], STDIN_FILENO);
+                close_pipe(fd);
+
+                setenv("LESS", "FRSX", 0);
+
+                prctl(PR_SET_PDEATHSIG, SIGTERM);
+
+                if (pager) {
+                        execlp(pager, pager, NULL);
+                        execl("/bin/sh", "sh", "-c", pager, NULL);
+                } else {
+                        /* Debian's alternatives command for pagers is
+                         * called 'pager'. Note that we do not call
+                         * sensible-pagers here, since that is just a
+                         * shell script that implements a logic that
+                         * is similar to this one anyway, but is
+                         * Debian-specific. */
+                        execlp("pager", "pager", NULL);
+
+                        execlp("less", "less", NULL);
+                        execlp("more", "more", NULL);
+                }
+
+                log_error("Unable to execute pager: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        /* Return in the parent */
+        if (dup2(fd[1], STDOUT_FILENO) < 0)
+                log_error("Failed to duplicate pager pipe: %m");
+
+        close_pipe(fd);
+}
+
+static void pager_close(void) {
+        siginfo_t dummy;
+
+        if (pager_pid <= 0)
+                return;
+
+        /* Inform pager that we are done */
+        fclose(stdout);
+        wait_for_terminate(pager_pid, &dummy);
+        pager_pid = 0;
+}
+
 int main(int argc, char*argv[]) {
         int r, retval = EXIT_FAILURE;
         DBusConnection *bus = NULL;
@@ -5353,6 +5456,8 @@ finish:
         dbus_shutdown();
 
         strv_free(arg_property);
+
+        pager_close();
 
         return retval;
 }

@@ -65,7 +65,7 @@ static const struct {
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_FRUGALWARE)
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
@@ -237,16 +237,25 @@ static char *sysv_translate_name(const char *name) {
         if (!(r = new(char, strlen(name) + sizeof(".service"))))
                 return NULL;
 
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+        if (endswith(name, ".sh"))
+                /* Drop Debian-style .sh suffix */
+                strcpy(stpcpy(r, name) - 3, ".service");
+#endif
+#ifdef TARGET_SUSE
         if (startswith(name, "boot."))
                 /* Drop SuSE-style boot. prefix */
                 strcpy(stpcpy(r, name + 5), ".service");
-        else if (endswith(name, ".sh"))
-                /* Drop Debian-style .sh suffix */
-                strcpy(stpcpy(r, name) - 3, ".service");
+#endif
 #ifdef TARGET_ARCH
-        else if (startswith(name, "@"))
+        if (startswith(name, "@"))
                 /* Drop Arch-style background prefix */
                 strcpy(stpcpy(r, name + 1), ".service");
+#endif
+#ifdef TARGET_FRUGALWARE
+        if (startswith(name, "rc."))
+                /* Drop Frugalware-style rc. prefix */
+                strcpy(stpcpy(r, name + 3), ".service");
 #endif
         else
                 /* Normal init scripts */
@@ -273,23 +282,24 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "syslog",               SPECIAL_SYSLOG_TARGET,
                 "time",                 SPECIAL_RTC_SET_TARGET,
 
-                /* Debian extensions */
+                /* common extensions */
+                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
+                "null",                 NULL,
+
 #if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
                 "mail-transport-agent", SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
 #endif
-                "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
-                "x-display-manager",    SPECIAL_DISPLAY_MANAGER_SERVICE,
 
 #ifdef TARGET_FEDORA
-                /* Fedora extensions */
                 "MTA",                  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "smtpdaemon",           SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
                 "httpd",                SPECIAL_HTTP_DAEMON_TARGET,
 #endif
 
-                /* SuSE extensions */
-                "null",                 NULL
-
+#ifdef TARGET_SUSE
+                "smtp",                 SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
+#endif
         };
 
         unsigned i;
@@ -318,10 +328,13 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         /* If we don't know this name, fallback heuristics to figure
          * out whether something is a target or a service alias. */
 
-        if (*name == '$')
+        if (*name == '$') {
+                if (!unit_prefix_is_valid(n))
+                        return -EINVAL;
+
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
-        else if (filename && streq(name, filename))
+        } else if (filename && streq(name, filename))
                 /* Names equalling the file name of the services are redundant */
                 return 0;
         else
@@ -674,10 +687,14 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         }
 
                                         r = sysv_translate_facility(n, file_name_from_path(path), &m);
-                                        free(n);
 
-                                        if (r < 0)
-                                                goto finish;
+                                        if (r < 0) {
+                                                log_error("[%s:%u] Failed to translate LSB dependency %s, ignoring: %s", path, line, n, strerror(-r));
+                                                free(n);
+                                                continue;
+                                        }
+
+                                        free(n);
 
                                         if (r == 0)
                                                 continue;
@@ -849,11 +866,22 @@ static int service_load_sysv_name(Service *s, const char *name) {
         assert(s);
         assert(name);
 
-        /* For SysV services we strip the boot. or .sh
+        /* For SysV services we strip the boot.*, rc.* and *.sh
          * prefixes/suffixes. */
-        if (startswith(name, "boot.") ||
-            endswith(name, ".sh.service"))
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
+        if (endswith(name, ".sh.service"))
                 return -ENOENT;
+#endif
+
+#ifdef TARGET_SUSE
+        if (startswith(name, "boot."))
+                return -ENOENT;
+#endif
+
+#ifdef TARGET_FRUGALWARE
+        if (startswith(name, "rc."))
+                return -ENOENT;
+#endif
 
         STRV_FOREACH(p, s->meta.manager->lookup_paths.sysvinit_path) {
                 char *path;
@@ -867,24 +895,42 @@ static int service_load_sysv_name(Service *s, const char *name) {
 
                 r = service_load_sysv_path(s, path);
 
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU)
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
-                        /* Try Debian style xxx.sh source'able init scripts */
+                        /* Try Debian style *.sh source'able init scripts */
                         strcat(path, ".sh");
                         r = service_load_sysv_path(s, path);
                 }
-
+#endif
                 free(path);
 
+#ifdef TARGET_SUSE
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
-                        /* Try SUSE style boot.xxx init scripts */
+                        /* Try SUSE style boot.* init scripts */
 
                         if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
                                 return -ENOMEM;
 
+                        /* Drop .service suffix */
                         path[strlen(path)-8] = 0;
                         r = service_load_sysv_path(s, path);
                         free(path);
                 }
+#endif
+
+#ifdef TARGET_FRUGALWARE
+                if (r >= 0 && s->meta.load_state == UNIT_STUB) {
+                        /* Try Frugalware style rc.* init scripts */
+
+                        if (asprintf(&path, "%s/rc.%s", *p, name) < 0)
+                                return -ENOMEM;
+
+                        /* Drop .service suffix */
+                        path[strlen(path)-8] = 0;
+                        r = service_load_sysv_path(s, path);
+                        free(path);
+                }
+#endif
 
                 if (r < 0)
                         return r;

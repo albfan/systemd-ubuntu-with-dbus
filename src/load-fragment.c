@@ -1348,19 +1348,31 @@ static int config_parse_env_file(
         FILE *f;
         int r;
         char ***env = data;
+        bool ignore = false;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        if (rvalue[0] == '-') {
+                ignore = true;
+                rvalue++;
+        }
+
+        if (!path_is_absolute(rvalue)) {
+                log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, rvalue);
+                return 0;
+        }
+
         if (!(f = fopen(rvalue, "re"))) {
-                log_error("[%s:%u] Failed to open environment file '%s', ignoring: %m", filename, line, rvalue);
+                if (!ignore)
+                        log_error("[%s:%u] Failed to open environment file '%s', ignoring: %m", filename, line, rvalue);
                 return 0;
         }
 
         while (!feof(f)) {
-                char l[LINE_MAX], *p;
+                char l[LINE_MAX], *p, *u;
                 char **t;
 
                 if (!fgets(l, sizeof(l), f)) {
@@ -1381,7 +1393,21 @@ static int config_parse_env_file(
                 if (strchr(COMMENTS, *p))
                         continue;
 
-                t = strv_env_set(*env, p);
+                if (!(u = normalize_env_assignment(p))) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                t = strv_append(*env, u);
+                free(u);
+
+                if (!t) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
                 strv_free(*env);
                 *env = t;
         }
