@@ -1,6 +1,6 @@
 systemd (16-1) experimental; urgency=low
 
-  * New upstream release.
+  * New upstream release.  Closes: #609611
   * Get rid of now obsolete patches that are upstream.
   * Use the built-in cryptsetup support in systemd.
 
