@@ -20,7 +20,10 @@ if [ -e /sys/fs/cgroup/systemd ] ; then
     if [ $PPID -ne 1 ] && [ -z "$init" ] && [ -z "$_SYSTEMCTL_SKIP_REDIRECT" ] ; then
         case "$0" in
             /etc/init.d/*)
-		_use_systemctl=1
+		# Don't redirect if the init script has X-Interactive: true
+		if ! grep -qs "X-Interactive: true" "$0"; then
+		    _use_systemctl=1
+		fi
 		;;
 	esac
     else
