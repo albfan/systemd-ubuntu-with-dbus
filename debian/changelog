@@ -1,3 +1,10 @@
+systemd (16-1) experimental; urgency=low
+
+  * New upstream release.
+  * Get rid of now obsolete patches that are upstream.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Sat, 15 Jan 2011 07:30:14 +0100
+
 systemd (15-1) experimental; urgency=low
 
   [ Tollef Fog Heen ]
