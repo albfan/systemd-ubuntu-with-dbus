@@ -1,10 +1,19 @@
 systemd (16-1) experimental; urgency=low
 
+  [ Tollef Fog Heen ]
   * New upstream release.  Closes: #609611
   * Get rid of now obsolete patches that are upstream.
   * Use the built-in cryptsetup support in systemd.
 
- -- Tollef Fog Heen <tfheen@debian.org>  Sat, 15 Jan 2011 07:30:14 +0100
+  [ Michael Biebl ]
+  * Update package description
+  * Use v8 debhelper syntax
+  * Make single-user mode work
+  * Run hwclock-save.service on shutdown
+  * Remove dependencies on legacy sysv mount scripts, as we use native
+    mounting.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Sun, 16 Jan 2011 11:04:13 +0100
 
 systemd (15-1) experimental; urgency=low
 
