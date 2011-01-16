@@ -55,7 +55,7 @@ systemd (15-1) UNRELEASED; urgency=low
 
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 20 Nov 2010 09:28:01 +0100
 
-systemd (11-2) experimental; urgency=low
+systemd (11-2) UNRELEASED; urgency=low
 
   * Tighten depends from systemd-* on systemd to ensure they're upgraded
     in lockstep.  Thanks to Michael Biebl for the patch.
