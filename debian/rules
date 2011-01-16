@@ -4,8 +4,10 @@
 #export DEB_BUILD_OPTIONS="nostrip"
 
 override_dh_auto_configure:
-	dh_auto_configure -- --with-rootdir= --with-udevrulesdir=/lib/udev/rules.d --with-gtk \
-		--disable-libcryptsetup
+	dh_auto_configure -- --with-rootdir= \
+		--with-udevrulesdir=/lib/udev/rules.d \
+		--enable-gtk \
+		--enable-libcryptsetup
 
 override_dh_auto_clean:
 	dh_auto_clean

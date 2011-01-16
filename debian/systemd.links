@@ -36,6 +36,10 @@
 # We need checkroot as synchronisation point, so symlink it to remount-rootfs
 /lib/systemd/system/remount-rootfs.service /lib/systemd/system/checkroot.service
 
+# We use the built-in cryptsetup support
+/dev/null /lib/systemd/system/cryptdisks.service
+/dev/null /lib/systemd/system/cryptdisks-early.service
+
 # Mount /lib/init/rw during early startup
 /lib/systemd/system/lib-init-rw.automount /lib/systemd/system/local-fs.target.wants/lib-init-rw.automount
 
