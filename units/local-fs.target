@@ -9,5 +9,3 @@
 
 [Unit]
 Description=Local File Systems
-Wants=mountall.service mountoverflowtmp.service umountfs.service
-After=mountall.service mountoverflowtmp.service umountfs.service
