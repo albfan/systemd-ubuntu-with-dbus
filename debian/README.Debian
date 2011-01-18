@@ -21,9 +21,7 @@ ifupdown's postinst has a bug where it ends up creating
 /dev/shm or /lib/init/rw.  This can cause network interfaces to not
 start correctly on boot.  The easiest way to fix this is to run:
 
-  mv /etc/network/run /etc/network/run.old
+  mv /etc/network/run /lib/init/rw/network
   ln -s /lib/init/rw/network /etc/network/run
-  mv /etc/nework/run.old/* /etc/network/run
-  rmdir /etc/nework/run.old/
 
- -- Tollef Fog Heen <tfheen@debian.org>, Sun, 26 Dec 2010 20:29:37 +0100
+ -- Tollef Fog Heen <tfheen@debian.org>, Tue, 18 Jan 2011 20:36:08 +0100

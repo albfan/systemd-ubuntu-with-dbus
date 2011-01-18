@@ -1,3 +1,9 @@
+systemd (16-2) UNRELEASED; urgency=low
+
+  * Clarify ifupdown instructions in README.Debian somewhat.
+
+ --
+
 systemd (16-1) experimental; urgency=low
 
   [ Tollef Fog Heen ]
