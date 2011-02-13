@@ -341,12 +341,6 @@ dist_systemunit_DATA += \
 	units/fedora/plymouth-halt.service
 endif
 
-
-if TARGET_ARCH
-dist_systemunit_DATA += \
-	units/arch/rc-local.service
-endif
-
 dist_doc_DATA = \
 	README \
 	LICENSE \
@@ -826,7 +820,8 @@ systemd_vconsole_setup_LDADD = \
 
 systemd_remount_api_vfs_SOURCES = \
 	src/remount-api-vfs.c \
-	src/mount-setup.c
+	src/mount-setup.c \
+	src/exit-status.c
 
 systemd_remount_api_vfs_CFLAGS = \
 	$(AM_CFLAGS)
@@ -938,7 +933,6 @@ systemadm_SOURCES = \
 
 systemadm_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUSGLIB_CFLAGS) \
 	$(GTK_CFLAGS) \
 	-Wno-unused-variable \
 	-Wno-unused-function \
@@ -946,13 +940,11 @@ systemadm_CFLAGS = \
 	-Wno-format-nonliteral
 
 systemadm_VALAFLAGS = \
-	--pkg=dbus-glib-1 \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
 	-g
 
 systemadm_LDADD = \
-	$(DBUSGLIB_LIBS) \
 	$(GTK_LIBS)
 
 systemd_gnome_ask_password_agent_SOURCES = \
@@ -960,7 +952,6 @@ systemd_gnome_ask_password_agent_SOURCES = \
 
 systemd_gnome_ask_password_agent_CFLAGS = \
 	$(AM_CFLAGS) \
-	$(DBUSGLIB_CFLAGS) \
 	$(LIBNOTIFY_CFLAGS) \
 	$(GTK_CFLAGS) \
 	-Wno-unused-variable \
@@ -969,7 +960,6 @@ systemd_gnome_ask_password_agent_CFLAGS = \
 	-Wno-format-nonliteral
 
 systemd_gnome_ask_password_agent_VALAFLAGS = \
-	--pkg=dbus-glib-1 \
 	--pkg=posix \
 	--pkg=gtk+-2.0 \
 	--pkg=linux \
@@ -983,7 +973,6 @@ systemd_gnome_ask_password_agent_VALAFLAGS += \
 	-g
 
 systemd_gnome_ask_password_agent_LDADD = \
-	$(DBUSGLIB_LIBS) \
 	$(LIBNOTIFY_LIBS) \
 	$(GTK_LIBS)
 
@@ -1201,14 +1190,12 @@ install-data-hook:
 			fsck-root.service \
 			remount-rootfs.service \
 			var-run.mount \
-			var-lock.mount \
-			cryptsetup.target && \
+			var-lock.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../var-lock.mount var-lock.mount && \
-		$(LN_S) ../cryptsetup.target )
+		$(LN_S) ../var-lock.mount var-lock.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -1264,7 +1251,8 @@ install-data-hook:
 			systemd-random-seed-load.service \
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
-			systemd-ask-password-console.path && \
+			systemd-ask-password-console.path \
+			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount && \
@@ -1275,7 +1263,8 @@ install-data-hook:
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
-		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path )
+		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
+		$(LN_S) ../cryptsetup.target cryptsetup.target )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
 		$(LN_S) ../systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.timer )
