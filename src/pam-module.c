@@ -42,10 +42,13 @@ static int parse_argv(pam_handle_t *handle,
                       bool *create_session,
                       bool *kill_session,
                       bool *kill_user,
+                      bool *keep_root,
                       char ***controllers) {
 
         unsigned i;
+#if 0
         bool controller_set = false;
+#endif
 
         assert(argc >= 0);
         assert(argc == 0 || argv);
@@ -80,6 +83,15 @@ static int parse_argv(pam_handle_t *handle,
                         if (kill_user)
                                 *kill_user = k;
 
+                } else if (startswith(argv[i], "keep-root=")) {
+                        if ((k = parse_boolean(argv[i] + 10)) < 0) {
+                                pam_syslog(handle, LOG_ERR, "Failed to parse keep-root= argument.");
+                                return k;
+                        }
+
+                        if (keep_root)
+                                *keep_root = k;
+
                 } else if (startswith(argv[i], "controllers=")) {
 
                         if (controllers) {
@@ -94,7 +106,9 @@ static int parse_argv(pam_handle_t *handle,
                                 *controllers = l;
                         }
 
+#if 0
                         controller_set = true;
+#endif
 
                 } else {
                         pam_syslog(handle, LOG_ERR, "Unknown parameter '%s'.", argv[i]);
@@ -327,7 +341,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, &controllers) < 0)
+        if (parse_argv(handle, argc, argv, &create_session, NULL, NULL, NULL, &controllers) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -462,6 +476,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         const char *username = NULL;
         bool kill_session = false;
         bool kill_user = false;
+        bool keep_root = true;
         int lock_fd = -1, r;
         char *session_path = NULL, *nosession_path = NULL, *user_path = NULL;
         const char *id;
@@ -475,7 +490,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (sd_booted() <= 0)
                 return PAM_SUCCESS;
 
-        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &controllers) < 0)
+        if (parse_argv(handle, argc, argv, NULL, &kill_session, &kill_user, &keep_root, &controllers) < 0)
                 return PAM_SESSION_ERR;
 
         if ((r = get_user_data(handle, &username, &pw)) != PAM_SUCCESS)
@@ -510,7 +525,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                         goto finish;
                 }
 
-                if (kill_session)  {
+                if (kill_session && (pw->pw_uid != 0 || !keep_root))  {
                         pam_syslog(handle, LOG_INFO, "Killing remaining processes of user session %s of %s.", id, username);
 
                         /* Kill processes in session cgroup, and delete it */
@@ -544,7 +559,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 pam_syslog(handle, LOG_ERR, "Failed to determine whether a session remains: %s", strerror(-r));
 
         /* Kill user processes not attached to any session */
-        if (kill_user && r == 0) {
+        if (kill_user && r == 0 && (pw->pw_uid != 0 || !keep_root)) {
 
                 /* Kill user cgroup */
                 if ((r = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, user_path, true)) < 0)

@@ -502,8 +502,10 @@ static int list_units(DBusConnection *bus, char **args, unsigned n) {
                 c++;
         }
 
-        qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
-        output_units_list(unit_infos, c);
+        if (c > 0) {
+                qsort(unit_infos, c, sizeof(struct unit_info), compare_unit_info);
+                output_units_list(unit_infos, c);
+        }
 
         r = 0;
 
@@ -1615,6 +1617,8 @@ finish:
 }
 
 typedef struct ExecStatusInfo {
+        char *name;
+
         char *path;
         char **argv;
 
@@ -1632,6 +1636,7 @@ typedef struct ExecStatusInfo {
 static void exec_status_info_free(ExecStatusInfo *i) {
         assert(i);
 
+        free(i->name);
         free(i->path);
         strv_free(i->argv);
         free(i);
@@ -1844,14 +1849,30 @@ static void print_status_info(UnitStatusInfo *i) {
 
         LIST_FOREACH(exec, p, i->exec) {
                 char *t;
+                bool good;
 
                 /* Only show exited processes here */
                 if (p->code == 0)
                         continue;
 
                 t = strv_join(p->argv, " ");
-                printf("\t Process: %u (%s, code=%s, ", p->pid, strna(t), sigchld_code_to_string(p->code));
+                printf("\t Process: %u %s=%s ", p->pid, p->name, strna(t));
                 free(t);
+
+#ifdef HAVE_SYSV_COMPAT
+                if (i->is_sysv)
+                        good = is_clean_exit_lsb(p->code, p->status);
+                else
+#endif
+                        good = is_clean_exit(p->code, p->status);
+
+                if (!good) {
+                        on = ansi_highlight(true);
+                        off = ansi_highlight(false);
+                } else
+                        on = off = "";
+
+                printf("%s(code=%s, ", on, sigchld_code_to_string(p->code));
 
                 if (p->code == CLD_EXITED) {
                         const char *c;
@@ -1867,7 +1888,10 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 } else
                         printf("signal=%s", signal_to_string(p->status));
-                printf(")\n");
+
+                printf(")%s\n", off);
+
+                on = off = NULL;
 
                 if (i->main_pid == p->pid &&
                     i->start_timestamp == p->start_timestamp &&
@@ -2082,6 +2106,11 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                                 if (!(info = new0(ExecStatusInfo, 1)))
                                         return -ENOMEM;
+
+                                if (!(info->name = strdup(name))) {
+                                        free(info);
+                                        return -ENOMEM;
+                                }
 
                                 if ((r = exec_status_info_deserialize(&sub, info)) < 0) {
                                         free(info);
@@ -5315,6 +5344,10 @@ static void pager_open(void) {
         if ((pager = getenv("PAGER")))
                 if (!*pager || streq(pager, "cat"))
                         return;
+
+        /* Determine and cache number of columns before we spawn the
+         * pager so that we get the value from the actual tty */
+        columns();
 
         if (pipe(fd) < 0) {
                 log_error("Failed to create pager pipe: %m");

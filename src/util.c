@@ -250,7 +250,7 @@ int parse_boolean(const char *v) {
 }
 
 int parse_pid(const char *s, pid_t* ret_pid) {
-        unsigned long ul;
+        unsigned long ul = 0;
         pid_t pid;
         int r;
 
@@ -2617,33 +2617,6 @@ int make_null_stdio(void) {
         return make_stdio(null_fd);
 }
 
-bool is_clean_exit(int code, int status) {
-
-        if (code == CLD_EXITED)
-                return status == 0;
-
-        /* If a daemon does not implement handlers for some of the
-         * signals that's not considered an unclean shutdown */
-        if (code == CLD_KILLED)
-                return
-                        status == SIGHUP ||
-                        status == SIGINT ||
-                        status == SIGTERM ||
-                        status == SIGPIPE;
-
-        return false;
-}
-
-bool is_clean_exit_lsb(int code, int status) {
-
-        if (is_clean_exit(code, status))
-                return true;
-
-        return
-                code == CLD_EXITED &&
-                (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
-}
-
 bool is_device_path(const char *path) {
 
         /* Returns true on paths that refer to a device, either in
@@ -3531,7 +3504,7 @@ char *fstab_node_to_udev_node(const char *p) {
                 if (!t)
                         return NULL;
 
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
+                r = asprintf(&dn, "/dev/disk/by-uuid/%s", t);
                 free(t);
 
                 if (r < 0)

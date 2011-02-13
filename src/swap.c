@@ -36,6 +36,7 @@
 #include "dbus-swap.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
         [SWAP_DEAD] = UNIT_INACTIVE,
@@ -501,7 +502,7 @@ static void swap_set_state(Swap *s, SwapState state) {
                           swap_state_to_string(old_state),
                           swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int swap_coldplug(Unit *u) {
@@ -995,13 +996,23 @@ static void swap_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SWAP_ACTIVATING_SIGTERM:
-                log_warning("%s activation timed out. Killing.", u->meta.id);
-                swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s activation timed out. Killing.", u->meta.id);
+                        swap_enter_signal(s, SWAP_ACTIVATING_SIGKILL, false);
+                } else {
+                        log_warning("%s activation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        swap_enter_dead(s, false);
+                }
                 break;
 
         case SWAP_DEACTIVATING_SIGTERM:
-                log_warning("%s deactivation timed out. Killing.", u->meta.id);
-                swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s deactivation timed out. Killing.", u->meta.id);
+                        swap_enter_signal(s, SWAP_DEACTIVATING_SIGKILL, false);
+                } else {
+                        log_warning("%s deactivation timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        swap_enter_dead(s, false);
+                }
                 break;
 
         case SWAP_ACTIVATING_SIGKILL:
@@ -1079,7 +1090,7 @@ int swap_fd_event(Manager *m, int events) {
         assert(m);
         assert(events & EPOLLPRI);
 
-        if ((r == swap_load_proc_swaps(m, true)) < 0) {
+        if ((r = swap_load_proc_swaps(m, true)) < 0) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
 
                 /* Reset flags, just in case, for late calls */

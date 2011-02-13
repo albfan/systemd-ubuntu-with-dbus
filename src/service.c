@@ -34,6 +34,7 @@
 #include "dbus-service.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 #define COMMENTS "#;\n"
 #define NEWLINES "\n\r"
@@ -210,6 +211,7 @@ static void service_done(Unit *u) {
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
+        s->main_command = NULL;
 
         /* This will leak a process, but at least no memory or any of
          * our resources */
@@ -246,11 +248,6 @@ static char *sysv_translate_name(const char *name) {
         if (startswith(name, "boot."))
                 /* Drop SuSE-style boot. prefix */
                 strcpy(stpcpy(r, name + 5), ".service");
-#endif
-#ifdef TARGET_ARCH
-        if (startswith(name, "@"))
-                /* Drop Arch-style background prefix */
-                strcpy(stpcpy(r, name + 1), ".service");
 #endif
 #ifdef TARGET_FRUGALWARE
         if (startswith(name, "rc."))
@@ -1033,6 +1030,12 @@ static int service_verify(Service *s) {
                 return -EINVAL;
         }
 
+        if (s->type == SERVICE_ONESHOT &&
+            s->exec_command[SERVICE_EXEC_RELOAD]) {
+                log_error("%s has an ExecReload setting, which is not allowed for Type=oneshot services. Refusing.", s->meta.id);
+                return -EINVAL;
+        }
+
         if (s->type == SERVICE_DBUS && !s->bus_name) {
                 log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", s->meta.id);
                 return -EINVAL;
@@ -1398,8 +1401,10 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_RELOAD &&
             state != SERVICE_STOP &&
             state != SERVICE_STOP_SIGTERM &&
-            state != SERVICE_STOP_SIGKILL)
+            state != SERVICE_STOP_SIGKILL) {
                 service_unwatch_main_pid(s);
+                s->main_command = NULL;
+        }
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -1451,7 +1456,8 @@ static void service_set_state(Service *s, ServiceState state) {
         if (old_state != state)
                 log_debug("%s changed %s -> %s", s->meta.id, service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], !s->reload_failure);
+        s->reload_failure = false;
 }
 
 static int service_coldplug(Unit *u) {
@@ -1779,8 +1785,9 @@ static void service_enter_stop_post(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_STOP_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
+                s->control_command_id = SERVICE_EXEC_STOP_POST;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1898,8 +1905,9 @@ static void service_enter_stop(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_STOP;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
+                s->control_command_id = SERVICE_EXEC_STOP;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1947,8 +1955,9 @@ static void service_enter_start_post(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START_POST;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
+                s->control_command_id = SERVICE_EXEC_START_POST;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1974,6 +1983,7 @@ fail:
 static void service_enter_start(Service *s) {
         pid_t pid;
         int r;
+        ExecCommand *c;
 
         assert(s);
 
@@ -1985,11 +1995,20 @@ static void service_enter_start(Service *s) {
         else
                 service_unwatch_main_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START;
-        s->control_command = s->exec_command[SERVICE_EXEC_START];
+        if (s->type == SERVICE_FORKING) {
+                s->control_command_id = SERVICE_EXEC_START;
+                c = s->control_command = s->exec_command[SERVICE_EXEC_START];
+
+                s->main_command = NULL;
+        } else {
+                s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+                s->control_command = NULL;
+
+                c = s->main_command = s->exec_command[SERVICE_EXEC_START];
+        }
 
         if ((r = service_spawn(s,
-                               s->control_command,
+                               c,
                                s->type == SERVICE_FORKING || s->type == SERVICE_DBUS || s->type == SERVICE_NOTIFY,
                                true,
                                true,
@@ -2044,8 +2063,9 @@ static void service_enter_start_pre(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_START_PRE;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
+                s->control_command_id = SERVICE_EXEC_START_PRE;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -2104,8 +2124,9 @@ static void service_enter_reload(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        s->control_command_id = SERVICE_EXEC_RELOAD;
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
+                s->control_command_id = SERVICE_EXEC_RELOAD;
+
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -2125,7 +2146,8 @@ static void service_enter_reload(Service *s) {
 
 fail:
         log_warning("%s failed to run 'reload' task: %s", s->meta.id, strerror(-r));
-        service_enter_stop(s, false);
+        s->reload_failure = true;
+        service_enter_running(s, true);
 }
 
 static void service_run_next_control(Service *s, bool success) {
@@ -2166,7 +2188,10 @@ fail:
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
         else if (s->state == SERVICE_STOP_POST)
                 service_enter_dead(s, false, true);
-        else
+        else if (s->state == SERVICE_RELOAD) {
+                s->reload_failure = true;
+                service_enter_running(s, true);
+        } else
                 service_enter_stop(s, false);
 }
 
@@ -2175,20 +2200,18 @@ static void service_run_next_main(Service *s, bool success) {
         int r;
 
         assert(s);
-        assert(s->control_command);
-        assert(s->control_command->command_next);
+        assert(s->main_command);
+        assert(s->main_command->command_next);
+        assert(s->type == SERVICE_ONESHOT);
 
         if (!success)
                 s->failure = true;
 
-        assert(s->control_command_id == SERVICE_EXEC_START);
-        assert(s->type == SERVICE_ONESHOT);
-
-        s->control_command = s->control_command->command_next;
+        s->main_command = s->main_command->command_next;
         service_unwatch_main_pid(s);
 
         if ((r = service_spawn(s,
-                               s->control_command,
+                               s->main_command,
                                false,
                                true,
                                true,
@@ -2503,10 +2526,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 s->main_pid = 0;
                 exec_status_exit(&s->main_exec_status, pid, code, status, s->exec_context.utmp_id);
 
-                if (s->type != SERVICE_FORKING && s->control_command) {
-                        s->control_command->exec_status = s->main_exec_status;
+                /* If this is not a forking service than the main
+                 * process got started and hence we copy the exit
+                 * status so that it is recorded both as main and as
+                 * control process exit status */
+                if (s->main_command) {
+                        s->main_command->exec_status = s->main_exec_status;
 
-                        if (s->control_command->ignore)
+                        if (s->main_command->ignore)
                                 success = true;
                 }
 
@@ -2514,8 +2541,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          "%s: main process exited, code=%s, status=%i", u->meta.id, sigchld_code_to_string(code), status);
                 s->failure = s->failure || !success;
 
-                if (s->control_command &&
-                    s->control_command->command_next &&
+                if (s->main_command &&
+                    s->main_command->command_next &&
                     success) {
 
                         /* There is another command to *
@@ -2528,9 +2555,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         /* The service exited, so the service is officially
                          * gone. */
-
-                        s->control_command = NULL;
-                        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+                        s->main_command = NULL;
 
                         switch (s->state) {
 
@@ -2652,11 +2677,8 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 /* Fall through */
 
                         case SERVICE_RELOAD:
-                                if (success)
-                                        service_enter_running(s, true);
-                                else
-                                        service_enter_stop(s, false);
-
+                                s->reload_failure = !success;
+                                service_enter_running(s, true);
                                 break;
 
                         case SERVICE_STOP:
@@ -2706,9 +2728,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_START_POST:
-        case SERVICE_RELOAD:
                 log_warning("%s operation timed out. Stopping.", u->meta.id);
                 service_enter_stop(s, false);
+                break;
+
+        case SERVICE_RELOAD:
+                log_warning("%s operation timed out. Stopping.", u->meta.id);
+                s->reload_failure = true;
+                service_enter_running(s, true);
                 break;
 
         case SERVICE_STOP:
@@ -2717,8 +2744,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_STOP_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", u->meta.id);
-                service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        service_enter_signal(s, SERVICE_STOP_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out. Skipping SIGKILL.", u->meta.id);
+                        service_enter_stop_post(s, false);
+                }
+
                 break;
 
         case SERVICE_STOP_SIGKILL:
@@ -2736,8 +2769,14 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_FINAL_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", u->meta.id);
-                service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        service_enter_signal(s, SERVICE_FINAL_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Entering failed mode.", u->meta.id);
+                        service_enter_dead(s, false, true);
+                }
+
                 break;
 
         case SERVICE_FINAL_SIGKILL:
@@ -2872,66 +2911,8 @@ static int service_enumerate(Manager *m) {
         Unit *service;
         Iterator j;
         int r;
-#ifdef TARGET_ARCH
-        Unit *previous = NULL;
-        char *arch_daemons = NULL;
-        char *arch_daemons_stripped = NULL;
-        char **arch_daemons_split = NULL;
-#endif
 
         assert(m);
-
-#ifdef TARGET_ARCH
-        if ((r = parse_env_file("/etc/rc.conf", NEWLINE,
-                                "DAEMONS", &arch_daemons,
-                                NULL)) < 0) {
-
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/rc.conf: %s", strerror(-r));
-
-        } else if (arch_daemons) {
-                if (!(arch_daemons_stripped = strchr(arch_daemons, '(')))
-                        arch_daemons_stripped = arch_daemons;
-                else
-                        arch_daemons_stripped++; /* strip start paren */
-
-                arch_daemons_stripped[strcspn(arch_daemons_stripped, ")")] = 0; /* strip end paren */
-
-                if (!(arch_daemons_split = strv_split_quoted(arch_daemons_stripped))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                STRV_FOREACH(p, arch_daemons_split) {
-
-                        free(name);
-                        name = NULL;
-
-                        if (**p == '!') /* daemons prefixed with ! are disabled, so ignore them */
-                                continue;
-
-                        if (!(name = sysv_translate_name(*p))) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if ((r = manager_load_unit_prepare(m, name, NULL, NULL, &service)) < 0) {
-                                log_warning("Failed to prepare unit %s: %s", name, strerror(-r));
-                                continue;
-                        }
-
-                        if ((r = unit_add_two_dependencies_by_name_inverse(service, UNIT_AFTER, UNIT_WANTS, "multi-user.target", NULL, true)) < 0)
-                                goto finish;
-
-                        if (previous)
-                                if ((r = unit_add_dependency(service, UNIT_AFTER, previous, true)) < 0)
-                                        goto finish;
-
-                        if (**p != '@') /* daemons prefixed with @ can be started in the background */
-                                previous = service;
-                }
-        }
-#endif
 
         zero(runlevel_services);
 
@@ -3070,10 +3051,6 @@ finish:
         free(path);
         free(fpath);
         free(name);
-#ifdef TARGET_ARCH
-        free(arch_daemons);
-        free(arch_daemons_split);
-#endif
 
         for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 set_free(runlevel_services[i]);

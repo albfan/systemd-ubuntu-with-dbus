@@ -41,6 +41,7 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "label.h"
+#include "exit-status.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -759,8 +760,9 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
-                                        return r;
+                                if (s->service && s->service->exec_command[SERVICE_EXEC_START])
+                                        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0)
+                                                return r;
 
                                 know_label = true;
                         }
@@ -880,7 +882,7 @@ static void socket_set_state(Socket *s, SocketState state) {
                           socket_state_to_string(old_state),
                           socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
 }
 
 static int socket_coldplug(Unit *u) {
@@ -1688,8 +1690,13 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", u->meta.id);
-                socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out. Killing.", u->meta.id);
+                        socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+                        socket_enter_stop_post(s, false);
+                }
                 break;
 
         case SOCKET_STOP_PRE_SIGKILL:
@@ -1703,8 +1710,13 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case SOCKET_FINAL_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", u->meta.id);
-                socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
+                if (s->exec_context.send_sigkill) {
+                        log_warning("%s stopping timed out (2). Killing.", u->meta.id);
+                        socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
+                } else {
+                        log_warning("%s stopping timed out (2). Skipping SIGKILL. Ignoring.", u->meta.id);
+                        socket_enter_dead(s, false);
+                }
                 break;
 
         case SOCKET_FINAL_SIGKILL:

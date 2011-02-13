@@ -33,7 +33,7 @@ typedef enum ServiceState {
         SERVICE_START,
         SERVICE_START_POST,
         SERVICE_RUNNING,
-        SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true, ehnce this is OK */
+        SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_SIGTERM,
@@ -103,10 +103,20 @@ struct Service {
 
         ServiceState state, deserialized_state;
 
+        /* The exit status of the real main process */
         ExecStatus main_exec_status;
 
+        /* The currently executed control process */
         ExecCommand *control_command;
+
+        /* The currently executed main process, which may be NULL if
+         * the main process got started via forking mode and not by
+         * us */
+        ExecCommand *main_command;
+
+        /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
+
         pid_t main_pid, control_pid;
         int socket_fd;
 
@@ -118,6 +128,8 @@ struct Service {
 
         /* If we shut down, remember why */
         bool failure:1;
+        bool reload_failure:1;
+
         bool main_pid_known:1;
         bool bus_name_good:1;
         bool forbid_restart:1;

@@ -36,6 +36,7 @@
 #include "dbus-mount.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "exit-status.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -97,11 +98,20 @@ static void mount_parameters_done(MountParameters *p) {
 
 static void mount_done(Unit *u) {
         Mount *m = MOUNT(u);
+        Meta *other;
 
         assert(m);
 
         free(m->where);
         m->where = NULL;
+
+        /* Try to detach us from the automount unit if there is any */
+        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT]) {
+                Automount *a = (Automount*) other;
+
+                if (a->mount == m)
+                        a->mount = NULL;
+        }
 
         mount_parameters_done(&m->parameters_etc_fstab);
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
@@ -362,6 +372,7 @@ static int mount_add_device_links(Mount *m) {
         }
 
         if (p->passno > 0 &&
+            !mount_is_bind(p) &&
             UNIT(m)->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
                 char *name;
@@ -554,7 +565,8 @@ static void mount_set_state(Mount *m, MountState state) {
                           mount_state_to_string(old_state),
                           mount_state_to_string(state));
 
-        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state]);
+        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state], !m->reload_failure);
+        m->reload_failure = false;
 }
 
 static int mount_coldplug(Unit *u) {
@@ -910,7 +922,8 @@ static void mount_enter_remounting(Mount *m, bool success) {
 
 fail:
         log_warning("%s failed to run 'remount' task: %s", m->meta.id, strerror(-r));
-        mount_enter_mounted(m, false);
+        m->reload_failure = true;
+        mount_enter_mounted(m, true);
 }
 
 static int mount_start(Unit *u) {
@@ -1098,9 +1111,6 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_MOUNTING_DONE:
         case MOUNT_MOUNTING_SIGKILL:
         case MOUNT_MOUNTING_SIGTERM:
-        case MOUNT_REMOUNTING:
-        case MOUNT_REMOUNTING_SIGKILL:
-        case MOUNT_REMOUNTING_SIGTERM:
 
                 if (success)
                         mount_enter_mounted(m, true);
@@ -1108,6 +1118,18 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         mount_enter_mounted(m, false);
                 else
                         mount_enter_dead(m, false);
+                break;
+
+        case MOUNT_REMOUNTING:
+        case MOUNT_REMOUNTING_SIGKILL:
+        case MOUNT_REMOUNTING_SIGTERM:
+
+                m->reload_failure = !success;
+                if (m->from_proc_self_mountinfo)
+                        mount_enter_mounted(m, true);
+                else
+                        mount_enter_dead(m, true);
+
                 break;
 
         case MOUNT_UNMOUNTING:
@@ -1147,7 +1169,8 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case MOUNT_REMOUNTING:
                 log_warning("%s remounting timed out. Stopping.", u->meta.id);
-                mount_enter_signal(m, MOUNT_REMOUNTING_SIGTERM, false);
+                m->reload_failure = true;
+                mount_enter_mounted(m, true);
                 break;
 
         case MOUNT_UNMOUNTING:
@@ -1156,18 +1179,45 @@ static void mount_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
                 break;
 
         case MOUNT_MOUNTING_SIGTERM:
-                log_warning("%s mounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s mounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_MOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s mounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_REMOUNTING_SIGTERM:
-                log_warning("%s remounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s remounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s remounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_UNMOUNTING_SIGTERM:
-                log_warning("%s unmounting timed out. Killing.", u->meta.id);
-                mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
+                if (m->exec_context.send_sigkill) {
+                        log_warning("%s unmounting timed out. Killing.", u->meta.id);
+                        mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, false);
+                } else {
+                        log_warning("%s unmounting timed out. Skipping SIGKILL. Ignoring.", u->meta.id);
+
+                        if (m->from_proc_self_mountinfo)
+                                mount_enter_mounted(m, false);
+                        else
+                                mount_enter_dead(m, false);
+                }
                 break;
 
         case MOUNT_MOUNTING_SIGKILL:
