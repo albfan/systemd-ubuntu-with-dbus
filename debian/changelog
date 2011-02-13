@@ -3,6 +3,8 @@ systemd (17-1) UNRELEASED; urgency=low
   [ Tollef Fog Heen ]
   * New upstream release
   * Clarify ifupdown instructions in README.Debian somewhat.
+  * Silently skip masked services in lsb-base-logging.sh instead of
+    failing.  Initial implementation by Michael Biebl.  Closes: #612551
 
   [ Michael Biebl ]
   * Bump build dependency on valac to (>= 0.10.3).

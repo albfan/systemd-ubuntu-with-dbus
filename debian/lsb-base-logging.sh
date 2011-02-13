@@ -55,6 +55,13 @@ systemctl_redirect () {
 	esac
 
 	service="${prog%.sh}.service"
+
+	# Don't try to run masked services. Don't check for errors, if
+	# this errors, we'll just call systemctl and possibly explode
+	# there.
+	state=$(systemctl -p LoadState show $service 2>/dev/null)
+	[ "$state" = "LoadState=masked" ] && return 0
+
 	[ "$command" = status ] || log_daemon_msg "$s" "$service"
 	/bin/systemctl $command "$service"
 	rc=$?
