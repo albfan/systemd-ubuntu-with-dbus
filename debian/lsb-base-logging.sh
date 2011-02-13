@@ -21,7 +21,7 @@ if [ -e /sys/fs/cgroup/systemd ] ; then
         case "$0" in
             /etc/init.d/*)
 		# Don't redirect if the init script has X-Interactive: true
-		if ! grep -qs "X-Interactive: true" "$0"; then
+		if ! grep -qs "^# X-Interactive:.*true" "$0"; then
 		    _use_systemctl=1
 		fi
 		;;
