@@ -1,4 +1,4 @@
-systemd (17-1) UNRELEASED; urgency=low
+systemd (17-1) experimental; urgency=low
 
   [ Tollef Fog Heen ]
   * New upstream release
@@ -13,7 +13,7 @@ systemd (17-1) UNRELEASED; urgency=low
   * Improve regex in lsb-base-logging.sh for X-Interactive scripts.
     Closes: #613325
 
- -- Tollef Fog Heen <tfheen@debian.org>  Sun, 13 Feb 2011 08:31:09 +0100
+ -- Tollef Fog Heen <tfheen@debian.org>  Wed, 16 Feb 2011 21:06:16 +0100
 
 systemd (16-1) experimental; urgency=low
 
