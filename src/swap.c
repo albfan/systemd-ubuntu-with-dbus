@@ -82,6 +82,7 @@ static void swap_unset_proc_swaps(Swap *s) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = EXEC_OUTPUT_KMSG;
 
         s->parameters_etc_fstab.priority = s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -176,6 +177,7 @@ static int swap_add_target_links(Swap *s) {
                 return r;
 
         if (!p->noauto &&
+            !p->nofail &&
             (p->handle || s->meta.manager->swap_auto) &&
             s->from_etc_fstab &&
             s->meta.manager->running_as == MANAGER_SYSTEM)
@@ -263,6 +265,8 @@ static int swap_load(Unit *u) {
                 return r;
 
         if (u->meta.load_state == UNIT_LOADED) {
+                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                        return r;
 
                 if (s->meta.fragment_path)
                         s->from_fragment = true;

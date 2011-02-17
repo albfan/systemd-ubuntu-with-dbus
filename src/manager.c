@@ -174,6 +174,8 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+14, /* systemd: Immediate poweroff */
                         SIGRTMIN+15, /* systemd: Immediate reboot */
                         SIGRTMIN+16, /* systemd: Immediate kexec */
+                        SIGRTMIN+20, /* systemd: enable status messages */
+                        SIGRTMIN+21, /* systemd: disable status messages */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
@@ -459,7 +461,6 @@ void manager_free(Manager *m) {
 #endif
 
         free(m->notify_socket);
-        free(m->console);
 
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
@@ -912,7 +913,8 @@ static void transaction_drop_redundant(Manager *m) {
                         LIST_FOREACH(transaction, k, j) {
 
                                 if (!job_is_anchor(k) &&
-                                    (j->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))))
+                                    (k->installed || job_type_is_redundant(k->type, unit_active_state(k->unit))) &&
+                                    (!k->unit->meta.job || !job_type_is_conflicting(k->type, k->unit->meta.job->type)))
                                         continue;
 
                                 changes_something = true;
@@ -1410,6 +1412,7 @@ static int transaction_add_job_and_dependencies(
                 bool matters,
                 bool override,
                 bool conflicts,
+                bool ignore_deps,
                 DBusError *e,
                 Job **_ret) {
         Job *ret;
@@ -1421,6 +1424,11 @@ static int transaction_add_job_and_dependencies(
         assert(m);
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
+
+        /* log_debug("Pulling in %s/%s from %s/%s", */
+        /*           unit->meta.id, job_type_to_string(type), */
+        /*           by ? by->unit->meta.id : "NA", */
+        /*           by ? job_type_to_string(by->type) : "NA"); */
 
         if (unit->meta.load_state != UNIT_LOADED &&
             unit->meta.load_state != UNIT_ERROR &&
@@ -1452,18 +1460,20 @@ static int transaction_add_job_and_dependencies(
         if (!(ret = transaction_add_one_job(m, type, unit, override, &is_new)))
                 return -ENOMEM;
 
+        ret->ignore_deps = ret->ignore_deps || ignore_deps;
+
         /* Then, add a link to the job. */
         if (!job_dependency_new(by, ret, matters, conflicts))
                 return -ENOMEM;
 
-        if (is_new) {
+        if (is_new && !ignore_deps) {
                 Set *following;
 
                 /* If we are following some other unit, make sure we
                  * add all dependencies of everybody following. */
                 if (unit_following_set(ret->unit, &following) > 0) {
                         SET_FOREACH(dep, following, i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, false, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, false, override, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1476,7 +1486,7 @@ static int transaction_add_job_and_dependencies(
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, false, e, NULL)) < 0) {
                                         if (r != -EBADR)
                                                 goto fail;
 
@@ -1485,7 +1495,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BIND_TO], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, override, false, false, e, NULL)) < 0) {
 
                                         if (r != -EBADR)
                                                 goto fail;
@@ -1495,7 +1505,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !override, override, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1503,7 +1513,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, false, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1511,7 +1521,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, override, false, false, e, NULL)) < 0) {
 
                                         if (r != -EBADR)
                                                 goto fail;
@@ -1521,7 +1531,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE_OVERRIDABLE], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !override, override, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1529,7 +1539,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, true, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, override, true, false, e, NULL)) < 0) {
 
                                         if (r != -EBADR)
                                                 goto fail;
@@ -1539,7 +1549,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, false, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, false, override, false, false, e, NULL)) < 0) {
                                         log_warning("Cannot add dependency job for unit %s, ignoring: %s", dep->meta.id, bus_error(e, r));
 
                                         if (e)
@@ -1549,7 +1559,7 @@ static int transaction_add_job_and_dependencies(
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, false, e, NULL)) < 0) {
 
                                         if (r != -EBADR)
                                                 goto fail;
@@ -1559,7 +1569,7 @@ static int transaction_add_job_and_dependencies(
                                 }
 
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_BOUND_BY], i)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, e, NULL)) < 0) {
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, override, false, false, e, NULL)) < 0) {
 
                                         if (r != -EBADR)
                                                 goto fail;
@@ -1606,7 +1616,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (hashmap_get(m->transaction_jobs, u))
                         continue;
 
-                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, false, NULL, NULL)) < 0)
+                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, u, NULL, true, false, false, false, NULL, NULL)) < 0)
                         log_warning("Cannot add isolate job for unit %s, ignoring: %s", u->meta.id, strerror(-r));
         }
 
@@ -1634,7 +1644,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
 
         log_debug("Trying to enqueue job %s/%s/%s", unit->meta.id, job_type_to_string(type), job_mode_to_string(mode));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, e, &ret)) < 0) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, override, false, mode == JOB_IGNORE_DEPENDENCIES, e, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
@@ -2177,7 +2187,21 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
                         }
 
-                        log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                        switch (sfsi.ssi_signo - SIGRTMIN) {
+
+                        case 20:
+                                log_debug("Enabling showing of status.");
+                                m->show_status = true;
+                                break;
+
+                        case 21:
+                                log_debug("Disabling showing of status.");
+                                m->show_status = false;
+                                break;
+
+                        default:
+                                log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                        }
                 }
                 }
         }
@@ -2767,22 +2791,6 @@ void manager_reset_failed(Manager *m) {
                 unit_reset_failed(u);
 }
 
-int manager_set_console(Manager *m, const char *console) {
-        char *c;
-
-        assert(m);
-
-        if (!(c = strdup(console)))
-                return -ENOMEM;
-
-        free(m->console);
-        m->console = c;
-
-        log_debug("Using kernel console %s", c);
-
-        return 0;
-}
-
 bool manager_unit_pending_inactive(Manager *m, const char *name) {
         Unit *u;
 
@@ -2837,9 +2845,8 @@ void manager_check_finished(Manager *m) {
 
 void manager_run_generators(Manager *m) {
         DIR *d = NULL;
-        struct dirent *de;
-        Hashmap *pids = NULL;
         const char *generator_path;
+        const char *argv[3];
 
         assert(m);
 
@@ -2869,83 +2876,11 @@ void manager_run_generators(Manager *m) {
                 }
         }
 
-        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
-                log_error("Failed to allocate set.");
-                goto finish;
-        }
+        argv[0] = NULL; /* Leave this empty, execute_directory() will fill something in */
+        argv[1] = m->generator_unit_path;
+        argv[2] = NULL;
 
-        while ((de = readdir(d))) {
-                char *path;
-                pid_t pid;
-                int k;
-
-                if (ignore_file(de->d_name))
-                        continue;
-
-                if (de->d_type != DT_REG &&
-                    de->d_type != DT_LNK &&
-                    de->d_type != DT_UNKNOWN)
-                        continue;
-
-                if (asprintf(&path, "%s/%s", generator_path, de->d_name) < 0) {
-                        log_error("Out of memory");
-                        continue;
-                }
-
-                if ((pid = fork()) < 0) {
-                        log_error("Failed to fork: %m");
-                        free(path);
-                        continue;
-                }
-
-                if (pid == 0) {
-                        const char *arguments[5];
-                        /* Child */
-
-                        arguments[0] = path;
-                        arguments[1] = m->generator_unit_path;
-                        arguments[2] = NULL;
-
-                        execv(path, (char **) arguments);
-
-                        log_error("Failed to execute %s: %m", path);
-                        _exit(EXIT_FAILURE);
-                }
-
-                log_debug("Spawned generator %s as %lu", path, (unsigned long) pid);
-
-                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
-                        log_error("Failed to add PID to set: %s", strerror(-k));
-                        free(path);
-                }
-        }
-
-        while (!hashmap_isempty(pids)) {
-                siginfo_t si;
-                char *path;
-
-                zero(si);
-                if (waitid(P_ALL, 0, &si, WEXITED) < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        log_error("waitid() failed: %m");
-                        goto finish;
-                }
-
-                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
-                        if (!is_clean_exit(si.si_code, si.si_status)) {
-                                if (si.si_code == CLD_EXITED)
-                                        log_error("%s exited with exit status %i.", path, si.si_status);
-                                else
-                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
-                        } else
-                                log_debug("Generator %s exited successfully.", path);
-
-                        free(path);
-                }
-        }
+        execute_directory(generator_path, d, (char**) argv);
 
         if (rmdir(m->generator_unit_path) >= 0) {
                 /* Uh? we were able to remove this dir? I guess that
@@ -2974,9 +2909,6 @@ void manager_run_generators(Manager *m) {
 finish:
         if (d)
                 closedir(d);
-
-        if (pids)
-                hashmap_free_free(pids);
 }
 
 void manager_undo_generators(Manager *m) {

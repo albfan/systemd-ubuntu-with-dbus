@@ -309,8 +309,12 @@ bool job_is_runnable(Job *j) {
 
         /* Checks whether there is any job running for the units this
          * job needs to be running after (in the case of a 'positive'
-         * job type) or before (in the case of a 'negative' job type
-         * . */
+         * job type) or before (in the case of a 'negative' job
+         * type. */
+
+        /* First check if there is an override */
+        if (j->ignore_deps)
+                return true;
 
         if (j->type == JOB_START ||
             j->type == JOB_VERIFY_ACTIVE ||
@@ -498,7 +502,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         job_free(j);
 
         if (!success && j->type == JOB_START)
-                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u));
+                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
 
         /* Fail depending jobs on failure */
         if (!success) {
@@ -667,7 +671,8 @@ DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL] = "fail",
         [JOB_REPLACE] = "replace",
-        [JOB_ISOLATE] = "isolate"
+        [JOB_ISOLATE] = "isolate",
+        [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);

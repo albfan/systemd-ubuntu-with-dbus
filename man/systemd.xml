@@ -250,6 +250,29 @@
                                 it defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
+                        <varlistentry>
+                                <term><option>--default-standard-output=</option></term>
+                                <term><option>--default-standard-error=</option></term>
+
+                                <listitem><para>Sets the default
+                                output resp. error output for all
+                                services and sockets, i.e. controls
+                                the default for
+                                <option>StandardOutput=</option>
+                                resp. <option>StandardExecute=</option>
+                                (see
+                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details). Takes one of
+                                <option>inherit</option>,
+                                <option>null</option>,
+                                <option>tty</option>,
+                                <option>syslog</option>,
+                                <option>syslog+console</option>,
+                                <option>kmsg</option>,
+                                <option>kmsg-console</option>.  If the
+                                argument is omitted it defaults to
+                                <option>inherit</option>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -720,6 +743,63 @@
                                 <command>systemctl start
                                 reboot.target</command>.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+6</term>
+
+                                <listitem><para>Reboots the machine via kexec,
+                                starts the
+                                <filename>kexec.target</filename>
+                                unit. This is mostly equivalent to
+                                <command>systemctl start
+                                kexec.target</command>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+13</term>
+
+                                <listitem><para>Immediately halts the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+14</term>
+
+                                <listitem><para>Immediately powers off the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+15</term>
+
+                                <listitem><para>Immediately reboots the machine.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+16</term>
+
+                                <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+20</term>
+
+                                <listitem><para>Enables display of
+                                status messages on the console, as
+                                controlled via
+                                <varname>systemd.show_status=1</varname>
+                                on the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+21</term>
+
+                                <listitem><para>Disables display of
+                                status messages on the console, as
+                                controlled via
+                                <varname>systemd.show_status=0</varname>
+                                on the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -922,6 +1002,18 @@
                                 with the same effect as the
                                 <varname>$SYSTEMD_LOG_TARGET</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>, <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LOCATION</varname>
                                 environment variables described above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>systemd.default_standard_output=</varname></term>
+                                <term><varname>systemd.default_standard_error=</varname></term>
+                                <listitem><para>Controls default
+                                standard output/error output for
+                                services, with the same effect as the
+                                <option>--default-standard-output=</option>
+                                resp. <option>--default-standard-error=</option>
+                                command line arguments described
+                                above.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[17],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[18],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -118,15 +118,12 @@ AC_SUBST(DBUS_LIBS)
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
-	# not using PKG_CHECK_MODULES as for some reason libselinux didn't
-	# install any pkg-config modules here
-	AC_SEARCH_LIBS([getcon], [selinux],
-                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELINUX is available]) have_selinux=yes],
-		have_selinux=no)
+        PKG_CHECK_MODULES(SELINUX, [ libselinux ],
+                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
         AC_SUBST(SELINUX_CFLAGS)
         AC_SUBST(SELINUX_LIBS)
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
-                AC_MSG_ERROR([*** selinux support requested but libraries not found])
+                AC_MSG_ERROR([*** SELinux support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
@@ -236,7 +233,7 @@ if test "x$enable_libcryptsetup" != "xno"; then
         AC_SUBST(LIBCRYPTSETUP_CFLAGS)
         AC_SUBST(LIBCRYPTSETUP_LIBS)
         if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
-             AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
+                AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
@@ -272,21 +269,22 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
         else
-                AC_CHECK_FILE(/etc/redhat-release,with_distro="fedora")
-                AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
-                AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
+                test -f "/etc/redhat-release" && with_distro="fedora"
+                test -f "/etc/SuSE-release" && with_distro="suse"
+                test -f "/etc/debian_version" &&  with_distro="debian"
+                test -f "/etc/arch-release" && with_distro="arch"
+                test -f "/etc/gentoo-release" && with_distro="gentoo"
+                test -f "/etc/slackware-version" && with_distro="slackware"
+                test -f "/etc/frugalware-release" && with_distro="frugalware"
+                test -f "/etc/altlinux-release" && with_distro="altlinux"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
-                AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
-                AC_CHECK_FILE(/etc/gentoo-release,with_distro="gentoo")
-                AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
-                AC_CHECK_FILE(/etc/frugalware-release,with_distro="frugalware")
         fi
         if test "z$with_distro" = "z"; then
                 with_distro=`uname -s`
@@ -321,11 +319,13 @@ case $with_distro in
                 SPECIAL_SYSLOG_SERVICE=rsyslog.service
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
+		have_plymouth=true
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DISTRO_FLAG=-DTARGET_SUSE=1
+		have_plymouth=true
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
@@ -364,6 +364,12 @@ case $with_distro in
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                ;;
+        altlinux)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
+                M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
                 ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],
@@ -421,6 +427,9 @@ AM_CONDITIONAL(TARGET_ARCH, test x"$with_distro" = xarch)
 AM_CONDITIONAL(TARGET_GENTOO, test x"$with_distro" = xgentoo)
 AM_CONDITIONAL(TARGET_SLACKWARE, test x"$with_distro" = xslackware)
 AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
+AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
+
+AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
 
 AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$SPECIAL_SYSLOG_SERVICE"], [Syslog service name])
 

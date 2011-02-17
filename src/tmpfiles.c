@@ -36,6 +36,8 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include <glob.h>
+#include <fnmatch.h>
 
 #include "log.h"
 #include "util.h"
@@ -50,10 +52,13 @@
  * bootup. */
 
 enum {
+        /* These ones take file names */
         CREATE_FILE = 'f',
         TRUNCATE_FILE = 'F',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
+
+        /* These ones take globs */
         IGNORE_PATH = 'x',
         REMOVE_PATH = 'r',
         RECURSIVE_REMOVE_PATH = 'R'
@@ -74,13 +79,103 @@ typedef struct Item {
         bool age_set:1;
 } Item;
 
-static Hashmap *items = NULL;
+static Hashmap *items = NULL, *globs = NULL;
+static Set *unix_sockets = NULL;
 
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 
+static const char *arg_prefix = NULL;
+
 #define MAX_DEPTH 256
+
+static bool needs_glob(int t) {
+        return t == IGNORE_PATH || t == REMOVE_PATH || t == RECURSIVE_REMOVE_PATH;
+}
+
+static struct Item* find_glob(Hashmap *h, const char *match) {
+        Item *j;
+        Iterator i;
+
+        HASHMAP_FOREACH(j, h, i)
+                if (fnmatch(j->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
+                        return j;
+
+        return NULL;
+}
+
+static void load_unix_sockets(void) {
+        FILE *f = NULL;
+        char line[LINE_MAX];
+
+        if (unix_sockets)
+                return;
+
+        /* We maintain a cache of the sockets we found in
+         * /proc/net/unix to speed things up a little. */
+
+        if (!(unix_sockets = set_new(string_hash_func, string_compare_func)))
+                return;
+
+        if (!(f = fopen("/proc/net/unix", "re")))
+                return;
+
+        if (!(fgets(line, sizeof(line), f)))
+                goto fail;
+
+        for (;;) {
+                char *p, *s;
+                int k;
+
+                if (!(fgets(line, sizeof(line), f)))
+                        break;
+
+                truncate_nl(line);
+
+                if (strlen(line) < 53)
+                        continue;
+
+                p = line + 53;
+                p += strspn(p, WHITESPACE);
+                p += strcspn(p, WHITESPACE);
+                p += strspn(p, WHITESPACE);
+
+                if (*p != '/')
+                        continue;
+
+                if (!(s = strdup(p)))
+                        goto fail;
+
+                if ((k = set_put(unix_sockets, s)) < 0) {
+                        free(s);
+
+                        if (k != -EEXIST)
+                                goto fail;
+                }
+        }
+
+        return;
+
+fail:
+        set_free_free(unix_sockets);
+        unix_sockets = NULL;
+
+        if (f)
+                fclose(f);
+}
+
+static bool unix_socket_alive(const char *fn) {
+        assert(fn);
+
+        load_unix_sockets();
+
+        if (unix_sockets)
+                return !!set_get(unix_sockets, (char*) fn);
+
+        /* We don't know, so assume yes */
+        return true;
+}
 
 static int dir_cleanup(
                 const char *p,
@@ -136,6 +231,9 @@ static int dir_cleanup(
                 if (hashmap_get(items, sub_path))
                         continue;
 
+                if (find_glob(globs, sub_path))
+                        continue;
+
                 if (S_ISDIR(s.st_mode)) {
 
                         if (mountpoint &&
@@ -189,7 +287,7 @@ static int dir_cleanup(
                         if (s.st_mode & S_ISVTX)
                                 continue;
 
-                        if (mountpoint) {
+                        if (mountpoint && S_ISREG(s.st_mode)) {
                                 if (streq(dent->d_name, ".journal") &&
                                     s.st_uid == 0)
                                         continue;
@@ -198,6 +296,10 @@ static int dir_cleanup(
                                     streq(dent->d_name, "aquota.group"))
                                         continue;
                         }
+
+                        /* Ignore sockets that are listed in /proc/net/unix */
+                        if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path))
+                                continue;
 
                         age = MAX3(timespec_load(&s.st_mtim),
                                    timespec_load(&s.st_atim),
@@ -411,7 +513,7 @@ finish:
         return r;
 }
 
-static int remove_item(Item *i) {
+static int remove_item(Item *i, const char *instance) {
         int r;
 
         assert(i);
@@ -425,8 +527,8 @@ static int remove_item(Item *i) {
                 break;
 
         case REMOVE_PATH:
-                if (remove(i->path) < 0 && errno != ENOENT) {
-                        log_error("remove(%s): %m", i->path);
+                if (remove(instance) < 0 && errno != ENOENT) {
+                        log_error("remove(%s): %m", instance);
                         return -errno;
                 }
 
@@ -434,13 +536,57 @@ static int remove_item(Item *i) {
 
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                if ((r = rm_rf(i->path, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
+                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
                     r != -ENOENT) {
-                        log_error("rm_rf(%s): %s", i->path, strerror(-r));
+                        log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;
                 }
 
                 break;
+        }
+
+        return 0;
+}
+
+static int remove_item_glob(Item *i) {
+        assert(i);
+
+        switch (i->type) {
+
+        case CREATE_FILE:
+        case TRUNCATE_FILE:
+        case CREATE_DIRECTORY:
+        case IGNORE_PATH:
+                break;
+
+        case REMOVE_PATH:
+        case TRUNCATE_DIRECTORY:
+        case RECURSIVE_REMOVE_PATH: {
+                int r = 0, k;
+                glob_t g;
+                char **fn;
+
+                zero(g);
+
+                errno = 0;
+                if ((k = glob(i->path, GLOB_NOSORT|GLOB_BRACE, NULL, &g)) != 0) {
+
+                        if (k != GLOB_NOMATCH) {
+                                if (errno != 0)
+                                        errno = EIO;
+
+                                log_error("glob(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+                }
+
+                STRV_FOREACH(fn, g.gl_pathv)
+                        if ((k = remove_item(i, *fn)) < 0)
+                                r = k;
+
+                globfree(&g);
+                return r;
+        }
         }
 
         return 0;
@@ -452,7 +598,7 @@ static int process_item(Item *i) {
         assert(i);
 
         r = arg_create ? create_item(i) : 0;
-        q = arg_remove ? remove_item(i) : 0;
+        q = arg_remove ? remove_item_glob(i) : 0;
         p = arg_clean ? clean_item(i) : 0;
 
         if (r < 0)
@@ -471,7 +617,7 @@ static void item_free(Item *i) {
         free(i);
 }
 
-static int parse_line(const char *fname, unsigned line, const char *buffer, const char *prefix) {
+static int parse_line(const char *fname, unsigned line, const char *buffer) {
         Item *i;
         char *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
         int r;
@@ -523,7 +669,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
 
         path_kill_slashes(i->path);
 
-        if (prefix && !path_startswith(i->path, prefix)) {
+        if (arg_prefix && !path_startswith(i->path, arg_prefix)) {
                 r = 0;
                 goto finish;
         }
@@ -590,7 +736,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, cons
                 i->age_set = true;
         }
 
-        if ((r = hashmap_put(items, i->path, i)) < 0) {
+        if ((r = hashmap_put(needs_glob(i->type) ? globs : items, i->path, i)) < 0) {
                 if (r == -EEXIST) {
                         log_warning("Two or more conflicting lines for %s configured, ignoring.", i->path);
                         r = 0;
@@ -631,12 +777,13 @@ static int scandir_filter(const struct dirent *d) {
 
 static int help(void) {
 
-        printf("%s [OPTIONS...]\n\n"
-               "Create and clean up temporary directories.\n\n"
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
+               "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help             Show this help\n"
                "     --create           Create marked files/directories\n"
                "     --clean            Clean up marked directories\n"
-               "     --remove           Remove marked files/directories\n",
+               "     --remove           Remove marked files/directories\n"
+               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
         return 0;
@@ -647,7 +794,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_CREATE,
                 ARG_CLEAN,
-                ARG_REMOVE
+                ARG_REMOVE,
+                ARG_PREFIX
         };
 
         static const struct option options[] = {
@@ -655,6 +803,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",    no_argument,       NULL, ARG_CREATE    },
                 { "clean",     no_argument,       NULL, ARG_CLEAN     },
                 { "remove",    no_argument,       NULL, ARG_REMOVE    },
+                { "prefix",    required_argument, NULL, ARG_PREFIX    },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -683,6 +832,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_remove = true;
                         break;
 
+                case ARG_PREFIX:
+                        arg_prefix = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -693,108 +846,129 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_clean && !arg_create && !arg_remove) {
-                help();
+                log_error("You need to specify at leat one of --clean, --create or --remove.");
                 return -EINVAL;
         }
 
         return 1;
 }
 
+static int read_config_file(const char *fn, bool ignore_enoent) {
+        FILE *f;
+        unsigned v = 0;
+        int r = 0;
+
+        assert(fn);
+
+        if (!(f = fopen(fn, "re"))) {
+
+                if (ignore_enoent && errno == ENOENT)
+                        return 0;
+
+                log_error("Failed to open %s: %m", fn);
+                return -errno;
+        }
+
+        for (;;) {
+                char line[LINE_MAX], *l;
+                int k;
+
+                if (!(fgets(line, sizeof(line), f)))
+                        break;
+
+                v++;
+
+                l = strstrip(line);
+                if (*l == '#' || *l == 0)
+                        continue;
+
+                if ((k = parse_line(fn, v, l)) < 0)
+                        if (r == 0)
+                                r = k;
+        }
+
+        if (ferror(f)) {
+                log_error("Failed to read from file %s: %m", fn);
+                if (r == 0)
+                        r = -EIO;
+        }
+
+        fclose(f);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
-        struct dirent **de = NULL;
-        int r, n, j;
-        const char *prefix = NULL;
+        int r;
         Item *i;
         Iterator iterator;
 
         if ((r = parse_argv(argc, argv)) <= 0)
                 return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 
-        if (optind < argc)
-                prefix = argv[optind];
-        else
-                prefix = "/";
-
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
         label_init();
 
-        if (!(items = hashmap_new(string_hash_func, string_compare_func))) {
+        items = hashmap_new(string_hash_func, string_compare_func);
+        globs = hashmap_new(string_hash_func, string_compare_func);
+
+        if (!items || !globs) {
                 log_error("Out of memory");
                 r = EXIT_FAILURE;
                 goto finish;
         }
 
-        if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
-
-                if (errno == ENOENT)
-                        r = EXIT_SUCCESS;
-                else {
-                        log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
-                        r = EXIT_FAILURE;
-                }
-
-                goto finish;
-        }
-
         r = EXIT_SUCCESS;
 
-        for (j = 0; j < n; j++) {
-                int k;
-                char *fn;
-                FILE *f;
-                unsigned v;
+        if (optind < argc) {
+                int j;
 
-                k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[j]->d_name);
-                free(de[j]);
+                for (j = optind; j < argc; j++)
+                        if (read_config_file(argv[j], false) < 0)
+                                r = EXIT_FAILURE;
 
-                if (k < 0) {
-                        log_error("Failed to allocate file name.");
-                        r = EXIT_FAILURE;
-                        continue;
-                }
+        } else {
+                int n, j;
+                struct dirent **de = NULL;
 
-                if (!(f = fopen(fn, "re"))) {
+                if ((n = scandir("/etc/tmpfiles.d/", &de, scandir_filter, alphasort)) < 0) {
 
                         if (errno != ENOENT) {
-                                log_error("Failed to open %s: %m", fn);
+                                log_error("Failed to enumerate /etc/tmpfiles.d/ files: %m");
                                 r = EXIT_FAILURE;
                         }
 
-                        free(fn);
-                        continue;
+                        goto finish;
                 }
 
-                v = 0;
-                for (;;) {
-                        char line[LINE_MAX], *l;
+                for (j = 0; j < n; j++) {
+                        int k;
+                        char *fn;
 
-                        if (!(fgets(line, sizeof(line), f)))
-                                break;
+                        k = asprintf(&fn, "/etc/tmpfiles.d/%s", de[j]->d_name);
+                        free(de[j]);
 
-                        v++;
-
-                        l = strstrip(line);
-                        if (*l == '#' || *l == 0)
-                                continue;
-
-                        if (parse_line(fn, v, l, prefix) < 0)
+                        if (k < 0) {
+                                log_error("Failed to allocate file name.");
                                 r = EXIT_FAILURE;
+                                continue;
+                        }
+
+                        if (read_config_file(fn, true) < 0)
+                                r = EXIT_FAILURE;
+
+                        free(fn);
                 }
 
-                if (ferror(f)) {
-                        r = EXIT_FAILURE;
-                        log_error("Failed to read from file %s: %m", fn);
-                }
-
-                free(fn);
-
-                fclose(f);
+                free(de);
         }
 
-        free(de);
+        HASHMAP_FOREACH(i, globs, iterator)
+                if (process_item(i) < 0)
+                        r = EXIT_FAILURE;
 
         HASHMAP_FOREACH(i, items, iterator)
                 if (process_item(i) < 0)
@@ -804,7 +978,13 @@ finish:
         while ((i = hashmap_steal_first(items)))
                 item_free(i);
 
+        while ((i = hashmap_steal_first(globs)))
+                item_free(i);
+
         hashmap_free(items);
+        hashmap_free(globs);
+
+        set_free_free(unix_sockets);
 
         label_finish();
 

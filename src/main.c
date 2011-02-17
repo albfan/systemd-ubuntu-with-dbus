@@ -72,8 +72,9 @@ static bool arg_sysv_console = true;
 #endif
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
-static char *arg_console = NULL;
 static char **arg_default_controllers = NULL;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_INHERIT;
+static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;
 
@@ -299,6 +300,20 @@ static int parse_proc_cmdline_word(const char *word) {
                         log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
                 else
                         arg_show_status = r;
+        } else if (startswith(word, "systemd.default_standard_output=")) {
+                int r;
+
+                if ((r = exec_output_from_string(word + 32)) < 0)
+                        log_warning("Failed to parse default standard output switch %s, Ignoring.", word + 32);
+                else
+                        arg_default_std_output = r;
+        } else if (startswith(word, "systemd.default_standard_error=")) {
+                int r;
+
+                if ((r = exec_output_from_string(word + 31)) < 0)
+                        log_warning("Failed to parse default standard error switch %s, Ignoring.", word + 31);
+                else
+                        arg_default_std_error = r;
 #ifdef HAVE_SYSV_COMPAT
         } else if (startswith(word, "systemd.sysv_console=")) {
                 int r;
@@ -327,27 +342,11 @@ static int parse_proc_cmdline_word(const char *word) {
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
-                         "systemd.log_location=0|1                 Include code location in log messages\n");
-
-        } else if (startswith(word, "console=")) {
-                const char *k;
-                size_t l;
-                char *w = NULL;
-
-                k = word + 8;
-                l = strcspn(k, ",");
-
-                /* Ignore the console setting if set to a VT */
-                if (l < 4 ||
-                    !startswith(k, "tty") ||
-                    k[3+strspn(k+3, "0123456789")] != 0) {
-
-                        if (!(w = strndup(k, l)))
-                                return -ENOMEM;
-                }
-
-                free(arg_console);
-                arg_console = w;
+                         "systemd.log_location=0|1                 Include code location in log messages\n"
+                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "                                         Set default log output for services\n"
+                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "                                         Set default log error output for services\n");
 
         } else if (streq(word, "quiet")) {
                 arg_show_status = false;
@@ -487,24 +486,28 @@ static int config_parse_cpu_affinity(
         return 0;
 }
 
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+
 static int parse_config_file(void) {
 
         const ConfigItem items[] = {
-                { "LogLevel",    config_parse_level,        NULL,               "Manager" },
-                { "LogTarget",   config_parse_target,       NULL,               "Manager" },
-                { "LogColor",    config_parse_color,        NULL,               "Manager" },
-                { "LogLocation", config_parse_location,     NULL,               "Manager" },
-                { "DumpCore",    config_parse_bool,         &arg_dump_core,     "Manager" },
-                { "CrashShell",  config_parse_bool,         &arg_crash_shell,   "Manager" },
-                { "ShowStatus",  config_parse_bool,         &arg_show_status,   "Manager" },
+                { "LogLevel",              config_parse_level,        NULL,                     "Manager" },
+                { "LogTarget",             config_parse_target,       NULL,                     "Manager" },
+                { "LogColor",              config_parse_color,        NULL,                     "Manager" },
+                { "LogLocation",           config_parse_location,     NULL,                     "Manager" },
+                { "DumpCore",              config_parse_bool,         &arg_dump_core,           "Manager" },
+                { "CrashShell",            config_parse_bool,         &arg_crash_shell,         "Manager" },
+                { "ShowStatus",            config_parse_bool,         &arg_show_status,         "Manager" },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole", config_parse_bool,         &arg_sysv_console,  "Manager" },
+                { "SysVConsole",           config_parse_bool,         &arg_sysv_console,        "Manager" },
 #endif
-                { "CrashChVT",   config_parse_int,          &arg_crash_chvt,    "Manager" },
-                { "CPUAffinity", config_parse_cpu_affinity, NULL,               "Manager" },
-                { "MountAuto",   config_parse_bool,         &arg_mount_auto,    "Manager" },
-                { "SwapAuto",    config_parse_bool,         &arg_swap_auto,     "Manager" },
-                { "DefaultControllers", config_parse_strv,  &arg_default_controllers, "Manager" },
+                { "CrashChVT",             config_parse_int,          &arg_crash_chvt,          "Manager" },
+                { "CPUAffinity",           config_parse_cpu_affinity, NULL,                     "Manager" },
+                { "MountAuto",             config_parse_bool,         &arg_mount_auto,          "Manager" },
+                { "SwapAuto",              config_parse_bool,         &arg_swap_auto,           "Manager" },
+                { "DefaultControllers",    config_parse_strv,         &arg_default_controllers, "Manager" },
+                { "DefaultStandardOutput", config_parse_output,       &arg_default_std_output,  "Manager" },
+                { "DefaultStandardError",  config_parse_output,       &arg_default_std_error,   "Manager" },
                 { NULL, NULL, NULL, NULL }
         };
 
@@ -585,7 +588,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SHOW_STATUS,
                 ARG_SYSV_CONSOLE,
                 ARG_DESERIALIZE,
-                ARG_INTROSPECT
+                ARG_INTROSPECT,
+                ARG_DEFAULT_STD_OUTPUT,
+                ARG_DEFAULT_STD_ERROR
         };
 
         static const struct option options[] = {
@@ -608,6 +613,8 @@ static int parse_argv(int argc, char *argv[]) {
 #endif
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
                 { "introspect",               optional_argument, NULL, ARG_INTROSPECT               },
+                { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
+                { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
                 { NULL,                       0,                 NULL, 0                            }
         };
 
@@ -659,6 +666,24 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 log_show_location(true);
 
+                        break;
+
+                case ARG_DEFAULT_STD_OUTPUT:
+
+                        if ((r = exec_output_from_string(optarg)) < 0) {
+                                log_error("Failed to parse default standard output setting %s.", optarg);
+                                return r;
+                        } else
+                                arg_default_std_output = r;
+                        break;
+
+                case ARG_DEFAULT_STD_ERROR:
+
+                        if ((r = exec_output_from_string(optarg)) < 0) {
+                                log_error("Failed to parse default standard error output setting %s.", optarg);
+                                return r;
+                        } else
+                                arg_default_std_error = r;
                         break;
 
                 case ARG_UNIT:
@@ -815,7 +840,9 @@ static int help(void) {
                "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
-               "     --log-location[=0|1]        Include code location in log messages\n",
+               "     --log-location[=0|1]        Include code location in log messages\n"
+               "     --default-standard-output=  Set default standard output for services\n"
+               "     --default-standard-error=   Set default standard error output for services\n",
                program_invocation_short_name);
 
         return 0;
@@ -985,6 +1012,11 @@ int main(int argc, char *argv[]) {
         if (parse_argv(argc, argv) < 0)
                 goto finish;
 
+        /* If Plymouth is being run make sure we show the status, so
+         * that there's something nice to see when people press Esc */
+        if (access("/dev/.systemd/plymouth", F_OK) >= 0)
+                arg_show_status = true;
+
         if (arg_action == ACTION_HELP) {
                 retval = help();
                 goto finish;
@@ -1085,12 +1117,11 @@ int main(int argc, char *argv[]) {
 #endif
         m->mount_auto = arg_mount_auto;
         m->swap_auto = arg_swap_auto;
+        m->default_std_output = arg_default_std_output;
+        m->default_std_error = arg_default_std_error;
 
         if (dual_timestamp_is_set(&initrd_timestamp))
                 m->initrd_timestamp = initrd_timestamp;
-
-        if (arg_console)
-                manager_set_console(m, arg_console);
 
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
@@ -1216,7 +1247,6 @@ finish:
                 manager_free(m);
 
         free(arg_default_unit);
-        free(arg_console);
         strv_free(arg_default_controllers);
 
         dbus_shutdown();

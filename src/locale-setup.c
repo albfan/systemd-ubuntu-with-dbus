@@ -115,7 +115,7 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
 
-#ifdef TARGET_FEDORA
+#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX)
         if (r <= 0 &&
             (r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                 "LANG", &variables[VARIABLE_LANG],

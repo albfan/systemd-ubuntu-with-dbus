@@ -306,7 +306,7 @@ static int config_parse_nice(
         }
 
         c->nice = priority;
-        c->nice_set = false;
+        c->nice_set = true;
 
         return 0;
 }
@@ -918,7 +918,6 @@ static int config_parse_limit(
 
         struct rlimit **rl = data;
         unsigned long long u;
-        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1855,6 +1854,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "RemainAfterExit",        config_parse_bool,            &u->service.remain_after_exit,                   "Service" },
+                { "GuessMainPID",           config_parse_bool,            &u->service.guess_main_pid,                      "Service" },
 #ifdef HAVE_SYSV_COMPAT
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
 #else
