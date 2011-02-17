@@ -370,7 +370,12 @@ char *fstab_node_to_udev_node(const char *p);
 
 void filter_environ(const char *prefix);
 
+bool tty_is_vc(const char *tty);
 const char *default_term_for_tty(const char *tty);
+
+bool running_in_vm(void);
+
+void execute_directory(const char *directory, DIR *_d, char *argv[]);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

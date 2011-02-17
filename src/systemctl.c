@@ -60,7 +60,7 @@
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
 static bool arg_all = false;
-static bool arg_fail = false;
+static const char *arg_job_mode = "replace";
 static bool arg_user = false;
 static bool arg_global = false;
 static bool arg_immediate = false;
@@ -76,6 +76,7 @@ static bool arg_full = false;
 static bool arg_force = false;
 static bool arg_defaults = false;
 static bool arg_ask_password = false;
+static bool arg_failed = false;
 static char **arg_wall = NULL;
 static const char *arg_kill_who = NULL;
 static const char *arg_kill_mode = NULL;
@@ -121,7 +122,7 @@ static bool on_tty(void) {
         /* Note that this is invoked relatively early, before we start
          * the pager. That means the value we return reflects whether
          * we originally were started on a tty, not if we currently
-         * are. But this is intended, since we want color, and so on
+         * are. But this is intended, since we want colour and so on
          * when run in our own pager. */
 
         if (_unlikely_(t < 0))
@@ -141,6 +142,9 @@ static void spawn_ask_password_agent(void) {
         if (!arg_ask_password)
                 return;
 
+        if (arg_user)
+                return;
+
         parent = getpid();
 
         /* Spawns a temporary TTY agent, making sure it goes away when
@@ -151,13 +155,16 @@ static void spawn_ask_password_agent(void) {
 
         if (child == 0) {
                 /* In the child */
-
                 const char * const args[] = {
                         SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                         "--watch",
                         NULL
                 };
 
+                int fd;
+                bool stdout_is_tty, stderr_is_tty;
+
+                /* Make sure the agent goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                         _exit(EXIT_FAILURE);
 
@@ -165,6 +172,35 @@ static void spawn_ask_password_agent(void) {
                  * to set the death signal */
                 if (getppid() != parent)
                         _exit(EXIT_SUCCESS);
+
+                /* Don't leak fds to the agent */
+                close_all_fds(NULL, 0);
+
+                stdout_is_tty = isatty(STDOUT_FILENO);
+                stderr_is_tty = isatty(STDERR_FILENO);
+
+                if (!stdout_is_tty || !stderr_is_tty) {
+                        /* Detach from stdout/stderr. and reopen
+                         * /dev/tty for them. This is important to
+                         * ensure that when systemctl is started via
+                         * popen() or a similar call that expects to
+                         * read EOF we actually do generate EOF and
+                         * not delay this indefinitely by because we
+                         * keep an unused copy of stdin around. */
+                        if ((fd = open("/dev/tty", O_WRONLY)) < 0) {
+                                log_error("Failed to open /dev/tty: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        if (!stdout_is_tty)
+                                dup2(fd, STDOUT_FILENO);
+
+                        if (!stderr_is_tty)
+                                dup2(fd, STDERR_FILENO);
+
+                        if (fd > 2)
+                                close(fd);
+                }
 
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
@@ -312,8 +348,11 @@ static int compare_unit_info(const void *a, const void *b) {
         return strcasecmp(u->id, v->id);
 }
 
-static bool output_show_job(const struct unit_info *u) {
+static bool output_show_unit(const struct unit_info *u) {
         const char *dot;
+
+        if (arg_failed)
+                return streq(u->active_state, "failed");
 
         return (!arg_type || ((dot = strrchr(u->id, '.')) &&
                               streq(dot+1, arg_type))) &&
@@ -329,7 +368,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         job_len = sizeof("JOB")-1;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
-                if (!output_show_job(u))
+                if (!output_show_unit(u))
                         continue;
 
                 active_len = MAX(active_len, strlen(u->active_state));
@@ -353,7 +392,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 const char *on_loaded, *off_loaded;
                 const char *on_active, *off_active;
 
-                if (!output_show_job(u))
+                if (!output_show_unit(u))
                         continue;
 
                 n_shown++;
@@ -1345,9 +1384,7 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                 mode =
                         (streq(args[0], "isolate") ||
                          streq(args[0], "rescue")  ||
-                         streq(args[0], "emergency")) ? "isolate" :
-                                             arg_fail ? "fail" :
-                                                        "replace";
+                         streq(args[0], "emergency")) ? "isolate" : arg_job_mode;
 
                 one_name = table[verb_to_action(args[0])];
 
@@ -4155,9 +4192,12 @@ static int systemctl_help(void) {
                "  -t --type=TYPE      List only units of a particular type\n"
                "  -p --property=NAME  Show only properties by this name\n"
                "  -a --all            Show all units/properties, including dead/empty ones\n"
+               "     --failed         Show only failed units\n"
                "     --full           Don't ellipsize unit names on output\n"
                "     --fail           When queueing a new job, fail if conflicting jobs are\n"
                "                      pending\n"
+               "     --ignore-dependencies\n"
+               "                      When queueing a new job, ignore all its dependencies\n"
                "  -q --quiet          Suppress output\n"
                "     --no-block       Do not wait until operation finished\n"
                "     --no-pager       Do not pipe output into a pager.\n"
@@ -4295,6 +4335,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_FAIL = 0x100,
+                ARG_IGNORE_DEPENDENCIES,
                 ARG_VERSION,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -4309,7 +4350,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DEFAULTS,
                 ARG_KILL_MODE,
                 ARG_KILL_WHO,
-                ARG_NO_ASK_PASSWORD
+                ARG_NO_ASK_PASSWORD,
+                ARG_FAILED
         };
 
         static const struct option options[] = {
@@ -4318,8 +4360,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "type",      required_argument, NULL, 't'           },
                 { "property",  required_argument, NULL, 'p'           },
                 { "all",       no_argument,       NULL, 'a'           },
+                { "failed",    no_argument,       NULL, ARG_FAILED    },
                 { "full",      no_argument,       NULL, ARG_FULL      },
                 { "fail",      no_argument,       NULL, ARG_FAIL      },
+                { "ignore-dependencies", no_argument, NULL, ARG_IGNORE_DEPENDENCIES },
                 { "user",      no_argument,       NULL, ARG_USER      },
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
@@ -4386,7 +4430,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FAIL:
-                        arg_fail = true;
+                        arg_job_mode = "fail";
+                        break;
+
+                case ARG_IGNORE_DEPENDENCIES:
+                        arg_job_mode = "ignore-dependencies";
                         break;
 
                 case ARG_USER:
@@ -4419,6 +4467,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_FULL:
                         arg_full = true;
+                        break;
+
+                case ARG_FAILED:
+                        arg_failed = true;
                         break;
 
                 case 'q':

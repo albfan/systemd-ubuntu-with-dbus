@@ -77,6 +77,8 @@ static void socket_init(Unit *u) {
         s->mark = -1;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = u->meta.manager->default_std_output;
+        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -168,6 +170,13 @@ static int socket_instantiate_service(Socket *s) {
 
         if (r < 0)
                 return r;
+
+#ifdef HAVE_SYSV_COMPAT
+        if (SERVICE(u)->sysv_path) {
+                log_error("Using SysV services for socket activation is not supported. Refusing.");
+                return -ENOENT;
+        }
+#endif
 
         u->meta.no_gc = true;
         s->service = SERVICE(u);
@@ -1189,6 +1198,8 @@ static void socket_enter_running(Socket *s, int cfd) {
         /* We don't take connections anymore if we are supposed to
          * shut down anyway */
         if (unit_pending_inactive(UNIT(s))) {
+                log_debug("Suppressing connection request on %s since unit stop is scheduled.", s->meta.id);
+
                 if (cfd >= 0)
                         close_nointr_nofail(cfd);
                 else  {
@@ -1352,12 +1363,19 @@ static int socket_start(Unit *u) {
                 if (s->service->meta.load_state != UNIT_LOADED)
                         return -ENOENT;
 
-                /* If the service is alredy actvie we cannot start the
+                /* If the service is alredy active we cannot start the
                  * socket */
                 if (s->service->state != SERVICE_DEAD &&
                     s->service->state != SERVICE_FAILED &&
                     s->service->state != SERVICE_AUTO_RESTART)
                         return -EBUSY;
+
+#ifdef HAVE_SYSV_COMPAT
+                if (s->service->sysv_path) {
+                        log_error("Using SysV services for socket activation is not supported. Refusing.");
+                        return -ENOENT;
+                }
+#endif
         }
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_FAILED);

@@ -118,8 +118,11 @@ static void service_init(Unit *u) {
         s->sysv_start_priority = -1;
 #endif
         s->socket_fd = -1;
+        s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
+        s->exec_context.std_output = u->meta.manager->default_std_output;
+        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -816,7 +819,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->restart = SERVICE_RESTART_NO;
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
-                ? EXEC_OUTPUT_TTY : EXEC_OUTPUT_NULL;
+                ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
         s->exec_context.kill_mode = KILL_PROCESS_GROUP;
 
         /* We use the long description only if
@@ -1151,6 +1154,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sRemainAfterExit: %s\n"
+                "%sGuessMainPID: %s\n"
                 "%sType: %s\n"
                 "%sRestart: %s\n"
                 "%sNotifyAccess: %s\n",
@@ -1158,6 +1162,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->remain_after_exit),
+                prefix, yes_no(s->guess_main_pid),
                 prefix, service_type_to_string(s->type),
                 prefix, service_restart_to_string(s->restart),
                 prefix, notify_access_to_string(s->notify_access));
@@ -1236,11 +1241,6 @@ static int service_load_pid_file(Service *s) {
 
         assert(s);
 
-        if (s->main_pid_known)
-                return 0;
-
-        assert(s->main_pid <= 0);
-
         if (!s->pid_file)
                 return -ENOENT;
 
@@ -1275,7 +1275,12 @@ static int service_search_main_pid(Service *s) {
 
         assert(s);
 
+        /* If we know it anyway, don't ever fallback to unreliable
+         * heuristics */
         if (s->main_pid_known)
+                return 0;
+
+        if (!s->guess_main_pid)
                 return 0;
 
         assert(s->main_pid <= 0);
@@ -2674,9 +2679,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                                 log_warning("%s: failed to load PID file %s: %s", s->meta.id, s->pid_file, strerror(-r));
                                 }
 
-                                /* Fall through */
+                                s->reload_failure = !success;
+                                service_enter_running(s, true);
+                                break;
 
                         case SERVICE_RELOAD:
+                                if (success) {
+                                        service_load_pid_file(s);
+                                        service_search_main_pid(s);
+                                }
+
                                 s->reload_failure = !success;
                                 service_enter_running(s, true);
                                 break;
