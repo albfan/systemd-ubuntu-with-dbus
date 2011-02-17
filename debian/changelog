@@ -1,3 +1,9 @@
+systemd (18-1) UNRELEASED; urgency=low
+
+  * New upstream release
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Thu, 17 Feb 2011 07:36:22 +0100
+
 systemd (17-1) experimental; urgency=low
 
   [ Tollef Fog Heen ]
