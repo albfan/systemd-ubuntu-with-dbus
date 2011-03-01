@@ -858,7 +858,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         assert(_fds);
 
         if ((r = manager_open_serialization(m, &f)) < 0) {
-                log_error("Failed to create serialization faile: %s", strerror(-r));
+                log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
         }
 
@@ -923,6 +923,8 @@ static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
 static void test_mtab(void) {
         char *p;
 
+        /* Check that /etc/mtab is a symlink */
+
         if (readlink_malloc("/etc/mtab", &p) >= 0) {
                 bool b;
 
@@ -933,9 +935,33 @@ static void test_mtab(void) {
                         return;
         }
 
-        log_error("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
-                  "This is not supported anymore. "
-                  "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+        log_warning("/etc/mtab is not a symlink or not pointing to /proc/self/mounts. "
+                    "This is not supported anymore. "
+                    "Please make sure to replace this file by a symlink to avoid incorrect or misleading mount(8) output.");
+}
+
+static void test_usr(void) {
+        struct stat a, b;
+        bool seperate = false;
+
+        /* Check that /usr is not a seperate fs */
+
+        if (lstat("/", &a) >= 0 && lstat("/usr", &b) >= 0)
+                if (a.st_dev != b.st_dev)
+                        seperate = true;
+
+        /* This check won't work usually during boot, since /usr is
+         * probably not mounted yet, hence let's add a second
+         * check. We just check whether /usr is an empty directory. */
+
+        if (dir_is_empty("/usr") > 0)
+                seperate = true;
+
+        if (!seperate)
+                return;
+
+        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+                    "Some things will probably break (sometimes even silently) in mysterious ways.");
 }
 
 int main(int argc, char *argv[]) {
@@ -948,7 +974,7 @@ int main(int argc, char *argv[]) {
         char systemd[] = "systemd";
 
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
-                /* This is compatbility support for SysV, where
+                /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
 
                 errno = -ENOENT;
@@ -1011,6 +1037,11 @@ int main(int argc, char *argv[]) {
 
         if (parse_argv(argc, argv) < 0)
                 goto finish;
+
+        if (arg_action == ACTION_TEST && geteuid() == 0) {
+                log_error("Don't run test mode as root.");
+                goto finish;
+        }
 
         /* If Plymouth is being run make sure we show the status, so
          * that there's something nice to see when people press Esc */
@@ -1103,6 +1134,7 @@ int main(int argc, char *argv[]) {
                 mkdir_p("/dev/.systemd/ask-password/", 0755);
 
                 test_mtab();
+                test_usr();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {

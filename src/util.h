@@ -331,7 +331,12 @@ void sigset_add_many(sigset_t *ss, ...);
 
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
-int getttyname_malloc(char **r);
+
+int getttyname_malloc(int fd, char **r);
+int getttyname_harder(int fd, char **r);
+
+int get_ctty_devnr(dev_t *d);
+int get_ctty(char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
@@ -373,7 +378,8 @@ void filter_environ(const char *prefix);
 bool tty_is_vc(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
-bool running_in_vm(void);
+int detect_vm(const char **id);
+int detect_virtualization(const char **id);
 
 void execute_directory(const char *directory, DIR *_d, char *argv[]);
 

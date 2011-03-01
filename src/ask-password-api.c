@@ -32,6 +32,7 @@
 #include <sys/signalfd.h>
 
 #include "util.h"
+#include "strv.h"
 
 #include "ask-password-api.h"
 
@@ -110,7 +111,7 @@ int ask_password_tty(
                         y = now(CLOCK_MONOTONIC);
 
                         if (y > until) {
-                                r = -ETIMEDOUT;
+                                r = -ETIME;
                                 goto finish;
                         }
 
@@ -131,7 +132,7 @@ int ask_password_tty(
                         r = -errno;
                         goto finish;
                 } else if (k == 0) {
-                        r = -ETIMEDOUT;
+                        r = -ETIME;
                         goto finish;
                 }
 
@@ -178,9 +179,6 @@ int ask_password_tty(
                 }
         }
 
-        if (ttyfd >= 0)
-                loop_write(ttyfd, "\n", 1, false);
-
         passphrase[p] = 0;
 
         if (!(*_passphrase = strdup(passphrase))) {
@@ -195,8 +193,11 @@ finish:
                 close_nointr_nofail(notify);
 
         if (ttyfd >= 0) {
-                if (reset_tty)
+
+                if (reset_tty) {
+                        loop_write(ttyfd, "\n", 1, false);
                         tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                }
 
                 close_nointr_nofail(ttyfd);
         }
@@ -251,12 +252,12 @@ fail:
         return r;
 }
 
-
 int ask_password_agent(
                 const char *message,
                 const char *icon,
                 usec_t until,
-                char **_passphrase) {
+                bool accept_cached,
+                char ***_passphrases) {
 
         enum {
                 FD_SOCKET,
@@ -272,6 +273,8 @@ int ask_password_agent(
         int socket_fd = -1, signal_fd = -1;
         sigset_t mask;
         struct pollfd pollfd[_FD_MAX];
+
+        assert(_passphrases);
 
         mkdir_p("/dev/.systemd/ask-password", 0755);
 
@@ -310,9 +313,11 @@ int ask_password_agent(
                 "[Ask]\n"
                 "PID=%lu\n"
                 "Socket=%s\n"
+                "AcceptCached=%i\n"
                 "NotAfter=%llu\n",
                 (unsigned long) getpid(),
                 socket_name,
+                accept_cached ? 1 : 0,
                 (unsigned long long) until);
 
         if (message)
@@ -368,7 +373,7 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if ((k = poll(pollfd, _FD_MAX, until-t/USEC_PER_MSEC)) < 0) {
+                if ((k = poll(pollfd, _FD_MAX, (until-t)/USEC_PER_MSEC)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -384,8 +389,10 @@ int ask_password_agent(
                         goto finish;
                 }
 
-                if (pollfd[FD_SIGNAL].revents & POLLIN)
-                        break;
+                if (pollfd[FD_SIGNAL].revents & POLLIN) {
+                        r = -EINTR;
+                        goto finish;
+                }
 
                 if (pollfd[FD_SOCKET].revents != POLLIN) {
                         log_error("Unexpected poll() event.");
@@ -395,7 +402,7 @@ int ask_password_agent(
 
                 zero(iovec);
                 iovec.iov_base = passphrase;
-                iovec.iov_len = sizeof(passphrase)-1;
+                iovec.iov_len = sizeof(passphrase);
 
                 zero(control);
                 zero(msghdr);
@@ -435,12 +442,20 @@ int ask_password_agent(
                 }
 
                 if (passphrase[0] == '+') {
-                        passphrase[n] = 0;
+                        char **l;
 
-                        if (!(*_passphrase = strdup(passphrase+1))) {
+                        if (!(l = strv_parse_nulstr(passphrase+1, n-1))) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
+
+                        if (strv_length(l) <= 0) {
+                                strv_free(l);
+                                log_error("Invalid packet");
+                                continue;
+                        }
+
+                        *_passphrases = l;
 
                 } else if (passphrase[0] == '-') {
                         r = -ECANCELED;
@@ -481,12 +496,26 @@ finish:
         return r;
 }
 
-int ask_password_auto(const char *message, const char *icon, usec_t until, char **_passphrase) {
+int ask_password_auto(const char *message, const char *icon, usec_t until, bool accept_cached, char ***_passphrases) {
         assert(message);
-        assert(_passphrase);
+        assert(_passphrases);
 
-        if (isatty(STDIN_FILENO))
-                return ask_password_tty(message, until, NULL, _passphrase);
-        else
-                return ask_password_agent(message, icon, until, _passphrase);
+        if (isatty(STDIN_FILENO)) {
+                int r;
+                char *s = NULL, **l = NULL;
+
+                if ((r = ask_password_tty(message, until, NULL, &s)) < 0)
+                        return r;
+
+                l = strv_new(s, NULL);
+                free(s);
+
+                if (!l)
+                        return -ENOMEM;
+
+                *_passphrases = l;
+                return r;
+
+        } else
+                return ask_password_agent(message, icon, until, accept_cached, _passphrases);
 }

@@ -6,10 +6,10 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Terminate Plymouth Boot Screen
+Description=Wait for Plymouth Boot Screen to Quit
 After=rc-local.service plymouth-start.service
 
 [Service]
-ExecStart=-/bin/plymouth quit
+ExecStart=-/bin/plymouth --wait
 Type=oneshot
 TimeoutSec=20

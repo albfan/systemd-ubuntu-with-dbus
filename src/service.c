@@ -335,7 +335,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 /* Facilities starting with $ are most likely targets */
                 r = unit_name_build(n, NULL, ".target");
         } else if (filename && streq(name, filename))
-                /* Names equalling the file name of the services are redundant */
+                /* Names equaling the file name of the services are redundant */
                 return 0;
         else
                 /* Everything else we assume to be normal service names */
@@ -2496,15 +2496,25 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
-#ifdef HAVE_SYSV_COMPAT
 static bool service_check_gc(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
 
-        return !!s->sysv_path;
-}
+        /* Never clean up services that still have a process around,
+         * even if the service is formally dead. */
+        if (cgroup_good(s) > 0 ||
+            main_pid_good(s) > 0 ||
+            control_pid_good(s) > 0)
+                return true;
+
+#ifdef HAVE_SYSV_COMPAT
+        if (s->sysv_path)
+                return true;
 #endif
+
+        return false;
+}
 
 static bool service_check_snapshot(Unit *u) {
         Service *s = SERVICE(u);
@@ -2767,7 +2777,7 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 break;
 
         case SERVICE_STOP_SIGKILL:
-                /* Uh, wie sent a SIGKILL and it is still not gone?
+                /* Uh, we sent a SIGKILL and it is still not gone?
                  * Must be something we cannot kill, so let's just be
                  * weirded out and continue */
 
@@ -3042,7 +3052,7 @@ static int service_enumerate(Manager *m) {
 
         /* We honour K links only for halt/reboot. For the normal
          * runlevels we assume the stop jobs will be implicitly added
-         * by the core logic. Also, we don't really distuingish here
+         * by the core logic. Also, we don't really distinguish here
          * between the runlevels 0 and 6 and just add them to the
          * special shutdown target. On SUSE the boot.d/ runlevel is
          * also used for shutdown, so we add links for that too to the
@@ -3317,9 +3327,7 @@ const UnitVTable service_vtable = {
         .active_state = service_active_state,
         .sub_state_to_string = service_sub_state_to_string,
 
-#ifdef HAVE_SYSV_COMPAT
         .check_gc = service_check_gc,
-#endif
         .check_snapshot = service_check_snapshot,
 
         .sigchld_event = service_sigchld_event,

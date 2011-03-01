@@ -62,7 +62,7 @@ static int unpack_file(FILE *pack) {
 
         if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
 
-                if (errno != ENOENT)
+                if (errno != ENOENT && errno != EPERM && errno != EACCES)
                         log_warning("open(%s) failed: %m", fn);
 
         } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
@@ -346,8 +346,8 @@ int main(int argc, char*argv[]) {
                 return 0;
         }
 
-        if (running_in_vm()) {
-                log_info("Disabling readahead replay due to execution in virtual machine.");
+        if (detect_virtualization(NULL) > 0) {
+                log_info("Disabling readahead replay due to execution in virtualized environment.");
                 return 0;
         }
 

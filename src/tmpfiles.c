@@ -147,6 +147,8 @@ static void load_unix_sockets(void) {
                 if (!(s = strdup(p)))
                         goto fail;
 
+                path_kill_slashes(s);
+
                 if ((k = set_put(unix_sockets, s)) < 0) {
                         free(s);
 
@@ -299,6 +301,10 @@ static int dir_cleanup(
 
                         /* Ignore sockets that are listed in /proc/net/unix */
                         if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path))
+                                continue;
+
+                        /* Ignore device nodes */
+                        if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode))
                                 continue;
 
                         age = MAX3(timespec_load(&s.st_mtim),
@@ -501,7 +507,7 @@ static int create_item(Item *i) {
                 break;
         }
 
-        if ((r = label_fix(i->path)) < 0)
+        if ((r = label_fix(i->path, false)) < 0)
                 goto finish;
 
         log_debug("%s created successfully.", i->path);
@@ -846,7 +852,7 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (!arg_clean && !arg_create && !arg_remove) {
-                log_error("You need to specify at leat one of --clean, --create or --remove.");
+                log_error("You need to specify at least one of --clean, --create or --remove.");
                 return -EINVAL;
         }
 

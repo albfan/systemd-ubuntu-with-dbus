@@ -96,6 +96,9 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 if (errno == ENOENT)
                         return 0;
 
+                if (errno == EPERM || errno == EACCES)
+                        return 0;
+
                 log_warning("open(%s) failed: %m", fn);
                 r = -errno;
                 goto finish;
@@ -649,8 +652,8 @@ int main(int argc, char *argv[]) {
                 return 0;
         }
 
-        if (running_in_vm()) {
-                log_info("Disabling readahead collector due to execution in virtual machine.");
+        if (detect_virtualization(NULL) > 0) {
+                log_info("Disabling readahead collector due to execution in virtualized environment.");
                 return 0;
         }
 
