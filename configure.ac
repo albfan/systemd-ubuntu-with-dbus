@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[18],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[19],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -368,8 +368,10 @@ case $with_distro in
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                SPECIAL_SYSLOG_SERVICE=syslogd.service
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
+		have_plymouth=true
                 ;;
         other)
                 AS_IF([test "x$with_syslog_service" = "x"],

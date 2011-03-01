@@ -2134,8 +2134,32 @@ finish:
 
 int open_terminal(const char *name, int mode) {
         int fd, r;
+        unsigned c = 0;
 
-        if ((fd = open(name, mode)) < 0)
+        /*
+         * If a TTY is in the process of being closed opening it might
+         * cause EIO. This is horribly awful, but unlikely to be
+         * changed in the kernel. Hence we work around this problem by
+         * retrying a couple of times.
+         *
+         * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
+         */
+
+        for (;;) {
+                if ((fd = open(name, mode)) >= 0)
+                        break;
+
+                if (errno != EIO)
+                        return -errno;
+
+                if (c >= 20)
+                        return -errno;
+
+                usleep(50 * USEC_PER_MSEC);
+                c++;
+        }
+
+        if (fd < 0)
                 return -errno;
 
         if ((r = isatty(fd)) < 0) {
@@ -2749,25 +2773,118 @@ char* getlogname_malloc(void) {
         return name;
 }
 
-int getttyname_malloc(char **r) {
-        char path[PATH_MAX], *p, *c;
+int getttyname_malloc(int fd, char **r) {
+        char path[PATH_MAX], *c;
         int k;
 
         assert(r);
 
-        if ((k = ttyname_r(STDIN_FILENO, path, sizeof(path))) != 0)
+        if ((k = ttyname_r(fd, path, sizeof(path))) != 0)
                 return -k;
 
         char_array_0(path);
 
-        p = path;
-        if (startswith(path, "/dev/"))
-                p += 5;
-
-        if (!(c = strdup(p)))
+        if (!(c = strdup(startswith(path, "/dev/") ? path + 5 : path)))
                 return -ENOMEM;
 
         *r = c;
+        return 0;
+}
+
+int getttyname_harder(int fd, char **r) {
+        int k;
+        char *s;
+
+        if ((k = getttyname_malloc(fd, &s)) < 0)
+                return k;
+
+        if (streq(s, "tty")) {
+                free(s);
+                return get_ctty(r);
+        }
+
+        *r = s;
+        return 0;
+}
+
+int get_ctty_devnr(dev_t *d) {
+        int k;
+        char line[256], *p;
+        unsigned long ttynr;
+        FILE *f;
+
+        if (!(f = fopen("/proc/self/stat", "r")))
+                return -errno;
+
+        if (!(fgets(line, sizeof(line), f))) {
+                k = -errno;
+                fclose(f);
+                return k;
+        }
+
+        fclose(f);
+
+        if (!(p = strrchr(line, ')')))
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*d "  /* ppid */
+                   "%*d "  /* pgrp */
+                   "%*d "  /* session */
+                   "%lu ", /* ttynr */
+                   &ttynr) != 1)
+                return -EIO;
+
+        *d = (dev_t) ttynr;
+        return 0;
+}
+
+int get_ctty(char **r) {
+        int k;
+        char fn[128], *s, *b, *p;
+        dev_t devnr;
+
+        assert(r);
+
+        if ((k = get_ctty_devnr(&devnr)) < 0)
+                return k;
+
+        snprintf(fn, sizeof(fn), "/dev/char/%u:%u", major(devnr), minor(devnr));
+        char_array_0(fn);
+
+        if ((k = readlink_malloc(fn, &s)) < 0) {
+
+                if (k != -ENOENT)
+                        return k;
+
+                /* Probably something like the ptys which have no
+                 * symlink in /dev/char. Let's return something
+                 * vaguely useful. */
+
+                if (!(b = strdup(fn + 5)))
+                        return -ENOMEM;
+
+                *r = b;
+                return 0;
+        }
+
+        if (startswith(s, "/dev/"))
+                p = s + 5;
+        else if (startswith(s, "../"))
+                p = s + 3;
+        else
+                p = s;
+
+        b = strdup(p);
+        free(s);
+
+        if (!b)
+                return -ENOMEM;
+
+        *r = b;
         return 0;
 }
 
@@ -3589,50 +3706,50 @@ const char *default_term_for_tty(const char *tty) {
         return term;
 }
 
-bool running_in_vm(void) {
+/* Returns a short identifier for the various VM implementations */
+int detect_vm(const char **id) {
 
 #if defined(__i386__) || defined(__x86_64__)
 
         /* Both CPUID and DMI are x86 specific interfaces... */
 
-        const char *const dmi_vendors[] = {
+        static const char *const dmi_vendors[] = {
                 "/sys/class/dmi/id/sys_vendor",
                 "/sys/class/dmi/id/board_vendor",
                 "/sys/class/dmi/id/bios_vendor"
         };
 
-        uint32_t eax = 0x40000000;
+        static const char dmi_vendor_table[] =
+                "QEMU\0"                  "qemu\0"
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                "VMware\0"                "vmware\0"
+                "VMW\0"                   "vmware\0"
+                "Microsoft Corporation\0" "microsoft\0"
+                "innotek GmbH\0"          "oracle\0"
+                "Xen\0"                   "xen\0"
+                "Bochs\0"                 "bochs\0"
+                "\0";
+
+        static const char cpuid_vendor_table[] =
+                "XenVMMXenVMM\0"          "xen\0"
+                "KVMKVMKVM\0"             "kvm\0"
+                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+                "VMwareVMware\0"          "vmware\0"
+                /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
+                "Microsoft Hv\0"          "microsoft\0"
+                "\0";
+
+        uint32_t eax, ecx;
         union {
                 uint32_t sig32[3];
                 char text[13];
         } sig;
-
         unsigned i;
-
-        for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
-                char *s;
-                bool b;
-
-                if (read_one_line_file(dmi_vendors[i], &s) < 0)
-                        continue;
-
-                b = startswith(s, "QEMU") ||
-                        /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                        startswith(s, "VMware") ||
-                        startswith(s, "VMW") ||
-                        startswith(s, "Microsoft Corporation") ||
-                        startswith(s, "innotek GmbH") ||
-                        startswith(s, "Xen");
-
-                free(s);
-
-                if (b)
-                        return true;
-        }
+        const char *j, *k;
+        bool hypervisor;
 
         /* http://lwn.net/Articles/301888/ */
         zero(sig);
-
 
 #if defined (__i386__)
 #define REG_a "eax"
@@ -3642,27 +3759,109 @@ bool running_in_vm(void) {
 #define REG_b "rbx"
 #endif
 
+        /* First detect whether there is a hypervisor */
+        eax = 1;
         __asm__ __volatile__ (
                 /* ebx/rbx is being used for PIC! */
                 "  push %%"REG_b"         \n\t"
                 "  cpuid                  \n\t"
-                "  mov %%ebx, %1          \n\t"
                 "  pop %%"REG_b"          \n\t"
 
-                : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                : "=a" (eax), "=c" (ecx)
                 : "0" (eax)
         );
 
-        if (streq(sig.text, "XenVMMXenVMM") ||
-            streq(sig.text, "KVMKVMKVM") ||
-            /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-            streq(sig.text, "VMwareVMware") ||
-            /* http://msdn.microsoft.com/en-us/library/bb969719.aspx */
-            streq(sig.text, "Microsoft Hv"))
-                return true;
-#endif
+        hypervisor = !!(ecx & ecx & 0x80000000U);
 
-        return false;
+        if (hypervisor) {
+
+                /* There is a hypervisor, see what it is */
+                eax = 0x40000000U;
+                __asm__ __volatile__ (
+                        /* ebx/rbx is being used for PIC! */
+                        "  push %%"REG_b"         \n\t"
+                        "  cpuid                  \n\t"
+                        "  mov %%ebx, %1          \n\t"
+                        "  pop %%"REG_b"          \n\t"
+
+                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
+                        : "0" (eax)
+                );
+
+                NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
+                        if (streq(sig.text, j)) {
+
+                                if (id)
+                                        *id = k;
+
+                                return 1;
+                        }
+        }
+
+        for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
+                char *s;
+                int r;
+                const char *found = NULL;
+
+                if ((r = read_one_line_file(dmi_vendors[i], &s)) < 0) {
+                        if (r != -ENOENT)
+                                return r;
+
+                        continue;
+                }
+
+                NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
+                        if (startswith(s, j))
+                                found = k;
+                free(s);
+
+                if (found) {
+                        if (id)
+                                *id = found;
+
+                        return 1;
+                }
+        }
+
+        if (hypervisor) {
+                if (id)
+                        *id = "other";
+
+                return 1;
+        }
+
+#endif
+        return 0;
+}
+
+/* Returns a short identifier for the various VM/container implementations */
+int detect_virtualization(const char **id) {
+        int r;
+
+        /* Unfortunately most of these operations require root access
+         * in one way or another */
+        if (geteuid() != 0)
+                return -EPERM;
+
+        if ((r = running_in_chroot()) > 0) {
+                if (id)
+                        *id = "chroot";
+
+                return r;
+        }
+
+        /* /proc/vz exists in container and outside of the container,
+         * /proc/bc only outside of the container. */
+        if (access("/proc/vz", F_OK) >= 0 &&
+            access("/proc/bc", F_OK) < 0) {
+
+                if (id)
+                        *id = "openvz";
+
+                return 1;
+        }
+
+        return detect_vm(id);
 }
 
 void execute_directory(const char *directory, DIR *d, char *argv[]) {

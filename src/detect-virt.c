@@ -1,8 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foodbusjobhfoo
-#define foodbusjobhfoo
-
 /***
   This file is part of systemd.
 
@@ -22,15 +19,28 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <string.h>
 
-#include "job.h"
+#include "util.h"
 
-void bus_job_send_change_signal(Job *j);
-void bus_job_send_removed_signal(Job *j);
+int main(int argc, char *argv[]) {
+        int r;
+        const char *id;
 
-extern const DBusObjectPathVTable bus_job_vtable;
+        /* This is mostly intended to be used for scripts which want
+         * to detect whether we are being run in a virtualized
+         * environment or not */
 
-extern const char bus_job_interface[];
+        if ((r = detect_virtualization(&id)) < 0) {
+                log_error("Failed to check for virtualization: %s", strerror(-r));
+                return EXIT_FAILURE;
+        }
 
-#endif
+        if (r > 0)
+                puts(id);
+
+        return r == 0;
+}

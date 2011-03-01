@@ -8,7 +8,7 @@
 [Unit]
 Description=Getty on %I
 BindTo=dev-%i.device
-After=dev-%i.device systemd-user-sessions.service
+After=dev-%i.device systemd-user-sessions.service plymouth-quit-wait.service
 m4_ifdef(`TARGET_FEDORA',
 After=rc-local.service
 )m4_dnl
@@ -17,6 +17,9 @@ After=rc-local.service
 )m4_dnl
 m4_ifdef(`TARGET_FRUGALWARE',
 After=local.service
+)m4_dnl
+m4_ifdef(`TARGET_ALTLINUX',
+After=rc-local.service
 )m4_dnl
 
 # If additional gettys are spawned during boot then we should make

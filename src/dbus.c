@@ -418,7 +418,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection *connection, DBus
                                         goto oom;
                         }
 
-                        /* On success we don't do anything, the service will be spwaned now */
+                        /* On success we don't do anything, the service will be spawned now */
                 }
         }
 
@@ -1361,6 +1361,7 @@ static const char *error_to_dbus(int error) {
                 return DBUS_ERROR_FILE_EXISTS;
 
         case -ETIMEDOUT:
+        case -ETIME:
                 return DBUS_ERROR_TIMEOUT;
 
         case -EIO:

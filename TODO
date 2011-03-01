@@ -1,18 +1,44 @@
-Bugs:
+F15:
+
+* swap units that are activated by one name but shown in the kernel under another are semi-broken
+
+* dep cycle basic → udev-retry → auditd → iptables → basic
 
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
 
-* when plymouth is disabled the console password entry stuff seems to be borked
-  https://bugzilla.redhat.com/show_bug.cgi?id=655538
+* finish syslog socket stuff
 
-* exclude java hsp files by default
-  https://bugzilla.redhat.com/show_bug.cgi?id=527425
+* load EnvironmentFile= when starting services, not when reloading configuration
+  https://bugzilla.redhat.com/show_bug.cgi?id=661282
+
+* drop IN_ATTRIB from inotify watches for .path units where possible to avoid
+  lots of wakeups due to /dev changing when we watch a subdir of /dev.
+
+* NFS, networkmanager ordering issue
+
+* add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
+
+* hook emergency.target into local-fs.target in some way as OnFailure with isolate
+
+* convince Karel to give us our own mount option prefix
 
 Features:
 
-* Make use of UnknownInterface, UnknownObject
+* maybe implement "systemctl mask" and "systemctl unmask", but not
+  document it? When doing that add switch to make this temporary by
+  placing mask links in /dev.
 
-* increase password timeout
+* introduce simple way to do mandatory conditions
+
+* detect LXC environment
+
+* invoke vhangup() before and after invoking getty
+
+* skip readahead on physically r/o media
+
+* support "auto" and "comment=systemd.automount" at the same time for an fstab entry
+
+* Make use of UnknownInterface, UnknownObject
 
 * look up crypto partition mount points via fstab to show to the user when prompting for a password
 
@@ -31,18 +57,7 @@ Features:
 
 * support remote/ssh systemctl/systemadm, and local privileged access
 
-* finish syslog socket stuff
-
 * configurable jitter for timer events
-
-* support caching password questions in plymouth and on the console
-  https://bugzilla.redhat.com/show_bug.cgi?id=655538
-
-* load EnvironmentFile= when starting services, not when reloading configuration
-  https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
-* drop IN_ATTRIB from inotify watches for .path units where possible to avoid
-  lots of wakeups due to /dev changing when we watch a subdir of /dev.
 
 * Support ProcessNeededForShutdown=true to allow stuff like mdmon
   to be killed very late after the rootfs is read only (?)
@@ -112,19 +127,11 @@ Features:
 
 * allow runtime changing of log level and target
 
-Fedora:
-
-* chkconfig → systemd enable/daemon-reload glue
-
-* /var/lock, /var/run → what happens if rpm stuff is no %ghosted?
-
 External:
 
 * udisks should not use udisks-part-id, instead use blkid. also not probe /dev/loopxxx
 
 * snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
-
-* mount.tmpfs should be optimized, https://bugzilla.redhat.com/show_bug.cgi?id=676100
 
 * gnome-shell python script/glxinfo/is-accelerated wech
 

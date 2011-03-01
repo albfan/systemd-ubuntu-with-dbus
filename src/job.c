@@ -60,7 +60,7 @@ void job_free(Job *j) {
 
         /* Detach from next 'bigger' objects */
         if (j->installed) {
-                bus_job_send_removed_signal(j, !j->failed);
+                bus_job_send_removed_signal(j);
 
                 if (j->unit->meta.job == j) {
                         j->unit->meta.job = NULL;
@@ -101,7 +101,7 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
         /* Adds a new job link, which encodes that the 'subject' job
          * needs the 'object' job in some way. If 'subject' is NULL
          * this means the 'anchor' job (i.e. the one the user
-         * explcitily asked for) is the requester. */
+         * explicitly asked for) is the requester. */
 
         if (!(l = new0(JobDependency, 1)))
                 return NULL;
@@ -394,6 +394,7 @@ int job_run_and_invalidate(Job *j) {
                          * wait */
                         if (r == -EBADR)
                                 r = 0;
+
                         break;
 
                 case JOB_VERIFY_ACTIVE: {
@@ -455,17 +456,17 @@ int job_run_and_invalidate(Job *j) {
 
         if ((j = manager_get_job(m, id))) {
                 if (r == -EALREADY)
-                        r = job_finish_and_invalidate(j, true);
+                        r = job_finish_and_invalidate(j, JOB_DONE);
                 else if (r == -EAGAIN)
                         j->state = JOB_WAITING;
                 else if (r < 0)
-                        r = job_finish_and_invalidate(j, false);
+                        r = job_finish_and_invalidate(j, JOB_FAILED);
         }
 
         return r;
 }
 
-int job_finish_and_invalidate(Job *j, bool success) {
+int job_finish_and_invalidate(Job *j, JobResult result) {
         Unit *u;
         Unit *other;
         JobType t;
@@ -477,7 +478,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
-        if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
+        if (result == JOB_DONE && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
 
                 log_debug("Converting job %s/%s -> %s/%s",
                           j->unit->meta.id, job_type_to_string(j->type),
@@ -490,22 +491,26 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 return 0;
         }
 
-        j->failed = !success;
+        j->result = result;
 
-        log_debug("Job %s/%s finished, success=%s", j->unit->meta.id, job_type_to_string(j->type), yes_no(success));
+        log_debug("Job %s/%s finished, result=%s", j->unit->meta.id, job_type_to_string(j->type), job_result_to_string(result));
 
-        if (j->failed)
+        if (result == JOB_FAILED)
                 j->manager->n_failed_jobs ++;
 
         u = j->unit;
         t = j->type;
         job_free(j);
 
-        if (!success && j->type == JOB_START)
+        if (result == JOB_FAILED && t == JOB_START)
                 unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
+        else if (result == JOB_TIMEOUT && t == JOB_START)
+                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+        else if (result == JOB_TIMEOUT && t == JOB_STOP)
+                unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
 
         /* Fail depending jobs on failure */
-        if (!success) {
+        if (result != JOB_DONE) {
 
                 if (t == JOB_START ||
                     t == JOB_VERIFY_ACTIVE ||
@@ -516,14 +521,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, false);
+                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
                                 if (other->meta.job &&
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, false);
+                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
                                 if (other->meta.job &&
@@ -531,7 +536,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, false);
+                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
 
                 } else if (t == JOB_STOP) {
 
@@ -540,9 +545,16 @@ int job_finish_and_invalidate(Job *j, bool success) {
                                     (other->meta.job->type == JOB_START ||
                                      other->meta.job->type == JOB_VERIFY_ACTIVE ||
                                      other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, false);
+                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
                 }
         }
+
+        /* Trigger OnFailure dependencies that are not generated by
+         * the unit itself. We don't tread JOB_CANCELED as failure in
+         * this context. And JOB_FAILURE is already handled by the
+         * unit itself. */
+        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY)
+                unit_trigger_on_failure(u);
 
         /* Try to start the next jobs that can be started */
         SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)
@@ -646,7 +658,7 @@ void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
         assert(w == &j->timer_watch);
 
         log_warning("Job %s/%s timed out.", j->unit->meta.id, job_type_to_string(j->type));
-        job_finish_and_invalidate(j, false);
+        job_finish_and_invalidate(j, JOB_TIMEOUT);
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
@@ -676,3 +688,13 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
+
+static const char* const job_result_table[_JOB_RESULT_MAX] = {
+        [JOB_DONE] = "done",
+        [JOB_CANCELED] = "canceled",
+        [JOB_TIMEOUT] = "timeout",
+        [JOB_FAILED] = "failed",
+        [JOB_DEPENDENCY] = "dependency"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

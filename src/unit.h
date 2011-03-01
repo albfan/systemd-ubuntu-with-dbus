@@ -40,7 +40,7 @@ typedef enum UnitDependency UnitDependency;
 #include "execute.h"
 #include "condition.h"
 
-#define DEFAULT_TIMEOUT_USEC (60*USEC_PER_SEC)
+#define DEFAULT_TIMEOUT_USEC (3*USEC_PER_MINUTE)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
 enum UnitType {
@@ -196,7 +196,7 @@ struct Meta {
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
-        /* Create default depedencies */
+        /* Create default dependencies */
         bool default_dependencies;
 
         /* Refuse manual starting, allow starting only indirectly via dependency. */
@@ -290,7 +290,7 @@ struct UnitVTable {
 
         /* Returns the substate specific to this unit type as
          * string. This is purely information so that we can give the
-         * user a more finegrained explanation in which actual state a
+         * user a more fine grained explanation in which actual state a
          * unit is in. */
         const char* (*sub_state_to_string)(Unit *u);
 
@@ -510,6 +510,8 @@ int unit_following_set(Unit *u, Set **s);
 
 UnitType unit_name_to_type(const char *n);
 bool unit_name_is_valid(const char *n, bool template_ok);
+
+void unit_trigger_on_failure(Unit *u);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

@@ -22,12 +22,14 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <mntent.h>
 
 #include <libcryptsetup.h>
 #include <libudev.h>
 
 #include "log.h"
 #include "util.h"
+#include "strv.h"
 #include "ask-password-api.h"
 
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
@@ -163,7 +165,8 @@ static char *disk_description(const char *path) {
                 goto finish;
 
         if ((model = udev_device_get_property_value(device, "ID_MODEL_FROM_DATABASE")) ||
-            (model = udev_device_get_property_value(device, "ID_MODEL")))
+            (model = udev_device_get_property_value(device, "ID_MODEL")) ||
+            (model = udev_device_get_property_value(device, "DM_NAME")))
                 description = strdup(model);
 
 finish:
@@ -176,12 +179,56 @@ finish:
         return description;
 }
 
+static char *disk_mount_point(const char *label) {
+        char *mp = NULL, *device = NULL;
+        FILE *f = NULL;
+        struct mntent *m;
+
+        /* Yeah, we don't support native systemd unit files here for now */
+
+        if (asprintf(&device, "/dev/mapper/%s", label) < 0)
+                goto finish;
+
+        if (!(f = setmntent("/etc/fstab", "r")))
+                goto finish;
+
+        while ((m = getmntent(f)))
+                if (path_equal(m->mnt_fsname, device)) {
+                        mp = strdup(m->mnt_dir);
+                        break;
+                }
+
+finish:
+        if (f)
+                endmntent(f);
+
+        free(device);
+
+        return mp;
+}
+
+static int help(void) {
+
+        printf("%s attach VOLUME SOURCEDEVICE [PASSWORD] [OPTIONS]\n"
+               "%s detach VOLUME\n\n"
+               "Attaches or detaches an encrypted block device.\n",
+               program_invocation_short_name,
+               program_invocation_short_name);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r = EXIT_FAILURE;
         struct crypt_device *cd = NULL;
-        char *password = NULL, *truncated_cipher = NULL;
+        char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
-        char *description = NULL;
+        char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
+
+        if (argc <= 1) {
+                help();
+                return EXIT_SUCCESS;
+        }
 
         if (argc < 3) {
                 log_error("This program requires at least two arguments.");
@@ -199,6 +246,8 @@ int main(int argc, char *argv[]) {
                 const char *key_file = NULL;
                 usec_t until;
                 crypt_status_info status;
+
+                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
                 if (argc < 4) {
                         log_error("attach requires at least two arguments.");
@@ -223,7 +272,24 @@ int main(int argc, char *argv[]) {
                 mlockall(MCL_FUTURE);
 
                 description = disk_description(argv[3]);
-                name = description ? description : argv[2];
+                mount_point = disk_mount_point(argv[2]);
+
+                if (description && streq(argv[2], description)) {
+                        /* If the description string is simply the
+                         * volume name, then let's not show this
+                         * twice */
+                        free(description);
+                        description = NULL;
+                }
+
+                if (mount_point && description)
+                        asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
+                else if (mount_point)
+                        asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
+                else if (description)
+                        asprintf(&name_buffer, "%s (%s)", description, argv[2]);
+
+                name = name_buffer ? name_buffer : argv[2];
 
                 if ((k = crypt_init(&cd, argv[3]))) {
                         log_error("crypt_init() failed: %s", strerror(-k));
@@ -268,18 +334,19 @@ int main(int argc, char *argv[]) {
                 for (try = 0; try < opt_tries; try++) {
                         bool pass_volume_key = false;
 
-                        free(password);
-                        password = NULL;
+                        strv_free(passwords);
+                        passwords = NULL;
 
                         if (!key_file) {
                                 char *text;
+                                char **p;
 
                                 if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
                                         log_error("Out of memory");
                                         goto finish;
                                 }
 
-                                k = ask_password_auto(text, "drive-harddisk", until, &password);
+                                k = ask_password_auto(text, "drive-harddisk", until, try == 0 && !opt_verify, &passwords);
                                 free(text);
 
                                 if (k < 0) {
@@ -288,14 +355,16 @@ int main(int argc, char *argv[]) {
                                 }
 
                                 if (opt_verify) {
-                                        char *password2 = NULL;
+                                        char **passwords2 = NULL;
+
+                                        assert(strv_length(passwords) == 1);
 
                                         if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
                                                 log_error("Out of memory");
                                                 goto finish;
                                         }
 
-                                        k = ask_password_auto(text, "drive-harddisk", until, &password2);
+                                        k = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
                                         free(text);
 
                                         if (k < 0) {
@@ -303,28 +372,34 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                         }
 
-                                        if (!streq(password, password2)) {
+                                        assert(strv_length(passwords2) == 1);
+
+                                        if (!streq(passwords[0], passwords2[0])) {
                                                 log_warning("Passwords did not match, retrying.");
-                                                free(password2);
+                                                strv_free(passwords2);
                                                 continue;
                                         }
 
-                                        free(password2);
+                                        strv_free(passwords2);
                                 }
 
-                                if (strlen(password)+1 < opt_key_size) {
+                                strv_uniq(passwords);
+
+                                STRV_FOREACH(p, passwords) {
                                         char *c;
 
-                                        /* Pad password if necessary */
+                                        if (strlen(*p)+1 >= opt_key_size)
+                                                continue;
 
+                                        /* Pad password if necessary */
                                         if (!(c = new(char, opt_key_size))) {
                                                 log_error("Out of memory.");
                                                 goto finish;
                                         }
 
-                                        strncpy(c, password, opt_key_size);
-                                        free(password);
-                                        password = c;
+                                        strncpy(c, *p, opt_key_size);
+                                        free(*p);
+                                        *p = c;
                                 }
                         }
 
@@ -367,10 +442,20 @@ int main(int argc, char *argv[]) {
 
                         if (key_file)
                                 k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_key_size, flags);
-                        else if (pass_volume_key)
-                                k = crypt_activate_by_volume_key(cd, argv[2], password, opt_key_size, flags);
-                        else
-                                k = crypt_activate_by_passphrase(cd, argv[2], CRYPT_ANY_SLOT, password, strlen(password), flags);
+                        else {
+                                char **p;
+
+                                STRV_FOREACH(p, passwords) {
+
+                                        if (pass_volume_key)
+                                                k = crypt_activate_by_volume_key(cd, argv[2], *p, opt_key_size, flags);
+                                        else
+                                                k = crypt_activate_by_passphrase(cd, argv[2], CRYPT_ANY_SLOT, *p, strlen(*p), flags);
+
+                                        if (k >= 0)
+                                                break;
+                                }
+                        }
 
                         if (k >= 0)
                                 break;
@@ -421,9 +506,11 @@ finish:
 
         free(truncated_cipher);
 
-        free(password);
+        strv_free(passwords);
 
         free(description);
+        free(mount_point);
+        free(name_buffer);
 
         return r;
 }
