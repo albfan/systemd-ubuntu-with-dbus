@@ -24,6 +24,7 @@ override_dh_install:
 	rm debian/tmp/lib/systemd/system/sysinit.target.wants/systemd-vconsole-setup.service
 	dh_install -O--parallel --fail-missing
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
+	dh_install debian/ifup@.service /lib/systemd/system
 
 %:
 	dh $@ --parallel --with autoreconf
