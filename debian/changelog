@@ -6,6 +6,8 @@ systemd (19-1) UNRELEASED; urgency=low
     udev.  Closes: #610871
   * Mask mtab.service and udev-mtab.service as they are pointless when
     /etc/mtab is a symlink to /proc/mounts
+  * Add breaks on lvm2 (<< 2.02.84-1) since older versions have udev rules
+    that don't work well with systemd causing delays on bootup.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 17 Feb 2011 07:36:22 +0100
 
