@@ -18,6 +18,10 @@
 /dev/null /lib/systemd/system/stop-bootlogd-single.service
 /dev/null /lib/systemd/system/stop-bootlogd.service
 
+# These are pointless, /etc/mtab should be a symlink
+/dev/null /lib/systemd/system/mtab.service
+/dev/null /lib/systemd/system/udev-mtab.service
+
 # TODO: make hwclock a symlink to hwclock-load.service?
 # Before this can happen we need to ensure that the 85-hwclock.rules
 # udev rule is not triggered when running systemd.

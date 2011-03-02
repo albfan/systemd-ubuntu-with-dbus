@@ -4,6 +4,8 @@ systemd (19-1) UNRELEASED; urgency=low
   * Add systemd-tmpfiles to systemd package.
   * Add ifup@.service for handling hotplugged interfaces from
     udev.  Closes: #610871
+  * Mask mtab.service and udev-mtab.service as they are pointless when
+    /etc/mtab is a symlink to /proc/mounts
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 17 Feb 2011 07:36:22 +0100
 
