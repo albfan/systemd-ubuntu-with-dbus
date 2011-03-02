@@ -1,6 +1,7 @@
 systemd (19-1) UNRELEASED; urgency=low
 
   * New upstream release
+  * Add systemd-tmpfiles to systemd package.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 17 Feb 2011 07:36:22 +0100
 

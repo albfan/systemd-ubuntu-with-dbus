@@ -4,6 +4,7 @@ bin/systemctl
 bin/systemd-notify
 bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
+bin/systemd-tmpfiles
 lib/systemd/
 lib/udev/rules.d/99-systemd.rules
 usr/bin/systemd-cgls
@@ -14,6 +15,7 @@ usr/share/man/man1/systemctl.1
 usr/share/man/man3
 usr/share/man/man5
 usr/share/man/man7
+usr/share/man/man8/systemd-tmpfiles.8
 usr/share/dbus-1
 usr/share/doc
 usr/share/pkgconfig
