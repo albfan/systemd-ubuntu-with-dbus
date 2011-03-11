@@ -4,6 +4,7 @@ bin/systemctl
 bin/systemd-notify
 bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
+bin/systemd-machine-id-setup
 bin/systemd-tmpfiles
 lib/systemd/
 lib/udev/rules.d/99-systemd.rules
