@@ -1,3 +1,4 @@
+systemd-machine-id-setup
 systemd-detect-virt
 systemd-sysctl
 test-strv
@@ -79,3 +80,4 @@ ltmain.sh
 *.tar.gz
 *.tar.xz
 libtool
+.vimrc

@@ -683,6 +683,73 @@ fail:
         return r;
 }
 
+int load_env_file(
+                const char *fname,
+                char ***rl) {
+
+        FILE *f;
+        char **m = 0;
+        int r;
+
+        assert(fname);
+        assert(rl);
+
+        if (!(f = fopen(fname, "re")))
+                return -errno;
+
+        while (!feof(f)) {
+                char l[LINE_MAX], *p, *u;
+                char **t;
+
+                if (!fgets(l, sizeof(l), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        goto finish;
+                }
+
+                p = strstrip(l);
+
+                if (!*p)
+                        continue;
+
+                if (strchr(COMMENTS, *p))
+                        continue;
+
+                if (!(u = normalize_env_assignment(p))) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                t = strv_append(m, u);
+                free(u);
+
+                if (!t) {
+                        log_error("Out of memory");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                strv_free(m);
+                m = t;
+        }
+
+        r = 0;
+
+        *rl = m;
+        m = NULL;
+
+finish:
+        if (f)
+                fclose(f);
+
+        strv_free(m);
+
+        return r;
+}
+
 char *truncate_nl(char *s) {
         assert(s);
 
@@ -3185,6 +3252,32 @@ void status_welcome(void) {
         if (!ansi_color)
                 const_color = "0;33"; /* Orange/Brown for Ubuntu */
 
+#elif defined(TARGET_MANDRIVA)
+
+        if (!pretty_name) {
+                char *s, *p;
+
+                if ((r = read_one_line_file("/etc/mandriva-release", &s) < 0)) {
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/mandriva-release: %s", strerror(-r));
+                } else {
+                        p = strstr(s, " release ");
+                        if (p) {
+                                *p = '\0';
+                                p += 9;
+                                p[strcspn(p, " ")] = '\0';
+
+                                /* This corresponds to standard rc.sysinit */
+                                if (asprintf(&pretty_name, "%s\x1B[0;39m %s", s, p) > 0)
+                                        const_color = "1;36";
+                                else
+                                        log_warning("Failed to allocate Mandriva version string.");
+                        } else
+                                log_warning("Failed to parse /etc/mandriva-release");
+                        free(s);
+                }
+        }
+
 #endif
 
         if (!pretty_name && !const_pretty)
@@ -3975,6 +4068,17 @@ finish:
 
         if (pids)
                 hashmap_free_free(pids);
+}
+
+int kill_and_sigcont(pid_t pid, int sig) {
+        int r;
+
+        r = kill(pid, sig) < 0 ? -errno : 0;
+
+        if (r >= 0)
+                kill(pid, SIGCONT);
+
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

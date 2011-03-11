@@ -84,10 +84,17 @@ AM_CPPFLAGS += \
 	-DKBD_SETFONT=\"/usr/bin/setfont\" \
 	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
 else
+if TARGET_MANDRIVA
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/bin/setfont\" \
+	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+else
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+endif
 endif
 endif
 endif
@@ -98,7 +105,8 @@ rootbin_PROGRAMS = \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
-	systemd-tmpfiles
+	systemd-tmpfiles \
+	systemd-machine-id-setup
 
 bin_PROGRAMS = \
 	systemd-cgls
@@ -232,6 +240,7 @@ dist_systemunit_DATA = \
 	units/sys-kernel-security.mount \
 	units/var-lock.mount \
 	units/var-run.mount \
+	units/media.mount \
 	units/hwclock-load.service \
 	units/hwclock-save.service \
 	units/remount-rootfs.service \
@@ -335,6 +344,13 @@ dist_systemunit_DATA += \
 	units/fedora/halt-local.service
 endif
 
+if TARGET_MANDRIVA
+dist_systemunit_DATA += \
+	units/mandriva/prefdm.service \
+	units/fedora/rc-local.service \
+	units/fedora/halt-local.service
+endif
+
 if HAVE_PLYMOUTH
 dist_systemunit_DATA += \
 	units/plymouth-start.service \
@@ -434,6 +450,7 @@ libsystemd_core_la_SOURCES = \
 	src/loopback-setup.c \
 	src/kmod-setup.c \
 	src/locale-setup.c \
+	src/machine-id-setup.c \
 	src/specifier.c \
 	src/unit-name.c \
 	src/fdset.c \
@@ -523,6 +540,7 @@ MANPAGES = \
 	man/systemd.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
+	man/machine-id.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
@@ -735,6 +753,16 @@ systemd_tmpfiles_CFLAGS = \
 	$(AM_CFLAGS)
 
 systemd_tmpfiles_LDADD = \
+	libsystemd-basic.la
+
+systemd_machine_id_setup_SOURCES = \
+	src/machine-id-setup.c \
+	src/machine-id-main.c
+
+systemd_machine_id_setup_CFLAGS = \
+	$(AM_CFLAGS)
+
+systemd_machine_id_setup_LDADD = \
 	libsystemd-basic.la
 
 systemd_sysctl_SOURCES = \
@@ -1213,12 +1241,14 @@ install-data-hook:
 			fsck-root.service \
 			remount-rootfs.service \
 			var-run.mount \
-			var-lock.mount && \
+			var-lock.mount \
+			media.mount && \
 		$(LN_S) ../systemd-remount-api-vfs.service systemd-remount-api-vfs.service && \
 		$(LN_S) ../fsck-root.service fsck-root.service && \
 		$(LN_S) ../remount-rootfs.service remount-rootfs.service && \
 		$(LN_S) ../var-run.mount var-run.mount && \
-		$(LN_S) ../var-lock.mount var-lock.mount )
+		$(LN_S) ../var-lock.mount var-lock.mount && \
+		$(LN_S) ../media.mount media.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
 		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
@@ -1276,6 +1306,7 @@ install-data-hook:
 			systemd-tmpfiles-setup.service \
 			systemd-sysctl.service \
 			systemd-ask-password-console.path \
+			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
 		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
 		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
@@ -1288,6 +1319,7 @@ install-data-hook:
 		$(LN_S) ../systemd-tmpfiles-setup.service systemd-tmpfiles-setup.service && \
 		$(LN_S) ../systemd-sysctl.service systemd-sysctl.service && \
 		$(LN_S) ../systemd-ask-password-console.path systemd-ask-password-console.path && \
+		$(LN_S) ../systemd-kmsg-syslogd.service && \
 		$(LN_S) ../cryptsetup.target cryptsetup.target )
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
@@ -1339,6 +1371,23 @@ if TARGET_FEDORA
 		rm -f display-manager.service && \
 		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
 endif
+
+if TARGET_MANDRIVA
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f display-manager.service && \
+		$(LN_S) prefdm.service display-manager.service )
+	( cd $(DESTDIR)$(systemunitdir)/graphical.target.wants && \
+		rm -f display-manager.service && \
+		$(LN_S) $(systemunitdir)/display-manager.service display-manager.service )
+endif
+
 if TARGET_DEBIAN_OR_UBUNTU
 	( cd $(DESTDIR)$(systemunitdir) && \
 		rm -f runlevel5.target && \

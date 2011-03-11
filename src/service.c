@@ -275,7 +275,13 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         static const char * const table[] = {
                 /* LSB defined facilities */
                 "local_fs",             SPECIAL_LOCAL_FS_TARGET,
+#ifndef TARGET_MANDRIVA
+		/* Due to unfortunate name selection in Mandriva,
+		 * $network is provided by network-up which is ordered
+		 * after network which actually starts interfaces.
+		 * To break the loop, just ignore it */
                 "network",              SPECIAL_NETWORK_TARGET,
+#endif
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
@@ -345,9 +351,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 return -ENOMEM;
 
 finish:
-
-        if (_r)
-                *_r = r;
+        *_r = r;
 
         return 1;
 }
@@ -837,7 +841,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if (description) {
                 char *d;
 
-                if (!(d = strappend("LSB: ", description))) {
+                if (!(d = strappend(s->sysv_has_lsb ? "LSB: " : "SYSV: ", description))) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -1830,9 +1834,9 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
                 if (s->main_pid > 0) {
-                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                 -s->main_pid :
-                                 s->main_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                             -s->main_pid :
+                                             s->main_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
                         else
@@ -1840,9 +1844,9 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 }
 
                 if (s->control_pid > 0) {
-                        if (kill(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                 -s->control_pid :
-                                 s->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
+                                             -s->control_pid :
+                                             s->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
@@ -1865,7 +1869,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                                 if ((r = set_put(pid_set, LONG_TO_PTR(s->control_pid))) < 0)
                                         goto fail;
 
-                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, pid_set)) < 0) {
+                        if ((r = cgroup_bonding_kill_list(s->meta.cgroup_bondings, sig, true, pid_set)) < 0) {
                                 if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                         log_warning("Failed to kill control group: %s", strerror(-r));
                         } else if (r > 0)
@@ -3230,7 +3234,7 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
                                 goto finish;
                         }
 
-                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, pid_set)) < 0)
+                if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
                         if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
                                 r = q;
         }

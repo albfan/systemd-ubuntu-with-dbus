@@ -1340,79 +1340,25 @@ static int config_parse_env_file(
                 void *data,
                 void *userdata) {
 
-        FILE *f;
-        int r;
-        char ***env = data;
-        bool ignore = false;
+        char ***env = data, **k;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (rvalue[0] == '-') {
-                ignore = true;
-                rvalue++;
-        }
-
-        if (!path_is_absolute(rvalue)) {
+        if (!path_is_absolute(rvalue[0] == '-' ? rvalue + 1 : rvalue)) {
                 log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, rvalue);
                 return 0;
         }
 
-        if (!(f = fopen(rvalue, "re"))) {
-                if (!ignore)
-                        log_error("[%s:%u] Failed to open environment file '%s', ignoring: %m", filename, line, rvalue);
-                return 0;
-        }
+        if (!(k = strv_append(*env, rvalue)))
+                return -ENOMEM;
 
-        while (!feof(f)) {
-                char l[LINE_MAX], *p, *u;
-                char **t;
+        strv_free(*env);
+        *env = k;
 
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
-
-                        log_error("[%s:%u] Failed to read environment file '%s', ignoring: %m", filename, line, rvalue);
-                        r = 0;
-                        goto finish;
-                }
-
-                p = strstrip(l);
-
-                if (!*p)
-                        continue;
-
-                if (strchr(COMMENTS, *p))
-                        continue;
-
-                if (!(u = normalize_env_assignment(p))) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                t = strv_append(*env, u);
-                free(u);
-
-                if (!t) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                strv_free(*env);
-                *env = t;
-        }
-
-        r = 0;
-
-finish:
-        if (f)
-                fclose(f);
-
-        return r;
+        return 0;
 }
 
 static int config_parse_ip_tos(
@@ -1451,13 +1397,16 @@ static int config_parse_condition_path(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
 
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
@@ -1468,7 +1417,7 @@ static int config_parse_condition_path(
         }
 
         if (!(c = condition_new(streq(lvalue, "ConditionPathExists") ? CONDITION_PATH_EXISTS : CONDITION_DIRECTORY_NOT_EMPTY,
-                                rvalue, negate)))
+                                rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1485,7 +1434,7 @@ static int config_parse_condition_kernel(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
@@ -1493,10 +1442,13 @@ static int config_parse_condition_kernel(
         assert(rvalue);
         assert(data);
 
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
+
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
 
-        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, negate)))
+        if (!(c = condition_new(CONDITION_KERNEL_COMMAND_LINE, rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1513,7 +1465,7 @@ static int config_parse_condition_virt(
                 void *userdata) {
 
         Unit *u = data;
-        bool negate;
+        bool trigger, negate;
         Condition *c;
 
         assert(filename);
@@ -1521,10 +1473,13 @@ static int config_parse_condition_virt(
         assert(rvalue);
         assert(data);
 
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
+
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
 
-        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, negate)))
+        if (!(c = condition_new(CONDITION_VIRTUALIZATION, rvalue, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1542,13 +1497,16 @@ static int config_parse_condition_null(
 
         Unit *u = data;
         Condition *c;
-        bool negate;
+        bool trigger, negate;
         int b;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if ((trigger = rvalue[0] == '|'))
+                rvalue++;
 
         if ((negate = rvalue[0] == '!'))
                 rvalue++;
@@ -1561,7 +1519,7 @@ static int config_parse_condition_null(
         if (!b)
                 negate = !negate;
 
-        if (!(c = condition_new(CONDITION_NULL, NULL, negate)))
+        if (!(c = condition_new(CONDITION_NULL, NULL, trigger, negate)))
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
@@ -1803,7 +1761,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
-                { "EnvironmentFile",        config_parse_env_file,        &(context).environment,                          section   }, \
+                { "EnvironmentFile",        config_parse_env_file,        &(context).environment_files,                    section   }, \
                 { "StandardInput",          config_parse_input,           &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
                 { "StandardError",          config_parse_output,          &(context).std_error,                            section   }, \
