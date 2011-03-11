@@ -422,10 +422,16 @@ int job_run_and_invalidate(Job *j) {
                         break;
 
                 case JOB_RELOAD_OR_START:
-                        if (unit_active_state(j->unit) == UNIT_ACTIVE)
+                        if (unit_active_state(j->unit) == UNIT_ACTIVE) {
+                                j->type = JOB_RELOAD;
                                 r = unit_reload(j->unit);
-                        else
+                        } else {
+                                j->type = JOB_START;
                                 r = unit_start(j->unit);
+
+                                if (r == -EBADR)
+                                        r = 0;
+                        }
                         break;
 
                 case JOB_RESTART: {
@@ -445,8 +451,10 @@ int job_run_and_invalidate(Job *j) {
                         else if (t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
                                 r = unit_start(j->unit);
-                        } else
+                        } else {
+                                j->type = JOB_RESTART;
                                 r = unit_stop(j->unit);
+                        }
                         break;
                 }
 
@@ -457,6 +465,8 @@ int job_run_and_invalidate(Job *j) {
         if ((j = manager_get_job(m, id))) {
                 if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE);
+                else if (r == -ENOEXEC)
+                        r = job_finish_and_invalidate(j, JOB_SKIPPED);
                 else if (r == -EAGAIN)
                         j->state = JOB_WAITING;
                 else if (r < 0)
@@ -694,7 +704,8 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_CANCELED] = "canceled",
         [JOB_TIMEOUT] = "timeout",
         [JOB_FAILED] = "failed",
-        [JOB_DEPENDENCY] = "dependency"
+        [JOB_DEPENDENCY] = "dependency",
+        [JOB_SKIPPED] = "skipped"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

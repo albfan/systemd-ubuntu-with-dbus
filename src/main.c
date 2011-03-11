@@ -41,6 +41,7 @@
 #include "kmod-setup.h"
 #include "locale-setup.h"
 #include "selinux-setup.h"
+#include "machine-id-setup.h"
 #include "load-fragment.h"
 #include "fdset.h"
 #include "special.h"
@@ -941,27 +942,25 @@ static void test_mtab(void) {
 }
 
 static void test_usr(void) {
-        struct stat a, b;
-        bool seperate = false;
+        bool separate = false;
 
-        /* Check that /usr is not a seperate fs */
+        /* Check that /usr is not a separate fs */
 
-        if (lstat("/", &a) >= 0 && lstat("/usr", &b) >= 0)
-                if (a.st_dev != b.st_dev)
-                        seperate = true;
-
+        if (path_is_mount_point("/usr") > 0)
+                separate = true;
         /* This check won't work usually during boot, since /usr is
          * probably not mounted yet, hence let's add a second
          * check. We just check whether /usr is an empty directory. */
 
         if (dir_is_empty("/usr") > 0)
-                seperate = true;
+                separate = true;
 
-        if (!seperate)
+        if (!separate)
                 return;
 
         log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
-                    "Some things will probably break (sometimes even silently) in mysterious ways.");
+                    "Some things will probably break (sometimes even silently) in mysterious ways. "
+                    "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
 int main(int argc, char *argv[]) {
@@ -1129,6 +1128,7 @@ int main(int argc, char *argv[]) {
 
                 kmod_setup();
                 hostname_setup();
+                machine_id_setup();
                 loopback_setup();
 
                 mkdir_p("/dev/.systemd/ask-password/", 0755);

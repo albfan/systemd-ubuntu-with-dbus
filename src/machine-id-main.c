@@ -1,8 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef fooreadaheadcommonhfoo
-#define fooreadaheadcommonhfoo
-
 /***
   This file is part of systemd.
 
@@ -22,29 +19,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <sys/stat.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
 
-#include "macro.h"
+#include "machine-id-setup.h"
+#include "log.h"
 
-#define READAHEAD_FILE_SIZE_MAX (128*1024*1024)
+int main(int argc, char *argv[]) {
 
-int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st);
+        log_set_target(LOG_TARGET_AUTO);
+        log_parse_environment();
+        log_open();
 
-int fs_on_ssd(const char *p);
-int fs_on_read_only(const char *p);
-
-bool enough_ram(void);
-
-int open_inotify(void);
-
-typedef struct ReadaheadShared {
-        pid_t collect;
-        pid_t replay;
-} _packed_ ReadaheadShared;
-
-ReadaheadShared *shared_get(void);
-
-int bump_request_nr(const char *p);
-
-#endif
+        return machine_id_setup() < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+}

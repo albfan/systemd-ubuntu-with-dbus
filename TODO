@@ -8,39 +8,39 @@ F15:
 
 * finish syslog socket stuff
 
-* load EnvironmentFile= when starting services, not when reloading configuration
-  https://bugzilla.redhat.com/show_bug.cgi?id=661282
-
-* drop IN_ATTRIB from inotify watches for .path units where possible to avoid
-  lots of wakeups due to /dev changing when we watch a subdir of /dev.
-
 * NFS, networkmanager ordering issue
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* convince Karel to give us our own mount option prefix
+* mount /dev/.run and /var/run as bind mounts
+
+* Make use of UnknownInterface
+
+* support chkconfig without forwarding to systemctl to facilitate upgrades
+
+* drop SIGHUP handling from rsyslog.service upstream
 
 Features:
+
+* consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
+
+* consider services with any kind of link in /etc/systemd/system enabled
+
+* show failure error string in "systemctl status"
+
+* make sure timeouts are applied to Type=oneshot services.
 
 * maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
 
-* introduce simple way to do mandatory conditions
-
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
 
-* skip readahead on physically r/o media
-
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
-
-* Make use of UnknownInterface, UnknownObject
-
-* look up crypto partition mount points via fstab to show to the user when prompting for a password
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
 
@@ -119,7 +119,7 @@ Features:
 
 * readahead: btrfs/LVM SSD detection
 
-* add seperate man page for [Install] settings
+* add separate man page for [Install] settings
 
 * only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
 

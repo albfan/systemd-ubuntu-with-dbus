@@ -1249,7 +1249,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                         log_error("Job canceled.");
                 else if (streq(d.result, "dependency"))
                         log_error("A dependency job failed. See system logs for details.");
-                else if (!streq(d.result, "done"))
+                else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
                         log_error("Job failed. See system logs and 'systemctl status' for details.");
         }
 
@@ -1257,7 +1257,7 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 r = -ETIME;
         else if (streq_ptr(d.result, "canceled"))
                 r = -ECANCELED;
-        else if (!streq_ptr(d.result, "done"))
+        else if (!streq_ptr(d.result, "done") && !streq_ptr(d.result, "skipped"))
                 r = -EIO;
         else
                 r = 0;
@@ -1417,10 +1417,15 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
                         streq(args[0], "stop")                  ? "StopUnit" :
                         streq(args[0], "reload")                ? "ReloadUnit" :
                         streq(args[0], "restart")               ? "RestartUnit" :
+
                         streq(args[0], "try-restart")           ||
                         streq(args[0], "condrestart")           ? "TryRestartUnit" :
+
                         streq(args[0], "reload-or-restart")     ? "ReloadOrRestartUnit" :
+
                         streq(args[0], "reload-or-try-restart") ||
+                        streq(args[0], "condreload") ||
+
                         streq(args[0], "force-reload")          ? "ReloadOrTryRestartUnit" :
                                                                   "StartUnit";
 
@@ -2365,6 +2370,25 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 }
 
                                 puts("");
+                        }
+
+                        return 0;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "EnvironmentFiles")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *path;
+                                dbus_bool_t ignore;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, false) >= 0)
+                                        printf("EnvironmentFile=%s (ignore=%s)\n", path, yes_no(ignore));
+
+                                dbus_message_iter_next(&sub);
                         }
 
                         return 0;
@@ -4018,7 +4042,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         }
 
         if (!f) {
-#if defined(TARGET_FEDORA) && defined (HAVE_SYSV_COMPAT)
+#if (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)) && defined (HAVE_SYSV_COMPAT)
 
                 if (endswith(i->name, ".service")) {
                         char *sysv;
@@ -4048,7 +4072,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 argv[1] = file_name_from_path(sysv);
                                 argv[2] =
                                         streq(verb, "enable") ? "on" :
-                                        streq(verb, "disable") ? "off" : NULL;
+                                        streq(verb, "disable") ? "off" : "--level=3";
 
                                 log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
 
@@ -4067,10 +4091,15 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                         return r;
 
                                 if (status.si_code == CLD_EXITED) {
-                                        if (status.si_status == 0 && (streq(verb, "enable") || streq(verb, "disable")))
+
+                                        if (streq(verb, "is-enabled"))
+                                                return status.si_status == 0 ? 1 : 0;
+
+                                        if (status.si_status == 0)
                                                 n_symlinks ++;
 
                                         return status.si_status == 0 ? 0 : -EINVAL;
+
                                 } else
                                         return -EPROTO;
                         }
@@ -4172,6 +4201,8 @@ static int enable_unit(DBusConnection *bus, char **args, unsigned n) {
                         log_warning("Cannot install unit %s: %s", args[j], strerror(-r));
                         goto finish;
                 }
+
+        r = 0;
 
         while ((i = hashmap_first(will_install))) {
                 int q;
@@ -5166,6 +5197,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "reload-or-restart",     MORE,  2, start_unit        },
                 { "reload-or-try-restart", MORE,  2, start_unit        },
                 { "force-reload",          MORE,  2, start_unit        }, /* For compatibility with SysV */
+                { "condreload",            MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "condrestart",           MORE,  2, start_unit        }, /* For compatibility with RH */
                 { "isolate",               EQUAL, 2, start_unit        },
                 { "kill",                  MORE,  2, kill_unit         },
@@ -5530,6 +5562,7 @@ static void pager_close(void) {
 
         /* Inform pager that we are done */
         fclose(stdout);
+        kill(pager_pid, SIGCONT);
         wait_for_terminate(pager_pid, &dummy);
         pager_pid = 0;
 }
@@ -5542,6 +5575,7 @@ static void agent_close(void) {
 
         /* Inform agent that we are done */
         kill(agent_pid, SIGTERM);
+        kill(agent_pid, SIGCONT);
         wait_for_terminate(agent_pid, &dummy);
         agent_pid = 0;
 }

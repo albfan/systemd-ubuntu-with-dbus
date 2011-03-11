@@ -195,6 +195,7 @@ int read_one_line_file(const char *fn, char **line);
 int read_full_file(const char *fn, char **contents);
 
 int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
+int load_env_file(const char *fname, char ***l);
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
@@ -382,6 +383,8 @@ int detect_vm(const char **id);
 int detect_virtualization(const char **id);
 
 void execute_directory(const char *directory, DIR *_d, char *argv[]);
+
+int kill_and_sigcont(pid_t pid, int sig);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
