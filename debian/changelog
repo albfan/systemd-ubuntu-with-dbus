@@ -1,4 +1,4 @@
-systemd (19-1) UNRELEASED; urgency=low
+systemd (19-1) experimental; urgency=low
 
   * New upstream release
   * Add systemd-tmpfiles to systemd package.
