@@ -18,4 +18,6 @@ if [ -n "$2" ]; then
     fi
 fi
 
+systemd-machine-id-setup
+
 #DEBHELPER#

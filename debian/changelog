@@ -2,6 +2,7 @@ systemd (20-1) UNRELEASED; urgency=low
 
   * New upstream version
   * Install systemd-machine-id-setup
+  * Call systemd-machine-id-setup in postinst
 
  -- Tollef Fog Heen <tfheen@debian.org>  Fri, 11 Mar 2011 19:14:21 +0100
 
