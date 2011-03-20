@@ -8,7 +8,8 @@ override_dh_auto_configure:
 		--with-udevrulesdir=/lib/udev/rules.d \
 		--enable-gtk \
 		--enable-libcryptsetup \
-		--enable-tcpwrap
+		--enable-tcpwrap \
+		--enable-selinux
 
 override_dh_auto_clean:
 	dh_auto_clean

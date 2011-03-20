@@ -6,6 +6,7 @@ systemd (20-1) UNRELEASED; urgency=low
   * Cherry-pick b8a021c9e276adc9bed5ebfa39c3cab0077113c6 from upstream to
     prevent dbus assert error.
   * Enable TCP wrapper support.  Closes: #618409
+  * Enable SELinux support.  Closes: #618412
 
  -- Tollef Fog Heen <tfheen@debian.org>  Fri, 11 Mar 2011 19:14:21 +0100
 
