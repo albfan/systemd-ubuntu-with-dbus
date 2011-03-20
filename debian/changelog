@@ -7,6 +7,8 @@ systemd (20-1) UNRELEASED; urgency=low
     prevent dbus assert error.
   * Enable TCP wrapper support.  Closes: #618409
   * Enable SELinux support.  Closes: #618412
+  * Make getty start after Apache2 and OpenVPN (which are the only two
+    known users of X-Interactive: yes).  Closes: #618419
 
  -- Tollef Fog Heen <tfheen@debian.org>  Fri, 11 Mar 2011 19:14:21 +0100
 
