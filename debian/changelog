@@ -1,4 +1,4 @@
-systemd (20-1) UNRELEASED; urgency=low
+systemd (20-1) unstable; urgency=low
 
   * New upstream version
   * Install systemd-machine-id-setup
