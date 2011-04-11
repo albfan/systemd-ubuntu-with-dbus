@@ -37,8 +37,7 @@ const char bus_unit_interface[] _introspect_("Unit") = BUS_UNIT_INTERFACE;
         "ActiveExitTimestamp\0"                 \
         "InactiveEnterTimestamp\0"              \
         "Job\0"                                 \
-        "NeedDaemonReload\0"                    \
-        "\0"
+        "NeedDaemonReload\0"
 
 int bus_unit_append_names(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         char *t;
@@ -456,14 +455,14 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                         goto oom;
         }
 
-        free(path);
-
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
         }
+
+        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 

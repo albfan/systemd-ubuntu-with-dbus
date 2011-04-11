@@ -50,6 +50,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Mount\0"
+
 const char bus_mount_interface[] _introspect_("Mount") = BUS_MOUNT_INTERFACE;
 
 const char bus_mount_invalidating_properties[] =
@@ -59,8 +63,7 @@ const char bus_mount_invalidating_properties[] =
         "ExecMount\0"
         "ExecUnmount\0"
         "ExecRemount\0"
-        "ControlPID\0"
-        "\0";
+        "ControlPID\0";
 
 static int bus_mount_append_what(Manager *n, DBusMessageIter *i, const char *property, void *data) {
         Mount *m = data;
@@ -151,5 +154,5 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

@@ -211,6 +211,8 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
+        bool taint_usr:1;
+
         bool show_status;
         bool confirm_spawn;
 #ifdef HAVE_SYSV_COMPAT
@@ -284,6 +286,8 @@ void manager_check_finished(Manager *m);
 
 void manager_run_generators(Manager *m);
 void manager_undo_generators(Manager *m);
+
+void manager_recheck_syslog(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);

@@ -54,6 +54,7 @@ static const MountPoint mount_table[] = {
         { "devtmpfs", "/dev",                   "devtmpfs", "mode=755",          MS_NOSUID,                    true },
         { "tmpfs",    "/dev/shm",               "tmpfs",    "mode=1777",         MS_NOSUID|MS_NODEV,           true },
         { "devpts",   "/dev/pts",               "devpts",   "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC, false },
+        { "tmpfs",    "/run",                   "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "tmpfs",    "/sys/fs/cgroup",         "tmpfs",    "mode=755",          MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
         { "cgroup",   "/sys/fs/cgroup/systemd", "cgroup",   "none,name=systemd", MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
 };
@@ -100,7 +101,7 @@ static int mount_one(const MountPoint *p) {
                 return r;
 
         if (r > 0)
-                return 0;
+                goto finish;
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
@@ -121,6 +122,7 @@ static int mount_one(const MountPoint *p) {
                 return p->fatal ? -errno : 0;
         }
 
+finish:
         label_fix(p->where, false);
 
         return 0;
@@ -227,8 +229,7 @@ int mount_setup(void) {
                 "/proc/self/fd\0"    "/dev/fd\0"
                 "/proc/self/fd/0\0"  "/dev/stdin\0"
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
-                "/proc/self/fd/2\0"  "/dev/stderr\0"
-                "\0";
+                "/proc/self/fd/2\0"  "/dev/stderr\0";
 
         int r;
         unsigned i;
@@ -242,8 +243,10 @@ int mount_setup(void) {
          * appropriate labels, after mounting. The other virtual API
          * file systems do not need. */
 
-        if (unlink("/dev/.systemd/relabel-devtmpfs") >= 0)
+        if (unlink("/dev/.systemd-relabel-run-dev") >= 0) {
                 nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+                nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS);
+        }
 
         /* Create a few default symlinks, which are normally created
          * bei udevd, but some scripts might need them before we start
@@ -251,6 +254,10 @@ int mount_setup(void) {
 
         NULSTR_FOREACH_PAIR(j, k, symlinks)
                 symlink_and_label(j, k);
+
+        /* Create a few directories we always want around */
+        mkdir("/run/systemd", 0755);
+        mkdir("/run/systemd/ask-password", 0755);
 
         return mount_cgroup_controllers();
 }

@@ -39,16 +39,10 @@ struct CGroupBonding;
 #include "list.h"
 #include "util.h"
 
-/* Abstract namespace! */
-#define LOGGER_SOCKET "/org/freedesktop/systemd1/logger"
-
-/* This doesn't really belong here, but I couldn't find a better place to put this. */
-#define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
-#define SIGNALS_IGNORE SIGKILL,SIGPIPE
+#define LOGGER_SOCKET "/run/systemd/logger"
 
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,
-        KILL_PROCESS_GROUP,
         KILL_PROCESS,
         KILL_NONE,
         _KILL_MODE_MAX,

@@ -51,6 +51,7 @@
 #include "label.h"
 #include "build.h"
 #include "strv.h"
+#include "def.h"
 
 static enum {
         ACTION_RUN,
@@ -226,6 +227,7 @@ static int parse_proc_cmdline_word(const char *word) {
 
         static const char * const rlmap[] = {
                 "emergency", SPECIAL_EMERGENCY_TARGET,
+                "-b",        SPECIAL_EMERGENCY_TARGET,
                 "single",    SPECIAL_RESCUE_TARGET,
                 "-s",        SPECIAL_RESCUE_TARGET,
                 "s",         SPECIAL_RESCUE_TARGET,
@@ -371,6 +373,7 @@ static int config_parse_level(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -388,6 +391,7 @@ static int config_parse_target(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -405,6 +409,7 @@ static int config_parse_color(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -422,6 +427,7 @@ static int config_parse_location(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -439,6 +445,7 @@ static int config_parse_cpu_affinity(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -492,24 +499,24 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "F
 static int parse_config_file(void) {
 
         const ConfigItem items[] = {
-                { "LogLevel",              config_parse_level,        NULL,                     "Manager" },
-                { "LogTarget",             config_parse_target,       NULL,                     "Manager" },
-                { "LogColor",              config_parse_color,        NULL,                     "Manager" },
-                { "LogLocation",           config_parse_location,     NULL,                     "Manager" },
-                { "DumpCore",              config_parse_bool,         &arg_dump_core,           "Manager" },
-                { "CrashShell",            config_parse_bool,         &arg_crash_shell,         "Manager" },
-                { "ShowStatus",            config_parse_bool,         &arg_show_status,         "Manager" },
+                { "LogLevel",              config_parse_level,        0, NULL,                     "Manager" },
+                { "LogTarget",             config_parse_target,       0, NULL,                     "Manager" },
+                { "LogColor",              config_parse_color,        0, NULL,                     "Manager" },
+                { "LogLocation",           config_parse_location,     0, NULL,                     "Manager" },
+                { "DumpCore",              config_parse_bool,         0, &arg_dump_core,           "Manager" },
+                { "CrashShell",            config_parse_bool,         0, &arg_crash_shell,         "Manager" },
+                { "ShowStatus",            config_parse_bool,         0, &arg_show_status,         "Manager" },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole",           config_parse_bool,         &arg_sysv_console,        "Manager" },
+                { "SysVConsole",           config_parse_bool,         0, &arg_sysv_console,        "Manager" },
 #endif
-                { "CrashChVT",             config_parse_int,          &arg_crash_chvt,          "Manager" },
-                { "CPUAffinity",           config_parse_cpu_affinity, NULL,                     "Manager" },
-                { "MountAuto",             config_parse_bool,         &arg_mount_auto,          "Manager" },
-                { "SwapAuto",              config_parse_bool,         &arg_swap_auto,           "Manager" },
-                { "DefaultControllers",    config_parse_strv,         &arg_default_controllers, "Manager" },
-                { "DefaultStandardOutput", config_parse_output,       &arg_default_std_output,  "Manager" },
-                { "DefaultStandardError",  config_parse_output,       &arg_default_std_error,   "Manager" },
-                { NULL, NULL, NULL, NULL }
+                { "CrashChVT",             config_parse_int,          0, &arg_crash_chvt,          "Manager" },
+                { "CPUAffinity",           config_parse_cpu_affinity, 0, NULL,                     "Manager" },
+                { "MountAuto",             config_parse_bool,         0, &arg_mount_auto,          "Manager" },
+                { "SwapAuto",              config_parse_bool,         0, &arg_swap_auto,           "Manager" },
+                { "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers, "Manager" },
+                { "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output,  "Manager" },
+                { "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error,   "Manager" },
+                { NULL, NULL, 0, NULL, NULL }
         };
 
         static const char * const sections[] = {
@@ -543,6 +550,11 @@ static int parse_proc_cmdline(void) {
         char *line, *w, *state;
         int r;
         size_t l;
+
+        /* Don't read /proc/cmdline if we are in a container, since
+         * that is only relevant for the host system */
+        if (detect_container(NULL) > 0)
+                return 0;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
@@ -624,7 +636,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hD", options, NULL)) >= 0)
+        if (getpid() == 1)
+                opterr = 0;
+
+        while ((c = getopt_long(argc, argv, "hDbsz:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -800,21 +815,46 @@ static int parse_argv(int argc, char *argv[]) {
                         log_set_max_level(LOG_DEBUG);
                         break;
 
-                case '?':
-                        return -EINVAL;
+                case 'b':
+                case 's':
+                case 'z':
+                        /* Just to eat away the sysvinit kernel
+                         * cmdline args without getopt() error
+                         * messages that we'll parse in
+                         * parse_proc_cmdline_word() or ignore. */
 
+                case '?':
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        if (getpid() != 1) {
+                                log_error("Unknown option code %c", c);
+                                return -EINVAL;
+                        }
+
+                        break;
                 }
 
-        /* PID 1 will get the kernel arguments as parameters, which we
-         * ignore and unconditionally read from
-         * /proc/cmdline. However, we need to ignore those arguments
-         * here. */
-        if (arg_running_as != MANAGER_SYSTEM && optind < argc) {
+        if (optind < argc && getpid() != 1) {
+                /* Hmm, when we aren't run as init system
+                 * let's complain about excess arguments */
+
                 log_error("Excess arguments.");
                 return -EINVAL;
+        }
+
+        if (detect_container(NULL) > 0) {
+                char **a;
+
+                /* All /proc/cmdline arguments the kernel didn't
+                 * understand it passed to us. We're not really
+                 * interested in that usually since /proc/cmdline is
+                 * more interesting and complete. With one exception:
+                 * if we are run in a container /proc/cmdline is not
+                 * relevant for the container, hence we rely on argv[]
+                 * instead. */
+
+                for (a = argv; a < argv + argc; a++)
+                        if ((r = parse_proc_cmdline_word(*a)) < 0)
+                                return r;
         }
 
         return 0;
@@ -942,25 +982,29 @@ static void test_mtab(void) {
 }
 
 static void test_usr(void) {
-        bool separate = false;
 
         /* Check that /usr is not a separate fs */
 
-        if (path_is_mount_point("/usr") > 0)
-                separate = true;
-        /* This check won't work usually during boot, since /usr is
-         * probably not mounted yet, hence let's add a second
-         * check. We just check whether /usr is an empty directory. */
-
-        if (dir_is_empty("/usr") > 0)
-                separate = true;
-
-        if (!separate)
+        if (dir_is_empty("/usr") <= 0)
                 return;
 
         log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
+}
+
+static void test_cgroups(void) {
+
+        if (access("/proc/cgroups", F_OK) >= 0)
+                return;
+
+        log_warning("CONFIG_CGROUPS was not set when your kernel was compiled. "
+                    "Systems without control groups are not supported. "
+                    "We will now sleep for 10s, and then continue boot-up. "
+                    "Expect breakage and please do not file bugs. "
+                    "Instead fix your kernel and enable CONFIG_CGROUPS." );
+
+        sleep(10);
 }
 
 int main(int argc, char *argv[]) {
@@ -996,7 +1040,7 @@ int main(int argc, char *argv[]) {
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
-                log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
 
                 /* This might actually not return, but cause a
                  * reexecution */
@@ -1042,10 +1086,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* If Plymouth is being run make sure we show the status, so
-         * that there's something nice to see when people press Esc */
-        if (access("/dev/.systemd/plymouth", F_OK) >= 0)
-                arg_show_status = true;
+        if (arg_running_as == MANAGER_SYSTEM &&
+            arg_action == ACTION_RUN &&
+            running_in_chroot() > 0) {
+                log_error("Cannot be run in a chroot() environment.");
+                goto finish;
+        }
 
         if (arg_action == ACTION_HELP) {
                 retval = help();
@@ -1086,6 +1132,9 @@ int main(int argc, char *argv[]) {
                  * kernel that don't really make sense for us. */
                 unsetenv("HOME");
                 unsetenv("TERM");
+
+                /* All other variables are left as is, so that clients
+                 * can still read them via /proc/1/environ */
         }
 
         /* Move out of the way, so that we won't block unmounts */
@@ -1123,7 +1172,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == MANAGER_SYSTEM && !serialization) {
                 locale_setup();
 
-                if (arg_show_status)
+                if (arg_show_status || plymouth_running())
                         status_welcome();
 
                 kmod_setup();
@@ -1131,10 +1180,9 @@ int main(int argc, char *argv[]) {
                 machine_id_setup();
                 loopback_setup();
 
-                mkdir_p("/dev/.systemd/ask-password/", 0755);
-
                 test_mtab();
                 test_usr();
+                test_cgroups();
         }
 
         if ((r = manager_new(arg_running_as, &m)) < 0) {

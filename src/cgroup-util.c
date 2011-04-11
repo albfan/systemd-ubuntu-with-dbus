@@ -484,6 +484,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         const char *p;
         char *mp;
         int r;
+        static __thread bool good = false;
 
         assert(controller);
         assert(fs);
@@ -504,9 +505,14 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (asprintf(&mp, "/sys/fs/cgroup/%s", p) < 0)
                 return -ENOMEM;
 
-        if ((r = path_is_mount_point(mp)) <= 0) {
-                free(mp);
-                return r < 0 ? r : -ENOENT;
+        if (!good) {
+                if ((r = path_is_mount_point(mp)) <= 0) {
+                        free(mp);
+                        return r < 0 ? r : -ENOENT;
+                }
+
+                /* Cache this to save a few stat()s */
+                good = true;
         }
 
         if (path && suffix)
@@ -966,4 +972,32 @@ int cg_fix_path(const char *path, char **result) {
         free(p);
 
         return r;
+}
+
+int cg_get_user_path(char **path) {
+        char *root, *p;
+
+        assert(path);
+
+        /* Figure out the place to put user cgroups below. We use the
+         * same as PID 1 has but with the "/system" suffix replaced by
+         * "/user" */
+
+        if (cg_get_by_pid(SYSTEMD_CGROUP_CONTROLLER, 1, &root) < 0)
+                p = strdup("/user");
+        else {
+                if (endswith(root, "/system"))
+                        root[strlen(root) - 7] = 0;
+                else if (streq(root, "/"))
+                        root[0] = 0;
+
+                p = strappend(root, "/user");
+                free(root);
+        }
+
+        if (!p)
+                return -ENOMEM;
+
+        *path = p;
+        return 0;
 }

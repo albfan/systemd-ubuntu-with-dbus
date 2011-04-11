@@ -37,11 +37,14 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Device\0"
+
 const char bus_device_interface[] _introspect_("Device") = BUS_DEVICE_INTERFACE;
 
 const char bus_device_invalidating_properties[] =
-        "SysFSPath\0"
-        "\0";
+        "SysFSPath\0";
 
 DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         const BusProperty properties[] = {
@@ -50,5 +53,5 @@ DBusHandlerResult bus_device_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

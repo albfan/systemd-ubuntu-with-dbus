@@ -18,7 +18,7 @@
   You should have received a copy of the GNU General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
+#include <stdbool.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/poll.h>
@@ -36,6 +36,18 @@
 
 #include "ask-password-api.h"
 
+static void backspace_chars(int ttyfd, size_t p) {
+
+        if (ttyfd < 0)
+                return;
+
+        while (p > 0) {
+                p--;
+
+                loop_write(ttyfd, "\b \b", 3, false);
+        }
+}
+
 int ask_password_tty(
                 const char *message,
                 usec_t until,
@@ -48,6 +60,8 @@ int ask_password_tty(
         int r, ttyfd = -1, notify = -1;
         struct pollfd pollfd[2];
         bool reset_tty = false;
+        bool silent_mode = false;
+        bool dirty = false;
         enum {
                 POLL_TTY,
                 POLL_INOTIFY
@@ -155,27 +169,50 @@ int ask_password_tty(
 
                 if (c == '\n')
                         break;
-                else if (c == 21) {
+                else if (c == 21) { /* C-u */
 
-                        while (p > 0) {
-                                p--;
-
-                                if (ttyfd >= 0)
-                                        loop_write(ttyfd, "\b \b", 3, false);
-                        }
+                        if (!silent_mode)
+                                backspace_chars(ttyfd, p);
+                        p = 0;
 
                 } else if (c == '\b' || c == 127) {
-                        if (p > 0) {
-                                p--;
 
+                        if (p > 0) {
+
+                                if (!silent_mode)
+                                        backspace_chars(ttyfd, 1);
+
+                                p--;
+                        } else if (!dirty && !silent_mode) {
+
+                                silent_mode = true;
+
+                                /* There are two ways to enter silent
+                                 * mode. Either by pressing backspace
+                                 * as first key (and only as first key),
+                                 * or ... */
                                 if (ttyfd >= 0)
-                                        loop_write(ttyfd, "\b \b", 3, false);
-                        }
+                                        loop_write(ttyfd, "(no echo) ", 10, false);
+
+                        } else if (ttyfd >= 0)
+                                loop_write(ttyfd, "\a", 1, false);
+
+                } else if (c == '\t' && !silent_mode) {
+
+                        backspace_chars(ttyfd, p);
+                        silent_mode = true;
+
+                        /* ... or by pressing TAB at any time. */
+
+                        if (ttyfd >= 0)
+                                loop_write(ttyfd, "(no echo) ", 10, false);
                 } else {
                         passphrase[p++] = c;
 
-                        if (ttyfd >= 0)
+                        if (!silent_mode && ttyfd >= 0)
                                 loop_write(ttyfd, "*", 1, false);
+
+                        dirty = true;
                 }
         }
 
@@ -223,7 +260,7 @@ static int create_socket(char **name) {
 
         zero(sa);
         sa.un.sun_family = AF_UNIX;
-        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/dev/.systemd/ask-password/sck.%llu", random_ull());
+        snprintf(sa.un.sun_path, sizeof(sa.un.sun_path)-1, "/run/systemd/ask-password/sck.%llu", random_ull());
 
         if (bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
                 r = -errno;
@@ -265,18 +302,22 @@ int ask_password_agent(
                 _FD_MAX
         };
 
-        char temp[] = "/dev/.systemd/ask-password/tmp.XXXXXX";
+        char temp[] = "/run/systemd/ask-password/tmp.XXXXXX";
         char final[sizeof(temp)] = "";
         int fd = -1, r;
         FILE *f = NULL;
         char *socket_name = NULL;
         int socket_fd = -1, signal_fd = -1;
-        sigset_t mask;
+        sigset_t mask, oldmask;
         struct pollfd pollfd[_FD_MAX];
 
         assert(_passphrases);
 
-        mkdir_p("/dev/.systemd/ask-password", 0755);
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) == 0);
+
+        mkdir_p("/run/systemd/ask-password", 0755);
 
         if ((fd = mkostemp(temp, O_CLOEXEC|O_CREAT|O_WRONLY)) < 0) {
                 log_error("Failed to create password file: %m");
@@ -293,10 +334,6 @@ int ask_password_agent(
         }
 
         fd = -1;
-
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         if ((signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0) {
                 log_error("signalfd(): %m");
@@ -492,6 +529,8 @@ finish:
 
         if (final[0])
                 unlink(final);
+
+        assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) == 0);
 
         return r;
 }

@@ -26,34 +26,14 @@
 #include "dbus-service.h"
 
 #ifdef HAVE_SYSV_COMPAT
-#define BUS_SERVICE_INTERFACE                                           \
-        " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
-        "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
-        "  <property name=\"Restart\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"PIDFile\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
-        BUS_EXEC_COMMAND_INTERFACE("ExecReload")                        \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStop")                          \
-        BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
-        BUS_EXEC_CONTEXT_INTERFACE                                      \
-        "  <property name=\"PermissionsStartOnly\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"RootDirectoryStartOnly\" type=\"b\" access=\"read\"/>\n" \
-        "  <property name=\"RemainAfterExit\" type=\"b\" access=\"read\"/>\n" \
-        BUS_EXEC_STATUS_INTERFACE("ExecMain")                           \
-        "  <property name=\"MainPID\" type=\"u\" access=\"read\"/>\n"   \
-        "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
+#define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                            \
         "  <property name=\"SysVStartPriority\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"SysVRunLevels\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
-        "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
-       " </interface>\n"
+        "  <property name=\"SysVPath\" type=\"s\" access=\"read\"/>\n"
 #else
+#define BUS_SERVICE_SYSV_INTERFACE_FRAGMENT ""
+#endif
+
 #define BUS_SERVICE_INTERFACE                                           \
         " <interface name=\"org.freedesktop.systemd1.Service\">\n"      \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
@@ -77,8 +57,10 @@
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"FsckPassNo\" type=\"i\" access=\"read\"/>\n" \
+        "  <property name=\"Sockets\" type=\"as\" access=\"read\"/>\n" \
+        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                              \
        " </interface>\n"
-#endif
 
 #define INTROSPECTION                                                   \
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
@@ -89,6 +71,10 @@
         BUS_PEER_INTERFACE                                              \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
+
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Service\0"
 
 const char bus_service_interface[] _introspect_("Service") = BUS_SERVICE_INTERFACE;
 
@@ -102,8 +88,7 @@ const char bus_service_invalidating_properties[] =
         "ExecMain\0"
         "MainPID\0"
         "ControlPID\0"
-        "StatusText\0"
-        "\0";
+        "StatusText\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
@@ -132,18 +117,17 @@ DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connectio
                BUS_EXEC_STATUS_PROPERTIES("org.freedesktop.systemd1.Service", u->service.main_exec_status, "ExecMain"),
                 { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
                 { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },
-#ifdef HAVE_SYSV_COMPAT
-                { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path                  },
-#endif
                 { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name                   },
                 { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text                },
+                { "org.freedesktop.systemd1.Service", "Sockets",                bus_unit_append_dependencies, "as", u->service.configured_sockets         },
 #ifdef HAVE_SYSV_COMPAT
                 { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
                 { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
+                { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path                  },
 #endif
                 { "org.freedesktop.systemd1.Service", "FsckPassNo",             bus_property_append_int,    "i", &u->service.fsck_passno               },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, connection, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

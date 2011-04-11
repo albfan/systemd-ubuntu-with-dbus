@@ -37,6 +37,7 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "exit-status.h"
+#include "def.h"
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
@@ -127,6 +128,26 @@ static void mount_done(Unit *u) {
         unit_unwatch_timer(u, &m->timer_watch);
 }
 
+static MountParameters* get_mount_parameters_configured(Mount *m) {
+        assert(m);
+
+        if (m->from_fragment)
+                return &m->parameters_fragment;
+        else if (m->from_etc_fstab)
+                return &m->parameters_etc_fstab;
+
+        return NULL;
+}
+
+static MountParameters* get_mount_parameters(Mount *m) {
+        assert(m);
+
+        if (m->from_proc_self_mountinfo)
+                return &m->parameters_proc_self_mountinfo;
+
+        return get_mount_parameters_configured(m);
+}
+
 static int mount_add_mount_links(Mount *m) {
         Meta *other;
         int r;
@@ -134,12 +155,7 @@ static int mount_add_mount_links(Mount *m) {
 
         assert(m);
 
-        if (m->from_fragment)
-                pm = &m->parameters_fragment;
-        else if (m->from_etc_fstab)
-                pm = &m->parameters_etc_fstab;
-        else
-                pm = NULL;
+        pm = get_mount_parameters_configured(m);
 
         /* Adds in links to other mount points that might lie below or
          * above us in the hierarchy */
@@ -154,19 +170,14 @@ static int mount_add_mount_links(Mount *m) {
                 if (n->meta.load_state != UNIT_LOADED)
                         continue;
 
-                if (n->from_fragment)
-                        pn = &n->parameters_fragment;
-                else if (n->from_etc_fstab)
-                        pn = &n->parameters_etc_fstab;
-                else
-                        pn = NULL;
+                pn = get_mount_parameters_configured(n);
 
                 if (path_startswith(m->where, n->where)) {
 
                         if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
                                 return r;
 
-                        if (n->from_etc_fstab || n->from_fragment)
+                        if (pn)
                                 if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
                                         return r;
 
@@ -175,7 +186,7 @@ static int mount_add_mount_links(Mount *m) {
                         if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
                                 return r;
 
-                        if (m->from_etc_fstab || m->from_fragment)
+                        if (pm)
                                 if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
                                         return r;
 
@@ -184,18 +195,16 @@ static int mount_add_mount_links(Mount *m) {
                         if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
                                 return r;
 
-                        if (m->from_etc_fstab || m->from_fragment)
-                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
-                                        return r;
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
+                                return r;
 
                 } else if (pn && path_startswith(pn->what, m->where)) {
 
                         if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
                                 return r;
 
-                        if (n->from_etc_fstab || n->from_fragment)
-                                if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
-                                        return r;
+                        if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                                return r;
                 }
         }
 
@@ -271,6 +280,43 @@ static char* mount_test_option(const char *haystack, const char *needle) {
         return hasmntopt(&me, needle);
 }
 
+static bool mount_is_network(MountParameters *p) {
+        assert(p);
+
+        if (mount_test_option(p->options, "_netdev"))
+                return true;
+
+        if (p->fstype && fstype_is_network(p->fstype))
+                return true;
+
+        return false;
+}
+
+static bool mount_is_bind(MountParameters *p) {
+        assert(p);
+
+        if (mount_test_option(p->options, "bind"))
+                return true;
+
+        if (p->fstype && streq(p->fstype, "bind"))
+                return true;
+
+        return false;
+}
+
+static bool needs_quota(MountParameters *p) {
+        assert(p);
+
+        if (mount_is_network(p))
+                return false;
+
+        if (mount_is_bind(p))
+                return false;
+
+        return mount_test_option(p->options, "usrquota") ||
+                mount_test_option(p->options, "grpquota");
+}
+
 static int mount_add_target_links(Mount *m) {
         const char *target, *after = NULL;
         MountParameters *p;
@@ -280,11 +326,7 @@ static int mount_add_target_links(Mount *m) {
 
         assert(m);
 
-        if (m->from_fragment)
-                p = &m->parameters_fragment;
-        else if (m->from_etc_fstab)
-                p = &m->parameters_etc_fstab;
-        else
+        if (!(p = get_mount_parameters_configured(m)))
                 return 0;
 
         noauto = !!mount_test_option(p->options, MNTOPT_NOAUTO);
@@ -297,8 +339,7 @@ static int mount_add_target_links(Mount *m) {
                 mount_test_option(p->options, "comment=systemd.automount") ||
                 mount_test_option(p->options, "x-systemd-automount");
 
-        if (mount_test_option(p->options, "_netdev") ||
-            (p->fstype && fstype_is_network(p->fstype))) {
+        if (mount_is_network(p)) {
                 target = SPECIAL_REMOTE_FS_TARGET;
 
                 if (m->meta.manager->running_as == MANAGER_SYSTEM)
@@ -336,29 +377,13 @@ static int mount_add_target_links(Mount *m) {
         }
 }
 
-static bool mount_is_bind(MountParameters *p) {
-        assert(p);
-
-        if (p->fstype && streq(p->fstype, "bind"))
-                return true;
-
-        if (mount_test_option(p->options, "bind"))
-                return true;
-
-        return false;
-}
-
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
         int r;
 
         assert(m);
 
-        if (m->from_fragment)
-                p = &m->parameters_fragment;
-        else if (m->from_etc_fstab)
-                p = &m->parameters_etc_fstab;
-        else
+        if (!(p = get_mount_parameters_configured(m)))
                 return 0;
 
         if (!p->what)
@@ -412,9 +437,15 @@ static int mount_add_default_dependencies(Mount *m) {
 
         if (m->meta.manager->running_as == MANAGER_SYSTEM &&
             !path_equal(m->where, "/")) {
+                MountParameters *p;
 
-                if ((r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0)
-                        return r;
+                p = get_mount_parameters_configured(m);
+
+                if (p && needs_quota(p)) {
+                        if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE, NULL, true)) < 0 ||
+                            (r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE, NULL, true)) < 0)
+                                return r;
+                }
 
                 if ((r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true)) < 0)
                         return r;
@@ -442,6 +473,11 @@ static int mount_verify(Mount *m) {
 
         if (!b) {
                 log_error("%s's Where setting doesn't match unit name. Refusing.", m->meta.id);
+                return -EINVAL;
+        }
+
+        if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
+                log_error("Cannot create mount unit for API file system %s. Refusing.", m->where);
                 return -EINVAL;
         }
 
@@ -626,12 +662,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         assert(m);
         assert(f);
 
-        if (m->from_proc_self_mountinfo)
-                p = &m->parameters_proc_self_mountinfo;
-        else if (m->from_fragment)
-                p = &m->parameters_fragment;
-        else
-                p = &m->parameters_etc_fstab;
+        p = get_mount_parameters(m);
 
         fprintf(f,
                 "%sMount State: %s\n"
@@ -733,9 +764,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                            state == MOUNT_REMOUNTING_SIGTERM) ? m->exec_context.kill_signal : SIGKILL;
 
                 if (m->control_pid > 0) {
-                        if (kill_and_sigcont(m->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -m->control_pid :
-                                             m->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(m->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) m->control_pid);
                         else
@@ -761,6 +790,7 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 
@@ -822,6 +852,7 @@ fail:
 
 static void mount_enter_mounting(Mount *m) {
         int r;
+        MountParameters *p;
 
         assert(m);
 
@@ -829,6 +860,11 @@ static void mount_enter_mounting(Mount *m) {
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
 
         mkdir_p(m->where, m->directory_mode);
+
+        /* Create the source directory for bind-mounts if needed */
+        p = get_mount_parameters_configured(m);
+        if (p && mount_is_bind(p))
+                mkdir_p(p->what, m->directory_mode);
 
         if (m->from_fragment)
                 r = exec_command_set(
@@ -1269,9 +1305,7 @@ static int mount_add_one(
 
         /* Ignore API mount points. They should never be referenced in
          * dependencies ever. */
-        if (mount_point_is_api(where))
-                return 0;
-        if (mount_point_ignore(where))
+        if (mount_point_is_api(where) || mount_point_ignore(where))
                 return 0;
 
         if (streq(fstype, "autofs"))
@@ -1666,7 +1700,7 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
         }
 
         if (m->control_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -m->control_pid : m->control_pid, signo) < 0)
+                if (kill(m->control_pid, signo) < 0)
                         r = -errno;
 
         if (mode == KILL_CONTROL_GROUP) {

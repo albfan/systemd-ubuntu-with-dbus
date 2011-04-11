@@ -64,6 +64,10 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Socket\0"
+
 const char bus_socket_interface[] _introspect_("Socket") = BUS_SOCKET_INTERFACE;
 
 const char bus_socket_invalidating_properties[] =
@@ -73,12 +77,12 @@ const char bus_socket_invalidating_properties[] =
         "ExecStopPost\0"
         "ControlPID\0"
         "NAccepted\0"
-        "NConnections\0"
-        "\0";
+        "NConnections\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_socket_append_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
+
         const BusProperty properties[] = {
                 BUS_UNIT_PROPERTIES,
                 { "org.freedesktop.systemd1.Socket", "BindIPv6Only",   bus_socket_append_bind_ipv6_only, "s", &u->socket.bind_ipv6_only  },
@@ -109,5 +113,5 @@ DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMes
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

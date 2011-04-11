@@ -139,7 +139,10 @@
                 with the <command>enable</command> command of the
                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 tool which reads information from the [Install]
-                section of unit files. (See below.)</para>
+                section of unit files. (See below.) A similar
+                functionality exists for <varname>Requires=</varname>
+                type dependencies as well, the directory suffix is
+                <filename>.requires/</filename> in this case.</para>
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
@@ -216,21 +219,6 @@
                 dependent on the type of unit:</para>
 
                 <variablelist>
-                        <varlistentry>
-                                <term><varname>Names=</varname></term>
-
-                                <listitem><para>Additional names for
-                                this unit. The names listed here must
-                                have the same suffix (i.e. type) as
-                                the unit file name. This option may be
-                                specified more than once, in which
-                                case all listed names are used. Note
-                                that this option is different from the
-                                <varname>Alias=</varname> option from
-                                the [Install] section mentioned
-                                below. See below for details.</para>
-                                </listitem>
-                        </varlistentry>
 
                         <varlistentry>
                                 <term><varname>Description=</varname></term>
@@ -573,9 +561,11 @@
 
                         <varlistentry>
                                 <term><varname>ConditionPathExists=</varname></term>
+                                <term><varname>ConditionPathIsDirectory=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
                                 <term><varname>ConditionVirtualization=</varname></term>
+                                <term><varname>ConditionSecurity=</varname></term>
                                 <term><varname>ConditionNull=</varname></term>
 
                                 <listitem><para>Before starting a unit
@@ -596,10 +586,15 @@
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
                                 only started if the path does not
-                                exist. <varname>ConditionDirectoryNotEmpty=</varname>
+                                exist. <varname>ConditionPathIsDirectory=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
-                                but verifies whether a certain path is
+                                but verifies whether a certain path
+                                exists and is a directory.
+                                <varname>ConditionDirectoryNotEmpty=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
                                 exists and is a non-empty
                                 directory. Similarly
                                 <varname>ConditionKernelCommandLine=</varname>
@@ -630,9 +625,17 @@
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
+                                <varname>pidns</varname>,
                                 <varname>openvz</varname> to test
                                 against a specific implementation. The
                                 test may be negated by prepending an
+                                exclamation mark.
+                                <varname>ConditionSecurity=</varname>
+                                may be used to check whether the given security
+                                module is enabled on the system.
+                                Currently the only recognized value is
+                                <varname>selinux</varname>.
+                                The test may be negated by prepending an
                                 exclamation mark. Finally,
                                 <varname>ConditionNull=</varname> may
                                 be used to add a constant condition
@@ -656,6 +659,35 @@
                                 symbol and an exclamation mark the
                                 pipe symbol must be passed first, the
                                 exclamation second.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>Names=</varname></term>
+
+                                <listitem><para>Additional names for
+                                this unit. The names listed here must
+                                have the same suffix (i.e. type) as
+                                the unit file name. This option may be
+                                specified more than once, in which
+                                case all listed names are used. Note
+                                that this option is different from the
+                                <varname>Alias=</varname> option from
+                                the [Install] section mentioned
+                                below. See below for details. Note
+                                that in almost all cases this option
+                                is not what you want. A symlink alias
+                                in the file system is generally
+                                preferable since it can be used as
+                                lookup key. If a unit with a symlinked
+                                alias name is not loaded and needs to
+                                be it is easily found via the
+                                symlink. However, if a unit with an
+                                alias name configured with this
+                                setting is not loaded it will not be
+                                discovered. This settings' only use is
+                                in conjunction with service
+                                instances.</para>
+                                </listitem>
                         </varlistentry>
                 </variablelist>
 

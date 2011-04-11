@@ -304,13 +304,11 @@
                                 <command>kill</command>, choose the
                                 mode how to kill the selected
                                 processes. Must be one of
-                                <option>control-group</option>,
-                                <option>process-group</option> or
+                                <option>control-group</option> or
                                 <option>process</option> to select
                                 whether to kill the entire control
-                                group, the process group or only the
-                                selected process itself. If omitted
-                                defaults to
+                                group or only the selected process
+                                itself. If omitted defaults to
                                 <option>control-group</option> if
                                 <option>--kill-who=all</option> is
                                 set, or <option>process</option>
@@ -382,6 +380,27 @@
                                 file that shall be
                                 disabled.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-H</option></term>
+                                <term><option>--host</option></term>
+
+                                <listitem><para>Execute operation
+                                remotely. Specifiy a hostname, or
+                                username and hostname seperated by @,
+                                to connect to. This will use SSH to
+                                talk to the remote systemd
+                                instance.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-P</option></term>
+                                <term><option>--privileged</option></term>
+
+                                <listitem><para>Acquire privileges via
+                                PolicyKit before executing the
+                                operation.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -447,9 +466,9 @@
 
                                 <listitem><para>Restart one or more
                                 units specified on the command
-                                line. If the units are not running yet
-                                the operation will
-                                fail. Note that for compatibility
+                                line if the units are running. Do
+                                nothing if units are not running.
+                                Note that for compatibility
                                 with Red Hat init scripts
                                 <command>condrestart</command> is
                                 equivalent to this command.</para></listitem>
@@ -468,12 +487,13 @@
 
                                 <listitem><para>Reload one or more
                                 units if they support it. If not,
-                                restart them instead. If the units
-                                are not running yet the operation
-                                will fail. Note that for
-                                compatibility with SysV init scripts
+                                restart them instead. Do nothing if
+                                the units are not running. Note that
+                                for compatibility with SysV init
+                                scripts
                                 <command>force-reload</command> is
-                                equivalent to this command.</para></listitem>
+                                equivalent to this
+                                command.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>isolate [NAME]</command></term>

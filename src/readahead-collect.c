@@ -119,9 +119,10 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
-        pages = l / PAGE_SIZE;
+        pages = l / page_size();
 
         vec = alloca(pages);
+        memset(vec, 0, pages);
         if (mincore(start, l, vec) < 0) {
                 log_warning("mincore(%s) failed: %m", fn);
                 r = -errno;
@@ -289,13 +290,13 @@ static int collect(const char *root) {
 
         log_debug("Collecting...");
 
-        if (access("/dev/.systemd/readahead/cancel", F_OK) >= 0) {
+        if (access("/run/systemd/readahead/cancel", F_OK) >= 0) {
                 log_debug("Collection canceled");
                 r = -ECANCELED;
                 goto finish;
         }
 
-        if (access("/dev/.systemd/readahead/done", F_OK) >= 0) {
+        if (access("/run/systemd/readahead/done", F_OK) >= 0) {
                 log_debug("Got termination request");
                 goto done;
         }

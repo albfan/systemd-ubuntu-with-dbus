@@ -24,13 +24,19 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
+
 #include "util.h"
 #include "condition.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
 
-        c = new0(Condition, 1);
+        if (!(c = new0(Condition, 1)))
+                return NULL;
+
         c->type = type;
         c->trigger = trigger;
         c->negate = negate;
@@ -66,6 +72,9 @@ static bool test_kernel_command_line(const char *parameter) {
         bool found = false;
 
         assert(parameter);
+
+        if (detect_virtualization(NULL) > 0)
+                return false;
 
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
@@ -123,6 +132,14 @@ static bool test_virtualization(const char *parameter) {
         return streq(parameter, id);
 }
 
+static bool test_security(const char *parameter) {
+#ifdef HAVE_SELINUX
+        if (streq(parameter, "selinux"))
+                return is_selinux_enabled() > 0;
+#endif
+        return false;
+}
+
 bool condition_test(Condition *c) {
         assert(c);
 
@@ -130,6 +147,14 @@ bool condition_test(Condition *c) {
 
         case CONDITION_PATH_EXISTS:
                 return (access(c->parameter, F_OK) >= 0) == !c->negate;
+
+        case CONDITION_PATH_IS_DIRECTORY: {
+                struct stat st;
+
+                if (lstat(c->parameter, &st) < 0)
+                        return !c->negate;
+                return S_ISDIR(st.st_mode) == !c->negate;
+        }
 
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;
@@ -143,6 +168,9 @@ bool condition_test(Condition *c) {
 
         case CONDITION_VIRTUALIZATION:
                 return test_virtualization(c->parameter) == !c->negate;
+
+        case CONDITION_SECURITY:
+                return test_security(c->parameter) == !c->negate;
 
         case CONDITION_NULL:
                 return !c->negate;
@@ -186,7 +214,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%s%s: %s%s%s\n",
+                "%s\t%s: %s%s%s\n",
                 prefix,
                 condition_type_to_string(c->type),
                 c->trigger ? "|" : "",
@@ -202,8 +230,12 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
 }
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
-        [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
+        [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
+        [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
+        [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
+        [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
+        [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_NULL] = "ConditionNull"
 };
 

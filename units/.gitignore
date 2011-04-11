@@ -1,3 +1,4 @@
+console-shell.service
 systemd-sysctl.service
 systemd-ask-password-console.service
 rescue.service
@@ -28,11 +29,9 @@ systemd-random-seed-load.service
 systemd-random-seed-save.service
 systemd-initctl.service
 systemd-logger.service
-syslog.target
-graphical.target
-multi-user.target
 getty@.service
 remote-fs.target
 systemd-update-utmp-runlevel.service
 systemd-update-utmp-shutdown.service
 test-env-replace
+systemd-binfmt.service

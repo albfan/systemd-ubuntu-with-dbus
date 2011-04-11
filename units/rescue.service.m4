@@ -13,9 +13,6 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=basic.target
 Before=shutdown.target
-m4_ifdef(`TARGET_MANDRIVA',
-`# Hide SysV script
-Names=single.service')
 
 [Service]
 Environment=HOME=/root
@@ -31,7 +28,7 @@ ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 `ExecStart=-/sbin/sulogin'))
 ExecStopPost=-/bin/systemctl --fail default
 StandardInput=tty-force
-KillMode=process-group
+KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash
 # terminates cleanly.

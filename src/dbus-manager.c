@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <unistd.h>
 
 #include "dbus.h"
 #include "log.h"
@@ -206,6 +207,10 @@
 #define INTROSPECTION_END                                               \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_GENERIC_INTERFACES_LIST                  \
+        "org.freedesktop.systemd1.Manager\0"
+
 const char bus_manager_interface[] _introspect_("Manager") = BUS_MANAGER_INTERFACE;
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
@@ -219,17 +224,18 @@ static int bus_manager_append_tainted(Manager *m, DBusMessageIter *i, const char
         assert(i);
         assert(property);
 
-        if (path_is_mount_point("/usr") > 0 || dir_is_empty("/usr") > 0)
-                e = stpcpy(e, "usr-separate-fs");
+        if (m->taint_usr)
+                e = stpcpy(e, "usr-separate-fs ");
 
-        if (readlink_malloc("/etc/mtab", &p) < 0) {
-                if (e != buf)
-                        e = stpcpy(e, " ");
-                e = stpcpy(e, "etc-mtab-not-symlink");
-        } else
+        if (readlink_malloc("/etc/mtab", &p) < 0)
+                e = stpcpy(e, "etc-mtab-not-symlink ");
+        else
                 free(p);
 
-        t = buf;
+        if (access("/proc/cgroups", F_OK) < 0)
+                e = stpcpy(e, "cgroups-missing ");
+
+        t = strstrip(buf);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 return -ENOMEM;
@@ -1014,14 +1020,16 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!e)
                         goto oom;
 
-                if (!(reply = dbus_message_new_method_return(message)))
+                if (!(reply = dbus_message_new_method_return(message))) {
+                        strv_free(e);
                         goto oom;
+                }
 
                 strv_free(m->environment);
                 m->environment = e;
 
         } else
-                return bus_default_message_handler(m, connection, message, NULL, properties);
+                return bus_default_message_handler(m, connection, message, NULL, INTERFACES_LIST, properties);
 
         if (job_type != _JOB_TYPE_INVALID) {
                 const char *name, *smode, *old_name = NULL;
@@ -1102,14 +1110,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
         }
 
-        free(path);
-
         if (reply) {
                 if (!dbus_connection_send(connection, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
         }
+
+        free(path);
 
         return DBUS_HANDLER_RESULT_HANDLED;
 

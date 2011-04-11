@@ -27,8 +27,7 @@
 #include <dirent.h>
 
 #include "set.h"
-
-#define SYSTEMD_CGROUP_CONTROLLER "name=systemd"
+#include "def.h"
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
 int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
@@ -67,5 +66,7 @@ int cg_install_release_agent(const char *controller, const char *agent);
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
+
+int cg_get_user_path(char **path);
 
 #endif
