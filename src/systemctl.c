@@ -108,6 +108,12 @@ static enum dot {
         DOT_ORDER,
         DOT_REQUIRE
 } arg_dot = DOT_ALL;
+static enum transport {
+        TRANSPORT_NORMAL,
+        TRANSPORT_SSH,
+        TRANSPORT_POLKIT
+} arg_transport = TRANSPORT_NORMAL;
+static const char *arg_host = NULL;
 
 static bool private_bus = false;
 
@@ -381,7 +387,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
         if (on_tty()) {
                 printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
                        active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
-                if (columns() >= 80+12 || arg_full)
+                if (columns() >= 80+12 || arg_full || !arg_no_pager)
                         printf(" %s\n", "DESCRIPTION");
                 else
                         printf("\n");
@@ -434,7 +440,7 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                         if (u->job_id == 0)
                                 printf(" %-*s", job_len, "");
 
-                        if (arg_full)
+                        if (arg_full || !arg_no_pager)
                                 printf(" %s", u->description);
                         else
                                 printf(" %.*s", columns() - a - b - 1, u->description);
@@ -1414,7 +1420,8 @@ static int start_unit(DBusConnection *bus, char **args, unsigned n) {
 
         if (arg_action == ACTION_SYSTEMCTL) {
                 method =
-                        streq(args[0], "stop")                  ? "StopUnit" :
+                        streq(args[0], "stop") ||
+                        streq(args[0], "condstop")              ? "StopUnit" :
                         streq(args[0], "reload")                ? "ReloadUnit" :
                         streq(args[0], "restart")               ? "RestartUnit" :
 
@@ -1831,6 +1838,9 @@ typedef struct UnitStatusInfo {
 
         int exit_code, exit_status;
 
+        usec_t condition_timestamp;
+        bool condition_result;
+
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
@@ -1921,6 +1931,16 @@ static void print_status_info(UnitStatusInfo *i) {
                 printf(" since %s\n", s2);
         else
                 printf("\n");
+
+        if (!i->condition_result && i->condition_timestamp > 0) {
+                s1 = format_timestamp_pretty(since1, sizeof(since1), i->condition_timestamp);
+                s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
+
+                if (s1)
+                        printf("\t          start condition failed at %s; %s\n", s2, s1);
+                else if (s2)
+                        printf("\t          start condition failed at %s\n", s2);
+        }
 
         if (i->sysfs_path)
                 printf("\t  Device: %s\n", i->sysfs_path);
@@ -2048,12 +2068,14 @@ static void print_status_info(UnitStatusInfo *i) {
 
                 printf("\t  CGroup: %s\n", i->default_control_group);
 
-                if ((c = columns()) > 18)
-                        c -= 18;
-                else
-                        c = 0;
+                if (arg_transport != TRANSPORT_SSH) {
+                        if ((c = columns()) > 18)
+                                c -= 18;
+                        else
+                                c = 0;
 
-                show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
+                }
         }
 
         if (i->need_daemon_reload)
@@ -2117,6 +2139,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->accept = b;
                 else if (streq(name, "NeedDaemonReload"))
                         i->need_daemon_reload = b;
+                else if (streq(name, "ConditionResult"))
+                        i->condition_result = b;
 
                 break;
         }
@@ -2174,6 +2198,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->inactive_exit_timestamp = (usec_t) u;
                 else if (streq(name, "ActiveExitTimestamp"))
                         i->active_exit_timestamp = (usec_t) u;
+                else if (streq(name, "ConditionTimestamp"))
+                        i->condition_timestamp = (usec_t) u;
 
                 break;
         }
@@ -2814,8 +2840,20 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                 else
                         printf("Unit %s removed.\n", id);
 
-        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobNew") ||
-                   dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobNew")) {
+                uint32_t id;
+                const char *path;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_UINT32, &id,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse message: %s", bus_error_message(&error));
+                else
+                        printf("Job %u added.\n", id);
+
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
                 uint32_t id;
                 const char *path, *result;
 
@@ -2825,10 +2863,8 @@ static DBusHandlerResult monitor_filter(DBusConnection *connection, DBusMessage 
                                            DBUS_TYPE_STRING, &result,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse message: %s", bus_error_message(&error));
-                else if (streq(dbus_message_get_member(message), "JobNew"))
-                        printf("Job %u added.\n", id);
                 else
-                        printf("Job %u removed.\n", id);
+                        printf("Job %u removed (result=%s).\n", id, result);
 
 
         } else if (dbus_message_is_signal(message, "org.freedesktop.DBus.Properties", "PropertiesChanged")) {
@@ -3583,6 +3619,7 @@ static int config_parse_also(
                 unsigned line,
                 const char *section,
                 const char *lvalue,
+                int ltype,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
@@ -3997,11 +4034,11 @@ finish:
 static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo *i, const char *config_path) {
 
         const ConfigItem items[] = {
-                { "Alias",    config_parse_strv, &i->aliases,   "Install" },
-                { "WantedBy", config_parse_strv, &i->wanted_by, "Install" },
-                { "Also",     config_parse_also, NULL,          "Install" },
+                { "Alias",    config_parse_strv, 0, &i->aliases,   "Install" },
+                { "WantedBy", config_parse_strv, 0, &i->wanted_by, "Install" },
+                { "Also",     config_parse_also, 0, NULL,          "Install" },
 
-                { NULL, NULL, NULL, NULL }
+                { NULL, NULL, 0, NULL, NULL }
         };
 
         char **p;
@@ -4072,7 +4109,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
                                 argv[1] = file_name_from_path(sysv);
                                 argv[2] =
                                         streq(verb, "enable") ? "on" :
-                                        streq(verb, "disable") ? "off" : "--level=3";
+                                        streq(verb, "disable") ? "off" : "--level=5";
 
                                 log_info("Executing %s %s %s", argv[0], argv[1], strempty(argv[2]));
 
@@ -4273,22 +4310,25 @@ static int systemctl_help(void) {
                "                      pending\n"
                "     --ignore-dependencies\n"
                "                      When queueing a new job, ignore all its dependencies\n"
-               "  -q --quiet          Suppress output\n"
-               "     --no-block       Do not wait until operation finished\n"
-               "     --no-pager       Do not pipe output into a pager.\n"
-               "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n"
-               "     --order          When generating graph for dot, show only order\n"
-               "     --require        When generating graph for dot, show only requirement\n"
-               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
-               "     --global         Enable/disable unit files globally\n"
-               "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
-               "                      configuration\n"
-               "     --no-ask-password\n"
-               "                      Do not ask for system passwords\n"
                "     --kill-mode=MODE How to send signal\n"
                "     --kill-who=WHO   Who to send signal to\n"
                "  -s --signal=SIGNAL  Which signal to send\n"
+               "  -H --host=[user@]host\n"
+               "                      Show information for remote host\n"
+               "  -P --privileged     Acquire privileges before execution\n"
+               "  -q --quiet          Suppress output\n"
+               "     --no-block       Do not wait until operation finished\n"
+               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
+               "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
+               "                      configuration\n"
+               "     --no-pager       Do not pipe output into a pager.\n"
+               "     --no-ask-password\n"
+               "                      Do not ask for system passwords\n"
+               "     --order          When generating graph for dot, show only order\n"
+               "     --require        When generating graph for dot, show only requirement\n"
+               "     --system         Connect to system manager\n"
+               "     --user           Connect to user service manager\n"
+               "     --global         Enable/disable unit files globally\n"
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --defaults       When disabling unit files, remove default symlinks only\n\n"
@@ -4455,6 +4495,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "kill-who",  required_argument, NULL, ARG_KILL_WHO  },
                 { "signal",    required_argument, NULL, 's'           },
                 { "no-ask-password", no_argument, NULL, ARG_NO_ASK_PASSWORD },
+                { "host",      required_argument, NULL, 'H'           },
+                { "privileged",no_argument,       NULL, 'P'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4466,7 +4508,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* Only when running as systemctl we ask for passwords */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqfs:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4588,6 +4630,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                case 'P':
+                        arg_transport = TRANSPORT_POLKIT;
+                        break;
+
+                case 'H':
+                        arg_transport = TRANSPORT_SSH;
+                        arg_host = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -4595,6 +4646,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
                 }
+        }
+
+        if (arg_transport != TRANSPORT_NORMAL && arg_user) {
+                log_error("Cannot access user instance remotely.");
+                return -EINVAL;
         }
 
         return 1;
@@ -5191,6 +5247,7 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                 { "cancel",                MORE,  2, cancel_job        },
                 { "start",                 MORE,  2, start_unit        },
                 { "stop",                  MORE,  2, start_unit        },
+                { "condstop",              MORE,  2, start_unit        }, /* For compatibility with ALTLinux */
                 { "reload",                MORE,  2, start_unit        },
                 { "restart",               MORE,  2, start_unit        },
                 { "try-restart",           MORE,  2, start_unit        },
@@ -5289,11 +5346,17 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
 
         /* Require a bus connection for all operations but
          * enable/disable */
-        if (!streq(verbs[i].verb, "enable") &&
-            !streq(verbs[i].verb, "disable") &&
-            !bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
+        if (!streq(verbs[i].verb, "enable") && !streq(verbs[i].verb, "disable")) {
+
+                if (running_in_chroot() > 0) {
+                        log_info("Running in chroot, ignoring request.");
+                        return 0;
+                }
+
+                if (!bus) {
+                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        return -EIO;
+                }
         }
 
         return verbs[i].dispatch(bus, argv + optind, left);
@@ -5320,7 +5383,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
         zero(sockaddr);
         sockaddr.sa.sa_family = AF_UNIX;
         sockaddr.un.sun_path[0] = 0;
-        strncpy(sockaddr.un.sun_path+1, "/org/freedesktop/systemd1/shutdownd", sizeof(sockaddr.un.sun_path)-1);
+        strncpy(sockaddr.un.sun_path, "/run/systemd/shutdownd", sizeof(sockaddr.un.sun_path));
 
         zero(iovec);
         iovec.iov_base = (char*) &c;
@@ -5328,7 +5391,7 @@ static int send_shutdownd(usec_t t, char mode, bool warn, const char *message) {
 
         zero(msghdr);
         msghdr.msg_name = &sockaddr;
-        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + 1 + sizeof("/org/freedesktop/systemd1/shutdownd") - 1;
+        msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/systemd/shutdownd") - 1;
 
         msghdr.msg_iov = &iovec;
         msghdr.msg_iovlen = 1;
@@ -5605,7 +5668,22 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
+        if (running_in_chroot() > 0 && arg_action != ACTION_SYSTEMCTL) {
+                log_info("Running in chroot, ignoring request.");
+                retval = 0;
+                goto finish;
+        }
+
+        if (arg_transport == TRANSPORT_NORMAL)
+                bus_connect(arg_user ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &bus, &private_bus, &error);
+        else if (arg_transport == TRANSPORT_POLKIT) {
+                bus_connect_system_polkit(&bus, &error);
+                private_bus = false;
+        } else if (arg_transport == TRANSPORT_SSH) {
+                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
+                private_bus = false;
+        } else
+                assert_not_reached("Uh, invalid transport...");
 
         switch (arg_action) {
 

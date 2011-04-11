@@ -42,12 +42,15 @@
         BUS_INTROSPECTABLE_INTERFACE                                    \
         "</node>\n"
 
+#define INTERFACES_LIST                              \
+        BUS_UNIT_INTERFACES_LIST                     \
+        "org.freedesktop.systemd1.Timer\0"
+
 const char bus_timer_interface[] _introspect_("Timer") = BUS_TIMER_INTERFACE;
 
 const char bus_timer_invalidating_properties[] =
         "Timers\0"
-        "NextElapseUSec\0"
-        "\0";
+        "NextElapseUSec\0";
 
 static int bus_timer_append_timers(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Timer *p = data;
@@ -119,5 +122,5 @@ DBusHandlerResult bus_timer_message_handler(Unit *u, DBusConnection *c, DBusMess
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, properties);
+        return bus_default_message_handler(u->meta.manager, c, message, INTROSPECTION, INTERFACES_LIST, properties);
 }

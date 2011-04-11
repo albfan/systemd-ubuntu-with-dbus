@@ -4,7 +4,7 @@
 <!--
   This file is part of systemd.
 
-  Copyright 2010 Brandon Philips
+  Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -77,10 +77,10 @@
         <refsect1>
                 <title>Example</title>
                 <example>
-                        <title>/etc/modules-load.d/uinput.conf example:</title>
+                        <title>/etc/modules-load.d/virtio-net.conf example:</title>
 
-                        <programlisting># Load uinput.ko at boot
-uinput</programlisting>
+                        <programlisting># Load virtio-net.ko at boot
+virtio-net</programlisting>
                 </example>
         </refsect1>
 

@@ -55,6 +55,7 @@
 #include "exit-status.h"
 #include "missing.h"
 #include "utmp-wtmp.h"
+#include "def.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -173,9 +174,9 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
+        strncpy(sa.un.sun_path, LOGGER_SOCKET, sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + sizeof(LOGGER_SOCKET) - 1) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(LOGGER_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -645,7 +646,7 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                 char **i;
 
                 /* Final step, initialize any manually set supplementary groups */
-                ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+                assert_se((ngroups_max = (int) sysconf(_SC_NGROUPS_MAX)) > 0);
 
                 if (!(gids = new(gid_t, ngroups_max)))
                         return -ENOMEM;
@@ -980,7 +981,7 @@ int exec_spawn(ExecCommand *command,
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd:exec");
+                rename_process("sd.exec");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
@@ -1247,6 +1248,15 @@ int exec_spawn(ExecCommand *command,
                                         goto fail_child;
                                 }
                         }
+
+                        if (context->capability_bounding_set_drop)
+                                for (i = 0; i <= CAP_LAST_CAP; i++)
+                                        if (context->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) i)) {
+                                                if (prctl(PR_CAPBSET_DROP, i) < 0) {
+                                                        r = EXIT_CAPABILITIES;
+                                                        goto fail_child;
+                                                }
+                                        }
 
                         if (context->user)
                                 if (enforce_user(context, uid) < 0) {
@@ -1640,7 +1650,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
-                        prefix, log_facility_to_string(LOG_FAC(c->syslog_priority)),
+                        prefix, log_facility_unshifted_to_string(c->syslog_priority >> 3),
                         prefix, log_level_to_string(LOG_PRI(c->syslog_priority)));
 
         if (c->capabilities) {
@@ -1663,15 +1673,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         (c->secure_bits & SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
 
         if (c->capability_bounding_set_drop) {
-                fprintf(f, "%sCapabilityBoundingSetDrop:", prefix);
+                fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
                 for (i = 0; i <= CAP_LAST_CAP; i++)
-                        if (c->capability_bounding_set_drop & (1 << i)) {
+                        if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) i))) {
                                 char *t;
 
                                 if ((t = cap_to_name(i))) {
                                         fprintf(f, " %s", t);
-                                        free(t);
+                                        cap_free(t);
                                 }
                         }
 
@@ -1923,7 +1933,6 @@ DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
 static const char* const kill_mode_table[_KILL_MODE_MAX] = {
         [KILL_CONTROL_GROUP] = "control-group",
-        [KILL_PROCESS_GROUP] = "process-group",
         [KILL_PROCESS] = "process",
         [KILL_NONE] = "none"
 };

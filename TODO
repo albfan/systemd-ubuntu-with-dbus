@@ -2,27 +2,112 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* dep cycle basic → udev-retry → auditd → iptables → basic
-
 * isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
+   https://bugzilla.redhat.com/show_bug.cgi?id=688661
 
-* finish syslog socket stuff
+* NFS, networkmanager ordering issue (PENDING)
 
-* NFS, networkmanager ordering issue
+* NM should pull in network.target (PENDING)
+  https://bugzilla.redhat.com/show_bug.cgi?id=692008
+
+* ntpd should pull in time-sync.target. (PENDING)
 
 * add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
 
 * hook emergency.target into local-fs.target in some way as OnFailure with isolate
 
-* mount /dev/.run and /var/run as bind mounts
+* bind mounts are ignored
+  https://bugzilla.redhat.com/show_bug.cgi?id=682662
 
-* Make use of UnknownInterface
+* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
+    (path: after installing inotify watches, recheck file again to fix race)
 
-* support chkconfig without forwarding to systemctl to facilitate upgrades
+* bluetooth should be possible to disable
 
-* drop SIGHUP handling from rsyslog.service upstream
+* fix alsa mixer restore to not print error when no config is stored
 
 Features:
+
+* don't trim empty cgroups
+  https://bugzilla.redhat.com/show_bug.cgi?id=678555
+
+* serialize used job ids and max job id
+
+* show enablement status in systemctl status
+
+* expose monotonic timestamps on the bus and make systemd-analyze use it
+
+* write blog stories about:
+  - chroot, nspawn and friends
+  - the blame game: systemd-analyze
+  - enabling dbus services
+  - status update
+
+* allow port = 0 in .socket units
+
+* rename systemd-logger to systemd-stdio-syslog-bridge
+
+* introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
+
+* in pam_systemd: don't rely on /proc/self/loginuid in a container
+
+* take BSD file lock on tty devices when using them?
+
+* tmpfiles should allow two identical lines
+  https://bugzilla.redhat.com/show_bug.cgi?id=690253
+
+* avoid any flag files, or readahead files in /, we need to support r/o /
+  or / on tmpfs like Android setups.
+
+* teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
+
+* get process transport into dbus for systemctl -P/-H
+
+* document default dependencies
+
+* support systemd.whitelist=/systemd.blacklist= on the kernel command
+  line.
+
+* Find a way to replace /var/run, /var/lock directories with
+  symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
+  We soon want to get rid of var-run.mount var-lock.mount units.
+
+* when key file cannot be found, read it from kbd in cryptsetup
+
+* get rid of random file name in generator directory?
+    /run/systemd/generator-IH1vFu
+
+* add switch to systemctl to show enabled but not running services. Or
+  another switch that shows service that have been running since
+  booting but aren't running anymore.
+
+* reuse mkdtemp namespace dirs in /tmp?
+
+* don't strip facility from kmsg log messages as soon as that is possible:
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
+
+* recreate systemd's D-Bus private socket file on SIGUSR2
+
+* be more specific what failed:
+    ...
+    Unmounting file systems.
+    Not all file systems unmounted, 1 left.
+    Disabling swaps.
+    Detaching loop devices.
+    Detaching DM devices.
+    Cannot finalize remaining file systems and devices, trying to kill remaining processes.
+    Unmounting file systems.
+    Not all file systems unmounted, 1 left.
+    Cannot finalize remaining file systems and devices, giving up.
+    ...
+
+* check for compiled-in, but not active selinux, and don't print any warnings
+  about policy loading. Probably check for available selinux in /proc/filesystems,
+  and check for active selinux with getcon_raw() == "kernel"
+
+* optionally create watched directories in .path units
+
+* Support --test based on current system state
 
 * consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
 
@@ -32,17 +117,21 @@ Features:
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* maybe implement "systemctl mask" and "systemctl unmask", but not
+* Maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
+  Consider moving the actual fs operations into systemd behind a D-Bus
+  interface, to make namespaces/containers/remote connections work properly.
 
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
 
 * support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
+  (belongs into a distro pattern though, not in an upstream package's service file)
 
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
@@ -55,7 +144,7 @@ Features:
 
 * Patch systemd-fsck to use -C and pass console fd to it
 
-* support remote/ssh systemctl/systemadm, and local privileged access
+* support remote/ssh systemctl/systemadm, and local privileged access → dbus patches need to be merged
 
 * configurable jitter for timer events
 
@@ -74,32 +163,28 @@ Features:
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
 
 * add VT tracking:
-    - provide CK functionality
-    - start getty only when actual vt switch happens (same model as
-      socket on-demand activation). allocate the next free tty and
-      start a getty there. this way, pressing alt-f[1-12] will switch
-      through running X and getty sessions, and any unallocated
-      activated tty will start a new getty. the hardcoding of
-      getty[1-6] will entirely go away.
-    - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
+  - provide CK functionality
+  - start getty only when actual vt switch happens (same model as
+    socket on-demand activation). allocate the next free tty and
+    start a getty there. this way, pressing alt-f[1-12] will switch
+    through running X and getty sessions, and any unallocated
+    activated tty will start a new getty. the hardcoding of
+    getty[1-6] will entirely go away.
+  - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
 * port over to LISTEN_FDS/LISTEN_PID:
-   - uuidd    DONE
-   - dbus     DONE
-   - rsyslog  DONE
-   - rpcbind (/var/run/rpcbind.sock!) DONE
-   - cups     DONE
-   - avahi-daemon (/var/run/avahi-daemon/socket) DONE
-   - ssh      CLASSIC
+   - uuidd    HAVEPATCH
+   - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH
+   - cups     HAVEPATCH
    - postfix, saslauthd
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
    - distccd
 
-* fingerprint.target, wireless.target, gps.target
+* fingerprint.target, wireless.target, gps.target, netdevice.target
 
 * set_put(), hashmap_put() return values check. i.e. == 0 doesn't free()!
 
@@ -115,15 +200,11 @@ Features:
 
 * add systemctl switch to dump transaction without executing it
 
-* suspend, resume
+* suspend, resume support?
 
 * readahead: btrfs/LVM SSD detection
 
 * add separate man page for [Install] settings
-
-* only add quotacheck deps to .mount units which mention grpquota/usrquota in the mount flags
-
-* systemctl condrestart should return 0 if service isn't running
 
 * allow runtime changing of log level and target
 
@@ -133,7 +214,7 @@ External:
 
 * snd-seq should go, https://bugzilla.redhat.com/show_bug.cgi?id=676095
 
-* gnome-shell python script/glxinfo/is-accelerated wech
+* gnome-shell python script/glxinfo/is-accelerated must die
 
 * make cryptsetup lower --iter-time
 
@@ -141,6 +222,7 @@ External:
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
+  (Rafael J. Wysocki's sysdev rework is on the way. After that CPUs can be exported a proper bus.)
 
 * procps, psmisc, sysvinit-tools, hostname → util-linux-ng
 

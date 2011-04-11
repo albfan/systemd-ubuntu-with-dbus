@@ -8,10 +8,11 @@
 # See systemd.special(7) for details
 
 [Unit]
-Description=Syslog
+Description=Multi-User
+Requires=basic.target
+Conflicts=rescue.service rescue.target
+After=basic.target rescue.service rescue.target
+AllowIsolate=yes
 
-# As soon as all syslog services have native unit files this explicit
-# dependency should be dropped, and replaced by alias symlinks in the
-# .wants/ directory, to either the .service or .socket unit of the
-# syslog service.
-After=@SPECIAL_SYSLOG_SERVICE@
+[Install]
+Alias=default.target

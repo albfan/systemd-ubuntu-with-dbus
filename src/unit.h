@@ -40,9 +40,6 @@ typedef enum UnitDependency UnitDependency;
 #include "execute.h"
 #include "condition.h"
 
-#define DEFAULT_TIMEOUT_USEC (3*USEC_PER_MINUTE)
-#define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
-
 enum UnitType {
         UNIT_SERVICE = 0,
         UNIT_SOCKET,
@@ -160,6 +157,8 @@ struct Meta {
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
 
+        dual_timestamp condition_timestamp;
+
         dual_timestamp inactive_exit_timestamp;
         dual_timestamp active_enter_timestamp;
         dual_timestamp active_exit_timestamp;
@@ -207,6 +206,9 @@ struct Meta {
 
         /* Allow isolation requests */
         bool allow_isolate;
+
+        /* Did the last condition check suceed? */
+        bool condition_result;
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;
@@ -512,6 +514,8 @@ UnitType unit_name_to_type(const char *n);
 bool unit_name_is_valid(const char *n, bool template_ok);
 
 void unit_trigger_on_failure(Unit *u);
+
+bool unit_condition_test(Unit *u);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

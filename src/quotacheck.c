@@ -35,6 +35,9 @@ static int parse_proc_cmdline(void) {
         int r;
         size_t l;
 
+        if (detect_container(NULL) > 0)
+                return 0;
+
         if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return 0;
@@ -94,7 +97,7 @@ int main(int argc, char *argv[]) {
                 if (arg_skip)
                         return 0;
 
-                if (access("/dev/.systemd/quotacheck", F_OK) < 0)
+                if (access("/run/systemd/quotacheck", F_OK) < 0)
                         return 0;
         }
 
@@ -107,7 +110,7 @@ int main(int argc, char *argv[]) {
                 _exit(1); /* Operational error */
         }
 
-        r = wait_for_terminate_and_warn("quotacheck", pid) >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        r = wait_for_terminate_and_warn("quotacheck", pid) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 finish:
         return r;

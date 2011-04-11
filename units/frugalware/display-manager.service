@@ -5,7 +5,15 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-# See systemd.special(7) for details
-
 [Unit]
-Description=RTC Set
+Description=Display Manager
+After=syslog.target local.service systemd-user-sessions.service
+
+Conflicts=splashy-quit.service
+After=splashy-quit.service
+
+[Service]
+EnvironmentFile=/etc/sysconfig/desktop
+ExecStart=/bin/bash -c "exec ${desktop}"
+Restart=always
+RestartSec=0

@@ -94,7 +94,7 @@ static int unpack_file(FILE *pack) {
                 any = true;
 
                 if (fd >= 0)
-                        if (posix_fadvise(fd, b * PAGE_SIZE, (c - b) * PAGE_SIZE, POSIX_FADV_WILLNEED) < 0) {
+                        if (posix_fadvise(fd, b * page_size(), (c - b) * page_size(), POSIX_FADV_WILLNEED) < 0) {
                                 log_warning("posix_fadvise() failed: %m");
                                 goto finish;
                         }
@@ -122,7 +122,8 @@ static int replay(const char *root) {
         FILE *pack = NULL;
         char line[LINE_MAX];
         int r = 0;
-        char *pack_fn = NULL, c;
+        char *pack_fn = NULL;
+        int c;
         bool on_ssd, ready = false;
         int prio;
         int inotify_fd = -1;
@@ -192,7 +193,7 @@ static int replay(const char *root) {
 
         log_debug("Replaying...");
 
-        if (access("/dev/.systemd/readahead/noreplay", F_OK) >= 0) {
+        if (access("/run/systemd/readahead/noreplay", F_OK) >= 0) {
                 log_debug("Got termination request");
                 goto done;
         }

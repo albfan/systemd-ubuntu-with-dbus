@@ -142,20 +142,20 @@ int machine_id_setup(void) {
         fd = -1;
 
         /* Hmm, we couldn't write it? So let's write it to
-         * /dev/.systemd/machine-id as a replacement */
+         * /run/systemd/machine-id as a replacement */
 
-        mkdir_p("/dev/.systemd", 0755);
+        mkdir_p("/run/systemd", 0755);
 
-        if ((r = write_one_line_file("/dev/.systemd/machine-id", id)) < 0) {
-                log_error("Cannot write /dev/.systemd/machine-id: %s", strerror(-r));
+        if ((r = write_one_line_file("/run/systemd/machine-id", id)) < 0) {
+                log_error("Cannot write /run/systemd/machine-id: %s", strerror(-r));
 
-                unlink("/dev/.systemd/machine-id");
+                unlink("/run/systemd/machine-id");
                 goto finish;
         }
 
         /* And now, let's mount it over */
-        r = mount("/dev/.systemd/machine-id", "/etc/machine-id", "bind", MS_BIND|MS_RDONLY, NULL) < 0 ? -errno : 0;
-        unlink("/dev/.systemd/machine-id");
+        r = mount("/run/systemd/machine-id", "/etc/machine-id", "bind", MS_BIND|MS_RDONLY, NULL) < 0 ? -errno : 0;
+        unlink("/run/systemd/machine-id");
 
         if (r < 0)
                 log_error("Failed to mount /etc/machine-id: %s", strerror(-r));

@@ -1,3 +1,7 @@
+systemd-binfmt
+systemd-getty-generator
+systemd-nspawn
+systemd-stdio-bridge
 systemd-machine-id-setup
 systemd-detect-virt
 systemd-sysctl

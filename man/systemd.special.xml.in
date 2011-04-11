@@ -51,7 +51,6 @@
                 <para><filename>basic.target</filename>,
                 <filename>ctrl-alt-del.target</filename>,
                 <filename>dbus.service</filename>,
-                <filename>dbus.target</filename>,
                 <filename>default.target</filename>,
                 <filename>display-manager.service</filename>,
                 <filename>emergency.target</filename>,
@@ -69,7 +68,7 @@
                 <filename>remote-fs.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
-                <filename>rtc-set.target</filename>,
+                <filename>time-sync.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
                 <filename>runlevel4.target</filename>,
@@ -79,7 +78,6 @@
                 <filename>sockets.target</filename>,
                 <filename>swap.target</filename>,
                 <filename>sysinit.target</filename>,
-                <filename>@SPECIAL_SYSLOG_SERVICE@</filename>,
                 <filename>syslog.target</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
@@ -143,28 +141,6 @@
                                         up systemd will connect to it
                                         and register its
                                         service.</para>
-
-                                        <para>Units should generally
-                                        avoid depending on this unit
-                                        directly and instead refer to
-                                        the
-                                        <filename>dbus.target</filename>
-                                        unit instead, which pulls this
-                                        one in directly or indirectly
-                                        via socket-based activation.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>dbus.target</filename></term>
-                                <listitem>
-                                        <para>Administrators should
-                                        ensure that this target pulls
-                                        in a service unit with the
-                                        name or alias of
-                                        <filename>dbus.service</filename>
-                                        (or a socket unit that
-                                        activates this
-                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
@@ -180,7 +156,7 @@
                                         <para>The default unit systemd
                                         starts at bootup can be
                                         overriden with the
-                                        <varname>systemd.default=</varname>
+                                        <varname>systemd.unit=</varname>
                                         kernel command line option.</para>
                                 </listitem>
                         </varlistentry>
@@ -213,7 +189,7 @@
                                         console. This unit is supposed
                                         to be used with the kernel
                                         command line option
-                                        <varname>systemd.default=</varname>
+                                        <varname>systemd.unit=</varname>
                                         and has otherwise little use.
                                         </para>
                                 </listitem>
@@ -423,7 +399,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>rtc-set.target</filename></term>
+                                <term><filename>time-sync.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
                                         adds dependencies of type
@@ -566,27 +542,6 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>@SPECIAL_SYSLOG_SERVICE@</filename></term>
-                                <listitem>
-                                        <para>A special unit for the
-                                        syslog daemon. As soon as
-                                        this service is fully started
-                                        up systemd will connect to it
-                                        and use it for logging if it
-                                        has been configured for
-                                        that.</para>
-
-                                        <para>Units should generally
-                                        avoid depending on this unit
-                                        directly and instead refer to
-                                        the
-                                        <filename>syslog.target</filename>
-                                        unit instead, which pulls this
-                                        one in directly or indirectly
-                                        via socket-based activation.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
                                 <term><filename>syslog.target</filename></term>
                                 <listitem>
                                         <para>systemd automatically
@@ -597,15 +552,6 @@
                                         referring to the
                                         <literal>$syslog</literal>
                                         facility.</para>
-
-                                        <para>Administrators should
-                                        ensure that this target pulls
-                                        in a service unit with the
-                                        name or alias of
-                                        <filename>@SPECIAL_SYSLOG_SERVICE@</filename>
-                                        (or a socket unit that
-                                        activates this
-                                        service).</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>

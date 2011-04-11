@@ -35,13 +35,12 @@
 #include "special.h"
 #include "bus-errors.h"
 #include "exit-status.h"
-
-#define COMMENTS "#;\n"
-#define NEWLINES "\n\r"
+#include "def.h"
+#include "util.h"
 
 #ifdef HAVE_SYSV_COMPAT
 
-#define DEFAULT_SYSV_TIMEOUT_USEC (3*USEC_PER_MINUTE)
+#define DEFAULT_SYSV_TIMEOUT_USEC (5*USEC_PER_MINUTE)
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,
@@ -116,6 +115,7 @@ static void service_init(Unit *u) {
         s->timer_watch.type = WATCH_INVALID;
 #ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
+        s->sysv_start_priority_from_rcnd = -1;
 #endif
         s->socket_fd = -1;
         s->guess_main_pid = true;
@@ -286,7 +286,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
                 "syslog",               SPECIAL_SYSLOG_TARGET,
-                "time",                 SPECIAL_RTC_SET_TARGET,
+                "time",                 SPECIAL_TIME_SYNC_TARGET,
 
                 /* common extensions */
                 "mail-transfer-agent",  SPECIAL_MAIL_TRANSFER_AGENT_TARGET,
@@ -406,7 +406,7 @@ static int sysv_fix_order(Service *s) {
 
                 /* FIXME: Maybe we should compare the name here lexicographically? */
 
-                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                if ((r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
                         return r;
         }
 
@@ -538,7 +538,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                  * data from the LSB header. */
                                 if (start_priority < 0 || start_priority > 99)
                                         log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
-                                else if (s->sysv_start_priority < 0)
+                                else
                                         s->sysv_start_priority = start_priority;
 
                                 char_array_0(runlevels);
@@ -656,16 +656,21 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                         if (unit_name_to_type(m) == UNIT_SERVICE)
                                                 r = unit_add_name(u, m);
-                                        else {
-                                                r = unit_add_dependency_by_name(u, UNIT_BEFORE, m, NULL, true);
-
-                                                if (s->sysv_enabled) {
-                                                        int k;
-
-                                                        if ((k = unit_add_dependency_by_name_inverse(u, UNIT_WANTS, m, NULL, true)) < 0)
-                                                                r = k;
-                                                }
-                                        }
+                                        else
+                                                /* NB: SysV targets
+                                                 * which are provided
+                                                 * by a service are
+                                                 * pulled in by the
+                                                 * services, as an
+                                                 * indication that the
+                                                 * generic service is
+                                                 * now available. This
+                                                 * is strictly
+                                                 * one-way. The
+                                                 * targets do NOT pull
+                                                 * in the SysV
+                                                 * services! */
+                                                r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, UNIT_WANTS, m, NULL, true);
 
                                         if (r < 0)
                                                 log_error("[%s:%u] Failed to add LSB Provides name %s, ignoring: %s", path, line, m, strerror(-r));
@@ -824,7 +829,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
                 ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
-        s->exec_context.kill_mode = KILL_PROCESS_GROUP;
+        s->exec_context.kill_mode = KILL_PROCESS;
 
         /* We use the long description only if
          * no short description is set. */
@@ -848,6 +853,12 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 u->meta.description = d;
         }
+
+        /* The priority that has been set in /etc/rcN.d/ hierarchies
+         * takes precedence over what is stored as default in the LSB
+         * header */
+        if (s->sysv_start_priority_from_rcnd >= 0)
+                s->sysv_start_priority = s->sysv_start_priority_from_rcnd;
 
         u->meta.load_state = UNIT_LOADED;
         r = 0;
@@ -1013,7 +1024,7 @@ static int fsck_fix_order(Service *s) {
                 else
                         continue;
 
-                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
+                if ((r = unit_add_dependency(UNIT(s), d, UNIT(t), true)) < 0)
                         return r;
         }
 
@@ -1130,7 +1141,7 @@ static int service_load(Unit *u) {
                         s->notify_access = NOTIFY_MAIN;
 
                 if (s->type == SERVICE_DBUS || s->bus_name)
-                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_TARGET, NULL, true)) < 0)
+                        if ((r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, NULL, true)) < 0)
                                 return r;
 
                 if (s->meta.default_dependencies)
@@ -1581,8 +1592,8 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                                 goto fail;
                         }
 
-                        memcpy(t, rfds, rn_fds);
-                        memcpy(t+rn_fds, cfds, cn_fds);
+                        memcpy(t, rfds, rn_fds * sizeof(int));
+                        memcpy(t+rn_fds, cfds, cn_fds * sizeof(int));
                         free(rfds);
                         free(cfds);
 
@@ -1659,7 +1670,7 @@ static int service_spawn(
         }
 
         if (set_notify_socket)
-                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=@%s", s->meta.manager->notify_socket) < 0) {
+                if (asprintf(our_env + n_env++, "NOTIFY_SOCKET=%s", s->meta.manager->notify_socket) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -1834,19 +1845,14 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? s->exec_context.kill_signal : SIGKILL;
 
                 if (s->main_pid > 0) {
-                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -s->main_pid :
-                                             s->main_pid, sig) < 0 && errno != ESRCH)
-
+                        if (kill_and_sigcont(s->main_pid, sig) < 0 && errno != ESRCH)
                                 log_warning("Failed to kill main process %li: %m", (long) s->main_pid);
                         else
                                 wait_for_exit = true;
                 }
 
                 if (s->control_pid > 0) {
-                        if (kill_and_sigcont(s->exec_context.kill_mode == KILL_PROCESS_GROUP ?
-                                             -s->control_pid :
-                                             s->control_pid, sig) < 0 && errno != ESRCH)
+                        if (kill_and_sigcont(s->control_pid, sig) < 0 && errno != ESRCH)
 
                                 log_warning("Failed to kill control process %li: %m", (long) s->control_pid);
                         else
@@ -1876,6 +1882,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                                 wait_for_exit = true;
 
                         set_free(pid_set);
+                        pid_set = NULL;
                 }
         }
 
@@ -3010,8 +3017,8 @@ static int service_enumerate(Manager *m) {
                                 if (de->d_name[0] == 'S')  {
 
                                         if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
-                                                SERVICE(service)->sysv_start_priority =
-                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority);
+                                                SERVICE(service)->sysv_start_priority_from_rcnd =
+                                                        MAX(a*10 + b, SERVICE(service)->sysv_start_priority_from_rcnd);
 
                                                 SERVICE(service)->sysv_enabled = true;
                                         }
@@ -3208,11 +3215,11 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
         }
 
         if (s->control_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -s->control_pid : s->control_pid, signo) < 0)
+                if (kill(s->control_pid, signo) < 0)
                         r = -errno;
 
         if (s->main_pid > 0)
-                if (kill(mode == KILL_PROCESS_GROUP ? -s->main_pid : s->main_pid, signo) < 0)
+                if (kill(s->main_pid, signo) < 0)
                         r = -errno;
 
         if (mode == KILL_CONTROL_GROUP) {
