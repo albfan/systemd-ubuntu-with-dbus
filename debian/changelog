@@ -4,6 +4,8 @@ systemd (25-1) experimental; urgency=low
     dependency.
     - Fixes where to look for locale config.  Closes: #619166
   * Depend on initscripts >= 2.88dsf-13.4 for /run transition.
+  * Add Conflicts on klogd, since it doesn't work correctly with the
+    kmg→/dev/log bridge.  Closes: #622555
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 21 Apr 2011 13:50:13 +0200
 

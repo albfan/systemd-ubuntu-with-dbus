@@ -16,6 +16,7 @@ Recommends: libpam-systemd
 Suggests: systemd-gui
 Depends: ${shlibs:Depends}, ${misc:Depends}, util-linux (>= 2.17.2-5), initscripts (>= 2.88dsf-13.3)
 Breaks: lvm2 (<< 2.02.84-1)
+Conflicts: klogd
 Description: system and service manager
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
