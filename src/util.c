@@ -50,6 +50,7 @@
 #include <linux/kd.h>
 #include <dlfcn.h>
 #include <sys/wait.h>
+#include <sys/capability.h>
 
 #include "macro.h"
 #include "util.h"
@@ -452,14 +453,14 @@ char **split_path_and_make_absolute(const char *p) {
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
         FILE *f;
-        char fn[132], line[256], *p;
+        char fn[PATH_MAX], line[LINE_MAX], *p;
         long unsigned ppid;
 
-        assert(pid >= 0);
+        assert(pid > 0);
         assert(_ppid);
 
         assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
-        fn[sizeof(fn)-1] = 0;
+        char_array_0(fn);
 
         if (!(f = fopen(fn, "r")))
                 return -errno;
@@ -491,6 +492,64 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
                 return -ERANGE;
 
         *_ppid = (pid_t) ppid;
+
+        return 0;
+}
+
+int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
+        int r;
+        FILE *f;
+        char fn[PATH_MAX], line[LINE_MAX], *p;
+
+        assert(pid > 0);
+        assert(st);
+
+        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%lu/stat", (unsigned long) pid) < (int) (sizeof(fn)-1));
+        char_array_0(fn);
+
+        if (!(f = fopen(fn, "r")))
+                return -errno;
+
+        if (!(fgets(line, sizeof(line), f))) {
+                r = -errno;
+                fclose(f);
+                return r;
+        }
+
+        fclose(f);
+
+        /* Let's skip the pid and comm fields. The latter is enclosed
+         * in () but does not escape any () in its value, so let's
+         * skip over it manually */
+
+        if (!(p = strrchr(line, ')')))
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*d "  /* ppid */
+                   "%*d "  /* pgrp */
+                   "%*d "  /* session */
+                   "%*d "  /* tty_nr */
+                   "%*d "  /* tpgid */
+                   "%*u "  /* flags */
+                   "%*u "  /* minflt */
+                   "%*u "  /* cminflt */
+                   "%*u "  /* majflt */
+                   "%*u "  /* cmajflt */
+                   "%*u "  /* utime */
+                   "%*u "  /* stime */
+                   "%*d "  /* cutime */
+                   "%*d "  /* cstime */
+                   "%*d "  /* priority */
+                   "%*d "  /* nice */
+                   "%*d "  /* num_threads */
+                   "%*d "  /* itrealvalue */
+                   "%llu "  /* starttime */,
+                   st) != 1)
+                return -EIO;
 
         return 0;
 }
@@ -548,6 +607,8 @@ int read_one_line_file(const char *fn, char **line) {
                 r = -ENOMEM;
                 goto finish;
         }
+
+        truncate_nl(c);
 
         *line = c;
         r = 0;
@@ -773,6 +834,29 @@ finish:
         return r;
 }
 
+int write_env_file(const char *fname, char **l) {
+
+        char **i;
+        FILE *f;
+        int r;
+
+        f = fopen(fname, "we");
+        if (!f)
+                return -errno;
+
+        STRV_FOREACH(i, l) {
+                fputs(*i, f);
+                fputc('\n', f);
+        }
+
+        fflush(f);
+
+        r = ferror(f) ? -errno : 0;
+        fclose(f);
+
+        return r;
+}
+
 char *truncate_nl(char *s) {
         assert(s);
 
@@ -796,7 +880,6 @@ int get_process_name(pid_t pid, char **name) {
         if (r < 0)
                 return r;
 
-        truncate_nl(*name);
         return 0;
 }
 
@@ -2063,7 +2146,7 @@ int chvt(int vt) {
 int read_one_char(FILE *f, char *ret, bool *need_nl) {
         struct termios old_termios, new_termios;
         char c;
-        char line[1024];
+        char line[LINE_MAX];
 
         assert(f);
         assert(ret);
@@ -2271,7 +2354,7 @@ int flush_fd(int fd) {
         pollfd.events = POLLIN;
 
         for (;;) {
-                char buf[1024];
+                char buf[LINE_MAX];
                 ssize_t l;
                 int r;
 
@@ -2897,7 +2980,7 @@ int getttyname_harder(int fd, char **r) {
 
 int get_ctty_devnr(dev_t *d) {
         int k;
-        char line[256], *p;
+        char line[LINE_MAX], *p;
         unsigned long ttynr;
         FILE *f;
 
@@ -2932,7 +3015,7 @@ int get_ctty_devnr(dev_t *d) {
 
 int get_ctty(char **r, dev_t *_devnr) {
         int k;
-        char fn[128], *s, *b, *p;
+        char fn[PATH_MAX], *s, *b, *p;
         dev_t devnr;
 
         assert(r);
@@ -3198,8 +3281,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/system-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color && pretty_name) {
@@ -3220,8 +3302,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/SuSE-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3234,8 +3315,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/gentoo-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3248,8 +3328,7 @@ void status_welcome(void) {
 
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/altlinux-release: %s", strerror(-r));
-                } else
-                        truncate_nl(pretty_name);
+                }
         }
 
         if (!ansi_color)
@@ -3266,7 +3345,6 @@ void status_welcome(void) {
                         if (r != -ENOENT)
                                 log_warning("Failed to read /etc/debian_version: %s", strerror(-r));
                 } else {
-                        truncate_nl(version);
                         pretty_name = strappend("Debian ", version);
                         free(version);
 
@@ -3316,7 +3394,18 @@ void status_welcome(void) {
                         free(s);
                 }
         }
+#elif defined(TARGET_MEEGO)
 
+        if (!pretty_name) {
+                if ((r = read_one_line_file("/etc/meego-release", &pretty_name)) < 0) {
+
+                        if (r != -ENOENT)
+                                log_warning("Failed to read /etc/meego-release: %s", strerror(-r));
+                }
+        }
+
+       if (!ansi_color)
+               const_color = "1;35"; /* Bright Magenta for MeeGo */
 #endif
 
         if (!pretty_name && !const_pretty)
@@ -3825,8 +3914,6 @@ const char *default_term_for_tty(const char *tty) {
          * TERM */
         if (streq(tty, "console"))
                 if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                        truncate_nl(active);
-
                         /* If multiple log outputs are configured the
                          * last one is what /dev/console points to */
                         if ((tty = strrchr(active, ' ')))
@@ -4234,6 +4321,76 @@ void parse_syslog_priority(char **p, int *priority) {
 
         *priority = a*100+b*10+c;
         *p += k;
+}
+
+int have_effective_cap(int value) {
+        cap_t cap;
+        cap_flag_value_t fv;
+        int r;
+
+        if (!(cap = cap_get_proc()))
+                return -errno;
+
+        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
+                r = -errno;
+        else
+                r = fv == CAP_SET;
+
+        cap_free(cap);
+        return r;
+}
+
+char* strshorten(char *s, size_t l) {
+        assert(s);
+
+        if (l < strlen(s))
+                s[l] = 0;
+
+        return s;
+}
+
+static bool hostname_valid_char(char c) {
+        return
+                (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') ||
+                c == '-' ||
+                c == '_' ||
+                c == '.';
+}
+
+bool hostname_is_valid(const char *s) {
+        const char *p;
+
+        if (isempty(s))
+                return false;
+
+        for (p = s; *p; p++)
+                if (!hostname_valid_char(*p))
+                        return false;
+
+        if (p-s > HOST_NAME_MAX)
+                return false;
+
+        return true;
+}
+
+char* hostname_cleanup(char *s) {
+        char *p, *d;
+
+        for (p = s, d = s; *p; p++)
+                if ((*p >= 'a' && *p <= 'z') ||
+                    (*p >= 'A' && *p <= 'Z') ||
+                    (*p >= '0' && *p <= '9') ||
+                    *p == '-' ||
+                    *p == '_' ||
+                    *p == '.')
+                        *(d++) = *p;
+
+        *d = 0;
+
+        strshorten(s, HOST_NAME_MAX);
+        return s;
 }
 
 static const char *const ioprio_class_table[] = {

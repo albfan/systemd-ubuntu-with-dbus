@@ -28,7 +28,9 @@
 
 #define BUS_EXEC_STATUS_INTERFACE(prefix)                               \
         "  <property name=\"" prefix "StartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "StartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"" prefix "ExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"" prefix "ExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"" prefix "PID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"" prefix "Code\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"" prefix "Status\" type=\"i\" access=\"read\"/>\n"
@@ -149,28 +151,30 @@
 
 #define BUS_EXEC_STATUS_PROPERTIES(interface, estatus, prefix)           \
         { interface, prefix "StartTimestamp",         bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
+        { interface, prefix "StartTimestampMonotonic",bus_property_append_usec,   "t",     &(estatus).start_timestamp.monotonic    }, \
         { interface, prefix "ExitTimestamp",          bus_property_append_usec,   "t",     &(estatus).start_timestamp.realtime     }, \
+        { interface, prefix "ExitTimestampMonotonic", bus_property_append_usec,   "t",     &(estatus).start_timestamp.monotonic    }, \
         { interface, prefix "PID",                    bus_property_append_pid,    "u",     &(estatus).pid                          }, \
         { interface, prefix "Code",                   bus_property_append_int,    "i",     &(estatus).code                         }, \
         { interface, prefix "Status",                 bus_property_append_int,    "i",     &(estatus).status                       }
 
 #define BUS_EXEC_COMMAND_PROPERTY(interface, command, name)             \
-        { interface, name, bus_execute_append_command, "a(sasbttuii)", (command) }
+        { interface, name, bus_execute_append_command, "a(sasbttttuii)", (command) }
 
-int bus_execute_append_output(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_input(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_oom_score_adjust(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_nice(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_ioprio(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_cpu_sched_policy(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_cpu_sched_priority(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_affinity(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_timer_slack_nsec(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_capabilities(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_capability_bs(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_rlimits(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_command(Manager *m, DBusMessageIter *u, const char *property, void *data);
-int bus_execute_append_kill_mode(Manager *m, DBusMessageIter *i, const char *property, void *data);
-int bus_execute_append_env_files(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_output(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_input(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_oom_score_adjust(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_nice(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_ioprio(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_cpu_sched_policy(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_cpu_sched_priority(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_affinity(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_timer_slack_nsec(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_capabilities(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_capability_bs(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_rlimits(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_command(DBusMessageIter *u, const char *property, void *data);
+int bus_execute_append_kill_mode(DBusMessageIter *i, const char *property, void *data);
+int bus_execute_append_env_files(DBusMessageIter *i, const char *property, void *data);
 
 #endif

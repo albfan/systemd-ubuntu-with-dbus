@@ -40,7 +40,7 @@ static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
 static bool opt_readonly = false;
 static bool opt_verify = false;
-static usec_t opt_timeout = 0;
+static usec_t opt_timeout = DEFAULT_TIMEOUT_USEC;
 
 /* Options Debian's crypttab knows we don't:
 
@@ -309,7 +309,10 @@ int main(int argc, char *argv[]) {
                 if (opt_readonly)
                         flags |= CRYPT_ACTIVATE_READONLY;
 
-                until = now(CLOCK_MONOTONIC) + (opt_timeout > 0 ? opt_timeout : DEFAULT_TIMEOUT_USEC);
+                if (opt_timeout > 0)
+                        until = now(CLOCK_MONOTONIC) + opt_timeout;
+                else
+                        until = 0;
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
@@ -403,6 +406,8 @@ int main(int argc, char *argv[]) {
                                         *p = c;
                                 }
                         }
+
+                        k = 0;
 
                         if (!opt_type || streq(opt_type, CRYPT_LUKS1))
                                 k = crypt_load(cd, CRYPT_LUKS1, NULL);

@@ -165,11 +165,11 @@
                         </varlistentry>
                 </variablelist>
 
-                <para>If you interpreting this file from code or a
-                shell script, use the ID and VERSION_ID fields. When
-                looking for an OS identification string for
-                presentation to the user use the PRETTY_STRING
-                field.</para>
+                <para>If you are reading this file from code or a
+                shell script to determine the OS or a specific version
+                of it, use the ID and VERSION_ID fields. When looking
+                for an OS identification string for presentation to
+                the user use the PRETTY_NAME field.</para>
 
                 <para>Note that operating system vendors may choose
                 not to provide version information, for example to
@@ -182,10 +182,10 @@
                 <title>Example</title>
 
                 <programlisting>NAME=Fedora
-VERSION=15 (Rawhide)
+VERSION="15 (Rawhide)"
 ID=fedora
 VERSION_ID=15
-PRETTY_NAME=Fedora 15 (Rawhide)
+PRETTY_NAME="Fedora 15 (Rawhide)"
 ANSI_COLOR=0;34</programlisting>
         </refsect1>
 
@@ -193,7 +193,10 @@ ANSI_COLOR=0;34</programlisting>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

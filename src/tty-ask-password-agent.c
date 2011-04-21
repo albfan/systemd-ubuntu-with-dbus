@@ -261,7 +261,6 @@ static int parse_password(const char *filename, char **wall) {
 
         FILE *f;
         int r;
-        usec_t n;
 
         assert(filename);
 
@@ -279,14 +278,22 @@ static int parse_password(const char *filename, char **wall) {
                 goto finish;
         }
 
-        if (!socket_name || not_after <= 0) {
+        if (!socket_name) {
                 log_error("Invalid password file %s", filename);
                 r = -EBADMSG;
                 goto finish;
         }
 
-        n = now(CLOCK_MONOTONIC);
-        if (n > not_after) {
+        if (not_after > 0) {
+                if (now(CLOCK_MONOTONIC) > not_after) {
+                        r = 0;
+                        goto finish;
+                }
+        }
+
+        if (pid > 0 &&
+            kill(pid, 0) < 0 &&
+            errno == ESRCH) {
                 r = 0;
                 goto finish;
         }
@@ -369,10 +376,15 @@ static int parse_password(const char *filename, char **wall) {
                                 release_terminal();
                         }
 
-                        asprintf(&packet, "+%s", password);
-                        free(password);
+                        packet_length = 1+strlen(password)+1;
+                        if (!(packet = new(char, packet_length)))
+                                r = -ENOMEM;
+                        else {
+                                packet[0] = '+';
+                                strcpy(packet+1, password);
+                        }
 
-                        packet_length = strlen(packet);
+                        free(password);
                 }
 
                 if (r == -ETIME || r == -ENOENT) {
@@ -382,14 +394,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
 
                 if (r < 0) {
-
                         log_error("Failed to query password: %s", strerror(-r));
-                        goto finish;
-                }
-
-                if (!packet) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
                         goto finish;
                 }
 

@@ -1167,13 +1167,13 @@ static void transaction_minimize_impact(Manager *m) {
                                         continue;
 
                                 if (stops_running_service)
-                                        log_info("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_debug("%s/%s would stop a running service.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 if (changes_existing_job)
-                                        log_info("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
+                                        log_debug("%s/%s would change existing job.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 /* Ok, let's get rid of this */
-                                log_info("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
+                                log_debug("Deleting %s/%s to minimize impact.", j->unit->meta.id, job_type_to_string(j->type));
 
                                 transaction_delete_job(m, j, true);
                                 again = true;
@@ -1187,12 +1187,26 @@ static void transaction_minimize_impact(Manager *m) {
         } while (again);
 }
 
-static int transaction_apply(Manager *m) {
+static int transaction_apply(Manager *m, JobMode mode) {
         Iterator i;
         Job *j;
         int r;
 
         /* Moves the transaction jobs to the set of active jobs */
+
+        if (mode == JOB_ISOLATE) {
+
+                /* When isolating first kill all installed jobs which
+                 * aren't part of the new transaction */
+                HASHMAP_FOREACH(j, m->jobs, i) {
+                        assert(j->installed);
+
+                        if (hashmap_get(m->transaction_jobs, j->unit))
+                                continue;
+
+                        job_finish_and_invalidate(j, JOB_CANCELED);
+                }
+        }
 
         HASHMAP_FOREACH(j, m->transaction_jobs, i) {
                 /* Assume merged */
@@ -1273,7 +1287,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
         for (;;) {
                 /* Fourth step: Let's remove unneeded jobs that might
                  * be lurking. */
-                transaction_collect_garbage(m);
+                if (mode != JOB_ISOLATE)
+                        transaction_collect_garbage(m);
 
                 /* Fifth step: verify order makes sense and correct
                  * cycles if necessary and possible */
@@ -1303,7 +1318,8 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
 
                 /* Seventh step: an entry got dropped, let's garbage
                  * collect its dependencies. */
-                transaction_collect_garbage(m);
+                if (mode != JOB_ISOLATE)
+                        transaction_collect_garbage(m);
 
                 /* Let's see if the resulting transaction still has
                  * unmergeable entries ... */
@@ -1320,7 +1336,7 @@ static int transaction_activate(Manager *m, JobMode mode, DBusError *e) {
                 }
 
         /* Tenth step: apply changes */
-        if ((r = transaction_apply(m)) < 0) {
+        if ((r = transaction_apply(m, mode)) < 0) {
                 log_warning("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
         }
@@ -1617,7 +1633,7 @@ static int transaction_add_isolate_jobs(Manager *m) {
                 if (u->meta.id != k)
                         continue;
 
-                if (UNIT_VTABLE(u)->no_isolate)
+                if (u->meta.ignore_on_isolate)
                         continue;
 
                 /* No need to stop inactive jobs */
@@ -2638,6 +2654,11 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        m->n_serializing ++;
+
+        fprintf(f, "current-job-id=%i\n", m->current_job_id);
+        fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
+
         dual_timestamp_serialize(f, "initrd-timestamp", &m->initrd_timestamp);
         dual_timestamp_serialize(f, "startup-timestamp", &m->startup_timestamp);
         dual_timestamp_serialize(f, "finish-timestamp", &m->finish_timestamp);
@@ -2655,9 +2676,14 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
                 fputs(u->meta.id, f);
                 fputc('\n', f);
 
-                if ((r = unit_serialize(u, f, fds)) < 0)
+                if ((r = unit_serialize(u, f, fds)) < 0) {
+                        m->n_serializing --;
                         return r;
+                }
         }
+
+        assert(m->n_serializing > 0);
+        m->n_serializing --;
 
         if (ferror(f))
                 return -EIO;
@@ -2676,7 +2702,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         m->n_deserializing ++;
 
         for (;;) {
-                char line[1024], *l;
+                char line[LINE_MAX], *l;
 
                 if (!fgets(line, sizeof(line), f)) {
                         if (feof(f))
@@ -2693,7 +2719,21 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (l[0] == 0)
                         break;
 
-                if (startswith(l, "initrd-timestamp="))
+                if (startswith(l, "current-job-id=")) {
+                        uint32_t id;
+
+                        if (safe_atou32(l+15, &id) < 0)
+                                log_debug("Failed to parse current job id value %s", l+15);
+                        else
+                                m->current_job_id = MAX(m->current_job_id, id);
+                } else if (startswith(l, "taint-usr=")) {
+                        int b;
+
+                        if ((b = parse_boolean(l+10)) < 0)
+                                log_debug("Failed to parse taint /usr flag %s", l+10);
+                        else
+                                m->taint_usr = m->taint_usr || b;
+                } else if (startswith(l, "initrd-timestamp="))
                         dual_timestamp_deserialize(l+17, &m->initrd_timestamp);
                 else if (startswith(l, "startup-timestamp="))
                         dual_timestamp_deserialize(l+18, &m->startup_timestamp);
@@ -2748,15 +2788,21 @@ int manager_reload(Manager *m) {
         if ((r = manager_open_serialization(m, &f)) < 0)
                 return r;
 
+        m->n_serializing ++;
+
         if (!(fds = fdset_new())) {
+                m->n_serializing --;
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if ((r = manager_serialize(m, f, fds)) < 0)
+        if ((r = manager_serialize(m, f, fds)) < 0) {
+                m->n_serializing --;
                 goto finish;
+        }
 
         if (fseeko(f, 0, SEEK_SET) < 0) {
+                m->n_serializing --;
                 r = -errno;
                 goto finish;
         }
@@ -2764,6 +2810,9 @@ int manager_reload(Manager *m) {
         /* From here on there is no way back. */
         manager_clear_jobs_and_units(m);
         manager_undo_generators(m);
+
+        assert(m->n_serializing > 0);
+        m->n_serializing --;
 
         /* Find new unit paths */
         lookup_paths_free(&m->lookup_paths);
@@ -2901,13 +2950,22 @@ void manager_run_generators(Manager *m) {
         }
 
         if (!m->generator_unit_path) {
-                char *p;
-                char system_path[] = "/run/systemd/generator-XXXXXX",
-                        user_path[] = "/tmp/systemd-generator-XXXXXX";
+                const char *p;
+                char user_path[] = "/tmp/systemd-generator-XXXXXX";
 
-                if (!(p = mkdtemp(m->running_as == MANAGER_SYSTEM ? system_path : user_path))) {
-                        log_error("Failed to generate generator directory: %m");
-                        goto finish;
+                if (m->running_as == MANAGER_SYSTEM && getpid() == 1) {
+                        p = "/run/systemd/generator";
+
+                        if (mkdir_p(p, 0755) < 0) {
+                                log_error("Failed to create generator directory: %m");
+                                goto finish;
+                        }
+
+                } else {
+                        if (!(p = mkdtemp(user_path))) {
+                                log_error("Failed to create generator directory: %m");
+                                goto finish;
+                        }
                 }
 
                 if (!(m->generator_unit_path = strdup(p))) {

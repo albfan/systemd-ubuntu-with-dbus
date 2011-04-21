@@ -117,6 +117,10 @@ static inline bool is_path_absolute(const char *p) {
         return *p == '/';
 }
 
+static inline bool isempty(const char *p) {
+        return !p || !p[0];
+}
+
 bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 bool startswith_no_case(const char *s, const char *prefix);
@@ -192,6 +196,7 @@ char *split_quoted(const char *c, size_t *l, char **state);
 char **split_path_and_make_absolute(const char *p);
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
+int get_starttime_of_pid(pid_t pid, unsigned long long *st);
 
 int write_one_line_file(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
@@ -199,6 +204,7 @@ int read_full_file(const char *fn, char **contents);
 
 int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(const char *fname, char ***l);
+int write_env_file(const char *fname, char **l);
 
 char *strappend(const char *s, const char *suffix);
 char *strnappend(const char *s, const char *suffix, size_t length);
@@ -395,6 +401,13 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 bool plymouth_running(void);
 
 void parse_syslog_priority(char **p, int *priority);
+
+int have_effective_cap(int value);
+
+bool hostname_is_valid(const char *s);
+char* hostname_cleanup(char *s);
+
+char* strshorten(char *s, size_t l);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

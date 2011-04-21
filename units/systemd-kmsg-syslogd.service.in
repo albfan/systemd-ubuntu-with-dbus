@@ -14,4 +14,6 @@ DefaultDependencies=no
 [Service]
 ExecStart=@rootlibexecdir@/systemd-kmsg-syslogd
 NotifyAccess=all
+StandardOutput=null
 Sockets=syslog.socket
+CapabilityBoundingSet=CAP_DAC_OVERRIDE

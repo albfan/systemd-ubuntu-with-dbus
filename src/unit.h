@@ -207,6 +207,12 @@ struct Meta {
         /* Allow isolation requests */
         bool allow_isolate;
 
+        /* Isolate OnFailure unit */
+        bool on_failure_isolate;
+
+        /* Ignore this unit when isolating */
+        bool ignore_on_isolate;
+
         /* Did the last condition check suceed? */
         bool condition_result;
 
@@ -363,9 +369,6 @@ struct UnitVTable {
 
         /* Exclude from automatic gc */
         bool no_gc:1;
-
-        /* Exclude from stopping on isolation requests */
-        bool no_isolate:1;
 
         /* Show status updates on the console */
         bool show_status:1;
