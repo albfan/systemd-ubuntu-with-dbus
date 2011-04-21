@@ -2,46 +2,57 @@ F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
 
-* isolate multi-user.target doesn't start a getty@tty1 if we run it from graphical.target
-   https://bugzilla.redhat.com/show_bug.cgi?id=688661
+* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
+
+* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
+    (path: after installing inotify watches, recheck file again to fix race)
+
+F15 External:
 
 * NFS, networkmanager ordering issue (PENDING)
 
 * NM should pull in network.target (PENDING)
   https://bugzilla.redhat.com/show_bug.cgi?id=692008
 
-* ntpd should pull in time-sync.target. (PENDING)
+* bluetooth should be possible to disable (PENDING)
 
-* add fstab fields to add wait timeouts, change Wants to Requires by local-fs.target
+* get writev() /dev/kmsg support into the F15 kernel
+    https://lkml.org/lkml/2011/4/6/473
+  patched merged into -mm
 
-* hook emergency.target into local-fs.target in some way as OnFailure with isolate
+* fix sd_is_socket() invocation in dbus
 
-* bind mounts are ignored
-  https://bugzilla.redhat.com/show_bug.cgi?id=682662
+* New CK release, with sysinit.target dropping and TTY loop
 
-* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
-    (path: after installing inotify watches, recheck file again to fix race)
+* New Avahi package, enable it by default
 
-* bluetooth should be possible to disable
-
-* fix alsa mixer restore to not print error when no config is stored
+* make anaconda write timeout=0 for encrypted devices
 
 Features:
 
-* don't trim empty cgroups
-  https://bugzilla.redhat.com/show_bug.cgi?id=678555
+* Maybe merge nss-myhostname into systemd?
 
-* serialize used job ids and max job id
+* maybe lower default timeout to 2min?
+
+* GC unreferenced jobs (such as .device jobs)
+
+* support wildcard expansion in ListeStream= and friends
+
+* avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
+
+* use pivot_root on shutdown so that we can unmount the root directory.
+
+* fix alsa mixer restore to not print error when no config is stored
 
 * show enablement status in systemctl status
 
-* expose monotonic timestamps on the bus and make systemd-analyze use it
-
 * write blog stories about:
-  - chroot, nspawn and friends
-  - the blame game: systemd-analyze
   - enabling dbus services
   - status update
+  - the new configuration files
+  - you are a distro: why switch?
+
+* maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
 * allow port = 0 in .socket units
 
@@ -49,15 +60,12 @@ Features:
 
 * introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
 
-* in pam_systemd: don't rely on /proc/self/loginuid in a container
-
 * take BSD file lock on tty devices when using them?
-
-* tmpfiles should allow two identical lines
-  https://bugzilla.redhat.com/show_bug.cgi?id=690253
 
 * avoid any flag files, or readahead files in /, we need to support r/o /
   or / on tmpfs like Android setups.
+
+* move readahead files into /var, look for them with .path units
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
@@ -70,21 +78,24 @@ Features:
 
 * Find a way to replace /var/run, /var/lock directories with
   symlinks during an RPM package upgrade (filesystem.rpm or systemd.rpm).
-  We soon want to get rid of var-run.mount var-lock.mount units.
+  (lua code to create symlinks right away for new installations is in filesytem.rpm now)
+  We soon want to get rid of var-run.mount var-lock.mount units:
+    if mountpoint /run ; then
+          umount /var/run || :
+    else
+          mount --move /var/run /run || mount --bind /var/run /run
+    fi
+    mv /var/run /var/.run.save
+    ln -s /run /var/run
+    echo "R /var/.run.save" > /etc/tmpfiles.d/remove-run-save.conf
 
 * when key file cannot be found, read it from kbd in cryptsetup
-
-* get rid of random file name in generator directory?
-    /run/systemd/generator-IH1vFu
 
 * add switch to systemctl to show enabled but not running services. Or
   another switch that shows service that have been running since
   booting but aren't running anymore.
 
 * reuse mkdtemp namespace dirs in /tmp?
-
-* don't strip facility from kmsg log messages as soon as that is possible:
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=9d90c8d9cde929cbc575098e825d7c29d9f45054
 
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
@@ -105,11 +116,9 @@ Features:
   about policy loading. Probably check for available selinux in /proc/filesystems,
   and check for active selinux with getcon_raw() == "kernel"
 
-* optionally create watched directories in .path units
-
 * Support --test based on current system state
 
-* consider services with no [Install] section and stored in /lib enabled by "systemctl is-enabled"
+* systemctl enable as D-Bus call
 
 * consider services with any kind of link in /etc/systemd/system enabled
 
@@ -120,15 +129,11 @@ Features:
 * Maybe implement "systemctl mask" and "systemctl unmask", but not
   document it? When doing that add switch to make this temporary by
   placing mask links in /dev.
-  Consider moving the actual fs operations into systemd behind a D-Bus
-  interface, to make namespaces/containers/remote connections work properly.
 
 * detect LXC environment
 
 * invoke vhangup() before and after invoking getty
     http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
-
-* support "auto" and "comment=systemd.automount" at the same time for an fstab entry
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
   (belongs into a distro pattern though, not in an upstream package's service file)
@@ -136,7 +141,7 @@ Features:
 * perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
 
 * need a way to apply mount options of api vfs from systemd unit files
-  (or some other modern source?) instead of fstab
+  (or some other modern source?) instead of fstab?
 
 * maybe introduce ExecRestartPre=
 
@@ -144,12 +149,11 @@ Features:
 
 * Patch systemd-fsck to use -C and pass console fd to it
 
-* support remote/ssh systemctl/systemadm, and local privileged access → dbus patches need to be merged
-
 * configurable jitter for timer events
 
-* Support ProcessNeededForShutdown=true to allow stuff like mdmon
-  to be killed very late after the rootfs is read only (?)
+* Support ProcessNeededForShutdown=true to allow stuff like mdmon to
+  be killed very late after the rootfs is read only? If implement pass
+  this to shutdown binary via command line argument.
 
 * Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
   needed action
@@ -194,8 +198,6 @@ Features:
 
 * systemctl list-jobs - show dependencies
 
-* accountsservice is borked
-
 * auditd service files
 
 * add systemctl switch to dump transaction without executing it
@@ -207,6 +209,8 @@ Features:
 * add separate man page for [Install] settings
 
 * allow runtime changing of log level and target
+
+* drop cap bounding set in readahead and other services
 
 External:
 

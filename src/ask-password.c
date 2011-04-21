@@ -40,11 +40,12 @@
 #include "util.h"
 #include "strv.h"
 #include "ask-password-api.h"
+#include "def.h"
 
 static const char *arg_icon = NULL;
 static const char *arg_message = NULL;
 static bool arg_use_tty = true;
-static usec_t arg_timeout = 60 * USEC_PER_SEC;
+static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_accept_cached = false;
 static bool arg_multiple = false;
 
@@ -101,7 +102,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEOUT:
-                        if (parse_usec(optarg, &arg_timeout) < 0 || arg_timeout <= 0) {
+                        if (parse_usec(optarg, &arg_timeout) < 0) {
                                 log_error("Failed to parse --timeout parameter %s", optarg);
                                 return -EINVAL;
                         }
@@ -139,6 +140,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         int r;
+        usec_t timeout;
 
         log_parse_environment();
         log_open();
@@ -146,10 +148,15 @@ int main(int argc, char *argv[]) {
         if ((r = parse_argv(argc, argv)) <= 0)
                 goto finish;
 
+        if (arg_timeout > 0)
+                timeout = now(CLOCK_MONOTONIC) + arg_timeout;
+        else
+                timeout = 0;
+
         if (arg_use_tty && isatty(STDIN_FILENO)) {
                 char *password = NULL;
 
-                if ((r = ask_password_tty(arg_message, now(CLOCK_MONOTONIC) + arg_timeout, NULL, &password)) >= 0) {
+                if ((r = ask_password_tty(arg_message, timeout, NULL, &password)) >= 0) {
                         puts(password);
                         free(password);
                 }
@@ -157,7 +164,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **l;
 
-                if ((r = ask_password_agent(arg_message, arg_icon, now(CLOCK_MONOTONIC) + arg_timeout, arg_accept_cached, &l)) >= 0) {
+                if ((r = ask_password_agent(arg_message, arg_icon, timeout, arg_accept_cached, &l)) >= 0) {
                         char **p;
 
                         STRV_FOREACH(p, l) {

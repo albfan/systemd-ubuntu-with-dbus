@@ -476,6 +476,52 @@ int job_run_and_invalidate(Job *j) {
         return r;
 }
 
+static void job_print_status_message(Unit *u, JobType t, JobResult result) {
+        assert(u);
+
+        if (t == JOB_START) {
+
+                switch (result) {
+
+                case JOB_DONE:
+                        unit_status_printf(u, "Started %s.\n", unit_description(u));
+                        break;
+
+                case JOB_FAILED:
+                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
+                        break;
+
+                case JOB_DEPENDENCY:
+                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "aborted" ANSI_HIGHLIGHT_OFF " because a dependency failed.\n", unit_description(u));
+                        break;
+
+                case JOB_TIMEOUT:
+                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        break;
+
+                default:
+                        ;
+                }
+
+        } else if (t == JOB_STOP) {
+
+                switch (result) {
+
+                case JOB_TIMEOUT:
+                        unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        break;
+
+                case JOB_DONE:
+                case JOB_FAILED:
+                        unit_status_printf(u, "Stopped %s.\n", unit_description(u));
+                        break;
+
+                default:
+                        ;
+                }
+        }
+}
+
 int job_finish_and_invalidate(Job *j, JobResult result) {
         Unit *u;
         Unit *other;
@@ -512,12 +558,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         t = j->type;
         job_free(j);
 
-        if (result == JOB_FAILED && t == JOB_START)
-                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
-        else if (result == JOB_TIMEOUT && t == JOB_START)
-                unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
-        else if (result == JOB_TIMEOUT && t == JOB_STOP)
-                unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+        job_print_status_message(u, t, result);
 
         /* Fail depending jobs on failure */
         if (result != JOB_DONE) {
@@ -563,8 +604,14 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
          * the unit itself. We don't tread JOB_CANCELED as failure in
          * this context. And JOB_FAILURE is already handled by the
          * unit itself. */
-        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY)
+        if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
+                log_notice("Job %s/%s failed with result '%s'.",
+                           u->meta.id,
+                           job_type_to_string(t),
+                           job_result_to_string(result));
+
                 unit_trigger_on_failure(u);
+        }
 
         /* Try to start the next jobs that can be started */
         SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)

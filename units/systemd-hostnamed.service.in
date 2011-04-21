@@ -5,12 +5,13 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-[Unit]
-Description=Forward Password Requests to Wall Directory Watch
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=basic.target shutdown.target
+# See systemd.special(7) for details
 
-[Path]
-DirectoryNotEmpty=/run/systemd/ask-password
-MakeDirectory=yes
+[Unit]
+Description=Hostname Service
+
+[Service]
+ExecStart=@rootlibexecdir@/systemd-hostnamed
+Type=dbus
+BusName=org.freedesktop.hostname1
+CapabilityBoundingSet=CAP_SYS_ADMIN

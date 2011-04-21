@@ -70,9 +70,10 @@ char **strv_copy(char **l) {
         if (!(r = new(char*, strv_length(l)+1)))
                 return NULL;
 
-        for (k = r; *l; k++, l++)
-                if (!(*k = strdup(*l)))
-                        goto fail;
+        if (l)
+                for (k = r; *l; k++, l++)
+                        if (!(*k = strdup(*l)))
+                                goto fail;
 
         *k = NULL;
         return r;
@@ -357,7 +358,10 @@ char **strv_remove(char **l, const char *s) {
         if (!l)
                 return NULL;
 
-        /* Drops every occurrence of s in the string list */
+        assert(s);
+
+        /* Drops every occurrence of s in the string list, edits
+         * in-place. */
 
         for (f = t = l; *f; f++) {
 
@@ -386,7 +390,12 @@ static int env_append(char **r, char ***k, char **a) {
 
         for (; *a; a++) {
                 char **j;
-                size_t n = strcspn(*a, "=") + 1;
+                size_t n;
+
+                n = strcspn(*a, "=");
+
+                if ((*a)[n] == '=')
+                        n++;
 
                 for (j = r; j < *k; j++)
                         if (strncmp(*j, *a, n) == 0)
@@ -516,9 +525,38 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
         return r;
 }
 
+char **strv_env_unset(char **l, const char *p) {
+
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        assert(p);
+
+        /* Drops every occurrence of the env var setting p in the
+         * string list. edits in-place. */
+
+        for (f = t = l; *f; f++) {
+
+                if (env_match(*f, p)) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
 char **strv_env_set(char **x, const char *p) {
 
         char **k, **r;
+        char* m[2] = { (char*) p, NULL };
+
+        /* Overrides the env var setting of p, returns a new copy */
 
         if (!(r = new(char*, strv_length(x)+2)))
                 return NULL;
@@ -527,7 +565,7 @@ char **strv_env_set(char **x, const char *p) {
         if (env_append(r, &k, x) < 0)
                 goto fail;
 
-        if (!(*(k++) = strdup(p)))
+        if (env_append(r, &k, m) < 0)
                 goto fail;
 
         *k = NULL;

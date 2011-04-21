@@ -404,13 +404,13 @@ int ask_password_agent(
 
                 t = now(CLOCK_MONOTONIC);
 
-                if (until <= t) {
+                if (until > 0 && until <= t) {
                         log_notice("Timed out");
                         r = -ETIME;
                         goto finish;
                 }
 
-                if ((k = poll(pollfd, _FD_MAX, (until-t)/USEC_PER_MSEC)) < 0) {
+                if ((k = poll(pollfd, _FD_MAX, until > 0 ? (int) ((until-t)/USEC_PER_MSEC) : -1)) < 0) {
 
                         if (errno == EINTR)
                                 continue;
@@ -481,7 +481,13 @@ int ask_password_agent(
                 if (passphrase[0] == '+') {
                         char **l;
 
-                        if (!(l = strv_parse_nulstr(passphrase+1, n-1))) {
+                        if (n == 1)
+                                l = strv_new("", NULL);
+                        else
+                                l = strv_parse_nulstr(passphrase+1, n-1);
+                                /* An empty message refers to the empty password */
+
+                        if (!l) {
                                 r = -ENOMEM;
                                 goto finish;
                         }

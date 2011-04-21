@@ -198,7 +198,7 @@ static int config_parse_listen(
                 void *data,
                 void *userdata) {
 
-        SocketPort *p;
+        SocketPort *p, *tail;
         Socket *s;
 
         assert(filename);
@@ -220,6 +220,26 @@ static int config_parse_listen(
                 }
 
                 path_kill_slashes(p->path);
+
+        } else if (streq(lvalue, "ListenSpecial")) {
+                p->type = SOCKET_SPECIAL;
+
+                if (!(p->path = strdup(rvalue))) {
+                        free(p);
+                        return -ENOMEM;
+                }
+
+                path_kill_slashes(p->path);
+
+        } else if (streq(lvalue, "ListenNetlink")) {
+                p->type = SOCKET_SOCKET;
+
+                if (socket_address_parse_netlink(&p->address, rvalue) < 0) {
+                        log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
+                        free(p);
+                        return 0;
+                }
+
         } else {
                 p->type = SOCKET_SOCKET;
 
@@ -246,7 +266,12 @@ static int config_parse_listen(
         }
 
         p->fd = -1;
-        LIST_PREPEND(SocketPort, port, s->ports, p);
+
+        if (s->ports) {
+                LIST_FIND_TAIL(SocketPort, port, s->ports, tail);
+                LIST_INSERT_AFTER(SocketPort, port, s->ports, tail, p);
+        } else
+                LIST_PREPEND(SocketPort, port, s->ports, p);
 
         return 0;
 }
@@ -1851,6 +1876,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "RefuseManualStop",       config_parse_bool,            0, &u->meta.refuse_manual_stop,                     "Unit"    },
                 { "AllowIsolate",           config_parse_bool,            0, &u->meta.allow_isolate,                          "Unit"    },
                 { "DefaultDependencies",    config_parse_bool,            0, &u->meta.default_dependencies,                   "Unit"    },
+                { "OnFailureIsolate",       config_parse_bool,            0, &u->meta.on_failure_isolate,                     "Unit"    },
+                { "IgnoreOnIsolate",        config_parse_bool,            0, &u->meta.ignore_on_isolate,                      "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            0, &u->meta.job_timeout,                            "Unit"    },
                 { "ConditionPathExists",        config_parse_condition_path, CONDITION_PATH_EXISTS, u,                        "Unit"    },
                 { "ConditionPathIsDirectory",   config_parse_condition_path, CONDITION_PATH_IS_DIRECTORY, u,                  "Unit"    },
@@ -1891,6 +1918,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ListenDatagram",         config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenSequentialPacket", config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenFIFO",             config_parse_listen,          0, &u->socket,                                      "Socket"  },
+                { "ListenNetlink",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
+                { "ListenSpecial",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "BindIPv6Only",           config_parse_socket_bind,     0, &u->socket,                                      "Socket"  },
                 { "Backlog",                config_parse_unsigned,        0, &u->socket.backlog,                              "Socket"  },
                 { "BindToDevice",           config_parse_bindtodevice,    0, &u->socket,                                      "Socket"  },
@@ -1943,6 +1972,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PathChanged",            config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "DirectoryNotEmpty",      config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "Unit",                   config_parse_path_unit,       0, &u->path,                                        "Path"    },
+                { "MakeDirectory",          config_parse_bool,            0, &u->path.make_directory,                         "Path"    },
+                { "DirectoryMode",          config_parse_mode,            0, &u->path.directory_mode,                         "Path"    },
 
                 /* The [Install] section is ignored here. */
                 { "Alias",                  NULL,                         0, NULL,                                            "Install" },

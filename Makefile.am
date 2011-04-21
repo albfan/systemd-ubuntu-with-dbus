@@ -90,10 +90,17 @@ AM_CPPFLAGS += \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
 else
+if TARGET_MEEGO
+AM_CPPFLAGS += \
+	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
+	-DKBD_SETFONT=\"/bin/setfont\" \
+	-DDEFAULT_FONT=\"LatArCyrHeb-16\"
+else
 AM_CPPFLAGS += \
 	-DKBD_LOADKEYS=\"/bin/loadkeys\" \
 	-DKBD_SETFONT=\"/bin/setfont\" \
 	-DDEFAULT_FONT=\"latarcyrheb-sun16\"
+endif
 endif
 endif
 endif
@@ -144,7 +151,8 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-	systemd-binfmt
+	systemd-binfmt \
+        systemd-hostnamed
 
 systemgenerator_PROGRAMS = \
 	systemd-getty-generator
@@ -177,10 +185,12 @@ dist_pkgsysconf_DATA = \
 	src/system.conf
 
 dist_dbuspolicy_DATA = \
-	src/org.freedesktop.systemd1.conf
+	src/org.freedesktop.systemd1.conf \
+        src/org.freedesktop.hostname1.conf
 
 dist_dbussystemservice_DATA = \
-	src/org.freedesktop.systemd1.service
+	src/org.freedesktop.systemd1.service \
+        src/org.freedesktop.hostname1.service
 
 dist_udevrules_DATA = \
 	src/99-systemd.rules
@@ -282,6 +292,7 @@ nodist_systemunit_DATA = \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
+	units/systemd-hostnamed.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -326,6 +337,7 @@ EXTRA_DIST = \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
 	units/systemd-shutdownd.service.in \
+	units/systemd-hostnamed.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
@@ -406,8 +418,11 @@ dist_doc_DATA = \
 pkgconfigdata_DATA = \
 	systemd.pc
 
-polkitpolicy_DATA = \
+nodist_polkitpolicy_DATA = \
 	src/org.freedesktop.systemd1.policy
+
+dist_polkitpolicy_DATA = \
+        src/org.freedesktop.hostname1.policy
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
@@ -481,7 +496,8 @@ libsystemd_core_la_SOURCES = \
 	src/namespace.c \
 	src/tcpwrap.c \
 	src/cgroup-util.c \
-	src/condition.c
+	src/condition.c \
+        src/dbus-common.c
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -570,9 +586,11 @@ MANPAGES = \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
 	man/os-release.5 \
+        man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/binfmt.d.5 \
-	man/sysctl.d.5
+	man/sysctl.d.5 \
+        man/systemd-ask-password.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -751,6 +769,19 @@ systemd_shutdownd_CFLAGS = \
 systemd_shutdownd_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la
+
+systemd_hostnamed_SOURCES = \
+	src/hostnamed.c \
+        src/dbus-common.c
+
+systemd_hostnamed_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_hostnamed_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
@@ -1344,9 +1375,10 @@ install-data-hook:
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service && \
 		$(LN_S) graphical.target default.target && \
-		$(LN_S) reboot.target ctrl-alt-del.target )
+		$(LN_S) reboot.target ctrl-alt-del.target && \
+                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
 		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
 		$(LN_S) ../getty.target getty.target && \
@@ -1428,6 +1460,20 @@ if HAVE_PLYMOUTH
 	( cd $(DESTDIR)$(systemunitdir)/halt.target.wants && \
 		rm -f plymouth-halt.service && \
 		$(LN_S) ../plymouth-halt.service plymouth-halt.service )
+endif
+if TARGET_MEEGO
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f network.target && \
+		$(LN_S) $(systemunitdir)/network.target network.target )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/sysinit.target.wants && \
+		rm -f * )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/local-fs.target.wants && \
+		rm -f * )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
+		rm -f * )
+	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
+		rm -f * )
 endif
 
 if TARGET_FEDORA

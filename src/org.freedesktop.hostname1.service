@@ -5,12 +5,8 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
-[Unit]
-Description=Forward Password Requests to Wall Directory Watch
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=basic.target shutdown.target
-
-[Path]
-DirectoryNotEmpty=/run/systemd/ask-password
-MakeDirectory=yes
+[D-BUS Service]
+Name=org.freedesktop.hostname1
+Exec=/bin/false
+User=root
+SystemdService=dbus-org.freedesktop.hostname1.service

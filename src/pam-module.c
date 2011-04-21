@@ -24,6 +24,7 @@
 #include <sys/file.h>
 #include <pwd.h>
 #include <endian.h>
+#include <sys/capability.h>
 
 #include <security/pam_modules.h>
 #include <security/_pam_macros.h>
@@ -220,18 +221,19 @@ static uint64_t get_session_id(int *mode) {
 
         /* First attempt: let's use the session ID of the audit
          * system, if it is available. */
-        if (read_one_line_file("/proc/self/sessionid", &s) >= 0) {
-                uint32_t u;
-                int r;
+        if (have_effective_cap(CAP_AUDIT_CONTROL) > 0)
+                if (read_one_line_file("/proc/self/sessionid", &s) >= 0) {
+                        uint32_t u;
+                        int r;
 
-                r = safe_atou32(s, &u);
-                free(s);
+                        r = safe_atou32(s, &u);
+                        free(s);
 
-                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
-                        *mode = SESSION_ID_AUDIT;
-                        return (uint64_t) u;
+                        if (r >= 0 && u != (uint32_t) -1 && u > 0) {
+                                *mode = SESSION_ID_AUDIT;
+                                return (uint64_t) u;
+                        }
                 }
-        }
 
         /* Second attempt, use our own counter. */
         if ((fd = open_file_and_lock(RUNTIME_DIR "/user/.pam-systemd-session")) >= 0) {
@@ -288,15 +290,24 @@ static int get_user_data(
         assert(ret_username);
         assert(ret_pw);
 
-        if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
-                uint32_t u;
+        if (have_effective_cap(CAP_AUDIT_CONTROL) > 0) {
+                /* Only use audit login uid if we are executed with
+                 * sufficient capabilities so that pam_loginuid could
+                 * do its job. If we are lacking the CAP_AUDIT_CONTROL
+                 * capabality we most likely are being run in a
+                 * container and /proc/self/loginuid is useless since
+                 * it probably contains a uid of the host system. */
 
-                r = safe_atou32(s, &u);
-                free(s);
+                if (read_one_line_file("/proc/self/loginuid", &s) >= 0) {
+                        uint32_t u;
 
-                if (r >= 0 && u != (uint32_t) -1 && u > 0) {
-                        have_loginuid = true;
-                        pw = pam_modutil_getpwuid(handle, u);
+                        r = safe_atou32(s, &u);
+                        free(s);
+
+                        if (r >= 0 && u != (uint32_t) -1 && u > 0) {
+                                have_loginuid = true;
+                                pw = pam_modutil_getpwuid(handle, u);
+                        }
                 }
         }
 

@@ -25,8 +25,11 @@ ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 m4_ifdef(`TARGET_MANDRIVA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin'))
-ExecStopPost=-/bin/systemctl --fail default
+`ExecStart=-/sbin/sulogin'
+m4_ifdef(`TARGET_MEEGO',
+`EnvironmentFile=/etc/sysconfig/init
+ExecStart=-/bin/bash -c "exec ${SINGLE}"',)))
+ExecStopPost=-/bin/systemctl --fail --no-block default
 StandardInput=tty-force
 KillMode=process
 

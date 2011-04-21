@@ -30,7 +30,7 @@
 #include "util.h"
 #include "log.h"
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA)
+#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO)
 #define FILENAME "/etc/sysconfig/network"
 #elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
 #define FILENAME "/etc/HOSTNAME"
@@ -40,25 +40,8 @@
 #define FILENAME "/etc/conf.d/hostname"
 #endif
 
-static char* strip_bad_chars(char *s) {
-        char *p, *d;
-
-        for (p = s, d = s; *p; p++)
-                if ((*p >= 'a' && *p <= 'z') ||
-                    (*p >= 'A' && *p <= 'Z') ||
-                    (*p >= '0' && *p <= '9') ||
-                    *p == '-' ||
-                    *p == '_' ||
-                    *p == '.')
-                        *(d++) = *p;
-
-        *d = 0;
-
-        return s;
-}
-
 static int read_and_strip_hostname(const char *path, char **hn) {
-        char *s, *k;
+        char *s;
         int r;
 
         assert(path);
@@ -67,27 +50,21 @@ static int read_and_strip_hostname(const char *path, char **hn) {
         if ((r = read_one_line_file(path, &s)) < 0)
                 return r;
 
-        k = strdup(strstrip(s));
-        free(s);
+        hostname_cleanup(s);
 
-        if (!k)
-                return -ENOMEM;
-
-        strip_bad_chars(k);
-
-        if (k[0] == 0) {
-                free(k);
+        if (isempty(s)) {
+                free(s);
                 return -ENOENT;
         }
 
-        *hn = k;
+        *hn = s;
 
         return 0;
 }
 
 static int read_distro_hostname(char **hn) {
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA)
+#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO)
         int r;
         FILE *f;
 
@@ -118,9 +95,9 @@ static int read_distro_hostname(char **hn) {
                         goto finish;
                 }
 
-                strip_bad_chars(k);
+                hostname_cleanup(k);
 
-                if (k[0] == 0) {
+                if (isempty(k)) {
                         free(k);
                         r = -ENOENT;
                         goto finish;

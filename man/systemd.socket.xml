@@ -219,6 +219,37 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>ListenSpecial=</varname></term>
+                                <listitem><para>Specifies a special
+                                file in the file system to listen
+                                on. This expects an absolute file
+                                system path as argument. Behaviour
+                                otherwise is very similar to the
+                                <varname>ListenFIFO=</varname>
+                                directive above. Use this to open
+                                character device nodes as well as
+                                special files in
+                                <filename>/proc</filename> and
+                                <filename>/sys</filename>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ListenNetlink=</varname></term>
+                                <listitem><para>Specifies a Netlink
+                                family to create a socket for to
+                                listen on. This expects a short string
+                                referring to the AF_NETLINK family
+                                name (such as <varname>audit</varname>
+                                or <varname>kobject-uevent</varname>)
+                                as argument, optionally suffixed by a
+                                whitespace followed by a multicast
+                                group integer. Behaviour otherwise is
+                                very similar to the
+                                <varname>ListenDatagram=</varname>
+                                directive above.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>BindIPv6Only=</varname></term>
                                 <listitem><para>Takes a one of
                                 <option>default</option>,
@@ -510,7 +541,7 @@
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
                                 logic. Defaults to
-                                60s.</para></listitem>
+                                3min.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
