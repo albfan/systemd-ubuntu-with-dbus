@@ -1,8 +1,7 @@
 # -*-Shell-script-*-
-# /etc/lsb-base-logging.sh
+# /lib/lsb/init-functions
 
 if [ -e /sys/fs/cgroup/systemd ] ; then
-
     # Some init scripts use "set -e" and "set -u", we don't want that
     # here
     set +e
@@ -18,12 +17,21 @@ if [ -e /sys/fs/cgroup/systemd ] ; then
 
     # Redirect SysV init scripts when executed by the user
     if [ $PPID -ne 1 ] && [ -z "$init" ] && [ -z "$_SYSTEMCTL_SKIP_REDIRECT" ] ; then
-        case "$0" in
+        case $(readlink -f "$0") in
             /etc/init.d/*)
 		# Don't redirect if the init script has X-Interactive: true
 		if ! grep -qs "^# X-Interactive:.*true" "$0"; then
 		    _use_systemctl=1
 		fi
+		# Redirect if there's a matching .service file in /etc or /lib
+		local prog=${0##*/}
+		local service="${prog%.sh}.service"
+		local fp=$(systemctl -p FragmentPath show $service 2>/dev/null | sed 's/^FragmentPath=//')
+		case "$fp"  in
+		    /lib/systemd/system/*|/etc/systemd/system/*)
+			_use_systemctl=1
+			;;
+		esac
 		;;
 	esac
     else
@@ -82,3 +90,5 @@ if [ "$_use_systemctl" = "1" ]; then
 		exit $?
 	fi
 fi
+
+. /lib/lsb/init-functions.systemd

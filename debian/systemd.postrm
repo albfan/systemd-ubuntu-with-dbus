@@ -1,0 +1,14 @@
+#! /bin/sh
+
+set -e
+
+if [ "$1" = remove ]; then
+    dpkg-divert --remove --package systemd --rename \
+        --divert /lib/lsb/init-functions.systemd /lib/lsb/init-functions
+fi
+
+dpkg-maintscript-helper rm_conffile /etc/lsb-base-logging.sh 20-1 systemd -- "$@"
+
+#DEBHELPER#
+
+exit 0
