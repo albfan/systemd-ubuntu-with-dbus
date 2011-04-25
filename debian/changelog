@@ -10,8 +10,10 @@ systemd (25-1) experimental; urgency=low
   * Divert /lib/lsb/init-functions instead of (ab)using
     /etc/lsb-base-logging.sh for diverting calls to /etc/init.d/*
   * Remove obsolete conffile /etc/lsb-base-logging.sh.  Closes: #619093
+  * Backport 3a90ae048233021833ae828c1fc6bf0eeab46197 from master:
+    mkdir /run/systemd/system when starting up
 
- -- Tollef Fog Heen <tfheen@debian.org>  Thu, 21 Apr 2011 13:50:13 +0200
+ -- Tollef Fog Heen <tfheen@debian.org>  Sun, 24 Apr 2011 09:02:04 +0200
 
 systemd (20-1) unstable; urgency=low
 
