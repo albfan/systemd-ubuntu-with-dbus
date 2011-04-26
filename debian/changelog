@@ -1,3 +1,10 @@
+systemd (25-2) experimental; urgency=low
+
+  * Handle downgrades more gracefully by removing diversion of
+    /lib/lsb/init-functions on downgrades to << 25-1.
+
+ --
+
 systemd (25-1) experimental; urgency=low
 
   * New upstream release, target experimental due to initscripts

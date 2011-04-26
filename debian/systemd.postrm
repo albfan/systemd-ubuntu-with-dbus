@@ -2,7 +2,7 @@
 
 set -e
 
-if [ "$1" = remove ]; then
+if [ "$1" = remove ] || [ "$1" = upgrade ] && dpkg --compare-versions "$2" lt 25-1; then
     dpkg-divert --remove --package systemd --rename \
         --divert /lib/lsb/init-functions.systemd /lib/lsb/init-functions
 fi
