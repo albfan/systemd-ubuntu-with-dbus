@@ -2,6 +2,8 @@ systemd (25-2) experimental; urgency=low
 
   * Handle downgrades more gracefully by removing diversion of
     /lib/lsb/init-functions on downgrades to << 25-1.
+  * Cherry-pick a133bf10d09f788079b82f63faa7058a27ba310b from upstream,
+    avoids assert when dumping properties.  Closes: #624094
 
  --
 
