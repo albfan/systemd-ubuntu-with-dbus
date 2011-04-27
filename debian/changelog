@@ -4,6 +4,7 @@ systemd (25-2) experimental; urgency=low
     /lib/lsb/init-functions on downgrades to << 25-1.
   * Cherry-pick a133bf10d09f788079b82f63faa7058a27ba310b from upstream,
     avoids assert when dumping properties.  Closes: #624094
+  * Remove "local" in non-function context in init-functions wrapper.
 
  --
 

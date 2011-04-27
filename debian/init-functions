@@ -26,9 +26,9 @@ if [ -e /sys/fs/cgroup/systemd ] ; then
 		    _use_systemctl=1
 		fi
 		# Redirect if there's a matching .service file in /etc or /lib
-		local prog=${0##*/}
-		local service="${prog%.sh}.service"
-		local fp=$(systemctl -p FragmentPath show $service 2>/dev/null | sed 's/^FragmentPath=//')
+		prog=${0##*/}
+		service="${prog%.sh}.service"
+		fp=$(systemctl -p FragmentPath show $service 2>/dev/null | sed 's/^FragmentPath=//')
 		case "$fp"  in
 		    /lib/systemd/system/*|/etc/systemd/system/*)
 			_use_systemctl=1
