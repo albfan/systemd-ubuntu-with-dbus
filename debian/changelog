@@ -6,7 +6,7 @@ systemd (25-2) experimental; urgency=low
     avoids assert when dumping properties.  Closes: #624094
   * Remove "local" in non-function context in init-functions wrapper.
 
- --
+ -- Tollef Fog Heen <tfheen@debian.org>  Wed, 27 Apr 2011 22:20:04 +0200
 
 systemd (25-1) experimental; urgency=low
 
