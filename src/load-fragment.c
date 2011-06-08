@@ -188,6 +188,43 @@ static int config_parse_string_printf(
         return 0;
 }
 
+static int config_parse_path_printf(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char **s = data;
+        char *k;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(s);
+        assert(u);
+
+        if (!(k = unit_full_printf(u, rvalue)))
+                return -ENOMEM;
+
+        if (!path_is_absolute(k)) {
+                log_error("[%s:%u] Not an absolute path: %s", filename, line, k);
+                free(k);
+                return -EINVAL;
+        }
+
+        path_kill_slashes(k);
+
+        free(*s);
+        *s = k;
+
+        return 0;
+}
+
 static int config_parse_listen(
                 const char *filename,
                 unsigned line,
@@ -223,6 +260,17 @@ static int config_parse_listen(
 
         } else if (streq(lvalue, "ListenSpecial")) {
                 p->type = SOCKET_SPECIAL;
+
+                if (!(p->path = strdup(rvalue))) {
+                        free(p);
+                        return -ENOMEM;
+                }
+
+                path_kill_slashes(p->path);
+
+        } else if (streq(lvalue, "ListenMessageQueue")) {
+
+                p->type = SOCKET_MQUEUE;
 
                 if (!(p->path = strdup(rvalue))) {
                         free(p);
@@ -1708,6 +1756,7 @@ static void dump_items(FILE *f, const ConfigItem *items) {
                 { config_parse_bool,             "BOOLEAN" },
                 { config_parse_string,           "STRING" },
                 { config_parse_path,             "PATH" },
+                { config_parse_path_printf,      "PATH" },
                 { config_parse_strv,             "STRING [...]" },
                 { config_parse_nice,             "NICE" },
                 { config_parse_oom_score_adjust, "OOMSCOREADJUST" },
@@ -1801,8 +1850,8 @@ static int load_from_path(Unit *u, const char *path) {
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
-                { "WorkingDirectory",       config_parse_path,            0, &(context).working_directory,                    section   }, \
-                { "RootDirectory",          config_parse_path,            0, &(context).root_directory,                       section   }, \
+                { "WorkingDirectory",       config_parse_path_printf,     0, &(context).working_directory,                    section   }, \
+                { "RootDirectory",          config_parse_path_printf,     0, &(context).root_directory,                       section   }, \
                 { "User",                   config_parse_string_printf,   0, &(context).user,                                 section   }, \
                 { "Group",                  config_parse_string_printf,   0, &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            0, &(context).supplementary_groups,                 section   }, \
@@ -1820,7 +1869,10 @@ static int load_from_path(Unit *u, const char *path) {
                 { "StandardInput",          config_parse_input,           0, &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          0, &(context).std_output,                           section   }, \
                 { "StandardError",          config_parse_output,          0, &(context).std_error,                            section   }, \
-                { "TTYPath",                config_parse_path,            0, &(context).tty_path,                             section   }, \
+                { "TTYPath",                config_parse_path_printf,     0, &(context).tty_path,                             section   }, \
+                { "TTYReset",               config_parse_bool,            0, &(context).tty_reset,                            section   }, \
+                { "TTYVHangup",             config_parse_bool,            0, &(context).tty_vhangup,                          section   }, \
+                { "TTYVTDisallocate",       config_parse_bool,            0, &(context).tty_vt_disallocate,                   section   }, \
                 { "SyslogIdentifier",       config_parse_string_printf,   0, &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        0, &(context).syslog_priority,                      section   }, \
                 { "SyslogLevel",            config_parse_level,           0, &(context).syslog_priority,                      section   }, \
@@ -1878,6 +1930,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "DefaultDependencies",    config_parse_bool,            0, &u->meta.default_dependencies,                   "Unit"    },
                 { "OnFailureIsolate",       config_parse_bool,            0, &u->meta.on_failure_isolate,                     "Unit"    },
                 { "IgnoreOnIsolate",        config_parse_bool,            0, &u->meta.ignore_on_isolate,                      "Unit"    },
+                { "IgnoreOnSnapshot",       config_parse_bool,            0, &u->meta.ignore_on_snapshot,                     "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            0, &u->meta.job_timeout,                            "Unit"    },
                 { "ConditionPathExists",        config_parse_condition_path, CONDITION_PATH_EXISTS, u,                        "Unit"    },
                 { "ConditionPathIsDirectory",   config_parse_condition_path, CONDITION_PATH_IS_DIRECTORY, u,                  "Unit"    },
@@ -1887,7 +1940,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ConditionSecurity",          config_parse_condition_string, CONDITION_SECURITY, u,                         "Unit"    },
                 { "ConditionNull",          config_parse_condition_null,  0, u,                                               "Unit"    },
 
-                { "PIDFile",                config_parse_path,            0, &u->service.pid_file,                            "Service" },
+                { "PIDFile",                config_parse_path_printf,     0, &u->service.pid_file,                            "Service" },
                 { "ExecStartPre",           config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
                 { "ExecStart",              config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START,      "Service" },
                 { "ExecStartPost",          config_parse_exec,            0, u->service.exec_command+SERVICE_EXEC_START_POST, "Service" },
@@ -1920,6 +1973,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ListenFIFO",             config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenNetlink",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "ListenSpecial",          config_parse_listen,          0, &u->socket,                                      "Socket"  },
+                { "ListenMessageQueue",     config_parse_listen,          0, &u->socket,                                      "Socket"  },
                 { "BindIPv6Only",           config_parse_socket_bind,     0, &u->socket,                                      "Socket"  },
                 { "Backlog",                config_parse_unsigned,        0, &u->socket.backlog,                              "Socket"  },
                 { "BindToDevice",           config_parse_bindtodevice,    0, &u->socket,                                      "Socket"  },
@@ -1941,7 +1995,11 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Mark",                   config_parse_int,             0, &u->socket.mark,                                 "Socket"  },
                 { "PipeSize",               config_parse_size,            0, &u->socket.pipe_size,                            "Socket"  },
                 { "FreeBind",               config_parse_bool,            0, &u->socket.free_bind,                            "Socket"  },
+                { "Transparent",            config_parse_bool,            0, &u->socket.transparent,                          "Socket"  },
+                { "Broadcast",              config_parse_bool,            0, &u->socket.broadcast,                            "Socket"  },
                 { "TCPCongestion",          config_parse_string,          0, &u->socket.tcp_congestion,                       "Socket"  },
+                { "MessageQueueMaxMessages", config_parse_long,           0, &u->socket.mq_maxmsg,                            "Socket"  },
+                { "MessageQueueMessageSize", config_parse_long,           0, &u->socket.mq_msgsize,                           "Socket"  },
                 { "Service",                config_parse_socket_service,  0, &u->socket,                                      "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 

@@ -203,7 +203,7 @@ static int console_setup(bool do_reset) {
                 return -tty_fd;
         }
 
-        if ((r = reset_terminal(tty_fd)) < 0)
+        if ((r = reset_terminal_fd(tty_fd)) < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
         close_nointr_nofail(tty_fd);
@@ -1049,6 +1049,13 @@ int main(int argc, char *argv[]) {
 
                 if (label_init() < 0)
                         goto finish;
+
+                if (hwclock_is_localtime()) {
+                        int min;
+
+                        min = hwclock_apply_localtime_delta();
+                        log_info("Hwclock configured in localtime, applying delta of %i minutes to system time", min);
+                }
         } else {
                 arg_running_as = MANAGER_USER;
                 log_set_target(LOG_TARGET_CONSOLE);

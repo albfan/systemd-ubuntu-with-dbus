@@ -3323,6 +3323,13 @@ static int daemon_reload(DBusConnection *bus, char **args, unsigned n) {
                         goto finish;
                 }
 
+                if (streq(method, "Reexecute") && dbus_error_has_name(&error, DBUS_ERROR_NO_REPLY)) {
+                        /* On reexecution, we expect a disconnect, not
+                         * a reply */
+                        r = 0;
+                        goto finish;
+                }
+
                 log_error("Failed to issue method call: %s", bus_error_message(&error));
                 r = -EIO;
                 goto finish;
@@ -4157,8 +4164,7 @@ static int install_info_apply(const char *verb, LookupPaths *paths, InstallInfo 
         if (streq(verb, "is-enabled") &&
             strv_isempty(i->aliases) &&
             strv_isempty(i->wanted_by) &&
-            (path_startswith(filename, "/lib") ||
-             path_startswith(filename, "/usr")))
+            !path_startswith(filename, "/etc"))
                 return 1;
 
         i->path = filename;

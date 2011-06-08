@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 #include "util.h"
 #include "strv.h"
@@ -108,6 +109,18 @@ static int read_data(void) {
                 return r;
 
         return 0;
+}
+
+static bool check_nss(void) {
+
+        void *dl;
+
+        if ((dl = dlopen("libnss_myhostname.so.2", RTLD_LAZY))) {
+                dlclose(dl);
+                return true;
+        }
+
+        return false;
 }
 
 static const char* fallback_icon_name(void) {
@@ -568,7 +581,13 @@ static DBusHandlerResult hostname_message_handler(
 
                 if (!streq_ptr(name, data[k])) {
 
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-machine-info", interactive, &error);
+                        /* Since the pretty hostname should always be
+                         * changed at the same time as the static one,
+                         * use the same policy action for both... */
+
+                        r = verify_polkit(connection, message, k == PROP_PRETTY_HOSTNAME ?
+                                          "org.freedesktop.hostname1.set-static-hostname" :
+                                          "org.freedesktop.hostname1.set-machine-info", interactive, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
 
@@ -656,6 +675,9 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
+
+        if (!check_nss())
+                log_warning("Warning: nss-myhostname is not installed. Changing the local hostname might make it unresolveable. Please install nss-myhostname!");
 
         umask(0022);
 

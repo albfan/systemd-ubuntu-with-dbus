@@ -69,6 +69,9 @@
         "  <property name=\"StandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"StandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"TTYPath\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYReset\" type=\"b\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYVHangup\" type=\"b\" access=\"read\"/>\n"   \
+        "  <property name=\"TTYVTDisallocate\" type=\"b\" access=\"read\"/>\n"   \
         "  <property name=\"SyslogPriority\" type=\"i\" access=\"read\"/>\n" \
         "  <property name=\"SyslogIdentifier\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SyslogLevelPrefix\" type=\"b\" access=\"read\"/>\n" \
@@ -128,6 +131,9 @@
         { interface, "StandardOutput",                bus_execute_append_output,  "s",     &(context).std_output                   }, \
         { interface, "StandardError",                 bus_execute_append_output,  "s",     &(context).std_error                    }, \
         { interface, "TTYPath",                       bus_property_append_string, "s",     (context).tty_path                      }, \
+        { interface, "TTYReset",                      bus_property_append_bool,   "b",     &(context).tty_reset                    }, \
+        { interface, "TTYVHangup",                    bus_property_append_bool,   "b",     &(context).tty_vhangup                  }, \
+        { interface, "TTYVTDisallocate",              bus_property_append_bool,   "b",     &(context).tty_vt_disallocate           }, \
         { interface, "SyslogPriority",                bus_property_append_int,    "i",     &(context).syslog_priority              }, \
         { interface, "SyslogIdentifier",              bus_property_append_string, "s",     (context).syslog_identifier             }, \
         { interface, "SyslogLevelPrefix",             bus_property_append_bool,   "b",     &(context).syslog_level_prefix          }, \

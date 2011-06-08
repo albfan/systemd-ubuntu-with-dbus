@@ -381,7 +381,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 { "org.freedesktop.systemd1.Manager", "LogLevel",      bus_manager_append_log_level,  "s",  m, bus_manager_set_log_level },
                 { "org.freedesktop.systemd1.Manager", "LogTarget",     bus_manager_append_log_target, "s",  m, bus_manager_set_log_target },
                 { "org.freedesktop.systemd1.Manager", "NNames",        bus_manager_append_n_names,    "u",  m                  },
-                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  NULL               },
+                { "org.freedesktop.systemd1.Manager", "NJobs",         bus_manager_append_n_jobs,     "u",  m                  },
                 { "org.freedesktop.systemd1.Manager", "NInstalledJobs",bus_property_append_uint32,    "u",  &m->n_installed_jobs },
                 { "org.freedesktop.systemd1.Manager", "NFailedJobs",   bus_property_append_uint32,    "u",  &m->n_failed_jobs  },
                 { "org.freedesktop.systemd1.Manager", "Progress",      bus_manager_append_progress,   "d",  m                  },
@@ -922,8 +922,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reexecute")) {
 
-                if (!(reply = dbus_message_new_method_return(message)))
-                        goto oom;
+                /* We don't send a reply back here, the client should
+                 * just wait for us disconnecting. */
 
                 m->exit_code = MANAGER_REEXECUTE;
 

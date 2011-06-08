@@ -418,9 +418,13 @@ DBusHandlerResult bus_default_message_handler(
                         return bus_send_error_reply(c, message, &error, -EINVAL);
                 }
 
-        } else if (!nulstr_contains(interfaces, dbus_message_get_interface(message))) {
-                dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
-                return bus_send_error_reply(c, message, &error, -EINVAL);
+        } else {
+                const char *interface = dbus_message_get_interface(message);
+
+                if (!interface || !nulstr_contains(interfaces, interface)) {
+                        dbus_set_error_const(&error, DBUS_ERROR_UNKNOWN_INTERFACE, "Unknown interface");
+                        return bus_send_error_reply(c, message, &error, -EINVAL);
+                }
         }
 
         if (reply) {
@@ -563,6 +567,21 @@ int bus_property_append_ul(DBusMessageIter *i, const char *property, void *data)
         u = (uint64_t) *(unsigned long*) data;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, &u))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_property_append_long(DBusMessageIter *i, const char *property, void *data) {
+        int64_t l;
+
+        assert(i);
+        assert(property);
+        assert(data);
+
+        l = (int64_t) *(long*) data;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_INT64, &l))
                 return -ENOMEM;
 
         return 0;

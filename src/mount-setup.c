@@ -136,8 +136,10 @@ static int mount_cgroup_controllers(void) {
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 
-        if (!(f = fopen("/proc/cgroups", "re")))
-                return -ENOENT;
+        if (!(f = fopen("/proc/cgroups", "re"))) {
+                log_error("Failed to enumerate cgroup controllers: %m");
+                return 0;
+        }
 
         /* Ignore the header line */
         (void) fgets(buf, sizeof(buf), f);
@@ -257,6 +259,7 @@ int mount_setup(void) {
 
         /* Create a few directories we always want around */
         mkdir("/run/systemd", 0755);
+        mkdir("/run/systemd/system", 0755);
 
         return mount_cgroup_controllers();
 }
