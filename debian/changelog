@@ -1,3 +1,9 @@
+systemd (28-1) UNRELEASED; urgency=low
+
+  * New upstream version.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
+
 systemd (25-2) experimental; urgency=low
 
   * Handle downgrades more gracefully by removing diversion of
