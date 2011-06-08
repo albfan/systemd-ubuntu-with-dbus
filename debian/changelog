@@ -3,6 +3,7 @@ systemd (28-1) UNRELEASED; urgency=low
   * New upstream version.
   * Fall back to the init script reload function if a native .service file
     doesn't know how to reload.  Closes: #628186
+  * Ignore unknown capabilities when dropping them.  Closes: #628081
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
 

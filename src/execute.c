@@ -960,6 +960,13 @@ static int do_capability_bounding_set_drop(uint64_t drop) {
         for (i = 0; i <= CAP_LAST_CAP; i++)
                 if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
                         if (prctl(PR_CAPBSET_DROP, i) < 0) {
+
+                                /* If this capability is not known,
+                                 * EINVAL will be returned, let's
+                                 * ignore this. */
+                                if (errno == EINVAL)
+                                        continue;
+
                                 r = -errno;
                                 goto finish;
                         }
