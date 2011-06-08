@@ -25,6 +25,7 @@
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -224,6 +225,7 @@ char *path_make_absolute_cwd(const char *p);
 
 char **strv_path_make_absolute_cwd(char **l);
 char **strv_path_canonicalize(char **l);
+char **strv_path_remove_empty(char **l);
 
 int reset_all_signal_handlers(void);
 
@@ -313,7 +315,9 @@ int chvt(int vt);
 int read_one_char(FILE *f, char *ret, bool *need_nl);
 int ask(char *ret, const char *replies, const char *text, ...);
 
-int reset_terminal(int fd);
+int reset_terminal_fd(int fd);
+int reset_terminal(const char *name);
+
 int open_terminal(const char *name, int mode);
 int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm);
 int release_terminal(void);
@@ -409,6 +413,11 @@ char* hostname_cleanup(char *s);
 
 char* strshorten(char *s, size_t l);
 
+int terminal_vhangup_fd(int fd);
+int terminal_vhangup(const char *name);
+
+int vt_disallocate(const char *name);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
@@ -440,5 +449,15 @@ const char *signal_to_string(int i);
 int signal_from_string(const char *s);
 
 int signal_from_string_try_harder(const char *s);
+
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+
+bool hwclock_is_localtime(void);
+
+int hwclock_apply_localtime_delta(void);
+
+int hwclock_get_time(struct tm *tm);
+
+int hwclock_set_time(const struct tm *tm);
 
 #endif

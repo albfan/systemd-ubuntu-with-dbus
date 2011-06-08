@@ -2688,6 +2688,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds) {
         if (ferror(f))
                 return -EIO;
 
+        r = bus_fdset_add_all(m, fds);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -2841,7 +2845,7 @@ int manager_reload(Manager *m) {
                 r = q;
 
         assert(m->n_deserializing > 0);
-        m->n_deserializing ++;
+        m->n_deserializing--;
 
 finish:
         if (f)

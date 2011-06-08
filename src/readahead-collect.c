@@ -383,6 +383,16 @@ static int collect(const char *root) {
                         if (errno == EINTR || errno == EAGAIN)
                                 continue;
 
+                        /* fanotify sometimes returns EACCES on read()
+                         * where it shouldn't. For now let's just
+                         * ignore it here (which is safe), but
+                         * eventually this should be
+                         * dropped when the kernel is fixed.
+                         *
+                         * https://bugzilla.redhat.com/show_bug.cgi?id=707577 */
+                        if (errno == EACCES)
+                                continue;
+
                         log_error("Failed to read event: %m");
                         r = -errno;
                         goto finish;

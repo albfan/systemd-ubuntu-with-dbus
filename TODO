@@ -1,11 +1,9 @@
+* udev-kernel.socket + udev.control.socket seems not
+  to work, udevd is started but no fd is passed
+
 F15:
 
 * swap units that are activated by one name but shown in the kernel under another are semi-broken
-
-* Fix assert http://lists.freedesktop.org/archives/systemd-devel/2011-April/001910.html
-
-* 0595f9a1c182a84581749823ef47c5f292e545f9 is borked, freezes shutdown
-    (path: after installing inotify watches, recheck file again to fix race)
 
 F15 External:
 
@@ -17,30 +15,58 @@ F15 External:
 * bluetooth should be possible to disable (PENDING)
 
 * get writev() /dev/kmsg support into the F15 kernel
-    https://lkml.org/lkml/2011/4/6/473
-  patched merged into -mm
-
-* fix sd_is_socket() invocation in dbus
-
-* New CK release, with sysinit.target dropping and TTY loop
-
-* New Avahi package, enable it by default
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=7e5b58bcbcb3d7518389c1d82fb6e926f5a9f72c
 
 * make anaconda write timeout=0 for encrypted devices
 
+* fix broken Sockets=syslog-ng.socket packaging
+
 Features:
+* possibly set timezone offset from systemd at init instead
+  of calling hwclock
 
-* Maybe merge nss-myhostname into systemd?
+* kernel: add device_type = "fb", "fbcon" to class "graphics"
 
-* maybe lower default timeout to 2min?
+* verify that the AF_UNIX sockets of a service in the fs still exist
+  when we start a service in order to avoid confusion when a user
+  assumes starting a service is enough to make it accessible
+
+* drop -lrt req for sd-daemon.[ch]
+
+* Make it possible to set the keymap independently from the font on
+  the kernel cmdline. Right now setting one resets also the other.
+
+* add dbus call to convert snapshot into target
+
+* move nss-myhostname into systemd
+
+* figure out a standard place to configure timezone name, inform myllynen@redhat.com
+
+* add dbus call to convert snapshot into target
+
+* move /selinux to /sys/fs/selinux
+
+* unset cgroup agents on shutdown
+
+* add prefix match to sysctl, tmpfiles, ...
+
+* drop /.readahead on bigger upgrades with yum
+
+* add inode stat() check to readahead to suppress preloading changed files
+
+* allow list of paths in config_parse_condition_path()
+
+* introduce dbus calls for enabling/disabling a service
+
+* support notifications for services being enabled/disabled
 
 * GC unreferenced jobs (such as .device jobs)
 
-* support wildcard expansion in ListeStream= and friends
+* support wildcard expansion in ListenStream= and friends
+
+* support wildcard expansion in EnvironmentFile= and friends
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
-
-* use pivot_root on shutdown so that we can unmount the root directory.
 
 * fix alsa mixer restore to not print error when no config is stored
 
@@ -49,16 +75,14 @@ Features:
 * write blog stories about:
   - enabling dbus services
   - status update
-  - the new configuration files
-  - you are a distro: why switch?
+  - /etc/sysconfig and /etc/default
+  - how to write socket activated services
 
 * maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
 
-* allow port = 0 in .socket units
+* allow port=0 in .socket units
 
 * rename systemd-logger to systemd-stdio-syslog-bridge
-
-* introduce /usr/lib/binfmt.d/, /usr/lib/tmpfiles.d/
 
 * take BSD file lock on tty devices when using them?
 
@@ -126,14 +150,12 @@ Features:
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* Maybe implement "systemctl mask" and "systemctl unmask", but not
-  document it? When doing that add switch to make this temporary by
-  placing mask links in /dev.
+* Implement:
+    systemctl mask <unit>
+    systemctl unmask <unit>
+  Also support --temp to make this temporary by placing mask links in /run.
 
 * detect LXC environment
-
-* invoke vhangup() before and after invoking getty
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3c95c985fa91ecf6a0e29622bbdd13dcfc5ce9f1
 
 * Maybe store in unit files whether a service should be enabled by default on package installation
   (belongs into a distro pattern though, not in an upstream package's service file)
@@ -155,13 +177,14 @@ Features:
   be killed very late after the rootfs is read only? If implement pass
   this to shutdown binary via command line argument.
 
-* Integrate "mdadm --wait-clean". Maybe just let SIGTERM to mdmon trigger the
-  needed action
+* use pivot_root on shutdown so that we can unmount the root directory.
+   - copy binaries to, and pivot_root() to the "shutdown tmpfs"
+   - solve "mdadm --wait-clean" problem that way
 
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
-  - check timerfd() patch: http://lkml.org/lkml/2010/11/23/290
+    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=99ee5315dac6211e972fa3f23bcc9a0343ff58c4
 
 * systemd --user
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
@@ -174,7 +197,7 @@ Features:
     through running X and getty sessions, and any unallocated
     activated tty will start a new getty. the hardcoding of
     getty[1-6] will entirely go away.
-  - http://git.kernel.org/?p=linux/kernel/git/gregkh/tty-2.6.git;a=commitdiff;h=fbc92a3455577ab17615cbcb91826399061bd789
+  - http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
@@ -222,7 +245,7 @@ External:
 
 * make cryptsetup lower --iter-time
 
-* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup.
+* patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup?
 
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
     http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match

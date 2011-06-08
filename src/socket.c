@@ -27,6 +27,7 @@
 #include <sys/epoll.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <mqueue.h>
 
 #include "unit.h"
 #include "socket.h"
@@ -68,7 +69,7 @@ static void socket_init(Unit *u) {
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;
-        s->socket_mode = 0777;
+        s->socket_mode = 0666;
 
         s->max_connections = 64;
 
@@ -248,8 +249,7 @@ static bool socket_needs_mount(Socket *s, const char *prefix) {
                 if (p->type == SOCKET_SOCKET) {
                         if (socket_address_needs_mount(&p->address, prefix))
                                 return true;
-                } else {
-                        assert(p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL);
+                } else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL) {
                         if (path_startswith(p->path, prefix))
                                 return true;
                 }
@@ -404,6 +404,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
                 "%sFreeBind: %s\n"
+                "%sTransparent: %s\n"
+                "%sBroadcast: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -412,6 +414,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
                 prefix, yes_no(s->free_bind),
+                prefix, yes_no(s->transparent),
+                prefix, yes_no(s->broadcast),
                 prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
@@ -468,6 +472,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sMark: %i\n",
                         prefix, s->mark);
 
+        if (s->mq_maxmsg > 0)
+                fprintf(f,
+                        "%sMessageQueueMaxMessages: %li\n",
+                        prefix, s->mq_maxmsg);
+
+        if (s->mq_msgsize > 0)
+                fprintf(f,
+                        "%sMessageQueueMessageSize: %li\n",
+                        prefix, s->mq_msgsize);
+
         LIST_FOREACH(port, p, s->ports) {
 
                 if (p->type == SOCKET_SOCKET) {
@@ -484,6 +498,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         free(k);
                 } else if (p->type == SOCKET_SPECIAL)
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
+                else if (p->type == SOCKET_MQUEUE)
+                        fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
                 else
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
         }
@@ -635,20 +651,26 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning("SO_KEEPALIVE failed: %m");
         }
 
+        if (s->broadcast) {
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0)
+                        log_warning("SO_BROADCAST failed: %m");
+        }
+
         if (s->priority >= 0)
                 if (setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &s->priority, sizeof(s->priority)) < 0)
                         log_warning("SO_PRIORITY failed: %m");
 
         if (s->receive_buffer > 0) {
                 int value = (int) s->receive_buffer;
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
-                        log_warning("SO_RCVBUF failed: %m");
+                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
+                        log_warning("SO_RCVBUFFORCE failed: %m");
         }
 
         if (s->send_buffer > 0) {
                 int value = (int) s->send_buffer;
-                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
-                        log_warning("SO_SNDBUF failed: %m");
+                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
+                        log_warning("SO_SNDBUFFORCE failed: %m");
         }
 
         if (s->mark >= 0)
@@ -790,6 +812,66 @@ fail:
         return r;
 }
 
+static int mq_address_create(
+                const char *path,
+                mode_t mq_mode,
+                long maxmsg,
+                long msgsize,
+                int *_fd) {
+
+        int fd = -1, r = 0;
+        struct stat st;
+        mode_t old_mask;
+        struct mq_attr _attr, *attr = NULL;
+
+        assert(path);
+        assert(_fd);
+
+        if (maxmsg > 0 && msgsize > 0) {
+                zero(_attr);
+                _attr.mq_flags = O_NONBLOCK;
+                _attr.mq_maxmsg = maxmsg;
+                _attr.mq_msgsize = msgsize;
+                attr = &_attr;
+        }
+
+        /* Enforce the right access mode for the mq */
+        old_mask = umask(~ mq_mode);
+
+        /* Include the original umask in our mask */
+        umask(~mq_mode | old_mask);
+
+        fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
+        umask(old_mask);
+
+        if (fd < 0 && errno != EEXIST) {
+                r = -errno;
+                goto fail;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        if ((st.st_mode & 0777) != (mq_mode & ~old_mask) ||
+            st.st_uid != getuid() ||
+            st.st_gid != getgid()) {
+
+                r = -EEXIST;
+                goto fail;
+        }
+
+        *_fd = fd;
+        return 0;
+
+fail:
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
 static int socket_open_fds(Socket *s) {
         SocketPort *p;
         int r;
@@ -825,6 +907,7 @@ static int socket_open_fds(Socket *s) {
                                              s->bind_ipv6_only,
                                              s->bind_to_device,
                                              s->free_bind,
+                                             s->transparent,
                                              s->directory_mode,
                                              s->socket_mode,
                                              label,
@@ -850,7 +933,15 @@ static int socket_open_fds(Socket *s) {
                                 goto rollback;
 
                         socket_apply_fifo_options(s, p->fd);
+                } else if (p->type == SOCKET_MQUEUE) {
 
+                        if ((r = mq_address_create(
+                                             p->path,
+                                             s->socket_mode,
+                                             s->mq_maxmsg,
+                                             s->mq_msgsize,
+                                             &p->fd)) < 0)
+                                goto rollback;
                 } else
                         assert_not_reached("Unknown port type");
         }
@@ -1679,7 +1770,12 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         log_debug("Incoming traffic on %s", u->meta.id);
 
         if (events != EPOLLIN) {
-                log_error("%s: Got invalid poll event (0x%x) on socket.", u->meta.id, events);
+
+                if (events & EPOLLHUP)
+                        log_error("%s: Got POLLHUP on a listening socket. The service probably invoked shutdown() on it, and should better not do that.", u->meta.id);
+                else
+                        log_error("%s: Got unexpected poll event (0x%x) on socket.", u->meta.id, events);
+
                 goto fail;
         }
 
@@ -1723,7 +1819,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         success = is_clean_exit(code, status);
 
         if (s->control_command) {
-                exec_status_exit(&s->control_command->exec_status, pid, code, status, s->exec_context.utmp_id);
+                exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                 if (s->control_command->ignore)
                         success = true;

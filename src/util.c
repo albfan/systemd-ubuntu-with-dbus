@@ -51,6 +51,8 @@
 #include <dlfcn.h>
 #include <sys/wait.h>
 #include <sys/capability.h>
+#include <sys/time.h>
+#include <linux/rtc.h>
 
 #include "macro.h"
 #include "util.h"
@@ -1209,6 +1211,26 @@ char **strv_path_canonicalize(char **l) {
         return l;
 }
 
+char **strv_path_remove_empty(char **l) {
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        for (f = t = l; *f; f++) {
+
+                if (dir_is_empty(*f) > 0) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
+}
+
 int reset_all_signal_handlers(void) {
         int sig;
 
@@ -2121,7 +2143,7 @@ bool fstype_is_network(const char *fstype) {
 int chvt(int vt) {
         int fd, r = 0;
 
-        if ((fd = open("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+        if ((fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
                 return -errno;
 
         if (vt < 0) {
@@ -2241,7 +2263,7 @@ int ask(char *ret, const char *replies, const char *text, ...) {
         }
 }
 
-int reset_terminal(int fd) {
+int reset_terminal_fd(int fd) {
         struct termios termios;
         int r = 0;
         long arg;
@@ -2299,6 +2321,19 @@ int reset_terminal(int fd) {
 finish:
         /* Just in case, flush all crap out */
         tcflush(fd, TCIOFLUSH);
+
+        return r;
+}
+
+int reset_terminal(const char *name) {
+        int fd, r;
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = reset_terminal_fd(fd);
+        close_nointr_nofail(fd);
 
         return r;
 }
@@ -2423,8 +2458,8 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
                 /* We pass here O_NOCTTY only so that we can check the return
                  * value TIOCSCTTY and have a reliable way to figure out if we
                  * successfully became the controlling process of the tty */
-                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY)) < 0)
-                        return -errno;
+                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+                        return fd;
 
                 /* First, try to get the tty */
                 r = ioctl(fd, TIOCSCTTY, force);
@@ -2491,7 +2526,7 @@ int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocst
         if (notify >= 0)
                 close_nointr_nofail(notify);
 
-        if ((r = reset_terminal(fd)) < 0)
+        if ((r = reset_terminal_fd(fd)) < 0)
                 log_warning("Failed to reset terminal: %s", strerror(-r));
 
         return fd;
@@ -3991,7 +4026,7 @@ int detect_vm(const char **id) {
                 : "0" (eax)
         );
 
-        hypervisor = !!(ecx & ecx & 0x80000000U);
+        hypervisor = !!(ecx & 0x80000000U);
 
         if (hypervisor) {
 
@@ -4393,6 +4428,88 @@ char* hostname_cleanup(char *s) {
         return s;
 }
 
+int terminal_vhangup_fd(int fd) {
+        if (ioctl(fd, TIOCVHANGUP) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int terminal_vhangup(const char *name) {
+        int fd, r;
+
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = terminal_vhangup_fd(fd);
+        close_nointr_nofail(fd);
+
+        return r;
+}
+
+int vt_disallocate(const char *name) {
+        int fd, r;
+        unsigned u;
+
+        /* Deallocate the VT if possible. If not possible
+         * (i.e. because it is the active one), at least clear it
+         * entirely (including the scrollback buffer) */
+
+        if (!startswith(name, "/dev/"))
+                return -EINVAL;
+
+        if (!tty_is_vc(name)) {
+                /* So this is not a VT. I guess we cannot deallocate
+                 * it then. But let's at least clear the screen */
+
+                fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+
+                loop_write(fd, "\033[H\033[2J", 7, false); /* clear screen */
+                close_nointr_nofail(fd);
+
+                return 0;
+        }
+
+        if (!startswith(name, "/dev/tty"))
+                return -EINVAL;
+
+        r = safe_atou(name+8, &u);
+        if (r < 0)
+                return r;
+
+        if (u <= 0)
+                return -EINVAL;
+
+        /* Try to deallocate */
+        fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        r = ioctl(fd, VT_DISALLOCATE, u);
+        close_nointr_nofail(fd);
+
+        if (r >= 0)
+                return 0;
+
+        if (errno != EBUSY)
+                return -errno;
+
+        /* Couldn't deallocate, so let's clear it fully with
+         * scrollback */
+        fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (fd < 0)
+                return fd;
+
+        /* Requires Linux 2.6.40 */
+        loop_write(fd, "\033[H\033[3J", 7, false); /* clear screen including scrollback */
+        close_nointr_nofail(fd);
+
+        return 0;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
@@ -4528,3 +4645,199 @@ static const char *const signal_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(signal, int);
+
+static int file_is_conf(const struct dirent *d, const char *suffix) {
+        assert(d);
+
+        if (ignore_file(d->d_name))
+                return 0;
+
+        if (d->d_type != DT_REG &&
+            d->d_type != DT_LNK &&
+            d->d_type != DT_UNKNOWN)
+                return 0;
+
+        return endswith(d->d_name, suffix);
+}
+
+static int files_add(Hashmap *h, const char *path, const char *suffix) {
+        DIR *dir;
+        struct dirent *de;
+        int r = 0;
+
+        dir = opendir(path);
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+                return -errno;
+        }
+
+        for (de = readdir(dir); de; de = readdir(dir)) {
+                char *p, *f;
+                const char *base;
+
+                if (!file_is_conf(de, suffix))
+                        continue;
+
+                if (asprintf(&p, "%s/%s", path, de->d_name) < 0) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                f = canonicalize_file_name(p);
+                if (!f) {
+                        log_error("Failed to canonicalize file name '%s': %m", p);
+                        free(p);
+                        continue;
+                }
+                free(p);
+
+                log_debug("found: %s\n", f);
+                base = f + strlen(path) + 1;
+                if (hashmap_put(h, base, f) <= 0)
+                        free(f);
+        }
+
+finish:
+        closedir(dir);
+        return r;
+}
+
+static int base_cmp(const void *a, const void *b) {
+        const char *s1, *s2;
+
+        s1 = *(char * const *)a;
+        s2 = *(char * const *)b;
+        return strcmp(file_name_from_path(s1), file_name_from_path(s2));
+}
+
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...) {
+        Hashmap *fh = NULL;
+        char **dirs = NULL;
+        char **files = NULL;
+        char **p;
+        va_list ap;
+        int r = 0;
+
+        va_start(ap, dir);
+        dirs = strv_new_ap(dir, ap);
+        va_end(ap);
+        if (!dirs) {
+                r = -ENOMEM;
+                goto finish;
+        }
+        if (!strv_path_canonicalize(dirs)) {
+                r = -ENOMEM;
+                goto finish;
+        }
+        if (!strv_uniq(dirs)) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        fh = hashmap_new(string_hash_func, string_compare_func);
+        if (!fh) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        STRV_FOREACH(p, dirs) {
+                if (files_add(fh, *p, suffix) < 0) {
+                        log_error("Failed to search for files.");
+                        r = -EINVAL;
+                        goto finish;
+                }
+        }
+
+        files = hashmap_get_strv(fh);
+        if (files == NULL) {
+                log_error("Failed to compose list of files.");
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        qsort(files, hashmap_size(fh), sizeof(char *), base_cmp);
+finish:
+        strv_free(dirs);
+        hashmap_free(fh);
+        *strv = files;
+        return r;
+}
+
+bool hwclock_is_localtime(void) {
+        FILE *f;
+        char line[LINE_MAX];
+        bool local = false;
+
+        /*
+         * The third line of adjtime is "UTC" or "LOCAL" or nothing.
+         *   # /etc/adjtime
+         *   0.0 0 0.0
+         *   0
+         *   UTC
+         */
+        f = fopen("/etc/adjtime", "re");
+        if (f) {
+                if (fgets(line, sizeof(line), f) &&
+                    fgets(line, sizeof(line), f) &&
+                    fgets(line, sizeof(line), f) ) {
+                            if (!strcmp(line, "LOCAL\n"))
+                                 local = true;
+                }
+                fclose(f);
+        }
+        return local;
+}
+
+int hwclock_apply_localtime_delta(void) {
+        const struct timeval *tv_null = NULL;
+        struct timeval tv;
+        struct tm *tm;
+        int minuteswest;
+        struct timezone tz;
+
+        gettimeofday(&tv, NULL);
+        tm = localtime(&tv.tv_sec);
+        minuteswest = tm->tm_gmtoff / 60;
+
+        tz.tz_minuteswest = -minuteswest;
+        tz.tz_dsttime = 0; /* DST_NONE*/
+
+        /*
+         * If the hardware clock does not run in UTC, but in local time:
+         * The very first time we set the kernel's timezone, it will warp
+         * the clock so that it runs in UTC instead of local time.
+         */
+        if (settimeofday(tv_null, &tz) < 0)
+                return -errno;
+        else
+                return minuteswest;
+}
+
+int hwclock_get_time(struct tm *tm) {
+        int fd;
+        int err = 0;
+
+        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+        if (ioctl(fd, RTC_RD_TIME, tm) < 0)
+                err = -errno;
+        close(fd);
+
+        return err;
+}
+
+int hwclock_set_time(const struct tm *tm) {
+        int fd;
+        int err = 0;
+
+        fd = open("/dev/rtc0", O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+        if (ioctl(fd, RTC_SET_TIME, tm) < 0)
+                err = -errno;
+        close(fd);
+
+        return err;
+}

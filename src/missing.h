@@ -76,6 +76,14 @@
 #define AUDIT_SERVICE_STOP 1131 /* Service (daemon) stop */
 #endif
 
+#ifndef TIOCVHANGUP
+#define TIOCVHANGUP 0x5437
+#endif
+
+#ifndef IP_TRANSPARENT
+#define IP_TRANSPARENT 19
+#endif
+
 static inline int pivot_root(const char *new_root, const char *put_old) {
         return syscall(SYS_pivot_root, new_root, put_old);
 }
@@ -125,7 +133,18 @@ static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) 
 
 static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
+#if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32
+        union {
+                uint64_t _64;
+                uint32_t _32[2];
+        } _mask;
+        _mask._64 = mask;
+
+        return syscall(__NR_fanotify_mark, fanotify_fd, flags,
+                       _mask._32[0], _mask._32[1], dfd, pathname);
+#else
         return syscall(__NR_fanotify_mark, fanotify_fd, flags, mask, dfd, pathname);
+#endif
 }
 
 #ifndef BTRFS_IOCTL_MAGIC

@@ -17,10 +17,12 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[25],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[28],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
+AC_USE_SYSTEM_EXTENSIONS
+AC_SYS_LARGEFILE
 
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax subdir-objects dist-bzip2])
 
@@ -49,7 +51,6 @@ AC_PROG_CC
 AC_PROG_CC_C99
 AM_PROG_CC_C_O
 AC_PROG_GCC_TRADITIONAL
-AC_USE_SYSTEM_EXTENSIONS
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
@@ -241,6 +242,13 @@ if test "x$enable_libcryptsetup" != "xno"; then
 fi
 AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 
+have_binfmt=no
+AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
+if test "x$enable_binfmt" != "xno"; then
+	have_binfmt=yes
+fi
+AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
@@ -287,6 +295,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/altlinux-release" && with_distro="altlinux"
                 test -f "/etc/mandriva-release" && with_distro="mandriva"
                 test -f "/etc/meego-release" && with_distro="meego"
+                test -f "/etc/angstrom-version" && with_distro="angstrom"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -348,6 +357,7 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
+                have_plymouth=true
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
@@ -367,6 +377,11 @@ case $with_distro in
                 AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
                 M4_DISTRO_FLAG=-DTARGET_MEEGO=1
 		;;
+        angstrom)
+                SYSTEM_SYSVRCND_PATH=/etc
+                AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
+                M4_DISTRO_FLAG=-DTARGET_ANGSTROM=1
+                ;;
         other)
                 ;;
         *)
@@ -417,6 +432,7 @@ AM_CONDITIONAL(TARGET_FRUGALWARE, test x"$with_distro" = xfrugalware)
 AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
+AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
@@ -480,6 +496,7 @@ echo "
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        binfmt:                  ${have_binfmt}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
         udev rules dir:          ${with_udevrulesdir}
