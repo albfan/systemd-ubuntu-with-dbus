@@ -1,6 +1,7 @@
 systemd (28-1) UNRELEASED; urgency=low
 
   * New upstream version.
+    - Includes typo fixes in documentation.  Closes: #623520
   * Fall back to the init script reload function if a native .service file
     doesn't know how to reload.  Closes: #628186
   * Ignore unknown capabilities when dropping them.  Closes: #628081
