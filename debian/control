@@ -14,7 +14,7 @@ Section: admin
 Priority: extra
 Recommends: libpam-systemd
 Suggests: systemd-gui, python
-Depends: ${shlibs:Depends}, ${misc:Depends}, util-linux (>= 2.17.2-5), initscripts (>= 2.88dsf-13.3)
+Depends: ${shlibs:Depends}, ${misc:Depends}, util-linux (>= 2.17.2-5), initscripts (>= 2.88dsf-13.3), udev
 Breaks: lvm2 (<< 2.02.84-1)
 Conflicts: klogd
 Description: system and service manager
