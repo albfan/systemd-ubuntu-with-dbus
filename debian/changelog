@@ -7,6 +7,10 @@ systemd (29-1) UNRELEASED; urgency=low
   * Ignore unknown capabilities when dropping them.  Closes: #628081
   * Add hard dependency on udev.  Closes: #627921
 
+  [ Michael Biebl ]
+  * hwclock-load.service is no longer installed, so we don't need to remove it
+    anymore in debian/rules.
+
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
 
 systemd (25-2) experimental; urgency=low
