@@ -12,6 +12,8 @@ systemd (29-1) UNRELEASED; urgency=low
     anymore in debian/rules.
   * Install /usr/lib directory for binfmt.d, modules-load.d, tmpfiles.d and
     sysctl.d.
+  * Remove obsolete conffiles from /etc/tmpfiles.d on upgrades. Those files
+    are installed in /usr/lib/tmpfiles.d now.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
 
