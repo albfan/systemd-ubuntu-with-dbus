@@ -244,6 +244,7 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+	units/remote-fs.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
@@ -301,7 +302,6 @@ nodist_systemunit_DATA = \
 	units/getty@.service \
 	units/serial-getty@.service \
 	units/console-shell.service \
-	units/remote-fs.target \
 	units/systemd-initctl.service \
 	units/systemd-logger.service \
 	units/systemd-shutdownd.service \
@@ -342,14 +342,12 @@ dist_userunit_DATA = \
 	units/user/exit.target
 
 nodist_userunit_DATA = \
-	units/user/remote-fs.target \
 	units/user/exit.service
 
 EXTRA_DIST = \
 	units/getty@.service.m4 \
 	units/serial-getty@.service.m4 \
 	units/console-shell.service.m4 \
-	units/remote-fs.target.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
 	units/systemd-logger.service.in \
@@ -1388,11 +1386,9 @@ endif
 		$(LN_S) ../var-run.mount var-run.mount && \
 		$(LN_S) ../media.mount media.mount )
 	( cd $(DESTDIR)$(userunitdir) && \
-		rm -f shutdown.target sockets.target local-fs.target swap.target bluetooth.target printer.target sound.target && \
+		rm -f shutdown.target sockets.target bluetooth.target printer.target sound.target && \
 		$(LN_S) $(systemunitdir)/shutdown.target shutdown.target && \
 		$(LN_S) $(systemunitdir)/sockets.target sockets.target && \
-		$(LN_S) $(systemunitdir)/local-fs.target local-fs.target && \
-		$(LN_S) $(systemunitdir)/swap.target swap.target && \
 		$(LN_S) $(systemunitdir)/bluetooth.target bluetooth.target && \
 		$(LN_S) $(systemunitdir)/printer.target printer.target && \
 		$(LN_S) $(systemunitdir)/sound.target sound.target )
