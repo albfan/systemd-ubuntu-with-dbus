@@ -14,6 +14,8 @@ systemd (29-1) UNRELEASED; urgency=low
     sysctl.d.
   * Remove obsolete conffiles from /etc/tmpfiles.d on upgrades. Those files
     are installed in /usr/lib/tmpfiles.d now.
+  * Depend on util-linux (>= 2.19.1-2) which provides whole-disk locking
+    support in fsck and remove our revert patch.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
 
