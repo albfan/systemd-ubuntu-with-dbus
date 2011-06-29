@@ -26,7 +26,7 @@ usr/share/dbus-1
 usr/share/doc
 usr/share/pkgconfig
 usr/share/polkit-1
-usr/lib/systemd/user
+usr/lib
 debian/init-functions lib/lsb
 debian/lib-init-rw.automount lib/systemd/system/
 debian/lib-init-rw.mount lib/systemd/system/
