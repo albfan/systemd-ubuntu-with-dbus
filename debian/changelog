@@ -19,6 +19,8 @@ systemd (29-1) UNRELEASED; urgency=low
   * Don't choke when systemd was compiled with a different CAP_LAST_CAP then
     what it is run with. Patch cherry-picked from upstream Git.
     Closes: #628081
+  * Enable dev-hugepages.automount and dev-mqueue.automount only when enabled
+    in kernel. Patch cherry-picked from upstream Git.  Closes: #624522
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 08 Jun 2011 16:14:31 +0200
 
