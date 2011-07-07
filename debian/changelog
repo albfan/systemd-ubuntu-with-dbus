@@ -1,7 +1,7 @@
 systemd (29-1) UNRELEASED; urgency=low
 
   [ Tollef Fog Heen ]
-  * New upstream version.
+  * New upstream version, Closes: #630510
     - Includes typo fixes in documentation.  Closes: #623520
   * Fall back to the init script reload function if a native .service file
     doesn't know how to reload.  Closes: #628186
