@@ -1,4 +1,4 @@
-systemd (29-1) UNRELEASED; urgency=low
+systemd (29-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
   * New upstream version, Closes: #630510
