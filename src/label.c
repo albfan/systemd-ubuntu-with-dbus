@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <malloc.h>
 
 #include "label.h"
 #include "util.h"
@@ -47,6 +48,8 @@ int label_init(void) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
+        usec_t n;
+        struct mallinfo before;
 
         if (!use_selinux())
                 return 0;
@@ -54,11 +57,27 @@ int label_init(void) {
         if (label_hnd)
                 return 0;
 
+        before = mallinfo();
+        n = now(CLOCK_MONOTONIC);
+
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Failed to initialize SELinux context: %m");
                 r = security_getenforce() == 1 ? -errno : 0;
+        } else  {
+                char buf[FORMAT_TIMESPAN_MAX];
+                struct mallinfo after;
+                int l;
+
+                n = now(CLOCK_MONOTONIC) - n;
+                after = mallinfo();
+
+                l = after.uordblks > before.uordblks ? after.uordblks - before.uordblks : 0;
+
+                log_info("Successfully loaded SELinux database in %s, size on heap is %iK.",
+                         format_timespan(buf, sizeof(buf), n),
+                         l/1024);
         }
 #endif
 

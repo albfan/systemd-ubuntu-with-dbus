@@ -169,7 +169,7 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shall as pid %lu.", (unsigned long) pid);
+                log_info("Successfully spawned crash shell as pid %lu.", (unsigned long) pid);
         }
 
         log_info("Freezing execution.");
@@ -898,6 +898,9 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         assert(_f);
         assert(_fds);
 
+        /* Make sure nothing is really destructed when we shut down */
+        m->n_reloading ++;
+
         if ((r = manager_open_serialization(m, &f)) < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
@@ -988,7 +991,7 @@ static void test_usr(void) {
         if (dir_is_empty("/usr") <= 0)
                 return;
 
-        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+        log_warning("/usr appears to be on its own filesytem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
@@ -1033,6 +1036,8 @@ int main(int argc, char *argv[]) {
 
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+        saved_argv = argv;
+        saved_argc = argc;
 
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
@@ -1041,6 +1046,7 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
+                log_open();
 
                 /* This might actually not return, but cause a
                  * reexecution */
@@ -1050,15 +1056,20 @@ int main(int argc, char *argv[]) {
                 if (label_init() < 0)
                         goto finish;
 
-                if (hwclock_is_localtime()) {
-                        int min;
+                if (hwclock_is_localtime() > 0) {
+                        int err, min;
 
-                        min = hwclock_apply_localtime_delta();
-                        log_info("Hwclock configured in localtime, applying delta of %i minutes to system time", min);
+                        err = hwclock_apply_localtime_delta(&min);
+                        if (err < 0)
+                                log_error("Failed to apply local time delta: %s", strerror(-err));
+                        else
+                                log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
                 }
+
         } else {
                 arg_running_as = MANAGER_USER;
-                log_set_target(LOG_TARGET_CONSOLE);
+                log_set_target(LOG_TARGET_AUTO);
+                log_open();
         }
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
@@ -1113,6 +1124,9 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(arg_action == ACTION_RUN || arg_action == ACTION_TEST);
+
+        /* Close logging fds, in order not to confuse fdset below */
+        log_close();
 
         /* Remember open file descriptors for later deserialization */
         if (serialization) {

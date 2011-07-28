@@ -376,15 +376,17 @@ static int parse_password(const char *filename, char **wall) {
                                 release_terminal();
                         }
 
-                        packet_length = 1+strlen(password)+1;
-                        if (!(packet = new(char, packet_length)))
-                                r = -ENOMEM;
-                        else {
-                                packet[0] = '+';
-                                strcpy(packet+1, password);
-                        }
+                        if (r >= 0) {
+                                packet_length = 1+strlen(password)+1;
+                                if (!(packet = new(char, packet_length)))
+                                        r = -ENOMEM;
+                                else {
+                                        packet[0] = '+';
+                                        strcpy(packet+1, password);
+                                }
 
-                        free(password);
+                                free(password);
+                        }
                 }
 
                 if (r == -ETIME || r == -ENOENT) {
@@ -433,7 +435,8 @@ static int wall_tty_block(void) {
         int fd, r;
         dev_t devnr;
 
-        if ((r = get_ctty_devnr(&devnr)) < 0)
+        r = get_ctty_devnr(0, &devnr);
+        if (r < 0)
                 return -r;
 
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)

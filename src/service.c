@@ -280,10 +280,10 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 /* LSB defined facilities */
                 "local_fs",             SPECIAL_LOCAL_FS_TARGET,
 #ifndef TARGET_MANDRIVA
-		/* Due to unfortunate name selection in Mandriva,
-		 * $network is provided by network-up which is ordered
-		 * after network which actually starts interfaces.
-		 * To break the loop, just ignore it */
+                /* Due to unfortunate name selection in Mandriva,
+                 * $network is provided by network-up which is ordered
+                 * after network which actually starts interfaces.
+                 * To break the loop, just ignore it */
                 "network",              SPECIAL_NETWORK_TARGET,
 #endif
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
@@ -372,7 +372,7 @@ static int sysv_fix_order(Service *s) {
         /* For each pair of services where at least one lacks a LSB
          * header, we use the start priority value to order things. */
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
                 bool special_s, special_t;
@@ -470,6 +470,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 LSB_DESCRIPTION
         } state = NORMAL;
         char *short_description = NULL, *long_description = NULL, *chkconfig_description = NULL, *description;
+        struct stat st;
 
         assert(s);
         assert(path);
@@ -481,9 +482,23 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 goto finish;
         }
 
+        zero(st);
+        if (fstat(fileno(f), &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         free(s->sysv_path);
         if (!(s->sysv_path = strdup(path))) {
                 r = -ENOMEM;
+                goto finish;
+        }
+
+        s->sysv_mtime = timespec_load(&st.st_mtim);
+
+        if (null_or_empty(&st)) {
+                u->meta.load_state = UNIT_MASKED;
+                r = 0;
                 goto finish;
         }
 
@@ -828,7 +843,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
         /* Special setting for all SysV services */
         s->type = SERVICE_FORKING;
-        s->remain_after_exit = true;
+        s->remain_after_exit = !s->pid_file;
         s->restart = SERVICE_RESTART_NO;
         s->exec_context.std_output =
                 (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
@@ -1006,7 +1021,7 @@ static int fsck_fix_order(Service *s) {
         /* For each pair of services where both have an fsck priority
          * we order things based on it. */
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_SERVICE]) {
                 Service *t;
                 UnitDependency d;
 
@@ -1481,7 +1496,7 @@ static void service_set_state(Service *s, ServiceState state) {
 
         /* For the inactive states unit_notify() will trim the cgroup,
          * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && s->meta.manager->n_deserializing <= 0)
+        if (state == SERVICE_EXITED && s->meta.manager->n_reloading <= 0)
                 cgroup_bonding_trim_list(s->meta.cgroup_bondings, true);
 
         if (old_state != state)
@@ -2962,6 +2977,9 @@ static int service_enumerate(Manager *m) {
 
         assert(m);
 
+        if (m->running_as != MANAGER_SYSTEM)
+                return 0;
+
         zero(runlevel_services);
 
         STRV_FOREACH(p, m->lookup_paths.sysvrcnd_path)
@@ -3212,6 +3230,29 @@ static void service_reset_failed(Unit *u) {
         s->failure = false;
 }
 
+static bool service_need_daemon_reload(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+#ifdef HAVE_SYSV_COMPAT
+        if (s->sysv_path) {
+                struct stat st;
+
+                zero(st);
+                if (stat(s->sysv_path, &st) < 0)
+                        /* What, cannot access this anymore? */
+                        return true;
+
+                if (s->sysv_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != s->sysv_mtime)
+                        return true;
+        }
+#endif
+
+        return false;
+}
+
 static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *error) {
         Service *s = SERVICE(u);
         int r = 0;
@@ -3221,23 +3262,25 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
 
         if (s->main_pid <= 0 && who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (s->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
-        if (s->control_pid > 0)
-                if (kill(s->control_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (s->control_pid > 0)
+                        if (kill(s->control_pid, signo) < 0)
+                                r = -errno;
 
-        if (s->main_pid > 0)
-                if (kill(s->main_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_MAIN || who == KILL_ALL)
+                if (s->main_pid > 0)
+                        if (kill(s->main_pid, signo) < 0)
+                                r = -errno;
 
-        if (mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
                 int q;
 
                 if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -3257,7 +3300,7 @@ static int service_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusErro
                         }
 
                 if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
 
@@ -3360,6 +3403,8 @@ const UnitVTable service_vtable = {
         .timer_event = service_timer_event,
 
         .reset_failed = service_reset_failed,
+
+        .need_daemon_reload = service_need_daemon_reload,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
         .notify_message = service_notify_message,

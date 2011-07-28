@@ -14,43 +14,69 @@ F15 External:
 
 * bluetooth should be possible to disable (PENDING)
 
-* get writev() /dev/kmsg support into the F15 kernel
-    http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=7e5b58bcbcb3d7518389c1d82fb6e926f5a9f72c
-
 * make anaconda write timeout=0 for encrypted devices
 
 * fix broken Sockets=syslog-ng.socket packaging
 
 Features:
-* possibly set timezone offset from systemd at init instead
-  of calling hwclock
+
+* add profiling to unit loading code
+
+* add gperf support for unit file parsing table
+
+* fix CUPS .path unit for globbing
+
+* move PAM code into its own binary
+
+* logind: ensure ACLs are updated on login and logout
+
+* warn if the user stops a service but not its associated socket
+
+* ensure we always set the facility when logging to kmsg
+
+* service: pid file reading after reload doesn't work, since we don't reset the pid variable
+
+* logind: spawn user@..service on login
+
+* logind: non-local X11 server handling
+
+* logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
+
+* implement Register= switch in .socket units to enable registration
+  in Avahi, RPC and other socket registration services.
+
+* make sure people don't leave processes around after ExecStartPre=
+
+* make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
+
+* kernel: add /proc/sys file exposing CAP_LAST_CAP?
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
+
+* understand https://bugzilla.redhat.com/show_bug.cgi?id=672194
+
+* readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
+
+* readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
+
+* support sd_notify() style notification when reload is finished (RELOADED=1)
+
+* support sf_notify() style notification when shutting down, to make auto-exit bus services work
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
   assumes starting a service is enough to make it accessible
 
-* drop -lrt req for sd-daemon.[ch]
-
 * Make it possible to set the keymap independently from the font on
   the kernel cmdline. Right now setting one resets also the other.
-
-* add dbus call to convert snapshot into target
 
 * move nss-myhostname into systemd
 
 * figure out a standard place to configure timezone name, inform myllynen@redhat.com
 
-* add dbus call to convert snapshot into target
+* add dbus call to convert snapshot into target, and a dbus call to generate target from current state
 
-* move /selinux to /sys/fs/selinux
-
-* unset cgroup agents on shutdown
-
-* add prefix match to sysctl, tmpfiles, ...
-
-* send out "finished" signal when we are finished booting
+* detect LXC with $container=lxc
 
 * drop /.readahead on bigger upgrades with yum
 
@@ -58,31 +84,32 @@ Features:
 
 * allow list of paths in config_parse_condition_path()
 
-* introduce dbus calls for enabling/disabling a service
+* show enablement status in systemctl status
 
-* support notifications for services being enabled/disabled
+* add support for /bin/mount -s
 
 * GC unreferenced jobs (such as .device jobs)
 
-* support wildcard expansion in ListenStream= and friends
-
-* support wildcard expansion in EnvironmentFile= and friends
+* add JoinControllers= to system.conf to mount certain cgroup
+  controllers together in order to guarantee atomic creation/addition
+  of cgroups
 
 * avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
 
-* fix alsa mixer restore to not print error when no config is stored
+* cgroup_notify_empty(): recursively check groups up the tree, too
 
-* show enablement status in systemctl status
+* fix alsa mixer restore to not print error when no config is stored
 
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
   - enabling dbus services
   - status update
-  - /etc/sysconfig and /etc/default
-  - how to write socket activated services
-
-* maybe add tiny dbus services similar to hostnamed for locale and wallclock/timezone?
+  - how to make changes to sysctl and sysfs attributes
+  - remote access
+  - cgroup best pratices to avoid stepping on each others toes
+  - how to pass throw-away units to systemd, or dynamically change properties of existing units
+  - how to integrate cgconfig and suchlike with systemd
 
 * allow port=0 in .socket units
 
@@ -146,25 +173,11 @@ Features:
 
 * Support --test based on current system state
 
-* systemctl enable as D-Bus call
-
-* consider services with any kind of link in /etc/systemd/system enabled
-
 * show failure error string in "systemctl status"
 
 * make sure timeouts are applied to Type=oneshot services.
 
-* Implement:
-    systemctl mask <unit>
-    systemctl unmask <unit>
-  Also support --temp to make this temporary by placing mask links in /run.
-
-* detect LXC environment
-
-* Maybe store in unit files whether a service should be enabled by default on package installation
-  (belongs into a distro pattern though, not in an upstream package's service file)
-
-* perhaps add "systemctl reenable" as combination of "systemctl disable" and "systemctl enable"
+* investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
 
 * need a way to apply mount options of api vfs from systemd unit files
   (or some other modern source?) instead of fstab?
@@ -181,10 +194,6 @@ Features:
   be killed very late after the rootfs is read only? If implement pass
   this to shutdown binary via command line argument.
 
-* use pivot_root on shutdown so that we can unmount the root directory.
-   - copy binaries to, and pivot_root() to the "shutdown tmpfs"
-   - solve "mdadm --wait-clean" problem that way
-
 * dot output for --test showing the 'initial transaction'
 
 * calendar time support in timer, iCalendar semantics for the timer stuff (RFC2445)
@@ -192,16 +201,6 @@ Features:
 
 * systemd --user
   - get PR_SET_ANCHOR merged: http://lkml.org/lkml/2010/2/2/165
-
-* add VT tracking:
-  - provide CK functionality
-  - start getty only when actual vt switch happens (same model as
-    socket on-demand activation). allocate the next free tty and
-    start a getty there. this way, pressing alt-f[1-12] will switch
-    through running X and getty sessions, and any unallocated
-    activated tty will start a new getty. the hardcoding of
-    getty[1-6] will entirely go away.
-  - http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=fbc92a3455577ab17615cbcb91826399061bd789
 
 * implicitly import "defaults" settings file into all types
 
@@ -232,8 +231,6 @@ Features:
 * suspend, resume support?
 
 * readahead: btrfs/LVM SSD detection
-
-* add separate man page for [Install] settings
 
 * allow runtime changing of log level and target
 

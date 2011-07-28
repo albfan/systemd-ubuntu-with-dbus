@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[29],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[31],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -42,6 +42,12 @@ AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
         AC_MSG_NOTICE([*** Found /usr/local/stow: default install prefix set to /usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION} ***])
         ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
 ])
+
+# i18n stuff for the PolicyKit policy files
+IT_PROG_INTLTOOL([0.40.0])
+
+GETTEXT_PACKAGE=systemd
+AC_SUBST(GETTEXT_PACKAGE)
 
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
@@ -111,7 +117,7 @@ AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers n
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(UDEV, [ libudev >= 160 ])
+PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
 
@@ -192,6 +198,43 @@ else
 fi
 AC_SUBST(PAM_LIBS)
 AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
+
+AC_ARG_ENABLE([acl],
+        AS_HELP_STRING([--disable-acl],[Disable optional ACL support]),
+                [case "${enableval}" in
+                        yes) have_acl=yes ;;
+                        no) have_acl=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-acl) ;;
+                esac],
+                [have_acl=auto])
+
+if test "x${have_acl}" != xno ; then
+        AC_CHECK_HEADERS(
+                [sys/acl.h acl/libacl.h],
+                [have_acl=yes],
+                [if test "x$have_acl" = xyes ; then
+                        AC_MSG_ERROR([*** ACL headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [acl],
+                [acl_get_file],
+                [have_acl=yes],
+                [if test "x$have_acl" = xyes ; then
+                        AC_MSG_ERROR([*** libacl not found.])
+                fi])
+
+        if test "x$have_acl" = xyes ; then
+                ACL_LIBS="-lacl"
+                AC_DEFINE(HAVE_ACL, 1, [ACL available])
+        else
+                have_acl=no
+        fi
+else
+        ACL_LIBS=
+fi
+AC_SUBST(ACL_LIBS)
+AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
 
 AC_ARG_ENABLE([audit],
         AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
@@ -312,19 +355,20 @@ SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
 M4_DISTRO_FLAG=
+have_plymouth=no
 
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 M4_DISTRO_FLAG=-DTARGET_FEDORA=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DISTRO_FLAG=-DTARGET_SUSE=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
@@ -357,19 +401,19 @@ case $with_distro in
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
                 M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
-                have_plymouth=true
+                have_plymouth=yes
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
                 M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         mandriva)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
                 M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
-		have_plymouth=true
+                have_plymouth=yes
                 ;;
         meego)
                 SYSTEM_SYSVINIT_PATH=
@@ -420,6 +464,11 @@ AC_ARG_WITH([tty-gid],
         [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
         [])
 
+AC_ARG_ENABLE(plymouth, AS_HELP_STRING([--enable-plymouth], [enable plymouth support]))
+if test -n "$enable_plymouth"; then
+        have_plymouth="$enable_plymouth"
+fi
+
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
@@ -434,7 +483,7 @@ AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
 
-AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
+AM_CONDITIONAL(HAVE_PLYMOUTH, test "$have_plymouth" = "yes")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 
 AC_ARG_WITH([dbuspolicydir],
@@ -472,6 +521,11 @@ AC_ARG_WITH([rootdir],
         [],
         [with_rootdir=${ac_default_prefix}])
 
+AC_ARG_WITH([rootlibdir],
+        AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
+        [],
+        [with_rootlibdir=${libdir}])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -479,11 +533,11 @@ AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootdir], [$with_rootdir])
+AC_SUBST([rootlibdir], [$with_rootlibdir])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile po/Makefile.in])
 AC_OUTPUT
-
-echo "
+AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         Distribution:            ${with_distro}
@@ -496,13 +550,17 @@ echo "
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
-        udev rules dir:          ${with_udevrulesdir}
+        lib dir:                 ${libdir}
+        rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}
+        udev rules dir:          ${with_udevrulesdir}
         dbus policy dir:         ${with_dbuspolicydir}
         dbus session dir:        ${with_dbussessionservicedir}
         dbus system dir:         ${with_dbussystemservicedir}
         dbus interfaces dir:     ${with_dbusinterfacedir}
-"
+])

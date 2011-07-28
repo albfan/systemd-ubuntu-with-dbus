@@ -37,19 +37,32 @@
 int selinux_setup(char *const argv[]) {
 #ifdef HAVE_SELINUX
        int enforce = 0;
+       usec_t n;
+       security_context_t con;
 
        /* Already initialized? */
-       if (path_is_mount_point("/sys/fs/selinux") > 0 ||
-           path_is_mount_point("/selinux") > 0)
-               return 0;
+       if (getcon_raw(&con) == 0) {
+               bool initialized;
+
+               initialized = !streq(con, "kernel");
+               freecon(con);
+
+               if (initialized)
+                       return 0;
+       }
 
        /* Before we load the policy we create a flag file to ensure
         * that after the reexec we iterate through /run and /dev to
         * relabel things. */
        touch("/dev/.systemd-relabel-run-dev");
 
+       n = now(CLOCK_MONOTONIC);
        if (selinux_init_load_policy(&enforce) == 0) {
-               log_debug("Successfully loaded SELinux policy, reexecuting.");
+               char buf[FORMAT_TIMESPAN_MAX];
+
+               n = now(CLOCK_MONOTONIC) - n;
+               log_info("Successfully loaded SELinux policy in %s, reexecuting.",
+                         format_timespan(buf, sizeof(buf), n));
 
                /* FIXME: Ideally we'd just call setcon() here instead
                 * of having to reexecute ourselves here. */

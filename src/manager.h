@@ -102,7 +102,7 @@ struct Manager {
 
         /* To make it easy to iterate through the units of a specific
          * type we maintain a per type linked list */
-        LIST_HEAD(Meta, units_per_type[_UNIT_TYPE_MAX]);
+        LIST_HEAD(Meta, units_by_type[_UNIT_TYPE_MAX]);
 
         /* Units that need to be loaded */
         LIST_HEAD(Meta, load_queue); /* this is actually more a stack than a queue, but uh. */
@@ -223,8 +223,8 @@ struct Manager {
 
         ExecOutput default_std_output, default_std_error;
 
-        int n_serializing;
-        int n_deserializing;
+        /* non-zero if we are reloading or reexecuting, */
+        int n_reloading;
 
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;

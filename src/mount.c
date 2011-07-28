@@ -114,7 +114,7 @@ static void mount_done(Unit *u) {
         m->where = NULL;
 
         /* Try to detach us from the automount unit if there is any */
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT]) {
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT]) {
                 Automount *a = (Automount*) other;
 
                 if (a->mount == m)
@@ -166,7 +166,7 @@ static int mount_add_mount_links(Mount *m) {
         /* Adds in links to other mount points that might lie below or
          * above us in the hierarchy */
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_MOUNT]) {
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_MOUNT]) {
                 Mount *n = (Mount*) other;
                 MountParameters *pn;
 
@@ -223,7 +223,7 @@ static int mount_add_swap_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SWAP])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SWAP])
                 if ((r = swap_add_one_mount_link((Swap*) other, m)) < 0)
                         return r;
 
@@ -236,7 +236,7 @@ static int mount_add_path_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_PATH])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_PATH])
                 if ((r = path_add_one_mount_link((Path*) other, m)) < 0)
                         return r;
 
@@ -249,7 +249,7 @@ static int mount_add_automount_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_AUTOMOUNT])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_AUTOMOUNT])
                 if ((r = automount_add_one_mount_link((Automount*) other, m)) < 0)
                         return r;
 
@@ -262,7 +262,7 @@ static int mount_add_socket_links(Mount *m) {
 
         assert(m);
 
-        LIST_FOREACH(units_per_type, other, m->meta.manager->units_per_type[UNIT_SOCKET])
+        LIST_FOREACH(units_by_type, other, m->meta.manager->units_by_type[UNIT_SOCKET])
                 if ((r = socket_add_one_mount_link((Socket*) other, m)) < 0)
                         return r;
 
@@ -1687,7 +1687,7 @@ void mount_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-r));
 
                 /* Reset flags, just in case, for later calls */
-                LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
+                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
                         Mount *mount = (Mount*) meta;
 
                         mount->is_mounted = mount->just_mounted = mount->just_changed = false;
@@ -1698,7 +1698,7 @@ void mount_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
+        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = (Mount*) meta;
 
                 if (!mount->is_mounted) {
@@ -1769,19 +1769,20 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
 
         if (who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Mount units have no main processes");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (m->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
-        if (m->control_pid > 0)
-                if (kill(m->control_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (m->control_pid > 0)
+                        if (kill(m->control_pid, signo) < 0)
+                                r = -errno;
 
-        if (mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
                 int q;
 
                 if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -1795,7 +1796,7 @@ static int mount_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError 
                         }
 
                 if ((q = cgroup_bonding_kill_list(m->meta.cgroup_bondings, signo, false, pid_set)) < 0)
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
 

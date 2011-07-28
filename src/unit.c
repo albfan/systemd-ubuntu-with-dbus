@@ -159,7 +159,7 @@ int unit_add_name(Unit *u, const char *text) {
                 u->meta.id = s;
                 u->meta.instance = i;
 
-                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
+                LIST_PREPEND(Meta, units_by_type, u->meta.manager->units_by_type[t], &u->meta);
 
                 if (UNIT_VTABLE(u)->init)
                         UNIT_VTABLE(u)->init(u);
@@ -354,7 +354,7 @@ void unit_free(Unit *u) {
                 bidi_set_free(u, u->meta.dependencies[d]);
 
         if (u->meta.type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
+                LIST_REMOVE(Meta, units_by_type, u->meta.manager->units_by_type[u->meta.type], &u->meta);
 
         if (u->meta.in_load_queue)
                 LIST_REMOVE(Meta, load_queue, u->meta.manager->load_queue, &u->meta);
@@ -370,7 +370,7 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_serializing <= 0);
+        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_reloading <= 0);
 
         free(u->meta.description);
         free(u->meta.fragment_path);
@@ -1137,7 +1137,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * behaviour here. For example: if a mount point is remounted
          * this function will be called too! */
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
                 dual_timestamp ts;
 
                 dual_timestamp_get(&ts);
@@ -1225,7 +1225,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1258,7 +1258,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (u->meta.type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
                         u->meta.in_audit = true;
@@ -1275,7 +1275,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->meta.type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
@@ -1741,9 +1741,12 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
         assert(b->path);
 
-        if (!b->controller)
+        if (!b->controller) {
                 if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
                         return -ENOMEM;
+
+                b->ours = true;
+        }
 
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
@@ -1789,6 +1792,7 @@ static char *default_cgroup_path(Unit *u) {
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
+        bool ours = false;
         int r;
 
         assert(u);
@@ -1797,11 +1801,15 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         if ((r = cg_split_spec(name, &controller, &path)) < 0)
                 return r;
 
-        if (!path)
+        if (!path) {
                 path = default_cgroup_path(u);
+                ours = true;
+        }
 
-        if (!controller)
+        if (!controller) {
                 controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
+                ours = true;
+        }
 
         if (!path || !controller) {
                 free(path);
@@ -1822,7 +1830,8 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
 
         b->controller = controller;
         b->path = path;
-        b->ours = false;
+        b->ours = ours;
+        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
         if ((r = unit_add_cgroup(u, b)) < 0)
                 goto fail;
@@ -1994,6 +2003,47 @@ static char *specifier_filename(char specifier, void *data, void *userdata) {
         return unit_name_to_path(u->meta.instance);
 }
 
+static char *specifier_cgroup(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        return default_cgroup_path(u);
+}
+
+static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        char *p;
+        assert(u);
+
+        if (specifier == 'r')
+                return strdup(u->meta.manager->cgroup_hierarchy);
+
+        if (parent_of_path(u->meta.manager->cgroup_hierarchy, &p) < 0)
+                return strdup("");
+
+        if (streq(p, "/")) {
+                free(p);
+                return strdup("");
+        }
+
+        return p;
+}
+
+static char *specifier_runtime(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        if (u->meta.manager->running_as == MANAGER_USER) {
+                const char *e;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (e)
+                        return strdup(e);
+        }
+
+        return strdup("/run");
+}
+
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
@@ -2023,7 +2073,13 @@ char *unit_name_printf(Unit *u, const char* format) {
 char *unit_full_printf(Unit *u, const char *format) {
 
         /* This is similar to unit_name_printf() but also supports
-         * unescaping */
+         * unescaping. Also, adds a couple of additional codes:
+         *
+         * %c cgroup path of unit
+         * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
+         * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
+         * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         */
 
         const Specifier table[] = {
                 { 'n', specifier_string,              u->meta.id },
@@ -2033,6 +2089,10 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'i', specifier_string,              u->meta.instance },
                 { 'I', specifier_instance_unescaped,  NULL },
                 { 'f', specifier_filename,            NULL },
+                { 'c', specifier_cgroup,              NULL },
+                { 'r', specifier_cgroup_root,         NULL },
+                { 'R', specifier_cgroup_root,         NULL },
+                { 't', specifier_runtime,             NULL },
                 { 0, NULL, NULL }
         };
 
@@ -2305,21 +2365,25 @@ void unit_status_printf(Unit *u, const char *format, ...) {
 }
 
 bool unit_need_daemon_reload(Unit *u) {
-        struct stat st;
-
         assert(u);
 
-        if (!u->meta.fragment_path)
-                return false;
+        if (u->meta.fragment_path) {
+                struct stat st;
 
-        zero(st);
-        if (stat(u->meta.fragment_path, &st) < 0)
-                /* What, cannot access this anymore? */
-                return true;
+                zero(st);
+                if (stat(u->meta.fragment_path, &st) < 0)
+                        /* What, cannot access this anymore? */
+                        return true;
 
-        return
-                u->meta.fragment_mtime &&
-                timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
+                if (u->meta.fragment_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != u->meta.fragment_mtime)
+                        return true;
+        }
+
+        if (UNIT_VTABLE(u)->need_daemon_reload)
+                return UNIT_VTABLE(u)->need_daemon_reload(u);
+
+        return false;
 }
 
 void unit_reset_failed(Unit *u) {
@@ -2406,7 +2470,6 @@ int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
 
         return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
 }
-
 
 int unit_following_set(Unit *u, Set **s) {
         assert(u);

@@ -168,7 +168,7 @@ struct Meta {
         CGroupBonding *cgroup_bondings;
 
         /* Per type list */
-        LIST_FIELDS(Meta, units_per_type);
+        LIST_FIELDS(Meta, units_by_type);
 
         /* Load queue */
         LIST_FIELDS(Meta, load_queue);
@@ -316,6 +316,9 @@ struct UnitVTable {
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
+
+        /* Check whether unit needs a daemon reload */
+        bool (*need_daemon_reload)(Unit *u);
 
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);

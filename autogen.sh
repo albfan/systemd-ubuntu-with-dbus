@@ -52,6 +52,10 @@ if type -p colorgcc > /dev/null ; then
    export CC=colorgcc
 fi
 
+libdir() {
+    echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
+}
+
 if [ "x$1" = "xam" ] ; then
     run_versioned automake "$AM_VERSION" -a -c --foreign
     ./config.status
@@ -60,13 +64,20 @@ else
     rm -f config.cache
 
     libtoolize -c --force
+    intltoolize -c -f
     run_versioned aclocal "$AM_VERSION" -I m4
     run_versioned autoconf "$AC_VERSION" -Wall
     run_versioned autoheader "$AC_VERSION"
     run_versioned automake "$AM_VERSION" --copy --foreign --add-missing
 
     if [ "x$1" != "xac" ]; then
-        CFLAGS="$CFLAGS -g -O0" ./configure --sysconfdir=/etc --localstatedir=/var --with-rootdir= --libexecdir=/usr/lib "$@"
+        CFLAGS="$CFLAGS -g -O0" ./configure \
+          --sysconfdir=/etc \
+          --localstatedir=/var \
+          --libexecdir=/usr/lib \
+          --libdir=$(libdir /usr/local/lib) \
+          --with-rootdir= \
+          "$@"
         make clean
     fi
 fi

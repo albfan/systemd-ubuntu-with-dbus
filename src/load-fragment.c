@@ -188,6 +188,35 @@ static int config_parse_string_printf(
         return 0;
 }
 
+static int config_parse_strv_printf(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char *k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        k = unit_full_printf(u, rvalue);
+        if (!k)
+                return -ENOMEM;
+
+        r = config_parse_strv(filename, line, section, lvalue, ltype, k, data, userdata);
+        free(k);
+
+        return r;
+}
+
 static int config_parse_path_printf(
                 const char *filename,
                 unsigned line,
@@ -251,7 +280,7 @@ static int config_parse_listen(
         if (streq(lvalue, "ListenFIFO")) {
                 p->type = SOCKET_FIFO;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -261,7 +290,7 @@ static int config_parse_listen(
         } else if (streq(lvalue, "ListenSpecial")) {
                 p->type = SOCKET_SPECIAL;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -272,7 +301,7 @@ static int config_parse_listen(
 
                 p->type = SOCKET_MQUEUE;
 
-                if (!(p->path = strdup(rvalue))) {
+                if (!(p->path = unit_full_printf(UNIT(s), rvalue))) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -280,18 +309,30 @@ static int config_parse_listen(
                 path_kill_slashes(p->path);
 
         } else if (streq(lvalue, "ListenNetlink")) {
-                p->type = SOCKET_SOCKET;
+                char  *k;
+                int r;
 
-                if (socket_address_parse_netlink(&p->address, rvalue) < 0) {
+                p->type = SOCKET_SOCKET;
+                k = unit_full_printf(UNIT(s), rvalue);
+                r = socket_address_parse_netlink(&p->address, k);
+                free(k);
+
+                if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
                         return 0;
                 }
 
         } else {
-                p->type = SOCKET_SOCKET;
+                char *k;
+                int r;
 
-                if (socket_address_parse(&p->address, rvalue) < 0) {
+                p->type = SOCKET_SOCKET;
+                k = unit_full_printf(UNIT(s), rvalue);
+                r = socket_address_parse(&p->address, k);
+                free(k);
+
+                if (r < 0) {
                         log_error("[%s:%u] Failed to parse address value, ignoring: %s", filename, line, rvalue);
                         free(p);
                         return 0;
@@ -1071,10 +1112,23 @@ static int config_parse_cgroup(
         char *state;
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
+                char *t, *k;
                 int r;
 
-                if (!(t = cunescape_length(w, l)))
+                t = strndup(w, l);
+                if (!t)
+                        return -ENOMEM;
+
+                k = unit_full_printf(u, t);
+                free(t);
+
+                if (!k)
+                        return -ENOMEM;
+
+                t = cunescape(k);
+                free(k);
+
+                if (!t)
                         return -ENOMEM;
 
                 r = unit_add_cgroup_from_text(u, t);
@@ -1471,18 +1525,27 @@ static int config_parse_env_file(
                 void *userdata) {
 
         char ***env = data, **k;
+        Unit *u = userdata;
+        char *s;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (!path_is_absolute(rvalue[0] == '-' ? rvalue + 1 : rvalue)) {
-                log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, rvalue);
+        s = unit_full_printf(u, rvalue);
+        if (!s)
+                return -ENOMEM;
+
+        if (!path_is_absolute(s[0] == '-' ? s + 1 : s)) {
+                log_error("[%s:%u] Path '%s' is not absolute, ignoring.", filename, line, s);
+                free(s);
                 return 0;
         }
 
-        if (!(k = strv_append(*env, rvalue)))
+        k = strv_append(*env, s);
+        free(s);
+        if (!k)
                 return -ENOMEM;
 
         strv_free(*env);
@@ -1661,13 +1724,16 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                  * unit name. */
                 name = file_name_from_path(*filename);
 
-                if (unit_name_is_valid(name, false)) {
-                        if (!(id = set_get(names, name))) {
+                if (unit_name_is_valid(name, true)) {
 
-                                if (!(id = strdup(name)))
+                        id = set_get(names, name);
+                        if (!id) {
+                                id = strdup(name);
+                                if (!id)
                                         return -ENOMEM;
 
-                                if ((r = set_put(names, id)) < 0) {
+                                r = set_put(names, id);
+                                if (r < 0) {
                                         free(id);
                                         return r;
                                 }
@@ -1864,7 +1930,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUSchedulingResetOnFork", config_parse_bool,          0, &(context).cpu_sched_reset_on_fork,              section   }, \
                 { "CPUAffinity",            config_parse_cpu_affinity,    0, &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            0, &(context).umask,                                section   }, \
-                { "Environment",            config_parse_strv,            0, &(context).environment,                          section   }, \
+                { "Environment",            config_parse_strv_printf,     0, &(context).environment,                          section   }, \
                 { "EnvironmentFile",        config_parse_env_file,        0, &(context).environment_files,                    section   }, \
                 { "StandardInput",          config_parse_input,           0, &(context).std_input,                            section   }, \
                 { "StandardOutput",         config_parse_output,          0, &(context).std_output,                           section   }, \
@@ -1908,7 +1974,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "KillMode",               config_parse_kill_mode,       0, &(context).kill_mode,                            section   }, \
                 { "KillSignal",             config_parse_kill_signal,     0, &(context).kill_signal,                          section   }, \
                 { "SendSIGKILL",            config_parse_bool,            0, &(context).send_sigkill,                         section   }, \
-                { "UtmpIdentifier",         config_parse_string_printf,   0, &(context).utmp_id,                              section   }
+                { "UtmpIdentifier",         config_parse_string_printf,   0, &(context).utmp_id,                              section   }, \
+                { "ControlGroupModify",     config_parse_bool,            0, &(context).control_group_modify,                 section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           0, u,                                               "Unit"    },
@@ -1932,12 +1999,14 @@ static int load_from_path(Unit *u, const char *path) {
                 { "IgnoreOnIsolate",        config_parse_bool,            0, &u->meta.ignore_on_isolate,                      "Unit"    },
                 { "IgnoreOnSnapshot",       config_parse_bool,            0, &u->meta.ignore_on_snapshot,                     "Unit"    },
                 { "JobTimeoutSec",          config_parse_usec,            0, &u->meta.job_timeout,                            "Unit"    },
-                { "ConditionPathExists",        config_parse_condition_path, CONDITION_PATH_EXISTS, u,                        "Unit"    },
-                { "ConditionPathIsDirectory",   config_parse_condition_path, CONDITION_PATH_IS_DIRECTORY, u,                  "Unit"    },
-                { "ConditionDirectoryNotEmpty", config_parse_condition_path, CONDITION_DIRECTORY_NOT_EMPTY, u,                "Unit"    },
+                { "ConditionPathExists",        config_parse_condition_path,   CONDITION_PATH_EXISTS,         u,              "Unit"    },
+                { "ConditionPathExistsGlob",    config_parse_condition_path,   CONDITION_PATH_EXISTS_GLOB,    u,              "Unit"    },
+                { "ConditionPathIsDirectory",   config_parse_condition_path,   CONDITION_PATH_IS_DIRECTORY,   u,              "Unit"    },
+                { "ConditionDirectoryNotEmpty", config_parse_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, u,              "Unit"    },
+                { "ConditionFileIsExecutable",  config_parse_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  u,              "Unit"    },
                 { "ConditionKernelCommandLine", config_parse_condition_string, CONDITION_KERNEL_COMMAND_LINE, u,              "Unit"    },
-                { "ConditionVirtualization",    config_parse_condition_string, CONDITION_VIRTUALIZATION, u,                   "Unit"    },
-                { "ConditionSecurity",          config_parse_condition_string, CONDITION_SECURITY, u,                         "Unit"    },
+                { "ConditionVirtualization",    config_parse_condition_string, CONDITION_VIRTUALIZATION,      u,              "Unit"    },
+                { "ConditionSecurity",          config_parse_condition_string, CONDITION_SECURITY,            u,              "Unit"    },
                 { "ConditionNull",          config_parse_condition_null,  0, u,                                               "Unit"    },
 
                 { "PIDFile",                config_parse_path_printf,     0, &u->service.pid_file,                            "Service" },
@@ -2027,6 +2096,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Unit",                   config_parse_timer_unit,      0, &u->timer,                                       "Timer"   },
 
                 { "PathExists",             config_parse_path_spec,       0, &u->path,                                        "Path"    },
+                { "PathExistsGlob",         config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "PathChanged",            config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "DirectoryNotEmpty",      config_parse_path_spec,       0, &u->path,                                        "Path"    },
                 { "Unit",                   config_parse_path_unit,       0, &u->path,                                        "Path"    },
