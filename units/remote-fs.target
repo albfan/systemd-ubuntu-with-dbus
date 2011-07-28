@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Remote File Systems
+After=local-fs.target
 
 [Install]
 WantedBy=multi-user.target
