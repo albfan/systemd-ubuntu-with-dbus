@@ -8,6 +8,8 @@ systemd (35-1) UNRELEASED; urgency=low
     with ACL support.
   * Split libsystemd-login and libsystemd-daemon into separate binary
     packages.
+  * As autoreconf doesn't like intltool, override dh_autoreconf and call
+    intltoolize and autoreconf ourselves.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 14 Sep 2011 08:25:17 +0200
 

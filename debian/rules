@@ -29,5 +29,12 @@ override_dh_install:
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
 	dh_install debian/ifup@.service /lib/systemd/system
 
+autoreconf:
+	intltoolize -f
+	autoreconf -f -i
+
+override_dh_autoreconf:
+	dh_autoreconf debian/rules -- autoreconf
+
 %:
 	dh $@ --parallel
