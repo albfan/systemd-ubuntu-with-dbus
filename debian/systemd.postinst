@@ -4,18 +4,6 @@ set -e
 
 if [ -n "$2" ]; then
     systemctl daemon-reexec || true
-
-    if dpkg --compare-versions "$2" lt "11-2"; then
-        if [ -e /proc/mounts ]; then
-            mounts=$(awk '/ \/cgroup/ {print $2}' < /proc/mounts | sort -r)
-            for m in $mounts; do
-                umount "$m" || true;
-            done
-        fi
-        if [ -d /cgroup ]; then
-            rmdir --ignore-fail-on-non-empty /cgroup
-        fi
-    fi
 fi
 
 # Do a one-time migration of the local time setting

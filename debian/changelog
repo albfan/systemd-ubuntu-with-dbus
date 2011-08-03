@@ -13,6 +13,7 @@ systemd (35-1) UNRELEASED; urgency=low
   * Add Build-Depends on intltool.
   * Do a one-time migration of the hwclock configuration. If UTC is set to
     "no" in /etc/default/rcS, create /etc/adjtime and add the "LOCAL" setting.
+  * Remove /cgroup cleanup code from postinst.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 14 Sep 2011 08:25:17 +0200
 
