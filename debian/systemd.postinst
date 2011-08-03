@@ -16,6 +16,13 @@ if [ -n "$2" ]; then
             rmdir --ignore-fail-on-non-empty /cgroup
         fi
     fi
+    # Do a one-time migration of the local time setting
+    if dpkg --compare-versions "$2" lt "33-1"; then
+        . /etc/default/rcS
+        if [ $UTC ="no" ] && [ ! -e /etc/adjtime ]; then
+            echo "0 0 0\0\0LOCAL" > /etc/adjtime
+        fi
+    fi
 fi
 
 systemd-machine-id-setup
