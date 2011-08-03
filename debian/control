@@ -6,7 +6,25 @@ Standards-Version: 3.9.1
 Vcs-Git: git://git.err.no/systemd/
 Vcs-Browser: http://git.err.no/cgi-bin/gitweb.cgi?p=systemd;a=summary
 Homepage: http://www.freedesktop.org/wiki/Software/systemd
-Build-Depends: debhelper (>= 7.0.50), libcap-dev, pkg-config, libudev-dev (>= 160), libdbus-1-dev (>= 1.3.2~), libdbus-glib-1-dev, libgtk2.0-dev, valac-0.10 (>= 0.10.3), xsltproc, docbook-xsl, docbook-xml, m4, libpam0g-dev, libnotify-dev, libaudit-dev, dh-autoreconf, libcryptsetup-dev (>= 2:1.2.0), libwrap0-dev, libselinux1-dev
+Build-Depends: debhelper (>= 7.0.50),
+               libcap-dev,
+               pkg-config,
+               libudev-dev (>= 160),
+               libdbus-1-dev (>= 1.3.2~),
+               libdbus-glib-1-dev,
+               libgtk2.0-dev,
+               valac-0.10 (>= 0.10.3),
+               xsltproc,
+               docbook-xsl,
+               docbook-xml,
+               m4,
+               libpam0g-dev,
+               libnotify-dev,
+               libaudit-dev,
+               dh-autoreconf,
+               libcryptsetup-dev (>= 2:1.2.0),
+               libwrap0-dev,
+               libselinux1-dev
 
 Package: systemd
 Architecture: linux-any
