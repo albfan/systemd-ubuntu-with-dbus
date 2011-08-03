@@ -20,7 +20,7 @@ if [ -n "$2" ]; then
     if dpkg --compare-versions "$2" lt "33-1"; then
         . /etc/default/rcS
         if [ $UTC ="no" ] && [ ! -e /etc/adjtime ]; then
-            echo "0 0 0\0\0LOCAL" > /etc/adjtime
+            echo "0 0 0\n0\nLOCAL" > /etc/adjtime
         fi
     fi
 fi
