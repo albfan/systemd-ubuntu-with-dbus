@@ -26,7 +26,8 @@ Build-Depends: debhelper (>= 7.0.50),
                libcryptsetup-dev (>= 2:1.2.0),
                libwrap0-dev,
                libselinux1-dev,
-               libacl1-dev
+               libacl1-dev,
+               gperf
 
 Package: systemd
 Architecture: linux-any
