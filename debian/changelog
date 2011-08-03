@@ -3,6 +3,7 @@ systemd (35-1) UNRELEASED; urgency=low
   * New upstream release. Closes: #634618
     - Various man page fixes. Closes: #623521
   * Build for libnotify 0.7.
+  * Bump Build-Depends on libudev to (>= 172).
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 14 Sep 2011 08:25:17 +0200
 
