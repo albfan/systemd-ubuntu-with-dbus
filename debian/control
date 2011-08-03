@@ -96,3 +96,39 @@ Description: system and service manager - GUI
  availability of a given mount point or dbus service.
  .
  This package contains the graphical frontend for systemd.
+
+Package: libsystemd-login0
+Architecture: linux-any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: systemd login utility library
+ The libsystemd-login library provides an interface for the
+ systemd-logind service which is used to track user sessions and seats.
+
+Package: libsystemd-login-dev
+Architecture: linux-any
+Section: libdevel
+Depends: libsystemd-login0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: systemd login utility library - development files
+ The libsystemd-login library provides an interface for the
+ systemd-logind service which is used to track user sessions and seats.
+ .
+ This package contains the development files
+
+Package: libsystemd-daemon0
+Architecture: linux-any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: systemd utility library
+ The sd-daemon library provides a reference implementation of various
+ APIs for new-style daemons, as implemented by the systemd init system.
+
+Package: libsystemd-daemon-dev
+Architecture: linux-any
+Section: libdevel
+Depends: libsystemd-daemon0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: systemd utility library - development files
+ The sd-daemon library provides a reference implementation of various
+ APIs for new-style daemons, as implemented by the systemd init system.
+ .
+ This package contains the development files

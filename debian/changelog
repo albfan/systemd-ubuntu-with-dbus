@@ -6,6 +6,8 @@ systemd (35-1) UNRELEASED; urgency=low
   * Bump Build-Depends on libudev to (>= 172).
   * Add Build-Depends on libacl1-dev. Required for building systemd-logind
     with ACL support.
+  * Split libsystemd-login and libsystemd-daemon into separate binary
+    packages.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 14 Sep 2011 08:25:17 +0200
 

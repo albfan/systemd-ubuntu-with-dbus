@@ -6,8 +6,9 @@ bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
 bin/systemd-machine-id-setup
 bin/systemd-tmpfiles
+bin/systemd-loginctl
 lib/systemd/
-lib/udev/rules.d/99-systemd.rules
+lib/udev/rules.d/
 usr/bin/systemd-cgls
 usr/bin/systemd-nspawn
 usr/bin/systemd-stdio-bridge
@@ -18,6 +19,7 @@ usr/share/man/man1/systemd.1
 usr/share/man/man1/systemctl.1
 usr/share/man/man1/systemd-nspawn.1
 usr/share/man/man1/systemd-ask-password.1
+usr/share/man/man1/systemd-loginctl.1
 usr/share/man/man3
 usr/share/man/man5
 usr/share/man/man7
@@ -26,7 +28,11 @@ usr/share/dbus-1
 usr/share/doc
 usr/share/pkgconfig
 usr/share/polkit-1
-usr/lib
+usr/lib/binfmt.d
+usr/lib/modules-load.d
+usr/lib/sysctl.d
+usr/lib/systemd
+usr/lib/tmpfiles.d
 debian/init-functions lib/lsb
 debian/lib-init-rw.automount lib/systemd/system/
 debian/lib-init-rw.mount lib/systemd/system/
