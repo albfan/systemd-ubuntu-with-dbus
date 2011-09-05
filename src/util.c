@@ -73,7 +73,7 @@ size_t page_size(void) {
         static __thread size_t pgsz = 0;
         long r;
 
-        if (pgsz)
+        if (_likely_(pgsz))
                 return pgsz;
 
         assert_se((r = sysconf(_SC_PAGESIZE)) > 0);
@@ -809,7 +809,7 @@ int parse_env_file(
                 const char *separator, ...) {
 
         int r = 0;
-        char *contents, *p;
+        char *contents = NULL, *p;
 
         assert(fname);
         assert(separator);
@@ -1266,8 +1266,6 @@ bool is_path(const char *p) {
 }
 
 char *path_make_absolute(const char *p, const char *prefix) {
-        char *r;
-
         assert(p);
 
         /* Makes every item in the list an absolute path by prepending
@@ -1276,10 +1274,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
-        if (asprintf(&r, "%s/%s", prefix, p) < 0)
-                return NULL;
-
-        return r;
+        return join(prefix, "/", p, NULL);
 }
 
 char *path_make_absolute_cwd(const char *p) {
@@ -1411,21 +1406,18 @@ int reset_all_signal_handlers(void) {
 }
 
 char *strstrip(char *s) {
-        char *e, *l = NULL;
+        char *e;
 
         /* Drops trailing whitespace. Modifies the string in
          * place. Returns pointer to first non-space character */
 
         s += strspn(s, WHITESPACE);
 
-        for (e = s; *e; e++)
-                if (!strchr(WHITESPACE, *e))
-                        l = e;
+        for (e = strchr(s, 0); e > s; e --)
+                if (!strchr(WHITESPACE, e[-1]))
+                        break;
 
-        if (l)
-                *(l+1) = 0;
-        else
-                *s = 0;
+        *e = 0;
 
         return s;
 }
@@ -1445,6 +1437,19 @@ char *delete_chars(char *s, const char *bad) {
         *t = 0;
 
         return s;
+}
+
+bool in_charset(const char *s, const char* charset) {
+        const char *i;
+
+        assert(s);
+        assert(charset);
+
+        for (i = s; *i; i++)
+                if (!strchr(charset, *i))
+                        return false;
+
+        return true;
 }
 
 char *file_in_same_dir(const char *path, const char *filename) {
@@ -2890,19 +2895,25 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         return n;
 }
 
-int path_is_mount_point(const char *t) {
+int path_is_mount_point(const char *t, bool allow_symlink) {
         struct stat a, b;
         char *parent;
         int r;
 
-        if (lstat(t, &a) < 0) {
+        if (allow_symlink)
+                r = stat(t, &a);
+        else
+                r = lstat(t, &a);
+
+        if (r < 0) {
                 if (errno == ENOENT)
                         return 0;
 
                 return -errno;
         }
 
-        if ((r = parent_of_path(t, &parent)) < 0)
+        r = parent_of_path(t, &parent);
+        if (r < 0)
                 return r;
 
         r = lstat(parent, &b);
@@ -2973,6 +2984,62 @@ int parse_usec(const char *t, usec_t *usec) {
         } while (*p != 0);
 
         *usec = r;
+
+        return 0;
+}
+
+int parse_bytes(const char *t, off_t *bytes) {
+        static const struct {
+                const char *suffix;
+                off_t factor;
+        } table[] = {
+                { "B", 1 },
+                { "K", 1024ULL },
+                { "M", 1024ULL*1024ULL },
+                { "G", 1024ULL*1024ULL*1024ULL },
+                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "", 1 },
+        };
+
+        const char *p;
+        off_t r = 0;
+
+        assert(t);
+        assert(bytes);
+
+        p = t;
+        do {
+                long long l;
+                char *e;
+                unsigned i;
+
+                errno = 0;
+                l = strtoll(p, &e, 10);
+
+                if (errno != 0)
+                        return -errno;
+
+                if (l < 0)
+                        return -ERANGE;
+
+                if (e == p)
+                        return -EINVAL;
+
+                e += strspn(e, WHITESPACE);
+
+                for (i = 0; i < ELEMENTSOF(table); i++)
+                        if (startswith(e, table[i].suffix)) {
+                                r += (off_t) l * table[i].factor;
+                                p = e + strlen(table[i].suffix);
+                                break;
+                        }
+
+                if (i >= ELEMENTSOF(table))
+                        return -EINVAL;
+
+        } while (*p != 0);
+
+        *bytes = r;
 
         return 0;
 }
@@ -3293,7 +3360,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
         return 0;
 }
 
-static int rm_rf_children(int fd, bool only_dirs) {
+static int rm_rf_children(int fd, bool only_dirs, bool honour_sticky) {
         DIR *d;
         int ret = 0;
 
@@ -3310,7 +3377,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
 
         for (;;) {
                 struct dirent buf, *de;
-                bool is_dir;
+                bool is_dir, keep_around = false;
                 int r;
 
                 if ((r = readdir_r(d, &buf, &de)) != 0) {
@@ -3334,9 +3401,26 @@ static int rm_rf_children(int fd, bool only_dirs) {
                                 continue;
                         }
 
+                        if (honour_sticky)
+                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+
                         is_dir = S_ISDIR(st.st_mode);
-                } else
+
+                } else {
+                        if (honour_sticky) {
+                                struct stat st;
+
+                                if (fstatat(fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                        if (ret == 0 && errno != ENOENT)
+                                                ret = -errno;
+                                        continue;
+                                }
+
+                                keep_around = st.st_uid == 0 && (st.st_mode & S_ISVTX);
+                        }
+
                         is_dir = de->d_type == DT_DIR;
+                }
 
                 if (is_dir) {
                         int subdir_fd;
@@ -3347,16 +3431,18 @@ static int rm_rf_children(int fd, bool only_dirs) {
                                 continue;
                         }
 
-                        if ((r = rm_rf_children(subdir_fd, only_dirs)) < 0) {
+                        if ((r = rm_rf_children(subdir_fd, only_dirs, honour_sticky)) < 0) {
                                 if (ret == 0)
                                         ret = r;
                         }
 
-                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                        }
-                } else  if (!only_dirs) {
+                        if (!keep_around)
+                                if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
+                                        if (ret == 0 && errno != ENOENT)
+                                                ret = -errno;
+                                }
+
+                } else if (!only_dirs && !keep_around) {
 
                         if (unlinkat(fd, de->d_name, 0) < 0) {
                                 if (ret == 0 && errno != ENOENT)
@@ -3370,7 +3456,7 @@ static int rm_rf_children(int fd, bool only_dirs) {
         return ret;
 }
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root) {
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky) {
         int fd;
         int r;
 
@@ -3388,13 +3474,18 @@ int rm_rf(const char *path, bool only_dirs, bool delete_root) {
                 return 0;
         }
 
-        r = rm_rf_children(fd, only_dirs);
+        r = rm_rf_children(fd, only_dirs, honour_sticky);
 
-        if (delete_root)
-                if (rmdir(path) < 0) {
+        if (delete_root) {
+
+                if (honour_sticky && file_is_sticky(path) > 0)
+                        return r;
+
+                if (rmdir(path) < 0 && errno != ENOENT) {
                         if (r == 0)
                                 r = -errno;
                 }
+        }
 
         return r;
 }
@@ -3776,7 +3867,7 @@ int columns(void) {
         static __thread int parsed_columns = 0;
         const char *e;
 
-        if (parsed_columns > 0)
+        if (_likely_(parsed_columns > 0))
                 return parsed_columns;
 
         if ((e = getenv("COLUMNS")))
@@ -4372,7 +4463,7 @@ int detect_virtualization(const char **id) {
         const char *_id;
         int r;
 
-        if (cached_id) {
+        if (_likely_(cached_id)) {
 
                 if (cached_id == (const char*) -1)
                         return 0;
@@ -5432,7 +5523,10 @@ int get_files_in_directory(const char *path, char ***list) {
         char **l = NULL;
 
         assert(path);
-        assert(list);
+
+        /* Returns all files in a directory in *list, and the number
+         * of files as return value. If list is NULL returns only the
+         * number */
 
         d = opendir(path);
         for (;;) {
@@ -5453,40 +5547,174 @@ int get_files_in_directory(const char *path, char ***list) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if ((unsigned) r >= n) {
-                        char **t;
+                if (list) {
+                        if ((unsigned) r >= n) {
+                                char **t;
 
-                        n = MAX(16, 2*r);
-                        t = realloc(l, sizeof(char*) * n);
-                        if (!t) {
+                                n = MAX(16, 2*r);
+                                t = realloc(l, sizeof(char*) * n);
+                                if (!t) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                l = t;
+                        }
+
+                        assert((unsigned) r < n);
+
+                        l[r] = strdup(de->d_name);
+                        if (!l[r]) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
-                        l = t;
-                }
-
-                assert((unsigned) r < n);
-
-                l[r] = strdup(de->d_name);
-                if (!l[r]) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                l[++r] = NULL;
+                        l[++r] = NULL;
+                } else
+                        r++;
         }
 
 finish:
         if (d)
                 closedir(d);
 
-        if (r >= 0)
-                *list = l;
-        else
+        if (r >= 0) {
+                if (list)
+                        *list = l;
+        } else
                 strv_free(l);
 
         return r;
+}
+
+char *join(const char *x, ...) {
+        va_list ap;
+        size_t l;
+        char *r, *p;
+
+        va_start(ap, x);
+
+        if (x) {
+                l = strlen(x);
+
+                for (;;) {
+                        const char *t;
+
+                        t = va_arg(ap, const char *);
+                        if (!t)
+                                break;
+
+                        l += strlen(t);
+                }
+        } else
+                l = 0;
+
+        va_end(ap);
+
+        r = new(char, l+1);
+        if (!r)
+                return NULL;
+
+        if (x) {
+                p = stpcpy(r, x);
+
+                va_start(ap, x);
+
+                for (;;) {
+                        const char *t;
+
+                        t = va_arg(ap, const char *);
+                        if (!t)
+                                break;
+
+                        p = stpcpy(p, t);
+                }
+        } else
+                r[0] = 0;
+
+        return r;
+}
+
+bool is_main_thread(void) {
+        static __thread int cached = 0;
+
+        if (_unlikely_(cached == 0))
+                cached = getpid() == gettid() ? 1 : -1;
+
+        return cached > 0;
+}
+
+int block_get_whole_disk(dev_t d, dev_t *ret) {
+        char *p, *s;
+        int r;
+        unsigned n, m;
+
+        assert(ret);
+
+        /* If it has a queue this is good enough for us */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r >= 0) {
+                *ret = d;
+                return 0;
+        }
+
+        /* If it is a partition find the originating device */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/partition", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r < 0)
+                return -ENOENT;
+
+        /* Get parent dev_t */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/../dev", major(d), minor(d)) < 0)
+                return -ENOMEM;
+
+        r = read_one_line_file(p, &s);
+        free(p);
+
+        if (r < 0)
+                return r;
+
+        r = sscanf(s, "%u:%u", &m, &n);
+        free(s);
+
+        if (r != 2)
+                return -EINVAL;
+
+        /* Only return this if it is really good enough for us. */
+        if (asprintf(&p, "/sys/dev/block/%u:%u/queue", m, n) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK);
+        free(p);
+
+        if (r >= 0) {
+                *ret = makedev(m, n);
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
+int file_is_sticky(const char *p) {
+        struct stat st;
+
+        assert(p);
+
+        if (lstat(p, &st) < 0)
+                return -errno;
+
+        return
+                st.st_uid == 0 &&
+                (st.st_mode & S_ISVTX);
 }
 
 static const char *const ioprio_class_table[] = {
@@ -5624,3 +5852,15 @@ static const char *const signal_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(signal, int);
+
+bool kexec_loaded(void) {
+       bool loaded = false;
+       char *s;
+
+       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
+               if (s[0] == '1')
+                       loaded = true;
+               free(s);
+       }
+       return loaded;
+}

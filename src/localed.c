@@ -59,6 +59,7 @@ enum {
          * using LANG instead. */
 
         PROP_LANG,
+        PROP_LANGUAGE,
         PROP_LC_CTYPE,
         PROP_LC_NUMERIC,
         PROP_LC_TIME,
@@ -76,6 +77,7 @@ enum {
 
 static const char * const names[_PROP_MAX] = {
         [PROP_LANG] = "LANG",
+        [PROP_LANGUAGE] = "LANGUAGE",
         [PROP_LC_CTYPE] = "LC_CTYPE",
         [PROP_LC_NUMERIC] = "LC_NUMERIC",
         [PROP_LC_TIME] = "LC_TIME",
@@ -132,6 +134,7 @@ static int read_data(void) {
 
         r = parse_env_file("/etc/locale.conf", NEWLINE,
                            "LANG",              &data[PROP_LANG],
+                           "LANGUAGE",          &data[PROP_LANGUAGE],
                            "LC_CTYPE",          &data[PROP_LC_CTYPE],
                            "LC_NUMERIC",        &data[PROP_LC_NUMERIC],
                            "LC_TIME",           &data[PROP_LC_TIME],
@@ -575,6 +578,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         if (argc == 2 && streq(argv[1], "--introspect")) {
                 fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
                       "<node>\n", stdout);
@@ -588,8 +593,6 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
                 goto finish;
         }
-
-        umask(0022);
 
         r = read_data();
         if (r < 0) {

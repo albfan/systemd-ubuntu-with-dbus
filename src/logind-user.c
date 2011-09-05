@@ -142,7 +142,7 @@ int user_save(User *u) {
                         fprintf(f,
                                 "%s%c",
                                 i->id,
-                                i->sessions_by_seat_next ? ' ' : '\n');
+                                i->sessions_by_user_next ? ' ' : '\n');
                 }
 
                 fputs("SEATS=", f);
@@ -151,7 +151,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%s%c",
                                         i->seat->id,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
                 }
 
                 fputs("ACTIVE_SESSIONS=", f);
@@ -160,7 +160,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%lu%c",
                                         (unsigned long) i->user->uid,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
 
                 fputs("ACTIVE_SEATS=", f);
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
@@ -168,7 +168,7 @@ int user_save(User *u) {
                                 fprintf(f,
                                         "%s%c",
                                         i->seat->id,
-                                        i->sessions_by_seat_next ? ' ' : '\n');
+                                        i->sessions_by_user_next ? ' ' : '\n');
                 }
         }
 
@@ -409,7 +409,7 @@ static int user_remove_runtime_path(User *u) {
         if (!u->runtime_path)
                 return 0;
 
-        r = rm_rf(u->runtime_path, false, true);
+        r = rm_rf(u->runtime_path, false, true, false);
         if (r < 0)
                 log_error("Failed to remove runtime directory %s: %s", u->runtime_path, strerror(-r));
 

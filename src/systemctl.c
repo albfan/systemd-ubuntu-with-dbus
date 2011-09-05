@@ -1962,12 +1962,15 @@ typedef struct UnitStatusInfo {
         const char *load_state;
         const char *active_state;
         const char *sub_state;
+        const char *unit_file_state;
 
         const char *description;
         const char *following;
 
         const char *path;
         const char *default_control_group;
+
+        const char *load_error;
 
         usec_t inactive_exit_timestamp;
         usec_t active_enter_timestamp;
@@ -2039,7 +2042,11 @@ static void print_status_info(UnitStatusInfo *i) {
         } else
                 on = off = "";
 
-        if (i->path)
+        if (i->load_error)
+                printf("\t  Loaded: %s%s%s (Reason: %s)\n", on, strna(i->load_state), off, i->load_error);
+        else if (i->path && i->unit_file_state)
+                printf("\t  Loaded: %s%s%s (%s; %s)\n", on, strna(i->load_state), off, i->path, i->unit_file_state);
+        else if (i->path)
                 printf("\t  Loaded: %s%s%s (%s)\n", on, strna(i->load_state), off, i->path);
         else
                 printf("\t  Loaded: %s%s%s\n", on, strna(i->load_state), off);
@@ -2281,6 +2288,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->what = s;
                         else if (streq(name, "Following"))
                                 i->following = s;
+                        else if (streq(name, "UnitFileState"))
+                                i->unit_file_state = s;
                 }
 
                 break;
@@ -2392,6 +2401,30 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
 
                 break;
         }
+
+        case DBUS_TYPE_STRUCT: {
+
+                if (streq(name, "LoadError")) {
+                        DBusMessageIter sub;
+                        const char *n, *message;
+                        int r;
+
+                        dbus_message_iter_recurse(iter, &sub);
+
+                        r = bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &n, true);
+                        if (r < 0)
+                                return r;
+
+                        r = bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &message, false);
+                        if (r < 0)
+                                return r;
+
+                        if (!isempty(message))
+                                i->load_error = message;
+                }
+
+                break;
+        }
         }
 
         return 0;
@@ -2433,6 +2466,16 @@ static int print_property(const char *name, DBusMessageIter *iter) {
                                 printf("%s=%s\n", name, s);
 
                         return 0;
+                } else if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING && streq(name, "LoadError")) {
+                        const char *a = NULL, *b = NULL;
+
+                        if (bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &a, true) >= 0)
+                                bus_iter_get_basic_and_next(&sub, DBUS_TYPE_STRING, &b, false);
+
+                        if (arg_all || !isempty(a) || !isempty(b))
+                                printf("%s=%s \"%s\"\n", name, strempty(a), strempty(b));
+
+                        return 0;
                 }
 
                 break;
@@ -2452,7 +2495,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                 if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &path, true) >= 0 &&
                                     bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_BOOLEAN, &ignore, false) >= 0)
-                                        printf("EnvironmentFile=%s (ignore=%s)\n", path, yes_no(ignore));
+                                        printf("EnvironmentFile=%s (ignore_errors=%s)\n", path, yes_no(ignore));
 
                                 dbus_message_iter_next(&sub);
                         }
@@ -2503,6 +2546,30 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                         return 0;
 
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && streq(name, "ControlGroupAttributes")) {
+                        DBusMessageIter sub, sub2;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRUCT) {
+                                const char *controller, *attr, *value;
+
+                                dbus_message_iter_recurse(&sub, &sub2);
+
+                                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &controller, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &attr, true) >= 0 &&
+                                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &value, false) >= 0) {
+
+                                        printf("ControlGroupAttribute={ controller=%s ; attribute=%s ; value=\"%s\" }\n",
+                                               controller,
+                                               attr,
+                                               value);
+                                }
+
+                                dbus_message_iter_next(&sub);
+                        }
+
+                        return 0;
+
                 } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRUCT && startswith(name, "Exec")) {
                         DBusMessageIter sub;
 
@@ -2517,7 +2584,7 @@ static int print_property(const char *name, DBusMessageIter *iter) {
 
                                         t = strv_join(info.argv, " ");
 
-                                        printf("%s={ path=%s ; argv[]=%s ; ignore=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
+                                        printf("%s={ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid=%u ; code=%s ; status=%i%s%s }\n",
                                                name,
                                                strna(info.path),
                                                strna(t),
@@ -4360,18 +4427,6 @@ static int parse_time_spec(const char *t, usec_t *_u) {
         return 0;
 }
 
-static bool kexec_loaded(void) {
-       bool loaded = false;
-       char *s;
-
-       if (read_one_line_file("/sys/kernel/kexec_loaded", &s) >= 0) {
-               if (s[0] == '1')
-                       loaded = true;
-               free(s);
-       }
-       return loaded;
-}
-
 static int shutdown_parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -4983,7 +5038,7 @@ static int reload_with_fallback(DBusConnection *bus) {
 
         if (bus) {
                 /* First, try systemd via D-Bus. */
-                if (daemon_reload(bus, NULL) > 0)
+                if (daemon_reload(bus, NULL) >= 0)
                         return 0;
         }
 

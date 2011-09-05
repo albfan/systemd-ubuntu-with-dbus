@@ -295,6 +295,8 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
         log_open();
 
+        umask(0022);
+
         if (getpid() != 1) {
                 log_error("Not executed by init (pid 1).");
                 r = -EPERM;
@@ -384,9 +386,12 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to detach DM devices: %s", strerror(-r));
                 }
 
-                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach)
+                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
+                        if (retries > 0)
+                                log_info("All filesystems, swaps, loop devices, DM devices detached.");
                         /* Yay, done */
                         break;
+                }
 
                 /* If in this iteration we didn't manage to
                  * unmount/deactivate anything, we either kill more

@@ -76,7 +76,8 @@ static int manager_setup_notify(Manager *m) {
                 struct sockaddr_un un;
         } sa;
         struct epoll_event ev;
-        int one = 1;
+        int one = 1, r;
+        mode_t u;
 
         assert(m);
 
@@ -99,7 +100,11 @@ static int manager_setup_notify(Manager *m) {
         if (sa.un.sun_path[0] == '@')
                 sa.un.sun_path[0] = 0;
 
-        if (bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1)) < 0) {
+        u = umask(0111);
+        r = bind(m->notify_watch.fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + 1 + strlen(sa.un.sun_path+1));
+        umask(u);
+
+        if (r < 0) {
                 log_error("bind() failed: %m");
                 return -errno;
         }
@@ -560,7 +565,8 @@ static void manager_build_unit_path_cache(Manager *m) {
                         if (ignore_file(de->d_name))
                                 continue;
 
-                        if (asprintf(&p, "%s/%s", streq(*i, "/") ? "" : *i, de->d_name) < 0) {
+                        p = join(streq(*i, "/") ? "" : *i, "/", de->d_name, NULL);
+                        if (!p) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -2984,6 +2990,7 @@ void manager_run_generators(Manager *m) {
         DIR *d = NULL;
         const char *generator_path;
         const char *argv[3];
+        mode_t u;
 
         assert(m);
 
@@ -3026,7 +3033,9 @@ void manager_run_generators(Manager *m) {
         argv[1] = m->generator_unit_path;
         argv[2] = NULL;
 
+        u = umask(0022);
         execute_directory(generator_path, d, (char**) argv);
+        umask(u);
 
         if (rmdir(m->generator_unit_path) >= 0) {
                 /* Uh? we were able to remove this dir? I guess that
@@ -3064,7 +3073,7 @@ void manager_undo_generators(Manager *m) {
                 return;
 
         strv_remove(m->lookup_paths.unit_path, m->generator_unit_path);
-        rm_rf(m->generator_unit_path, false, true);
+        rm_rf(m->generator_unit_path, false, true, false);
 
         free(m->generator_unit_path);
         m->generator_unit_path = NULL;

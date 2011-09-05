@@ -112,7 +112,8 @@ static int create_disk(
                 "DefaultDependencies=no\n"
                 "BindTo=%s dev-mapper-%%i.device\n"
                 "After=systemd-readahead-collect.service systemd-readahead-replay.service %s\n"
-                "Before=umount.target\n",
+                "Before=umount.target\n"
+                "Before=local-fs.target\n",
                 d, d);
 
         if (!nofail)
@@ -245,6 +246,8 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         if (!(f = fopen("/etc/crypttab", "re"))) {
 

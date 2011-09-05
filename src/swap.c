@@ -613,6 +613,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                             true,
                             s->meta.manager->confirm_spawn,
                             s->meta.cgroup_bondings,
+                            s->meta.cgroup_attributes,
                             &pid)) < 0)
                 goto fail;
 
@@ -1339,6 +1340,10 @@ DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
+        .sections =
+                "Unit\0"
+                "Swap\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

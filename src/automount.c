@@ -611,7 +611,7 @@ static int automount_start(Unit *u) {
 
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
-        if (path_is_mount_point(a->where)) {
+        if (path_is_mount_point(a->where, false)) {
                 log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
                 return -EEXIST;
         }
@@ -831,6 +831,10 @@ DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
 
 const UnitVTable automount_vtable = {
         .suffix = ".automount",
+        .sections =
+                "Unit\0"
+                "Automount\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

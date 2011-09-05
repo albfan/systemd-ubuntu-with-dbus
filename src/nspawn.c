@@ -37,6 +37,7 @@
 #include <termios.h>
 #include <sys/signalfd.h>
 #include <grp.h>
+#include <linux/fs.h>
 
 #include "log.h"
 #include "util.h"
@@ -44,9 +45,11 @@
 #include "cgroup-util.h"
 #include "sd-daemon.h"
 #include "strv.h"
+#include "loopback-setup.h"
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
+static bool arg_private_network = false;
 
 static int help(void) {
 
@@ -54,7 +57,8 @@ static int help(void) {
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help            Show this help\n"
                "  -D --directory=NAME  Root directory for the container\n"
-               "  -u --user=USER       Run the command under specified user or uid\n",
+               "  -u --user=USER       Run the command under specified user or uid\n"
+               "     --private-network Disable network in container\n",
                program_invocation_short_name);
 
         return 0;
@@ -62,11 +66,16 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_PRIVATE_NETWORK = 0x100
+        };
+
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h' },
-                { "directory", required_argument, NULL, 'D' },
-                { "user",      optional_argument, NULL, 'u' },
-                { NULL,        0,                 NULL, 0   }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "directory",       required_argument, NULL, 'D'                 },
+                { "user",            required_argument, NULL, 'u'                 },
+                { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
+                { NULL,              0,                 NULL, 0                   }
         };
 
         int c;
@@ -98,6 +107,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -ENOMEM;
                         }
 
+                        break;
+
+                case ARG_PRIVATE_NETWORK:
+                        arg_private_network = true;
                         break;
 
                 case '?':
@@ -133,8 +146,8 @@ static int mount_all(const char *dest) {
                 { "/dev/pts",  "/dev/pts",  "bind",  NULL,       MS_BIND,                      true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV,           true  },
 #ifdef HAVE_SELINUX
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND,                      false },  /* Bind mount first */
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND,                      false },  /* Bind mount first */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -154,7 +167,7 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                if ((t = path_is_mount_point(where)) < 0) {
+                if ((t = path_is_mount_point(where, false)) < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
 
@@ -314,7 +327,6 @@ static int copy_devnodes(const char *dest, const char *console) {
         }
 
 finish:
-
         umask(u);
 
         return r;
@@ -699,7 +711,7 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
+        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL)) < 0) {
                 log_error("clone() failed: %m");
                 goto finish;
         }
@@ -776,7 +788,9 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                umask(0002);
+                umask(0022);
+
+                loopback_setup();
 
                 if (drop_capabilities() < 0)
                         goto child_fail;

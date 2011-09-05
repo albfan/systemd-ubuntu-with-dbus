@@ -65,7 +65,7 @@ static const struct {
         { "boot.d", SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
 
-#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_FRUGALWARE) || defined(TARGET_ANGSTROM)
+#if defined(TARGET_DEBIAN) || defined(TARGET_UBUNTU) || defined(TARGET_ANGSTROM)
         /* Debian style rcS.d */
         { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
 #endif
@@ -635,7 +635,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 char *d = NULL;
 
                                 if (chkconfig_description)
-                                        asprintf(&d, "%s %s", chkconfig_description, j);
+                                        d = join(chkconfig_description, " ", j, NULL);
                                 else
                                         d = strdup(j);
 
@@ -805,7 +805,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                                 char *d = NULL;
 
                                                 if (long_description)
-                                                        asprintf(&d, "%s %s", long_description, t);
+                                                        d = join(long_description, " ", t, NULL);
                                                 else
                                                         d = strdup(j);
 
@@ -921,7 +921,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 char *path;
                 int r;
 
-                if (asprintf(&path, "%s/%s", *p, name) < 0)
+                path = join(*p, "/", name, NULL);
+                if (!path)
                         return -ENOMEM;
 
                 assert(endswith(path, ".service"));
@@ -942,7 +943,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try SUSE style boot.* init scripts */
 
-                        if (asprintf(&path, "%s/boot.%s", *p, name) < 0)
+                        path = join(*p, "/boot.", name, NULL);
+                        if (!path)
                                 return -ENOMEM;
 
                         /* Drop .service suffix */
@@ -956,7 +958,8 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 if (r >= 0 && s->meta.load_state == UNIT_STUB) {
                         /* Try Frugalware style rc.* init scripts */
 
-                        if (asprintf(&path, "%s/rc.%s", *p, name) < 0)
+                        path = join(*p, "/rc.", name, NULL);
+                        if (!path)
                                 return -ENOMEM;
 
                         /* Drop .service suffix */
@@ -1725,6 +1728,7 @@ static int service_spawn(
                        apply_tty_stdin,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
+                       s->meta.cgroup_attributes,
                        &pid);
 
         if (r < 0)
@@ -2965,6 +2969,72 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
 }
 
 #ifdef HAVE_SYSV_COMPAT
+
+#ifdef TARGET_SUSE
+static void sysv_facility_in_insserv_conf(Manager *mgr) {
+        FILE *f=NULL;
+        int r;
+
+        if (!(f = fopen("/etc/insserv.conf", "re"))) {
+                r = errno == ENOENT ? 0 : -errno;
+                goto finish;
+        }
+
+        while (!feof(f)) {
+                char l[LINE_MAX], *t;
+                char **parsed = NULL;
+
+                if (!fgets(l, sizeof(l), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        log_error("Failed to read configuration file '/etc/insserv.conf': %s", strerror(-r));
+                        goto finish;
+                }
+
+                t = strstrip(l);
+                if (*t != '$' && *t != '<')
+                        continue;
+
+                parsed = strv_split(t,WHITESPACE);
+                /* we ignore <interactive>, not used, equivalent to X-Interactive */
+                if (parsed && !startswith_no_case (parsed[0], "<interactive>")) {
+                        char *facility;
+                        Unit *u;
+                        if (sysv_translate_facility(parsed[0], NULL, &facility) < 0)
+                                continue;
+                        if ((u = manager_get_unit(mgr, facility)) && (u->meta.type == UNIT_TARGET)) {
+                                UnitDependency e;
+                                char *dep = NULL, *name, **j;
+
+                                STRV_FOREACH (j, parsed+1) {
+                                        if (*j[0]=='+') {
+                                                e = UNIT_WANTS;
+                                                name = *j+1;
+                                        }
+                                        else {
+                                                e = UNIT_REQUIRES;
+                                                name = *j;
+                                        }
+                                        if (sysv_translate_facility(name, NULL, &dep) < 0)
+                                                continue;
+
+                                        r = unit_add_two_dependencies_by_name(u, UNIT_BEFORE, e, dep, NULL, true);
+                                        free(dep);
+                                }
+                        }
+                        free(facility);
+                }
+                strv_free(parsed);
+        }
+finish:
+        if (f)
+                fclose(f);
+
+}
+#endif
+
 static int service_enumerate(Manager *m) {
         char **p;
         unsigned i;
@@ -2987,8 +3057,8 @@ static int service_enumerate(Manager *m) {
                         struct dirent *de;
 
                         free(path);
-                        path = NULL;
-                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i].path) < 0) {
+                        path = join(*p, "/", rcnd_table[i].path, NULL);
+                        if (!path) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -3022,8 +3092,8 @@ static int service_enumerate(Manager *m) {
                                         continue;
 
                                 free(fpath);
-                                fpath = NULL;
-                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd_table[i].path, de->d_name) < 0) {
+                                fpath = join(path, "/", de->d_name, NULL);
+                                if (!path) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -3112,6 +3182,10 @@ static int service_enumerate(Manager *m) {
         }
 
         r = 0;
+
+#ifdef TARGET_SUSE
+	sysv_facility_in_insserv_conf (m);
+#endif
 
 finish:
         free(path);
@@ -3372,6 +3446,10 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",
+        .sections =
+                "Unit\0"
+                "Service\0"
+                "Install\0",
         .show_status = true,
 
         .init = service_init,

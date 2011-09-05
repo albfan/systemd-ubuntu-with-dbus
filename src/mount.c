@@ -791,6 +791,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             true,
                             m->meta.manager->confirm_spawn,
                             m->meta.cgroup_bondings,
+                            m->meta.cgroup_attributes,
                             &pid)) < 0)
                 goto fail;
 
@@ -1473,7 +1474,7 @@ static int mount_find_pri(char *options) {
         char *end, *pri;
         unsigned long r;
 
-        if (!(pri = mount_test_option(options, "pri=")))
+        if (!(pri = mount_test_option(options, "pri")))
                 return 0;
 
         pri += 4;
@@ -1835,6 +1836,10 @@ DEFINE_STRING_TABLE_LOOKUP(mount_exec_command, MountExecCommand);
 
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
+        .sections =
+                "Unit\0"
+                "Mount\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

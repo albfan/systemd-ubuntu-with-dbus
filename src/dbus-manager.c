@@ -145,7 +145,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"DisableUnitFiles\">\n"                        \
@@ -157,7 +157,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"LinkUnitFiles\">\n"                           \
@@ -170,7 +170,7 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"force\" type=\"b\" direction=\"in\"/>\n"        \
-        "   <arg name=\"carries_install_info\" type=\"b\" directrion=\"out\"/>\n" \
+        "   <arg name=\"carries_install_info\" type=\"b\" direction=\"out\"/>\n" \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"MaskUnitFiles\">\n"                           \
@@ -435,8 +435,6 @@ static DBusMessage *message_from_file_changes(
         DBusMessage *reply;
         unsigned i;
 
-        assert(changes);
-
         reply = dbus_message_new_method_return(m);
         if (!reply)
                 return NULL;
@@ -446,7 +444,7 @@ static DBusMessage *message_from_file_changes(
         if (carries_install_info >= 0) {
                 dbus_bool_t b;
 
-                b = carries_install_info;
+                b = !!carries_install_info;
                 if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &b))
                         goto oom;
         }
@@ -1320,7 +1318,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 UnitFileChange *changes = NULL;
                 unsigned n_changes = 0;
                 dbus_bool_t runtime, force;
-                bool carries_install_info = -1;
+                int carries_install_info = -1;
 
                 if (!dbus_message_iter_init(message, &iter))
                         goto oom;

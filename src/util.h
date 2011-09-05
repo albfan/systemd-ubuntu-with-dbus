@@ -135,6 +135,7 @@ void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
+int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
@@ -340,7 +341,7 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
-int path_is_mount_point(const char *path);
+int path_is_mount_point(const char *path, bool allow_symlink);
 
 bool is_device_path(const char *path);
 
@@ -361,7 +362,7 @@ int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root);
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
 
 int pipe_eof(int fd);
 
@@ -458,6 +459,16 @@ int dirent_ensure_type(DIR *d, struct dirent *de);
 int in_search_path(const char *path, char **search);
 int get_files_in_directory(const char *path, char ***list);
 
+char *join(const char *x, ...) _sentinel_;
+
+bool is_main_thread(void);
+
+bool in_charset(const char *s, const char* charset);
+
+int block_get_whole_disk(dev_t d, dev_t *ret);
+
+int file_is_sticky(const char *p);
+
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
@@ -492,5 +503,7 @@ int signal_from_string_try_harder(const char *s);
 
 extern int saved_argc;
 extern char **saved_argv;
+
+bool kexec_loaded(void);
 
 #endif

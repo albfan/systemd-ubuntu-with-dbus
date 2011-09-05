@@ -20,7 +20,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = po
 
 LIBSYSTEMD_LOGIN_CURRENT=0
-LIBSYSTEMD_LOGIN_REVISION=0
+LIBSYSTEMD_LOGIN_REVISION=4
 LIBSYSTEMD_LOGIN_AGE=0
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -150,7 +150,7 @@ bin_PROGRAMS += \
 endif
 
 rootlibexec_PROGRAMS = \
-	systemd-logger \
+	systemd-stdout-syslog-bridge \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
@@ -171,15 +171,27 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-hostnamed \
-        systemd-localed \
-        systemd-timedated \
         systemd-logind \
         systemd-uaccess
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
 	systemd-binfmt
+endif
+
+if ENABLE_HOSTNAMED
+rootlibexec_PROGRAMS += \
+	systemd-hostnamed
+endif
+
+if ENABLE_TIMEDATED
+rootlibexec_PROGRAMS += \
+	systemd-timedated
+endif
+
+if ENABLE_LOCALED
+rootlibexec_PROGRAMS += \
+	systemd-localed
 endif
 
 systemgenerator_PROGRAMS = \
@@ -226,17 +238,41 @@ dist_pkgsysconf_DATA = \
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.hostname1.conf \
-        src/org.freedesktop.locale1.conf \
-        src/org.freedesktop.timedate1.conf \
         src/org.freedesktop.login1.conf
+
+if ENABLE_HOSTNAMED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.hostname1.conf
+endif
+
+if ENABLE_TIMEDATED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.timedate1.conf
+endif
+
+if ENABLE_LOCALED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.locale1.conf
+endif
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.hostname1.service \
-        src/org.freedesktop.locale1.service \
-        src/org.freedesktop.timedate1.service \
         src/org.freedesktop.login1.service
+
+if ENABLE_HOSTNAMED
+dist_dbussystemservice_DATA += \
+	src/org.freedesktop.hostname1.service
+endif
+
+if ENABLE_TIMEDATED
+dist_dbussystemservice_DATA += \
+	src/org.freedesktop.timedate1.service
+endif
+
+if ENABLE_LOCALED
+dist_dbussystemservice_DATA += \
+        src/org.freedesktop.locale1.service
+endif
 
 dist_udevrules_DATA = \
         src/70-uaccess.rules \
@@ -259,16 +295,29 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Automount.xml \
 	org.freedesktop.systemd1.Snapshot.xml \
 	org.freedesktop.systemd1.Swap.xml \
-	org.freedesktop.systemd1.Path.xml \
-        org.freedesktop.hostname1.xml \
-        org.freedesktop.locale1.xml \
-        org.freedesktop.timedate1.xml
+	org.freedesktop.systemd1.Path.xml
+
+if ENABLE_HOSTNAMED
+dbusinterface_DATA += \
+	org.freedesktop.hostname1.xml
+endif
+
+if ENABLE_TIMEDATED
+dbusinterface_DATA += \
+	org.freedesktop.timedate1.xml
+endif
+
+if ENABLE_LOCALED
+dbusinterface_DATA += \
+	org.freedesktop.locale1.xml
+endif
 
 dist_bashcompletion_DATA = \
 	src/systemctl-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 
 if HAVE_SYSV_COMPAT
@@ -305,7 +354,7 @@ dist_systemunit_DATA = \
 	units/sockets.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
-	units/systemd-logger.socket \
+	units/systemd-stdout-syslog-bridge.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
 	units/dev-hugepages.automount \
@@ -346,11 +395,8 @@ nodist_systemunit_DATA = \
 	units/serial-getty@.service \
 	units/console-shell.service \
 	units/systemd-initctl.service \
-	units/systemd-logger.service \
+	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
-	units/systemd-hostnamed.service \
-	units/systemd-localed.service \
-	units/systemd-timedated.service \
 	units/systemd-logind.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
@@ -384,6 +430,21 @@ nodist_systemunit_DATA += \
 	units/systemd-binfmt.service
 endif
 
+if ENABLE_HOSTNAMED
+nodist_systemunit_DATA += \
+	units/systemd-hostnamed.service
+endif
+
+if ENABLE_TIMEDATED
+nodist_systemunit_DATA += \
+	units/systemd-timedated.service
+endif
+
+if ENABLE_LOCALED
+nodist_systemunit_DATA += \
+	units/systemd-localed.service
+endif
+
 dist_userunit_DATA = \
 	units/user/default.target \
 	units/user/exit.target
@@ -397,11 +458,8 @@ EXTRA_DIST = \
 	units/console-shell.service.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
-	units/systemd-logger.service.in \
+	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-hostnamed.service.in \
-	units/systemd-localed.service.in \
-	units/systemd-timedated.service.in \
 	units/systemd-logind.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
@@ -441,6 +499,21 @@ EXTRA_DIST = \
 if ENABLE_BINFMT
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
+endif
+
+if ENABLE_HOSTNAMED
+EXTRA_DIST += \
+	units/systemd-hostnamed.service.in
+endif
+
+if ENABLE_TIMEDATED
+EXTRA_DIST += \
+	units/systemd-timedated.service.in
+endif
+
+if ENABLE_LOCALED
+EXTRA_DIST += \
+	units/systemd-localed.service.in
 endif
 
 if TARGET_FEDORA
@@ -505,10 +578,22 @@ pkgconfiglib_DATA = \
 
 # Passed through intltool only
 polkitpolicy_in_files = \
-        src/org.freedesktop.hostname1.policy.in \
-        src/org.freedesktop.locale1.policy.in \
-        src/org.freedesktop.timedate1.policy.in \
         src/org.freedesktop.login1.policy.in
+
+if ENABLE_HOSTNAMED
+polkitpolicy_in_files += \
+	src/org.freedesktop.hostname1.policy.in
+endif
+
+if ENABLE_TIMEDATED
+polkitpolicy_in_files += \
+	src/org.freedesktop.timedate1.policy.in
+endif
+
+if ENABLE_LOCALED
+polkitpolicy_in_files += \
+        src/org.freedesktop.locale1.policy.in
+endif
 
 # First passed through sed, followed by intltool
 polkitpolicy_in_in_files = \
@@ -545,7 +630,8 @@ libsystemd_basic_la_CFLAGS = \
 	$(SELINUX_CFLAGS)
 
 libsystemd_basic_la_LIBADD = \
-	$(SELINUX_LIBS)
+	$(SELINUX_LIBS) \
+	$(CAP_LIBS)
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
@@ -598,7 +684,15 @@ libsystemd_core_la_SOURCES = \
 	src/condition.c \
         src/dbus-common.c \
         src/sd-daemon.c \
-        src/install.c
+        src/install.c \
+        src/cgroup-attr.c
+
+nodist_libsystemd_core_la_SOURCES = \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c
+
+EXTRA_DIST += \
+        src/load-fragment-gperf.gperf.m4
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -614,7 +708,8 @@ libsystemd_core_la_LIBADD = \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
-	$(AUDIT_LIBS)
+	$(AUDIT_LIBS) \
+	$(CAP_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -692,6 +787,7 @@ MANPAGES = \
 	man/systemd-logind.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
+        man/timezone.5 \
 	man/machine-id.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
@@ -851,11 +947,11 @@ test_install_CFLAGS = \
 test_install_LDADD = \
 	libsystemd-basic.la
 
-systemd_logger_SOURCES = \
-	src/logger.c \
+systemd_stdout_syslog_bridge_SOURCES = \
+	src/stdout-syslog-bridge.c \
 	src/tcpwrap.c
 
-systemd_logger_LDADD = \
+systemd_stdout_syslog_bridge_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(LIBWRAP_LIBS)
@@ -964,6 +1060,12 @@ systemd_logind_SOURCES = \
         src/dbus-loop.c \
         src/cgroup-util.c \
         src/polkit.c
+
+nodist_systemd_logind_SOURCES = \
+        src/logind-gperf.c
+
+EXTRA_DIST += \
+        src/logind-gperf.gperf
 
 systemd_logind_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1298,7 +1400,8 @@ systemd_cgls_LDADD = \
 
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+        src/loopback-setup.c
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1484,13 +1587,25 @@ src/%.policy.in: src/%.policy.in.in Makefile
 src/%.rules: src/%.rules.in Makefile
 	$(SED_PROCESS)
 
+src/%.c: src/%.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(GPERF) < $< > $@
+
+src/%: src/%.m4
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(M4) -P $(M4_DEFINES) < $< > $@ || rm $@
+
+src/load-fragment-gperf-nulstr.c: src/load-fragment-gperf.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+        $(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
+
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@ || rm $@
 
 M4_PROCESS_USER = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_USER=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@ || rm $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
@@ -1507,7 +1622,11 @@ CLEANFILES = \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
         src/73-seat-late.rules \
-        src/99-systemd.rules
+        src/99-systemd.rules \
+        src/load-fragment-gperf.gperf \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c \
+        src/logind-gperf.c
 
 if HAVE_VALAC
 CLEANFILES += \
@@ -1648,8 +1767,8 @@ endif
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-logger.socket systemd-shutdownd.socket syslog.socket && \
-		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
+		rm -f systemd-initctl.socket systemd-stdout-syslog-bridge.socket systemd-shutdownd.socket syslog.socket && \
+		$(LN_S) ../systemd-stdout-syslog-bridge.socket systemd-stdout-syslog-bridge.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
 		$(LN_S) ../syslog.socket syslog.socket )
@@ -1701,12 +1820,9 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service dbus-org.freedesktop.locale1.service dbus-org.freedesktop.timedate1.service dbus-org.freedesktop.login1.service autovt@.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.login1.service autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service && \
-                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service && \
-                $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service && \
                 $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
                 $(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
@@ -1752,6 +1868,21 @@ if ENABLE_BINFMT
 			proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+endif
+if ENABLE_HOSTNAMED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.hostname1.service && \
+		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
+endif
+if ENABLE_TIMEDATED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.timedate1.service  && \
+                $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+endif
+if ENABLE_LOCALED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.locale1.service && \
+                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \

@@ -33,6 +33,9 @@ static int add_symlink(const char *fservice, const char *tservice) {
         char *from = NULL, *to = NULL;
         int r;
 
+        assert(fservice);
+        assert(tservice);
+
         asprintf(&from, SYSTEM_DATA_UNIT_PATH "/%s", fservice);
         asprintf(&to, "%s/getty.target.wants/%s", arg_dest, tservice);
 
@@ -44,9 +47,15 @@ static int add_symlink(const char *fservice, const char *tservice) {
 
         mkdir_parents(to, 0755);
 
-        if ((r = symlink(from, to)) < 0) {
-                log_error("Failed to create symlink from %s to %s: %m", from, to);
-                r = -errno;
+        r = symlink(from, to);
+        if (r < 0) {
+                if (errno == EEXIST)
+                        /* In case console=hvc0 is passed this will very likely result in EEXIST */
+                        r = 0;
+                else {
+                        log_error("Failed to create symlink from %s to %s: %m", from, to);
+                        r = -errno;
+                }
         }
 
 finish:
@@ -57,24 +66,53 @@ finish:
         return r;
 }
 
+static int add_serial_getty(const char *tty) {
+        char *n;
+        int r;
+
+        assert(tty);
+
+        log_debug("Automatically adding serial getty for /dev/%s.", tty);
+
+        n = unit_name_replace_instance("serial-getty@.service", tty);
+        if (!n) {
+                log_error("Out of memory");
+                return -ENOMEM;
+        }
+
+        r = add_symlink("serial-getty@.service", n);
+        free(n);
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
+
+        static const char virtualization_consoles[] =
+                "hvc0\0"
+                "xvc0\0"
+                "hvsi0\0";
+
         int r = EXIT_SUCCESS;
         char *active;
+        const char *j;
 
         if (argc > 2) {
                 log_error("This program takes one or no arguments.");
                 return EXIT_FAILURE;
         }
 
-        if (argc > 1)
-            arg_dest = argv[1];
-
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
+        if (argc > 1)
+            arg_dest = argv[1];
+
         if (detect_container(NULL) > 0) {
-                log_debug("Automatic adding console shell.");
+                log_debug("Automatically adding console shell.");
 
                 if (add_symlink("console-shell.service", "console-shell.service") < 0)
                         r = EXIT_FAILURE;
@@ -86,39 +124,56 @@ int main(int argc, char *argv[]) {
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
                 const char *tty;
 
-                if ((tty = strrchr(active, ' ')))
+                tty = strrchr(active, ' ');
+                if (tty)
                         tty ++;
                 else
                         tty = active;
 
                 /* Automatically add in a serial getty on the kernel
                  * console */
-                if (!tty_is_vc(tty)) {
-                        char *n;
+                if (tty_is_vc(tty))
+                        free(active);
+                else {
+                        int k;
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
                          * only for non-VC terminals. */
 
-                        log_debug("Automatically adding serial getty for /dev/%s.", tty);
+                        k = add_serial_getty(tty);
+                        free(active);
 
-                        if (!(n = unit_name_replace_instance("serial-getty@.service", tty)) ||
-                            add_symlink("serial-getty@.service", n) < 0)
+                        if (k < 0) {
                                 r = EXIT_FAILURE;
-
-                        free(n);
+                                goto finish;
+                        }
                 }
-
-                free(active);
         }
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
-        if (access("/sys/class/tty/hvc0", F_OK) == 0) {
-                log_debug("Automatic adding serial getty for hvc0.");
+        NULSTR_FOREACH(j, virtualization_consoles) {
+                char *p;
+                int k;
 
-                if (add_symlink("serial-getty@.service", "serial-getty@hvc0.service") < 0)
+                if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
+                        log_error("Out of memory");
                         r = EXIT_FAILURE;
+                        goto finish;
+                }
+
+                k = access(p, F_OK);
+                free(p);
+
+                if (k < 0)
+                        continue;
+
+                k = add_serial_getty(j);
+                if (k < 0) {
+                        r = EXIT_FAILURE;
+                        goto finish;
+                }
         }
 
 finish:

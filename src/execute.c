@@ -56,6 +56,7 @@
 #include "missing.h"
 #include "utmp-wtmp.h"
 #include "def.h"
+#include "loopback-setup.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -187,9 +188,9 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path, LOGGER_SOCKET, sizeof(sa.un.sun_path));
+        strncpy(sa.un.sun_path, STDOUT_SYSLOG_BRIDGE_SOCKET, sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(LOGGER_SOCKET) - 1) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(STDOUT_SYSLOG_BRIDGE_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -929,6 +930,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_tty_stdin,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
+               CGroupAttribute *cgroup_attributes,
                pid_t *ret) {
 
         pid_t pid;
@@ -972,9 +974,11 @@ int exec_spawn(ExecCommand *command,
         log_debug("About to execute: %s", line);
         free(line);
 
-        if (cgroup_bondings)
-                if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
-                        goto fail_parent;
+        r = cgroup_bonding_realize_list(cgroup_bondings);
+        if (r < 0)
+                goto fail_parent;
+
+        cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
 
         if ((pid = fork()) < 0) {
                 r = -errno;
@@ -1193,7 +1197,7 @@ int exec_spawn(ExecCommand *command,
                 }
 
                 if (apply_permissions)
-                        if (enforce_groups(context, username, uid) < 0) {
+                        if (enforce_groups(context, username, gid) < 0) {
                                 r = EXIT_GROUP;
                                 goto fail_child;
                         }
@@ -1208,6 +1212,14 @@ int exec_spawn(ExecCommand *command,
                         }
                 }
 #endif
+                if (context->private_network) {
+                        if (unshare(CLONE_NEWNET) < 0) {
+                                r = EXIT_NETWORK;
+                                goto fail_child;
+                        }
+
+                        loopback_setup();
+                }
 
                 if (strv_length(context->read_write_dirs) > 0 ||
                     strv_length(context->read_only_dirs) > 0 ||
@@ -1402,7 +1414,7 @@ fail_parent:
 void exec_context_init(ExecContext *c) {
         assert(c);
 
-        c->umask = 0002;
+        c->umask = 0022;
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
@@ -1594,13 +1606,15 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
-                "%sControlGroupModify: %s\n",
+                "%sControlGroupModify: %s\n"
+                "%sPrivateNetwork: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
-                prefix, yes_no(c->control_group_modify));
+                prefix, yes_no(c->control_group_modify),
+                prefix, yes_no(c->private_network));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

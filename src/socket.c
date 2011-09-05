@@ -892,11 +892,14 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if (s->service && s->service->exec_command[SERVICE_EXEC_START])
-                                        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0) {
+                                if (s->service && s->service->exec_command[SERVICE_EXEC_START]) {
+                                        r = label_get_create_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label);
+
+                                        if (r < 0) {
                                                 if (r != -EPERM)
                                                         return r;
                                         }
+                                }
 
                                 know_label = true;
                         }
@@ -1109,6 +1112,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
+                       s->meta.cgroup_attributes,
                        &pid);
 
         strv_free(argv);
@@ -2088,6 +2092,10 @@ DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
 const UnitVTable socket_vtable = {
         .suffix = ".socket",
+        .sections =
+                "Unit\0"
+                "Socket\0"
+                "Install\0",
 
         .init = socket_init,
         .done = socket_done,
