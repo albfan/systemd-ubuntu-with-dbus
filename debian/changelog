@@ -1,7 +1,10 @@
 systemd (35-1) UNRELEASED; urgency=low
 
+  [ Tollef Fog Heen ]
   * New upstream release. Closes: #634618
     - Various man page fixes. Closes: #623521
+
+  [ Michael Biebl ]
   * Build for libnotify 0.7.
   * Bump Build-Depends on libudev to (>= 172).
   * Add Build-Depends on libacl1-dev. Required for building systemd-logind
