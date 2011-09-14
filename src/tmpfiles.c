@@ -56,6 +56,7 @@ enum {
         TRUNCATE_FILE = 'F',
         CREATE_DIRECTORY = 'd',
         TRUNCATE_DIRECTORY = 'D',
+        CREATE_FIFO = 'p',
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
@@ -505,6 +506,48 @@ static int create_item(Item *i) {
                         }
 
                 break;
+
+        case CREATE_FIFO:
+
+                u = umask(0);
+                r = mkfifo(i->path, i->mode);
+                umask(u);
+
+                if (r < 0 && errno != EEXIST) {
+                        log_error("Failed to create fifo %s: %m", i->path);
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (stat(i->path, &st) < 0) {
+                        log_error("stat(%s) failed: %m", i->path);
+                        r = -errno;
+                        goto finish;
+                }
+
+                if (!S_ISFIFO(st.st_mode)) {
+                        log_error("%s is not a fifo.", i->path);
+                        r = -EEXIST;
+                        goto finish;
+                }
+
+                if (i->mode_set)
+                        if (chmod(i->path, i->mode) < 0) {
+                                log_error("chmod(%s) failed: %m", i->path);
+                                r = -errno;
+                                goto finish;
+                        }
+
+                if (i->uid_set || i->gid_set)
+                        if (chown(i->path,
+                                   i->uid_set ? i->uid : (uid_t) -1,
+                                   i->gid_set ? i->gid : (gid_t) -1) < 0) {
+                                log_error("chown(%s) failed: %m", i->path);
+                                r = -errno;
+                                goto finish;
+                        }
+
+                break;
         }
 
         if ((r = label_fix(i->path, false)) < 0)
@@ -529,6 +572,7 @@ static int remove_item(Item *i, const char *instance) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_FIFO:
         case IGNORE_PATH:
                 break;
 
@@ -542,7 +586,7 @@ static int remove_item(Item *i, const char *instance) {
 
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH)) < 0 &&
+                if ((r = rm_rf(instance, false, i->type == RECURSIVE_REMOVE_PATH, false)) < 0 &&
                     r != -ENOENT) {
                         log_error("rm_rf(%s): %s", instance, strerror(-r));
                         return r;
@@ -562,6 +606,7 @@ static int remove_item_glob(Item *i) {
         case CREATE_FILE:
         case TRUNCATE_FILE:
         case CREATE_DIRECTORY:
+        case CREATE_FIFO:
         case IGNORE_PATH:
                 break;
 
@@ -689,6 +734,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
             i->type != TRUNCATE_FILE &&
             i->type != CREATE_DIRECTORY &&
             i->type != TRUNCATE_DIRECTORY &&
+            i->type != CREATE_FIFO &&
             i->type != IGNORE_PATH &&
             i->type != REMOVE_PATH &&
             i->type != RECURSIVE_REMOVE_PATH) {
@@ -711,18 +757,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (user && !streq(user, "-")) {
-                unsigned long lu;
-                struct passwd *p;
+                const char *u = user;
 
-                if (streq(user, "root") || streq(user, "0"))
-                        i->uid = 0;
-                else if (safe_atolu(user, &lu) >= 0)
-                        i->uid = (uid_t) lu;
-                else if ((p = getpwnam(user)))
-                        i->uid = p->pw_uid;
-                else {
+                r = get_user_creds(&u, &i->uid, NULL, NULL);
+                if (r < 0) {
                         log_error("[%s:%u] Unknown user '%s'.", fname, line, user);
-                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -730,18 +769,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         if (group && !streq(group, "-")) {
-                unsigned long lu;
-                struct group *g;
+                const char *g = group;
 
-                if (streq(group, "root") || streq(group, "0"))
-                        i->gid = 0;
-                else if (safe_atolu(group, &lu) >= 0)
-                        i->gid = (gid_t) lu;
-                else if ((g = getgrnam(group)))
-                        i->gid = g->gr_gid;
-                else {
+                r = get_group_creds(&g, &i->gid);
+                if (r < 0) {
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);
-                        r = -ENOENT;
                         goto finish;
                 }
 
@@ -940,6 +972,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        umask(0022);
+
         label_init();
 
         items = hashmap_new(string_hash_func, string_compare_func);
@@ -983,15 +1017,11 @@ int main(int argc, char *argv[]) {
                 strv_free(files);
         }
 
-
-
         HASHMAP_FOREACH(i, globs, iterator)
-                if (process_item(i) < 0)
-                        r = EXIT_FAILURE;
+                process_item(i);
 
         HASHMAP_FOREACH(i, items, iterator)
-                if (process_item(i) < 0)
-                        r = EXIT_FAILURE;
+                process_item(i);
 
 finish:
         while ((i = hashmap_steal_first(items)))

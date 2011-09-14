@@ -145,6 +145,22 @@ int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *da
         return 0;
 }
 
+int bus_unit_append_file_state(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *state;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        state = strempty(unit_file_state_to_string(unit_get_unit_file_state(u)));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
@@ -314,6 +330,40 @@ int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data
         return 0;
 }
 
+int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        CGroupAttribute *a;
+        DBusMessageIter sub, sub2;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sss)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes) {
+                char *v = NULL;
+                bool success;
+
+                if (a->map_callback)
+                        a->map_callback(a->controller, a->name, a->value, &v);
+
+                success =
+                        dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->controller) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->name) &&
+                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, v ? &v : &a->value) &&
+                        dbus_message_iter_close_container(&sub, &sub2);
+
+                free(v);
+
+                if (!success)
+                        return -ENOMEM;
+        }
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
@@ -325,6 +375,30 @@ int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property,
         b = unit_need_daemon_reload(u);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *name, *message;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        if (u->meta.load_error != 0) {
+                name = bus_errno_to_dbus(u->meta.load_error);
+                message = strempty(strerror(-u->meta.load_error));
+        } else
+                name = message = "";
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &name) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &message) ||
+            !dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
 
         return 0;
@@ -372,10 +446,23 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                if ((mode = kill_mode_from_string(smode)) < 0 ||
-                    (who = kill_who_from_string(swho)) < 0 ||
-                    signo <= 0 ||
-                    signo >= _NSIG)
+                if (isempty(swho))
+                        who = KILL_ALL;
+                else {
+                        who = kill_who_from_string(swho);
+                        if (who < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (isempty(smode))
+                        mode = KILL_CONTROL_GROUP;
+                else {
+                        mode = kill_mode_from_string(smode);
+                        if (mode < 0)
+                                return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                if (signo <= 0 || signo >= _NSIG)
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
                 if ((r = unit_kill(u, who, mode, signo, &error)) < 0)

@@ -1,3 +1,15 @@
+test-install
+org.freedesktop.hostname1.xml
+org.freedesktop.locale1.xml
+org.freedesktop.timedate1.xml
+libsystemd-daemon.pc
+libsystemd-login.pc
+test-login
+systemd-loginctl
+systemd-localed
+systemd-timedated
+systemd-uaccess
+systemd-logind
 systemd-hostnamed
 systemd-binfmt
 systemd-getty-generator
@@ -46,7 +58,7 @@ systemd-initctl
 systemd
 test-engine
 test-job-type
-systemd-logger
+systemd-stdout-syslog-bridge
 systemctl
 systemadm
 .dirstamp

@@ -142,7 +142,7 @@ static int automount_add_mount_links(Automount *a) {
 
         assert(a);
 
-        LIST_FOREACH(units_per_type, other, a->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, a->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = automount_add_one_mount_link(a, (Mount*) other)) < 0)
                         return r;
 
@@ -611,7 +611,7 @@ static int automount_start(Unit *u) {
 
         assert(a->state == AUTOMOUNT_DEAD || a->state == AUTOMOUNT_FAILED);
 
-        if (path_is_mount_point(a->where)) {
+        if (path_is_mount_point(a->where, false)) {
                 log_error("Path %s is already a mount point, refusing start for %s", a->where, u->meta.id);
                 return -EEXIST;
         }
@@ -831,6 +831,10 @@ DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
 
 const UnitVTable automount_vtable = {
         .suffix = ".automount",
+        .sections =
+                "Unit\0"
+                "Automount\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

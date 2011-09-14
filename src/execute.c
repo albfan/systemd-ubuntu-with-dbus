@@ -56,6 +56,7 @@
 #include "missing.h"
 #include "utmp-wtmp.h"
 #include "def.h"
+#include "loopback-setup.h"
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -187,9 +188,9 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         zero(sa);
         sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path, LOGGER_SOCKET, sizeof(sa.un.sun_path));
+        strncpy(sa.un.sun_path, STDOUT_SYSLOG_BRIDGE_SOCKET, sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(LOGGER_SOCKET) - 1) < 0) {
+        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(STDOUT_SYSLOG_BRIDGE_SOCKET) - 1) < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -549,82 +550,6 @@ static int restore_confirm_stdio(const ExecContext *context,
         return 0;
 }
 
-static int get_group_creds(const char *groupname, gid_t *gid) {
-        struct group *g;
-        unsigned long lu;
-
-        assert(groupname);
-        assert(gid);
-
-        /* We enforce some special rules for gid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(groupname, "root") || streq(groupname, "0")) {
-                *gid = 0;
-                return 0;
-        }
-
-        if (safe_atolu(groupname, &lu) >= 0) {
-                errno = 0;
-                g = getgrgid((gid_t) lu);
-        } else {
-                errno = 0;
-                g = getgrnam(groupname);
-        }
-
-        if (!g)
-                return errno != 0 ? -errno : -ESRCH;
-
-        *gid = g->gr_gid;
-        return 0;
-}
-
-static int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home) {
-        struct passwd *p;
-        unsigned long lu;
-
-        assert(username);
-        assert(*username);
-        assert(uid);
-        assert(gid);
-        assert(home);
-
-        /* We enforce some special rules for uid=0: in order to avoid
-         * NSS lookups for root we hardcode its data. */
-
-        if (streq(*username, "root") || streq(*username, "0")) {
-                *username = "root";
-                *uid = 0;
-                *gid = 0;
-                *home = "/root";
-                return 0;
-        }
-
-        if (safe_atolu(*username, &lu) >= 0) {
-                errno = 0;
-                p = getpwuid((uid_t) lu);
-
-                /* If there are multiple users with the same id, make
-                 * sure to leave $USER to the configured value instead
-                 * of the first occurrence in the database. However if
-                 * the uid was configured by a numeric uid, then let's
-                 * pick the real username from /etc/passwd. */
-                if (*username && p)
-                        *username = p->pw_name;
-        } else {
-                errno = 0;
-                p = getpwnam(*username);
-        }
-
-        if (!p)
-                return errno != 0 ? -errno : -ESRCH;
-
-        *uid = p->pw_uid;
-        *gid = p->pw_gid;
-        *home = p->pw_dir;
-        return 0;
-}
-
 static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
         bool keep_groups = false;
         int r;
@@ -636,9 +561,12 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
 
         if (context->group || username) {
 
-                if (context->group)
-                        if ((r = get_group_creds(context->group, &gid)) < 0)
+                if (context->group) {
+                        const char *g = context->group;
+
+                        if ((r = get_group_creds(&g, &gid)) < 0)
                                 return r;
+                }
 
                 /* First step, initialize groups from /etc/groups */
                 if (username && gid != 0) {
@@ -673,13 +601,16 @@ static int enforce_groups(const ExecContext *context, const char *username, gid_
                         k = 0;
 
                 STRV_FOREACH(i, context->supplementary_groups) {
+                        const char *g;
 
                         if (k >= ngroups_max) {
                                 free(gids);
                                 return -E2BIG;
                         }
 
-                        if ((r = get_group_creds(*i, gids+k)) < 0) {
+                        g = *i;
+                        r = get_group_creds(&g, gids+k);
+                        if (r < 0) {
                                 free(gids);
                                 return r;
                         }
@@ -817,9 +748,6 @@ static int setup_pam(
 
         close_session = true;
 
-        if ((pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | PAM_SILENT)) != PAM_SUCCESS)
-                goto fail;
-
         if ((!(e = pam_getenvlist(handle)))) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
@@ -846,7 +774,7 @@ static int setup_pam(
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd:pam");
+                rename_process("sd(PAM)");
 
                 /* Make sure we don't keep open the passed fds in this
                 child. We assume that otherwise only those fds are
@@ -864,13 +792,20 @@ static int setup_pam(
                 /* Check if our parent process might already have
                  * died? */
                 if (getppid() == parent_pid) {
-                        if (sigwait(&ss, &sig) < 0)
-                                goto child_finish;
+                        for (;;) {
+                                if (sigwait(&ss, &sig) < 0) {
+                                        if (errno == EINTR)
+                                                continue;
 
-                        assert(sig == SIGTERM);
+                                        goto child_finish;
+                                }
+
+                                assert(sig == SIGTERM);
+                                break;
+                        }
                 }
 
-                /* Only if our parent died we'll end the session */
+                /* If our parent died we'll end the session */
                 if (getppid() != parent_pid)
                         if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
                                 goto child_finish;
@@ -886,13 +821,16 @@ static int setup_pam(
          * cleanups, so forget about the handle here. */
         handle = NULL;
 
-        /* Unblock SIGSUR1 again in the parent */
+        /* Unblock SIGTERM again in the parent */
         if (sigprocmask(SIG_SETMASK, &old_ss, NULL) < 0)
                 goto fail;
 
         /* We close the log explicitly here, since the PAM modules
          * might have opened it, but we don't want this fd around. */
         closelog();
+
+        *pam_env = e;
+        e = NULL;
 
         return 0;
 
@@ -992,6 +930,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_tty_stdin,
                bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
+               CGroupAttribute *cgroup_attributes,
                pid_t *ret) {
 
         pid_t pid;
@@ -1035,9 +974,11 @@ int exec_spawn(ExecCommand *command,
         log_debug("About to execute: %s", line);
         free(line);
 
-        if (cgroup_bondings)
-                if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
-                        goto fail_parent;
+        r = cgroup_bonding_realize_list(cgroup_bondings);
+        if (r < 0)
+                goto fail_parent;
+
+        cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
 
         if ((pid = fork()) < 0) {
                 r = -errno;
@@ -1059,7 +1000,7 @@ int exec_spawn(ExecCommand *command,
 
                 /* This string must fit in 10 chars (i.e. the length
                  * of "/sbin/init") */
-                rename_process("sd.exec");
+                rename_process("sd(EXEC)");
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
@@ -1246,24 +1187,39 @@ int exec_spawn(ExecCommand *command,
                                         r = EXIT_STDIN;
                                         goto fail_child;
                                 }
-                }
 
-#ifdef HAVE_PAM
-                if (context->pam_name && username) {
-                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) < 0) {
-                                r = EXIT_PAM;
-                                goto fail_child;
-                        }
+                        if (cgroup_bondings && context->control_group_modify)
+                                if (cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid) < 0 ||
+                                    cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid) < 0) {
+                                        r = EXIT_CGROUP;
+                                        goto fail_child;
+                                }
                 }
-#endif
 
                 if (apply_permissions)
-                        if (enforce_groups(context, username, uid) < 0) {
+                        if (enforce_groups(context, username, gid) < 0) {
                                 r = EXIT_GROUP;
                                 goto fail_child;
                         }
 
                 umask(context->umask);
+
+#ifdef HAVE_PAM
+                if (context->pam_name && username) {
+                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) != 0) {
+                                r = EXIT_PAM;
+                                goto fail_child;
+                        }
+                }
+#endif
+                if (context->private_network) {
+                        if (unshare(CLONE_NEWNET) < 0) {
+                                r = EXIT_NETWORK;
+                                goto fail_child;
+                        }
+
+                        loopback_setup();
+                }
 
                 if (strv_length(context->read_write_dirs) > 0 ||
                     strv_length(context->read_only_dirs) > 0 ||
@@ -1458,7 +1414,7 @@ fail_parent:
 void exec_context_init(ExecContext *c) {
         assert(c);
 
-        c->umask = 0002;
+        c->umask = 0022;
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
@@ -1649,12 +1605,16 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
-                "%sPrivateTmp: %s\n",
+                "%sPrivateTmp: %s\n"
+                "%sControlGroupModify: %s\n"
+                "%sPrivateNetwork: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
-                prefix, yes_no(c->private_tmp));
+                prefix, yes_no(c->private_tmp),
+                prefix, yes_no(c->control_group_modify),
+                prefix, yes_no(c->private_network));
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

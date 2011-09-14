@@ -155,7 +155,7 @@ static int swap_add_mount_links(Swap *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = swap_add_one_mount_link(s, (Mount*) other)) < 0)
                         return r;
 
@@ -613,6 +613,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                             true,
                             s->meta.manager->confirm_spawn,
                             s->meta.cgroup_bondings,
+                            s->meta.cgroup_attributes,
                             &pid)) < 0)
                 goto fail;
 
@@ -1100,7 +1101,7 @@ int swap_fd_event(Manager *m, int events) {
                 log_error("Failed to reread /proc/swaps: %s", strerror(-r));
 
                 /* Reset flags, just in case, for late calls */
-                LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_SWAP]) {
+                LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
                         Swap *swap = (Swap*) meta;
 
                         swap->is_active = swap->just_activated = false;
@@ -1111,7 +1112,7 @@ int swap_fd_event(Manager *m, int events) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_SWAP]) {
+        LIST_FOREACH(units_by_type, meta, m->units_by_type[UNIT_SWAP]) {
                 Swap *swap = (Swap*) meta;
 
                 if (!swap->is_active) {
@@ -1237,7 +1238,7 @@ static int swap_enumerate(Manager *m) {
 
         if (!m->proc_swaps) {
                 if (!(m->proc_swaps = fopen("/proc/swaps", "re")))
-                        return -errno;
+                        return (errno == ENOENT) ? 0 : -errno;
 
                 m->swap_watch.type = WATCH_SWAP;
                 m->swap_watch.fd = fileno(m->proc_swaps);
@@ -1278,19 +1279,20 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
 
         if (who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Swap units have no main processes");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (s->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
-        if (s->control_pid > 0)
-                if (kill(s->control_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (s->control_pid > 0)
+                        if (kill(s->control_pid, signo) < 0)
+                                r = -errno;
 
-        if (mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
                 int q;
 
                 if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -1304,7 +1306,7 @@ static int swap_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError *
                         }
 
                 if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
 
@@ -1338,6 +1340,10 @@ DEFINE_STRING_TABLE_LOOKUP(swap_exec_command, SwapExecCommand);
 
 const UnitVTable swap_vtable = {
         .suffix = ".swap",
+        .sections =
+                "Unit\0"
+                "Swap\0"
+                "Install\0",
 
         .no_alias = true,
         .no_instances = true,

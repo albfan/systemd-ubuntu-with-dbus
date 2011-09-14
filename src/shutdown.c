@@ -24,6 +24,11 @@
 #include <sys/reboot.h>
 #include <linux/reboot.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
+#include <sys/syscall.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
@@ -32,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "missing.h"
 #include "log.h"
 #include "umount.h"
 #include "util.h"
@@ -192,6 +198,93 @@ finish:
         sigprocmask(SIG_SETMASK, &oldmask, NULL);
 }
 
+static int prepare_new_root(void) {
+        static const char dirs[] =
+                "/run/initramfs/oldroot\0"
+                "/run/initramfs/proc\0"
+                "/run/initramfs/sys\0"
+                "/run/initramfs/dev\0"
+                "/run/initramfs/run\0";
+
+        const char *dir;
+
+        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0) {
+                log_error("Failed to mount bind /run/initramfs on /run/initramfs: %m");
+                return -errno;
+        }
+
+        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0) {
+                log_error("Failed to make /run/initramfs private mount: %m");
+                return -errno;
+        }
+
+        NULSTR_FOREACH(dir, dirs)
+                if (mkdir_p(dir, 0755) < 0 && errno != EEXIST) {
+                        log_error("Failed to mkdir %s: %m", dir);
+                        return -errno;
+                }
+
+        if (mount("/sys", "/run/initramfs/sys", NULL, MS_BIND, NULL) < 0) {
+                log_error("Failed to mount bind /sys on /run/initramfs/sys: %m");
+                return -errno;
+        }
+
+        if (mount("/proc", "/run/initramfs/proc", NULL, MS_BIND, NULL) < 0) {
+                log_error("Failed to mount bind /proc on /run/initramfs/proc: %m");
+                return -errno;
+        }
+
+        if (mount("/dev", "/run/initramfs/dev", NULL, MS_BIND, NULL) < 0) {
+                log_error("Failed to mount bind /dev on /run/initramfs/dev: %m");
+                return -errno;
+        }
+
+        if (mount("/run", "/run/initramfs/run", NULL, MS_BIND, NULL) < 0) {
+                log_error("Failed to mount bind /run on /run/initramfs/run: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
+static int pivot_to_new_root(void) {
+        int fd;
+
+        chdir("/run/initramfs");
+
+        /*
+          In case some evil process made "/" MS_SHARED
+          It works for pivot_root, but the ref count for the root device
+          is not decreasing :-/
+        */
+        if (mount(NULL, "/", NULL, MS_PRIVATE, NULL) < 0) {
+                log_error("Failed to make \"/\" private mount %m");
+                return -errno;
+        }
+
+        if (pivot_root(".", "oldroot") < 0) {
+                log_error("pivot failed: %m");
+                /* only chroot if pivot root succeded */
+                return -errno;
+        }
+
+        chroot(".");
+        log_info("Successfully changed into root pivot.");
+
+        fd = open("/dev/console", O_RDWR);
+        if (fd < 0)
+                log_error("Failed to open /dev/console: %m");
+        else {
+                make_stdio(fd);
+
+                /* Initialize the controlling terminal */
+                setsid();
+                ioctl(STDIN_FILENO, TIOCSCTTY, NULL);
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int cmd, r;
         unsigned retries;
@@ -201,6 +294,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
         log_open();
+
+        umask(0022);
 
         if (getpid() != 1) {
                 log_error("Not executed by init (pid 1).");
@@ -291,9 +386,12 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to detach DM devices: %s", strerror(-r));
                 }
 
-                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach)
+                if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
+                        if (retries > 0)
+                                log_info("All filesystems, swaps, loop devices, DM devices detached.");
                         /* Yay, done */
                         break;
+                }
 
                 /* If in this iteration we didn't manage to
                  * unmount/deactivate anything, we either kill more
@@ -326,6 +424,15 @@ int main(int argc, char *argv[]) {
         if (in_container) {
                 log_error("Exiting container.");
                 exit(0);
+        }
+
+        if (access("/run/initramfs/shutdown", X_OK) == 0) {
+
+                if (prepare_new_root() >= 0 &&
+                    pivot_to_new_root() >= 0) {
+                        execv("/shutdown", argv);
+                        log_error("Failed to execute shutdown binary: %m");
+                }
         }
 
         sync();

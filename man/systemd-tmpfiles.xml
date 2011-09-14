@@ -58,7 +58,7 @@
                 <title>Description</title>
 
                 <para><command>systemd-tmpfiles</command> creates,
-                deletes and cleans up volatile ad temporary files and
+                deletes and cleans up volatile and temporary files and
                 directories, based on the configuration from
                 <filename>/etc/tmpfiles.d/</filename>. See
                 <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -127,7 +127,7 @@
                 directories are removed and created according to the
                 configuration file:</para>
 
-                <programlisting>systemctl-tmpfiles --remove --create</programlisting>
+                <programlisting>systemd-tmpfiles --remove --create</programlisting>
 
         </refsect1>
 

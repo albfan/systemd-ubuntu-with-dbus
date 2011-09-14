@@ -22,6 +22,9 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <malloc.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "label.h"
 #include "util.h"
@@ -32,13 +35,18 @@
 
 static struct selabel_handle *label_hnd = NULL;
 
+static int use_selinux_cached = -1;
+
 static inline bool use_selinux(void) {
-        static int use_selinux_ind = -1;
 
-        if (use_selinux_ind < 0)
-                use_selinux_ind = is_selinux_enabled() > 0;
+        if (use_selinux_cached < 0)
+                use_selinux_cached = is_selinux_enabled() > 0;
 
-        return use_selinux_ind;
+        return use_selinux_cached;
+}
+
+void label_retest_selinux(void) {
+        use_selinux_cached = -1;
 }
 
 #endif
@@ -47,6 +55,8 @@ int label_init(void) {
         int r = 0;
 
 #ifdef HAVE_SELINUX
+        usec_t before_timestamp, after_timestamp;
+        struct mallinfo before_mallinfo, after_mallinfo;
 
         if (!use_selinux())
                 return 0;
@@ -54,11 +64,26 @@ int label_init(void) {
         if (label_hnd)
                 return 0;
 
+        before_mallinfo = mallinfo();
+        before_timestamp = now(CLOCK_MONOTONIC);
+
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
                 log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG,
                          "Failed to initialize SELinux context: %m");
                 r = security_getenforce() == 1 ? -errno : 0;
+        } else  {
+                char timespan[FORMAT_TIMESPAN_MAX];
+                int l;
+
+                after_timestamp = now(CLOCK_MONOTONIC);
+                after_mallinfo = mallinfo();
+
+                l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
+
+                log_info("Successfully loaded SELinux database in %s, size on heap is %iK.",
+                         format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp),
+                         (l+1023)/1024);
         }
 #endif
 
@@ -115,7 +140,7 @@ void label_finish(void) {
 #endif
 }
 
-int label_get_socket_label_from_exe(const char *exe, char **label) {
+int label_get_create_label_from_exe(const char *exe, char **label) {
 
         int r = 0;
 
@@ -161,8 +186,12 @@ int label_fifofile_set(const char *path) {
         if (!use_selinux() || !label_hnd)
                 return 0;
 
-        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO)) == 0) {
-                if ((r = setfscreatecon(filecon)) < 0) {
+        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFIFO);
+        if (r < 0)
+                r = -errno;
+        else if (r == 0) {
+                r = setfscreatecon(filecon);
+                if (r < 0) {
                         log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
@@ -186,8 +215,12 @@ int label_symlinkfile_set(const char *path) {
         if (!use_selinux() || !label_hnd)
                 return 0;
 
-        if ((r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK)) == 0) {
-                if ((r = setfscreatecon(filecon)) < 0) {
+        r = selabel_lookup_raw(label_hnd, &filecon, path, S_IFLNK);
+        if (r < 0)
+                r = -errno;
+        else if (r == 0) {
+                r = setfscreatecon(filecon);
+                if (r < 0) {
                         log_error("Failed to set SELinux file context on %s: %m", path);
                         r = -errno;
                 }
@@ -250,9 +283,7 @@ void label_free(const char *label) {
 #endif
 }
 
-int label_mkdir(
-        const char *path,
-        mode_t mode) {
+int label_mkdir(const char *path, mode_t mode) {
 
         /* Creates a directory and labels it according to the SELinux policy */
 
@@ -260,43 +291,123 @@ int label_mkdir(
         int r;
         security_context_t fcon = NULL;
 
-        if (use_selinux() && label_hnd) {
+        if (!use_selinux() || !label_hnd)
+                goto skipped;
 
-                if (path_is_absolute(path))
-                        r = selabel_lookup_raw(label_hnd, &fcon, path, mode);
-                else {
-                        char *newpath = NULL;
+        if (path_is_absolute(path))
+                r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFDIR);
+        else {
+                char *newpath;
 
-                        if (!(newpath = path_make_absolute_cwd(path)))
-                                return -ENOMEM;
+                newpath = path_make_absolute_cwd(path);
+                if (!newpath)
+                        return -ENOMEM;
 
-                        r = selabel_lookup_raw(label_hnd, &fcon, newpath, mode);
-                        free(newpath);
-                }
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFDIR);
+                free(newpath);
+        }
 
-                if (r == 0)
-                        r = setfscreatecon(fcon);
+        if (r == 0)
+                r = setfscreatecon(fcon);
 
-                if (r < 0 && errno != ENOENT) {
-                        log_error("Failed to set security context %s for %s: %m", fcon, path);
+        if (r < 0 && errno != ENOENT) {
+                log_error("Failed to set security context %s for %s: %m", fcon, path);
+
+                if (security_getenforce() == 1) {
                         r = -errno;
-
-                        if (security_getenforce() == 1)
-                                goto finish;
+                        goto finish;
                 }
         }
 
-        if ((r = mkdir(path, mode)) < 0)
+        r = mkdir(path, mode);
+        if (r < 0)
                 r = -errno;
 
 finish:
-        if (use_selinux() && label_hnd) {
-                setfscreatecon(NULL);
-                freecon(fcon);
-        }
+        setfscreatecon(NULL);
+        freecon(fcon);
 
         return r;
-#else
-        return mkdir(path, mode);
+
+skipped:
 #endif
+        return mkdir(path, mode) < 0 ? -errno : 0;
+}
+
+int label_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
+
+        /* Binds a socket and label its file system object according to the SELinux policy */
+
+#ifdef HAVE_SELINUX
+        int r;
+        security_context_t fcon = NULL;
+        const struct sockaddr_un *un;
+        char *path = NULL;
+
+        assert(fd >= 0);
+        assert(addr);
+        assert(addrlen >= sizeof(sa_family_t));
+
+        if (!use_selinux() || !label_hnd)
+                goto skipped;
+
+        /* Filter out non-local sockets */
+        if (addr->sa_family != AF_UNIX)
+                goto skipped;
+
+        /* Filter out anonymous sockets */
+        if (addrlen < sizeof(sa_family_t) + 1)
+                goto skipped;
+
+        /* Filter out abstract namespace sockets */
+        un = (const struct sockaddr_un*) addr;
+        if (un->sun_path[0] == 0)
+                goto skipped;
+
+        path = strndup(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
+        if (!path)
+                return -ENOMEM;
+
+        if (path_is_absolute(path))
+                r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
+        else {
+                char *newpath;
+
+                newpath = path_make_absolute_cwd(path);
+
+                if (!newpath) {
+                        free(path);
+                        return -ENOMEM;
+                }
+
+                r = selabel_lookup_raw(label_hnd, &fcon, newpath, S_IFSOCK);
+                free(newpath);
+        }
+
+        if (r == 0)
+                r = setfscreatecon(fcon);
+
+        if (r < 0 && errno != ENOENT) {
+                log_error("Failed to set security context %s for %s: %m", fcon, path);
+
+                if (security_getenforce() == 1) {
+                        r = -errno;
+                        goto finish;
+                }
+        }
+
+        r = bind(fd, addr, addrlen);
+        if (r < 0)
+                r = -errno;
+
+finish:
+        setfscreatecon(NULL);
+        freecon(fcon);
+        free(path);
+
+        return r;
+
+skipped:
+#endif
+        return bind(fd, addr, addrlen) < 0 ? -errno : 0;
 }

@@ -105,7 +105,6 @@ char **strv_new_ap(const char *x, va_list ap) {
         unsigned n = 0, i = 0;
         va_list aq;
 
-
         if (x) {
                 n = 1;
 
@@ -483,8 +482,8 @@ static bool env_match(const char *t, const char *pattern) {
 }
 
 char **strv_env_delete(char **x, unsigned n_lists, ...) {
-        size_t n = 0, i = 0;
-        char **l, **k, **r, **j;
+        size_t n, i = 0;
+        char **k, **r;
         va_list ap;
 
         /* Deletes every entry from x that is mentioned in the other
@@ -492,29 +491,34 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
 
         n = strv_length(x);
 
-        if (!(r = new(char*, n+1)))
+        r = new(char*, n+1);
+        if (!r)
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                va_start(ap, n_lists);
+                unsigned v;
 
-                for (i = 0; i < n_lists; i++) {
+                va_start(ap, n_lists);
+                for (v = 0; v < n_lists; v++) {
+                        char **l, **j;
+
                         l = va_arg(ap, char**);
                         STRV_FOREACH(j, l)
                                 if (env_match(*k, *j))
-                                        goto delete;
+                                        goto skip;
                 }
-
                 va_end(ap);
 
-                if (!(r[i++] = strdup(*k))) {
+                r[i] = strdup(*k);
+                if (!r[i]) {
                         strv_free(r);
                         return NULL;
                 }
 
+                i++;
                 continue;
 
-        delete:
+        skip:
                 va_end(ap);
         }
 
@@ -660,4 +664,17 @@ char **strv_parse_nulstr(const char *s, size_t l) {
         assert(i == c);
 
         return v;
+}
+
+bool strv_overlap(char **a, char **b) {
+        char **i, **j;
+
+        STRV_FOREACH(i, a) {
+                STRV_FOREACH(j, b) {
+                        if (streq(*i, *j))
+                                return true;
+                }
+        }
+
+        return false;
 }

@@ -93,6 +93,8 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
         for (i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].runlevel == runlevel) {
                         *isolate = table[i].isolate;
+                        if (runlevel == '6' && kexec_loaded())
+                                return SPECIAL_KEXEC_TARGET;
                         return table[i].special;
                 }
 
@@ -165,7 +167,24 @@ static void request_process(Server *s, const struct init_request *req) {
                 if (!isprint(req->runlevel))
                         log_error("Got invalid runlevel. Ignoring.");
                 else
-                        change_runlevel(s, req->runlevel);
+                        switch (req->runlevel) {
+
+                        /* we are async anyway, so just use kill for reexec/reload */
+                        case 'u':
+                        case 'U':
+                                if (kill(1, SIGTERM) < 0)
+                                        log_error("kill() failed: %m");
+                                break;
+
+                        case 'q':
+                        case 'Q':
+                                if (kill(1, SIGHUP) < 0)
+                                        log_error("kill() failed: %m");
+                                break;
+
+                        default:
+                                change_runlevel(s, req->runlevel);
+                        }
                 return;
 
         case INIT_CMD_POWERFAIL:
@@ -363,6 +382,8 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));

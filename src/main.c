@@ -75,7 +75,8 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_INHERIT;
+static char ***arg_join_controllers = NULL;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_SYSLOG;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;
@@ -169,7 +170,7 @@ _noreturn_ static void crash(int sig) {
                         _exit(1);
                 }
 
-                log_info("Successfully spawned crash shall as pid %lu.", (unsigned long) pid);
+                log_info("Successfully spawned crash shell as pid %lu.", (unsigned long) pid);
         }
 
         log_info("Freezing execution.");
@@ -368,7 +369,7 @@ static int parse_proc_cmdline_word(const char *word) {
         return 0;
 }
 
-static int config_parse_level(
+static int config_parse_level2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -440,7 +441,7 @@ static int config_parse_location(
         return 0;
 }
 
-static int config_parse_cpu_affinity(
+static int config_parse_cpu_affinity2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -494,34 +495,146 @@ static int config_parse_cpu_affinity(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+static void strv_free_free(char ***l) {
+        char ***i;
+
+        if (!l)
+                return;
+
+        for (i = l; *i; i++)
+                strv_free(*i);
+
+        free(l);
+}
+
+static void free_join_controllers(void) {
+        if (!arg_join_controllers)
+                return;
+
+        strv_free_free(arg_join_controllers);
+        arg_join_controllers = NULL;
+}
+
+static int config_parse_join_controllers(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned n = 0;
+        char *state, *w;
+        size_t length;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        free_join_controllers();
+
+        FOREACH_WORD_QUOTED(w, length, rvalue, state) {
+                char *s, **l;
+
+                s = strndup(w, length);
+                if (!s)
+                        return -ENOMEM;
+
+                l = strv_split(s, ",");
+                free(s);
+
+                strv_uniq(l);
+
+                if (strv_length(l) <= 1) {
+                        strv_free(l);
+                        continue;
+                }
+
+                if (!arg_join_controllers) {
+                        arg_join_controllers = new(char**, 2);
+                        if (!arg_join_controllers) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        arg_join_controllers[0] = l;
+                        arg_join_controllers[1] = NULL;
+
+                        n = 1;
+                } else {
+                        char ***a;
+                        char ***t;
+
+                        t = new0(char**, n+2);
+                        if (!t) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        n = 0;
+
+                        for (a = arg_join_controllers; *a; a++) {
+
+                                if (strv_overlap(*a, l)) {
+                                        char **c;
+
+                                        c = strv_merge(*a, l);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        strv_free(l);
+                                        l = c;
+                                } else {
+                                        char **c;
+
+                                        c = strv_copy(*a);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        t[n++] = c;
+                                }
+                        }
+
+                        t[n++] = strv_uniq(l);
+
+                        strv_free_free(arg_join_controllers);
+                        arg_join_controllers = t;
+                }
+        }
+
+        return 0;
+}
 
 static int parse_config_file(void) {
 
-        const ConfigItem items[] = {
-                { "LogLevel",              config_parse_level,        0, NULL,                     "Manager" },
-                { "LogTarget",             config_parse_target,       0, NULL,                     "Manager" },
-                { "LogColor",              config_parse_color,        0, NULL,                     "Manager" },
-                { "LogLocation",           config_parse_location,     0, NULL,                     "Manager" },
-                { "DumpCore",              config_parse_bool,         0, &arg_dump_core,           "Manager" },
-                { "CrashShell",            config_parse_bool,         0, &arg_crash_shell,         "Manager" },
-                { "ShowStatus",            config_parse_bool,         0, &arg_show_status,         "Manager" },
+        const ConfigTableItem items[] = {
+                { "Manager", "LogLevel",              config_parse_level2,       0, NULL                     },
+                { "Manager", "LogTarget",             config_parse_target,       0, NULL                     },
+                { "Manager", "LogColor",              config_parse_color,        0, NULL                     },
+                { "Manager", "LogLocation",           config_parse_location,     0, NULL                     },
+                { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
+                { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
+                { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole",           config_parse_bool,         0, &arg_sysv_console,        "Manager" },
+                { "Manager", "SysVConsole",           config_parse_bool,         0, &arg_sysv_console        },
 #endif
-                { "CrashChVT",             config_parse_int,          0, &arg_crash_chvt,          "Manager" },
-                { "CPUAffinity",           config_parse_cpu_affinity, 0, NULL,                     "Manager" },
-                { "MountAuto",             config_parse_bool,         0, &arg_mount_auto,          "Manager" },
-                { "SwapAuto",              config_parse_bool,         0, &arg_swap_auto,           "Manager" },
-                { "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers, "Manager" },
-                { "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output,  "Manager" },
-                { "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error,   "Manager" },
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-        static const char * const sections[] = {
-                "Manager",
-                NULL
+                { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
+                { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
+                { "Manager", "MountAuto",             config_parse_bool,         0, &arg_mount_auto          },
+                { "Manager", "SwapAuto",              config_parse_bool,         0, &arg_swap_auto           },
+                { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
+                { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
+                { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
+                { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         FILE *f;
@@ -529,8 +642,8 @@ static int parse_config_file(void) {
         int r;
 
         fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
-
-        if (!(f = fopen(fn, "re"))) {
+        f = fopen(fn, "re");
+        if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -538,7 +651,8 @@ static int parse_config_file(void) {
                 return 0;
         }
 
-        if ((r = config_parse(fn, f, sections, items, false, NULL)) < 0)
+        r = config_parse(fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
+        if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
         fclose(f);
@@ -898,6 +1012,9 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds) {
         assert(_f);
         assert(_fds);
 
+        /* Make sure nothing is really destructed when we shut down */
+        m->n_reloading ++;
+
         if ((r = manager_open_serialization(m, &f)) < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
@@ -988,7 +1105,7 @@ static void test_usr(void) {
         if (dir_is_empty("/usr") <= 0)
                 return;
 
-        log_warning("/usr appears to be on a different file system than /. This is not supported anymore. "
+        log_warning("/usr appears to be on its own filesytem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
@@ -1010,12 +1127,18 @@ static void test_cgroups(void) {
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
+        usec_t before_startup, after_startup;
+        char timespan[FORMAT_TIMESPAN_MAX];
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         char systemd[] = "systemd";
+        bool is_reexec = false;
+        int j;
+        bool loaded_policy = false;
 
+#ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
@@ -1025,6 +1148,17 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
+#endif
+
+        /* Determine if this is a reexecution or normal bootup. We do
+         * the full command line parsing much later, so let's just
+         * have a quick peek here. */
+
+        for (j = 1; j < argc; j++)
+                if (streq(argv[j], "--deserialize")) {
+                        is_reexec = true;
+                        break;
+                }
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
@@ -1033,6 +1167,8 @@ int main(int argc, char *argv[]) {
 
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+        saved_argv = argv;
+        saved_argc = argc;
 
         log_show_color(isatty(STDERR_FILENO) > 0);
         log_show_location(false);
@@ -1042,33 +1178,54 @@ int main(int argc, char *argv[]) {
                 arg_running_as = MANAGER_SYSTEM;
                 log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
 
-                /* This might actually not return, but cause a
-                 * reexecution */
-                if (selinux_setup(argv) < 0)
-                        goto finish;
+                if (!is_reexec)
+                        if (selinux_setup(&loaded_policy) < 0)
+                                goto finish;
+
+                log_open();
 
                 if (label_init() < 0)
                         goto finish;
 
-                if (hwclock_is_localtime()) {
-                        int min;
+                if (!is_reexec)
+                        if (hwclock_is_localtime() > 0) {
+                                int min;
 
-                        min = hwclock_apply_localtime_delta();
-                        log_info("Hwclock configured in localtime, applying delta of %i minutes to system time", min);
-                }
+                                r = hwclock_apply_localtime_delta(&min);
+                                if (r < 0)
+                                        log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
+                                else
+                                        log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
+                        }
+
         } else {
                 arg_running_as = MANAGER_USER;
-                log_set_target(LOG_TARGET_CONSOLE);
+                log_set_target(LOG_TARGET_AUTO);
+                log_open();
         }
 
+        /* Initialize default unit */
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
+                goto finish;
+
+        /* By default, mount "cpu" and "cpuacct" together */
+        arg_join_controllers = new(char**, 2);
+        if (!arg_join_controllers)
+                goto finish;
+
+        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
+        arg_join_controllers[1] = NULL;
+
+        if (!arg_join_controllers[0])
                 goto finish;
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS"))
-                if (mount_setup() < 0)
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_setup(loaded_policy);
+                if (r < 0)
                         goto finish;
+        }
 
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
@@ -1113,6 +1270,9 @@ int main(int argc, char *argv[]) {
         }
 
         assert_se(arg_action == ACTION_RUN || arg_action == ACTION_TEST);
+
+        /* Close logging fds, in order not to confuse fdset below */
+        log_close();
 
         /* Remember open file descriptors for later deserialization */
         if (serialization) {
@@ -1161,7 +1321,7 @@ int main(int argc, char *argv[]) {
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
         if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
-                console_setup(getpid() == 1 && !serialization);
+                console_setup(getpid() == 1 && !is_reexec);
                 make_null_stdio();
         }
 
@@ -1173,10 +1333,16 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 install_crash_handler();
 
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_cgroup_controllers(arg_join_controllers);
+                if (r < 0)
+                        goto finish;
+        }
+
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+        if (arg_running_as == MANAGER_SYSTEM && !is_reexec) {
                 locale_setup();
 
                 if (arg_show_status || plymouth_running())
@@ -1212,6 +1378,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
+
+        before_startup = now(CLOCK_MONOTONIC);
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1271,6 +1439,11 @@ int main(int argc, char *argv[]) {
                         dbus_error_free(&error);
                         goto finish;
                 }
+
+                after_startup = now(CLOCK_MONOTONIC);
+                log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
+                         "Loaded units and determined initial transaction in %s.",
+                          format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
@@ -1335,6 +1508,7 @@ finish:
 
         free(arg_default_unit);
         strv_free(arg_default_controllers);
+        free_join_controllers();
 
         dbus_shutdown();
 

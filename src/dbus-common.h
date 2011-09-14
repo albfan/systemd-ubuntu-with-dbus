@@ -129,6 +129,8 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
 
 #define bus_property_append_int bus_property_append_int32
 #define bus_property_append_pid bus_property_append_uint32
+#define bus_property_append_uid bus_property_append_uint32
+#define bus_property_append_gid bus_property_append_uint32
 #define bus_property_append_mode bus_property_append_uint32
 #define bus_property_append_unsigned bus_property_append_uint32
 #define bus_property_append_usec bus_property_append_uint64
@@ -152,5 +154,17 @@ int bus_property_append_long(DBusMessageIter *i, const char *property, void *dat
 const char *bus_errno_to_dbus(int error);
 
 DBusMessage* bus_properties_changed_new(const char *path, const char *interface, const char *properties);
+
+uint32_t bus_flags_to_events(DBusWatch *bus_watch);
+unsigned bus_events_to_flags(uint32_t events);
+
+int bus_parse_strv(DBusMessage *m, char ***_l);
+int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l);
+
+int bus_append_strv_iter(DBusMessageIter *iter, char **l);
+
+int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next);
+
+int generic_print_property(const char *name, DBusMessageIter *iter, bool all);
 
 #endif

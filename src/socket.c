@@ -131,7 +131,7 @@ static void socket_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 
         /* Make sure no service instance refers to us anymore. */
-        LIST_FOREACH(units_per_type, i, u->meta.manager->units_per_type[UNIT_SERVICE]) {
+        LIST_FOREACH(units_by_type, i, u->meta.manager->units_by_type[UNIT_SERVICE]) {
                 Service *service = (Service *) i;
 
                 if (service->accept_socket == s)
@@ -283,7 +283,7 @@ static int socket_add_mount_links(Socket *s) {
 
         assert(s);
 
-        LIST_FOREACH(units_per_type, other, s->meta.manager->units_per_type[UNIT_MOUNT])
+        LIST_FOREACH(units_by_type, other, s->meta.manager->units_by_type[UNIT_MOUNT])
                 if ((r = socket_add_one_mount_link(s, (Mount*) other)) < 0)
                         return r;
 
@@ -892,11 +892,14 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if (s->service && s->service->exec_command[SERVICE_EXEC_START])
-                                        if ((r = label_get_socket_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label)) < 0) {
+                                if (s->service && s->service->exec_command[SERVICE_EXEC_START]) {
+                                        r = label_get_create_label_from_exe(s->service->exec_command[SERVICE_EXEC_START]->path, &label);
+
+                                        if (r < 0) {
                                                 if (r != -EPERM)
                                                         return r;
                                         }
+                                }
 
                                 know_label = true;
                         }
@@ -1109,6 +1112,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        s->meta.manager->confirm_spawn,
                        s->meta.cgroup_bondings,
+                       s->meta.cgroup_attributes,
                        &pid);
 
         strv_free(argv);
@@ -1361,7 +1365,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                LIST_FOREACH(units_per_type, i, s->meta.manager->units_per_type[UNIT_SERVICE]) {
+                LIST_FOREACH(units_by_type, i, s->meta.manager->units_by_type[UNIT_SERVICE]) {
                         Service *service = (Service *) i;
 
                         if (!set_get(service->configured_sockets, s))
@@ -2022,19 +2026,20 @@ static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError
 
         if (who == KILL_MAIN) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "Socket units have no main processes");
-                return -EINVAL;
+                return -ESRCH;
         }
 
         if (s->control_pid <= 0 && who == KILL_CONTROL) {
                 dbus_set_error(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
-                return -ENOENT;
+                return -ESRCH;
         }
 
-        if (s->control_pid > 0)
-                if (kill(s->control_pid, signo) < 0)
-                        r = -errno;
+        if (who == KILL_CONTROL || who == KILL_ALL)
+                if (s->control_pid > 0)
+                        if (kill(s->control_pid, signo) < 0)
+                                r = -errno;
 
-        if (mode == KILL_CONTROL_GROUP) {
+        if (who == KILL_ALL && mode == KILL_CONTROL_GROUP) {
                 int q;
 
                 if (!(pid_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -2048,7 +2053,7 @@ static int socket_kill(Unit *u, KillWho who, KillMode mode, int signo, DBusError
                         }
 
                 if ((q = cgroup_bonding_kill_list(s->meta.cgroup_bondings, signo, false, pid_set)) < 0)
-                        if (r != -EAGAIN && r != -ESRCH && r != -ENOENT)
+                        if (q != -EAGAIN && q != -ESRCH && q != -ENOENT)
                                 r = q;
         }
 
@@ -2087,6 +2092,10 @@ DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
 const UnitVTable socket_vtable = {
         .suffix = ".socket",
+        .sections =
+                "Unit\0"
+                "Socket\0"
+                "Install\0",
 
         .init = socket_init,
         .done = socket_done,

@@ -250,13 +250,13 @@ static int parse_password(const char *filename, char **wall) {
         int socket_fd = -1;
         bool accept_cached = false;
 
-        const ConfigItem items[] = {
-                { "Socket",       config_parse_string,   0, &socket_name,   "Ask" },
-                { "NotAfter",     config_parse_uint64,   0, &not_after,     "Ask" },
-                { "Message",      config_parse_string,   0, &message,       "Ask" },
-                { "PID",          config_parse_unsigned, 0, &pid,           "Ask" },
-                { "AcceptCached", config_parse_bool,     0, &accept_cached, "Ask" },
-                { NULL, NULL, 0, NULL, NULL }
+        const ConfigTableItem items[] = {
+                { "Ask", "Socket",       config_parse_string,   0, &socket_name   },
+                { "Ask", "NotAfter",     config_parse_uint64,   0, &not_after     },
+                { "Ask", "Message",      config_parse_string,   0, &message       },
+                { "Ask", "PID",          config_parse_unsigned, 0, &pid           },
+                { "Ask", "AcceptCached", config_parse_bool,     0, &accept_cached },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         FILE *f;
@@ -264,8 +264,8 @@ static int parse_password(const char *filename, char **wall) {
 
         assert(filename);
 
-        if (!(f = fopen(filename, "re"))) {
-
+        f = fopen(filename, "re");
+        if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -273,7 +273,8 @@ static int parse_password(const char *filename, char **wall) {
                 return -errno;
         }
 
-        if ((r = config_parse(filename, f, NULL, items, true, NULL)) < 0) {
+        r = config_parse(filename, f, NULL, config_item_table_lookup, (void*) items, true, NULL);
+        if (r < 0) {
                 log_error("Failed to parse password file %s: %s", filename, strerror(-r));
                 goto finish;
         }
@@ -376,15 +377,17 @@ static int parse_password(const char *filename, char **wall) {
                                 release_terminal();
                         }
 
-                        packet_length = 1+strlen(password)+1;
-                        if (!(packet = new(char, packet_length)))
-                                r = -ENOMEM;
-                        else {
-                                packet[0] = '+';
-                                strcpy(packet+1, password);
-                        }
+                        if (r >= 0) {
+                                packet_length = 1+strlen(password)+1;
+                                if (!(packet = new(char, packet_length)))
+                                        r = -ENOMEM;
+                                else {
+                                        packet[0] = '+';
+                                        strcpy(packet+1, password);
+                                }
 
-                        free(password);
+                                free(password);
+                        }
                 }
 
                 if (r == -ETIME || r == -ENOENT) {
@@ -433,7 +436,8 @@ static int wall_tty_block(void) {
         int fd, r;
         dev_t devnr;
 
-        if ((r = get_ctty_devnr(&devnr)) < 0)
+        r = get_ctty_devnr(0, &devnr);
+        if (r < 0)
                 return -r;
 
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
@@ -723,6 +727,8 @@ int main(int argc, char *argv[]) {
 
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         if ((r = parse_argv(argc, argv)) <= 0)
                 goto finish;

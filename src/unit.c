@@ -42,6 +42,7 @@
 #include "special.h"
 #include "cgroup-util.h"
 #include "missing.h"
+#include "cgroup-attr.h"
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -73,6 +74,7 @@ Unit *unit_new(Manager *m) {
         u->meta.type = _UNIT_TYPE_INVALID;
         u->meta.deserialized_job = _JOB_TYPE_INVALID;
         u->meta.default_dependencies = true;
+        u->meta.unit_file_state = _UNIT_FILE_STATE_INVALID;
 
         return u;
 }
@@ -159,7 +161,7 @@ int unit_add_name(Unit *u, const char *text) {
                 u->meta.id = s;
                 u->meta.instance = i;
 
-                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
+                LIST_PREPEND(Meta, units_by_type, u->meta.manager->units_by_type[t], &u->meta);
 
                 if (UNIT_VTABLE(u)->init)
                         UNIT_VTABLE(u)->init(u);
@@ -354,7 +356,7 @@ void unit_free(Unit *u) {
                 bidi_set_free(u, u->meta.dependencies[d]);
 
         if (u->meta.type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
+                LIST_REMOVE(Meta, units_by_type, u->meta.manager->units_by_type[u->meta.type], &u->meta);
 
         if (u->meta.in_load_queue)
                 LIST_REMOVE(Meta, load_queue, u->meta.manager->load_queue, &u->meta);
@@ -370,7 +372,8 @@ void unit_free(Unit *u) {
                 u->meta.manager->n_in_gc_queue--;
         }
 
-        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_serializing <= 0);
+        cgroup_bonding_free_list(u->meta.cgroup_bondings, u->meta.manager->n_reloading <= 0);
+        cgroup_attribute_free_list(u->meta.cgroup_attributes);
 
         free(u->meta.description);
         free(u->meta.fragment_path);
@@ -570,7 +573,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
          * logging daemon is run first. */
 
         if (u->meta.manager->running_as == MANAGER_SYSTEM)
-                if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_LOGGER_SOCKET, NULL, true)) < 0)
+                if ((r = unit_add_two_dependencies_by_name(u, UNIT_REQUIRES, UNIT_AFTER, SPECIAL_STDOUT_SYSLOG_BRIDGE_SOCKET, NULL, true)) < 0)
                         return r;
 
         return 0;
@@ -591,7 +594,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         Iterator i;
         char *p2;
         const char *prefix2;
-        CGroupBonding *b;
         char
                 timestamp1[FORMAT_TIMESTAMP_MAX],
                 timestamp2[FORMAT_TIMESTAMP_MAX],
@@ -661,6 +663,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         }
 
         if (u->meta.load_state == UNIT_LOADED) {
+                CGroupBonding *b;
+                CGroupAttribute *a;
+
                 fprintf(f,
                         "%s\tStopWhenUnneeded: %s\n"
                         "%s\tRefuseManualStart: %s\n"
@@ -680,6 +685,18 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
                                 prefix, b->controller, b->path);
+
+                LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes) {
+                        char *v = NULL;
+
+                        if (a->map_callback)
+                                a->map_callback(a->controller, a->name, a->value, &v);
+
+                        fprintf(f, "%s\tControlGroupAttribute: %s %s \"%s\"\n",
+                                prefix, a->controller, a->name, v ? v : a->value);
+
+                        free(v);
+                }
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);
@@ -1137,7 +1154,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * behaviour here. For example: if a mount point is remounted
          * this function will be called too! */
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
                 dual_timestamp ts;
 
                 dual_timestamp_get(&ts);
@@ -1225,7 +1242,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         } else
                 unexpected = true;
 
-        if (u->meta.manager->n_deserializing <= 0) {
+        if (u->meta.manager->n_reloading <= 0) {
 
                 /* If this state change happened without being
                  * requested by a job, then let's retroactively start
@@ -1258,7 +1275,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (u->meta.type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
                         /* Write audit record if we have just finished starting up */
                         manager_send_unit_audit(u->meta.manager, u, AUDIT_SERVICE_START, true);
                         u->meta.in_audit = true;
@@ -1275,7 +1292,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 if (u->meta.type == UNIT_SERVICE &&
                     UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os) &&
-                    u->meta.manager->n_deserializing <= 0) {
+                    u->meta.manager->n_reloading <= 0) {
 
                         /* Hmm, if there was no start record written
                          * write it now, so that we always have a nice
@@ -1741,9 +1758,12 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
         assert(b->path);
 
-        if (!b->controller)
+        if (!b->controller) {
                 if (!(b->controller = strdup(SYSTEMD_CGROUP_CONTROLLER)))
                         return -ENOMEM;
+
+                b->ours = true;
+        }
 
         /* Ensure this hasn't been added yet */
         assert(!b->unit);
@@ -1768,27 +1788,28 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
 
 static char *default_cgroup_path(Unit *u) {
         char *p;
-        int r;
 
         assert(u);
 
         if (u->meta.instance) {
                 char *t;
 
-                if (!(t = unit_name_template(u->meta.id)))
+                t = unit_name_template(u->meta.id);
+                if (!t)
                         return NULL;
 
-                r = asprintf(&p, "%s/%s/%s", u->meta.manager->cgroup_hierarchy, t, u->meta.instance);
+                p = join(u->meta.manager->cgroup_hierarchy, "/", t, "/", u->meta.instance, NULL);
                 free(t);
         } else
-                r = asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, u->meta.id);
+                p = join(u->meta.manager->cgroup_hierarchy, "/", u->meta.id, NULL);
 
-        return r < 0 ? NULL : p;
+        return p;
 }
 
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
         char *controller = NULL, *path = NULL;
         CGroupBonding *b = NULL;
+        bool ours = false;
         int r;
 
         assert(u);
@@ -1797,11 +1818,15 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         if ((r = cg_split_spec(name, &controller, &path)) < 0)
                 return r;
 
-        if (!path)
+        if (!path) {
                 path = default_cgroup_path(u);
+                ours = true;
+        }
 
-        if (!controller)
+        if (!controller) {
                 controller = strdup(SYSTEMD_CGROUP_CONTROLLER);
+                ours = true;
+        }
 
         if (!path || !controller) {
                 free(path);
@@ -1822,7 +1847,8 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
 
         b->controller = controller;
         b->path = path;
-        b->ours = false;
+        b->ours = ours;
+        b->essential = streq(controller, SYSTEMD_CGROUP_CONTROLLER);
 
         if ((r = unit_add_cgroup(u, b)) < 0)
                 goto fail;
@@ -1875,8 +1901,10 @@ fail:
 }
 
 int unit_add_default_cgroups(Unit *u) {
+        CGroupAttribute *a;
         char **c;
         int r;
+
         assert(u);
 
         /* Adds in the default cgroups, if they weren't specified
@@ -1889,8 +1917,10 @@ int unit_add_default_cgroups(Unit *u) {
                 return r;
 
         STRV_FOREACH(c, u->meta.manager->default_controllers)
-                if ((r = unit_add_one_default_cgroup(u, *c)) < 0)
-                        return r;
+                unit_add_one_default_cgroup(u, *c);
+
+        LIST_FOREACH(by_unit, a, u->meta.cgroup_attributes)
+                unit_add_one_default_cgroup(u, a->controller);
 
         return 0;
 }
@@ -1899,6 +1929,69 @@ CGroupBonding* unit_get_default_cgroup(Unit *u) {
         assert(u);
 
         return cgroup_bonding_find_list(u->meta.cgroup_bondings, SYSTEMD_CGROUP_CONTROLLER);
+}
+
+int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback) {
+        int r;
+        char *c = NULL;
+        CGroupAttribute *a;
+
+        assert(u);
+        assert(name);
+        assert(value);
+
+        if (!controller) {
+                const char *dot;
+
+                dot = strchr(name, '.');
+                if (!dot)
+                        return -EINVAL;
+
+                c = strndup(name, dot - name);
+                if (!c)
+                        return -ENOMEM;
+
+                controller = c;
+        }
+
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
+                r = -EINVAL;
+                goto finish;
+        }
+
+        a = new0(CGroupAttribute, 1);
+        if (!a) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (c) {
+                a->controller = c;
+                c = NULL;
+        } else
+                a->controller = strdup(controller);
+
+        a->name = strdup(name);
+        a->value = strdup(value);
+
+        if (!a->controller || !a->name || !a->value) {
+                free(a->controller);
+                free(a->name);
+                free(a->value);
+                free(a);
+
+                return -ENOMEM;
+        }
+
+        a->map_callback = map_callback;
+
+        LIST_PREPEND(CGroupAttribute, by_unit, u->meta.cgroup_attributes, a);
+
+        r = 0;
+
+finish:
+        free(c);
+        return r;
 }
 
 int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
@@ -1994,6 +2087,47 @@ static char *specifier_filename(char specifier, void *data, void *userdata) {
         return unit_name_to_path(u->meta.instance);
 }
 
+static char *specifier_cgroup(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        return default_cgroup_path(u);
+}
+
+static char *specifier_cgroup_root(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        char *p;
+        assert(u);
+
+        if (specifier == 'r')
+                return strdup(u->meta.manager->cgroup_hierarchy);
+
+        if (parent_of_path(u->meta.manager->cgroup_hierarchy, &p) < 0)
+                return strdup("");
+
+        if (streq(p, "/")) {
+                free(p);
+                return strdup("");
+        }
+
+        return p;
+}
+
+static char *specifier_runtime(char specifier, void *data, void *userdata) {
+        Unit *u = userdata;
+        assert(u);
+
+        if (u->meta.manager->running_as == MANAGER_USER) {
+                const char *e;
+
+                e = getenv("XDG_RUNTIME_DIR");
+                if (e)
+                        return strdup(e);
+        }
+
+        return strdup("/run");
+}
+
 char *unit_name_printf(Unit *u, const char* format) {
 
         /*
@@ -2023,7 +2157,13 @@ char *unit_name_printf(Unit *u, const char* format) {
 char *unit_full_printf(Unit *u, const char *format) {
 
         /* This is similar to unit_name_printf() but also supports
-         * unescaping */
+         * unescaping. Also, adds a couple of additional codes:
+         *
+         * %c cgroup path of unit
+         * %r root cgroup path of this systemd instance (e.g. "/user/lennart/shared/systemd-4711")
+         * %R parent of root cgroup path (e.g. "/usr/lennart/shared")
+         * %t the runtime directory to place sockets in (e.g. "/run" or $XDG_RUNTIME_DIR)
+         */
 
         const Specifier table[] = {
                 { 'n', specifier_string,              u->meta.id },
@@ -2033,6 +2173,10 @@ char *unit_full_printf(Unit *u, const char *format) {
                 { 'i', specifier_string,              u->meta.instance },
                 { 'I', specifier_instance_unescaped,  NULL },
                 { 'f', specifier_filename,            NULL },
+                { 'c', specifier_cgroup,              NULL },
+                { 'r', specifier_cgroup_root,         NULL },
+                { 'R', specifier_cgroup_root,         NULL },
+                { 't', specifier_runtime,             NULL },
                 { 0, NULL, NULL }
         };
 
@@ -2305,21 +2449,25 @@ void unit_status_printf(Unit *u, const char *format, ...) {
 }
 
 bool unit_need_daemon_reload(Unit *u) {
-        struct stat st;
-
         assert(u);
 
-        if (!u->meta.fragment_path)
-                return false;
+        if (u->meta.fragment_path) {
+                struct stat st;
 
-        zero(st);
-        if (stat(u->meta.fragment_path, &st) < 0)
-                /* What, cannot access this anymore? */
-                return true;
+                zero(st);
+                if (stat(u->meta.fragment_path, &st) < 0)
+                        /* What, cannot access this anymore? */
+                        return true;
 
-        return
-                u->meta.fragment_mtime &&
-                timespec_load(&st.st_mtim) != u->meta.fragment_mtime;
+                if (u->meta.fragment_mtime > 0 &&
+                    timespec_load(&st.st_mtim) != u->meta.fragment_mtime)
+                        return true;
+        }
+
+        if (UNIT_VTABLE(u)->need_daemon_reload)
+                return UNIT_VTABLE(u)->need_daemon_reload(u);
+
+        return false;
 }
 
 void unit_reset_failed(Unit *u) {
@@ -2407,7 +2555,6 @@ int unit_kill(Unit *u, KillWho w, KillMode m, int signo, DBusError *error) {
         return UNIT_VTABLE(u)->kill(u, w, m, signo, error);
 }
 
-
 int unit_following_set(Unit *u, Set **s) {
         assert(u);
         assert(s);
@@ -2417,6 +2564,17 @@ int unit_following_set(Unit *u, Set **s) {
 
         *s = NULL;
         return 0;
+}
+
+UnitFileState unit_get_unit_file_state(Unit *u) {
+        assert(u);
+
+        if (u->meta.unit_file_state < 0 && u->meta.fragment_path)
+                u->meta.unit_file_state = unit_file_get_state(
+                                u->meta.manager->running_as == MANAGER_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
+                                NULL, file_name_from_path(u->meta.fragment_path));
+
+        return u->meta.unit_file_state;
 }
 
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {

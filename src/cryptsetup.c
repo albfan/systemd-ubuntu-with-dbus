@@ -110,7 +110,7 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else
+        } else if (!streq(option, "none"))
                 log_error("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -240,6 +240,8 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         if (streq(argv[1], "attach")) {
                 uint32_t flags = 0;

@@ -270,7 +270,12 @@
                                 <option>syslog+console</option>,
                                 <option>kmsg</option>,
                                 <option>kmsg+console</option>.  If the
-                                argument is omitted it defaults to
+                                argument is omitted
+                                <option>--default-standard-output=</option>
+                                defaults to <option>syslog</option>
+                                and
+                                <option>--default-standard-error=</option>
+                                to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -800,6 +805,44 @@
                                 on the kernel command
                                 line.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+22</term>
+                                <term>SIGRTMIN+23</term>
+
+                                <listitem><para>Sets the log level to
+                                <literal>debug</literal>
+                                (resp. <literal>info</literal> on
+                                <literal>SIGRTMIN+32</literal>), as
+                                controlled via
+                                <varname>systemd.log_level=debug</varname>
+                                (resp. <varname>systemd.log_level=info</varname>
+                                on <literal>SIGRTMIN+23</literal>) on
+                                the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+27</term>
+                                <term>SIGRTMIN+28</term>
+                                <term>SIGRTMIN+29</term>
+
+                                <listitem><para>Sets the log level to
+                                <literal>console</literal>
+                                (resp. <literal>kmsg</literal> on
+                                <literal>SIGRTMIN+28</literal>;
+                                resp. <literal>syslog-or-kmsg</literal>
+                                on <literal>SIGRTMIN+29</literal>), as
+                                controlled via
+                                <varname>systemd.log_target=console</varname>
+                                (resp. <varname>systemd.log_target=kmsg</varname>
+                                on <literal>SIGRTMIN+28</literal>;
+                                resp
+                                <varname>systemd.log_target=syslog-or-kmsg</varname>
+                                on <literal>SIGRTMIN+29</literal>) on
+                                the kernel command
+                                line.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -1036,10 +1079,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><filename>/run/systemd/logger</filename></term>
+                                <term><filename>/run/systemd/stdout-syslog-bridge</filename></term>
 
                                 <listitem><para>Used internally by the
-                                <filename>systemd-logger.service</filename>
+                                <filename>systemd-stdout-syslog-bridge.service</filename>
                                 unit to connect STDOUT and/or STDERR
                                 of spawned processes to
                                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>

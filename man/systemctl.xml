@@ -102,7 +102,7 @@
                                 <term><option>-p</option></term>
 
                                 <listitem><para>When showing
-                                unit/job/manager information, limit
+                                unit/job/manager properties, limit
                                 display to certain properties as
                                 specified as argument. If not
                                 specified all set properties are
@@ -121,7 +121,7 @@
                                 <listitem><para>When listing units,
                                 show all units, regardless of their
                                 state, including inactive units. When
-                                showing unit/job/manager information,
+                                showing unit/job/manager properties,
                                 show all properties regardless whether
                                 they are set or not.</para></listitem>
                         </varlistentry>
@@ -194,7 +194,8 @@
                                 enqueued and <command>systemctl</command> will
                                 wait until it is completed. By passing this
                                 argument it is only verified and
-                                enqueued.</para></listitem> </varlistentry>
+                                enqueued.</para></listitem>
+                        </varlistentry>
 
                         <varlistentry>
                                 <term><option>--no-pager</option></term>
@@ -298,25 +299,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--kill-mode=</option></term>
-
-                                <listitem><para>When used with
-                                <command>kill</command>, choose the
-                                mode how to kill the selected
-                                processes. Must be one of
-                                <option>control-group</option> or
-                                <option>process</option> to select
-                                whether to kill the entire control
-                                group or only the selected process
-                                itself. If omitted defaults to
-                                <option>control-group</option> if
-                                <option>--kill-who=all</option> is
-                                set, or <option>process</option>
-                                otherwise. You probably never need to
-                                use this switch.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--kill-who=</option></term>
 
                                 <listitem><para>When used with
@@ -370,15 +352,30 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--defaults</option></term>
+                                <term><option>--root=</option></term>
 
                                 <listitem><para>When used with
-                                <command>disable</command>, ensures
-                                that only the symlinks created by
-                                <command>enable</command> are removed,
-                                not all symlinks pointing to the unit
-                                file that shall be
-                                disabled.</para></listitem>
+                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and
+                                related commands), use alternative
+                                root path when looking for unit
+                                files.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--runtime</option></term>
+
+                                <listitem><para>When used with
+                                <command>enable</command>/<command>disable</command>/<command>is-enabled</command> (and related commands), make
+                                changes only temporarily, so that they
+                                are dropped on the next reboot. This
+                                will have the effect that changes are
+                                not made in subdirectories of
+                                <filename>/etc</filename> but in
+                                <filename>/run</filename>, with
+                                identical immediate effects, however,
+                                since the latter is lost on reboot,
+                                the changes are lost
+                                too.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -386,8 +383,8 @@
                                 <term><option>--host</option></term>
 
                                 <listitem><para>Execute operation
-                                remotely. Specifiy a hostname, or
-                                username and hostname seperated by @,
+                                remotely. Specify a hostname, or
+                                username and hostname separated by @,
                                 to connect to. This will use SSH to
                                 talk to the remote systemd
                                 instance.</para></listitem>
@@ -681,14 +678,11 @@
                                 configuration directory, and hence
                                 undoes the changes made by
                                 <command>enable</command>. Note
-                                however that this by default removes
+                                however that this removes
                                 all symlinks to the unit files
                                 (i.e. including manual additions), not
                                 just those actually created by
-                                <command>enable</command>. If only the
-                                symlinks that are suggested by default
-                                shall be removed, pass
-                                <option>--defaults</option>. This
+                                <command>enable</command>. This call
                                 implicitly reloads the systemd daemon
                                 configuration after completing the
                                 disabling of the units. Note that this
@@ -720,8 +714,85 @@
                                 (as with
                                 <command>enable</command>). Returns an
                                 exit code of 0 if at least one is
-                                enabled, non-zero
-                                otherwise.</para></listitem>
+                                enabled, non-zero otherwise. Prints
+                                the current enable status. To suppress
+                                this output use
+                                <option>--quiet</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>reenable [NAME...]</command></term>
+
+                                <listitem><para>Reenable one or more
+                                unit files, as specified on the
+                                command line. This is a combination of
+                                <command>disable</command> and
+                                <command>enable</command> and is
+                                useful to reset the symlinks a unit is
+                                enabled with to the defaults
+                                configured in the
+                                <literal>[Install]</literal> section
+                                of the unit file.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>preset [NAME...]</command></term>
+
+                                <listitem><para>Reset one or more unit
+                                files, as specified on the command
+                                line, to the defaults configured in a
+                                preset file. This has the same effect
+                                as <command>disable</command> or
+                                <command>enable</command>, depending
+                                how the unit is listed in the preset
+                                files.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>mask [NAME...]</command></term>
+
+                                <listitem><para>Mask one or more unit
+                                files, as specified on the command
+                                line. This will link these units to
+                                <filename>/dev/null</filename>, making
+                                it impossible to start them. This is a stronger version
+                                of <command>disable</command>, since
+                                it prohibits all kinds of activation
+                                of the unit, including manual
+                                activation. Use this option with
+                                care.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>unmask [NAME...]</command></term>
+
+                                <listitem><para>Unmask one or more
+                                unit files, as specified on the
+                                command line. This will undo the
+                                effect of
+                                <command>mask</command>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>link [NAME...]</command></term>
+
+                                <listitem><para>Link a unit file that
+                                is not in the unit file search paths
+                                into the unit file search path. This
+                                requires an absolute path to a unit
+                                file. The effect of this can be undone
+                                with <command>disable</command>. The
+                                effect of this command is that a unit
+                                file is available for
+                                <command>start</command> and other
+                                commands although it isn't installed
+                                directly in the unit search
+                                path.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -764,16 +835,6 @@
                                 jobs specified on the command line by
                                 their numeric job
                                 IDs. If no job id is specified, cancel all pending jobs.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><command>monitor</command></term>
-
-                                <listitem><para>Monitor unit/job
-                                changes. This is mostly useful for
-                                debugging purposes and prints a line
-                                each time systemd loads or unloads a
-                                unit configuration file, or a unit
-                                property changes.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>dump</command></term>
@@ -1022,10 +1083,27 @@
         </refsect1>
 
         <refsect1>
+                <title>Environment</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_PAGER</varname></term>
+                                <listitem><para>Pager to use when
+                                <option>--no-pager</option> is not given;
+                                overrides <varname>$PAGER</varname>.  Setting
+                                this to an empty string or the value
+                                <literal>cat</literal> is equivalent to passing
+                                <option>--no-pager</option>.</para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>

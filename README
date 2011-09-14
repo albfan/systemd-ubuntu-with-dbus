@@ -26,9 +26,12 @@ BUG REPORTS:
 AUTHOR:
         Lennart Poettering with major support from Kay Sievers
 
+LICENSE:
+        GPLv2+ for all code, except sd-daemon.[ch] which is MIT
+
 REQUIREMENTS:
-        Linux kernel >= 2.6.30 (with devtmpfs, cgroups; optional but strongly recommended: autofs4, ipv6)
-        libudev >= 163
+        Linux kernel >= 2.6.39 (with devtmpfs, cgroups; optional but strongly recommended: autofs4, ipv6)
+        libudev >= 172
         dbus >= 1.4.0
         libcap
         gtk+ >= 2.20 (optional)
@@ -47,6 +50,7 @@ REQUIREMENTS:
         automake
         autoconf
         libtool
+        gperf
         make, gcc, and similar tools
 
         During runtime you need the following dependencies:
@@ -63,6 +67,11 @@ REQUIREMENTS:
         if nss-myhostname is not installed. Packagers are encouraged to
         add a dependency on nss-myhostname to the package that
         includes systemd-hostnamed.
+
+        Note that D-Bus can link against libsystemd-login.so, which
+        results in a cyclic build dependency. To accomodate for this
+        please build D-Bus without systemd first, then build systemd,
+        then rebuild D-Bus with systemd support.
 
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a

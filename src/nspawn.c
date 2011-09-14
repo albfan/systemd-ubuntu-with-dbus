@@ -36,6 +36,8 @@
 #include <sys/epoll.h>
 #include <termios.h>
 #include <sys/signalfd.h>
+#include <grp.h>
+#include <linux/fs.h>
 
 #include "log.h"
 #include "util.h"
@@ -43,15 +45,20 @@
 #include "cgroup-util.h"
 #include "sd-daemon.h"
 #include "strv.h"
+#include "loopback-setup.h"
 
 static char *arg_directory = NULL;
+static char *arg_user = NULL;
+static bool arg_private_network = false;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help            Show this help\n"
-               "  -D --directory=NAME  Root directory for the container\n",
+               "  -D --directory=NAME  Root directory for the container\n"
+               "  -u --user=USER       Run the command under specified user or uid\n"
+               "     --private-network Disable network in container\n",
                program_invocation_short_name);
 
         return 0;
@@ -59,10 +66,16 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_PRIVATE_NETWORK = 0x100
+        };
+
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h' },
-                { "directory", required_argument, NULL, 'D' },
-                { NULL,        0,                 NULL, 0   }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "directory",       required_argument, NULL, 'D'                 },
+                { "user",            required_argument, NULL, 'u'                 },
+                { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
+                { NULL,              0,                 NULL, 0                   }
         };
 
         int c;
@@ -70,7 +83,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -85,6 +98,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -ENOMEM;
                         }
 
+                        break;
+
+                case 'u':
+                        free(arg_user);
+                        if (!(arg_user = strdup(optarg))) {
+                                log_error("Failed to duplicate user name.");
+                                return -ENOMEM;
+                        }
+
+                        break;
+
+                case ARG_PRIVATE_NETWORK:
+                        arg_private_network = true;
                         break;
 
                 case '?':
@@ -111,15 +137,17 @@ static int mount_all(const char *dest) {
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                { "proc",      "/proc",     "proc",      NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV, true },
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND, true },                      /* Bind mount first */
-                { "/proc/sys", "/proc/sys", "bind",      NULL,        MS_BIND|MS_RDONLY|MS_REMOUNT, true }, /* Then, make it r/o */
-                { "sysfs",     "/sys",      "sysfs",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, true },
-                { "tmpfs",     "/dev",      "tmpfs",     "mode=755",  MS_NOSUID, true },
-                { "/dev/pts",  "/dev/pts",  "bind",      NULL,        MS_BIND, true },
-                { "tmpfs",     "/run",      "tmpfs",     "mode=755",  MS_NOSUID|MS_NODEV, true },
+                { "proc",      "/proc",     "proc",  NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV, true  },
+                { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND, true                       },   /* Bind mount first */
+                { "/proc/sys", "/proc/sys", "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
+                { "/sys",      "/sys",      "bind",  NULL,       MS_BIND,                      true  },   /* Bind mount first */
+                { "/sys",      "/sys",      "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, true  },   /* Then, make it r/o */
+                { "tmpfs",     "/dev",      "tmpfs", "mode=755", MS_NOSUID,                    true  },
+                { "/dev/pts",  "/dev/pts",  "bind",  NULL,       MS_BIND,                      true  },
+                { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV,           true  },
 #ifdef HAVE_SELINUX
-                { "selinux",   "/selinux",  "selinuxfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, false },
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND,                      false },  /* Bind mount first */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -139,7 +167,7 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                if ((t = path_is_mount_point(where)) < 0) {
+                if ((t = path_is_mount_point(where, false)) < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
 
@@ -299,7 +327,6 @@ static int copy_devnodes(const char *dest, const char *console) {
         }
 
 finish:
-
         umask(u);
 
         return r;
@@ -684,7 +711,7 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
+        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL)) < 0) {
                 log_error("clone() failed: %m");
                 goto finish;
         }
@@ -693,14 +720,19 @@ int main(int argc, char *argv[]) {
                 /* child */
 
                 const char *hn;
+                const char *home = NULL;
+                uid_t uid = (uid_t) -1;
+                gid_t gid = (gid_t) -1;
                 const char *envp[] = {
-                        "HOME=/root",
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                        NULL,
+                        NULL, /* TERM */
+                        NULL, /* HOME */
+                        NULL, /* USER */
+                        NULL, /* LOGNAME */
                         NULL
                 };
 
-                envp[2] = strv_find_prefix(environ, "TERM=");
+                envp[1] = strv_find_prefix(environ, "TERM=");
 
                 close_nointr_nofail(master);
 
@@ -719,6 +751,10 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
 
                 if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
+                        goto child_fail;
+
+                /* Mark / as private, in case somebody marked it shared */
+                if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
                         goto child_fail;
 
                 if (mount_all(arg_directory) < 0)
@@ -752,10 +788,52 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                umask(0002);
+                umask(0022);
+
+                loopback_setup();
 
                 if (drop_capabilities() < 0)
                         goto child_fail;
+
+                if (arg_user) {
+
+                        if (get_user_creds((const char**)&arg_user, &uid, &gid, &home) < 0) {
+                                log_error("get_user_creds() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (mkdir_parents(home, 0775) < 0) {
+                                log_error("mkdir_parents() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (safe_mkdir(home, 0775, uid, gid) < 0) {
+                                log_error("safe_mkdir() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (initgroups((const char*)arg_user, gid) < 0) {
+                                log_error("initgroups() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (setresgid(gid, gid, gid) < 0) {
+                                log_error("setregid() failed: %m");
+                                goto child_fail;
+                        }
+
+                        if (setresuid(uid, uid, uid) < 0) {
+                                log_error("setreuid() failed: %m");
+                                goto child_fail;
+                        }
+                }
+
+                if ((asprintf((char**)(envp + 2), "HOME=%s", home? home: "/root") < 0) ||
+                    (asprintf((char**)(envp + 3), "USER=%s", arg_user? arg_user : "root") < 0) ||
+                    (asprintf((char**)(envp + 4), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
+                    log_error("Out of memory");
+                    goto child_fail;
+                }
 
                 if ((hn = file_name_from_path(arg_directory)))
                         sethostname(hn, strlen(hn));
@@ -763,7 +841,7 @@ int main(int argc, char *argv[]) {
                 if (argc > optind)
                         execvpe(argv[optind], argv + optind, (char**) envp);
                 else {
-                        chdir("/root");
+                        chdir(home ? home : "/root");
                         execle("/bin/bash", "-bash", NULL, (char**) envp);
                 }
 

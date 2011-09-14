@@ -251,7 +251,7 @@
                                 octal notation. See
                                 <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for details. Defaults to
-                                0002.</para></listitem>
+                                0022.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -383,7 +383,8 @@
                                 terminal. <option>syslog</option>
                                 connects standard output to the
                                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                system logger. <option>kmsg</option>
+                                system syslog
+                                service. <option>kmsg</option>
                                 connects it with the kernel log buffer
                                 which is accessible via
                                 <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>syslog+console</option>
@@ -395,8 +396,13 @@
                                 socket activation, semantics are
                                 similar to the respective option of
                                 <varname>StandardInput=</varname>.
-                                This setting defaults to
-                                <option>inherit</option>.</para></listitem>
+                                This setting defaults to the value set
+                                with
+                                <option>DefaultStandardOutput=</option>
+                                in
+                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                which defaults to
+                                <option>syslog</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>StandardError=</varname></term>
@@ -410,7 +416,11 @@
                                 <option>inherit</option> the file
                                 descriptor used for standard output is
                                 duplicated for standard error. This
-                                setting defaults to
+                                setting defaults to the value set with
+                                <option>DefaultStandardError=</option>
+                                in
+                                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                                which defaults to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -638,7 +648,7 @@
                                 executed process. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details. Takes a whitespace
-                                seperated list of capability names as
+                                separated list of capability names as
                                 read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                                 Capabilities listed will be included
@@ -646,7 +656,7 @@
                                 removed. If the list of capabilities
                                 is prefixed with ~ all but the listed
                                 capabilities will be included, the
-                                effect of this assignment
+                                effect of the assignment
                                 inverted. Note that this option does
                                 not actually set or unset any
                                 capabilities in the effective,
@@ -670,8 +680,8 @@
                                 <option>keep-caps-locked</option>,
                                 <option>no-setuid-fixup</option>,
                                 <option>no-setuid-fixup-locked</option>,
-                                <option>no-setuid-noroot</option> and/or
-                                <option>no-setuid-noroot-locked</option>.
+                                <option>noroot</option> and/or
+                                <option>noroot-locked</option>.
                                 </para></listitem>
                         </varlistentry>
 
@@ -706,28 +716,209 @@
                                 where "cpu" identifies the kernel
                                 control group controller used, and
                                 <filename>/foo/bar</filename> is the
-                                control group path. The controller name
-                                and ":" may be omitted in which case
-                                the named systemd control group
+                                control group path. The controller
+                                name and ":" may be omitted in which
+                                case the named systemd control group
                                 hierarchy is implied. Alternatively,
                                 the path and ":" may be omitted, in
                                 which case the default control group
                                 path for this unit is implied. This
                                 option may be used to place executed
                                 processes in arbitrary groups in
-                                arbitrary hierachies -- which can be
-                                configured externally with additional execution limits. By default
-                                systemd will place all executed
-                                processes in separate per-unit control
-                                groups (named after the unit) in the
-                                systemd named hierarchy. Since every
-                                process can be in one group per
-                                hierarchy only overriding the control group
-                                path in the named systemd hierarchy
-                                will disable automatic placement in
-                                the default group. For details about control
-                                groups see <ulink
+                                arbitrary hierarchies -- which can be
+                                configured externally with additional
+                                execution limits. By default systemd
+                                will place all executed processes in
+                                separate per-unit control groups
+                                (named after the unit) in the systemd
+                                named hierarchy. Since every process
+                                can be in one group per hierarchy only
+                                overriding the control group path in
+                                the named systemd hierarchy will
+                                disable automatic placement in the
+                                default group. This option is
+                                primarily intended to place executed
+                                processes in specific paths in
+                                specific kernel controller
+                                hierarchies. It is however not
+                                recommended to manipulate the service
+                                control group path in the systemd
+                                named hierarchy. For details about
+                                control groups see <ulink
                                 url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroupModify=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the control groups
+                                created for this unit will be owned by
+                                the user specified with
+                                <varname>User=</varname> (and the
+                                appropriate group), and he/she can create
+                                subgroups as well as add processes to
+                                the group.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroupAttribute=</varname></term>
+
+                                <listitem><para>Set a specific control
+                                group attribute for executed
+                                processes, and (if needed) add the the
+                                executed processes to a cgroup in the
+                                hierarchy of the controller the
+                                attribute belongs to. Takes two
+                                space-separated arguments: the
+                                attribute name (syntax is
+                                <literal>cpu.shares</literal> where
+                                <literal>cpu</literal> refers to a
+                                specific controller and
+                                <literal>shares</literal> to the
+                                attribute name), and the attribute
+                                value. Example:
+                                <literal>ControlGroupAttribute=cpu.shares
+                                512</literal>. If this option is used
+                                for an attribute that belongs to a
+                                kernel controller hierarchy the unit
+                                is not already configured to be added
+                                to (for example via the
+                                <literal>ControlGroup=</literal>
+                                option) then the unit will be added to
+                                the controller and the default unit
+                                cgroup path is implied. Thus, using
+                                <varname>ControlGroupAttribute=</varname>
+                                is in most case sufficient to make use
+                                of control group enforcements,
+                                explicit
+                                <varname>ControlGroup=</varname> are
+                                only necessary in case the implied
+                                default control group path for a
+                                service is not desirable. For details
+                                about control group attributes see
+                                <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>. This
+                                option may appear more than once, in
+                                order to set multiple control group
+                                attributes.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>CPUShares=</varname></term>
+
+                                <listitem><para>Assign the specified
+                                overall CPU time shares to the
+                                processes executed. Takes an integer
+                                value. This controls the
+                                <literal>cpu.shares</literal> control
+                                group attribute, which defaults to
+                                1024. For details about this control
+                                group attribute see <ulink
+                                url="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>MemoryLimit=</varname></term>
+                                <term><varname>MemorySoftLimit=</varname></term>
+
+                                <listitem><para>Limit the overall memory usage
+                                of the executed processes to a certain
+                                size. Takes a memory size in bytes. If
+                                the value is suffixed with K, M, G or
+                                T the specified memory size is parsed
+                                as Kilobytes, Megabytes, Gigabytes,
+                                resp. Terabytes (to the base
+                                1024). This controls the
+                                <literal>memory.limit_in_bytes</literal>
+                                and
+                                <literal>memory.soft_limit_in_bytes</literal>
+                                control group attributes. For details
+                                about these control group attributes
+                                see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/memory.txt">memory.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DeviceAllow=</varname></term>
+                                <term><varname>DeviceDeny=</varname></term>
+
+                                <listitem><para>Control access to
+                                specific device nodes by the executed processes. Takes two
+                                space separated strings: a device node
+                                path (such as
+                                <filename>/dev/null</filename>)
+                                followed by a combination of r, w, m
+                                to control reading, writing resp.
+                                creating of the specific device node
+                                by the unit. This controls the
+                                <literal>devices.allow</literal>
+                                and
+                                <literal>devices.deny</literal>
+                                control group attributes. For details
+                                about these control group attributes
+                                see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BlockIOWeight=</varname></term>
+
+                                <listitem><para>Set the default or
+                                per-device overall block IO weight
+                                value for the executed
+                                processes. Takes either a single
+                                weight value (between 10 and 1000) to
+                                set the default block IO weight, or a
+                                space separated pair of a file path
+                                and a weight value to specify the
+                                device specific weight value (Example:
+                                "/dev/sda 500"). The file path may be
+                                specified as path to a block device
+                                node or as any other file in which
+                                case the backing block device of the
+                                file system of the file is
+                                determined. This controls the
+                                <literal>blkio.weight</literal> and
+                                <literal>blkio.weight_device</literal>
+                                control group attributes, which
+                                default to 1000. Use this option
+                                multiple times to set weights for
+                                multiple devices. For details about
+                                these control group attributes see
+                                <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>BlockIOReadBandwidth=</varname></term>
+                                <term><varname>BlockIOWriteBandwidth=</varname></term>
+
+                                <listitem><para>Set the per-device
+                                overall block IO bandwith limit for
+                                the executed processes. Takes a space
+                                separated pair of a file path and a
+                                bandwith value (in bytes per second)
+                                to specify the device specific
+                                bandwidth. The file path may be
+                                specified as path to a block device
+                                node or as any other file in which
+                                case the backing block device of the
+                                file system of the file is determined.
+                                If the bandwith is suffixed with K, M,
+                                G, or T the specified bandwith is
+                                parsed as Kilobytes, Megabytes,
+                                Gigabytes, resp. Terabytes (Example:
+                                "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0
+                                5M"). This controls the
+                                <literal>blkio.read_bps_device</literal>
+                                and
+                                <literal>blkio.write_bps_device</literal>
+                                control group attributes. Use this
+                                option multiple times to set bandwith
+                                limits for multiple devices. For
+                                details about these control group
+                                attributes see <ulink
+                                url="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -753,7 +944,7 @@
                                 usual file access controls would
                                 permit this. Directories listed in
                                 <varname>InaccessibleDirectories=</varname>
-                                will be made inaccesible for processes
+                                will be made inaccessible for processes
                                 inside the namespace. Note that
                                 restricting access with these options
                                 does not extend to submounts of a
@@ -771,9 +962,9 @@
                                 <term><varname>PrivateTmp=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If true sets up a new
-                                namespace for the executed processes
-                                and mounts a private
+                                argument. If true sets up a new file
+                                system namespace for the executed
+                                processes and mounts a private
                                 <filename>/tmp</filename> directory
                                 inside it, that is not shared by
                                 processes outside of the
@@ -782,7 +973,25 @@
                                 process, but makes sharing between
                                 processes via
                                 <filename>/tmp</filename>
-                                impossible. Defaults to false.</para></listitem>
+                                impossible. Defaults to
+                                false.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>PrivateNetwork=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true sets up a new
+                                network namespace for the executed
+                                processes and configures only the
+                                loopback network device
+                                <literal>lo</literal> inside it. No
+                                other network devices will be
+                                available to the executed process.
+                                This is useful to securely turn off
+                                network access by the executed
+                                process. Defaults to
+                                false.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

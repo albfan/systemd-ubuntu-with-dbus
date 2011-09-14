@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[29],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[35],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -43,9 +43,16 @@ AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
         ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
 ])
 
+# i18n stuff for the PolicyKit policy files
+IT_PROG_INTLTOOL([0.40.0])
+
+GETTEXT_PACKAGE=systemd
+AC_SUBST(GETTEXT_PACKAGE)
+
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PROG_SED
+AC_PROG_AWK
 
 AC_PROG_CC
 AC_PROG_CC_C99
@@ -54,6 +61,10 @@ AC_PROG_GCC_TRADITIONAL
 
 AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
+AC_CHECK_TOOL(GPERF, gperf)
+if test -z "$GPERF" ; then
+        AC_MSG_ERROR([*** gperf not found])
+fi
 
 CC_CHECK_CFLAGS_APPEND([ \
         -pipe \
@@ -105,13 +116,19 @@ LT_INIT
 
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+
+save_LIBS="$LIBS"
+LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
+CAP_LIBS="$LIBS"
+LIBS="$save_LIBS"
+AC_SUBST(CAP_LIBS)
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(UDEV, [ libudev >= 160 ])
+PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
 AC_SUBST(UDEV_CFLAGS)
 AC_SUBST(UDEV_LIBS)
 
@@ -193,6 +210,43 @@ fi
 AC_SUBST(PAM_LIBS)
 AM_CONDITIONAL([HAVE_PAM], [test "x$have_pam" != xno])
 
+AC_ARG_ENABLE([acl],
+        AS_HELP_STRING([--disable-acl],[Disable optional ACL support]),
+                [case "${enableval}" in
+                        yes) have_acl=yes ;;
+                        no) have_acl=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-acl) ;;
+                esac],
+                [have_acl=auto])
+
+if test "x${have_acl}" != xno ; then
+        AC_CHECK_HEADERS(
+                [sys/acl.h acl/libacl.h],
+                [have_acl=yes],
+                [if test "x$have_acl" = xyes ; then
+                        AC_MSG_ERROR([*** ACL headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [acl],
+                [acl_get_file],
+                [have_acl=yes],
+                [if test "x$have_acl" = xyes ; then
+                        AC_MSG_ERROR([*** libacl not found.])
+                fi])
+
+        if test "x$have_acl" = xyes ; then
+                ACL_LIBS="-lacl"
+                AC_DEFINE(HAVE_ACL, 1, [ACL available])
+        else
+                have_acl=no
+        fi
+else
+        ACL_LIBS=
+fi
+AC_SUBST(ACL_LIBS)
+AM_CONDITIONAL([HAVE_ACL], [test "x$have_acl" != xno])
+
 AC_ARG_ENABLE([audit],
         AS_HELP_STRING([--disable-audit],[Disable optional AUDIT support]),
                 [case "${enableval}" in
@@ -248,6 +302,27 @@ if test "x$enable_binfmt" != "xno"; then
 	have_binfmt=yes
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
+
+have_hostnamed=no
+AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
+if test "x$enable_hostnamed" != "xno"; then
+	have_hostnamed=yes
+fi
+AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
+
+have_timedated=no
+AC_ARG_ENABLE(timedated, AS_HELP_STRING([--disable-timedated], [disable timedate daemon]))
+if test "x$enable_timedated" != "xno"; then
+	have_timedated=yes
+fi
+AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
+
+have_localed=no
+AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
+if test "x$enable_localed" != "xno"; then
+	have_localed=yes
+fi
+AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
@@ -311,76 +386,77 @@ AC_DEFINE_UNQUOTED(DISTRIBUTION, ["${with_distro}"], [Target Distribution])
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
 
-M4_DISTRO_FLAG=
+M4_DEFINES=
+have_plymouth=no
 
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
-                M4_DISTRO_FLAG=-DTARGET_FEDORA=1
-		have_plymouth=true
+                M4_DEFINES=-DTARGET_FEDORA=1
+                have_plymouth=yes
                 ;;
         suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
-                M4_DISTRO_FLAG=-DTARGET_SUSE=1
-		have_plymouth=true
+                M4_DEFINES=-DTARGET_SUSE=1
+                have_plymouth=yes
                 ;;
         debian)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian])
-                M4_DISTRO_FLAG=-DTARGET_DEBIAN=1
+                M4_DEFINES=-DTARGET_DEBIAN=1
                 ;;
         ubuntu)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_UBUNTU, [], [Target is Ubuntu])
-                M4_DISTRO_FLAG=-DTARGET_UBUNTU=1
+                M4_DEFINES=-DTARGET_UBUNTU=1
                 ;;
         arch)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ARCH, [], [Target is ArchLinux])
-                M4_DISTRO_FLAG=-DTARGET_ARCH=1
+                M4_DEFINES=-DTARGET_ARCH=1
                 ;;
         gentoo)
                 SYSTEM_SYSVINIT_PATH=
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_GENTOO, [], [Target is Gentoo])
-                M4_DISTRO_FLAG=-DTARGET_GENTOO=1
+                M4_DEFINES=-DTARGET_GENTOO=1
                 ;;
         slackware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_SLACKWARE, [], [Target is Slackware])
-                M4_DISTRO_FLAG=-DTARGET_SLACKWARE=1
+                M4_DEFINES=-DTARGET_SLACKWARE=1
                 ;;
         frugalware)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d
                 AC_DEFINE(TARGET_FRUGALWARE, [], [Target is Frugalware])
-                M4_DISTRO_FLAG=-DTARGET_FRUGALWARE=1
-                have_plymouth=true
+                M4_DEFINES=-DTARGET_FRUGALWARE=1
+                have_plymouth=yes
                 ;;
         altlinux)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_ALTLINUX, [], [Target is ALTLinux])
-                M4_DISTRO_FLAG=-DTARGET_ALTLINUX=1
-		have_plymouth=true
+                M4_DEFINES=-DTARGET_ALTLINUX=1
+                have_plymouth=yes
                 ;;
         mandriva)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 AC_DEFINE(TARGET_MANDRIVA, [], [Target is Mandriva])
-                M4_DISTRO_FLAG=-DTARGET_MANDRIVA=1
-		have_plymouth=true
+                M4_DEFINES=-DTARGET_MANDRIVA=1
+                have_plymouth=yes
                 ;;
         meego)
                 SYSTEM_SYSVINIT_PATH=
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
-                M4_DISTRO_FLAG=-DTARGET_MEEGO=1
+                M4_DEFINES=-DTARGET_MEEGO=1
 		;;
         angstrom)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
-                M4_DISTRO_FLAG=-DTARGET_ANGSTROM=1
+                M4_DEFINES=-DTARGET_ANGSTROM=1
                 ;;
         other)
                 ;;
@@ -403,11 +479,12 @@ AC_ARG_WITH([sysvrcd-path],
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_SYSVRCND_PATH)
-AC_SUBST(M4_DISTRO_FLAG)
+AC_SUBST(M4_DEFINES)
 
 if test "x${SYSTEM_SYSVINIT_PATH}" != "x" -a "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
         AC_DEFINE(HAVE_SYSV_COMPAT, [], [SysV init scripts and rcN.d links are supported.])
         SYSTEM_SYSV_COMPAT="yes"
+        M4_DEFINES="$M4_DEFINES -DHAVE_SYSV_COMPAT"
 elif test "x${SYSTEM_SYSVINIT_PATH}" != "x" -o "x${SYSTEM_SYSVRCND_PATH}" != "x"; then
         AC_MSG_ERROR([*** You need both --with-sysvinit-path=PATH and --with-sysvrcd-path=PATH to enable SysV compatibility support, or both empty to disable it.])
 else
@@ -419,6 +496,11 @@ AC_ARG_WITH([tty-gid],
                 [Specify the numeric GID of the 'tty' group])],
         [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
         [])
+
+AC_ARG_ENABLE(plymouth, AS_HELP_STRING([--enable-plymouth], [enable plymouth support]))
+if test -n "$enable_plymouth"; then
+        have_plymouth="$enable_plymouth"
+fi
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
@@ -434,7 +516,7 @@ AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
 
-AM_CONDITIONAL(HAVE_PLYMOUTH, test -n "$have_plymouth")
+AM_CONDITIONAL(HAVE_PLYMOUTH, test "$have_plymouth" = "yes")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 
 AC_ARG_WITH([dbuspolicydir],
@@ -472,6 +554,11 @@ AC_ARG_WITH([rootdir],
         [],
         [with_rootdir=${ac_default_prefix}])
 
+AC_ARG_WITH([rootlibdir],
+        AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
+        [],
+        [with_rootlibdir=${libdir}])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -479,11 +566,11 @@ AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
 AC_SUBST([rootdir], [$with_rootdir])
+AC_SUBST([rootlibdir], [$with_rootlibdir])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile po/Makefile.in])
 AC_OUTPUT
-
-echo "
+AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         Distribution:            ${with_distro}
@@ -496,13 +583,20 @@ echo "
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        hostnamed:               ${have_hostnamed}
+        timedated:               ${have_timedated}
+        localed:                 ${have_localed}
+        plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
         root dir:                ${with_rootdir}
-        udev rules dir:          ${with_udevrulesdir}
+        lib dir:                 ${libdir}
+        rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}
+        udev rules dir:          ${with_udevrulesdir}
         dbus policy dir:         ${with_dbuspolicydir}
         dbus session dir:        ${with_dbussessionservicedir}
         dbus system dir:         ${with_dbussystemservicedir}
         dbus interfaces dir:     ${with_dbusinterfacedir}
-"
+])

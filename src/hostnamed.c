@@ -29,10 +29,9 @@
 #include "util.h"
 #include "strv.h"
 #include "dbus-common.h"
+#include "polkit.h"
 
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
+#define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \
         "  <property name=\"Hostname\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"StaticHostname\" type=\"s\" access=\"read\"/>\n" \
@@ -54,7 +53,12 @@
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
-        " </interface>\n"                                               \
+        " </interface>\n"
+
+#define INTROSPECTION                                                   \
+        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
+        "<node>\n"                                                      \
+        INTERFACE                                                       \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE                                    \
         BUS_PEER_INTERFACE                                              \
@@ -63,6 +67,8 @@
 #define INTERFACES_LIST                         \
         BUS_GENERIC_INTERFACES_LIST             \
         "org.freedesktop.hostname1\0"
+
+const char hostname_interface[] _introspect_("hostname1") = INTERFACE;
 
 enum {
         PROP_HOSTNAME,
@@ -201,7 +207,7 @@ static int write_data_static_hostname(void) {
                 return 0;
         }
 
-        return write_one_line_file("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
+        return write_one_line_file_atomic("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
 }
 
 static int write_data_other(void) {
@@ -252,168 +258,6 @@ static int write_data_other(void) {
 
         r = write_env_file("/etc/machine-info", l);
         strv_free(l);
-
-        return r;
-}
-
-/* This mimics dbus_bus_get_unix_user() */
-static pid_t get_unix_process_id(
-                DBusConnection *connection,
-                const char *name,
-                DBusError *error) {
-
-        DBusMessage *m = NULL, *reply = NULL;
-        uint32_t pid = 0;
-
-        m = dbus_message_new_method_call(
-                        DBUS_SERVICE_DBUS,
-                        DBUS_PATH_DBUS,
-                        DBUS_INTERFACE_DBUS,
-                        "GetConnectionUnixProcessID");
-        if (!m) {
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(
-                            m,
-                            DBUS_TYPE_STRING, &name,
-                            DBUS_TYPE_INVALID)) {
-                dbus_set_error_const(error, DBUS_ERROR_NO_MEMORY, NULL);
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(connection, m, -1, error);
-        if (!reply)
-                goto finish;
-
-        if (dbus_set_error_from_message(error, reply))
-                goto finish;
-
-        if (!dbus_message_get_args(
-                            reply, error,
-                            DBUS_TYPE_UINT32, &pid,
-                            DBUS_TYPE_INVALID))
-                goto finish;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        return (pid_t) pid;
-}
-
-static int verify_polkit(
-                DBusConnection *c,
-                DBusMessage *request,
-                const char *action,
-                bool interactive,
-                DBusError *error) {
-
-        DBusMessage *m = NULL, *reply = NULL;
-        const char *unix_process = "unix-process", *pid = "pid", *starttime = "start-time", *cancel_id = "";
-        const char *sender;
-        uint32_t flags = interactive ? 1 : 0;
-        pid_t pid_raw;
-        uint32_t pid_u32;
-        unsigned long long starttime_raw;
-        uint64_t starttime_u64;
-        DBusMessageIter iter_msg, iter_struct, iter_array, iter_dict, iter_variant;
-        int r;
-        dbus_bool_t authorized = FALSE;
-
-        assert(c);
-        assert(request);
-
-        sender = dbus_message_get_sender(request);
-        if (!sender)
-                return -EINVAL;
-
-        pid_raw = get_unix_process_id(c, sender, error);
-        if (pid_raw == 0)
-                return -EINVAL;
-
-        r = get_starttime_of_pid(pid_raw, &starttime_raw);
-        if (r < 0)
-                return r;
-
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.PolicyKit1",
-                        "/org/freedesktop/PolicyKit1/Authority",
-                        "org.freedesktop.PolicyKit1.Authority",
-                        "CheckAuthorization");
-        if (!m)
-                return -ENOMEM;
-
-        dbus_message_iter_init_append(m, &iter_msg);
-
-        pid_u32 = (uint32_t) pid_raw;
-        starttime_u64 = (uint64_t) starttime_raw;
-
-        if (!dbus_message_iter_open_container(&iter_msg, DBUS_TYPE_STRUCT, NULL, &iter_struct) ||
-            !dbus_message_iter_append_basic(&iter_struct, DBUS_TYPE_STRING, &unix_process) ||
-            !dbus_message_iter_open_container(&iter_struct, DBUS_TYPE_ARRAY, "{sv}", &iter_array) ||
-            !dbus_message_iter_open_container(&iter_array, DBUS_TYPE_DICT_ENTRY, NULL, &iter_dict) ||
-            !dbus_message_iter_append_basic(&iter_dict, DBUS_TYPE_STRING, &pid) ||
-            !dbus_message_iter_open_container(&iter_dict, DBUS_TYPE_VARIANT, "u", &iter_variant) ||
-            !dbus_message_iter_append_basic(&iter_variant, DBUS_TYPE_UINT32, &pid_u32) ||
-            !dbus_message_iter_close_container(&iter_dict, &iter_variant) ||
-            !dbus_message_iter_close_container(&iter_array, &iter_dict) ||
-            !dbus_message_iter_open_container(&iter_array, DBUS_TYPE_DICT_ENTRY, NULL, &iter_dict) ||
-            !dbus_message_iter_append_basic(&iter_dict, DBUS_TYPE_STRING, &starttime) ||
-            !dbus_message_iter_open_container(&iter_dict, DBUS_TYPE_VARIANT, "t", &iter_variant) ||
-            !dbus_message_iter_append_basic(&iter_variant, DBUS_TYPE_UINT64, &starttime_u64) ||
-            !dbus_message_iter_close_container(&iter_dict, &iter_variant) ||
-            !dbus_message_iter_close_container(&iter_array, &iter_dict) ||
-            !dbus_message_iter_close_container(&iter_struct, &iter_array) ||
-            !dbus_message_iter_close_container(&iter_msg, &iter_struct) ||
-            !dbus_message_iter_append_basic(&iter_msg, DBUS_TYPE_STRING, &action) ||
-            !dbus_message_iter_open_container(&iter_msg, DBUS_TYPE_ARRAY, "{ss}", &iter_array) ||
-            !dbus_message_iter_close_container(&iter_msg, &iter_array) ||
-            !dbus_message_iter_append_basic(&iter_msg, DBUS_TYPE_UINT32, &flags) ||
-            !dbus_message_iter_append_basic(&iter_msg, DBUS_TYPE_STRING, &cancel_id)) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(c, m, -1, error);
-        if (!reply) {
-                r = -EIO;
-                goto finish;
-        }
-
-        if (dbus_set_error_from_message(error, reply)) {
-                r = -EIO;
-                goto finish;
-        }
-
-        if (!dbus_message_iter_init(reply, &iter_msg) ||
-            dbus_message_iter_get_arg_type(&iter_msg) != DBUS_TYPE_STRUCT) {
-                r = -EIO;
-                goto finish;
-        }
-
-        dbus_message_iter_recurse(&iter_msg, &iter_struct);
-
-        if (dbus_message_iter_get_arg_type(&iter_struct) != DBUS_TYPE_BOOLEAN) {
-                r = -EIO;
-                goto finish;
-        }
-
-        dbus_message_iter_get_basic(&iter_struct, &authorized);
-
-        r = authorized ? 0 : -EPERM;
-
-finish:
-
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         return r;
 }
@@ -655,20 +499,75 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-int main(int argc, char *argv[]) {
-        const DBusObjectPathVTable hostname_vtable = {
+static int connect_bus(DBusConnection **_bus) {
+        static const DBusObjectPathVTable hostname_vtable = {
                 .message_function = hostname_message_handler
         };
-
-        DBusConnection *bus = NULL;
         DBusError error;
+        DBusConnection *bus = NULL;
         int r;
 
+        assert(_bus);
+
         dbus_error_init(&error);
+
+        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
+        if (!bus) {
+                log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
+                r = -ECONNREFUSED;
+                goto fail;
+        }
+
+        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL)) {
+                log_error("Not enough memory");
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to register name on bus: %s", bus_error_message(&error));
+                r = -EEXIST;
+                goto fail;
+        }
+
+        if (r != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
+                log_error("Failed to acquire name.");
+                r = -EEXIST;
+                goto fail;
+        }
+
+        if (_bus)
+                *_bus = bus;
+
+        return 0;
+
+fail:
+        dbus_connection_close(bus);
+        dbus_connection_unref(bus);
+
+        dbus_error_free(&error);
+
+        return r;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+        DBusConnection *bus = NULL;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        umask(0022);
+
+        if (argc == 2 && streq(argv[1], "--introspect")) {
+                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
+                      "<node>\n", stdout);
+                fputs(hostname_interface, stdout);
+                fputs("</node>\n", stdout);
+                return 0;
+        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
@@ -679,32 +578,15 @@ int main(int argc, char *argv[]) {
         if (!check_nss())
                 log_warning("Warning: nss-myhostname is not installed. Changing the local hostname might make it unresolveable. Please install nss-myhostname!");
 
-        umask(0022);
-
         r = read_data();
         if (r < 0) {
                 log_error("Failed to read hostname data: %s", strerror(-r));
                 goto finish;
         }
 
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!bus) {
-                log_error("Failed to get system D-Bus connection: %s", error.message);
-                r = -ECONNREFUSED;
+        r = connect_bus(&bus);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL)) {
-                log_error("Not enough memory");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error) < 0) {
-                log_error("Failed to register name on bus: %s", error.message);
-                r = -EEXIST;
-                goto finish;
-        }
 
         while (dbus_connection_read_write_dispatch(bus, -1))
                 ;
@@ -719,8 +601,6 @@ finish:
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
         }
-
-        dbus_error_free(&error);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

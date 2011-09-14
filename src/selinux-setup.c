@@ -30,42 +30,79 @@
 #endif
 
 #include "selinux-setup.h"
+#include "mount-setup.h"
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "label.h"
 
-int selinux_setup(char *const argv[]) {
+int selinux_setup(bool *loaded_policy) {
+
 #ifdef HAVE_SELINUX
        int enforce = 0;
+       usec_t before_load, after_load;
+       security_context_t con;
+       int r;
 
-       /* Already initialized? */
-       if (path_is_mount_point("/sys/fs/selinux") > 0 ||
-           path_is_mount_point("/selinux") > 0)
-               return 0;
+       assert(loaded_policy);
 
-       /* Before we load the policy we create a flag file to ensure
-        * that after the reexec we iterate through /run and /dev to
-        * relabel things. */
-       touch("/dev/.systemd-relabel-run-dev");
+       /* Make sure getcon() works, which needs /proc and /sys */
+       mount_setup_early();
 
-       if (selinux_init_load_policy(&enforce) == 0) {
-               log_debug("Successfully loaded SELinux policy, reexecuting.");
+       /* Already initialized by somebody else? */
+       r = getcon_raw(&con);
+       if (r == 0) {
+               bool initialized;
 
-               /* FIXME: Ideally we'd just call setcon() here instead
-                * of having to reexecute ourselves here. */
+               initialized = !streq(con, "kernel");
+               freecon(con);
 
-               execv(SYSTEMD_BINARY_PATH, argv);
-               log_error("Failed to reexecute: %m");
-               return -errno;
+               if (initialized)
+                       return 0;
+       }
+
+       /* Make sure we have no fds open while loading the policy and
+        * transitioning */
+       log_close();
+
+       /* Now load the policy */
+       before_load = now(CLOCK_MONOTONIC);
+       r = selinux_init_load_policy(&enforce);
+
+       if (r == 0) {
+               char timespan[FORMAT_TIMESPAN_MAX];
+               char *label;
+
+               label_retest_selinux();
+
+               /* Transition to the new context */
+               r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
+               if (r < 0 || label == NULL) {
+                       log_open();
+                       log_error("Failed to compute init label, ignoring.");
+               } else {
+                       r = setcon(label);
+
+                       log_open();
+                       if (r < 0)
+                               log_error("Failed to transition into init label '%s', ignoring.", label);
+
+                       label_free(label);
+               }
+
+               after_load = now(CLOCK_MONOTONIC);
+
+               log_info("Successfully loaded SELinux policy in %s.",
+                         format_timespan(timespan, sizeof(timespan), after_load - before_load));
+
+               *loaded_policy = true;
 
        } else {
-
-               unlink("/dev/.systemd-relabel-run-dev");
-
                if (enforce > 0) {
-                       log_full(LOG_ERR, "Failed to load SELinux policy.");
+                       log_error("Failed to load SELinux policy.");
                        return -EIO;
-               }
+               } else
+                       log_debug("Unable to load SELinux policy.");
        }
 #endif
 

@@ -17,6 +17,16 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+SUBDIRS = po
+
+LIBSYSTEMD_LOGIN_CURRENT=0
+LIBSYSTEMD_LOGIN_REVISION=4
+LIBSYSTEMD_LOGIN_AGE=0
+
+LIBSYSTEMD_DAEMON_CURRENT=0
+LIBSYSTEMD_DAEMON_REVISION=0
+LIBSYSTEMD_DAEMON_AGE=0
+
 # Dirs of external packages
 dbuspolicydir=@dbuspolicydir@
 dbussessionservicedir=@dbussessionservicedir@
@@ -25,6 +35,7 @@ dbusinterfacedir=@dbusinterfacedir@
 udevrulesdir=@udevrulesdir@
 pamlibdir=@pamlibdir@
 pkgconfigdatadir=$(datadir)/pkgconfig
+pkgconfiglibdir=$(libdir)/pkgconfig
 polkitpolicydir=$(datadir)/polkit-1/actions
 bashcompletiondir=$(sysconfdir)/bash_completion.d
 
@@ -33,6 +44,7 @@ pkgsysconfdir=$(sysconfdir)/systemd
 userunitdir=$(prefix)/lib/systemd/user
 tmpfilesdir=$(prefix)/lib/tmpfiles.d
 usergeneratordir=$(pkglibexecdir)/user-generators
+pkgincludedir=$(includedir)/systemd
 
 # And these are the special ones for /
 rootdir=@rootdir@
@@ -116,6 +128,7 @@ endif
 rootbin_PROGRAMS = \
 	systemd \
 	systemctl \
+        systemd-loginctl \
 	systemd-notify \
 	systemd-ask-password \
 	systemd-tty-ask-password-agent \
@@ -137,7 +150,7 @@ bin_PROGRAMS += \
 endif
 
 rootlibexec_PROGRAMS = \
-	systemd-logger \
+	systemd-stdout-syslog-bridge \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
@@ -158,11 +171,27 @@ rootlibexec_PROGRAMS = \
 	systemd-ac-power \
 	systemd-detect-virt \
 	systemd-sysctl \
-        systemd-hostnamed
+        systemd-logind \
+        systemd-uaccess
 
 if ENABLE_BINFMT
 rootlibexec_PROGRAMS += \
 	systemd-binfmt
+endif
+
+if ENABLE_HOSTNAMED
+rootlibexec_PROGRAMS += \
+	systemd-hostnamed
+endif
+
+if ENABLE_TIMEDATED
+rootlibexec_PROGRAMS += \
+	systemd-timedated
+endif
+
+if ENABLE_LOCALED
+rootlibexec_PROGRAMS += \
+	systemd-localed
 endif
 
 systemgenerator_PROGRAMS = \
@@ -176,6 +205,14 @@ systemgenerator_PROGRAMS += \
 	systemd-cryptsetup-generator
 endif
 
+lib_LTLIBRARIES = \
+	libsystemd-daemon.la \
+	libsystemd-login.la
+
+pkginclude_HEADERS = \
+	src/sd-daemon.h \
+	src/sd-login.h
+
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type \
@@ -185,7 +222,9 @@ noinst_PROGRAMS = \
 	test-daemon \
 	test-cgroup \
 	test-env-replace \
-	test-strv
+	test-strv \
+        test-login \
+        test-install
 
 if HAVE_PAM
 pamlib_LTLIBRARIES = \
@@ -193,18 +232,55 @@ pamlib_LTLIBRARIES = \
 endif
 
 dist_pkgsysconf_DATA = \
-	src/system.conf
+	src/system.conf \
+        src/user.conf \
+        src/systemd-logind.conf
 
 dist_dbuspolicy_DATA = \
 	src/org.freedesktop.systemd1.conf \
-        src/org.freedesktop.hostname1.conf
+        src/org.freedesktop.login1.conf
+
+if ENABLE_HOSTNAMED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.hostname1.conf
+endif
+
+if ENABLE_TIMEDATED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.timedate1.conf
+endif
+
+if ENABLE_LOCALED
+dist_dbuspolicy_DATA += \
+	src/org.freedesktop.locale1.conf
+endif
 
 dist_dbussystemservice_DATA = \
 	src/org.freedesktop.systemd1.service \
-        src/org.freedesktop.hostname1.service
+        src/org.freedesktop.login1.service
+
+if ENABLE_HOSTNAMED
+dist_dbussystemservice_DATA += \
+	src/org.freedesktop.hostname1.service
+endif
+
+if ENABLE_TIMEDATED
+dist_dbussystemservice_DATA += \
+	src/org.freedesktop.timedate1.service
+endif
+
+if ENABLE_LOCALED
+dist_dbussystemservice_DATA += \
+        src/org.freedesktop.locale1.service
+endif
 
 dist_udevrules_DATA = \
-	src/99-systemd.rules
+        src/70-uaccess.rules \
+        src/71-seat.rules
+
+nodist_udevrules_DATA = \
+        src/73-seat-late.rules \
+        src/99-systemd.rules
 
 dbusinterface_DATA = \
 	org.freedesktop.systemd1.Manager.xml \
@@ -221,11 +297,27 @@ dbusinterface_DATA = \
 	org.freedesktop.systemd1.Swap.xml \
 	org.freedesktop.systemd1.Path.xml
 
+if ENABLE_HOSTNAMED
+dbusinterface_DATA += \
+	org.freedesktop.hostname1.xml
+endif
+
+if ENABLE_TIMEDATED
+dbusinterface_DATA += \
+	org.freedesktop.timedate1.xml
+endif
+
+if ENABLE_LOCALED
+dbusinterface_DATA += \
+	org.freedesktop.locale1.xml
+endif
+
 dist_bashcompletion_DATA = \
 	src/systemctl-bash-completion.sh
 
 dist_tmpfiles_DATA = \
 	tmpfiles.d/systemd.conf \
+	tmpfiles.d/tmp.conf \
 	tmpfiles.d/x11.conf
 
 if HAVE_SYSV_COMPAT
@@ -262,7 +354,7 @@ dist_systemunit_DATA = \
 	units/sockets.target \
 	units/swap.target \
 	units/systemd-initctl.socket \
-	units/systemd-logger.socket \
+	units/systemd-stdout-syslog-bridge.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
 	units/dev-hugepages.automount \
@@ -303,9 +395,9 @@ nodist_systemunit_DATA = \
 	units/serial-getty@.service \
 	units/console-shell.service \
 	units/systemd-initctl.service \
-	units/systemd-logger.service \
+	units/systemd-stdout-syslog-bridge.service \
 	units/systemd-shutdownd.service \
-	units/systemd-hostnamed.service \
+	units/systemd-logind.service \
 	units/systemd-kmsg-syslogd.service \
 	units/systemd-modules-load.service \
 	units/systemd-vconsole-setup.service \
@@ -330,11 +422,27 @@ nodist_systemunit_DATA = \
 	units/fsck@.service \
 	units/fsck-root.service \
 	units/quotacheck.service \
-	units/rescue.service
+	units/rescue.service \
+        units/user@.service
 
 if ENABLE_BINFMT
 nodist_systemunit_DATA += \
 	units/systemd-binfmt.service
+endif
+
+if ENABLE_HOSTNAMED
+nodist_systemunit_DATA += \
+	units/systemd-hostnamed.service
+endif
+
+if ENABLE_TIMEDATED
+nodist_systemunit_DATA += \
+	units/systemd-timedated.service
+endif
+
+if ENABLE_LOCALED
+nodist_systemunit_DATA += \
+	units/systemd-localed.service
 endif
 
 dist_userunit_DATA = \
@@ -350,9 +458,9 @@ EXTRA_DIST = \
 	units/console-shell.service.m4 \
 	units/rescue.service.m4 \
 	units/systemd-initctl.service.in \
-	units/systemd-logger.service.in \
+	units/systemd-stdout-syslog-bridge.service.in \
 	units/systemd-shutdownd.service.in \
-	units/systemd-hostnamed.service.in \
+	units/systemd-logind.service.in \
 	units/systemd-kmsg-syslogd.service.in \
 	units/systemd-modules-load.service.in \
 	units/systemd-vconsole-setup.service.in \
@@ -378,13 +486,34 @@ EXTRA_DIST = \
 	units/fsck@.service.in \
 	units/fsck-root.service.in \
 	units/quotacheck.service.in \
+	units/user@.service.in \
 	systemd.pc.in \
+	libsystemd-daemon.pc.in \
+	libsystemd-login.pc.in \
+	src/libsystemd-daemon.sym \
+	src/libsystemd-login.sym \
 	introspect.awk \
-	src/org.freedesktop.systemd1.policy.in
+	src/73-seat-late.rules.in \
+        src/99-systemd.rules.in
 
 if ENABLE_BINFMT
 EXTRA_DIST += \
 	units/systemd-binfmt.service.in
+endif
+
+if ENABLE_HOSTNAMED
+EXTRA_DIST += \
+	units/systemd-hostnamed.service.in
+endif
+
+if ENABLE_TIMEDATED
+EXTRA_DIST += \
+	units/systemd-timedated.service.in
+endif
+
+if ENABLE_LOCALED
+EXTRA_DIST += \
+	units/systemd-localed.service.in
 endif
 
 if TARGET_FEDORA
@@ -404,6 +533,12 @@ endif
 if TARGET_FRUGALWARE
 dist_systemunit_DATA += \
 	units/frugalware/display-manager.service
+endif
+
+if TARGET_SUSE
+dist_systemunit_DATA += \
+	units/suse/rc-local.service \
+	units/suse/halt-local.service
 endif
 
 if HAVE_PLYMOUTH
@@ -437,16 +572,46 @@ dist_doc_DATA = \
 pkgconfigdata_DATA = \
 	systemd.pc
 
-nodist_polkitpolicy_DATA = \
-	src/org.freedesktop.systemd1.policy
+pkgconfiglib_DATA = \
+        libsystemd-daemon.pc \
+        libsystemd-login.pc
 
-dist_polkitpolicy_DATA = \
-        src/org.freedesktop.hostname1.policy
+# Passed through intltool only
+polkitpolicy_in_files = \
+        src/org.freedesktop.login1.policy.in
+
+if ENABLE_HOSTNAMED
+polkitpolicy_in_files += \
+	src/org.freedesktop.hostname1.policy.in
+endif
+
+if ENABLE_TIMEDATED
+polkitpolicy_in_files += \
+	src/org.freedesktop.timedate1.policy.in
+endif
+
+if ENABLE_LOCALED
+polkitpolicy_in_files += \
+        src/org.freedesktop.locale1.policy.in
+endif
+
+# First passed through sed, followed by intltool
+polkitpolicy_in_in_files = \
+	src/org.freedesktop.systemd1.policy.in.in
+
+nodist_polkitpolicy_DATA = \
+        $(polkitpolicy_in_files:.policy.in=.policy) \
+        $(polkitpolicy_in_in_files:.policy.in.in=.policy)
+
+EXTRA_DIST += \
+        $(polkitpolicy_in_files) \
+        $(polkitpolicy_in_in_files)
+
+@INTLTOOL_POLICY_RULE@
 
 noinst_LTLIBRARIES = \
 	libsystemd-basic.la \
-	libsystemd-core.la \
-	libsystemd-daemon.la
+	libsystemd-core.la
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
@@ -465,7 +630,8 @@ libsystemd_basic_la_CFLAGS = \
 	$(SELINUX_CFLAGS)
 
 libsystemd_basic_la_LIBADD = \
-	$(SELINUX_LIBS)
+	$(SELINUX_LIBS) \
+	$(CAP_LIBS)
 
 libsystemd_core_la_SOURCES = \
 	src/unit.c \
@@ -516,7 +682,17 @@ libsystemd_core_la_SOURCES = \
 	src/tcpwrap.c \
 	src/cgroup-util.c \
 	src/condition.c \
-        src/dbus-common.c
+        src/dbus-common.c \
+        src/sd-daemon.c \
+        src/install.c \
+        src/cgroup-attr.c
+
+nodist_libsystemd_core_la_SOURCES = \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c
+
+EXTRA_DIST += \
+        src/load-fragment-gperf.gperf.m4
 
 libsystemd_core_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -532,10 +708,8 @@ libsystemd_core_la_LIBADD = \
 	$(UDEV_LIBS) \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
-	$(AUDIT_LIBS)
-
-libsystemd_daemon_la_SOURCES = \
-	src/sd-daemon.c
+	$(AUDIT_LIBS) \
+	$(CAP_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.  We therefore can't
@@ -563,7 +737,18 @@ EXTRA_DIST += \
 	src/shutdownd.h \
 	src/umount.h \
 	src/readahead-common.h \
-	src/ask-password-api.h
+	src/ask-password-api.h \
+        src/pager.h \
+        src/sysfs-show.h \
+        src/polkit.h \
+        src/logind.h \
+        src/logind-device.h \
+        src/logind-seat.h \
+        src/logind-session.h \
+        src/logind-user.h \
+        src/logind-acl.h \
+        src/dbus-loop.h \
+        src/spawn-agent.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -599,8 +784,10 @@ MANPAGES = \
 	man/shutdown.8 \
 	man/pam_systemd.8 \
 	man/systemd.conf.5 \
+	man/systemd-logind.conf.5 \
 	man/tmpfiles.d.5 \
 	man/hostname.5 \
+        man/timezone.5 \
 	man/machine-id.5 \
 	man/vconsole.conf.5 \
 	man/locale.conf.5 \
@@ -608,7 +795,8 @@ MANPAGES = \
         man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
-        man/systemd-ask-password.1
+        man/systemd-ask-password.1 \
+        man/systemd-loginctl.1
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -736,11 +924,34 @@ test_strv_CFLAGS = \
 test_strv_LDADD = \
 	libsystemd-basic.la
 
-systemd_logger_SOURCES = \
-	src/logger.c \
+test_login_SOURCES = \
+	src/test-login.c
+
+test_login_CFLAGS = \
+	$(AM_CFLAGS)
+
+test_login_LDADD = \
+	libsystemd-basic.la \
+        libsystemd-login.la
+
+test_install_SOURCES = \
+	src/test-install.c \
+        src/install.c \
+        src/path-lookup.c \
+        src/unit-name.c
+
+test_install_CFLAGS = \
+	$(AM_CFLAGS) \
+        $(DBUS_CFLAGS)
+
+test_install_LDADD = \
+	libsystemd-basic.la
+
+systemd_stdout_syslog_bridge_SOURCES = \
+	src/stdout-syslog-bridge.c \
 	src/tcpwrap.c
 
-systemd_logger_LDADD = \
+systemd_stdout_syslog_bridge_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(LIBWRAP_LIBS)
@@ -795,7 +1006,8 @@ systemd_shutdownd_LDADD = \
 
 systemd_hostnamed_SOURCES = \
 	src/hostnamed.c \
-        src/dbus-common.c
+        src/dbus-common.c \
+        src/polkit.c
 
 systemd_hostnamed_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -805,6 +1017,91 @@ systemd_hostnamed_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+systemd_localed_SOURCES = \
+	src/localed.c \
+        src/dbus-common.c \
+        src/polkit.c
+
+systemd_localed_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_localed_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_timedated_SOURCES = \
+	src/timedated.c \
+        src/dbus-common.c \
+        src/polkit.c
+
+systemd_timedated_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_timedated_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS)
+
+systemd_logind_SOURCES = \
+	src/logind.c \
+	src/logind-dbus.c \
+        src/logind-device.c \
+        src/logind-seat.c \
+        src/logind-seat-dbus.c \
+        src/logind-session.c \
+        src/logind-session-dbus.c \
+        src/logind-user.c \
+        src/logind-user-dbus.c \
+        src/dbus-common.c \
+        src/dbus-loop.c \
+        src/cgroup-util.c \
+        src/polkit.c
+
+nodist_systemd_logind_SOURCES = \
+        src/logind-gperf.c
+
+EXTRA_DIST += \
+        src/logind-gperf.gperf
+
+systemd_logind_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+        $(UDEV_CFLAGS) \
+        $(ACL_CFLAGS)
+
+systemd_logind_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	$(DBUS_LIBS) \
+        $(UDEV_LIBS) \
+        $(ACL_LIBS)
+
+systemd_uaccess_SOURCES = \
+	src/uaccess.c
+
+if HAVE_ACL
+systemd_logind_SOURCES += \
+	src/logind-acl.c
+
+systemd_uaccess_SOURCES += \
+	src/logind-acl.c
+endif
+
+systemd_uaccess_CFLAGS = \
+	$(AM_CFLAGS) \
+        $(UDEV_CFLAGS) \
+        $(ACL_CFLAGS)
+
+systemd_uaccess_LDADD = \
+	libsystemd-basic.la \
+	libsystemd-daemon.la \
+	libsystemd-login.la \
+        $(UDEV_LIBS) \
+        $(ACL_LIBS)
 
 systemd_shutdown_SOURCES = \
 	src/mount-setup.c \
@@ -1012,7 +1309,10 @@ systemctl_SOURCES = \
 	src/cgroup-show.c \
 	src/cgroup-util.c \
 	src/exit-status.c \
-	src/unit-name.c
+	src/unit-name.c \
+        src/pager.c \
+        src/install.c \
+        src/spawn-agent.c
 
 systemctl_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -1022,6 +1322,24 @@ systemctl_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+systemd_loginctl_SOURCES = \
+	src/loginctl.c \
+	src/dbus-common.c \
+	src/cgroup-show.c \
+	src/cgroup-util.c \
+        src/pager.c \
+        src/sysfs-show.c
+
+systemd_loginctl_CFLAGS = \
+	$(AM_CFLAGS) \
+	$(DBUS_CFLAGS) \
+        $(UDEV_CFLAGS)
+
+systemd_loginctl_LDADD = \
+	libsystemd-basic.la \
+	$(DBUS_LIBS) \
+        $(UDEV_LIBS)
 
 systemd_notify_SOURCES = \
 	src/notify.c \
@@ -1071,7 +1389,8 @@ systemd_readahead_replay_LDADD = \
 systemd_cgls_SOURCES = \
 	src/cgls.c \
 	src/cgroup-show.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+        src/pager.c
 
 systemd_cgls_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1081,7 +1400,8 @@ systemd_cgls_LDADD = \
 
 systemd_nspawn_SOURCES = \
 	src/nspawn.c \
-	src/cgroup-util.c
+	src/cgroup-util.c \
+        src/loopback-setup.c
 
 systemd_nspawn_CFLAGS = \
 	$(AM_CFLAGS)
@@ -1155,10 +1475,12 @@ systemd_tty_ask_password_agent_LDADD = \
 
 pam_systemd_la_SOURCES = \
 	src/pam-module.c \
-	src/cgroup-util.c
+        src/dbus-common.c
 
 pam_systemd_la_CFLAGS = \
-	$(AM_CFLAGS)
+	$(AM_CFLAGS) \
+        $(PAM_CFLAGS) \
+        $(DBUS_CFLAGS) \
 	-fvisibility=hidden
 
 pam_systemd_la_LDFLAGS = \
@@ -1171,7 +1493,63 @@ pam_systemd_la_LDFLAGS = \
 pam_systemd_la_LIBADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
-	$(PAM_LIBS)
+	$(PAM_LIBS) \
+        $(DBUS_LIBS)
+
+libsystemd_daemon_la_SOURCES = \
+	src/sd-daemon.c
+
+libsystemd_daemon_la_CFLAGS = \
+        $(AM_CFLAGS) \
+	-fvisibility=hidden \
+        -DSD_EXPORT_SYMBOLS
+
+libsystemd_daemon_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_DAEMON_CURRENT):$(LIBSYSTEMD_DAEMON_REVISION):$(LIBSYSTEMD_DAEMON_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-daemon.sym
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-daemon-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-daemon.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-daemon.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-daemon.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-daemon-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-daemon.so*
+
+libsystemd_login_la_SOURCES = \
+        src/sd-login.c \
+        src/cgroup-util.c
+
+libsystemd_login_la_CFLAGS = \
+        $(AM_CFLAGS) \
+	-fvisibility=hidden
+
+libsystemd_login_la_LDFLAGS = \
+        -shared \
+        -version-info $(LIBSYSTEMD_LOGIN_CURRENT):$(LIBSYSTEMD_LOGIN_REVISION):$(LIBSYSTEMD_LOGIN_AGE) \
+        -Wl,--version-script=$(top_srcdir)/src/libsystemd-login.sym
+
+libsystemd_login_la_LIBADD = \
+	libsystemd-basic.la
+
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
+libsystemd-login-install-hook:
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libsystemd-login.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libsystemd-login.so && \
+		mv $(DESTDIR)$(libdir)/libsystemd-login.so.* $(DESTDIR)$(rootlibdir); \
+	fi
+
+libsystemd-login-uninstall-hook:
+	rm -f $(DESTDIR)$(rootlibdir)/libsystemd-login.so*
 
 SED_PROCESS = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
@@ -1189,6 +1567,9 @@ SED_PROCESS = \
 		-e 's,@PACKAGE_NAME\@,$(PACKAGE_NAME),g' \
 		-e 's,@PACKAGE_URL\@,$(PACKAGE_URL),g' \
 		-e 's,@prefix\@,$(prefix),g' \
+		-e 's,@exec_prefix\@,$(exec_prefix),g' \
+		-e 's,@libdir\@,$(libdir),g' \
+		-e 's,@includedir\@,$(includedir),g' \
 		< $< > $@ || rm $@
 
 units/%: units/%.in Makefile
@@ -1200,16 +1581,31 @@ man/%: man/%.in Makefile
 %.pc: %.pc.in Makefile
 	$(SED_PROCESS)
 
-src/%.policy: src/%.policy.in Makefile
+src/%.policy.in: src/%.policy.in.in Makefile
 	$(SED_PROCESS)
+
+src/%.rules: src/%.rules.in Makefile
+	$(SED_PROCESS)
+
+src/%.c: src/%.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(GPERF) < $< > $@
+
+src/%: src/%.m4
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+	$(M4) -P $(M4_DEFINES) < $< > $@ || rm $@
+
+src/load-fragment-gperf-nulstr.c: src/load-fragment-gperf.gperf
+	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
+        $(AWK) 'BEGIN{ keywords=0 ; FS="," ; print "extern const char load_fragment_gperf_nulstr[];" ; print "const char load_fragment_gperf_nulstr[] ="} ; keyword==1 { print "\"" $$1 "\\0\"" } ; /%%/ { keyword=1} ; END { print ";" }' < $< > $@ || rm $@
 
 M4_PROCESS_SYSTEM = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_SYSTEM=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_SYSTEM=1 < $< > $@ || rm $@
 
 M4_PROCESS_USER = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(M4) -P $(M4_DISTRO_FLAG) -DFOR_USER=1 < $< > $@ || rm $@
+	$(M4) -P $(M4_DEFINES) -DFOR_USER=1 < $< > $@ || rm $@
 
 units/%: units/%.m4 Makefile
 	$(M4_PROCESS_SYSTEM)
@@ -1223,7 +1619,14 @@ CLEANFILES = \
 	$(nodist_man_MANS) \
 	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
-	src/org.freedesktop.systemd1.policy
+	$(pkgconfiglib_DATA) \
+	$(nodist_polkitpolicy_DATA) \
+        src/73-seat-late.rules \
+        src/99-systemd.rules \
+        src/load-fragment-gperf.gperf \
+        src/load-fragment-gperf.c \
+        src/load-fragment-gperf-nulstr.c \
+        src/logind-gperf.c
 
 if HAVE_VALAC
 CLEANFILES += \
@@ -1299,7 +1702,22 @@ endif
 DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
 
 org.freedesktop.systemd1.%.xml: systemd
-	$(AM_V_GEN)$(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.$* $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+org.freedesktop.hostname1.xml: systemd-hostnamed
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.hostname1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+org.freedesktop.locale1.xml: systemd-localed
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.locale1 $< $@.tmp && \
+		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
+		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
+
+org.freedesktop.timedate1.xml: systemd-timedated
+	$(AM_V_GEN)$(LIBTOOL) --mode=execute $(OBJCOPY) -O binary -j introspect.timedate1 $< $@.tmp && \
 		$(STRINGS) $@.tmp | $(AWK) -f $(srcdir)/introspect.awk | \
 		$(DBUS_PREPROCESS) -o $@ - && rm $@.tmp
 
@@ -1349,8 +1767,8 @@ endif
 		rm -f user && \
 		$(LN_S) $(pkgsysconfdir)/user user )
 	( cd $(DESTDIR)$(systemunitdir)/sockets.target.wants && \
-		rm -f systemd-initctl.socket systemd-logger.socket systemd-shutdownd.socket syslog.socket && \
-		$(LN_S) ../systemd-logger.socket systemd-logger.socket && \
+		rm -f systemd-initctl.socket systemd-stdout-syslog-bridge.socket systemd-shutdownd.socket syslog.socket && \
+		$(LN_S) ../systemd-stdout-syslog-bridge.socket systemd-stdout-syslog-bridge.socket && \
 		$(LN_S) ../systemd-initctl.socket systemd-initctl.socket && \
 		$(LN_S) ../systemd-shutdownd.socket systemd-shutdownd.socket && \
 		$(LN_S) ../syslog.socket syslog.socket )
@@ -1402,23 +1820,20 @@ endif
 		$(LN_S) graphical.target runlevel5.target && \
 		$(LN_S) reboot.target runlevel6.target )
 	( cd $(DESTDIR)$(systemunitdir) && \
-		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.hostname1.service && \
+		rm -f default.target ctrl-alt-del.target dbus-org.freedesktop.login1.service autovt@.service && \
 		$(LN_S) graphical.target default.target && \
 		$(LN_S) reboot.target ctrl-alt-del.target && \
-                $(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
+                $(LN_S) systemd-logind.service dbus-org.freedesktop.login1.service && \
+                $(LN_S) getty@.service autovt@.service )
 	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
-		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path && \
+		rm -f getty.target systemd-user-sessions.service systemd-ask-password-wall.path systemd-logind.service && \
 		$(LN_S) ../getty.target getty.target && \
 		$(LN_S) ../systemd-user-sessions.service systemd-user-sessions.service && \
-		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path )
+		$(LN_S) ../systemd-ask-password-wall.path systemd-ask-password-wall.path && \
+                $(LN_S) ../systemd-logind.service systemd-logind.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/getty.target.wants && \
-		rm -f getty@tty1.service getty@tty2.service getty@tty3.service getty@tty4.service getty@tty5.service getty@tty6.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty2.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty3.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty4.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty5.service && \
-		$(LN_S) $(systemunitdir)/getty@.service getty@tty6.service )
+		rm -f getty@tty1.service && \
+		$(LN_S) $(systemunitdir)/getty@.service getty@tty1.service )
 	( cd $(DESTDIR)$(pkgsysconfdir)/system/multi-user.target.wants && \
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
@@ -1453,6 +1868,21 @@ if ENABLE_BINFMT
 			proc-sys-fs-binfmt_misc.automount && \
 		$(LN_S) ../systemd-binfmt.service systemd-binfmt.service && \
 		$(LN_S) ../proc-sys-fs-binfmt_misc.automount proc-sys-fs-binfmt_misc.automount )
+endif
+if ENABLE_HOSTNAMED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.hostname1.service && \
+		$(LN_S) systemd-hostnamed.service dbus-org.freedesktop.hostname1.service )
+endif
+if ENABLE_TIMEDATED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.timedate1.service  && \
+                $(LN_S) systemd-timedated.service dbus-org.freedesktop.timedate1.service )
+endif
+if ENABLE_LOCALED
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f dbus-org.freedesktop.locale1.service && \
+                $(LN_S) systemd-localed.service dbus-org.freedesktop.locale1.service )
 endif
 	( cd $(DESTDIR)$(systemunitdir)/basic.target.wants && \
 		rm -f systemd-tmpfiles-clean.timer && \
@@ -1544,11 +1974,28 @@ if TARGET_DEBIAN_OR_UBUNTU
 		$(LN_S) multi-user.target runlevel5.target )
 endif
 
+if TARGET_SUSE
+	$(MKDIR_P) -m 0755 $(DESTDIR)$(systemunitdir)/final.target.wants
+	( cd $(DESTDIR)$(systemunitdir)/multi-user.target.wants && \
+		rm -f rc-local.service && \
+		$(LN_S) $(systemunitdir)/rc-local.service rc-local.service )
+	( cd $(DESTDIR)$(systemunitdir) && \
+		rm -f local.service && \
+		$(LN_S) rc-local.service local.service )
+	( cd $(DESTDIR)$(systemunitdir)/final.target.wants && \
+		rm -f halt-local.service && \
+		$(LN_S) $(systemunitdir)/halt-local.service halt-local.service )
+endif
+
 if HAVE_SYSV_COMPAT
 	( cd $(DESTDIR)$(systemunitdir)/local-fs.target.wants && \
 		rm -f var-lock.mount && \
 		$(LN_S) ../var-lock.mount var-lock.mount )
 endif
+
+install-exec-hook: libsystemd-daemon-install-hook libsystemd-login-install-hook
+
+uninstall-hook: libsystemd-daemon-uninstall-hook libsystemd-login-uninstall-hook
 
 DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbuspolicydir=$$dc_install_base/$(dbuspolicydir) \

@@ -35,11 +35,12 @@ typedef struct ExecContext ExecContext;
 #include <sched.h>
 
 struct CGroupBonding;
+struct CGroupAttribute;
 
 #include "list.h"
 #include "util.h"
 
-#define LOGGER_SOCKET "/run/systemd/logger"
+#define STDOUT_SYSLOG_BRIDGE_SOCKET "/run/systemd/stdout-syslog-bridge"
 
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,
@@ -159,6 +160,9 @@ struct ExecContext {
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
         bool private_tmp;
+        bool private_network;
+
+        bool control_group_modify;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn
@@ -184,6 +188,7 @@ int exec_spawn(ExecCommand *command,
                bool apply_tty_stdin,
                bool confirm_spawn,
                struct CGroupBonding *cgroup_bondings,
+               struct CGroupAttribute *cgroup_attributes,
                pid_t *ret);
 
 void exec_command_done(ExecCommand *c);

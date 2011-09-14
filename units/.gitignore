@@ -1,3 +1,7 @@
+user@.service
+systemd-logind.service
+systemd-localed.service
+systemd-timedated.service
 systemd-hostnamed.service
 console-shell.service
 systemd-sysctl.service
@@ -29,7 +33,7 @@ systemd-shutdownd.service
 systemd-random-seed-load.service
 systemd-random-seed-save.service
 systemd-initctl.service
-systemd-logger.service
+systemd-stdout-syslog-bridge.service
 getty@.service
 systemd-update-utmp-runlevel.service
 systemd-update-utmp-shutdown.service

@@ -43,9 +43,9 @@ _systemctl () {
 
         local -A OPTS=(
                [STANDALONE]='--all -a --defaults --fail --ignore-dependencies --failed --force -f --full --global
-                             --help -h --no-ask-password --no-block --no-reload --no-wall
-                             --order --require --quiet -q --system --user --version'
-                      [ARG]='--kill-mode --kill-who --property -p --signal -s --type -t'
+                             --help -h --no-ask-password --no-block --no-pager --no-reload --no-wall
+                             --order --require --quiet -q --privileged -P --system --user --version'
+                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t'
         )
 
         if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -62,7 +62,7 @@ _systemctl () {
                         --kill-mode)
                                 comps='control-group process'
                         ;;
-                        --property|-p)
+                        --property|-p|--host|-H)
                                 comps=''
                         ;;
                 esac
@@ -79,10 +79,11 @@ _systemctl () {
         local -A VERBS=(
                 [ALL_UNITS]='enable disable is-active is-enabled status show'
              [FAILED_UNITS]='reset-failed'
-          [STARTABLE_UNITS]='start restart reload-or-restart'
+          [STARTABLE_UNITS]='start'
           [STOPPABLE_UNITS]='stop kill try-restart condrestart'
          [ISOLATABLE_UNITS]='isolate'
          [RELOADABLE_UNITS]='reload reload-or-try-restart force-reload'
+          [RESTARTABLE_UNITS]='restart reload-or-restart'
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
@@ -109,6 +110,10 @@ _systemctl () {
         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStart yes \
                       $( __get_inactive_units | grep -Ev '\.(device|snapshot)$' ))
+
+        elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
+                comps=$( __filter_units_by_property CanStart yes \
+                      $( __get_all_units | grep -Ev '\.(device|snapshot|socket|timer)$' ))
 
         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
                 comps=$( __filter_units_by_property CanStop yes \

@@ -41,13 +41,13 @@ int cgroup_bonding_realize(CGroupBonding *b) {
         if (b->realized)
                 return 0;
 
-        if ((r = cg_create(b->controller, b->path)) < 0)
+        r = cg_create(b->controller, b->path);
+        if (r < 0) {
+                log_warning("Failed to create cgroup %s:%s: %s", b->controller, b->path, strerror(-r));
                 return r;
+        }
 
         b->realized = true;
-
-        if (b->ours)
-                cg_trim(b->controller, b->path, false);
 
         return 0;
 }
@@ -140,12 +140,56 @@ int cgroup_bonding_install_list(CGroupBonding *first, pid_t pid) {
         return 0;
 }
 
+int cgroup_bonding_set_group_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+        assert(b);
+
+        if (!b->realized)
+                return -EINVAL;
+
+        return cg_set_group_access(b->controller, b->path, mode, uid, gid);
+}
+
+int cgroup_bonding_set_group_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+        CGroupBonding *b;
+        int r;
+
+        LIST_FOREACH(by_unit, b, first) {
+                r = cgroup_bonding_set_group_access(b, mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+        assert(b);
+
+        if (!b->realized)
+                return -EINVAL;
+
+        return cg_set_task_access(b->controller, b->path, mode, uid, gid);
+}
+
+int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+        CGroupBonding *b;
+        int r;
+
+        LIST_FOREACH(by_unit, b, first) {
+                r = cgroup_bonding_set_task_access(b, mode, uid, gid);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int cgroup_bonding_kill(CGroupBonding *b, int sig, bool sigcont, Set *s) {
         assert(b);
         assert(sig >= 0);
 
         /* Don't kill cgroups that aren't ours */
-        if (!b->realized || !b->ours)
+        if (!b->ours)
                 return 0;
 
         return cg_kill_recursive(b->controller, b->path, sig, sigcont, true, false, s);
@@ -226,7 +270,7 @@ int manager_setup_cgroup(Manager *m) {
         assert(m);
 
         /* 0. Be nice to Ingo Molnar #628004 */
-        if (path_is_mount_point("/sys/fs/cgroup/systemd") <= 0) {
+        if (path_is_mount_point("/sys/fs/cgroup/systemd", false) <= 0) {
                 log_warning("No control group support available, not creating root group.");
                 return 0;
         }

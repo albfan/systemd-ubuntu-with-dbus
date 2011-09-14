@@ -53,6 +53,22 @@ int user_config_home(char **config_home) {
 }
 
 static char** user_dirs(void) {
+        const char * const config_unit_paths[] = {
+                "/run/systemd/user",
+                USER_CONFIG_UNIT_PATH,
+                "/etc/systemd/user",
+                NULL
+        };
+
+        const char * const data_unit_paths[] = {
+                "/usr/local/lib/systemd/user",
+                "/usr/local/share/systemd/user",
+                USER_DATA_UNIT_PATH,
+                "/usr/lib/systemd/user",
+                "/usr/share/systemd/user",
+                NULL
+        };
+
         const char *home, *e;
         char *config_home = NULL, *data_home = NULL;
         char **config_dirs = NULL, **data_dirs = NULL;
@@ -103,9 +119,7 @@ static char** user_dirs(void) {
                 data_dirs = strv_split(e, ":");
         else
                 data_dirs = strv_new("/usr/local/share",
-                                     "/usr/local/lib",
                                      "/usr/share",
-                                     "/usr/lib",
                                      NULL);
 
         if (!data_dirs)
@@ -119,12 +133,14 @@ static char** user_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
-                goto finish;
-        strv_free(r);
-        r = t;
+        if (!strv_isempty(config_dirs)) {
+                if (!(t = strv_merge_concat(r, config_dirs, "/systemd/user")))
+                        goto finish;
+                strv_free(r);
+                r = t;
+        }
 
-        if (!(t = strv_append(r, USER_CONFIG_UNIT_PATH)))
+        if (!(t = strv_merge(r, (char**) config_unit_paths)))
                 goto fail;
         strv_free(r);
         r = t;
@@ -136,12 +152,14 @@ static char** user_dirs(void) {
                 r = t;
         }
 
-        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
-                goto fail;
-        strv_free(r);
-        r = t;
+        if (!strv_isempty(data_dirs)) {
+                if (!(t = strv_merge_concat(r, data_dirs, "/systemd/user")))
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
 
-        if (!(t = strv_append(r, USER_DATA_UNIT_PATH)))
+        if (!(t = strv_merge(r, (char**) data_unit_paths)))
                 goto fail;
         strv_free(r);
         r = t;
@@ -163,7 +181,7 @@ fail:
         goto finish;
 }
 
-int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
+int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal) {
         const char *e;
         char *t;
 
@@ -181,8 +199,27 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                 strv_free(p->unit_path);
 
                 if (running_as == MANAGER_USER) {
-                        if (!(p->unit_path = user_dirs()))
+
+                        if (personal)
+                                p->unit_path = user_dirs();
+                        else
+                                p->unit_path = strv_new(
+                                                /* If you modify this you also want to modify
+                                                 * systemduserunitpath= in systemd.pc.in, and
+                                                 * the arrays in user_dirs() above! */
+                                                "/run/systemd/user",
+                                                USER_CONFIG_UNIT_PATH,
+                                                "/etc/systemd/user",
+                                                "/usr/local/lib/systemd/user",
+                                                "/usr/local/share/systemd/user",
+                                                USER_DATA_UNIT_PATH,
+                                                "/usr/lib/systemd/user",
+                                                "/usr/share/systemd/user",
+                                                NULL);
+
+                        if (!p->unit_path)
                                 return -ENOMEM;
+
                 } else
                         if (!(p->unit_path = strv_new(
                                               /* If you modify this you also want to modify
@@ -192,8 +229,8 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as) {
                                               "/etc/systemd/system",
                                               "/usr/local/lib/systemd/system",
                                               "/usr/lib/systemd/system",
-                                              "/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+                                              "/lib/systemd/system",
                                               NULL)))
                                 return -ENOMEM;
         }

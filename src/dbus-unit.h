@@ -85,6 +85,7 @@
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SubState\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"UnitFileState\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"InactiveExitTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"InactiveExitTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>\n" \
@@ -108,11 +109,13 @@
         "  <property name=\"IgnoreOnSnapshot\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"ControlGroup\" type=\"as\" access=\"read\"/>\n" \
+        "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
         "  <property name=\"NeedDaemonReload\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"JobTimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
@@ -143,6 +146,7 @@
         { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state,   "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,      "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,     "s",    u->meta.fragment_path             }, \
+        { "org.freedesktop.systemd1.Unit", "UnitFileState",        bus_unit_append_file_state,     "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "InactiveExitTimestamp",bus_property_append_usec,       "t",    &u->meta.inactive_exit_timestamp.realtime }, \
         { "org.freedesktop.systemd1.Unit", "InactiveExitTimestampMonotonic",bus_property_append_usec, "t", &u->meta.inactive_exit_timestamp.monotonic }, \
         { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_usec,       "t",    &u->meta.active_enter_timestamp.realtime }, \
@@ -166,11 +170,13 @@
         { "org.freedesktop.systemd1.Unit", "IgnoreOnSnapshot",     bus_property_append_bool,       "b",    &u->meta.ignore_on_snapshot       }, \
         { "org.freedesktop.systemd1.Unit", "DefaultControlGroup",  bus_unit_append_default_cgroup, "s",    u                                 }, \
         { "org.freedesktop.systemd1.Unit", "ControlGroup",         bus_unit_append_cgroups,        "as",   u                                 }, \
+        { "org.freedesktop.systemd1.Unit", "ControlGroupAttributes", bus_unit_append_cgroup_attrs, "a(sss)", u                               }, \
         { "org.freedesktop.systemd1.Unit", "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", u                                }, \
         { "org.freedesktop.systemd1.Unit", "JobTimeoutUSec",       bus_property_append_usec,       "t",    &u->meta.job_timeout              }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestamp",   bus_property_append_usec,       "t",    &u->meta.condition_timestamp.realtime }, \
         { "org.freedesktop.systemd1.Unit", "ConditionTimestampMonotonic", bus_property_append_usec,"t",    &u->meta.condition_timestamp.monotonic }, \
-        { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }
+        { "org.freedesktop.systemd1.Unit", "ConditionResult",      bus_property_append_bool,       "b",    &u->meta.condition_result         }, \
+        { "org.freedesktop.systemd1.Unit", "LoadError",            bus_unit_append_load_error,     "(ss)", u                                 }
 
 int bus_unit_append_names(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_following(DBusMessageIter *i, const char *property, void *data);
@@ -179,6 +185,7 @@ int bus_unit_append_description(DBusMessageIter *i, const char *property, void *
 int bus_unit_append_load_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_active_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_sub_state(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_file_state(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_start(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_stop(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_can_reload(DBusMessageIter *i, const char *property, void *data);
@@ -186,7 +193,9 @@ int bus_unit_append_can_isolate(DBusMessageIter *i, const char *property, void *
 int bus_unit_append_job(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data);
 int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data);
+int bus_unit_append_load_error(DBusMessageIter *i, const char *property, void *data);
 
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);

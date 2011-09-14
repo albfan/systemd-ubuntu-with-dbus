@@ -39,6 +39,7 @@ typedef enum UnitDependency UnitDependency;
 #include "socket-util.h"
 #include "execute.h"
 #include "condition.h"
+#include "install.h"
 
 enum UnitType {
         UNIT_SERVICE = 0,
@@ -129,6 +130,7 @@ enum UnitDependency {
 #include "manager.h"
 #include "job.h"
 #include "cgroup.h"
+#include "cgroup-attr.h"
 
 struct Meta {
         Manager *manager;
@@ -166,9 +168,10 @@ struct Meta {
 
         /* Counterparts in the cgroup filesystem */
         CGroupBonding *cgroup_bondings;
+        CGroupAttribute *cgroup_attributes;
 
         /* Per type list */
-        LIST_FIELDS(Meta, units_per_type);
+        LIST_FIELDS(Meta, units_by_type);
 
         /* Load queue */
         LIST_FIELDS(Meta, load_queue);
@@ -191,6 +194,9 @@ struct Meta {
 
         /* Error code when we didn't manage to load the unit (negative) */
         int load_error;
+
+        /* Cached unit file state */
+        UnitFileState unit_file_state;
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
@@ -259,6 +265,10 @@ union Unit {
 struct UnitVTable {
         const char *suffix;
 
+        /* Config file sections this unit type understands, separated
+         * by NUL chars */
+        const char *sections;
+
         /* This should reset all type-specific variables. This should
          * not allocate memory, and is called with zero-initialized
          * data. It should hence only initialize variables that need
@@ -316,6 +326,9 @@ struct UnitVTable {
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
+
+        /* Check whether unit needs a daemon reload */
+        bool (*need_daemon_reload)(Unit *u);
 
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);
@@ -421,6 +434,7 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
 int unit_add_default_cgroups(Unit *u);
 CGroupBonding* unit_get_default_cgroup(Unit *u);
+int unit_add_cgroup_attribute(Unit *u, const char *controller, const char *name, const char *value, CGroupAttributeMapCallback map_callback);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
@@ -519,6 +533,8 @@ bool unit_name_is_valid(const char *n, bool template_ok);
 void unit_trigger_on_failure(Unit *u);
 
 bool unit_condition_test(Unit *u);
+
+UnitFileState unit_get_unit_file_state(Unit *u);
 
 const char *unit_load_state_to_string(UnitLoadState i);
 UnitLoadState unit_load_state_from_string(const char *s);

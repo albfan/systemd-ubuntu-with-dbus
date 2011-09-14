@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <dbus/dbus.h>
 #include <string.h>
+#include <sys/epoll.h>
 
 #include "log.h"
 #include "dbus-common.h"
@@ -54,7 +55,7 @@ int bus_check_peercred(DBusConnection *c) {
                 return -E2BIG;
         }
 
-        if (ucred.uid != 0)
+        if (ucred.uid != 0 && ucred.uid != geteuid())
                 return -EPERM;
 
         return 1;
@@ -97,27 +98,53 @@ static int sync_auth(DBusConnection *bus, DBusError *error) {
         return 0;
 }
 
-int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *error) {
-        DBusConnection *bus;
+int bus_connect(DBusBusType t, DBusConnection **_bus, bool *_private, DBusError *error) {
+        DBusConnection *bus = NULL;
         int r;
+        bool private = true;
 
         assert(_bus);
 
-        /* If we are root, then let's not go via the bus */
         if (geteuid() == 0 && t == DBUS_BUS_SYSTEM) {
+                /* If we are root, then let's talk directly to the
+                 * system instance, instead of going via the bus */
 
-                if (!(bus = dbus_connection_open_private("unix:path=/run/systemd/private", error))) {
-#ifndef LEGACY
-                        dbus_error_free(error);
+                bus = dbus_connection_open_private("unix:path=/run/systemd/private", error);
+                if (!bus)
+                        return -EIO;
 
-                        /* Retry with the pre v21 socket name, to ease upgrades */
-                        if (!(bus = dbus_connection_open_private("unix:abstract=/org/freedesktop/systemd1/private", error)))
-#endif
-                                return -EIO;
+        } else {
+                if (t == DBUS_BUS_SESSION) {
+                        const char *e;
+
+                        /* If we are supposed to talk to the instance,
+                         * try via XDG_RUNTIME_DIR first, then
+                         * fallback to normal bus access */
+
+                        e = getenv("XDG_RUNTIME_DIR");
+                        if (e) {
+                                char *p;
+
+                                if (asprintf(&p, "unix:path=%s/systemd/private", e) < 0)
+                                        return -ENOMEM;
+
+                                bus = dbus_connection_open_private(p, NULL);
+                                free(p);
+                        }
                 }
 
-                dbus_connection_set_exit_on_disconnect(bus, FALSE);
+                if (!bus) {
+                        bus = dbus_bus_get_private(t, error);
+                        if (!bus)
+                                return -EIO;
 
+                        private = false;
+                }
+        }
+
+        dbus_connection_set_exit_on_disconnect(bus, FALSE);
+
+        if (private) {
                 if (bus_check_peercred(bus) < 0) {
                         dbus_connection_close(bus);
                         dbus_connection_unref(bus);
@@ -125,25 +152,17 @@ int bus_connect(DBusBusType t, DBusConnection **_bus, bool *private, DBusError *
                         dbus_set_error_const(error, DBUS_ERROR_ACCESS_DENIED, "Failed to verify owner of bus.");
                         return -EACCES;
                 }
-
-                if (private)
-                        *private = true;
-
-        } else {
-                if (!(bus = dbus_bus_get_private(t, error)))
-                        return -EIO;
-
-                dbus_connection_set_exit_on_disconnect(bus, FALSE);
-
-                if (private)
-                        *private = false;
         }
 
-        if ((r = sync_auth(bus, error)) < 0) {
+        r = sync_auth(bus, error);
+        if (r < 0) {
                 dbus_connection_close(bus);
                 dbus_connection_unref(bus);
                 return r;
         }
+
+        if (_private)
+                *_private = private;
 
         *_bus = bus;
         return 0;
@@ -462,23 +481,12 @@ int bus_property_append_string(DBusMessageIter *i, const char *property, void *d
 }
 
 int bus_property_append_strv(DBusMessageIter *i, const char *property, void *data) {
-        DBusMessageIter sub;
         char **t = data;
 
         assert(i);
         assert(property);
 
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
-                return -ENOMEM;
-
-        STRV_FOREACH(t, t)
-                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, t))
-                        return -ENOMEM;
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
+        return bus_append_strv_iter(i, t);
 }
 
 int bus_property_append_bool(DBusMessageIter *i, const char *property, void *data) {
@@ -502,7 +510,7 @@ int bus_property_append_uint64(DBusMessageIter *i, const char *property, void *d
         assert(property);
         assert(data);
 
-        /* Let's ensure that pid_t is actually 64bit, and hence this
+        /* Let's ensure that usec_t is actually 64bit, and hence this
          * function can be used for usec_t */
         assert_cc(sizeof(uint64_t) == sizeof(usec_t));
 
@@ -517,11 +525,14 @@ int bus_property_append_uint32(DBusMessageIter *i, const char *property, void *d
         assert(property);
         assert(data);
 
-        /* Let's ensure that pid_t and mode_t is actually 32bit, and
-         * hence this function can be used for pid_t/mode_t */
+        /* Let's ensure that pid_t, mode_t, uid_t, gid_t are actually
+         * 32bit, and hence this function can be used for
+         * pid_t/mode_t/uid_t/gid_t */
         assert_cc(sizeof(uint32_t) == sizeof(pid_t));
         assert_cc(sizeof(uint32_t) == sizeof(mode_t));
         assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+        assert_cc(sizeof(uint32_t) == sizeof(uid_t));
+        assert_cc(sizeof(uint32_t) == sizeof(gid_t));
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, data))
                 return -ENOMEM;
@@ -697,4 +708,266 @@ oom:
                 dbus_message_unref(m);
 
         return NULL;
+}
+
+uint32_t bus_flags_to_events(DBusWatch *bus_watch) {
+        unsigned flags;
+        uint32_t events = 0;
+
+        assert(bus_watch);
+
+        /* no watch flags for disabled watches */
+        if (!dbus_watch_get_enabled(bus_watch))
+                return 0;
+
+        flags = dbus_watch_get_flags(bus_watch);
+
+        if (flags & DBUS_WATCH_READABLE)
+                events |= EPOLLIN;
+        if (flags & DBUS_WATCH_WRITABLE)
+                events |= EPOLLOUT;
+
+        return events | EPOLLHUP | EPOLLERR;
+}
+
+unsigned bus_events_to_flags(uint32_t events) {
+        unsigned flags = 0;
+
+        if (events & EPOLLIN)
+                flags |= DBUS_WATCH_READABLE;
+        if (events & EPOLLOUT)
+                flags |= DBUS_WATCH_WRITABLE;
+        if (events & EPOLLHUP)
+                flags |= DBUS_WATCH_HANGUP;
+        if (events & EPOLLERR)
+                flags |= DBUS_WATCH_ERROR;
+
+        return flags;
+}
+
+int bus_parse_strv(DBusMessage *m, char ***_l) {
+        DBusMessageIter iter;
+
+        assert(m);
+        assert(_l);
+
+        if (!dbus_message_iter_init(m, &iter))
+                return -EINVAL;
+
+        return bus_parse_strv_iter(&iter, _l);
+}
+
+int bus_parse_strv_iter(DBusMessageIter *iter, char ***_l) {
+        DBusMessageIter sub;
+        unsigned n = 0, i = 0;
+        char **l;
+
+        assert(iter);
+        assert(_l);
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(iter) != DBUS_TYPE_STRING)
+            return -EINVAL;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                n++;
+                dbus_message_iter_next(&sub);
+        }
+
+        if (!(l = new(char*, n+1)))
+                return -ENOMEM;
+
+        dbus_message_iter_recurse(iter, &sub);
+
+        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                const char *s;
+
+                assert_se(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                dbus_message_iter_get_basic(&sub, &s);
+
+                if (!(l[i++] = strdup(s))) {
+                        strv_free(l);
+                        return -ENOMEM;
+                }
+
+                dbus_message_iter_next(&sub);
+        }
+
+        assert(i == n);
+        l[i] = NULL;
+
+        if (_l)
+                *_l = l;
+
+        return 0;
+}
+
+int bus_append_strv_iter(DBusMessageIter *iter, char **l) {
+        DBusMessageIter sub;
+
+        assert(iter);
+
+        if (!dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "s", &sub))
+                return -ENOMEM;
+
+        STRV_FOREACH(l, l)
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, l))
+                        return -ENOMEM;
+
+        if (!dbus_message_iter_close_container(iter, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_iter_get_basic_and_next(DBusMessageIter *iter, int type, void *data, bool next) {
+
+        assert(iter);
+        assert(data);
+
+        if (dbus_message_iter_get_arg_type(iter) != type)
+                return -EIO;
+
+        dbus_message_iter_get_basic(iter, data);
+
+        if (!dbus_message_iter_next(iter) != !next)
+                return -EIO;
+
+        return 0;
+}
+
+int generic_print_property(const char *name, DBusMessageIter *iter, bool all) {
+        assert(name);
+        assert(iter);
+
+        switch (dbus_message_iter_get_arg_type(iter)) {
+
+        case DBUS_TYPE_STRING: {
+                const char *s;
+                dbus_message_iter_get_basic(iter, &s);
+
+                if (all || !isempty(s))
+                        printf("%s=%s\n", name, s);
+
+                return 1;
+        }
+
+        case DBUS_TYPE_BOOLEAN: {
+                dbus_bool_t b;
+
+                dbus_message_iter_get_basic(iter, &b);
+                printf("%s=%s\n", name, yes_no(b));
+
+                return 1;
+        }
+
+        case DBUS_TYPE_UINT64: {
+                uint64_t u;
+                dbus_message_iter_get_basic(iter, &u);
+
+                /* Yes, heuristics! But we can change this check
+                 * should it turn out to not be sufficient */
+
+                if (endswith(name, "Timestamp")) {
+                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+
+                        t = format_timestamp(timestamp, sizeof(timestamp), u);
+                        if (t || all)
+                                printf("%s=%s\n", name, strempty(t));
+
+                } else if (strstr(name, "USec")) {
+                        char timespan[FORMAT_TIMESPAN_MAX];
+
+                        printf("%s=%s\n", name, format_timespan(timespan, sizeof(timespan), u));
+                } else
+                        printf("%s=%llu\n", name, (unsigned long long) u);
+
+                return 1;
+        }
+
+        case DBUS_TYPE_UINT32: {
+                uint32_t u;
+                dbus_message_iter_get_basic(iter, &u);
+
+                if (strstr(name, "UMask") || strstr(name, "Mode"))
+                        printf("%s=%04o\n", name, u);
+                else
+                        printf("%s=%u\n", name, (unsigned) u);
+
+                return 1;
+        }
+
+        case DBUS_TYPE_INT32: {
+                int32_t i;
+                dbus_message_iter_get_basic(iter, &i);
+
+                printf("%s=%i\n", name, (int) i);
+                return 1;
+        }
+
+        case DBUS_TYPE_DOUBLE: {
+                double d;
+                dbus_message_iter_get_basic(iter, &d);
+
+                printf("%s=%g\n", name, d);
+                return 1;
+        }
+
+        case DBUS_TYPE_ARRAY:
+
+                if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_STRING) {
+                        DBusMessageIter sub;
+                        bool space = false;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        if (all ||
+                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                printf("%s=", name);
+
+                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                        const char *s;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING);
+                                        dbus_message_iter_get_basic(&sub, &s);
+                                        printf("%s%s", space ? " " : "", s);
+
+                                        space = true;
+                                        dbus_message_iter_next(&sub);
+                                }
+
+                                puts("");
+                        }
+
+                        return 1;
+
+                } else if (dbus_message_iter_get_element_type(iter) == DBUS_TYPE_BYTE) {
+                        DBusMessageIter sub;
+
+                        dbus_message_iter_recurse(iter, &sub);
+                        if (all ||
+                            dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                printf("%s=", name);
+
+                                while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
+                                        uint8_t u;
+
+                                        assert(dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_BYTE);
+                                        dbus_message_iter_get_basic(&sub, &u);
+                                        printf("%02x", u);
+
+                                        dbus_message_iter_next(&sub);
+                                }
+
+                                puts("");
+                        }
+
+                        return 1;
+                }
+
+                break;
+        }
+
+        return 0;
 }

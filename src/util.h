@@ -75,6 +75,7 @@ typedef struct dual_timestamp {
 usec_t now(clockid_t clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
+dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 
 #define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
 
@@ -134,7 +135,10 @@ void close_many(const int fds[], unsigned n_fd);
 
 int parse_boolean(const char *v);
 int parse_usec(const char *t, usec_t *usec);
+int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
+int parse_uid(const char *s, uid_t* ret_uid);
+#define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
 
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
@@ -200,8 +204,9 @@ pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
 
 int write_one_line_file(const char *fn, const char *line);
+int write_one_line_file_atomic(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
-int read_full_file(const char *fn, char **contents);
+int read_full_file(const char *fn, char **contents, size_t *size);
 
 int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(const char *fname, char ***l);
@@ -215,6 +220,7 @@ char **replace_env_argv(char **argv, char **env);
 
 int readlink_malloc(const char *p, char **r);
 int readlink_and_make_absolute(const char *p, char **r);
+int readlink_and_canonicalize(const char *p, char **r);
 
 char *file_name_from_path(const char *p);
 bool is_path(const char *p);
@@ -268,6 +274,7 @@ bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
 
+bool dirent_is_file(struct dirent *de);
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
@@ -329,11 +336,12 @@ int default_signals(int sig, ...);
 int sigaction_many(const struct sigaction *sa, ...);
 
 int close_pipe(int p[]);
+int fopen_temporary(const char *path, FILE **_f, char **_temp_path);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
 
-int path_is_mount_point(const char *path);
+int path_is_mount_point(const char *path, bool allow_symlink);
 
 bool is_device_path(const char *path);
 
@@ -349,12 +357,14 @@ char* getlogname_malloc(void);
 int getttyname_malloc(int fd, char **r);
 int getttyname_harder(int fd, char **r);
 
-int get_ctty_devnr(dev_t *d);
-int get_ctty(char **r, dev_t *_devnr);
+int get_ctty_devnr(pid_t pid, dev_t *d);
+int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
-int rm_rf(const char *path, bool only_dirs, bool delete_root);
+int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
+
+int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
@@ -379,6 +389,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid);
 _noreturn_ void freeze(void);
 
 bool null_or_empty(struct stat *st);
+int null_or_empty_path(const char *fn);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
 
@@ -390,6 +401,7 @@ char *fstab_node_to_udev_node(const char *p);
 void filter_environ(const char *prefix);
 
 bool tty_is_vc(const char *tty);
+int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
 int detect_vm(const char **id);
@@ -417,6 +429,45 @@ int terminal_vhangup_fd(int fd);
 int terminal_vhangup(const char *name);
 
 int vt_disallocate(const char *name);
+
+int copy_file(const char *from, const char *to);
+int symlink_or_copy(const char *from, const char *to);
+int symlink_or_copy_atomic(const char *from, const char *to);
+
+int fchmod_umask(int fd, mode_t mode);
+
+int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+
+int hwclock_is_localtime(void);
+int hwclock_apply_localtime_delta(int *min);
+int hwclock_reset_localtime_delta(void);
+int hwclock_get_time(struct tm *tm);
+int hwclock_set_time(const struct tm *tm);
+
+int audit_session_from_pid(pid_t pid, uint32_t *id);
+
+bool display_is_local(const char *display);
+int socket_from_display(const char *display, char **path);
+
+int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home);
+int get_group_creds(const char **groupname, gid_t *gid);
+
+int glob_exists(const char *path);
+
+int dirent_ensure_type(DIR *d, struct dirent *de);
+
+int in_search_path(const char *path, char **search);
+int get_files_in_directory(const char *path, char ***list);
+
+char *join(const char *x, ...) _sentinel_;
+
+bool is_main_thread(void);
+
+bool in_charset(const char *s, const char* charset);
+
+int block_get_whole_disk(dev_t d, dev_t *ret);
+
+int file_is_sticky(const char *p);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
@@ -450,14 +501,9 @@ int signal_from_string(const char *s);
 
 int signal_from_string_try_harder(const char *s);
 
-int conf_files_list(char ***strv, const char *suffix, const char *dir, ...);
+extern int saved_argc;
+extern char **saved_argv;
 
-bool hwclock_is_localtime(void);
-
-int hwclock_apply_localtime_delta(void);
-
-int hwclock_get_time(struct tm *tm);
-
-int hwclock_set_time(const struct tm *tm);
+bool kexec_loaded(void);
 
 #endif
