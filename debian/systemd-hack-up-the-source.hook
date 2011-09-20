@@ -1,0 +1,9 @@
+#! /bin/sh
+
+set -e
+
+set -x
+
+find -name Makefile -type l -print -delete
+rm -r test1 test2 src/Makefile
+. /usr/share/gitpkg/hooks/quilt-patches-deb-export-hook
