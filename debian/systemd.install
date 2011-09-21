@@ -36,3 +36,5 @@ usr/lib/tmpfiles.d
 debian/init-functions lib/lsb
 debian/lib-init-rw.automount lib/systemd/system/
 debian/lib-init-rw.mount lib/systemd/system/
+debian/debian-fixup lib/systemd/
+debian/debian-fixup.service lib/systemd/system

@@ -3,6 +3,8 @@ systemd (35-1) UNRELEASED; urgency=low
   [ Tollef Fog Heen ]
   * New upstream release. Closes: #634618
     - Various man page fixes. Closes: #623521
+  * Add debian-fixup service that symlinks mtab to /proc/mounts and
+    migrates /var/run and /var/lock to symlinks to /run
 
   [ Michael Biebl ]
   * Build for libnotify 0.7.

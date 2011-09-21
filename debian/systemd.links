@@ -52,4 +52,7 @@
 # Mount /lib/init/rw during early startup
 /lib/systemd/system/lib-init-rw.automount /lib/systemd/system/local-fs.target.wants/lib-init-rw.automount
 
+# Run fixups early
+/lib/systemd/system/debian-fixup.service /lib/systemd/system/sysinit.target.wants/debian-fixup.service
+
 # TODO: mtab/udev-mtab (symlink /etc/mtab to /proc/self/mounts in postinst)

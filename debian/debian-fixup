@@ -1,0 +1,16 @@
+#! /bin/sh
+
+set -e
+
+if [ ! -L /etc/mtab ]; then
+    ln -sf /proc/mounts /etc/mtab
+fi
+if [ ! -L /var/run ]; then
+    rm -rf /var/run
+    ln -s /run /var/run
+fi
+if [ ! -L /var/lock ]; then
+    rm -rf /var/lock
+    ln -s /run/lock /var/lock
+fi
+exit 0
