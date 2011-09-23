@@ -6,10 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Debug File System Automount Point
+Description=Configuration File System
 DefaultDependencies=no
+ConditionPathExists=/sys/kernel/config
+After=systemd-modules-load.service
 Before=sysinit.target
-ConditionPathExists=/sys/kernel/debug
 
-[Automount]
-Where=/sys/kernel/debug
+[Mount]
+What=configfs
+Where=/sys/kernel/config
+Type=configfs

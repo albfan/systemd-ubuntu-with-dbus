@@ -288,13 +288,13 @@ int make_null_stdio(void);
 
 unsigned long long random_ull(void);
 
-#define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
-        const char *name##_to_string(type i) {                          \
+#define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
+        scope const char *name##_to_string(type i) {                    \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
                         return NULL;                                    \
                 return name##_table[i];                                 \
         }                                                               \
-        type name##_from_string(const char *s) {                        \
+        scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
                 unsigned u = 0;                                         \
                 assert(s);                                              \
@@ -309,6 +309,8 @@ unsigned long long random_ull(void);
         }                                                               \
         struct __useless_struct_to_allow_trailing_semicolon__
 
+#define DEFINE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) __DEFINE_STRING_TABLE_LOOKUP(name,type,static)
 
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
@@ -403,10 +405,6 @@ void filter_environ(const char *prefix);
 bool tty_is_vc(const char *tty);
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
-
-int detect_vm(const char **id);
-int detect_container(const char **id);
-int detect_virtualization(const char **id);
 
 void execute_directory(const char *directory, DIR *_d, char *argv[]);
 

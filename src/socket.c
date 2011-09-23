@@ -844,7 +844,7 @@ static int mq_address_create(
         fd = mq_open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_CREAT, mq_mode, attr);
         umask(old_mask);
 
-        if (fd < 0 && errno != EEXIST) {
+        if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -1961,6 +1961,12 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         LIST_FOREACH(port, p, s->ports)
                 if (p->fd >= 0)
                         rn_fds++;
+
+        if (rn_fds <= 0) {
+                *fds = NULL;
+                *n_fds = 0;
+                return 0;
+        }
 
         if (!(rfds = new(int, rn_fds)))
                 return -ENOMEM;

@@ -180,30 +180,86 @@
                 and no file by that name is found, systemd will look
                 for <filename>getty@.service</filename> and
                 instantiate a service from that configuration file if
-                it is found. To refer to the instance string from
+                it is found.</para>
+
+                <para>To refer to the instance string from
                 within the configuration file you may use the special
                 <literal>%i</literal> specifier in many of the
-                configuration options. Other specifiers that may be
-                used are <literal>%n</literal>, <literal>%N</literal>,
-                <literal>%p</literal>, <literal>%P</literal>,
-                <literal>%I</literal>, <literal>%f</literal>,
-                <literal>%c</literal>, <literal>%r</literal>,
-                <literal>%R</literal> and <literal>%t</literal> for
-                the full unit name, the unescaped unit name, the
-                prefix name, the unescaped prefix name, the unescaped
-                instance name, the unescaped filename, the control
-                group path of the unit, the root control group path of
-                systemd, and the parent directory of the root control
-                cgroup path of systemd and the runtime socket dir,
-                respectively. The unescaped filename is either the
-                unescaped instance name (if set) with / prepended (if
-                necessary), or the prefix name similarly prepended
-                with /. The prefix name here refers to the string
-                before the @, i.e. "getty" in the example above, where
-                "tty3" is the instance name. The runtime socket
-                directory is either <filename>/run</filename> (for the
-                system manager) or <literal>$XDG_RUNTIME_DIR</literal>
-                (for user managers).</para>
+                configuration options. Other specifiers exist, the
+                full list is:</para>
+
+                <table>
+                  <title>Specifiers available in unit files</title>
+                  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                    <colspec colname="spec" />
+                    <colspec colname="mean" />
+                    <colspec colname="detail" />
+                    <thead>
+                      <row>
+                        <entry>Specifier</entry>
+                        <entry>Meaning</entry>
+                        <entry>Details</entry>
+                      </row>
+                    </thead>
+                    <tbody>
+                      <row>
+                        <entry><literal>%n</literal></entry>
+                        <entry>Full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%N</literal></entry>
+                        <entry>Unescaped full unit name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%p</literal></entry>
+                        <entry>Prefix name</entry>
+                        <entry>This refers to the string before the @, i.e. "getty" in the example above, where "tty3" is the instance name.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%P</literal></entry>
+                        <entry>Unescaped prefix name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%i</literal></entry>
+                        <entry>Instance name</entry>
+                        <entry>This is the string between the @ character and the suffix.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%I</literal></entry>
+                        <entry>Unescaped instance name</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%f</literal></entry>
+                        <entry>Unescaped file name</entry>
+                        <entry>This is either the unescaped instance name (if set) with / prepended (if necessary), or the prefix name similarly prepended with /.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%c</literal></entry>
+                        <entry>Control group path of the unit</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%r</literal></entry>
+                        <entry>Root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%R</literal></entry>
+                        <entry>Parent directory of the root control group path of systemd</entry>
+                        <entry></entry>
+                      </row>
+                      <row>
+                        <entry><literal>%t</literal></entry>
+                        <entry>Runtime socket dir</entry>
+                        <entry>This is either /run (for the system manager) or $XDG_RUNTIME_DIR (for user managers).</entry>
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
 
                 <para>If a unit file is empty (i.e. has the file size
                 0) or is symlinked to <filename>/dev/null</filename>
@@ -609,6 +665,8 @@
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
+                                <term><varname>ConditionPathIsSymbolicLink=</varname></term>
+                                <term><varname>ConditionPathIsMountPoint=</varname></term>
                                 <term><varname>ConditionDirectoryNotEmpty=</varname></term>
                                 <term><varname>ConditionFileIsExecutable=</varname></term>
                                 <term><varname>ConditionKernelCommandLine=</varname></term>
@@ -623,7 +681,7 @@
                                 a file existence condition can be
                                 checked before a unit is started. If
                                 the specified absolute path name does
-                                not exist startup of a unit will not
+                                not exist, startup of a unit will not
                                 actually happen, however the unit is
                                 still useful for ordering purposes in
                                 this case. The condition is checked at
@@ -633,10 +691,11 @@
                                 <varname>ConditionPathExists=</varname>
                                 is prefixed with an exclamation mark
                                 (!), the test is negated, and the unit
-                                only started if the path does not
-                                exist. <varname>ConditionPathExistsGlob=</varname>
-                                work in a similar way, but checks for
-                                the existance of at least one file or
+                                is only started if the path does not
+                                exist.
+                                <varname>ConditionPathExistsGlob=</varname>
+                                works in a similar way, but checks for
+                                the existence of at least one file or
                                 directory matching the specified
                                 globbing
                                 pattern. <varname>ConditionPathIsDirectory=</varname>
@@ -644,7 +703,17 @@
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
                                 exists and is a
-                                directory. <varname>ConditionFileIsExecutable=</varname>
+                                directory. <varname>ConditionPathIsSymbolicLink=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and is a symbolic
+                                link. <varname>ConditionPathIsMountPoint=</varname>
+                                is similar to
+                                <varname>ConditionPathExists=</varname>
+                                but verifies whether a certain path
+                                exists and is a mount
+                                point. <varname>ConditionFileIsExecutable=</varname>
                                 is similar to
                                 <varname>ConditionPathExists=</varname>
                                 but verifies whether a certain path
@@ -677,18 +746,28 @@
                                 whether it is a specific
                                 implementation. Takes either boolean
                                 value to check if being executed in
-                                any virtual environment or one of the
+                                any virtualized environment, or one of
+                                <varname>vm</varname> and
+                                <varname>container</varname> to test against
+                                a specific type of virtualization
+                                solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
                                 <varname>vmware</varname>,
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
-                                <varname>pidns</varname>,
-                                <varname>openvz</varname> to test
-                                against a specific implementation. The
-                                test may be negated by prepending an
-                                exclamation mark.
+                                <varname>bochs</varname>,
+                                <varname>chroot</varname>,
+                                <varname>openvz</varname>,
+                                <varname>lxc</varname>,
+                                <varname>systemd-nspawn</varname>,
+                                <varname>pidns</varname> to test
+                                against a specific implementation. If
+                                multiple virtualization technologies
+                                are nested only the innermost is
+                                considered. The test may be negated by
+                                prepending an exclamation mark.
                                 <varname>ConditionSecurity=</varname>
                                 may be used to check whether the given
                                 security module is enabled on the
@@ -717,7 +796,10 @@
                                 prefix an argument with the pipe
                                 symbol and an exclamation mark the
                                 pipe symbol must be passed first, the
-                                exclamation second.</para></listitem>
+                                exclamation second. Except for
+                                <varname>ConditionPathIsSymbolicLink=</varname>,
+                                all path checks follow
+                                symlinks.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

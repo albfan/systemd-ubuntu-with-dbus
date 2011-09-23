@@ -7,17 +7,30 @@ Bugfixes:
 
 * make anaconda write timeout=0 for encrypted devices
 
-* fix broken Sockets=syslog-ng.socket packaging
-
-* logind: ensure ACLs are updated on login and logout
-
-* fix CUPS .path unit for globbing
-
 * service: pid file reading after reload doesn't work, since we don't reset the pid variable
 
 * make sure timeouts are applied to Type=oneshot services.
 
+* Dangling symlinks of .automount unit files in .wants/ directories, set up
+  automount points even when the original .automount file did not exist
+  anymore. Only the .mount unit was still around.
+
 Features:
+
+* add an option to make mounts private/shareable and so on, enable this for root by default
+
+* internal restart counter for units (focus on auto-respawn)
+
+* finer-grained auto-respawn settings (rate-limit)
+
+* be able to specify a forced restart of service A where service B depends on, in case B
+  needs to be auto-respawned?
+
+* Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
+
+* introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h
+
+* when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * something like ConditionExec= or ExecStartPre= without failure state
 
@@ -46,8 +59,6 @@ Features:
 * logind: spawn user@..service on login
 
 * logind: non-local X11 server handling
-
-* logind: use sysfs path in device hash table instead of sysname, as soon as fb driver is fixed
 
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
@@ -85,8 +96,6 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* avoid DefaultStandardOutput=syslog to have any effect on StandardInput=socket services
-
 * cgroup_notify_empty(): recursively check groups up the tree, too
 
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
@@ -100,13 +109,14 @@ Features:
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
   - security properties
+  - xinetd conversion
+  - details of instantiated @.service setups
 
 * allow port=0 in .socket units
 
 * move readahead files into /var, look for them with .path units
 
 * teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
-* figure out what happened to bluez patch
 
 * support systemd.mask= on the kernel command line.
 
@@ -121,8 +131,6 @@ Features:
 * investigate whether the gnome pty helper should be moved into systemd, to provide cgroup support.
 
 * maybe introduce ExecRestartPre=
-
-* Patch systemd-fsck to use -C and pass console fd to it
 
 * configurable jitter for timer events
 
@@ -142,6 +150,8 @@ Features:
 * implicitly import "defaults" settings file into all types
 * exec settings override
 * writable cgroups dbus properties for live changes
+
+* read config fragments for all units from /lib/systemd/system/foobar.service.d/ to override/extend specific settings
 
 * port over to LISTEN_FDS/LISTEN_PID:
    - rpcbind (/var/run/rpcbind.sock!) HAVEPATCH

@@ -67,7 +67,8 @@ void strv_free(char **l) {
 char **strv_copy(char **l) {
         char **r, **k;
 
-        if (!(k = r = new(char*, strv_length(l)+1)))
+        k = r = new(char*, strv_length(l)+1);
+        if (!k)
                 return NULL;
 
         if (l)
@@ -198,15 +199,23 @@ char **strv_merge_concat(char **a, char **b, const char *suffix) {
         if (!b)
                 return strv_copy(a);
 
-        if (!(r = new(char*, strv_length(a)+strv_length(b)+1)))
+        r = new(char*, strv_length(a) + strv_length(b) + 1);
+        if (!r)
                 return NULL;
 
-        for (k = r; *a; k++, a++)
-                if (!(*k = strdup(*a)))
+        k = r;
+        if (a)
+                for (; *a; k++, a++) {
+                        *k = strdup(*a);
+                        if (!*k)
+                                goto fail;
+                }
+
+        for (; *b; k++, b++) {
+                *k = strappend(*b, suffix);
+                if (!*k)
                         goto fail;
-        for (; *b; k++, b++)
-                if (!(*k = strappend(*b, suffix)))
-                        goto fail;
+        }
 
         *k = NULL;
         return r;
@@ -317,7 +326,8 @@ char **strv_append(char **l, const char *s) {
         if (!s)
                 return strv_copy(l);
 
-        if (!(r = new(char*, strv_length(l)+2)))
+        r = new(char*, strv_length(l)+2);
+        if (!r)
                 return NULL;
 
         for (k = r; *l; k++, l++)

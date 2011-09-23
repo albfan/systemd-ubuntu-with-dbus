@@ -6,10 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=POSIX Message Queue File System Automount Point
+Description=FUSE Control File System
 DefaultDependencies=no
+ConditionPathExists=/sys/fs/fuse/connections
+After=systemd-modules-load.service
 Before=sysinit.target
-ConditionPathExists=/proc/sys/fs/mqueue
 
-[Automount]
-Where=/dev/mqueue
+[Mount]
+What=fusectl
+Where=/sys/fs/fuse/connections
+Type=fusectl

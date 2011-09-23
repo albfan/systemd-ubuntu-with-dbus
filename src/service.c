@@ -121,8 +121,6 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         exec_context_init(&s->exec_context);
-        s->exec_context.std_output = u->meta.manager->default_std_output;
-        s->exec_context.std_error = u->meta.manager->default_std_error;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -783,19 +781,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                 free(short_description);
                                 short_description = d;
 
-                        } else if (startswith_no_case(t, "X-Interactive:")) {
-                                int b;
-
-                                if ((b = parse_boolean(strstrip(t+14))) < 0) {
-                                        log_warning("[%s:%u] Couldn't parse interactive flag. Ignoring.", path, line);
-                                        continue;
-                                }
-
-                                if (b)
-                                        s->exec_context.std_input = EXEC_INPUT_TTY;
-                                else
-                                        s->exec_context.std_input = EXEC_INPUT_NULL;
-
                         } else if (state == LSB_DESCRIPTION) {
 
                                 if (startswith(l, "#\t") || startswith(l, "#  ")) {
@@ -845,9 +830,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->type = SERVICE_FORKING;
         s->remain_after_exit = !s->pid_file;
         s->restart = SERVICE_RESTART_NO;
-        s->exec_context.std_output =
-                (s->meta.manager->sysv_console || s->exec_context.std_input == EXEC_INPUT_TTY)
-                ? EXEC_OUTPUT_TTY : s->meta.manager->default_std_output;
+
+        if (s->meta.manager->sysv_console)
+                s->exec_context.std_output = EXEC_OUTPUT_TTY;
+
         s->exec_context.kill_mode = KILL_PROCESS;
 
         /* We use the long description only if
@@ -1113,6 +1099,24 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
 }
 
+static void service_fix_output(Service *s) {
+        assert(s);
+
+        /* If nothing has been explicitly configured, patch default
+         * output in. If input is socket/tty we avoid this however,
+         * since in that case we want output to default to the same
+         * place as we read input from. */
+
+        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_input == EXEC_INPUT_NULL)
+                s->exec_context.std_error = s->meta.manager->default_std_error;
+
+        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_input == EXEC_INPUT_NULL)
+                s->exec_context.std_output = s->meta.manager->default_std_output;
+}
+
 static int service_load(Unit *u) {
         int r;
         Service *s = SERVICE(u);
@@ -1141,6 +1145,8 @@ static int service_load(Unit *u) {
 
         /* This is a new unit? Then let's add in some extras */
         if (u->meta.load_state == UNIT_LOADED) {
+                service_fix_output(s);
+
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
 
@@ -1275,21 +1281,22 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         free(p2);
 }
 
-static int service_load_pid_file(Service *s) {
+static int service_load_pid_file(Service *s, bool warn_if_missing) {
         char *k;
         int r;
         pid_t pid;
 
         assert(s);
 
-        if (s->main_pid_known)
-                return 0;
-
         if (!s->pid_file)
-                return 0;
+                return -ENOENT;
 
-        if ((r = read_one_line_file(s->pid_file, &k)) < 0)
+        if ((r = read_one_line_file(s->pid_file, &k)) < 0) {
+                if (warn_if_missing)
+                        log_warning("Failed to read PID file %s after %s. The service might be broken.",
+                                    s->pid_file, service_state_to_string(s->state));
                 return r;
+        }
 
         r = parse_pid(k, &pid);
         free(k);
@@ -1301,6 +1308,16 @@ static int service_load_pid_file(Service *s) {
                 log_warning("PID %lu read from file %s does not exist. Your service or init script might be broken.",
                             (unsigned long) pid, s->pid_file);
                 return -ESRCH;
+        }
+
+        if (s->main_pid_known) {
+                if (pid == s->main_pid)
+                        return 0;
+
+                log_debug("Main PID changing: %lu -> %lu",
+                          (unsigned long) s->main_pid, (unsigned long) pid);
+                service_unwatch_main_pid(s);
+                s->main_pid_known = false;
         }
 
         if ((r = service_set_main_pid(s, pid)) < 0)
@@ -2588,6 +2605,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 success = is_clean_exit(code, status);
 
         if (s->main_pid == pid) {
+                /* Forking services may occasionally move to a new PID.
+                 * As long as they update the PID file before exiting the old
+                 * PID, they're fine. */
+                if (service_load_pid_file(s, false) == 0)
+                        return;
 
                 s->main_pid = 0;
                 exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
@@ -2718,7 +2740,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                  * START_POST script */
 
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, !s->exec_command[SERVICE_EXEC_START_POST]);
                                         service_search_main_pid(s);
 
                                         service_enter_start_post(s);
@@ -2729,7 +2751,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_START_POST:
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, true);
                                         service_search_main_pid(s);
                                 }
 
@@ -2739,7 +2761,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_RELOAD:
                                 if (success) {
-                                        service_load_pid_file(s);
+                                        service_load_pid_file(s, true);
                                         service_search_main_pid(s);
                                 }
 
@@ -3093,7 +3115,7 @@ static int service_enumerate(Manager *m) {
 
                                 free(fpath);
                                 fpath = join(path, "/", de->d_name, NULL);
-                                if (!path) {
+                                if (!fpath) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }

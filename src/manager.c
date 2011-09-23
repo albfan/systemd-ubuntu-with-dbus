@@ -59,6 +59,7 @@
 #include "bus-errors.h"
 #include "exit-status.h"
 #include "sd-daemon.h"
+#include "virt.h"
 
 /* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_ENTRIES_MAX 16
@@ -2111,11 +2112,11 @@ static int manager_process_signal_fd(Manager *m) {
                         get_process_name(sfsi.ssi_pid, &p);
 
                         log_debug("Received SIG%s from PID %lu (%s).",
-                                  strna(signal_to_string(sfsi.ssi_signo)),
+                                  signal_to_string(sfsi.ssi_signo),
                                   (unsigned long) sfsi.ssi_pid, strna(p));
                         free(p);
                 } else
-                        log_debug("Received SIG%s.", strna(signal_to_string(sfsi.ssi_signo)));
+                        log_debug("Received SIG%s.", signal_to_string(sfsi.ssi_signo));
 
                 switch (sfsi.ssi_signo) {
 
@@ -2233,8 +2234,9 @@ static int manager_process_signal_fd(Manager *m) {
 
                         if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
                             (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
-                                manager_start_target(m, target_table[sfsi.ssi_signo - SIGRTMIN],
-                                                     (sfsi.ssi_signo == 1 || sfsi.ssi_signo == 2) ? JOB_ISOLATE : JOB_REPLACE);
+                                int idx = (int) sfsi.ssi_signo - SIGRTMIN;
+                                manager_start_target(m, target_table[idx],
+                                                     (idx == 1 || idx == 2) ? JOB_ISOLATE : JOB_REPLACE);
                                 break;
                         }
 
@@ -2248,12 +2250,12 @@ static int manager_process_signal_fd(Manager *m) {
 
                         case 20:
                                 log_debug("Enabling showing of status.");
-                                m->show_status = true;
+                                manager_set_show_status(m, true);
                                 break;
 
                         case 21:
                                 log_debug("Disabling showing of status.");
-                                m->show_status = false;
+                                manager_set_show_status(m, false);
                                 break;
 
                         case 22:
@@ -2282,7 +2284,7 @@ static int manager_process_signal_fd(Manager *m) {
                                 break;
 
                         default:
-                                log_warning("Got unhandled signal <%s>.", strna(signal_to_string(sfsi.ssi_signo)));
+                                log_warning("Got unhandled signal <%s>.", signal_to_string(sfsi.ssi_signo));
                         }
                 }
                 }
@@ -2904,7 +2906,8 @@ bool manager_is_booting_or_shutting_down(Manager *m) {
                 return true;
 
         /* Is there a job for the shutdown target? */
-        if (((u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET))))
+        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+        if (u)
                 return !!u->meta.job;
 
         return false;
@@ -3132,6 +3135,35 @@ void manager_recheck_syslog(Manager *m) {
         /* Hmm, OK, so the socket is either fully up, or fully down,
          * and the target is up, then let's make use of the socket */
         log_open();
+}
+
+void manager_set_show_status(Manager *m, bool b) {
+        assert(m);
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return;
+
+        m->show_status = b;
+
+        if (b)
+                touch("/run/systemd/show-status");
+        else
+                unlink("/run/systemd/show-status");
+}
+
+bool manager_get_show_status(Manager *m) {
+        assert(m);
+
+        if (m->running_as != MANAGER_SYSTEM)
+                return false;
+
+        if (m->show_status)
+                return true;
+
+        /* If Plymouth is running make sure we show the status, so
+         * that there's something nice to see when people press Esc */
+
+        return plymouth_running();
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

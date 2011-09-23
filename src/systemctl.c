@@ -137,6 +137,8 @@ static bool on_tty(void) {
 }
 
 static void pager_open_if_enabled(void) {
+
+        /* Cache result before we open the pager */
         on_tty();
 
         if (arg_no_pager)
@@ -608,6 +610,7 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
                 r = unit_file_get_list(arg_scope, arg_root, h);
                 if (r < 0) {
+                        unit_file_list_free(h);
                         log_error("Failed to get unit file list: %s", strerror(-r));
                         return r;
                 }
@@ -1054,7 +1057,7 @@ finish:
 }
 
 static int load_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         DBusError error;
         int r;
         char **name;
@@ -1065,6 +1068,7 @@ static int load_unit(DBusConnection *bus, char **args) {
         assert(args);
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -1101,9 +1105,6 @@ static int load_unit(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
@@ -1794,7 +1795,7 @@ finish:
 }
 
 static int kill_unit(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int r = 0;
         DBusError error;
         char **name;
@@ -1811,6 +1812,7 @@ static int kill_unit(DBusConnection *bus, char **args) {
                 arg_kill_mode = streq(arg_kill_who, "all") ? "control-group" : "process";
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -1849,9 +1851,6 @@ static int kill_unit(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 
@@ -2154,8 +2153,6 @@ static void print_status_info(UnitStatusInfo *i) {
                         printf("signal=%s", signal_to_string(p->status));
 
                 printf(")%s\n", off);
-
-                on = off = NULL;
 
                 if (i->main_pid == p->pid &&
                     i->start_timestamp == p->start_timestamp &&
@@ -3230,7 +3227,7 @@ finish:
 }
 
 static int reset_failed(DBusConnection *bus, char **args) {
-        DBusMessage *m = NULL, *reply = NULL;
+        DBusMessage *m = NULL;
         int r;
         DBusError error;
         char **name;
@@ -3242,6 +3239,7 @@ static int reset_failed(DBusConnection *bus, char **args) {
                 return daemon_reload(bus, args);
 
         STRV_FOREACH(name, args+1) {
+                DBusMessage *reply;
 
                 if (!(m = dbus_message_new_method_call(
                                       "org.freedesktop.systemd1",
@@ -3277,9 +3275,6 @@ static int reset_failed(DBusConnection *bus, char **args) {
 finish:
         if (m)
                 dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         dbus_error_free(&error);
 

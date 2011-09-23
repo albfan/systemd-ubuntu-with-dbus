@@ -20,7 +20,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = po
 
 LIBSYSTEMD_LOGIN_CURRENT=0
-LIBSYSTEMD_LOGIN_REVISION=4
+LIBSYSTEMD_LOGIN_REVISION=5
 LIBSYSTEMD_LOGIN_AGE=0
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -357,14 +357,12 @@ dist_systemunit_DATA = \
 	units/systemd-stdout-syslog-bridge.socket \
 	units/systemd-shutdownd.socket \
 	units/syslog.socket \
-	units/dev-hugepages.automount \
 	units/dev-hugepages.mount \
-	units/dev-mqueue.automount \
 	units/dev-mqueue.mount \
-	units/sys-kernel-debug.automount \
+	units/sys-kernel-config.mount \
 	units/sys-kernel-debug.mount \
-	units/sys-kernel-security.automount \
 	units/sys-kernel-security.mount \
+	units/sys-fs-fuse-connections.mount \
 	units/var-run.mount \
 	units/media.mount \
 	units/remount-rootfs.service \
@@ -615,6 +613,7 @@ noinst_LTLIBRARIES = \
 
 libsystemd_basic_la_SOURCES = \
 	src/util.c \
+        src/virt.c \
 	src/label.c \
 	src/hashmap.c \
 	src/set.c \
@@ -1838,10 +1837,12 @@ endif
 		rm -f remote-fs.target && \
 		$(LN_S) $(systemunitdir)/remote-fs.target remote-fs.target )
 	( cd $(DESTDIR)$(systemunitdir)/sysinit.target.wants && \
-		rm -f dev-hugepages.automount \
-			dev-mqueue.automount \
-			sys-kernel-debug.automount \
-			sys-kernel-security.automount \
+		rm -f dev-hugepages.mount \
+			dev-mqueue.mount \
+                        sys-kernel-config.mount \
+			sys-kernel-debug.mount \
+			sys-kernel-security.mount \
+			sys-fs-fuse-connections.mount \
 			systemd-vconsole-setup.service \
 			systemd-modules-load.service \
 			systemd-random-seed-load.service \
@@ -1850,10 +1851,12 @@ endif
 			systemd-ask-password-console.path \
 			systemd-kmsg-syslogd.service \
 			cryptsetup.target && \
-		$(LN_S) ../dev-hugepages.automount dev-hugepages.automount && \
-		$(LN_S) ../dev-mqueue.automount dev-mqueue.automount && \
-		$(LN_S) ../sys-kernel-debug.automount sys-kernel-debug.automount && \
-		$(LN_S) ../sys-kernel-security.automount sys-kernel-security.automount && \
+		$(LN_S) ../dev-hugepages.mount dev-hugepages.mount && \
+		$(LN_S) ../dev-mqueue.mount dev-mqueue.mount && \
+                $(LN_S) ../sys-kernel-config.mount sys-kernel-config.mount && \
+		$(LN_S) ../sys-kernel-debug.mount sys-kernel-debug.mount && \
+		$(LN_S) ../sys-kernel-security.mount sys-kernel-security.mount && \
+		$(LN_S) ../sys-fs-fuse-connections.mount sys-fs-fuse-connections.mount && \
 		$(LN_S) ../systemd-vconsole-setup.service systemd-vconsole-setup.service && \
 		$(LN_S) ../systemd-modules-load.service systemd-modules-load.service && \
 		$(LN_S) ../systemd-random-seed-load.service systemd-random-seed-load.service && \

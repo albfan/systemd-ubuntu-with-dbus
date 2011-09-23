@@ -52,6 +52,11 @@
                 <funcsynopsis>
                         <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
                 </funcsynopsis>
+
+                <cmdsynopsis>
+                        <command>pkg-config --cflags --libs libsystemd-daemon</command>
+                </cmdsynopsis>
+
         </refsynopsisdiv>
 
         <refsect1>
@@ -129,17 +134,20 @@
                 resp. <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
 
                 <para>These APIs are implemented in the reference
-                implementation's drop-in
-                <filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> files. It is
-                recommended that applications consuming these APIs copy
-                the implementation into their source tree, either
-                verbatim or in excerpts. These interfaces are
-                currently not available in a dynamic library.</para>
+                implementation's <filename>sd-daemon.c</filename> and
+                <filename>sd-daemon.h</filename> files. These
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <literal>libsystemd-daemon</literal>
+                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                file. Alternatively, applications consuming these APIs
+                may copy the implementation into their source tree,
+                either verbatim or in excerpts.</para>
 
                 <para>The functions directly related to new-style
                 daemons become NOPs when -DDISABLE_SYSTEMD is set
-                during compilation. In addition, if
+                during compilation and the reference implementation is
+                used as drop-in files. In addition, if
                 <filename>sd-daemon.c</filename> is compiled on
                 non-Linux systems they become NOPs.</para>
         </refsect1>
@@ -156,7 +164,8 @@
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 
