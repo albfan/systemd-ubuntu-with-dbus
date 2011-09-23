@@ -30,6 +30,8 @@
 #include "strv.h"
 #include "dbus-common.h"
 #include "polkit.h"
+#include "def.h"
+#include "virt.h"
 
 #define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \
@@ -84,6 +86,8 @@ static char *data[_PROP_MAX] = {
         NULL,
         NULL
 };
+
+static usec_t remain_until = 0;
 
 static void free_data(void) {
         int p;
@@ -230,7 +234,7 @@ static int write_data_other(void) {
                 assert(name[p]);
 
                 if (isempty(data[p]))  {
-                        l = strv_env_unset(l, name[p]);
+                        strv_env_unset(l, name[p]);
                         continue;
                 }
 
@@ -393,7 +397,7 @@ static DBusHandlerResult hostname_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        log_info("Changed static host name to '%s'", strempty(data[PROP_HOSTNAME]));
+                        log_info("Changed static host name to '%s'", strempty(data[PROP_STATIC_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -518,7 +522,10 @@ static int connect_bus(DBusConnection **_bus) {
                 goto fail;
         }
 
-        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL)) {
+        dbus_connection_set_exit_on_disconnect(bus, FALSE);
+
+        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL) ||
+            !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
                 log_error("Not enough memory");
                 r = -ENOMEM;
                 goto fail;
@@ -554,6 +561,7 @@ fail:
 int main(int argc, char *argv[]) {
         int r;
         DBusConnection *bus = NULL;
+        bool exiting = false;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -588,8 +596,17 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        while (dbus_connection_read_write_dispatch(bus, -1))
-                ;
+        remain_until = now(CLOCK_MONOTONIC) + DEFAULT_EXIT_USEC;
+        for (;;) {
+
+                if (!dbus_connection_read_write_dispatch(bus, exiting ? -1 : (int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC)))
+                        break;
+
+                if (!exiting && remain_until < now(CLOCK_MONOTONIC)) {
+                        exiting = true;
+                        bus_async_unregister_and_exit(bus, "org.freedesktop.hostname1");
+                }
+        }
 
         r = 0;
 

@@ -30,24 +30,28 @@
 
 #include "util.h"
 #include "condition.h"
+#include "virt.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
 
         assert(type < _CONDITION_TYPE_MAX);
 
-        if (!(c = new0(Condition, 1)))
+        c = new0(Condition, 1);
+        if (!c)
                 return NULL;
 
         c->type = type;
         c->trigger = trigger;
         c->negate = negate;
 
-        if (parameter)
-                if (!(c->parameter = strdup(parameter))) {
+        if (parameter) {
+                c->parameter = strdup(parameter);
+                if (!c->parameter) {
                         free(c);
                         return NULL;
                 }
+        }
 
         return c;
 }
@@ -75,10 +79,11 @@ static bool test_kernel_command_line(const char *parameter) {
 
         assert(parameter);
 
-        if (detect_virtualization(NULL) > 0)
+        if (detect_container(NULL) > 0)
                 return false;
 
-        if ((r = read_one_line_file("/proc/cmdline", &line)) < 0) {
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r < 0) {
                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
                 return false;
         }
@@ -89,7 +94,8 @@ static bool test_kernel_command_line(const char *parameter) {
         FOREACH_WORD_QUOTED(w, l, line, state) {
 
                 free(word);
-                if (!(word = strndup(w, l)))
+                word = strndup(w, l);
+                if (!word)
                         break;
 
                 if (equal) {
@@ -113,24 +119,35 @@ static bool test_kernel_command_line(const char *parameter) {
 }
 
 static bool test_virtualization(const char *parameter) {
-        int r, b;
+        int b;
+        Virtualization v;
         const char *id;
 
         assert(parameter);
 
-        if ((r = detect_virtualization(&id)) < 0) {
-                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-r));
+        v = detect_virtualization(&id);
+        if (v < 0) {
+                log_warning("Failed to detect virtualization, ignoring: %s", strerror(-v));
                 return false;
         }
 
+        /* First, compare with yes/no */
         b = parse_boolean(parameter);
 
-        if (r > 0 && b > 0)
+        if (v > 0 && b > 0)
                 return true;
 
-        if (r == 0 && b == 0)
+        if (v == 0 && b == 0)
                 return true;
 
+        /* Then, compare categorization */
+        if (v == VIRTUALIZATION_VM && streq(parameter, "vm"))
+                return true;
+
+        if (v == VIRTUALIZATION_CONTAINER && streq(parameter, "container"))
+                return true;
+
+        /* Finally compare id */
         return streq(parameter, id);
 }
 
@@ -156,10 +173,21 @@ bool condition_test(Condition *c) {
         case CONDITION_PATH_IS_DIRECTORY: {
                 struct stat st;
 
-                if (lstat(c->parameter, &st) < 0)
-                        return !c->negate;
+                if (stat(c->parameter, &st) < 0)
+                        return c->negate;
                 return S_ISDIR(st.st_mode) == !c->negate;
         }
+
+        case CONDITION_PATH_IS_SYMBOLIC_LINK: {
+                struct stat st;
+
+                if (lstat(c->parameter, &st) < 0)
+                        return c->negate;
+                return S_ISLNK(st.st_mode) == !c->negate;
+        }
+
+        case CONDITION_PATH_IS_MOUNT_POINT:
+                return (path_is_mount_point(c->parameter, true) > 0) == !c->negate;
 
         case CONDITION_DIRECTORY_NOT_EMPTY: {
                 int k;
@@ -171,8 +199,8 @@ bool condition_test(Condition *c) {
         case CONDITION_FILE_IS_EXECUTABLE: {
                 struct stat st;
 
-                if (lstat(c->parameter, &st) < 0)
-                        return !c->negate;
+                if (stat(c->parameter, &st) < 0)
+                        return c->negate;
 
                 return (S_ISREG(st.st_mode) && (st.st_mode & 0111)) == !c->negate;
         }
@@ -247,6 +275,8 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_EXISTS] = "ConditionPathExists",
         [CONDITION_PATH_EXISTS_GLOB] = "ConditionPathExistsGlob",
         [CONDITION_PATH_IS_DIRECTORY] = "ConditionPathIsDirectory",
+        [CONDITION_PATH_IS_SYMBOLIC_LINK] = "ConditionPathIsSymbolicLink",
+        [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",

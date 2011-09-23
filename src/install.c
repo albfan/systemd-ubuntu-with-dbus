@@ -479,7 +479,6 @@ static int find_symlinks_fd(
                                 t = path_make_absolute(name, config_path);
                                 if (!t) {
                                         free(p);
-                                        free(dest);
                                         r = -ENOMEM;
                                         break;
                                 }
@@ -1905,7 +1904,7 @@ int unit_file_get_list(
                         } else if (r > 0) {
                                 f->state = UNIT_FILE_DISABLED;
                                 goto found;
-                        } else if (r == 0) {
+                        } else {
                                 f->state = UNIT_FILE_STATIC;
                                 goto found;
                         }

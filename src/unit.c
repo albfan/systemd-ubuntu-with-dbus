@@ -774,7 +774,7 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
         /* If either side wants no automatic dependencies, then let's
          * skip this */
         if (!u->meta.default_dependencies ||
-            target->meta.default_dependencies)
+            !target->meta.default_dependencies)
                 return 0;
 
         /* Don't create loops */
@@ -888,16 +888,20 @@ int unit_start(Unit *u) {
         if (u->meta.load_state != UNIT_LOADED)
                 return -EINVAL;
 
-        /* If this is already (being) started, then this will
-         * succeed. Note that this will even succeed if this unit is
-         * not startable by the user. This is relied on to detect when
-         * we need to wait for units and when waiting is finished. */
+        /* If this is already started, then this will succeed. Note
+         * that this will even succeed if this unit is not startable
+         * by the user. This is relied on to detect when we need to
+         * wait for units and when waiting is finished. */
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
 
-        /* If the conditions failed, don't do anything at all */
-        if (!unit_condition_test(u)) {
+        /* If the conditions failed, don't do anything at all. If we
+         * already are activating this call might still be useful to
+         * speed up activation in case there is some hold-off time,
+         * but we don't want to recheck the condition in that case. */
+        if (state != UNIT_ACTIVATING &&
+            !unit_condition_test(u)) {
                 log_debug("Starting of %s requested but condition failed. Ignoring.", u->meta.id);
                 return -EALREADY;
         }
@@ -2431,13 +2435,7 @@ void unit_status_printf(Unit *u, const char *format, ...) {
         if (!UNIT_VTABLE(u)->show_status)
                 return;
 
-        if (u->meta.manager->running_as != MANAGER_SYSTEM)
-                return;
-
-        /* If Plymouth is running make sure we show the status, so
-         * that there's something nice to see when people press Esc */
-
-        if (!u->meta.manager->show_status && !plymouth_running())
+        if (!manager_get_show_status(u->meta.manager))
                 return;
 
         if (!manager_is_booting_or_shutting_down(u->meta.manager))

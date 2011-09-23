@@ -11,7 +11,7 @@
 Description=Rescue Shell
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=basic.target
+After=basic.target plymouth-start.service
 Before=shutdown.target
 
 [Service]
@@ -25,12 +25,14 @@ ExecStart=-/bin/bash -c "exec ${SINGLE}"',
 m4_ifdef(`TARGET_MANDRIVA',
 `EnvironmentFile=/etc/sysconfig/init
 ExecStart=-/bin/bash -c "exec ${SINGLE}"',
-`ExecStart=-/sbin/sulogin'
 m4_ifdef(`TARGET_MEEGO',
 `EnvironmentFile=/etc/sysconfig/init
-ExecStart=-/bin/bash -c "exec ${SINGLE}"',)))
+ExecStart=-/bin/bash -c "exec ${SINGLE}"',
+`ExecStart=-/sbin/sulogin')))
 ExecStopPost=-/bin/systemctl --fail --no-block default
 StandardInput=tty-force
+StandardOutput=inherit
+StandardError=inherit
 KillMode=process
 
 # Bash ignores SIGTERM, so we send SIGHUP instead, to ensure that bash

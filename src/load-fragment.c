@@ -554,6 +554,7 @@ int config_parse_exec(
                 if (!n[0]) {
                         log_error("[%s:%u] Invalid command line, ignoring: %s", filename, line, rvalue);
                         strv_free(n);
+                        free(path);
                         return 0;
                 }
 
@@ -1545,10 +1546,12 @@ int config_parse_unit_condition_path(
         assert(rvalue);
         assert(data);
 
-        if ((trigger = rvalue[0] == '|'))
+        trigger = rvalue[0] == '|';
+        if (trigger)
                 rvalue++;
 
-        if ((negate = rvalue[0] == '!'))
+        negate = rvalue[0] == '!';
+        if (negate)
                 rvalue++;
 
         if (!path_is_absolute(rvalue)) {
@@ -1556,7 +1559,8 @@ int config_parse_unit_condition_path(
                 return 0;
         }
 
-        if (!(c = condition_new(cond, rvalue, trigger, negate)))
+        c = condition_new(cond, rvalue, trigger, negate);
+        if (!c)
                 return -ENOMEM;
 
         LIST_PREPEND(Condition, conditions, u->meta.conditions, c);

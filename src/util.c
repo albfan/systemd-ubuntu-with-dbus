@@ -782,13 +782,7 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
                 }
         }
 
-        if (buf)
-                buf[l] = 0;
-        else if (!(buf = calloc(1, 1))) {
-                r = -errno;
-                goto finish;
-        }
-
+        buf[l] = 0;
         *contents = buf;
         buf = NULL;
 
@@ -4273,224 +4267,6 @@ const char *default_term_for_tty(const char *tty) {
         return term;
 }
 
-/* Returns a short identifier for the various VM implementations */
-int detect_vm(const char **id) {
-
-#if defined(__i386__) || defined(__x86_64__)
-
-        /* Both CPUID and DMI are x86 specific interfaces... */
-
-        static const char *const dmi_vendors[] = {
-                "/sys/class/dmi/id/sys_vendor",
-                "/sys/class/dmi/id/board_vendor",
-                "/sys/class/dmi/id/bios_vendor"
-        };
-
-        static const char dmi_vendor_table[] =
-                "QEMU\0"                  "qemu\0"
-                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                "VMware\0"                "vmware\0"
-                "VMW\0"                   "vmware\0"
-                "Microsoft Corporation\0" "microsoft\0"
-                "innotek GmbH\0"          "oracle\0"
-                "Xen\0"                   "xen\0"
-                "Bochs\0"                 "bochs\0";
-
-        static const char cpuid_vendor_table[] =
-                "XenVMMXenVMM\0"          "xen\0"
-                "KVMKVMKVM\0"             "kvm\0"
-                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                "VMwareVMware\0"          "vmware\0"
-                /* http://msdn.microsoft.com/en-us/library/ff542428.aspx */
-                "Microsoft Hv\0"          "microsoft\0";
-
-        uint32_t eax, ecx;
-        union {
-                uint32_t sig32[3];
-                char text[13];
-        } sig;
-        unsigned i;
-        const char *j, *k;
-        bool hypervisor;
-
-        /* http://lwn.net/Articles/301888/ */
-        zero(sig);
-
-#if defined (__i386__)
-#define REG_a "eax"
-#define REG_b "ebx"
-#elif defined (__amd64__)
-#define REG_a "rax"
-#define REG_b "rbx"
-#endif
-
-        /* First detect whether there is a hypervisor */
-        eax = 1;
-        __asm__ __volatile__ (
-                /* ebx/rbx is being used for PIC! */
-                "  push %%"REG_b"         \n\t"
-                "  cpuid                  \n\t"
-                "  pop %%"REG_b"          \n\t"
-
-                : "=a" (eax), "=c" (ecx)
-                : "0" (eax)
-        );
-
-        hypervisor = !!(ecx & 0x80000000U);
-
-        if (hypervisor) {
-
-                /* There is a hypervisor, see what it is */
-                eax = 0x40000000U;
-                __asm__ __volatile__ (
-                        /* ebx/rbx is being used for PIC! */
-                        "  push %%"REG_b"         \n\t"
-                        "  cpuid                  \n\t"
-                        "  mov %%ebx, %1          \n\t"
-                        "  pop %%"REG_b"          \n\t"
-
-                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
-                        : "0" (eax)
-                );
-
-                NULSTR_FOREACH_PAIR(j, k, cpuid_vendor_table)
-                        if (streq(sig.text, j)) {
-
-                                if (id)
-                                        *id = k;
-
-                                return 1;
-                        }
-        }
-
-        for (i = 0; i < ELEMENTSOF(dmi_vendors); i++) {
-                char *s;
-                int r;
-                const char *found = NULL;
-
-                if ((r = read_one_line_file(dmi_vendors[i], &s)) < 0) {
-                        if (r != -ENOENT)
-                                return r;
-
-                        continue;
-                }
-
-                NULSTR_FOREACH_PAIR(j, k, dmi_vendor_table)
-                        if (startswith(s, j))
-                                found = k;
-                free(s);
-
-                if (found) {
-                        if (id)
-                                *id = found;
-
-                        return 1;
-                }
-        }
-
-        if (hypervisor) {
-                if (id)
-                        *id = "other";
-
-                return 1;
-        }
-
-#endif
-        return 0;
-}
-
-int detect_container(const char **id) {
-        FILE *f;
-
-        /* Unfortunately many of these operations require root access
-         * in one way or another */
-
-        if (geteuid() != 0)
-                return -EPERM;
-
-        if (running_in_chroot() > 0) {
-
-                if (id)
-                        *id = "chroot";
-
-                return 1;
-        }
-
-        /* /proc/vz exists in container and outside of the container,
-         * /proc/bc only outside of the container. */
-        if (access("/proc/vz", F_OK) >= 0 &&
-            access("/proc/bc", F_OK) < 0) {
-
-                if (id)
-                        *id = "openvz";
-
-                return 1;
-        }
-
-        if ((f = fopen("/proc/self/cgroup", "re"))) {
-
-                for (;;) {
-                        char line[LINE_MAX], *p;
-
-                        if (!fgets(line, sizeof(line), f))
-                                break;
-
-                        if (!(p = strchr(strstrip(line), ':')))
-                                continue;
-
-                        if (strncmp(p, ":ns:", 4))
-                                continue;
-
-                        if (!streq(p, ":ns:/")) {
-                                fclose(f);
-
-                                if (id)
-                                        *id = "pidns";
-
-                                return 1;
-                        }
-                }
-
-                fclose(f);
-        }
-
-        return 0;
-}
-
-/* Returns a short identifier for the various VM/container implementations */
-int detect_virtualization(const char **id) {
-        static __thread const char *cached_id = NULL;
-        const char *_id;
-        int r;
-
-        if (_likely_(cached_id)) {
-
-                if (cached_id == (const char*) -1)
-                        return 0;
-
-                if (id)
-                        *id = cached_id;
-
-                return 1;
-        }
-
-        if ((r = detect_container(&_id)) != 0)
-                goto finish;
-
-        r = detect_vm(&_id);
-
-finish:
-        if (r > 0) {
-                cached_id = _id;
-
-                if (id)
-                        *id = _id;
-        } else if (r == 0)
-                cached_id = (const char*) -1;
-
-        return r;
-}
-
 bool dirent_is_file(struct dirent *de) {
         assert(de);
 
@@ -5529,6 +5305,9 @@ int get_files_in_directory(const char *path, char ***list) {
          * number */
 
         d = opendir(path);
+        if (!d)
+                return -errno;
+
         for (;;) {
                 struct dirent buffer, *de;
                 int k;
@@ -5629,6 +5408,8 @@ char *join(const char *x, ...) {
 
                         p = stpcpy(p, t);
                 }
+
+                va_end(ap);
         } else
                 r[0] = 0;
 
@@ -5815,7 +5596,7 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP(ip_tos, int);
 
-static const char *const signal_table[] = {
+static const char *const __signal_table[] = {
         [SIGHUP] = "HUP",
         [SIGINT] = "INT",
         [SIGQUIT] = "QUIT",
@@ -5851,7 +5632,44 @@ static const char *const signal_table[] = {
         [SIGSYS] = "SYS"
 };
 
-DEFINE_STRING_TABLE_LOOKUP(signal, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
+
+const char *signal_to_string(int signo) {
+        static __thread char buf[12];
+        const char *name;
+
+        name = __signal_to_string(signo);
+        if (name)
+                return name;
+
+        if (signo >= SIGRTMIN && signo <= SIGRTMAX)
+                snprintf(buf, sizeof(buf) - 1, "RTMIN+%d", signo - SIGRTMIN);
+        else
+                snprintf(buf, sizeof(buf) - 1, "%d", signo);
+        char_array_0(buf);
+        return buf;
+}
+
+int signal_from_string(const char *s) {
+        int signo;
+        int offset = 0;
+        unsigned u;
+
+        signo =__signal_from_string(s);
+        if (signo > 0)
+                return signo;
+
+        if (startswith(s, "RTMIN+")) {
+                s += 6;
+                offset = SIGRTMIN;
+        }
+        if (safe_atou(s, &u) >= 0) {
+                signo = (int) u + offset;
+                if (signo > 0 && signo < _NSIG)
+                        return signo;
+        }
+        return -1;
+}
 
 bool kexec_loaded(void) {
        bool loaded = false;
