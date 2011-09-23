@@ -1,4 +1,4 @@
-systemd (35-1) UNRELEASED; urgency=low
+systemd (36-1) UNRELEASED; urgency=low
 
   [ Tollef Fog Heen ]
   * New upstream release. Closes: #634618
