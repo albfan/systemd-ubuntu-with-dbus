@@ -1,7 +1,7 @@
 [Unit]
 Description=Various fixups to make systemd work better on Debian
 Before=var-run.mount var-lock.mount
-After=var.mount
+After=remount-rootfs.service
 DefaultDependencies=no
 
 [Service]
