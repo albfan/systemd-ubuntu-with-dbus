@@ -6,5 +6,5 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=/lib/systemd/debian-fixup
-Type=simple
+Type=oneshot
 RemainAfterExit=true

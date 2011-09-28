@@ -1,3 +1,10 @@
+systemd (36-2) unstable; urgency=low
+
+  * Change the type of the debian-fixup service to oneshot.
+    Closes: #642961
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Wed, 28 Sep 2011 20:04:13 +0200
+
 systemd (36-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
