@@ -5,6 +5,8 @@ systemd (36-2) unstable; urgency=low
   * Add ConditionPathIsDirectory to lib-init-rw.automount and
     lib-init-rw.mount so we only activate the unit if the directory
     exists.  Closes: #633059
+  * If a sysv service exists in both rcS and rcN.d runlevels, drop the
+    rcN.d ones to avoid loops.  Closes: #637037
 
  -- Tollef Fog Heen <tfheen@debian.org>  Wed, 28 Sep 2011 20:04:13 +0200
 
