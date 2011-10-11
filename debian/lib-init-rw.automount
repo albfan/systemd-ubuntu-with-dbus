@@ -9,6 +9,7 @@
 Description=Debian early rw Automount Point
 DefaultDependencies=no
 Before=basic.target
+ConditionPathIsDirectory=/lib/init/rw
 
 [Automount]
 Where=/lib/init/rw

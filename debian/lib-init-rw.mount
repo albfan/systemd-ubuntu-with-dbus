@@ -1,6 +1,7 @@
 [Unit]
 Description=Debian early rw mount
 DefaultDependencies=no
+ConditionPathIsDirectory=/lib/init/rw
 
 [Mount]
 What=tmpfs
