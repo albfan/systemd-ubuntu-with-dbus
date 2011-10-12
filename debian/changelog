@@ -10,6 +10,7 @@ systemd (36-2) unstable; urgency=low
     rcN.d ones to avoid loops.  Closes: #637037
   * Blacklist fuse init script, we do the same work already internally.
     Closes: #643700
+  * Update README.Debian slightly for /run rather than /lib/init/rw
 
   [ Josh Triplett ]
   * Do a one-time migration of the $TMPTIME setting from /etc/default/rcS to
