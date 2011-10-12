@@ -66,6 +66,7 @@ static const char *arg_job_mode = "replace";
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_immediate = false;
 static bool arg_no_block = false;
+static bool arg_no_legend = false;
 static bool arg_no_pager = false;
 static bool arg_no_wtmp = false;
 static bool arg_no_sync = false;
@@ -314,35 +315,60 @@ static bool output_show_unit(const struct unit_info *u) {
 }
 
 static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
-        unsigned active_len, sub_len, job_len, n_shown = 0;
+        unsigned id_len, max_id_len, active_len, sub_len, job_len, desc_len, n_shown = 0;
         const struct unit_info *u;
 
+        max_id_len = sizeof("UNIT")-1;
         active_len = sizeof("ACTIVE")-1;
         sub_len = sizeof("SUB")-1;
         job_len = sizeof("JOB")-1;
+        desc_len = 0;
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 if (!output_show_unit(u))
                         continue;
 
+                max_id_len = MAX(max_id_len, strlen(u->id));
                 active_len = MAX(active_len, strlen(u->active_state));
                 sub_len = MAX(sub_len, strlen(u->sub_state));
                 if (u->job_id != 0)
                         job_len = MAX(job_len, strlen(u->job_type));
         }
 
-        if (on_tty()) {
-                printf("%-25s %-6s %-*s %-*s %-*s", "UNIT", "LOAD",
+        if (!arg_full) {
+                unsigned basic_len;
+                id_len = MIN(max_id_len, 25);
+                basic_len = 5 + id_len + 6 + active_len + sub_len + job_len;
+                if (basic_len < (unsigned) columns()) {
+                        unsigned extra_len, incr;
+                        extra_len = columns() - basic_len;
+                        /* Either UNIT already got 25, or is fully satisfied.
+                         * Grant up to 25 to DESC now. */
+                        incr = MIN(extra_len, 25);
+                        desc_len += incr;
+                        extra_len -= incr;
+                        /* split the remaining space between UNIT and DESC,
+                         * but do not give UNIT more than it needs. */
+                        if (extra_len > 0) {
+                                incr = MIN(extra_len / 2, max_id_len - id_len);
+                                id_len += incr;
+                                desc_len += extra_len - incr;
+                        }
+                }
+        } else
+                id_len = max_id_len;
+
+        if (!arg_no_legend) {
+                printf("%-*s %-6s %-*s %-*s %-*s ", id_len, "UNIT", "LOAD",
                        active_len, "ACTIVE", sub_len, "SUB", job_len, "JOB");
-                if (columns() >= 80+12 || arg_full || !arg_no_pager)
-                        printf(" %s\n", "DESCRIPTION");
+                if (!arg_full && arg_no_pager)
+                        printf("%.*s\n", desc_len, "DESCRIPTION");
                 else
-                        printf("\n");
+                        printf("%s\n", "DESCRIPTION");
         }
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 char *e;
-                int a = 0, b = 0;
                 const char *on_loaded, *off_loaded;
                 const char *on_active, *off_active;
 
@@ -364,39 +390,23 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
                 } else
                         on_active = off_active = "";
 
-                e = arg_full ? NULL : ellipsize(u->id, 25, 33);
+                e = arg_full ? NULL : ellipsize(u->id, id_len, 33);
 
-                printf("%-25s %s%-6s%s %s%-*s %-*s%s%n",
-                       e ? e : u->id,
+                printf("%-*s %s%-6s%s %s%-*s %-*s%s %-*s ",
+                       id_len, e ? e : u->id,
                        on_loaded, u->load_state, off_loaded,
                        on_active, active_len, u->active_state,
                        sub_len, u->sub_state, off_active,
-                       &a);
+                       job_len, u->job_id ? u->job_type : "");
+                if (!arg_full && arg_no_pager)
+                        printf("%.*s\n", desc_len, u->description);
+                else
+                        printf("%s\n", u->description);
 
                 free(e);
-
-                a -= strlen(on_loaded) + strlen(off_loaded);
-                a -= strlen(on_active) + strlen(off_active);
-
-                if (u->job_id != 0)
-                        printf(" %-*s", job_len, u->job_type);
-                else
-                        b = 1 + job_len;
-
-                if (a + b + 1 < columns()) {
-                        if (u->job_id == 0)
-                                printf(" %-*s", job_len, "");
-
-                        if (arg_full || !arg_no_pager)
-                                printf(" %s", u->description);
-                        else
-                                printf(" %.*s", columns() - a - b - 1, u->description);
-                }
-
-                fputs("\n", stdout);
         }
 
-        if (on_tty()) {
+        if (!arg_no_legend) {
                 printf("\nLOAD   = Reflects whether the unit definition was properly loaded.\n"
                        "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                        "SUB    = The low-level unit activation state, values depend on unit type.\n"
@@ -3924,6 +3934,7 @@ static int systemctl_help(void) {
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload      When enabling/disabling unit files, don't reload daemon\n"
                "                      configuration\n"
+               "     --no-legend      Do not print a legend (column headers and hints)\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "     --no-ask-password\n"
                "                      Do not ask for system passwords\n"
@@ -4074,6 +4085,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_GLOBAL,
                 ARG_NO_BLOCK,
+                ARG_NO_LEGEND,
                 ARG_NO_PAGER,
                 ARG_NO_WALL,
                 ARG_ORDER,
@@ -4102,6 +4114,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "system",    no_argument,       NULL, ARG_SYSTEM    },
                 { "global",    no_argument,       NULL, ARG_GLOBAL    },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-wall",   no_argument,       NULL, ARG_NO_WALL   },
                 { "quiet",     no_argument,       NULL, 'q'           },
@@ -4188,6 +4201,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_BLOCK:
                         arg_no_block = true;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_no_legend = true;
                         break;
 
                 case ARG_NO_PAGER:
@@ -4976,8 +4993,17 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
                         return 0;
                 }
 
+                if (!bus) {
+                        log_error("Failed to get D-Bus connection: %s",
+                                  dbus_error_is_set(error) ? error->message : "No connection to service manager.");
+                        return -EIO;
+                }
+
+        } else {
+
                 if (!bus && !avoid_bus()) {
-                        log_error("Failed to get D-Bus connection: %s", error->message);
+                        log_error("Failed to get D-Bus connection: %s",
+                                  dbus_error_is_set(error) ? error->message : "No connection to service manager.");
                         return -EIO;
                 }
         }
