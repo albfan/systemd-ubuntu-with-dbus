@@ -1,6 +1,7 @@
-systemd (36-2) unstable; urgency=low
+systemd (37-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
+  * New upstream version
   * Change the type of the debian-fixup service to oneshot.
     Closes: #642961
   * Add ConditionPathIsDirectory to lib-init-rw.automount and
