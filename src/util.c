@@ -2307,8 +2307,10 @@ int chvt(int vt) {
                         0
                 };
 
-                if (ioctl(fd, TIOCLINUX, tiocl) < 0)
-                        return -errno;
+                if (ioctl(fd, TIOCLINUX, tiocl) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
 
                 vt = tiocl[0] <= 0 ? 1 : tiocl[0];
         }
@@ -2316,7 +2318,8 @@ int chvt(int vt) {
         if (ioctl(fd, VT_ACTIVATE, vt) < 0)
                 r = -errno;
 
-        close_nointr_nofail(r);
+fail:
+        close_nointr_nofail(fd);
         return r;
 }
 
@@ -5681,4 +5684,22 @@ bool kexec_loaded(void) {
                free(s);
        }
        return loaded;
+}
+
+int strdup_or_null(const char *a, char **b) {
+        char *c;
+
+        assert(b);
+
+        if (!a) {
+                *b = NULL;
+                return 0;
+        }
+
+        c = strdup(a);
+        if (!c)
+                return -ENOMEM;
+
+        *b = c;
+        return 0;
 }

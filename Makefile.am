@@ -20,7 +20,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = po
 
 LIBSYSTEMD_LOGIN_CURRENT=0
-LIBSYSTEMD_LOGIN_REVISION=5
+LIBSYSTEMD_LOGIN_REVISION=6
 LIBSYSTEMD_LOGIN_AGE=0
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -76,6 +76,7 @@ AM_CPPFLAGS = \
 	-DSYSTEM_GENERATOR_PATH=\"$(systemgeneratordir)\" \
 	-DUSER_GENERATOR_PATH=\"$(usergeneratordir)\" \
 	-DSYSTEM_SHUTDOWN_PATH=\"$(systemshutdowndir)\" \
+        -DSYSTEMD_KBD_MODEL_MAP=\"$(pkgdatadir)/kbd-model-map\" \
 	-I $(top_srcdir)/src
 
 if TARGET_GENTOO
@@ -336,7 +337,9 @@ dist_systemunit_DATA = \
 	units/halt.target \
 	units/kexec.target \
 	units/local-fs.target \
+        units/local-fs-pre.target \
 	units/remote-fs.target \
+        units/remote-fs-pre.target \
 	units/cryptsetup.target \
 	units/network.target \
 	units/nss-lookup.target \
@@ -1030,6 +1033,12 @@ systemd_localed_LDADD = \
 	libsystemd-basic.la \
 	libsystemd-daemon.la \
 	$(DBUS_LIBS)
+
+dist_pkgdata_DATA = \
+        src/kbd-model-map
+
+dist_noinst_SCRIPT = \
+        src/generate-kbd-model-map
 
 systemd_timedated_SOURCES = \
 	src/timedated.c \
@@ -2016,3 +2025,6 @@ upload: all distcheck
 
 git-tag:
 	git tag "v$(VERSION)" -m "systemd $(VERSION)"
+
+update-kbd-model-map:
+	src/generate-kbd-model-map > src/kbd-model-map
