@@ -38,9 +38,6 @@ int cgroup_bonding_realize(CGroupBonding *b) {
         assert(b->path);
         assert(b->controller);
 
-        if (b->realized)
-                return 0;
-
         r = cg_create(b->controller, b->path);
         if (r < 0) {
                 log_warning("Failed to create cgroup %s:%s: %s", b->controller, b->path, strerror(-r));
@@ -63,32 +60,27 @@ int cgroup_bonding_realize_list(CGroupBonding *first) {
         return 0;
 }
 
-void cgroup_bonding_free(CGroupBonding *b, bool remove_or_trim) {
+void cgroup_bonding_free(CGroupBonding *b, bool trim) {
         assert(b);
 
         if (b->unit) {
                 CGroupBonding *f;
 
-                LIST_REMOVE(CGroupBonding, by_unit, b->unit->meta.cgroup_bondings, b);
+                LIST_REMOVE(CGroupBonding, by_unit, b->unit->cgroup_bondings, b);
 
                 if (streq(b->controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                        assert_se(f = hashmap_get(b->unit->meta.manager->cgroup_bondings, b->path));
+                        assert_se(f = hashmap_get(b->unit->manager->cgroup_bondings, b->path));
                         LIST_REMOVE(CGroupBonding, by_path, f, b);
 
                         if (f)
-                                hashmap_replace(b->unit->meta.manager->cgroup_bondings, b->path, f);
+                                hashmap_replace(b->unit->manager->cgroup_bondings, b->path, f);
                         else
-                                hashmap_remove(b->unit->meta.manager->cgroup_bondings, b->path);
+                                hashmap_remove(b->unit->manager->cgroup_bondings, b->path);
                 }
         }
 
-        if (b->realized && b->ours && remove_or_trim) {
-
-                if (cgroup_bonding_is_empty(b) > 0)
-                        cg_delete(b->controller, b->path);
-                else
-                        cg_trim(b->controller, b->path, false);
-        }
+        if (b->realized && b->ours && trim)
+                cg_trim(b->controller, b->path, false);
 
         free(b->controller);
         free(b->path);
@@ -162,21 +154,21 @@ int cgroup_bonding_set_group_access_list(CGroupBonding *first, mode_t mode, uid_
         return 0;
 }
 
-int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid) {
+int cgroup_bonding_set_task_access(CGroupBonding *b, mode_t mode, uid_t uid, gid_t gid, int sticky) {
         assert(b);
 
         if (!b->realized)
                 return -EINVAL;
 
-        return cg_set_task_access(b->controller, b->path, mode, uid, gid);
+        return cg_set_task_access(b->controller, b->path, mode, uid, gid, sticky);
 }
 
-int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid) {
+int cgroup_bonding_set_task_access_list(CGroupBonding *first, mode_t mode, uid_t uid, gid_t gid, int sticky) {
         CGroupBonding *b;
         int r;
 
         LIST_FOREACH(by_unit, b, first) {
-                r = cgroup_bonding_set_task_access(b, mode, uid, gid);
+                r = cgroup_bonding_set_task_access(b, mode, uid, gid, sticky);
                 if (r < 0)
                         return r;
         }
@@ -199,6 +191,9 @@ int cgroup_bonding_kill_list(CGroupBonding *first, int sig, bool sigcont, Set *s
         CGroupBonding *b;
         Set *allocated_set = NULL;
         int ret = -EAGAIN, r;
+
+        if (!first)
+                return 0;
 
         if (!s)
                 if (!(s = allocated_set = set_new(trivial_hash_func, trivial_compare_func)))
@@ -360,14 +355,55 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
         m->cgroup_hierarchy = NULL;
 }
 
+int cgroup_bonding_get(Manager *m, const char *cgroup, CGroupBonding **bonding) {
+        CGroupBonding *b;
+        char *p;
+
+        assert(m);
+        assert(cgroup);
+        assert(bonding);
+
+        b = hashmap_get(m->cgroup_bondings, cgroup);
+        if (!b) {
+                *bonding = b;
+                return 1;
+        }
+
+        p = strdup(cgroup);
+        if (!p)
+                return -ENOMEM;
+
+        for (;;) {
+                char *e;
+
+                e = strrchr(p, '/');
+                if (!e || e == p) {
+                        free(p);
+                        *bonding = NULL;
+                        return 0;
+                }
+
+                *e = 0;
+
+                b = hashmap_get(m->cgroup_bondings, p);
+                if (b) {
+                        free(p);
+                        *bonding = b;
+                        return 1;
+                }
+        }
+}
+
 int cgroup_notify_empty(Manager *m, const char *group) {
         CGroupBonding *l, *b;
+        int r;
 
         assert(m);
         assert(group);
 
-        if (!(l = hashmap_get(m->cgroup_bondings, group)))
-                return 0;
+        r = cgroup_bonding_get(m, group, &l);
+        if (r <= 0)
+                return r;
 
         LIST_FOREACH(by_path, b, l) {
                 int t;
@@ -375,7 +411,8 @@ int cgroup_notify_empty(Manager *m, const char *group) {
                 if (!b->unit)
                         continue;
 
-                if ((t = cgroup_bonding_is_empty_list(b)) < 0) {
+                t = cgroup_bonding_is_empty_list(b);
+                if (t < 0) {
 
                         /* If we don't know, we don't know */
                         if (t != -EAGAIN)
@@ -384,9 +421,13 @@ int cgroup_notify_empty(Manager *m, const char *group) {
                         continue;
                 }
 
-                if (t > 0)
+                if (t > 0) {
+                        /* If it is empty, let's delete it */
+                        cgroup_bonding_trim_list(b->unit->cgroup_bondings, true);
+
                         if (UNIT_VTABLE(b->unit)->cgroup_notify_empty)
                                 UNIT_VTABLE(b->unit)->cgroup_notify_empty(b->unit);
+                }
         }
 
         return 0;

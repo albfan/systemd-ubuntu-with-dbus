@@ -84,7 +84,8 @@ int config_parse_unit_deps(
                 char *t, *k;
                 int r;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
                 k = unit_name_printf(u, t);
@@ -94,12 +95,8 @@ int config_parse_unit_deps(
                         return -ENOMEM;
 
                 r = unit_add_dependency_by_name(u, d, k, NULL, true);
-
-                if (r < 0) {
-                        log_error("Failed to add dependency on %s, ignoring: %s", k, strerror(-r));
-                        free(k);
-                        return 0;
-                }
+                if (r < 0)
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
 
                 free(k);
         }
@@ -272,7 +269,7 @@ int config_parse_socket_listen(
         assert(rvalue);
         assert(data);
 
-        s = (Socket*) data;
+        s = SOCKET(data);
 
         if (!(p = new0(SocketPort, 1)))
                 return -ENOMEM;
@@ -383,7 +380,7 @@ int config_parse_socket_bind(
         assert(rvalue);
         assert(data);
 
-        s = (Socket*) data;
+        s = SOCKET(data);
 
         if ((b = socket_address_bind_ipv6_only_from_string(rvalue)) < 0) {
                 int r;
@@ -1265,6 +1262,7 @@ int config_parse_timer_unit(
         Timer *t = data;
         int r;
         DBusError error;
+        Unit *u;
 
         assert(filename);
         assert(lvalue);
@@ -1278,11 +1276,14 @@ int config_parse_timer_unit(
                 return 0;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, NULL, &t->unit)) < 0) {
+        r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, NULL, &u);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -1347,6 +1348,7 @@ int config_parse_path_unit(
         Path *t = data;
         int r;
         DBusError error;
+        Unit *u;
 
         assert(filename);
         assert(lvalue);
@@ -1360,11 +1362,13 @@ int config_parse_path_unit(
                 return 0;
         }
 
-        if ((r = manager_load_unit(t->meta.manager, rvalue, NULL, &error, &t->unit)) < 0) {
+        if ((r = manager_load_unit(UNIT(t)->manager, rvalue, NULL, &error, &u)) < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&t->unit, u);
 
         return 0;
 }
@@ -1382,6 +1386,7 @@ int config_parse_socket_service(
         Socket *s = data;
         int r;
         DBusError error;
+        Unit *x;
 
         assert(filename);
         assert(lvalue);
@@ -1395,11 +1400,14 @@ int config_parse_socket_service(
                 return 0;
         }
 
-        if ((r = manager_load_unit(s->meta.manager, rvalue, NULL, &error, (Unit**) &s->service)) < 0) {
+        r = manager_load_unit(UNIT(s)->manager, rvalue, NULL, &error, &x);
+        if (r < 0) {
                 log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
                 dbus_error_free(&error);
                 return 0;
         }
+
+        unit_ref_set(&s->service, x);
 
         return 0;
 }
@@ -1416,7 +1424,6 @@ int config_parse_service_sockets(
 
         Service *s = data;
         int r;
-        DBusError error;
         char *state, *w;
         size_t l;
 
@@ -1425,35 +1432,34 @@ int config_parse_service_sockets(
         assert(rvalue);
         assert(data);
 
-        dbus_error_init(&error);
-
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                char *t;
-                Unit *sock;
+                char *t, *k;
 
-                if (!(t = strndup(w, l)))
+                t = strndup(w, l);
+                if (!t)
                         return -ENOMEM;
 
-                if (!endswith(t, ".socket")) {
-                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
-                        free(t);
-                        continue;
-                }
-
-                r = manager_load_unit(s->meta.manager, t, NULL, &error, &sock);
+                k = unit_name_printf(UNIT(s), t);
                 free(t);
 
-                if (r < 0) {
-                        log_error("[%s:%u] Failed to load unit %s, ignoring: %s", filename, line, rvalue, bus_error(&error, r));
-                        dbus_error_free(&error);
+                if (!k)
+                        return -ENOMEM;
+
+                if (!endswith(k, ".socket")) {
+                        log_error("[%s:%u] Unit must be of type socket, ignoring: %s", filename, line, rvalue);
+                        free(k);
                         continue;
                 }
 
-                if ((r = set_ensure_allocated(&s->configured_sockets, trivial_hash_func, trivial_compare_func)) < 0)
+                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_WANTS, UNIT_AFTER, k, NULL, true);
+                if (r < 0)
+                        log_error("[%s:%u] Failed to add dependency on %s, ignoring: %s", filename, line, k, strerror(-r));
+
+                r = unit_add_dependency_by_name(UNIT(s), UNIT_TRIGGERED_BY, k, NULL, true);
+                if (r < 0)
                         return r;
 
-                if ((r = set_put(s->configured_sockets, sock)) < 0)
-                        return r;
+                free(k);
         }
 
         return 0;
@@ -1563,7 +1569,7 @@ int config_parse_unit_condition_path(
         if (!c)
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -1596,7 +1602,7 @@ int config_parse_unit_condition_string(
         if (!(c = condition_new(cond, rvalue, trigger, negate)))
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -1637,7 +1643,7 @@ int config_parse_unit_condition_null(
         if (!(c = condition_new(CONDITION_NULL, NULL, trigger, negate)))
                 return -ENOMEM;
 
-        LIST_PREPEND(Condition, conditions, u->meta.conditions, c);
+        LIST_PREPEND(Condition, conditions, u->conditions, c);
         return 0;
 }
 
@@ -2103,7 +2109,7 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
                          * ours? Then let's try it the other way
                          * round */
 
-                        other = manager_get_unit((*u)->meta.manager, k);
+                        other = manager_get_unit((*u)->manager, k);
                         free(k);
 
                         if (other)
@@ -2157,7 +2163,7 @@ static int load_from_path(Unit *u, const char *path) {
         } else  {
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
 
                         /* Instead of opening the path right away, we manually
                          * follow all symlinks and add their name to our unit
@@ -2167,8 +2173,8 @@ static int load_from_path(Unit *u, const char *path) {
                                 goto finish;
                         }
 
-                        if (u->meta.manager->unit_path_cache &&
-                            !set_get(u->meta.manager->unit_path_cache, filename))
+                        if (u->manager->unit_path_cache &&
+                            !set_get(u->manager->unit_path_cache, filename))
                                 r = -ENOENT;
                         else
                                 r = open_follow(&filename, &f, symlink_names, &id);
@@ -2204,7 +2210,7 @@ static int load_from_path(Unit *u, const char *path) {
                 goto finish;
 
         if (merged != u) {
-                u->meta.load_state = UNIT_MERGED;
+                u->load_state = UNIT_MERGED;
                 r = 0;
                 goto finish;
         }
@@ -2216,21 +2222,21 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (null_or_empty(&st))
-                u->meta.load_state = UNIT_MASKED;
+                u->load_state = UNIT_MASKED;
         else {
                 /* Now, parse the file contents */
                 r = config_parse(filename, f, UNIT_VTABLE(u)->sections, config_item_perf_lookup, (void*) load_fragment_gperf_lookup, false, u);
                 if (r < 0)
                         goto finish;
 
-                u->meta.load_state = UNIT_LOADED;
+                u->load_state = UNIT_LOADED;
         }
 
-        free(u->meta.fragment_path);
-        u->meta.fragment_path = filename;
+        free(u->fragment_path);
+        u->fragment_path = filename;
         filename = NULL;
 
-        u->meta.fragment_mtime = timespec_load(&st.st_mtim);
+        u->fragment_mtime = timespec_load(&st.st_mtim);
 
         r = 0;
 
@@ -2250,49 +2256,49 @@ int unit_load_fragment(Unit *u) {
         const char *t;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
-        assert(u->meta.id);
+        assert(u->load_state == UNIT_STUB);
+        assert(u->id);
 
         /* First, try to find the unit under its id. We always look
          * for unit files in the default directories, to make it easy
          * to override things by placing things in /etc/systemd/system */
-        if ((r = load_from_path(u, u->meta.id)) < 0)
+        if ((r = load_from_path(u, u->id)) < 0)
                 return r;
 
         /* Try to find an alias we can load this with */
-        if (u->meta.load_state == UNIT_STUB)
-                SET_FOREACH(t, u->meta.names, i) {
+        if (u->load_state == UNIT_STUB)
+                SET_FOREACH(t, u->names, i) {
 
-                        if (t == u->meta.id)
+                        if (t == u->id)
                                 continue;
 
                         if ((r = load_from_path(u, t)) < 0)
                                 return r;
 
-                        if (u->meta.load_state != UNIT_STUB)
+                        if (u->load_state != UNIT_STUB)
                                 break;
                 }
 
         /* And now, try looking for it under the suggested (originally linked) path */
-        if (u->meta.load_state == UNIT_STUB && u->meta.fragment_path) {
+        if (u->load_state == UNIT_STUB && u->fragment_path) {
 
-                if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
+                if ((r = load_from_path(u, u->fragment_path)) < 0)
                         return r;
 
-                if (u->meta.load_state == UNIT_STUB) {
+                if (u->load_state == UNIT_STUB) {
                         /* Hmm, this didn't work? Then let's get rid
                          * of the fragment path stored for us, so that
                          * we don't point to an invalid location. */
-                        free(u->meta.fragment_path);
-                        u->meta.fragment_path = NULL;
+                        free(u->fragment_path);
+                        u->fragment_path = NULL;
                 }
         }
 
         /* Look for a template */
-        if (u->meta.load_state == UNIT_STUB && u->meta.instance) {
+        if (u->load_state == UNIT_STUB && u->instance) {
                 char *k;
 
-                if (!(k = unit_name_template(u->meta.id)))
+                if (!(k = unit_name_template(u->id)))
                         return -ENOMEM;
 
                 r = load_from_path(u, k);
@@ -2301,10 +2307,10 @@ int unit_load_fragment(Unit *u) {
                 if (r < 0)
                         return r;
 
-                if (u->meta.load_state == UNIT_STUB)
-                        SET_FOREACH(t, u->meta.names, i) {
+                if (u->load_state == UNIT_STUB)
+                        SET_FOREACH(t, u->names, i) {
 
-                                if (t == u->meta.id)
+                                if (t == u->id)
                                         continue;
 
                                 if (!(k = unit_name_template(t)))
@@ -2316,7 +2322,7 @@ int unit_load_fragment(Unit *u) {
                                 if (r < 0)
                                         return r;
 
-                                if (u->meta.load_state != UNIT_STUB)
+                                if (u->load_state != UNIT_STUB)
                                         break;
                         }
         }
@@ -2331,7 +2337,7 @@ void unit_dump_config_items(FILE *f) {
         } table[] = {
                 { config_parse_int,                   "INTEGER" },
                 { config_parse_unsigned,              "UNSIGNED" },
-                { config_parse_size,                  "SIZE" },
+                { config_parse_bytes_size,            "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },

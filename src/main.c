@@ -77,7 +77,7 @@ static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_SYSLOG;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;
@@ -200,12 +200,16 @@ static int console_setup(bool do_reset) {
         if (!do_reset)
                 return 0;
 
-        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+        tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (tty_fd < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
                 return -tty_fd;
         }
 
-        if ((r = reset_terminal_fd(tty_fd)) < 0)
+        /* We don't want to force text mode.
+         * plymouth may be showing pictures already from initrd. */
+        r = reset_terminal_fd(tty_fd, false);
+        if (r < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
         close_nointr_nofail(tty_fd);
@@ -270,7 +274,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 18)) < 0)
-                        log_warning("Failed to parse dump core switch %s, Ignoring.", word + 18);
+                        log_warning("Failed to parse dump core switch %s. Ignoring.", word + 18);
                 else
                         arg_dump_core = r;
 
@@ -278,7 +282,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse crash shell switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse crash shell switch %s. Ignoring.", word + 20);
                 else
                         arg_crash_shell = r;
 
@@ -286,7 +290,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 22)) < 0)
-                        log_warning("Failed to parse confirm spawn switch %s, Ignoring.", word + 22);
+                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", word + 22);
                 else
                         arg_confirm_spawn = r;
 
@@ -294,7 +298,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int k;
 
                 if (safe_atoi(word + 19, &k) < 0)
-                        log_warning("Failed to parse crash chvt switch %s, Ignoring.", word + 19);
+                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", word + 19);
                 else
                         arg_crash_chvt = k;
 
@@ -302,21 +306,21 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse show status switch %s. Ignoring.", word + 20);
                 else
                         arg_show_status = r;
         } else if (startswith(word, "systemd.default_standard_output=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 32)) < 0)
-                        log_warning("Failed to parse default standard output switch %s, Ignoring.", word + 32);
+                        log_warning("Failed to parse default standard output switch %s. Ignoring.", word + 32);
                 else
                         arg_default_std_output = r;
         } else if (startswith(word, "systemd.default_standard_error=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 31)) < 0)
-                        log_warning("Failed to parse default standard error switch %s, Ignoring.", word + 31);
+                        log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
                 else
                         arg_default_std_error = r;
 #ifdef HAVE_SYSV_COMPAT
@@ -324,7 +328,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 21)) < 0)
-                        log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse SysV console switch %s. Ignoring.", word + 20);
                 else
                         arg_sysv_console = r;
 #endif
@@ -343,14 +347,14 @@ static int parse_proc_cmdline_word(const char *word) {
 #ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
 #endif
-                         "systemd.log_target=console|kmsg|syslog|syslog-or-kmsg|null\n"
+                         "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n"
-                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log output for services\n"
-                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log error output for services\n");
 
         } else if (streq(word, "quiet")) {
@@ -993,7 +997,7 @@ static int help(void) {
 #ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
 #endif
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-target=TARGET         Set log target (console, journal, syslog, kmsg, journal-or-kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n"
@@ -1134,7 +1138,7 @@ int main(int argc, char *argv[]) {
         bool reexecute = false;
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
-        char systemd[] = "systemd";
+        static char systemd[] = "systemd";
         bool is_reexec = false;
         int j;
         bool loaded_policy = false;
@@ -1165,9 +1169,9 @@ int main(int argc, char *argv[]) {
            called 'init'. After a subsequent reexecution we are then
            called 'systemd'. That is confusing, hence let's call us
            systemd right-away. */
-
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+
         saved_argv = argv;
         saved_argc = argc;
 
@@ -1177,7 +1181,7 @@ int main(int argc, char *argv[]) {
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_JOURNAL_OR_KMSG);
 
                 if (!is_reexec)
                         if (selinux_setup(&loaded_policy) < 0)
@@ -1400,6 +1404,7 @@ int main(int argc, char *argv[]) {
         } else {
                 DBusError error;
                 Unit *target = NULL;
+                Job *default_unit_job;
 
                 dbus_error_init(&error);
 
@@ -1408,39 +1413,41 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->meta.load_state == UNIT_ERROR)
-                        log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
-                else if (target->meta.load_state == UNIT_MASKED)
+                } else if (target->load_state == UNIT_ERROR)
+                        log_error("Failed to load default target: %s", strerror(-target->load_error));
+                else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
 
-                if (!target || target->meta.load_state != UNIT_LOADED) {
+                if (!target || target->load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
 
                         if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->meta.load_state == UNIT_ERROR) {
-                                log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
+                        } else if (target->load_state == UNIT_ERROR) {
+                                log_error("Failed to load rescue target: %s", strerror(-target->load_error));
                                 goto finish;
-                        } else if (target->meta.load_state == UNIT_MASKED) {
+                        } else if (target->load_state == UNIT_MASKED) {
                                 log_error("Rescue target masked.");
                                 goto finish;
                         }
                 }
 
-                assert(target->meta.load_state == UNIT_LOADED);
+                assert(target->load_state == UNIT_LOADED);
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By units:\n");
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, NULL)) < 0) {
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                if (r < 0) {
                         log_error("Failed to start default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
                         goto finish;
                 }
+                m->default_unit_job_id = default_unit_job->id;
 
                 after_startup = now(CLOCK_MONOTONIC);
                 log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,

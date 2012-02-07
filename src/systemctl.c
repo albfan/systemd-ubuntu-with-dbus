@@ -35,6 +35,8 @@
 #include <sys/prctl.h>
 #include <dbus/dbus.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "log.h"
 #include "util.h"
 #include "macro.h"
@@ -49,7 +51,6 @@
 #include "list.h"
 #include "path-lookup.h"
 #include "conf-parser.h"
-#include "sd-daemon.h"
 #include "shutdownd.h"
 #include "exit-status.h"
 #include "bus-errors.h"
@@ -58,6 +59,7 @@
 #include "pager.h"
 #include "spawn-agent.h"
 #include "install.h"
+#include "logs-show.h"
 
 static const char *arg_type = NULL;
 static char **arg_property = NULL;
@@ -117,6 +119,9 @@ static enum transport {
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
 static const char *arg_host = NULL;
+static bool arg_follow = false;
+static unsigned arg_lines = 10;
+static OutputMode arg_output = OUTPUT_SHORT;
 
 static bool private_bus = false;
 
@@ -161,12 +166,12 @@ static void agent_open_if_enabled(void) {
         agent_open();
 }
 
-static const char *ansi_highlight(bool b) {
+static const char *ansi_highlight_red(bool b) {
 
         if (!on_tty())
                 return "";
 
-        return b ? ANSI_HIGHLIGHT_ON : ANSI_HIGHLIGHT_OFF;
+        return b ? ANSI_HIGHLIGHT_RED_ON : ANSI_HIGHLIGHT_OFF;
 }
 
 static const char *ansi_highlight_green(bool b) {
@@ -377,16 +382,15 @@ static void output_units_list(const struct unit_info *unit_infos, unsigned c) {
 
                 n_shown++;
 
-                if (!streq(u->load_state, "loaded") &&
-                    !streq(u->load_state, "banned")) {
-                        on_loaded = ansi_highlight(true);
-                        off_loaded = ansi_highlight(false);
+                if (streq(u->load_state, "error")) {
+                        on_loaded = ansi_highlight_red(true);
+                        off_loaded = ansi_highlight_red(false);
                 } else
                         on_loaded = off_loaded = "";
 
                 if (streq(u->active_state, "failed")) {
-                        on_active = ansi_highlight(true);
-                        off_active = ansi_highlight(false);
+                        on_active = ansi_highlight_red(true);
+                        off_active = ansi_highlight_red(false);
                 } else
                         on_active = off_active = "";
 
@@ -551,11 +555,30 @@ static bool output_show_unit_file(const UnitFileList *u) {
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
-        unsigned n_shown = 0;
+        unsigned max_id_len, id_cols, state_cols, n_shown = 0;
         const UnitFileList *u;
 
-        if (on_tty())
-                printf("%-25s %-6s\n", "UNIT FILE", "STATE");
+        max_id_len = sizeof("UNIT FILE")-1;
+        state_cols = sizeof("STATE")-1;
+        for (u = units; u < units + c; u++) {
+                if (!output_show_unit_file(u))
+                        continue;
+
+                max_id_len = MAX(max_id_len, strlen(file_name_from_path(u->path)));
+                state_cols = MAX(state_cols, strlen(unit_file_state_to_string(u->state)));
+        }
+
+        if (!arg_full) {
+                unsigned basic_cols;
+                id_cols = MIN(max_id_len, 25);
+                basic_cols = 1 + id_cols + state_cols;
+                if (basic_cols < (unsigned) columns())
+                        id_cols += MIN(columns() - basic_cols, max_id_len - id_cols);
+        } else
+                id_cols = max_id_len;
+
+        if (!arg_no_legend)
+                printf("%-*s %-*s\n", id_cols, "UNIT FILE", state_cols, "STATE");
 
         for (u = units; u < units + c; u++) {
                 char *e;
@@ -570,8 +593,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 if (u->state == UNIT_FILE_MASKED ||
                     u->state == UNIT_FILE_MASKED_RUNTIME ||
                     u->state == UNIT_FILE_DISABLED) {
-                        on  = ansi_highlight(true);
-                        off = ansi_highlight(false);
+                        on  = ansi_highlight_red(true);
+                        off = ansi_highlight_red(false);
                 } else if (u->state == UNIT_FILE_ENABLED) {
                         on  = ansi_highlight_green(true);
                         off = ansi_highlight_green(false);
@@ -580,16 +603,16 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 id = file_name_from_path(u->path);
 
-                e = arg_full ? NULL : ellipsize(id, 25, 33);
+                e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
-                printf("%-25s %s%-6s%s\n",
-                       e ? e : id,
-                       on, unit_file_state_to_string(u->state), off);
+                printf("%-*s %s%-*s%s\n",
+                       id_cols, e ? e : id,
+                       on, state_cols, unit_file_state_to_string(u->state), off);
 
                 free(e);
         }
 
-        if (on_tty())
+        if (!arg_no_legend)
                 printf("\n%u unit files listed.\n", n_shown);
 }
 
@@ -602,8 +625,6 @@ static int list_unit_files(DBusConnection *bus, char **args) {
         UnitFileList *units = NULL;
 
         dbus_error_init(&error);
-
-        assert(bus);
 
         pager_open_if_enabled();
 
@@ -640,6 +661,8 @@ static int list_unit_files(DBusConnection *bus, char **args) {
 
                 hashmap_free(h);
         } else {
+                assert(bus);
+
                 m = dbus_message_new_method_call(
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
@@ -1414,9 +1437,9 @@ static int wait_for_jobs(DBusConnection *bus, Set *s) {
                 else if (streq(d.result, "canceled"))
                         log_error("Job canceled.");
                 else if (streq(d.result, "dependency"))
-                        log_error("A dependency job failed. See system logs for details.");
+                        log_error("A dependency job failed. See system journal for details.");
                 else if (!streq(d.result, "done") && !streq(d.result, "skipped"))
-                        log_error("Job failed. See system logs and 'systemctl status' for details.");
+                        log_error("Job failed. See system journal and 'systemctl status' for details.");
         }
 
         if (streq_ptr(d.result, "timeout"))
@@ -1980,8 +2003,10 @@ typedef struct UnitStatusInfo {
         const char *default_control_group;
 
         const char *load_error;
+        const char *result;
 
         usec_t inactive_exit_timestamp;
+        usec_t inactive_exit_timestamp_monotonic;
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
         usec_t inactive_enter_timestamp;
@@ -2044,10 +2069,9 @@ static void print_status_info(UnitStatusInfo *i) {
         if (i->following)
                 printf("\t  Follow: unit currently follows state of %s\n", i->following);
 
-        if (streq_ptr(i->load_state, "failed") ||
-            streq_ptr(i->load_state, "banned")) {
-                on = ansi_highlight(true);
-                off = ansi_highlight(false);
+        if (streq_ptr(i->load_state, "error")) {
+                on = ansi_highlight_red(true);
+                off = ansi_highlight_red(false);
         } else
                 on = off = "";
 
@@ -2063,8 +2087,8 @@ static void print_status_info(UnitStatusInfo *i) {
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
 
         if (streq_ptr(i->active_state, "failed")) {
-                on = ansi_highlight(true);
-                off = ansi_highlight(false);
+                on = ansi_highlight_red(true);
+                off = ansi_highlight_red(false);
         } else if (streq_ptr(i->active_state, "active") || streq_ptr(i->active_state, "reloading")) {
                 on = ansi_highlight_green(true);
                 off = ansi_highlight_green(false);
@@ -2082,6 +2106,9 @@ static void print_status_info(UnitStatusInfo *i) {
                        on,
                        strna(i->active_state),
                        off);
+
+        if (!isempty(i->result) && !streq(i->result, "success"))
+                printf(" (Result: %s)", i->result);
 
         timestamp = (streq_ptr(i->active_state, "active")      ||
                      streq_ptr(i->active_state, "reloading"))   ? i->active_enter_timestamp :
@@ -2140,8 +2167,8 @@ static void print_status_info(UnitStatusInfo *i) {
                         good = is_clean_exit(p->code, p->status);
 
                 if (!good) {
-                        on = ansi_highlight(true);
-                        off = ansi_highlight(false);
+                        on = ansi_highlight_red(true);
+                        off = ansi_highlight_red(false);
                 } else
                         on = off = "";
 
@@ -2182,7 +2209,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         if (i->running) {
                                 char *t = NULL;
-                                get_process_name(i->main_pid, &t);
+                                get_process_comm(i->main_pid, &t);
                                 if (t) {
                                         printf(" (%s)", t);
                                         free(t);
@@ -2216,7 +2243,7 @@ static void print_status_info(UnitStatusInfo *i) {
 
                         printf(" Control: %u", (unsigned) i->control_pid);
 
-                        get_process_name(i->control_pid, &t);
+                        get_process_comm(i->control_pid, &t);
                         if (t) {
                                 printf(" (%s)", t);
                                 free(t);
@@ -2240,14 +2267,19 @@ static void print_status_info(UnitStatusInfo *i) {
                         else
                                 c = 0;
 
-                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c);
+                        show_cgroup_by_path(i->default_control_group, "\t\t  ", c, false);
                 }
+        }
+
+        if (i->id && arg_transport != TRANSPORT_SSH) {
+                printf("\n");
+                show_journal_by_unit(i->id, arg_output, NULL, 0, i->inactive_exit_timestamp_monotonic, arg_lines, arg_all, arg_follow);
         }
 
         if (i->need_daemon_reload)
                 printf("\n%sWarning:%s Unit file changed on disk, 'systemctl %s daemon-reload' recommended.\n",
-                       ansi_highlight(true),
-                       ansi_highlight(false),
+                       ansi_highlight_red(true),
+                       ansi_highlight_red(false),
                        arg_scope == UNIT_FILE_SYSTEM ? "--system" : "--user");
 }
 
@@ -2297,6 +2329,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                                 i->following = s;
                         else if (streq(name, "UnitFileState"))
                                 i->unit_file_state = s;
+                        else if (streq(name, "Result"))
+                                i->result = s;
                 }
 
                 break;
@@ -2368,6 +2402,8 @@ static int status_property(const char *name, DBusMessageIter *iter, UnitStatusIn
                         i->inactive_enter_timestamp = (usec_t) u;
                 else if (streq(name, "InactiveExitTimestamp"))
                         i->inactive_exit_timestamp = (usec_t) u;
+                else if (streq(name, "InactiveExitTimestampMonotonic"))
+                        i->inactive_exit_timestamp_monotonic = (usec_t) u;
                 else if (streq(name, "ActiveExitTimestamp"))
                         i->active_exit_timestamp = (usec_t) u;
                 else if (streq(name, "ConditionTimestamp"))
@@ -3443,7 +3479,7 @@ finish:
 static int enable_sysv_units(char **args) {
         int r = 0;
 
-#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX))
+#if defined (HAVE_SYSV_COMPAT) && (defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_SUSE) || defined(TARGET_MEEGO) || defined(TARGET_ALTLINUX) || defined(TARGET_MAGEIA))
         const char *verb = args[0];
         unsigned f = 1, t = 1;
         LookupPaths paths;
@@ -3658,11 +3694,13 @@ static int enable_unit(DBusConnection *bus, char **args) {
                         goto finish;
                 }
 
-                for (i = 0; i < n_changes; i++) {
-                        if (changes[i].type == UNIT_FILE_SYMLINK)
-                                log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
-                        else
-                                log_info("rm '%s'", changes[i].path);
+                if (!arg_quiet) {
+                        for (i = 0; i < n_changes; i++) {
+                                if (changes[i].type == UNIT_FILE_SYMLINK)
+                                        log_info("ln -s '%s' '%s'", changes[i].source, changes[i].path);
+                                else
+                                        log_info("rm '%s'", changes[i].path);
+                        }
                 }
 
         } else {
@@ -3778,10 +3816,12 @@ static int enable_unit(DBusConnection *bus, char **args) {
                                 goto finish;
                         }
 
-                        if (streq(type, "symlink"))
-                                log_info("ln -s '%s' '%s'", source, path);
-                        else
-                                log_info("rm '%s'", path);
+                        if (!arg_quiet) {
+                                if (streq(type, "symlink"))
+                                        log_info("ln -s '%s' '%s'", source, path);
+                                else
+                                        log_info("rm '%s'", path);
+                        }
 
                         dbus_message_iter_next(&sub);
                 }
@@ -3946,7 +3986,11 @@ static int systemctl_help(void) {
                "  -f --force          When enabling unit files, override existing symlinks\n"
                "                      When shutting down, execute action immediately\n"
                "     --root=PATH      Enable unit files in the specified root directory\n"
-               "     --runtime        Enable unit files only temporarily until next reboot\n\n"
+               "     --runtime        Enable unit files only temporarily until next reboot\n"
+               "  -n --lines=INTEGER  Journal entries to show\n"
+               "     --follow         Follow journal\n"
+               "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
+               "                      verbose, export, json, cat)\n\n"
                "Unit Commands:\n"
                "  list-units                      List loaded units\n"
                "  start [NAME...]                 Start (activate) one or more units\n"
@@ -4097,7 +4141,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_KILL_WHO,
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
-                ARG_RUNTIME
+                ARG_RUNTIME,
+                ARG_FOLLOW
         };
 
         static const struct option options[] = {
@@ -4130,6 +4175,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "host",      required_argument, NULL, 'H'           },
                 { "privileged",no_argument,       NULL, 'P'           },
                 { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
+                { "lines",     required_argument, NULL, 'n'           },
+                { "follow",    no_argument,       NULL, ARG_FOLLOW    },
+                { "output",    required_argument, NULL, 'o'           },
                 { NULL,        0,                 NULL, 0             }
         };
 
@@ -4141,7 +4189,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* Only when running as systemctl we ask for passwords */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ht:p:aqfs:H:Pn:o:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -4277,6 +4325,25 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_RUNTIME:
                         arg_runtime = true;
+                        break;
+
+                case 'n':
+                        if (safe_atou(optarg, &arg_lines) < 0) {
+                                log_error("Failed to parse lines '%s'", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
+                case ARG_FOLLOW:
+                        arg_follow = true;
+                        break;
+
+                case 'o':
+                        arg_output = output_mode_from_string(optarg);
+                        if (arg_output < 0) {
+                                log_error("Unknown output '%s'.", optarg);
+                                return -EINVAL;
+                        }
                         break;
 
                 case '?':
@@ -4981,7 +5048,8 @@ static int systemctl_main(DBusConnection *bus, int argc, char *argv[], DBusError
          * enable/disable */
         if (!streq(verbs[i].verb, "enable") &&
             !streq(verbs[i].verb, "disable") &&
-            !streq(verbs[i].verb, "is-enable") &&
+            !streq(verbs[i].verb, "is-enabled") &&
+            !streq(verbs[i].verb, "list-unit-files") &&
             !streq(verbs[i].verb, "reenable") &&
             !streq(verbs[i].verb, "preset") &&
             !streq(verbs[i].verb, "mask") &&
@@ -5137,7 +5205,7 @@ static int halt_main(DBusConnection *bus) {
         if (!arg_no_wtmp) {
                 if (sd_booted() > 0)
                         log_debug("Not writing utmp record, assuming that systemd-update-utmp is used.");
-                else if ((r = utmp_put_shutdown(0)) < 0)
+                else if ((r = utmp_put_shutdown()) < 0)
                         log_warning("Failed to write utmp record: %s", strerror(-r));
         }
 

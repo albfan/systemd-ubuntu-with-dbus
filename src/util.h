@@ -67,8 +67,10 @@ typedef struct dual_timestamp {
 #define FORMAT_TIMESTAMP_MAX 64
 #define FORMAT_TIMESTAMP_PRETTY_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
+#define FORMAT_BYTES_MAX 8
 
-#define ANSI_HIGHLIGHT_ON "\x1B[1;31m"
+#define ANSI_HIGHLIGHT_ON "\x1B[1;39m"
+#define ANSI_HIGHLIGHT_RED_ON "\x1B[1;31m"
 #define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 
@@ -248,8 +250,10 @@ int parent_of_path(const char *path, char **parent);
 
 int rmdir_parents(const char *path, const char *stop);
 
-int get_process_name(pid_t pid, char **name);
-int get_process_cmdline(pid_t pid, size_t max_length, char **line);
+int get_process_comm(pid_t pid, char **name);
+int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
+int get_process_exe(pid_t pid, char **name);
+int get_process_uid(pid_t pid, uid_t *uid);
 
 char hexchar(int x);
 int unhexchar(char c);
@@ -274,7 +278,9 @@ bool path_equal(const char *a, const char *b);
 
 char *ascii_strlower(char *path);
 
-bool dirent_is_file(struct dirent *de);
+bool dirent_is_file(const struct dirent *de);
+bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix);
+
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
@@ -321,10 +327,10 @@ bool fstype_is_network(const char *fstype);
 
 int chvt(int vt);
 
-int read_one_char(FILE *f, char *ret, bool *need_nl);
+int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
 int ask(char *ret, const char *replies, const char *text, ...);
 
-int reset_terminal_fd(int fd);
+int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
 
 int open_terminal(const char *name, int mode);
@@ -363,6 +369,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d);
 int get_ctty(pid_t, dev_t *_devnr, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
+int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid);
 
 int rm_rf(const char *path, bool only_dirs, bool delete_root, bool honour_sticky);
 
@@ -370,15 +377,20 @@ int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-void status_vprintf(const char *format, va_list ap);
-void status_printf(const char *format, ...);
+void status_vprintf(const char *status, bool ellipse, const char *format, va_list ap);
+void status_printf(const char *status, bool ellipse, const char *format, ...);
 void status_welcome(void);
 
-int columns(void);
+int fd_columns(int fd);
+unsigned columns(void);
+
+int fd_lines(int fd);
+unsigned lines(void);
 
 int running_in_chroot(void);
 
-char *ellipsize(const char *s, unsigned length, unsigned percent);
+char *ellipsize(const char *s, size_t length, unsigned percent);
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
 int touch(const char *path);
 
@@ -403,6 +415,7 @@ char *fstab_node_to_udev_node(const char *p);
 void filter_environ(const char *prefix);
 
 bool tty_is_vc(const char *tty);
+bool tty_is_vc_resolve(const char *tty);
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
@@ -415,6 +428,8 @@ bool nulstr_contains(const char*nulstr, const char *needle);
 bool plymouth_running(void);
 
 void parse_syslog_priority(char **p, int *priority);
+void skip_syslog_pid(char **buf);
+void skip_syslog_date(char **buf);
 
 int have_effective_cap(int value);
 
@@ -443,6 +458,7 @@ int hwclock_get_time(struct tm *tm);
 int hwclock_set_time(const struct tm *tm);
 
 int audit_session_from_pid(pid_t pid, uint32_t *id);
+int audit_loginuid_from_pid(pid_t pid, uid_t *uid);
 
 bool display_is_local(const char *display);
 int socket_from_display(const char *display, char **path);
@@ -465,7 +481,7 @@ bool in_charset(const char *s, const char* charset);
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
-int file_is_sticky(const char *p);
+int file_is_priv_sticky(const char *p);
 
 int strdup_or_null(const char *a, char **b);
 
@@ -505,5 +521,22 @@ extern int saved_argc;
 extern char **saved_argv;
 
 bool kexec_loaded(void);
+
+int prot_from_flags(int flags);
+
+unsigned long cap_last_cap(void);
+
+char *format_bytes(char *buf, size_t l, off_t t);
+
+int fd_wait_for_event(int fd, int event, usec_t timeout);
+
+void* memdup(const void *p, size_t l);
+
+int rtc_open(int flags);
+
+int is_kernel_thread(pid_t pid);
+
+int fd_inc_sndbuf(int fd, size_t n);
+int fd_inc_rcvbuf(int fd, size_t n);
 
 #endif

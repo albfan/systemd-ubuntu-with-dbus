@@ -284,7 +284,7 @@ static int on_shutdown(Context *c) {
                 }
 #endif
 
-        if ((q = utmp_put_shutdown(0)) < 0) {
+        if ((q = utmp_put_shutdown()) < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -339,7 +339,7 @@ static int on_runlevel(Context *c) {
         }
 #endif
 
-        if ((q = utmp_put_runlevel(0, runlevel, previous)) < 0) {
+        if ((q = utmp_put_runlevel(runlevel, previous)) < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -369,14 +369,17 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
         umask(0022);
 
 #ifdef HAVE_AUDIT
-        if ((c.audit_fd = audit_open()) < 0)
+        if ((c.audit_fd = audit_open()) < 0 &&
+            /* If the kernel lacks netlink or audit support,
+             * don't worry about it. */
+            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
 

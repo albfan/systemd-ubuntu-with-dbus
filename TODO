@@ -17,9 +17,77 @@ Bugfixes:
 
 * make polkit checks async
 
+* properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
+
 Features:
 
+* dbus: in fedora, make the machine a symlink to /etc/machine-id
+
+* journald: reuse XZ context
+
+* logind: add equivalent to sd_pid_get_owner_uid() to the D-Bus API
+
+* Fedora: disable journald's /proc/kmsg reading on Fedora for now
+
+* write RPM spec macros for presets
+
+* write man pages for systemd-cat
+
+* journal: write man pages for API
+
+* journal: OR matches are borked
+
+* journal: extend hash tables as we go
+
+* journal: API for looking for retrieving "all values of this field"
+
+* journal: deal nicely with byte-by-byte copied files, especially regards header
+
+* journal: local deserializer of export mode, http server
+
+* journal: message catalog
+
+* journal: forward-secure signatures
+
+* document the exit codes when services fail before they are exec()ed
+
+* rework namespace support, don't use pivot_root, and mount things after creating the namespace, not before
+
+* systemctl journal command
+
+* journalctl: --cursor support, priority filtering
+
+* systemctl status: show coredumps
+
+* systemctl status: show whether journal was rotated since service started
+
+* save coredump in Windows/Mozilla minidump format
+
+* support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
+
+* allow per-entry control on /var vs. /run (think incognito browser mode)
+
+* clean up session cgroups that remain after logout (think sshd), but eventually run empty
+
+* support "systemctl stop foobar@.service" to stop all units matching a certain template
+
+* move to LGPL2+
+
+* logind: allow showing logout dialog from system
+
+* document that %% can be used to write % in a string that is specifier extended
+
+* check utf8 everywhere
+
+* when an instanced service exits, remove its parent cgroup too if possible.
+
+* Make libselinux, libattr, libcap, libdl dependencies only of the tools which actually need them.
+
+* as Tom Gundersen pointed out there's a always a dep loop if people use crypto file systems with random keys
+
 * unset container= in PID1?
+
+* automatically escape unit names passed on the service (i.e. think "systemctl start serial-getty.service@serial/by-path/jshdfjsdfhkjh" being automatically escaped as necessary.
 
 * if we can not get user quota for tmpfs, mount a separate tmpfs instance
   for every user in /run/user/$USER with a configured maximum size
@@ -37,8 +105,6 @@ Features:
 
 * Something is wrong with symlink handling of "autovt@.service" in "systemctl list-unit-files"
 
-* introduce sd_log_open() to create a connection to the syslog bridge via sd-daemon.h
-
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * something like ConditionExec= or ExecStartPre= without failure state
@@ -46,13 +112,8 @@ Features:
 * service restart retry configuration
 
 * tmpfiles: apply "x" on "D" too (see patch from William Douglas)
-* tmpfiles: support generation of char/block devices, symlinks and one-line files (think sysfs)
-
-* Introduce ControlGroupPersistant=yes to set +t on the tasks file when creating the cgroup
 
 * don't set $HOME in services unless requested
-
-* remove hacks in vala code and require libnotify 0.7
 
 * hide PAM/TCPWrap options in fragment parser when compile time disabled
 
@@ -72,15 +133,13 @@ Features:
 * implement Register= switch in .socket units to enable registration
   in Avahi, RPC and other socket registration services.
 
-* make sure people don't leave processes around after ExecStartPre=
-
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
 * readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
 
 * readahead: check whether a btrfs volume includes ssd by checking mount flag "ssd"
 
-* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1)
+* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1), and add ReloadSignal= then to use in combination
 
 * support sd_notify() style notification when shutting down, to make auto-exit bus services work (STOPPING=1)
 
@@ -95,8 +154,6 @@ Features:
 
 * and a dbus call to generate target from current state
 
-* detect LXC with $container=lxc
-
 * drop /.readahead on bigger upgrades with yum
 
 * add inode nr check to readahead to suppress preloading changed files
@@ -105,8 +162,6 @@ Features:
 
 * GC unreferenced jobs (such as .device jobs)
 
-* cgroup_notify_empty(): recursively check groups up the tree, too
-
 * when failing to start a service due to ratelimiting, try again later, if restart=always is set
 
 * write blog stories about:
@@ -114,12 +169,9 @@ Features:
   - status update
   - how to make changes to sysctl and sysfs attributes
   - remote access
-  - cgroup best pratices to avoid stepping on each others toes
   - how to pass throw-away units to systemd, or dynamically change properties of existing units
   - how to integrate cgconfig and suchlike with systemd
-  - security properties
-  - xinetd conversion
-  - details of instantiated @.service setups
+  - resource control in systemd
 
 * allow port=0 in .socket units
 
@@ -146,10 +198,6 @@ Features:
 * timer events with system resume
 
 * timer events on calendar time
-
-* Support ProcessNeededForShutdown=true to allow stuff like mdmon to
-  be killed very late after the rootfs is read only? If implement pass
-  this to shutdown binary via command line argument.
 
 * dot output for --test showing the 'initial transaction'
 
@@ -178,8 +226,6 @@ Features:
 * io priority during initialization
 
 * if a service fails too often, make the service enter failed mode, and the socket, too.
-
-* new deps "Triggers" and "TriggeredBy"
 
 * systemctl list-jobs - show dependencies
 
@@ -214,11 +260,17 @@ External:
 
 * patch kernel for xattr support in /dev, /proc/, /sys and /sys/fs/cgroup?
 
+* NTP: the kernel's 11-minutes-mode syncs the system time to the RTC, but only
+  in an ~30 minutes window. It does not adjust larger differences. Find a way
+  to tell the kernel, to always do a full time sync when the RTC is in UTC and
+  we are in 11-minutes-mode. When we trust the system time to NTP we also want
+  the RTC to sync up.
+
 * patch kernel for cpu feature modalias for autoloading aes/kvm/...
-    http://git.kernel.org/?p=linux/kernel/git/ak/linux-misc-2.6.git;a=shortlog;h=refs/heads/cpuid-match
-  (Rafael J. Wysocki's sysdev rework is on the way. After that CPUs can be exported a proper bus.)
+    (patches in linux-next, on the way to the next kernel)
 
 * kernel: add /proc/sys file exposing CAP_LAST_CAP? sysconf?
+    merged: http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=73efc0394e148d0e15583e13712637831f926720
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 

@@ -40,8 +40,6 @@ struct CGroupAttribute;
 #include "list.h"
 #include "util.h"
 
-#define STDOUT_SYSLOG_BRIDGE_SOCKET "/run/systemd/stdout-syslog-bridge"
-
 typedef enum KillMode {
         KILL_CONTROL_GROUP = 0,
         KILL_PROCESS,
@@ -76,6 +74,8 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
         EXEC_OUTPUT_KMSG,
         EXEC_OUTPUT_KMSG_AND_CONSOLE,
+        EXEC_OUTPUT_JOURNAL,
+        EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
         EXEC_OUTPUT_SOCKET,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
@@ -163,6 +163,7 @@ struct ExecContext {
         bool private_network;
 
         bool control_group_modify;
+        int control_group_persistent;
 
         /* This is not exposed to the user but available
          * internally. We need it to make sure that whenever we spawn

@@ -78,10 +78,25 @@
 
                 <variablelist>
                         <varlistentry>
+                                <term><option>-h</option></term>
                                 <term><option>--help</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+				<listitem><para>Do not pipe output into a
+				pager.</para></listitem>
+			</varlistentry>
+
+                        <varlistentry>
+                                <term><option>-k</option></term>
+
+                                <listitem><para>Include kernel
+                                threads in output.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -99,7 +114,9 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-cgtop</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

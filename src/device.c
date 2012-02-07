@@ -46,13 +46,13 @@ static void device_unset_sysfs(Device *d) {
 
         /* Remove this unit from the chain of devices which share the
          * same sysfs path. */
-        first = hashmap_get(d->meta.manager->devices_by_sysfs, d->sysfs);
+        first = hashmap_get(UNIT(d)->manager->devices_by_sysfs, d->sysfs);
         LIST_REMOVE(Device, same_sysfs, first, d);
 
         if (first)
-                hashmap_remove_and_replace(d->meta.manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
+                hashmap_remove_and_replace(UNIT(d)->manager->devices_by_sysfs, d->sysfs, first->sysfs, first);
         else
-                hashmap_remove(d->meta.manager->devices_by_sysfs, d->sysfs);
+                hashmap_remove(UNIT(d)->manager->devices_by_sysfs, d->sysfs);
 
         free(d->sysfs);
         d->sysfs = NULL;
@@ -62,17 +62,17 @@ static void device_init(Unit *u) {
         Device *d = DEVICE(u);
 
         assert(d);
-        assert(d->meta.load_state == UNIT_STUB);
+        assert(UNIT(d)->load_state == UNIT_STUB);
 
         /* In contrast to all other unit types we timeout jobs waiting
          * for devices by default. This is because they otherwise wait
          * indefinitely for plugged in devices, something which cannot
          * happen for the other units since their operations time out
          * anyway. */
-        d->meta.job_timeout = DEFAULT_TIMEOUT_USEC;
+        UNIT(d)->job_timeout = DEFAULT_TIMEOUT_USEC;
 
-        d->meta.ignore_on_isolate = true;
-        d->meta.ignore_on_snapshot = true;
+        UNIT(d)->ignore_on_isolate = true;
+        UNIT(d)->ignore_on_snapshot = true;
 }
 
 static void device_done(Unit *u) {
@@ -92,7 +92,7 @@ static void device_set_state(Device *d, DeviceState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          d->meta.id,
+                          UNIT(d)->id,
                           device_state_to_string(old_state),
                           device_state_to_string(state));
 
@@ -198,10 +198,12 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
         if (!u) {
                 delete = true;
 
-                if (!(u = unit_new(m)))
+                u = unit_new(m, sizeof(Device));
+                if (!u)
                         return -ENOMEM;
 
-                if ((r = device_add_escaped_name(u, path)) < 0)
+                r = device_add_escaped_name(u, path);
+                if (r < 0)
                         goto fail;
 
                 unit_add_to_load_queue(u);
@@ -387,16 +389,16 @@ static Unit *device_following(Unit *u) {
 
         assert(d);
 
-        if (startswith(u->meta.id, "sys-"))
+        if (startswith(u->id, "sys-"))
                 return NULL;
 
         /* Make everybody follow the unit that's named after the sysfs path */
         for (other = d->same_sysfs_next; other; other = other->same_sysfs_next)
-                if (startswith(other->meta.id, "sys-"))
+                if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
         for (other = d->same_sysfs_prev; other; other = other->same_sysfs_prev) {
-                if (startswith(other->meta.id, "sys-"))
+                if (startswith(UNIT(other)->id, "sys-"))
                         return UNIT(other);
 
                 first = other;
@@ -583,6 +585,7 @@ DEFINE_STRING_TABLE_LOOKUP(device_state, DeviceState);
 
 const UnitVTable device_vtable = {
         .suffix = ".device",
+        .object_size = sizeof(Device),
         .sections =
                 "Unit\0"
                 "Device\0"

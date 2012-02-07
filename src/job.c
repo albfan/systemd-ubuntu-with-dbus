@@ -62,8 +62,8 @@ void job_free(Job *j) {
         if (j->installed) {
                 bus_job_send_removed_signal(j);
 
-                if (j->unit->meta.job == j) {
-                        j->unit->meta.job = NULL;
+                if (j->unit->job == j) {
+                        j->unit->job = NULL;
                         unit_add_to_gc_queue(j->unit);
                 }
 
@@ -147,7 +147,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s\tState: %s\n"
                 "%s\tForced: %s\n",
                 prefix, j->id,
-                prefix, j->unit->meta.id, job_type_to_string(j->type),
+                prefix, j->unit->id, job_type_to_string(j->type),
                 prefix, job_state_to_string(j->state),
                 prefix, yes_no(j->override));
 }
@@ -326,19 +326,19 @@ bool job_is_runnable(Job *j) {
                  * dependencies, regardless whether they are
                  * starting or stopping something. */
 
-                SET_FOREACH(other, j->unit->meta.dependencies[UNIT_AFTER], i)
-                        if (other->meta.job)
+                SET_FOREACH(other, j->unit->dependencies[UNIT_AFTER], i)
+                        if (other->job)
                                 return false;
         }
 
         /* Also, if something else is being stopped and we should
          * change state after it, then lets wait. */
 
-        SET_FOREACH(other, j->unit->meta.dependencies[UNIT_BEFORE], i)
-                if (other->meta.job &&
-                    (other->meta.job->type == JOB_STOP ||
-                     other->meta.job->type == JOB_RESTART ||
-                     other->meta.job->type == JOB_TRY_RESTART))
+        SET_FOREACH(other, j->unit->dependencies[UNIT_BEFORE], i)
+                if (other->job &&
+                    (other->job->type == JOB_STOP ||
+                     other->job->type == JOB_RESTART ||
+                     other->job->type == JOB_TRY_RESTART))
                         return false;
 
         /* This means that for a service a and a service b where b
@@ -484,19 +484,20 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_DONE:
-                        unit_status_printf(u, "Started %s.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Started %s", unit_description(u));
                         break;
 
                 case JOB_FAILED:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "failed" ANSI_HIGHLIGHT_OFF ", see 'systemctl status %s' for details.\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, "Failed to start %s", unit_description(u));
+                        unit_status_printf(u, NULL, "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "aborted" ANSI_HIGHLIGHT_OFF " because a dependency failed.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " ABORT" ANSI_HIGHLIGHT_OFF, "Dependency failed. Aborted start of %s", unit_description(u));
                         break;
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, "Starting %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out starting %s", unit_description(u));
                         break;
 
                 default:
@@ -508,12 +509,12 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_TIMEOUT:
-                        unit_status_printf(u, "Stopping %s " ANSI_HIGHLIGHT_ON "timed out" ANSI_HIGHLIGHT_OFF ".\n", unit_description(u), u->meta.id);
+                        unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, "Timed out stopping %s", unit_description(u));
                         break;
 
                 case JOB_DONE:
                 case JOB_FAILED:
-                        unit_status_printf(u, "Stopped %s.\n", unit_description(u));
+                        unit_status_printf(u, ANSI_HIGHLIGHT_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, "Stopped %s", unit_description(u));
                         break;
 
                 default:
@@ -527,6 +528,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         Unit *other;
         JobType t;
         Iterator i;
+        bool recursed = false;
 
         assert(j);
         assert(j->installed);
@@ -537,8 +539,8 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
         if (result == JOB_DONE && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
 
                 log_debug("Converting job %s/%s -> %s/%s",
-                          j->unit->meta.id, job_type_to_string(j->type),
-                          j->unit->meta.id, job_type_to_string(JOB_START));
+                          j->unit->id, job_type_to_string(j->type),
+                          j->unit->id, job_type_to_string(JOB_START));
 
                 j->state = JOB_WAITING;
                 j->type = JOB_START;
@@ -551,7 +553,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
 
         j->result = result;
 
-        log_debug("Job %s/%s finished, result=%s", j->unit->meta.id, job_type_to_string(j->type), job_result_to_string(result));
+        log_debug("Job %s/%s finished, result=%s", j->unit->id, job_type_to_string(j->type), job_result_to_string(result));
 
         if (result == JOB_FAILED)
                 j->manager->n_failed_jobs ++;
@@ -569,36 +571,44 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
                     t == JOB_VERIFY_ACTIVE ||
                     t == JOB_RELOAD_OR_START) {
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
-                                if (other->meta.job &&
-                                    (other->meta.job->type == JOB_START ||
-                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY], i)
+                                if (other->job &&
+                                    (other->job->type == JOB_START ||
+                                     other->job->type == JOB_VERIFY_ACTIVE ||
+                                     other->job->type == JOB_RELOAD_OR_START)) {
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_BOUND_BY], i)
-                                if (other->meta.job &&
-                                    (other->meta.job->type == JOB_START ||
-                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                        SET_FOREACH(other, u->dependencies[UNIT_BOUND_BY], i)
+                                if (other->job &&
+                                    (other->job->type == JOB_START ||
+                                     other->job->type == JOB_VERIFY_ACTIVE ||
+                                     other->job->type == JOB_RELOAD_OR_START)) {
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
-                                if (other->meta.job &&
-                                    !other->meta.job->override &&
-                                    (other->meta.job->type == JOB_START ||
-                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                        SET_FOREACH(other, u->dependencies[UNIT_REQUIRED_BY_OVERRIDABLE], i)
+                                if (other->job &&
+                                    !other->job->override &&
+                                    (other->job->type == JOB_START ||
+                                     other->job->type == JOB_VERIFY_ACTIVE ||
+                                     other->job->type == JOB_RELOAD_OR_START)) {
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
 
                 } else if (t == JOB_STOP) {
 
-                        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTED_BY], i)
-                                if (other->meta.job &&
-                                    (other->meta.job->type == JOB_START ||
-                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.job->type == JOB_RELOAD_OR_START))
-                                        job_finish_and_invalidate(other->meta.job, JOB_DEPENDENCY);
+                        SET_FOREACH(other, u->dependencies[UNIT_CONFLICTED_BY], i)
+                                if (other->job &&
+                                    (other->job->type == JOB_START ||
+                                     other->job->type == JOB_VERIFY_ACTIVE ||
+                                     other->job->type == JOB_RELOAD_OR_START)) {
+                                        job_finish_and_invalidate(other->job, JOB_DEPENDENCY);
+                                        recursed = true;
+                                }
                 }
         }
 
@@ -608,7 +618,7 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
          * unit itself. */
         if (result == JOB_TIMEOUT || result == JOB_DEPENDENCY) {
                 log_notice("Job %s/%s failed with result '%s'.",
-                           u->meta.id,
+                           u->id,
                            job_type_to_string(t),
                            job_result_to_string(result));
 
@@ -617,16 +627,16 @@ int job_finish_and_invalidate(Job *j, JobResult result) {
 
 finish:
         /* Try to start the next jobs that can be started */
-        SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)
-                if (other->meta.job)
-                        job_add_to_run_queue(other->meta.job);
-        SET_FOREACH(other, u->meta.dependencies[UNIT_BEFORE], i)
-                if (other->meta.job)
-                        job_add_to_run_queue(other->meta.job);
+        SET_FOREACH(other, u->dependencies[UNIT_AFTER], i)
+                if (other->job)
+                        job_add_to_run_queue(other->job);
+        SET_FOREACH(other, u->dependencies[UNIT_BEFORE], i)
+                if (other->job)
+                        job_add_to_run_queue(other->job);
 
-        manager_check_finished(u->meta.manager);
+        manager_check_finished(u->manager);
 
-        return 0;
+        return recursed;
 }
 
 int job_start_timer(Job *j) {
@@ -635,7 +645,7 @@ int job_start_timer(Job *j) {
         int fd, r;
         assert(j);
 
-        if (j->unit->meta.job_timeout <= 0 ||
+        if (j->unit->job_timeout <= 0 ||
             j->timer_watch.type == WATCH_JOB_TIMER)
                 return 0;
 
@@ -647,7 +657,7 @@ int job_start_timer(Job *j) {
         }
 
         zero(its);
-        timespec_store(&its.it_value, j->unit->meta.job_timeout);
+        timespec_store(&its.it_value, j->unit->job_timeout);
 
         if (timerfd_settime(fd, 0, &its, NULL) < 0) {
                 r = -errno;
@@ -717,7 +727,7 @@ void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
         assert(j);
         assert(w == &j->timer_watch);
 
-        log_warning("Job %s/%s timed out.", j->unit->meta.id, job_type_to_string(j->type));
+        log_warning("Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
         job_finish_and_invalidate(j, JOB_TIMEOUT);
 }
 
