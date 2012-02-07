@@ -17,14 +17,14 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[37],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[40],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
-
-AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax subdir-objects dist-bzip2])
+AC_PREFIX_DEFAULT([/usr])
+AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects check-news])
 
 AC_SUBST(PACKAGE_URL, [http://www.freedesktop.org/wiki/Software/systemd])
 
@@ -100,6 +100,7 @@ CC_CHECK_CFLAGS_APPEND([ \
         -Wno-unused-parameter \
         -Wno-missing-field-initializers \
         -Wno-unused-result \
+        -Werror=overflow \
         -Wp,-D_FORTIFY_SOURCE=2 \
         -ffast-math \
         -fno-common \
@@ -148,6 +149,19 @@ if test "x$enable_selinux" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
+
+have_xz=no
+AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
+if test "x$enable_xz" != "xno"; then
+        PKG_CHECK_MODULES(XZ, [ liblzma ],
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
+        AC_SUBST(XZ_CFLAGS)
+        AC_SUBST(XZ_LIBS)
+        if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
+                AC_MSG_ERROR([*** Xz support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 AC_ARG_ENABLE([tcpwrap],
         AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
@@ -303,6 +317,41 @@ if test "x$enable_binfmt" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
+have_vconsole=no
+AC_ARG_ENABLE(vconsole, AS_HELP_STRING([--disable-vconsole], [disable vconsole tool]))
+if test "x$enable_vconsole" != "xno"; then
+	have_vconsole=yes
+fi
+AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
+
+have_readahead=no
+AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
+if test "x$enable_readahead" != "xno"; then
+	have_readahead=yes
+fi
+AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
+
+have_quotacheck=no
+AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
+if test "x$enable_quotacheck" != "xno"; then
+	have_quotacheck=yes
+fi
+AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
+
+have_randomseed=no
+AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
+if test "x$enable_randomseed" != "xno"; then
+	have_randomseed=yes
+fi
+AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
+
+have_logind=no
+AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
+if test "x$enable_logind" != "xno"; then
+	have_logind=yes
+fi
+AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
+
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
 if test "x$enable_hostnamed" != "xno"; then
@@ -324,10 +373,17 @@ if test "x$enable_localed" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 
+have_coredump=no
+AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
+if test "x$enable_coredump" != "xno"; then
+	have_coredump=yes
+fi
+AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
+
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
-        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 ],
+        PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 gee-1.0],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
         AC_SUBST(GTK_CFLAGS)
         AC_SUBST(GTK_LIBS)
@@ -339,12 +395,9 @@ AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
 if test "$have_gtk" = "yes"; then
         PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
-        PKG_CHECK_EXISTS([ libnotify >= 0.7.0 ], [ libnotify07=yes ])
-
         AC_SUBST(LIBNOTIFY_CFLAGS)
         AC_SUBST(LIBNOTIFY_LIBS)
 fi
-AM_CONDITIONAL(LIBNOTIFY07, [ test "$libnotify07" = "yes" ])
 
 AM_PROG_VALAC([0.10])
 AC_SUBST(VAPIDIR)
@@ -371,6 +424,7 @@ if test "z$with_distro" = "z"; then
                 test -f "/etc/mandriva-release" && with_distro="mandriva"
                 test -f "/etc/meego-release" && with_distro="meego"
                 test -f "/etc/angstrom-version" && with_distro="angstrom"
+                test -f "/etc/mageia-release" && with_distro="mageia"
                 if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
                         with_distro="ubuntu"
                 fi
@@ -458,6 +512,12 @@ case $with_distro in
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
                 M4_DEFINES=-DTARGET_ANGSTROM=1
                 ;;
+        mageia)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                AC_DEFINE(TARGET_MAGEIA, [], [Target is Mageia])
+                M4_DISTRO_FLAG=-DTARGET_MAGEIA=1
+                have_plymouth=yes
+                ;;
         other)
                 ;;
         *)
@@ -515,6 +575,7 @@ AM_CONDITIONAL(TARGET_ALTLINUX, test x"$with_distro" = xaltlinux)
 AM_CONDITIONAL(TARGET_MANDRIVA, test x"$with_distro" = xmandriva)
 AM_CONDITIONAL(TARGET_MEEGO, test x"$with_distro" = xmeego)
 AM_CONDITIONAL(TARGET_ANGSTROM, test x"$with_distro" = xangstrom)
+AM_CONDITIONAL(TARGET_MAGEIA, test x"$with_distro" = xmageia)
 
 AM_CONDITIONAL(HAVE_PLYMOUTH, test "$have_plymouth" = "yes")
 AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
@@ -540,24 +601,23 @@ AC_ARG_WITH([dbusinterfacedir],
         [with_dbusinterfacedir=`pkg-config --variable=session_bus_services_dir dbus-1`/../interfaces])
 
 AC_ARG_WITH([udevrulesdir],
-        AS_HELP_STRING([--with-udevrulesdir=DIR], [Diectory for udev rules]),
+        AS_HELP_STRING([--with-udevrulesdir=DIR], [Directory for udev rules]),
         [],
         [with_udevrulesdir=`pkg-config --variable=udevdir udev`/rules.d])
 
-AC_ARG_WITH([pamlibdir],
-        AS_HELP_STRING([--with-pamlibdir=DIR], [Diectory for PAM modules]),
-        [],
-        [with_pamlibdir=/lib/`$CC -print-multi-os-directory`/security])
-
-AC_ARG_WITH([rootdir],
-        AS_HELP_STRING([--with-rootdir=DIR], [Root directory for files necessary for boot]),
-        [],
-        [with_rootdir=${ac_default_prefix}])
+AC_ARG_WITH([rootprefix],
+        AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
+        [], [with_rootprefix=${ac_default_prefix}])
 
 AC_ARG_WITH([rootlibdir],
         AS_HELP_STRING([--with-rootlibdir=DIR], [Root directory for libraries necessary for boot]),
         [],
         [with_rootlibdir=${libdir}])
+
+AC_ARG_WITH([pamlibdir],
+        AS_HELP_STRING([--with-pamlibdir=DIR], [Directory for PAM modules]),
+        [],
+        [with_pamlibdir=${with_rootlibdir}/security])
 
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
@@ -565,7 +625,7 @@ AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([udevrulesdir], [$with_udevrulesdir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
-AC_SUBST([rootdir], [$with_rootdir])
+AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
 AC_CONFIG_FILES([Makefile po/Makefile.in])
@@ -583,14 +643,22 @@ AC_MSG_RESULT([
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         SELinux:                 ${have_selinux}
+        XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         binfmt:                  ${have_binfmt}
+        vconsole:                ${have_vconsole}
+        readahead:               ${have_readahead}
+        quotacheck:              ${have_quotacheck}
+        randomseed:              ${have_randomseed}
+        logind:                  ${have_logind}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
+        coredump:                ${have_coredump}
         plymouth:                ${have_plymouth}
         prefix:                  ${prefix}
-        root dir:                ${with_rootdir}
+        rootprefix:              ${with_rootprefix}
+        libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
         pam modules dir:         ${with_pamlibdir}

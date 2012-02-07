@@ -25,7 +25,9 @@
 typedef struct Service Service;
 
 #include "unit.h"
+#include "path.h"
 #include "ratelimit.h"
+#include "service.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -86,8 +88,19 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
 
+typedef enum ServiceResult {
+        SERVICE_SUCCESS,
+        SERVICE_FAILURE_RESOURCES,
+        SERVICE_FAILURE_TIMEOUT,
+        SERVICE_FAILURE_EXIT_CODE,
+        SERVICE_FAILURE_SIGNAL,
+        SERVICE_FAILURE_CORE_DUMP,
+        _SERVICE_RESULT_MAX,
+        _SERVICE_RESULT_INVALID = -1
+} ServiceResult;
+
 struct Service {
-        Meta meta;
+        Unit meta;
 
         ServiceType type;
         ServiceRestart restart;
@@ -97,6 +110,8 @@ struct Service {
 
         usec_t restart_usec;
         usec_t timeout_usec;
+
+        dual_timestamp watchdog_timestamp;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;
@@ -128,8 +143,8 @@ struct Service {
         bool guess_main_pid;
 
         /* If we shut down, remember why */
-        bool failure:1;
-        bool reload_failure:1;
+        ServiceResult result;
+        ServiceResult reload_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -153,15 +168,17 @@ struct Service {
 
         RateLimit ratelimit;
 
-        struct Socket *accept_socket;
-        Set *configured_sockets;
+        UnitRef accept_socket;
 
         Watch timer_watch;
+        PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
 };
 
 extern const UnitVTable service_vtable;
+
+struct Socket;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
 
@@ -179,5 +196,8 @@ ServiceExecCommand service_exec_command_from_string(const char *s);
 
 const char* notify_access_to_string(NotifyAccess i);
 NotifyAccess notify_access_from_string(const char *s);
+
+const char* service_result_to_string(ServiceResult i);
+ServiceResult service_result_from_string(const char *s);
 
 #endif

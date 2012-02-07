@@ -74,7 +74,7 @@ struct Watch {
         int fd;
         WatchType type;
         union {
-                union Unit *unit;
+                struct Unit *unit;
                 struct Job *job;
                 DBusWatch *bus_watch;
                 DBusTimeout *bus_timeout;
@@ -102,10 +102,10 @@ struct Manager {
 
         /* To make it easy to iterate through the units of a specific
          * type we maintain a per type linked list */
-        LIST_HEAD(Meta, units_by_type[_UNIT_TYPE_MAX]);
+        LIST_HEAD(Unit, units_by_type[_UNIT_TYPE_MAX]);
 
         /* Units that need to be loaded */
-        LIST_HEAD(Meta, load_queue); /* this is actually more a stack than a queue, but uh. */
+        LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
         LIST_HEAD(Job, run_queue);   /* more a stack than a queue, too */
@@ -114,14 +114,14 @@ struct Manager {
          * D-Bus. When something about a job changes it is added here
          * if it is not in there yet. This allows easy coalescing of
          * D-Bus change signals. */
-        LIST_HEAD(Meta, dbus_unit_queue);
+        LIST_HEAD(Unit, dbus_unit_queue);
         LIST_HEAD(Job, dbus_job_queue);
 
         /* Units to remove */
-        LIST_HEAD(Meta, cleanup_queue);
+        LIST_HEAD(Unit, cleanup_queue);
 
         /* Units to check when doing GC */
-        LIST_HEAD(Meta, gc_queue);
+        LIST_HEAD(Unit, gc_queue);
 
         /* Jobs to be added */
         Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
@@ -179,9 +179,11 @@ struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
         int32_t name_data_slot;
+        int32_t conn_data_slot;
         int32_t subscribed_data_slot;
 
         uint32_t current_job_id;
+        uint32_t default_unit_job_id;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
@@ -288,7 +290,7 @@ void manager_check_finished(Manager *m);
 void manager_run_generators(Manager *m);
 void manager_undo_generators(Manager *m);
 
-void manager_recheck_syslog(Manager *m);
+void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, bool b);
 bool manager_get_show_status(Manager *m);

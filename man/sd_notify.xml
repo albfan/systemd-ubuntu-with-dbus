@@ -50,7 +50,7 @@
 
         <refsynopsisdiv>
                 <funcsynopsis>
-                        <funcsynopsisinfo>#include "sd-daemon.h"</funcsynopsisinfo>
+                        <funcsynopsisinfo>#include &lt;systemd/sd-daemon.h&gt;</funcsynopsisinfo>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_notify</function></funcdef>
@@ -151,6 +151,18 @@
                                 itself. Example:
                                 "MAINPID=4711"</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term>WATCHDOG=1</term>
+
+                                <listitem><para>Tells systemd to
+                                update the watchdog timestamp.
+                                Services using this feature should do
+                                this in regular intervals. A watchdog
+                                framework can use the timestamps to
+                                detect failed
+                                services.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
                 <para>It is recommended to prefix variable names that
@@ -166,7 +178,7 @@
                 for details.</para>
 
                 <para><function>sd_notifyf()</function> is similar to
-                <function>sd_notifyf()</function> but takes a
+                <function>sd_notify()</function> but takes a
                 <function>printf()</function>-like format string plus
                 arguments.</para>
         </refsect1>
@@ -208,9 +220,9 @@
 
                 <para>For details about the algorithms check the
                 liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.c"/>
+                <ulink url="http://cgit.freedesktop.org/systemd/plain/src/sd-daemon.c"/>
                 resp. <ulink
-                url="http://cgit.freedesktop.org/systemd/tree/src/sd-daemon.h"/></para>
+                url="http://cgit.freedesktop.org/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_notify()</function> and
                 <function>sd_notifyf()</function> are implemented in

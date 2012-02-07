@@ -45,7 +45,7 @@ static void target_set_state(Target *t, TargetState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          t->meta.id,
+                          UNIT(t)->id,
                           target_state_to_string(old_state),
                           target_state_to_string(state));
 
@@ -75,7 +75,7 @@ static int target_add_default_dependencies(Target *t) {
          * sure we don't create a loop. */
 
         for (k = 0; k < ELEMENTSOF(deps); k++)
-                SET_FOREACH(other, t->meta.dependencies[deps[k]], i)
+                SET_FOREACH(other, UNIT(t)->dependencies[deps[k]], i)
                         if ((r = unit_add_default_target_dependency(other, UNIT(t))) < 0)
                                 return r;
 
@@ -93,8 +93,8 @@ static int target_load(Unit *u) {
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (u->meta.load_state == UNIT_LOADED) {
-                if (u->meta.default_dependencies)
+        if (u->load_state == UNIT_LOADED) {
+                if (u->default_dependencies)
                         if ((r = target_add_default_dependencies(t)) < 0)
                                 return r;
         }
@@ -199,6 +199,7 @@ DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
 
 const UnitVTable target_vtable = {
         .suffix = ".target",
+        .object_size = sizeof(Target),
         .sections =
                 "Unit\0"
                 "Target\0"

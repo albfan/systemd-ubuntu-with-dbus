@@ -86,10 +86,11 @@ $1.KillMode,                     config_parse_kill_mode,             0,         
 $1.KillSignal,                   config_parse_kill_signal,           0,                             offsetof($1, exec_context.kill_signal)
 $1.SendSIGKILL,                  config_parse_bool,                  0,                             offsetof($1, exec_context.send_sigkill)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
-$1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)'
+$1.ControlGroupModify,           config_parse_bool,                  0,                             offsetof($1, exec_context.control_group_modify)
+$1.ControlGroupPersistent,       config_parse_tristate,              0,                             offsetof($1, exec_context.control_group_persistent)'
 )m4_dnl
 Unit.Names,                      config_parse_unit_names,            0,                             0
-Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Meta, description)
+Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
 Unit.Requires,                   config_parse_unit_deps,             UNIT_REQUIRES,                 0
 Unit.RequiresOverridable,        config_parse_unit_deps,             UNIT_REQUIRES_OVERRIDABLE,     0
 Unit.Requisite,                  config_parse_unit_deps,             UNIT_REQUISITE,                0
@@ -100,15 +101,17 @@ Unit.Conflicts,                  config_parse_unit_deps,             UNIT_CONFLI
 Unit.Before,                     config_parse_unit_deps,             UNIT_BEFORE,                   0
 Unit.After,                      config_parse_unit_deps,             UNIT_AFTER,                    0
 Unit.OnFailure,                  config_parse_unit_deps,             UNIT_ON_FAILURE,               0
-Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Meta, stop_when_unneeded)
-Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_start)
-Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Meta, refuse_manual_stop)
-Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Meta, allow_isolate)
-Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Meta, default_dependencies)
-Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Meta, on_failure_isolate)
-Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Meta, ignore_on_isolate)
-Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Meta, ignore_on_snapshot)
-Unit.JobTimeoutSec,              config_parse_usec,                  0,                             offsetof(Meta, job_timeout)
+Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_TO,      0
+Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_PROPAGATE_RELOAD_FROM,    0
+Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
+Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
+Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_stop)
+Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Unit, allow_isolate)
+Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Unit, default_dependencies)
+Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Unit, on_failure_isolate)
+Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
+Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
+Unit.JobTimeoutSec,              config_parse_usec,                  0,                             offsetof(Unit, job_timeout)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0
@@ -168,15 +171,16 @@ Socket.Accept,                   config_parse_bool,                  0,         
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
 Socket.Priority,                 config_parse_int,                   0,                             offsetof(Socket, priority)
-Socket.ReceiveBuffer,            config_parse_size,                  0,                             offsetof(Socket, receive_buffer)
-Socket.SendBuffer,               config_parse_size,                  0,                             offsetof(Socket, send_buffer)
+Socket.ReceiveBuffer,            config_parse_bytes_size,            0,                             offsetof(Socket, receive_buffer)
+Socket.SendBuffer,               config_parse_bytes_size,            0,                             offsetof(Socket, send_buffer)
 Socket.IPTOS,                    config_parse_ip_tos,                0,                             offsetof(Socket, ip_tos)
 Socket.IPTTL,                    config_parse_int,                   0,                             offsetof(Socket, ip_ttl)
 Socket.Mark,                     config_parse_int,                   0,                             offsetof(Socket, mark)
-Socket.PipeSize,                 config_parse_size,                  0,                             offsetof(Socket, pipe_size)
+Socket.PipeSize,                 config_parse_bytes_size,            0,                             offsetof(Socket, pipe_size)
 Socket.FreeBind,                 config_parse_bool,                  0,                             offsetof(Socket, free_bind)
 Socket.Transparent,              config_parse_bool,                  0,                             offsetof(Socket, transparent)
 Socket.Broadcast,                config_parse_bool,                  0,                             offsetof(Socket, broadcast)
+Socket.PassCredentials,          config_parse_bool,                  0,                             offsetof(Socket, pass_cred)
 Socket.TCPCongestion,            config_parse_string,                0,                             offsetof(Socket, tcp_congestion)
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
@@ -209,6 +213,7 @@ m4_dnl
 Path.PathExists,                 config_parse_path_spec,             0,                             0
 Path.PathExistsGlob,             config_parse_path_spec,             0,                             0
 Path.PathChanged,                config_parse_path_spec,             0,                             0
+Path.PathModified,               config_parse_path_spec,             0,                             0
 Path.DirectoryNotEmpty,          config_parse_path_spec,             0,                             0
 Path.Unit,                       config_parse_path_unit,             0,                             0
 Path.MakeDirectory,              config_parse_bool,                  0,                             offsetof(Path, make_directory)

@@ -34,13 +34,13 @@
 #include <ctype.h>
 
 #include <dbus/dbus.h>
+#include <systemd/sd-daemon.h>
 
 #include "util.h"
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
 #include "special.h"
-#include "sd-daemon.h"
 #include "dbus-common.h"
 #include "def.h"
 
@@ -56,6 +56,8 @@ typedef struct Server {
         unsigned n_fifos;
 
         DBusConnection *bus;
+
+        bool quit;
 } Server;
 
 struct Fifo {
@@ -174,6 +176,13 @@ static void request_process(Server *s, const struct init_request *req) {
                         case 'U':
                                 if (kill(1, SIGTERM) < 0)
                                         log_error("kill() failed: %m");
+
+                                /* The bus connection will be
+                                 * terminated if PID 1 is reexecuted,
+                                 * hence let's just exit here, and
+                                 * rely on that we'll be restarted on
+                                 * the next request */
+                                s->quit = true;
                                 break;
 
                         case 'q':
@@ -379,7 +388,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
@@ -404,7 +413,7 @@ int main(int argc, char *argv[]) {
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        for (;;) {
+        while (!server.quit) {
                 struct epoll_event event;
                 int k;
 

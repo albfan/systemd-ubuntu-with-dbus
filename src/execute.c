@@ -173,24 +173,23 @@ static int open_null_as(int flags, int nfd) {
 
 static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, int nfd) {
         int fd, r;
-        union {
-                struct sockaddr sa;
-                struct sockaddr_un un;
-        } sa;
+        union sockaddr_union sa;
 
         assert(context);
         assert(output < _EXEC_OUTPUT_MAX);
         assert(ident);
         assert(nfd >= 0);
 
-        if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+        fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0)
                 return -errno;
 
         zero(sa);
-        sa.sa.sa_family = AF_UNIX;
-        strncpy(sa.un.sun_path, STDOUT_SYSLOG_BRIDGE_SOCKET, sizeof(sa.un.sun_path));
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/run/systemd/journal/stdout", sizeof(sa.un.sun_path));
 
-        if (connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + sizeof(STDOUT_SYSLOG_BRIDGE_SOCKET) - 1) < 0) {
+        r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+        if (r < 0) {
                 close_nointr_nofail(fd);
                 return -errno;
         }
@@ -200,26 +199,19 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
                 return -errno;
         }
 
-        /* We speak a very simple protocol between log server
-         * and client: one line for the log destination (kmsg
-         * or syslog), followed by the priority field,
-         * followed by the process name. Since we replaced
-         * stdin/stderr we simple use stdio to write to
-         * it. Note that we use stderr, to minimize buffer
-         * flushing issues. */
-
         dprintf(fd,
                 "%s\n"
                 "%i\n"
-                "%s\n"
+                "%i\n"
+                "%i\n"
+                "%i\n"
                 "%i\n",
-                output == EXEC_OUTPUT_KMSG ?             "kmsg" :
-                output == EXEC_OUTPUT_KMSG_AND_CONSOLE ? "kmsg+console" :
-                output == EXEC_OUTPUT_SYSLOG ?           "syslog" :
-                                                         "syslog+console",
-                context->syslog_priority,
                 context->syslog_identifier ? context->syslog_identifier : ident,
-                context->syslog_level_prefix);
+                context->syslog_priority,
+                !!context->syslog_level_prefix,
+                output == EXEC_OUTPUT_SYSLOG || output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
+                output == EXEC_OUTPUT_KMSG || output == EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || output == EXEC_OUTPUT_KMSG_AND_CONSOLE || output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
@@ -359,6 +351,8 @@ static int setup_output(const ExecContext *context, int socket_fd, const char *i
         case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
         case EXEC_OUTPUT_KMSG:
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
+        case EXEC_OUTPUT_JOURNAL:
+        case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 return connect_logger_as(context, o, ident, STDOUT_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -412,6 +406,8 @@ static int setup_error(const ExecContext *context, int socket_fd, const char *id
         case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
         case EXEC_OUTPUT_KMSG:
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
+        case EXEC_OUTPUT_JOURNAL:
+        case EXEC_OUTPUT_JOURNAL_AND_CONSOLE:
                 return connect_logger_as(context, e, ident, STDERR_FILENO);
 
         case EXEC_OUTPUT_SOCKET:
@@ -716,6 +712,7 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         sigset_t ss, old_ss;
         int pam_code = PAM_SUCCESS;
+        int err;
         char **e = NULL;
         bool close_session = false;
         pid_t pam_pid = 0, parent_pid;
@@ -773,8 +770,8 @@ static int setup_pam(
                  * termination */
 
                 /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init") */
-                rename_process("sd(PAM)");
+                 * of "/sbin/init"), to look pretty in /bin/ps */
+                rename_process("(sd-pam)");
 
                 /* Make sure we don't keep open the passed fds in this
                 child. We assume that otherwise only those fds are
@@ -835,6 +832,11 @@ static int setup_pam(
         return 0;
 
 fail:
+        if (pam_code != PAM_SUCCESS)
+                err = -EPERM;  /* PAM errors do not map to errno */
+        else
+                err = -errno;
+
         if (handle) {
                 if (close_session)
                         pam_code = pam_close_session(handle, PAM_DATA_SILENT);
@@ -851,7 +853,7 @@ fail:
                 kill(pam_pid, SIGCONT);
         }
 
-        return EXIT_PAM;
+        return err;
 }
 #endif
 
@@ -895,12 +897,9 @@ static int do_capability_bounding_set_drop(uint64_t drop) {
                 }
         }
 
-        for (i = 0; i <= MAX(63LU, (unsigned long) CAP_LAST_CAP); i++)
+        for (i = 0; i <= cap_last_cap(); i++)
                 if (drop & ((uint64_t) 1ULL << (uint64_t) i)) {
                         if (prctl(PR_CAPBSET_DROP, i) < 0) {
-                                if (errno == EINVAL)
-                                        break;
-
                                 r = -errno;
                                 goto finish;
                         }
@@ -918,6 +917,37 @@ finish:
         }
 
         return r;
+}
+
+static void rename_process_from_path(const char *path) {
+        char process_name[11];
+        const char *p;
+        size_t l;
+
+        /* This resulting string must fit in 10 chars (i.e. the length
+         * of "/sbin/init") to look pretty in /bin/ps */
+
+        p = file_name_from_path(path);
+        if (isempty(p)) {
+                rename_process("(...)");
+                return;
+        }
+
+        l = strlen(p);
+        if (l > 8) {
+                /* The end of the process name is usually more
+                 * interesting, since the first bit might just be
+                 * "systemd-" */
+                p = p + l - 8;
+                l = 8;
+        }
+
+        process_name[0] = '(';
+        memcpy(process_name+1, p, l);
+        process_name[1+l] = ')';
+        process_name[1+l+1] = 0;
+
+        rename_process(process_name);
 }
 
 int exec_spawn(ExecCommand *command,
@@ -986,7 +1016,7 @@ int exec_spawn(ExecCommand *command,
         }
 
         if (pid == 0) {
-                int i;
+                int i, err;
                 sigset_t ss;
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
@@ -994,13 +1024,11 @@ int exec_spawn(ExecCommand *command,
                 char **our_env = NULL, **pam_env = NULL, **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
                 int saved_stdout = -1, saved_stdin = -1;
-                bool keep_stdout = false, keep_stdin = false;
+                bool keep_stdout = false, keep_stdin = false, set_access = false;
 
                 /* child */
 
-                /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init") */
-                rename_process("sd(EXEC)");
+                rename_process_from_path(command->path);
 
                 /* We reset exactly these signals, since they are the
                  * only ones we set to SIG_IGN in the main daemon. All
@@ -1012,6 +1040,7 @@ int exec_spawn(ExecCommand *command,
 
                 if (sigemptyset(&ss) < 0 ||
                     sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
+                        err = -errno;
                         r = EXIT_SIGNAL_MASK;
                         goto fail_child;
                 }
@@ -1019,14 +1048,17 @@ int exec_spawn(ExecCommand *command,
                 /* Close sockets very early to make sure we don't
                  * block init reexecution because it cannot bind its
                  * sockets */
-                if (close_all_fds(socket_fd >= 0 ? &socket_fd : fds,
-                                  socket_fd >= 0 ? 1 : n_fds) < 0) {
+                log_forget_fds();
+                err = close_all_fds(socket_fd >= 0 ? &socket_fd : fds,
+                                           socket_fd >= 0 ? 1 : n_fds);
+                if (err < 0) {
                         r = EXIT_FDS;
                         goto fail_child;
                 }
 
                 if (!context->same_pgrp)
                         if (setsid() < 0) {
+                                err = -errno;
                                 r = EXIT_SETSID;
                                 goto fail_child;
                         }
@@ -1034,12 +1066,14 @@ int exec_spawn(ExecCommand *command,
                 if (context->tcpwrap_name) {
                         if (socket_fd >= 0)
                                 if (!socket_tcpwrap(socket_fd, context->tcpwrap_name)) {
+                                        err = -EACCES;
                                         r = EXIT_TCPWRAP;
                                         goto fail_child;
                                 }
 
                         for (i = 0; i < (int) n_fds; i++) {
                                 if (!socket_tcpwrap(fds[i], context->tcpwrap_name)) {
+                                        err = -EACCES;
                                         r = EXIT_TCPWRAP;
                                         goto fail_child;
                                 }
@@ -1055,11 +1089,14 @@ int exec_spawn(ExecCommand *command,
 
                         /* Set up terminal for the question */
                         if ((r = setup_confirm_stdio(context,
-                                                     &saved_stdin, &saved_stdout)))
+                                                     &saved_stdin, &saved_stdout))) {
+                                err = -errno;
                                 goto fail_child;
+                        }
 
                         /* Now ask the question. */
                         if (!(line = exec_command_line(argv))) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
@@ -1068,18 +1105,21 @@ int exec_spawn(ExecCommand *command,
                         free(line);
 
                         if (r < 0 || response == 'n') {
+                                err = -ECANCELED;
                                 r = EXIT_CONFIRM;
                                 goto fail_child;
                         } else if (response == 's') {
-                                r = 0;
+                                err = r = 0;
                                 goto fail_child;
                         }
 
                         /* Release terminal for the question */
                         if ((r = restore_confirm_stdio(context,
                                                        &saved_stdin, &saved_stdout,
-                                                       &keep_stdin, &keep_stdout)))
+                                                       &keep_stdin, &keep_stdout))) {
+                                err = -errno;
                                 goto fail_child;
+                        }
                 }
 
                 /* If a socket is connected to STDIN/STDOUT/STDERR, we
@@ -1087,28 +1127,35 @@ int exec_spawn(ExecCommand *command,
                 if (socket_fd >= 0)
                         fd_nonblock(socket_fd, false);
 
-                if (!keep_stdin)
-                        if (setup_input(context, socket_fd, apply_tty_stdin) < 0) {
+                if (!keep_stdin) {
+                        err = setup_input(context, socket_fd, apply_tty_stdin);
+                        if (err < 0) {
                                 r = EXIT_STDIN;
                                 goto fail_child;
                         }
+                }
 
-                if (!keep_stdout)
-                        if (setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
+                if (!keep_stdout) {
+                        err = setup_output(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin);
+                        if (err < 0) {
                                 r = EXIT_STDOUT;
                                 goto fail_child;
                         }
+                }
 
-                if (setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin) < 0) {
+                err = setup_error(context, socket_fd, file_name_from_path(command->path), apply_tty_stdin);
+                if (err < 0) {
                         r = EXIT_STDERR;
                         goto fail_child;
                 }
 
-                if (cgroup_bondings)
-                        if (cgroup_bonding_install_list(cgroup_bondings, 0) < 0) {
+                if (cgroup_bondings) {
+                        err = cgroup_bonding_install_list(cgroup_bondings, 0);
+                        if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
                         }
+                }
 
                 if (context->oom_score_adjust_set) {
                         char t[16];
@@ -1129,6 +1176,7 @@ int exec_spawn(ExecCommand *command,
 
                                 if (write_one_line_file("/proc/self/oom_adj", t) < 0
                                     && errno != EACCES) {
+                                        err = -errno;
                                         r = EXIT_OOM_ADJUST;
                                         goto fail_child;
                                 }
@@ -1137,6 +1185,7 @@ int exec_spawn(ExecCommand *command,
 
                 if (context->nice_set)
                         if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
+                                err = -errno;
                                 r = EXIT_NICE;
                                 goto fail_child;
                         }
@@ -1149,6 +1198,7 @@ int exec_spawn(ExecCommand *command,
 
                         if (sched_setscheduler(0, context->cpu_sched_policy |
                                                (context->cpu_sched_reset_on_fork ? SCHED_RESET_ON_FORK : 0), &param) < 0) {
+                                err = -errno;
                                 r = EXIT_SETSCHEDULER;
                                 goto fail_child;
                         }
@@ -1156,57 +1206,79 @@ int exec_spawn(ExecCommand *command,
 
                 if (context->cpuset)
                         if (sched_setaffinity(0, CPU_ALLOC_SIZE(context->cpuset_ncpus), context->cpuset) < 0) {
+                                err = -errno;
                                 r = EXIT_CPUAFFINITY;
                                 goto fail_child;
                         }
 
                 if (context->ioprio_set)
                         if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
+                                err = -errno;
                                 r = EXIT_IOPRIO;
                                 goto fail_child;
                         }
 
                 if (context->timer_slack_nsec_set)
                         if (prctl(PR_SET_TIMERSLACK, context->timer_slack_nsec) < 0) {
+                                err = -errno;
                                 r = EXIT_TIMERSLACK;
                                 goto fail_child;
                         }
 
                 if (context->utmp_id)
-                        utmp_put_init_process(0, context->utmp_id, getpid(), getsid(0), context->tty_path);
+                        utmp_put_init_process(context->utmp_id, getpid(), getsid(0), context->tty_path);
 
                 if (context->user) {
                         username = context->user;
-                        if (get_user_creds(&username, &uid, &gid, &home) < 0) {
+                        err = get_user_creds(&username, &uid, &gid, &home);
+                        if (err < 0) {
                                 r = EXIT_USER;
                                 goto fail_child;
                         }
 
-                        if (is_terminal_input(context->std_input))
-                                if (chown_terminal(STDIN_FILENO, uid) < 0) {
+                        if (is_terminal_input(context->std_input)) {
+                                err = chown_terminal(STDIN_FILENO, uid);
+                                if (err < 0) {
                                         r = EXIT_STDIN;
                                         goto fail_child;
                                 }
+                        }
 
-                        if (cgroup_bondings && context->control_group_modify)
-                                if (cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid) < 0 ||
-                                    cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid) < 0) {
+                        if (cgroup_bondings && context->control_group_modify) {
+                                err = cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid);
+                                if (err >= 0)
+                                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, 0644, uid, gid, context->control_group_persistent);
+                                if (err < 0) {
                                         r = EXIT_CGROUP;
                                         goto fail_child;
                                 }
+
+                                set_access = true;
+                        }
                 }
 
-                if (apply_permissions)
-                        if (enforce_groups(context, username, gid) < 0) {
+                if (cgroup_bondings && !set_access && context->control_group_persistent >= 0)  {
+                        err = cgroup_bonding_set_task_access_list(cgroup_bondings, (mode_t) -1, (uid_t) -1, (uid_t) -1, context->control_group_persistent);
+                        if (err < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail_child;
+                        }
+                }
+
+                if (apply_permissions) {
+                        err = enforce_groups(context, username, gid);
+                        if (err < 0) {
                                 r = EXIT_GROUP;
                                 goto fail_child;
                         }
+                }
 
                 umask(context->umask);
 
 #ifdef HAVE_PAM
                 if (context->pam_name && username) {
-                        if (setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds) != 0) {
+                        err = setup_pam(context->pam_name, username, context->tty_path, &pam_env, fds, n_fds);
+                        if (err < 0) {
                                 r = EXIT_PAM;
                                 goto fail_child;
                         }
@@ -1214,6 +1286,7 @@ int exec_spawn(ExecCommand *command,
 #endif
                 if (context->private_network) {
                         if (unshare(CLONE_NEWNET) < 0) {
+                                err = -errno;
                                 r = EXIT_NETWORK;
                                 goto fail_child;
                         }
@@ -1225,23 +1298,28 @@ int exec_spawn(ExecCommand *command,
                     strv_length(context->read_only_dirs) > 0 ||
                     strv_length(context->inaccessible_dirs) > 0 ||
                     context->mount_flags != MS_SHARED ||
-                    context->private_tmp)
-                        if ((r = setup_namespace(
-                                             context->read_write_dirs,
-                                             context->read_only_dirs,
-                                             context->inaccessible_dirs,
-                                             context->private_tmp,
-                                             context->mount_flags)) < 0)
+                    context->private_tmp) {
+                        err = setup_namespace(context->read_write_dirs,
+                                              context->read_only_dirs,
+                                              context->inaccessible_dirs,
+                                              context->private_tmp,
+                                              context->mount_flags);
+                        if (err < 0) {
+                                r = EXIT_NAMESPACE;
                                 goto fail_child;
+                        }
+                }
 
                 if (apply_chroot) {
                         if (context->root_directory)
                                 if (chroot(context->root_directory) < 0) {
+                                        err = -errno;
                                         r = EXIT_CHROOT;
                                         goto fail_child;
                                 }
 
                         if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
+                                err = -errno;
                                 r = EXIT_CHDIR;
                                 goto fail_child;
                         }
@@ -1252,11 +1330,13 @@ int exec_spawn(ExecCommand *command,
                         if (asprintf(&d, "%s/%s",
                                      context->root_directory ? context->root_directory : "",
                                      context->working_directory ? context->working_directory : "") < 0) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
 
                         if (chdir(d) < 0) {
+                                err = -errno;
                                 free(d);
                                 r = EXIT_CHDIR;
                                 goto fail_child;
@@ -1267,9 +1347,12 @@ int exec_spawn(ExecCommand *command,
 
                 /* We repeat the fd closing here, to make sure that
                  * nothing is leaked from the PAM modules */
-                if (close_all_fds(fds, n_fds) < 0 ||
-                    shift_fds(fds, n_fds) < 0 ||
-                    flags_fds(fds, n_fds, context->non_blocking) < 0) {
+                err = close_all_fds(fds, n_fds);
+                if (err >= 0)
+                        err = shift_fds(fds, n_fds);
+                if (err >= 0)
+                        err = flags_fds(fds, n_fds, context->non_blocking);
+                if (err < 0) {
                         r = EXIT_FDS;
                         goto fail_child;
                 }
@@ -1281,22 +1364,27 @@ int exec_spawn(ExecCommand *command,
                                         continue;
 
                                 if (setrlimit(i, context->rlimit[i]) < 0) {
+                                        err = -errno;
                                         r = EXIT_LIMITS;
                                         goto fail_child;
                                 }
                         }
 
-                        if (context->capability_bounding_set_drop)
-                                if (do_capability_bounding_set_drop(context->capability_bounding_set_drop) < 0) {
+                        if (context->capability_bounding_set_drop) {
+                                err = do_capability_bounding_set_drop(context->capability_bounding_set_drop);
+                                if (err < 0) {
                                         r = EXIT_CAPABILITIES;
                                         goto fail_child;
                                 }
+                        }
 
-                        if (context->user)
-                                if (enforce_user(context, uid) < 0) {
+                        if (context->user) {
+                                err = enforce_user(context, uid);
+                                if (err < 0) {
                                         r = EXIT_USER;
                                         goto fail_child;
                                 }
+                        }
 
                         /* PR_GET_SECUREBITS is not privileged, while
                          * PR_SET_SECUREBITS is. So to suppress
@@ -1304,18 +1392,21 @@ int exec_spawn(ExecCommand *command,
                          * PR_SET_SECUREBITS unless necessary. */
                         if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
                                 if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
+                                        err = -errno;
                                         r = EXIT_SECUREBITS;
                                         goto fail_child;
                                 }
 
                         if (context->capabilities)
                                 if (cap_set_proc(context->capabilities) < 0) {
+                                        err = -errno;
                                         r = EXIT_CAPABILITIES;
                                         goto fail_child;
                                 }
                 }
 
                 if (!(our_env = new0(char*, 7))) {
+                        err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
@@ -1323,12 +1414,14 @@ int exec_spawn(ExecCommand *command,
                 if (n_fds > 0)
                         if (asprintf(our_env + n_env++, "LISTEN_PID=%lu", (unsigned long) getpid()) < 0 ||
                             asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
 
                 if (home)
                         if (asprintf(our_env + n_env++, "HOME=%s", home) < 0) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
@@ -1336,6 +1429,7 @@ int exec_spawn(ExecCommand *command,
                 if (username)
                         if (asprintf(our_env + n_env++, "LOGNAME=%s", username) < 0 ||
                             asprintf(our_env + n_env++, "USER=%s", username) < 0) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
@@ -1344,6 +1438,7 @@ int exec_spawn(ExecCommand *command,
                     context->std_output == EXEC_OUTPUT_TTY ||
                     context->std_error == EXEC_OUTPUT_TTY)
                         if (!(our_env[n_env++] = strdup(default_term_for_tty(tty_path(context))))) {
+                                err = -ENOMEM;
                                 r = EXIT_MEMORY;
                                 goto fail_child;
                         }
@@ -1358,11 +1453,13 @@ int exec_spawn(ExecCommand *command,
                                       files_env,
                                       pam_env,
                                       NULL))) {
+                        err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
 
                 if (!(final_argv = replace_env_argv(argv, final_env))) {
+                        err = -ENOMEM;
                         r = EXIT_MEMORY;
                         goto fail_child;
                 }
@@ -1370,9 +1467,17 @@ int exec_spawn(ExecCommand *command,
                 final_env = strv_env_clean(final_env);
 
                 execve(command->path, final_argv, final_env);
+                err = -errno;
                 r = EXIT_EXEC;
 
         fail_child:
+                if (r != 0) {
+                        log_open();
+                        log_warning("Failed at step %s spawning %s: %s",
+                                    exit_status_to_string(r, EXIT_STATUS_SYSTEMD),
+                                    command->path, strerror(-err));
+                }
+
                 strv_free(our_env);
                 strv_free(final_env);
                 strv_free(pam_env);
@@ -1422,6 +1527,7 @@ void exec_context_init(ExecContext *c) {
         c->mount_flags = MS_SHARED;
         c->kill_signal = SIGTERM;
         c->send_sigkill = true;
+        c->control_group_persistent = -1;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -1607,6 +1713,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sControlGroupModify: %s\n"
+                "%sControlGroupPersistent: %s\n"
                 "%sPrivateNetwork: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
@@ -1614,6 +1721,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->control_group_modify),
+                prefix, yes_no(c->control_group_persistent),
                 prefix, yes_no(c->private_network));
 
         STRV_FOREACH(e, c->environment)
@@ -1687,10 +1795,10 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, yes_no(c->tty_vhangup),
                         prefix, yes_no(c->tty_vt_disallocate));
 
-        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG ||
-            c->std_output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_KMSG_AND_CONSOLE ||
-            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG ||
-            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE)
+        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KMSG || c->std_output == EXEC_OUTPUT_JOURNAL ||
+            c->std_output == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_output == EXEC_OUTPUT_JOURNAL_AND_CONSOLE ||
+            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KMSG || c->std_error == EXEC_OUTPUT_JOURNAL ||
+            c->std_error == EXEC_OUTPUT_SYSLOG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_KMSG_AND_CONSOLE || c->std_error == EXEC_OUTPUT_JOURNAL_AND_CONSOLE)
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
@@ -1720,7 +1828,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 unsigned long l;
                 fprintf(f, "%sCapabilityBoundingSet:", prefix);
 
-                for (l = 0; l <= (unsigned long) CAP_LAST_CAP; l++)
+                for (l = 0; l <= cap_last_cap(); l++)
                         if (!(c->capability_bounding_set_drop & ((uint64_t) 1ULL << (uint64_t) l))) {
                                 char *t;
 
@@ -1790,8 +1898,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status) {
         assert(s);
 
-        if ((s->pid && s->pid != pid) ||
-            !s->start_timestamp.realtime <= 0)
+        if (s->pid && s->pid != pid)
                 zero(*s);
 
         s->pid = pid;
@@ -1975,6 +2082,8 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_SYSLOG_AND_CONSOLE] = "syslog+console",
         [EXEC_OUTPUT_KMSG] = "kmsg",
         [EXEC_OUTPUT_KMSG_AND_CONSOLE] = "kmsg+console",
+        [EXEC_OUTPUT_JOURNAL] = "journal",
+        [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
         [EXEC_OUTPUT_SOCKET] = "socket"
 };
 

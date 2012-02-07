@@ -39,11 +39,12 @@
 #include <grp.h>
 #include <linux/fs.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "log.h"
 #include "util.h"
 #include "missing.h"
 #include "cgroup-util.h"
-#include "sd-daemon.h"
 #include "strv.h"
 #include "loopback-setup.h"
 
@@ -361,7 +362,7 @@ static int drop_capabilities(void) {
 
         unsigned long l;
 
-        for (l = 0; l <= MAX(63LU, (unsigned long) CAP_LAST_CAP); l++) {
+        for (l = 0; l <= cap_last_cap(); l++) {
                 unsigned i;
 
                 for (i = 0; i < ELEMENTSOF(retain); i++)
@@ -372,12 +373,6 @@ static int drop_capabilities(void) {
                         continue;
 
                 if (prctl(PR_CAPBSET_DROP, l) < 0) {
-
-                        /* If this capability is not known, EINVAL
-                         * will be returned, let's ignore this. */
-                        if (errno == EINVAL)
-                                break;
-
                         log_error("PR_CAPBSET_DROP failed: %m");
                         return -errno;
                 }
@@ -400,11 +395,9 @@ static int is_os_tree(const char *path) {
         return r < 0 ? 0 : 1;
 }
 
-#define BUFFER_SIZE 1024
-
 static int process_pty(int master, sigset_t *mask) {
 
-        char in_buffer[BUFFER_SIZE], out_buffer[BUFFER_SIZE];
+        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
         bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
@@ -525,9 +518,9 @@ static int process_pty(int master, sigset_t *mask) {
                        (master_readable && out_buffer_full <= 0) ||
                        (stdout_writable && out_buffer_full > 0)) {
 
-                        if (stdin_readable && in_buffer_full < BUFFER_SIZE) {
+                        if (stdin_readable && in_buffer_full < LINE_MAX) {
 
-                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, BUFFER_SIZE - in_buffer_full)) < 0) {
+                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdin_readable = false;
@@ -559,9 +552,9 @@ static int process_pty(int master, sigset_t *mask) {
                                 }
                         }
 
-                        if (master_readable && out_buffer_full < BUFFER_SIZE) {
+                        if (master_readable && out_buffer_full < LINE_MAX) {
 
-                                if ((k = read(master, out_buffer + out_buffer_full, BUFFER_SIZE - out_buffer_full)) < 0) {
+                                if ((k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_readable = false;

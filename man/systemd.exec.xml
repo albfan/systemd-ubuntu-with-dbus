@@ -366,8 +366,10 @@
                                 <option>tty</option>,
                                 <option>syslog</option>,
                                 <option>kmsg</option>,
+                                <option>journal</option>,
+                                <option>syslog+console</option>,
                                 <option>kmsg+console</option>,
-                                <option>syslog+console</option> or
+                                <option>journal+console</option> or
                                 <option>socket</option>. If set to
                                 <option>inherit</option> the file
                                 descriptor of standard input is
@@ -392,8 +394,17 @@
                                 service. <option>kmsg</option>
                                 connects it with the kernel log buffer
                                 which is accessible via
-                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>syslog+console</option>
-                                and <option>kmsg+console</option> work
+                                <citerefentry><refentrytitle>dmesg</refentrytitle><manvolnum>1</manvolnum></citerefentry>. <option>journal</option>
+                                connects it with the journal which is
+                                accessible via
+                                <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                (Note that everything that is written
+                                to syslog or kmsg is implicitly stored
+                                in the journal as well, those options
+                                are hence supersets of this
+                                one). <option>syslog+console</option>,
+                                <option>journal+console</option> and
+                                <option>kmsg+console</option> work
                                 similarly but copy the output to the
                                 system console as
                                 well. <option>socket</option> connects
@@ -407,7 +418,7 @@
                                 in
                                 <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                                 which defaults to
-                                <option>syslog</option>.</para></listitem>
+                                <option>journal</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><varname>StandardError=</varname></term>
@@ -634,14 +645,19 @@
                                 conjunction with socket-activated
                                 services, and stream sockets (TCP) in
                                 particular. It has no effect on other
-                                socket types (e.g. datagram/UDP) and on processes
-                                unrelated to socket-based
+                                socket types (e.g. datagram/UDP) and
+                                on processes unrelated to socket-based
                                 activation. If the tcpwrap
                                 verification fails daemon start-up
                                 will fail and the connection is
                                 terminated. See
                                 <citerefentry><refentrytitle>tcpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                for details. Note that this option may
+                                be used to do access control checks
+                                only. Shell commands and commands
+                                described in
+                                <citerefentry><refentrytitle>hosts_options</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                are not supported.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -763,6 +779,21 @@
                                 appropriate group), and he/she can create
                                 subgroups as well as add processes to
                                 the group.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>ControlGroupPersistent=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. If true, the control groups
+                                created for this unit will be marked
+                                to be persistent, i.e. systemd will
+                                not remove them when stopping the
+                                unit. The default is false, meaning
+                                that the control groups will be
+                                removed when the unit is stopped. For
+                                details about the semantics of this
+                                logic see <ulink
+                                url="http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups">PaxControlGroups</ulink>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

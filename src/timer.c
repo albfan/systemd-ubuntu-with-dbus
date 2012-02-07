@@ -40,7 +40,7 @@ static void timer_init(Unit *u) {
         Timer *t = TIMER(u);
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         t->next_elapse = (usec_t) -1;
 }
@@ -57,16 +57,18 @@ static void timer_done(Unit *u) {
         }
 
         unit_unwatch_timer(u, &t->timer_watch);
+
+        unit_ref_unset(&t->unit);
 }
 
 static int timer_verify(Timer *t) {
         assert(t);
 
-        if (t->meta.load_state != UNIT_LOADED)
+        if (UNIT(t)->load_state != UNIT_LOADED)
                 return 0;
 
         if (!t->values) {
-                log_error("%s lacks value setting. Refusing.", t->meta.id);
+                log_error("%s lacks value setting. Refusing.", UNIT(t)->id);
                 return -EINVAL;
         }
 
@@ -78,7 +80,7 @@ static int timer_add_default_dependencies(Timer *t) {
 
         assert(t);
 
-        if (t->meta.manager->running_as == MANAGER_SYSTEM) {
+        if (UNIT(t)->manager->running_as == MANAGER_SYSTEM) {
                 if ((r = unit_add_dependency_by_name(UNIT(t), UNIT_BEFORE, SPECIAL_BASIC_TARGET, NULL, true)) < 0)
                         return r;
 
@@ -94,21 +96,28 @@ static int timer_load(Unit *u) {
         int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(u->load_state == UNIT_STUB);
 
         if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 return r;
 
-        if (u->meta.load_state == UNIT_LOADED) {
+        if (u->load_state == UNIT_LOADED) {
 
-                if (!t->unit)
-                        if ((r = unit_load_related_unit(u, ".service", &t->unit)))
+                if (!UNIT_DEREF(t->unit)) {
+                        Unit *x;
+
+                        r = unit_load_related_unit(u, ".service", &x);
+                        if (r < 0)
                                 return r;
 
-                if ((r = unit_add_dependency(u, UNIT_BEFORE, t->unit, true)) < 0)
+                        unit_ref_set(&t->unit, x);
+                }
+
+                r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(t->unit), true);
+                if (r < 0)
                         return r;
 
-                if (t->meta.default_dependencies)
+                if (UNIT(t)->default_dependencies)
                         if ((r = timer_add_default_dependencies(t)) < 0)
                                 return r;
         }
@@ -124,9 +133,11 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTimer State: %s\n"
+                "%sResult: %s\n"
                 "%sUnit: %s\n",
                 prefix, timer_state_to_string(t->state),
-                prefix, t->unit->meta.id);
+                prefix, timer_result_to_string(t->result),
+                prefix, UNIT_DEREF(t->unit)->id);
 
         LIST_FOREACH(value, v, t->values)
                 fprintf(f,
@@ -148,7 +159,7 @@ static void timer_set_state(Timer *t, TimerState state) {
 
         if (state != old_state)
                 log_debug("%s changed %s -> %s",
-                          t->meta.id,
+                          UNIT(t)->id,
                           timer_state_to_string(old_state),
                           timer_state_to_string(state));
 
@@ -174,13 +185,13 @@ static int timer_coldplug(Unit *u) {
         return 0;
 }
 
-static void timer_enter_dead(Timer *t, bool success) {
+static void timer_enter_dead(Timer *t, TimerResult f) {
         assert(t);
 
-        if (!success)
-                t->failure = true;
+        if (f != TIMER_SUCCESS)
+                t->result = f;
 
-        timer_set_state(t, t->failure ? TIMER_FAILED : TIMER_DEAD);
+        timer_set_state(t, t->result != TIMER_SUCCESS ? TIMER_FAILED : TIMER_DEAD);
 }
 
 static void timer_enter_waiting(Timer *t, bool initial) {
@@ -200,7 +211,7 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                 case TIMER_ACTIVE:
                         if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                base = t->meta.inactive_exit_timestamp.monotonic;
+                                base = UNIT(t)->inactive_exit_timestamp.monotonic;
                         else
                                 base = n;
                         break;
@@ -211,23 +222,23 @@ static void timer_enter_waiting(Timer *t, bool initial) {
                         break;
 
                 case TIMER_STARTUP:
-                        base = t->meta.manager->startup_timestamp.monotonic;
+                        base = UNIT(t)->manager->startup_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_ACTIVE:
 
-                        if (t->unit->meta.inactive_exit_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = t->unit->meta.inactive_exit_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->inactive_exit_timestamp.monotonic;
                         break;
 
                 case TIMER_UNIT_INACTIVE:
 
-                        if (t->unit->meta.inactive_enter_timestamp.monotonic <= 0)
+                        if (UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic <= 0)
                                 continue;
 
-                        base = t->unit->meta.inactive_enter_timestamp.monotonic;
+                        base = UNIT_DEREF(t->unit)->inactive_enter_timestamp.monotonic;
                         break;
 
                 default:
@@ -263,8 +274,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         return;
 
 fail:
-        log_warning("%s failed to enter waiting state: %s", t->meta.id, strerror(-r));
-        timer_enter_dead(t, false);
+        log_warning("%s failed to enter waiting state: %s", UNIT(t)->id, strerror(-r));
+        timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
 static void timer_enter_running(Timer *t) {
@@ -275,18 +286,18 @@ static void timer_enter_running(Timer *t) {
         dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
-        if (t->meta.job && t->meta.job->type == JOB_STOP)
+        if (UNIT(t)->job && UNIT(t)->job->type == JOB_STOP)
                 return;
 
-        if ((r = manager_add_job(t->meta.manager, JOB_START, t->unit, JOB_REPLACE, true, &error, NULL)) < 0)
+        if ((r = manager_add_job(UNIT(t)->manager, JOB_START, UNIT_DEREF(t->unit), JOB_REPLACE, true, &error, NULL)) < 0)
                 goto fail;
 
         timer_set_state(t, TIMER_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue unit startup job: %s", t->meta.id, bus_error(&error, r));
-        timer_enter_dead(t, false);
+        log_warning("%s failed to queue unit startup job: %s", UNIT(t)->id, bus_error(&error, r));
+        timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 
         dbus_error_free(&error);
 }
@@ -297,10 +308,10 @@ static int timer_start(Unit *u) {
         assert(t);
         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
 
-        if (t->unit->meta.load_state != UNIT_LOADED)
+        if (UNIT_DEREF(t->unit)->load_state != UNIT_LOADED)
                 return -ENOENT;
 
-        t->failure = false;
+        t->result = TIMER_SUCCESS;
         timer_enter_waiting(t, true);
         return 0;
 }
@@ -311,7 +322,7 @@ static int timer_stop(Unit *u) {
         assert(t);
         assert(t->state == TIMER_WAITING || t->state == TIMER_RUNNING || t->state == TIMER_ELAPSED);
 
-        timer_enter_dead(t, true);
+        timer_enter_dead(t, TIMER_SUCCESS);
         return 0;
 }
 
@@ -323,6 +334,7 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", timer_state_to_string(t->state));
+        unit_serialize_item(u, f, "result", timer_result_to_string(t->result));
 
         return 0;
 }
@@ -342,6 +354,15 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_debug("Failed to parse state value %s", value);
                 else
                         t->deserialized_state = state;
+        } else if (streq(key, "result")) {
+                TimerResult f;
+
+                f = timer_result_from_string(value);
+                if (f < 0)
+                        log_debug("Failed to parse result value %s", value);
+                else if (f != TIMER_SUCCESS)
+                        t->result = f;
+
         } else
                 log_debug("Unknown serialization key '%s'", key);
 
@@ -369,42 +390,28 @@ static void timer_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         if (t->state != TIMER_WAITING)
                 return;
 
-        log_debug("Timer elapsed on %s", u->meta.id);
+        log_debug("Timer elapsed on %s", u->id);
         timer_enter_running(t);
 }
 
 void timer_unit_notify(Unit *u, UnitActiveState new_state) {
-        char *n;
-        int r;
         Iterator i;
+        Unit *k;
 
-        if (u->meta.type == UNIT_TIMER)
+        if (u->type == UNIT_TIMER)
                 return;
 
-        SET_FOREACH(n, u->meta.names, i) {
-                char *k;
-                Unit *p;
+        SET_FOREACH(k, u->dependencies[UNIT_TRIGGERED_BY], i) {
                 Timer *t;
                 TimerValue *v;
 
-                if (!(k = unit_name_change_suffix(n, ".timer"))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                p = manager_get_unit(u->meta.manager, k);
-                free(k);
-
-                if (!p)
+                if (k->type != UNIT_TIMER)
                         continue;
 
-                if (p->meta.load_state != UNIT_LOADED)
+                if (k->load_state != UNIT_LOADED)
                         continue;
 
-                t = TIMER(p);
-
-                if (t->unit != u)
-                        continue;
+                t = TIMER(k);
 
                 /* Reenable all timers that depend on unit state */
                 LIST_FOREACH(value, v, t->values)
@@ -424,7 +431,7 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                 case TIMER_RUNNING:
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(new_state)) {
-                                log_debug("%s got notified about unit deactivation.", t->meta.id);
+                                log_debug("%s got notified about unit deactivation.", UNIT(t)->id);
                                 timer_enter_waiting(t, false);
                         }
 
@@ -438,11 +445,6 @@ void timer_unit_notify(Unit *u, UnitActiveState new_state) {
                         assert_not_reached("Unknown timer state");
                 }
         }
-
-        return;
-
-fail:
-        log_error("Failed find timer unit: %s", strerror(-r));
 }
 
 static void timer_reset_failed(Unit *u) {
@@ -453,7 +455,7 @@ static void timer_reset_failed(Unit *u) {
         if (t->state == TIMER_FAILED)
                 timer_set_state(t, TIMER_DEAD);
 
-        t->failure = false;
+        t->result = TIMER_SUCCESS;
 }
 
 static const char* const timer_state_table[_TIMER_STATE_MAX] = {
@@ -476,8 +478,16 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
 
+static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
+        [TIMER_SUCCESS] = "success",
+        [TIMER_FAILURE_RESOURCES] = "resources"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(timer_result, TimerResult);
+
 const UnitVTable timer_vtable = {
         .suffix = ".timer",
+        .object_size = sizeof(Timer),
         .sections =
                 "Unit\0"
                 "Timer\0"

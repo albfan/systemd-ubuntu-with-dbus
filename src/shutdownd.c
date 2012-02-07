@@ -29,11 +29,12 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include <systemd/sd-daemon.h>
+
 #include "shutdownd.h"
 #include "log.h"
 #include "macro.h"
 #include "util.h"
-#include "sd-daemon.h"
 #include "utmp-wtmp.h"
 
 static int read_packet(int fd, struct shutdownd_command *_c) {
@@ -173,7 +174,6 @@ int main(int argc, char *argv[]) {
         };
 
         int r = EXIT_FAILURE, n_fds;
-        int one = 1;
         struct shutdownd_command c;
         struct pollfd pollfd[_FD_MAX];
         bool exec_shutdown = false, unlink_nologin = false, failed = false;
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 
@@ -202,11 +202,6 @@ int main(int argc, char *argv[]) {
 
         if (n_fds != 1) {
                 log_error("Need exactly one file descriptor.");
-                return EXIT_FAILURE;
-        }
-
-        if (setsockopt(SD_LISTEN_FDS_START, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0) {
-                log_error("SO_PASSCRED failed: %m");
                 return EXIT_FAILURE;
         }
 

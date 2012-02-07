@@ -5,14 +5,15 @@
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
 
+# This unit gets pulled automatically into multi-user.target by
+# systemd-rc-local-generator if /etc/rc.d/rc.local is executable.
 [Unit]
-Description=/etc/rc.local Compatibility
-ConditionFileIsExecutable=/etc/rc.d/rc.local
+Description=/etc/rc.d/rc.local Compatibility
+After=network.target
 
 [Service]
 Type=forking
 ExecStart=/etc/rc.d/rc.local start
 TimeoutSec=0
-StandardOutput=tty
 RemainAfterExit=yes
 SysVStartPriority=99
