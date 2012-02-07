@@ -1,3 +1,9 @@
+systemd (40-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
+
 systemd (37-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
