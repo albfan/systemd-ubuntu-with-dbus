@@ -1,5 +1,5 @@
 [Unit]
-Description=Start ifup for %I
+Description=ifup for %I
 After=local-fs.target
 
 [Service]
