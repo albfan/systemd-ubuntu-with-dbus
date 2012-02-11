@@ -14,6 +14,7 @@ systemd (40-1) unstable; urgency=low
   * Update symbols file for libsystemd-login.
   * Update configure flags, use rootprefix instead of rootdir.
   * Copy intltool files instead of symlinking them.
+  * Re-indent init-functions script.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
