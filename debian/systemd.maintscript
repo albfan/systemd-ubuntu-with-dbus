@@ -1,0 +1,4 @@
+rm_conffile /etc/lsb-base-logging.sh 20-1 systemd
+rm_conffile /etc/tmpfiles.d/legacy.conf 25-2 systemd
+rm_conffile /etc/tmpfiles.d/systemd.conf 25-2 systemd
+rm_conffile /etc/tmpfiles.d/x11.conf 25-2 systemd
