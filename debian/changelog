@@ -10,6 +10,7 @@ systemd (40-1) unstable; urgency=low
   * Bump Standards-Version to 3.9.2. No further changes.
   * Add versioned Build-Depends on automake and autoconf to ensure we have
     recent enough versions. Closes: #657284
+  * Add packages for libsystemd-journal and libsystemd-id128.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 

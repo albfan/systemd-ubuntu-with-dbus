@@ -138,3 +138,40 @@ Description: systemd utility library - development files
  APIs for new-style daemons, as implemented by the systemd init system.
  .
  This package contains the development files
+
+Package: libsystemd-journal0
+Architecture: linux-any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: systemd journal utility library
+ The libsystemd-journal library provides an interface for the
+ systemd journal service.
+
+Package: libsystemd-journal-dev
+Architecture: linux-any
+Section: libdevel
+Depends: libsystemd-journal0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libsystemd-id128-dev
+Description: systemd journal utility library - development files
+ The libsystemd-journal library provides an interface for the
+ systemd journal service.
+ .
+ This package contains the development files
+
+Package: libsystemd-id128-0
+Architecture: linux-any
+Section: libs
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: systemd 128 bit ID utility library
+ The libsystemd-id128 library provides utility functions for generating
+ 128 bit IDs.
+
+Package: libsystemd-id128-dev
+Architecture: linux-any
+Section: libdevel
+Depends: libsystemd-id128-0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: systemd 128 bit ID utility library - development files
+ The libsystemd-id128 library provides utility functions for generating
+ 128 bit IDs.
+ .
+ This package contains the development files
+
