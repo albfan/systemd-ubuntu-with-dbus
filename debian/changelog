@@ -35,6 +35,8 @@ systemd (43-1) unstable; urgency=low
     with sudo.
   * Use new dh_installdeb maintscript facility to handle obsolete conffiles.
     Bump Build-Depends on debhelper accordingly.
+  * Rename bash completion file systemctl-bash-completion.sh →
+    systemd-bash-completion.sh.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
