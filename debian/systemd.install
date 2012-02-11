@@ -1,6 +1,7 @@
 etc
 bin/systemd
 bin/systemctl
+bin/systemd-journalctl
 bin/systemd-notify
 bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
@@ -10,11 +11,14 @@ bin/systemd-loginctl
 lib/systemd/
 lib/udev/rules.d/
 usr/bin/systemd-cgls
+usr/bin/systemd-cgtop
 usr/bin/systemd-nspawn
 usr/bin/systemd-stdio-bridge
 usr/bin/systemd-analyze
+usr/bin/systemd-cat
 usr/share/man/man1/systemd-notify.1
 usr/share/man/man1/systemd-cgls.1
+usr/share/man/man1/systemd-cgtop.1
 usr/share/man/man1/systemd.1
 usr/share/man/man1/systemctl.1
 usr/share/man/man1/systemd-nspawn.1
