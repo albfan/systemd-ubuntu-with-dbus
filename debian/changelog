@@ -28,6 +28,9 @@ systemd (43-1) unstable; urgency=low
   * Avoid error messages from systemctl in postinst if systemd is not running
     by checking for /sys/fs/cgroup/systemd before executing systemctl.
     Closes: #642749
+  * Stop installing lib-init-rw (auto)mount units and try to cleanup
+    /lib/init/rw in postinst. Bump dependency on initscripts accordingly.
+    Closes: #643699
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
