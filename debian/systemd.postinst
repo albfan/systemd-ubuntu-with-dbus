@@ -2,8 +2,14 @@
 
 set -e
 
+_systemctl() {
+    if [ -e /sys/fs/cgroup/systemd ]; then
+        systemctl "$@"
+    fi
+}
+
 if [ -n "$2" ]; then
-    systemctl daemon-reexec || true
+    _systemctl daemon-reexec || true
 fi
 
 # Do a one-time migration of the local time setting

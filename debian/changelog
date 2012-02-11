@@ -25,6 +25,9 @@ systemd (43-1) unstable; urgency=low
   * Install /var/log/journal directory where the journal files are stored
     persistently.
   * Setup systemd-journald to not read from /proc/kmsg (ImportKernel=no).
+  * Avoid error messages from systemctl in postinst if systemd is not running
+    by checking for /sys/fs/cgroup/systemd before executing systemctl.
+    Closes: #642749
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
