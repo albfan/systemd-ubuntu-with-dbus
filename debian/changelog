@@ -19,6 +19,7 @@ systemd (40-1) unstable; urgency=low
     support turned out to be broken and has been removed upstream so we no
     longer need any special handling for those type of services.
   * Install new systemd-journalctl, systemd-cat and systemd-cgtop binaries.
+  * Install /var/lib/systemd directory.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
