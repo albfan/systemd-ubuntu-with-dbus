@@ -2,7 +2,7 @@ Source: systemd
 Section: admin
 Priority: extra
 Maintainer: Tollef Fog Heen <tfheen@debian.org>
-Standards-Version: 3.9.1
+Standards-Version: 3.9.2
 Vcs-Git: git://git.err.no/systemd/
 Vcs-Browser: http://git.err.no/cgi-bin/gitweb.cgi?p=systemd;a=summary
 Homepage: http://www.freedesktop.org/wiki/Software/systemd

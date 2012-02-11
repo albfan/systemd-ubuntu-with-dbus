@@ -7,6 +7,7 @@ systemd (40-1) unstable; urgency=low
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
   * Add Build-Depends on libgee-dev, required to build systemadm.
+  * Bump Standards-Version to 3.9.2. No further changes.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
