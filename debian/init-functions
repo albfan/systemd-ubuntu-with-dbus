@@ -21,19 +21,7 @@ if [ -e /sys/fs/cgroup/systemd ]; then
     if [ $PPID -ne 1 ] && [ -z "$init" ] && [ -z "$_SYSTEMCTL_SKIP_REDIRECT" ]; then
         case $(readlink -f "$0") in
             /etc/init.d/*)
-                # Don't redirect if the init script has X-Interactive: true
-                if ! grep -qs "^# X-Interactive:.*true" "$0"; then
-                    _use_systemctl=1
-                fi
-                # Redirect if there's a matching .service file in /etc or /lib
-                prog=${0##*/}
-                service="${prog%.sh}.service"
-                fp=$(systemctl -p FragmentPath show $service 2>/dev/null | sed 's/^FragmentPath=//')
-                case "$fp"  in
-                    /lib/systemd/system/*|/etc/systemd/system/*)
-                        _use_systemctl=1
-                        ;;
-                esac
+                _use_systemctl=1
                 # Some services can't reload through the .service file,
                 # but can through the init script.
                 if [ "$(systemctl -p CanReload show $service 2>/dev/null)" = "CanReload=no" ] && [ "$1" = "reload" ]; then
