@@ -31,6 +31,8 @@ systemd (43-1) unstable; urgency=low
   * Stop installing lib-init-rw (auto)mount units and try to cleanup
     /lib/init/rw in postinst. Bump dependency on initscripts accordingly.
     Closes: #643699
+  * Disable pam_systemd for non-interactive sessions to work around an issue
+    with sudo.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
