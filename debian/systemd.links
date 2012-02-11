@@ -25,9 +25,8 @@
 /dev/null /lib/systemd/system/mtab.service
 /dev/null /lib/systemd/system/udev-mtab.service
 
-# TODO: make hwclock a symlink to hwclock-load.service?
-# Before this can happen we need to ensure that the 85-hwclock.rules
-# udev rule is not triggered when running systemd.
+# systemd sets the hwclock internally
+# http://cgit.freedesktop.org/systemd/systemd/commit/?id=7948c4dfbea73ac21250b588089039aa17a90386
 /dev/null /lib/systemd/system/hwclock.service
 /dev/null /lib/systemd/system/hwclockfirst.service
 
