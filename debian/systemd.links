@@ -4,6 +4,7 @@
 /lib/systemd/system/systemd-sysctl.service /lib/systemd/system/procps.service
 
 /lib/systemd/system/systemd-modules-load.service /lib/systemd/system/module-init-tools.service
+/lib/systemd/system/systemd-modules-load.service /lib/systemd/system/kmod.service
 /etc/modules /etc/modules-load.d/modules.conf
 
 /dev/null /lib/systemd/system/x11-common.service
