@@ -3,6 +3,8 @@ systemd (43-1) unstable; urgency=low
   [ Tollef Fog Heen ]
   * New upstream release
     - Update bash-completion for new verbs and arguments. Closes: #650739
+  * Fix up git-to-source package conversion script which makes gitpkg
+    happier.
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
