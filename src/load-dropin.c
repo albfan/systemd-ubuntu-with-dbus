@@ -36,7 +36,8 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
         assert(u);
         assert(path);
 
-        if (!(d = opendir(path))) {
+        d = opendir(path);
+        if (!d) {
 
                 if (errno == ENOENT)
                         return 0;
@@ -50,7 +51,8 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 if (ignore_file(de->d_name))
                         continue;
 
-                if (asprintf(&f, "%s/%s", path, de->d_name) < 0) {
+                f = join(path, "/", de->d_name, NULL);
+                if (!f) {
                         r = -ENOMEM;
                         goto finish;
                 }
@@ -59,7 +61,7 @@ static int iterate_dir(Unit *u, const char *path, UnitDependency dependency) {
                 free(f);
 
                 if (r < 0)
-                        goto finish;
+                        log_error("Cannot add dependency %s to %s, ignoring: %s", de->d_name, u->id, strerror(-r));
         }
 
         r = 0;
@@ -78,11 +80,12 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         assert(name);
         assert(suffix);
 
-        if (asprintf(&path, "%s/%s%s", unit_path, name, suffix) < 0)
+        path = join(unit_path, "/", name, suffix, NULL);
+        if (!path)
                 return -ENOMEM;
 
-        if (u->meta.manager->unit_path_cache &&
-            !set_get(u->meta.manager->unit_path_cache, path))
+        if (u->manager->unit_path_cache &&
+            !set_get(u->manager->unit_path_cache, path))
                 r = 0;
         else
                 r = iterate_dir(u, path, dependency);
@@ -91,21 +94,22 @@ static int process_dir(Unit *u, const char *unit_path, const char *name, const c
         if (r < 0)
                 return r;
 
-        if (u->meta.instance) {
+        if (u->instance) {
                 char *template;
                 /* Also try the template dir */
 
-                if (!(template = unit_name_template(name)))
+                template = unit_name_template(name);
+                if (!template)
                         return -ENOMEM;
 
-                r = asprintf(&path, "%s/%s%s", unit_path, template, suffix);
+                path = join(unit_path, "/", template, suffix, NULL);
                 free(template);
 
-                if (r < 0)
+                if (!path)
                         return -ENOMEM;
 
-                if (u->meta.manager->unit_path_cache &&
-                    !set_get(u->meta.manager->unit_path_cache, path))
+                if (u->manager->unit_path_cache &&
+                    !set_get(u->manager->unit_path_cache, path))
                         r = 0;
                 else
                         r = iterate_dir(u, path, dependency);
@@ -126,16 +130,18 @@ int unit_load_dropin(Unit *u) {
 
         /* Load dependencies from supplementary drop-in directories */
 
-        SET_FOREACH(t, u->meta.names, i) {
+        SET_FOREACH(t, u->names, i) {
                 char **p;
 
-                STRV_FOREACH(p, u->meta.manager->lookup_paths.unit_path) {
+                STRV_FOREACH(p, u->manager->lookup_paths.unit_path) {
                         int r;
 
-                        if ((r = process_dir(u, *p, t, ".wants", UNIT_WANTS)) < 0)
+                        r = process_dir(u, *p, t, ".wants", UNIT_WANTS);
+                        if (r < 0)
                                 return r;
 
-                        if ((r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES)) < 0)
+                        r = process_dir(u, *p, t, ".requires", UNIT_REQUIRES);
+                        if (r < 0)
                                 return r;
                 }
         }

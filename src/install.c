@@ -72,9 +72,8 @@ static int get_config_path(UnitFileScope scope, bool runtime, const char *root_d
         case UNIT_FILE_SYSTEM:
 
                 if (root_dir && runtime)
-                        return -EINVAL;
-
-                if (runtime)
+                        asprintf(&p, "%s/run/systemd/system", root_dir);
+                else if (runtime)
                         p = strdup("/run/systemd/system");
                 else if (root_dir)
                         asprintf(&p, "%s/%s", root_dir, SYSTEM_CONFIG_UNIT_PATH);
@@ -479,7 +478,6 @@ static int find_symlinks_fd(
                                 t = path_make_absolute(name, config_path);
                                 if (!t) {
                                         free(p);
-                                        free(dest);
                                         r = -ENOMEM;
                                         break;
                                 }
@@ -1019,11 +1017,11 @@ static int unit_file_load(
                 const char *path,
                 bool allow_symlink) {
 
-        const ConfigItem items[] = {
-                { "Alias",    config_parse_strv, 0, &info->aliases,   "Install" },
-                { "WantedBy", config_parse_strv, 0, &info->wanted_by, "Install" },
-                { "Also",     config_parse_also, 0, c,                "Install" },
-                { NULL, NULL, 0, NULL, NULL }
+        const ConfigTableItem items[] = {
+                { "Install", "Alias",    config_parse_strv, 0, &info->aliases   },
+                { "Install", "WantedBy", config_parse_strv, 0, &info->wanted_by },
+                { "Install", "Also",     config_parse_also, 0, c                },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         int fd;
@@ -1044,7 +1042,7 @@ static int unit_file_load(
                 return -ENOMEM;
         }
 
-        r = config_parse(path, f, NULL, items, true, info);
+        r = config_parse(path, f, NULL, config_item_table_lookup, (void*) items, true, info);
         fclose(f);
         if (r < 0)
                 return r;
@@ -1573,10 +1571,10 @@ UnitFileState unit_file_get_state(
                 }
 
                 if (lstat(path, &st) < 0) {
+                        r = -errno;
                         if (errno == ENOENT)
                                 continue;
 
-                        r = -errno;
                         goto finish;
                 }
 
@@ -1905,7 +1903,7 @@ int unit_file_get_list(
                         } else if (r > 0) {
                                 f->state = UNIT_FILE_DISABLED;
                                 goto found;
-                        } else if (r == 0) {
+                        } else {
                                 f->state = UNIT_FILE_STATIC;
                                 goto found;
                         }

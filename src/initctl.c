@@ -34,13 +34,13 @@
 #include <ctype.h>
 
 #include <dbus/dbus.h>
+#include <systemd/sd-daemon.h>
 
 #include "util.h"
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
 #include "special.h"
-#include "sd-daemon.h"
 #include "dbus-common.h"
 #include "def.h"
 
@@ -56,6 +56,8 @@ typedef struct Server {
         unsigned n_fifos;
 
         DBusConnection *bus;
+
+        bool quit;
 } Server;
 
 struct Fifo {
@@ -93,6 +95,8 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
         for (i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].runlevel == runlevel) {
                         *isolate = table[i].isolate;
+                        if (runlevel == '6' && kexec_loaded())
+                                return SPECIAL_KEXEC_TARGET;
                         return table[i].special;
                 }
 
@@ -165,7 +169,31 @@ static void request_process(Server *s, const struct init_request *req) {
                 if (!isprint(req->runlevel))
                         log_error("Got invalid runlevel. Ignoring.");
                 else
-                        change_runlevel(s, req->runlevel);
+                        switch (req->runlevel) {
+
+                        /* we are async anyway, so just use kill for reexec/reload */
+                        case 'u':
+                        case 'U':
+                                if (kill(1, SIGTERM) < 0)
+                                        log_error("kill() failed: %m");
+
+                                /* The bus connection will be
+                                 * terminated if PID 1 is reexecuted,
+                                 * hence let's just exit here, and
+                                 * rely on that we'll be restarted on
+                                 * the next request */
+                                s->quit = true;
+                                break;
+
+                        case 'q':
+                        case 'Q':
+                                if (kill(1, SIGHUP) < 0)
+                                        log_error("kill() failed: %m");
+                                break;
+
+                        default:
+                                change_runlevel(s, req->runlevel);
+                        }
                 return;
 
         case INIT_CMD_POWERFAIL:
@@ -360,9 +388,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         if ((n = sd_listen_fds(true)) < 0) {
                 log_error("Failed to read listening file descriptors from environment: %s", strerror(-r));
@@ -383,7 +413,7 @@ int main(int argc, char *argv[]) {
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        for (;;) {
+        while (!server.quit) {
                 struct epoll_event event;
                 int k;
 

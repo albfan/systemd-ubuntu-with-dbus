@@ -69,11 +69,12 @@
                 to various kernel interfaces in the container to
                 read-only, such as <filename>/sys</filename>,
                 <filename>/proc/sys</filename> or
-                <filename>/selinux</filename>. Network interfaces and
-                the system clock may not be changed from within the
-                container. Device nodes may not be created. The host
-                system cannot be rebooted and kernel modules may not
-                be loaded from within the container.</para>
+                <filename>/sys/fs/selinux</filename>. Network
+                interfaces and the system clock may not be changed
+                from within the container. Device nodes may not be
+                created. The host system cannot be rebooted and kernel
+                modules may not be loaded from within the
+                container.</para>
 
                 <para>Note that even though these security precautions
                 are taken <command>systemd-nspawn</command> is not
@@ -123,6 +124,7 @@
                 <variablelist>
                         <varlistentry>
                                 <term><option>--help</option></term>
+                                <term><option>-h</option></term>
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
@@ -130,7 +132,7 @@
 
                         <varlistentry>
                                 <term><option>--directory=</option></term>
-                                <term><option>--D</option></term>
+                                <term><option>-D</option></term>
 
                                 <listitem><para>Directory to use as
                                 file system root for the namespace
@@ -141,7 +143,7 @@
 
                         <varlistentry>
                                 <term><option>--user=</option></term>
-                                <term><option>--u</option></term>
+                                <term><option>-u</option></term>
 
                                 <listitem><para>Run the command
                                 under specified user, create home
@@ -150,6 +152,16 @@
                                 the security feature and limits
                                 against accidental changes only.
                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--private-network</option></term>
+
+                                <listitem><para>Turn off networking in
+                                the container. This makes all network
+                                interfaces unavailable in the
+                                container, with the exception of the
+                                loopback device.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -173,7 +185,7 @@
                 <title>Example 2</title>
 
                 <programlisting># mock --init
-# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /bin/systemd systemd.log_level=debug</programlisting>
+# systemd-nspawn -D /var/lib/mock/fedora-rawhide-x86_64/root/ /sbin/init systemd.log_level=debug</programlisting>
 
                 <para>This installs a minimal Fedora distribution into
                 a subdirectory of <filename>/var/lib/mock/</filename>
@@ -195,7 +207,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>mock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>

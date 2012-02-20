@@ -45,7 +45,9 @@
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
+#define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"       /* LSB's $remote_fs */
+#define SPECIAL_REMOTE_FS_PRE_TARGET "remote-fs-pre.target"
 #define SPECIAL_SWAP_TARGET "swap.target"
 #define SPECIAL_BASIC_TARGET "basic.target"
 
@@ -68,8 +70,8 @@
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
-#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
-#define SPECIAL_SYSLOG_SOCKET "syslog.socket"
+#define SPECIAL_JOURNALD_SOCKET "systemd-journald.socket"
+#define SPECIAL_JOURNALD_SERVICE "systemd-journald.service"
 
 /* Magic init signals */
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
