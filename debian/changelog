@@ -1,4 +1,4 @@
-systemd (40-1) unstable; urgency=low
+systemd (43-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
   * New upstream release
