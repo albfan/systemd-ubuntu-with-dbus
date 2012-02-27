@@ -30,7 +30,7 @@
 int main(int argc, char* argv[]) {
         int r, k;
         uid_t u, u2;
-        char *seat;
+        char *seat, *type, *class, *display;
         char *session;
         char *state;
         char *session2;
@@ -74,6 +74,18 @@ int main(int argc, char* argv[]) {
         assert_se(sd_session_get_uid(session, &u) >= 0);
         printf("uid = %lu\n", (unsigned long) u);
         assert_se(u == u2);
+
+        assert_se(sd_session_get_type(session, &type) >= 0);
+        printf("type = %s\n", type);
+        free(type);
+
+        assert_se(sd_session_get_class(session, &class) >= 0);
+        printf("class = %s\n", class);
+        free(class);
+
+        assert_se(sd_session_get_display(session, &display) >= 0);
+        printf("display = %s\n", display);
+        free(display);
 
         assert_se(sd_session_get_seat(session, &seat) >= 0);
         printf("seat = %s\n", seat);
@@ -126,6 +138,11 @@ int main(int argc, char* argv[]) {
         free(t);
 
         assert_se(sd_get_seats(NULL) == r);
+
+        r = sd_seat_get_active(NULL, &t, NULL);
+        assert_se(r >= 0);
+        printf("active session on current seat = %s\n", t);
+        free(t);
 
         r = sd_get_sessions(&sessions);
         assert_se(r >= 0);

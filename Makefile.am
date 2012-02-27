@@ -20,20 +20,20 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = po
 
-LIBSYSTEMD_LOGIN_CURRENT=1
-LIBSYSTEMD_LOGIN_REVISION=1
-LIBSYSTEMD_LOGIN_AGE=1
+LIBSYSTEMD_LOGIN_CURRENT=2
+LIBSYSTEMD_LOGIN_REVISION=0
+LIBSYSTEMD_LOGIN_AGE=2
 
 LIBSYSTEMD_DAEMON_CURRENT=0
 LIBSYSTEMD_DAEMON_REVISION=1
 LIBSYSTEMD_DAEMON_AGE=0
 
 LIBSYSTEMD_ID128_CURRENT=0
-LIBSYSTEMD_ID128_REVISION=1
+LIBSYSTEMD_ID128_REVISION=2
 LIBSYSTEMD_ID128_AGE=0
 
 LIBSYSTEMD_JOURNAL_CURRENT=0
-LIBSYSTEMD_JOURNAL_REVISION=1
+LIBSYSTEMD_JOURNAL_REVISION=2
 LIBSYSTEMD_JOURNAL_AGE=0
 
 # Dirs of external packages
@@ -86,7 +86,7 @@ AM_CPPFLAGS = \
 	-DUSER_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/user\" \
 	-DUSER_DATA_UNIT_PATH=\"$(userunitdir)\" \
 	-DSYSTEMD_CGROUP_AGENT_PATH=\"$(rootlibexecdir)/systemd-cgroups-agent\" \
-	-DSYSTEMD_BINARY_PATH=\"$(rootbindir)/systemd\" \
+	-DSYSTEMD_BINARY_PATH=\"$(rootlibexecdir)/systemd\" \
 	-DSYSTEMD_SHUTDOWN_BINARY_PATH=\"$(rootlibexecdir)/systemd-shutdown\" \
 	-DSYSTEMCTL_BINARY_PATH=\"$(rootbindir)/systemctl\" \
 	-DSYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH=\"$(rootbindir)/systemd-tty-ask-password-agent\" \
@@ -161,7 +161,6 @@ endif
 endif
 
 rootbin_PROGRAMS = \
-	systemd \
 	systemctl \
 	systemd-notify \
 	systemd-ask-password \
@@ -185,6 +184,7 @@ bin_PROGRAMS += \
 endif
 
 rootlibexec_PROGRAMS = \
+	systemd \
 	systemd-cgroups-agent \
 	systemd-initctl \
 	systemd-update-utmp \
@@ -546,7 +546,8 @@ libsystemd_core_la_CFLAGS = \
 	$(UDEV_CFLAGS) \
 	$(LIBWRAP_CFLAGS) \
 	$(PAM_CFLAGS) \
-	$(AUDIT_CFLAGS)
+	$(AUDIT_CFLAGS) \
+	$(KMOD_CFLAGS)
 
 libsystemd_core_la_LIBADD = \
 	libsystemd-basic.la \
@@ -555,7 +556,8 @@ libsystemd_core_la_LIBADD = \
 	$(LIBWRAP_LIBS) \
 	$(PAM_LIBS) \
 	$(AUDIT_LIBS) \
-	$(CAP_LIBS)
+	$(CAP_LIBS) \
+	$(KMOD_LIBS)
 
 # This is needed because automake is buggy in how it generates the
 # rules for C programs, but not Vala programs.	We therefore can't
@@ -697,6 +699,7 @@ man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
 
+if ENABLE_MANPAGES
 dist_man_MANS = \
 	$(MANPAGES) \
 	$(MANPAGES_ALIAS)
@@ -721,6 +724,7 @@ EXTRA_DIST += \
 	$(XML_IN_FILES) \
 	${nodist_man_MANS:=.in} \
 	${XML_IN_FILES:.xml.in=.html.in}
+endif
 
 systemd_SOURCES = \
 	src/main.c
@@ -860,8 +864,12 @@ systemd_shutdown_LDADD = \
 systemd_modules_load_SOURCES = \
 	src/modules-load.c
 
+systemd_modules_load_CFLAGS = \
+	$(KMOD_CFLAGS)
+
 systemd_modules_load_LDADD = \
-	libsystemd-basic.la
+	libsystemd-basic.la \
+	$(KMOD_LIBS)
 
 systemd_tmpfiles_SOURCES = \
 	src/tmpfiles.c
@@ -2509,11 +2517,13 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
-	--with-rootprefix=$$dc_install_base/$(rootprefix)
+	--with-rootprefix=$$dc_install_base/$(prefix)
+
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/
 	scp systemd-$(VERSION).tar.xz fdo:/srv/www.freedesktop.org/www/software/systemd/
+	scp man/*.html fdo:/srv/www.freedesktop.org/www/software/systemd/man/
 	scp man/*.html tango:public/systemd-man/
 
 git-tag:

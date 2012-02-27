@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[40],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[43],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -36,13 +36,6 @@ AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
 
 AM_SILENT_RULES([yes])
 
-AC_CHECK_PROG([STOW], [stow], [yes], [no])
-
-AS_IF([test "x$STOW" = "xyes" && test -d /usr/local/stow], [
-        AC_MSG_NOTICE([*** Found /usr/local/stow: default install prefix set to /usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION} ***])
-        ac_default_prefix="/usr/local/stow/${PACKAGE_NAME}-${PACKAGE_VERSION}"
-])
-
 # i18n stuff for the PolicyKit policy files
 IT_PROG_INTLTOOL([0.40.0])
 
@@ -52,6 +45,7 @@ AC_SUBST(GETTEXT_PACKAGE)
 AC_PROG_MKDIR_P
 AC_PROG_LN_S
 AC_PROG_SED
+AC_PROG_GREP
 AC_PROG_AWK
 
 AC_PROG_CC
@@ -130,20 +124,14 @@ AC_SUBST(CAP_LIBS)
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
 PKG_CHECK_MODULES(UDEV, [ libudev >= 172 ])
-AC_SUBST(UDEV_CFLAGS)
-AC_SUBST(UDEV_LIBS)
-
 PKG_CHECK_MODULES(DBUS, [ dbus-1 >= 1.3.2 ])
-AC_SUBST(DBUS_CFLAGS)
-AC_SUBST(DBUS_LIBS)
+PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ])
 
 have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
         PKG_CHECK_MODULES(SELINUX, [ libselinux ],
                 [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
-        AC_SUBST(SELINUX_CFLAGS)
-        AC_SUBST(SELINUX_LIBS)
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
                 AC_MSG_ERROR([*** SELinux support requested but libraries not found])
         fi
@@ -155,8 +143,6 @@ AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
                 [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
-        AC_SUBST(XZ_CFLAGS)
-        AC_SUBST(XZ_LIBS)
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
                 AC_MSG_ERROR([*** Xz support requested but libraries not found])
         fi
@@ -302,8 +288,6 @@ AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable 
 if test "x$enable_libcryptsetup" != "xno"; then
         PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup ],
                 [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
-        AC_SUBST(LIBCRYPTSETUP_CFLAGS)
-        AC_SUBST(LIBCRYPTSETUP_LIBS)
         if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
                 AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
         fi
@@ -313,80 +297,85 @@ AM_CONDITIONAL(HAVE_LIBCRYPTSETUP, [test "$have_libcryptsetup" = "yes"])
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
-	have_binfmt=yes
+        have_binfmt=yes
 fi
 AM_CONDITIONAL(ENABLE_BINFMT, [test "$have_binfmt" = "yes"])
 
 have_vconsole=no
 AC_ARG_ENABLE(vconsole, AS_HELP_STRING([--disable-vconsole], [disable vconsole tool]))
 if test "x$enable_vconsole" != "xno"; then
-	have_vconsole=yes
+        have_vconsole=yes
 fi
 AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
 
 have_readahead=no
 AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
 if test "x$enable_readahead" != "xno"; then
-	have_readahead=yes
+        have_readahead=yes
 fi
 AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
 have_quotacheck=no
 AC_ARG_ENABLE(quotacheck, AS_HELP_STRING([--disable-quotacheck], [disable quotacheck tools]))
 if test "x$enable_quotacheck" != "xno"; then
-	have_quotacheck=yes
+        have_quotacheck=yes
 fi
 AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
 
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
-	have_randomseed=yes
+        have_randomseed=yes
 fi
 AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
 
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
-	have_logind=yes
+        have_logind=yes
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
 if test "x$enable_hostnamed" != "xno"; then
-	have_hostnamed=yes
+        have_hostnamed=yes
 fi
 AM_CONDITIONAL(ENABLE_HOSTNAMED, [test "$have_hostnamed" = "yes"])
 
 have_timedated=no
 AC_ARG_ENABLE(timedated, AS_HELP_STRING([--disable-timedated], [disable timedate daemon]))
 if test "x$enable_timedated" != "xno"; then
-	have_timedated=yes
+        have_timedated=yes
 fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
-	have_localed=yes
+        have_localed=yes
 fi
 AM_CONDITIONAL(ENABLE_LOCALED, [test "$have_localed" = "yes"])
 
 have_coredump=no
 AC_ARG_ENABLE(coredump, AS_HELP_STRING([--disable-coredump], [disable coredump hook]))
 if test "x$enable_coredump" != "xno"; then
-	have_coredump=yes
+        have_coredump=yes
 fi
 AM_CONDITIONAL(ENABLE_COREDUMP, [test "$have_coredump" = "yes"])
+
+have_manpages=no
+AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
+if test "x$enable_manpages" != "xno"; then
+        have_manpages=yes
+fi
+AM_CONDITIONAL(ENABLE_MANPAGES, [test "$have_manpages" = "yes"])
 
 have_gtk=no
 AC_ARG_ENABLE(gtk, AS_HELP_STRING([--disable-gtk], [disable GTK tools]))
 if test "x$enable_gtk" != "xno"; then
         PKG_CHECK_MODULES(GTK, [ gtk+-2.0 glib-2.0 > 2.26 gio-unix-2.0 gee-1.0],
                 [AC_DEFINE(HAVE_GTK, 1, [Define if GTK is available]) have_gtk=yes], have_gtk=no)
-        AC_SUBST(GTK_CFLAGS)
-        AC_SUBST(GTK_LIBS)
         if test "x$have_gtk" = xno -a "x$enable_gtk" = xyes; then
                 AC_MSG_ERROR([*** gtk support requested but libraries not found])
         fi
@@ -395,8 +384,6 @@ AM_CONDITIONAL(HAVE_GTK, [test "$have_gtk" = "yes"])
 
 if test "$have_gtk" = "yes"; then
         PKG_CHECK_MODULES(LIBNOTIFY, [ libnotify ])
-        AC_SUBST(LIBNOTIFY_CFLAGS)
-        AC_SUBST(LIBNOTIFY_LIBS)
 fi
 
 AM_PROG_VALAC([0.10])
@@ -408,29 +395,15 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinuxi, mandriva, meego, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
         else
-                test -f "/etc/redhat-release" && with_distro="fedora"
-                test -f "/etc/SuSE-release" && with_distro="suse"
-                test -f "/etc/debian_version" &&  with_distro="debian"
-                test -f "/etc/arch-release" && with_distro="arch"
-                test -f "/etc/gentoo-release" && with_distro="gentoo"
-                test -f "/etc/slackware-version" && with_distro="slackware"
-                test -f "/etc/frugalware-release" && with_distro="frugalware"
-                test -f "/etc/altlinux-release" && with_distro="altlinux"
-                test -f "/etc/mandriva-release" && with_distro="mandriva"
-                test -f "/etc/meego-release" && with_distro="meego"
-                test -f "/etc/angstrom-version" && with_distro="angstrom"
-                test -f "/etc/mageia-release" && with_distro="mageia"
-                if test "x`lsb_release -is 2>/dev/null`" = "xUbuntu"; then
-                        with_distro="ubuntu"
-                fi
+                with_distro=$($GREP '^ID=' /etc/os-release | $SED 's/ID=//');
         fi
         if test "z$with_distro" = "z"; then
-                with_distro=`uname -s`
+                with_distro=other
         fi
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
@@ -450,7 +423,7 @@ case $with_distro in
                 M4_DEFINES=-DTARGET_FEDORA=1
                 have_plymouth=yes
                 ;;
-        suse)
+        opensuse|suse)
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
                 AC_DEFINE(TARGET_SUSE, [], [Target is openSUSE/SLE])
                 M4_DEFINES=-DTARGET_SUSE=1
@@ -506,7 +479,7 @@ case $with_distro in
                 SYSTEM_SYSVRCND_PATH=
                 AC_DEFINE(TARGET_MEEGO, [], [Target is MeeGo])
                 M4_DEFINES=-DTARGET_MEEGO=1
-		;;
+                ;;
         angstrom)
                 SYSTEM_SYSVRCND_PATH=/etc
                 AC_DEFINE(TARGET_ANGSTROM, [], [Target is Ångström])
@@ -526,10 +499,10 @@ case $with_distro in
 esac
 
 AC_ARG_WITH([sysvinit-path],
-	[AS_HELP_STRING([--with-sysvinit-path=PATH],
-		[Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
-	[SYSTEM_SYSVINIT_PATH="$withval"],
-	[])
+        [AS_HELP_STRING([--with-sysvinit-path=PATH],
+                [Specify the path to where the SysV init scripts are located @<:@default=based on distro@:>@])],
+        [SYSTEM_SYSVINIT_PATH="$withval"],
+        [])
 
 AC_ARG_WITH([sysvrcd-path],
         [AS_HELP_STRING([--with-sysvrcd-path=PATH],
@@ -619,6 +592,19 @@ AC_ARG_WITH([pamlibdir],
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
 
+AC_ARG_ENABLE([split-usr],
+        AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
+        [],
+        [AS_IF([test "x${ac_default_prefix}" != "x${with_rootprefix}"], [
+                enable_split_usr=yes
+        ], [
+                enable_split_usr=no
+        ])])
+
+AS_IF([test "x${enable_split_usr}" = "xyes"], [
+        AC_DEFINE(HAVE_SPLIT_USR, 1, [Define if /bin, /sbin aren't symlinks into /usr])
+])
+
 AC_SUBST([dbuspolicydir], [$with_dbuspolicydir])
 AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
@@ -661,10 +647,12 @@ AC_MSG_RESULT([
         libexec dir:             ${libexecdir}
         lib dir:                 ${libdir}
         rootlib dir:             ${with_rootlibdir}
-        pam modules dir:         ${with_pamlibdir}
+        PAM modules dir:         ${with_pamlibdir}
         udev rules dir:          ${with_udevrulesdir}
-        dbus policy dir:         ${with_dbuspolicydir}
-        dbus session dir:        ${with_dbussessionservicedir}
-        dbus system dir:         ${with_dbussystemservicedir}
-        dbus interfaces dir:     ${with_dbusinterfacedir}
+        D-Bus policy dir:        ${with_dbuspolicydir}
+        D-Bus session dir:       ${with_dbussessionservicedir}
+        D-Bus system dir:        ${with_dbussystemservicedir}
+        D-Bus interfaces dir:    ${with_dbusinterfacedir}
+        Split /usr:              ${enable_split_usr}
+        Build man pages:         ${have_manpages}
 ])
