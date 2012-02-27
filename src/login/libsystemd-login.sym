@@ -39,3 +39,10 @@ global:
         sd_pid_get_unit;
         sd_session_get_service;
 } LIBSYSTEMD_LOGIN_31;
+
+LIBSYSTEMD_LOGIN_43 {
+global:
+        sd_session_get_type;
+        sd_session_get_class;
+        sd_session_get_display;
+} LIBSYSTEMD_LOGIN_38;

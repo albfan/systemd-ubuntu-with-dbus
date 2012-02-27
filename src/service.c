@@ -23,7 +23,9 @@
 #include <signal.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/reboot.h>
 
+#include "manager.h"
 #include "unit.h"
 #include "service.h"
 #include "load-fragment.h"
@@ -112,6 +114,9 @@ static void service_init(Unit *u) {
 
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->restart_usec = DEFAULT_RESTART_USEC;
+
+        s->watchdog_watch.type = WATCH_INVALID;
+
         s->timer_watch.type = WATCH_INVALID;
 #ifdef HAVE_SYSV_COMPAT
         s->sysv_start_priority = -1;
@@ -122,7 +127,7 @@ static void service_init(Unit *u) {
 
         exec_context_init(&s->exec_context);
 
-        RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
+        RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 }
@@ -208,14 +213,39 @@ static void service_connection_unref(Service *s) {
 static void service_stop_watchdog(Service *s) {
         assert(s);
 
+        unit_unwatch_timer(UNIT(s), &s->watchdog_watch);
         s->watchdog_timestamp.realtime = 0;
         s->watchdog_timestamp.monotonic = 0;
+}
+
+static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart);
+
+static void service_handle_watchdog(Service *s) {
+        usec_t offset;
+        int r;
+
+        assert(s);
+
+        if (s->watchdog_usec == 0)
+                return;
+
+        offset = now(CLOCK_MONOTONIC) - s->watchdog_timestamp.monotonic;
+        if (offset >= s->watchdog_usec) {
+                log_error("%s watchdog timeout!", UNIT(s)->id);
+                service_enter_dead(s, SERVICE_FAILURE_WATCHDOG, true);
+                return;
+        }
+
+        r = unit_watch_timer(UNIT(s), s->watchdog_usec - offset, &s->watchdog_watch);
+        if (r < 0)
+                log_warning("%s failed to install watchdog timer: %s", UNIT(s)->id, strerror(-r));
 }
 
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
         dual_timestamp_get(&s->watchdog_timestamp);
+        service_handle_watchdog(s);
 }
 
 static void service_done(Unit *u) {
@@ -258,6 +288,8 @@ static void service_done(Unit *u) {
         service_connection_unref(s);
 
         unit_ref_unset(&s->accept_socket);
+
+        service_stop_watchdog(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -864,6 +896,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->remain_after_exit = !s->pid_file;
         s->guess_main_pid = false;
         s->restart = SERVICE_RESTART_NO;
+        s->exec_context.ignore_sigpipe = false;
 
         if (UNIT(s)->manager->sysv_console)
                 s->exec_context.std_output = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
@@ -1200,6 +1233,9 @@ static int service_load(Unit *u) {
                                 return r;
 
                 if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
+                        s->notify_access = NOTIFY_MAIN;
+
+                if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
                         s->notify_access = NOTIFY_MAIN;
 
                 if (s->type == SERVICE_DBUS || s->bus_name)
@@ -1568,9 +1604,12 @@ static int service_coldplug(Unit *u) {
                                 if ((r = unit_watch_pid(UNIT(s), s->control_pid)) < 0)
                                         return r;
 
+                if (s->deserialized_state == SERVICE_START_POST ||
+                    s->deserialized_state == SERVICE_RUNNING)
+                        service_handle_watchdog(s);
+
                 service_set_state(s, s->deserialized_state);
         }
-
         return 0;
 }
 
@@ -1698,6 +1737,12 @@ static int service_spawn(
 
         if (s->main_pid > 0)
                 if (asprintf(our_env + n_env++, "MAINPID=%lu", (unsigned long) s->main_pid) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+        if (s->watchdog_usec > 0)
+                if (asprintf(our_env + n_env++, "WATCHDOG_USEC=%llu", (unsigned long long) s->watchdog_usec) < 0) {
                         r = -ENOMEM;
                         goto fail;
                 }
@@ -2002,6 +2047,9 @@ static void service_enter_start_post(Service *s) {
 
         service_unwatch_control_pid(s);
 
+        if (s->watchdog_usec > 0)
+                service_reset_watchdog(s);
+
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
 
@@ -2281,8 +2329,56 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
+static int service_start_limit_test(Service *s) {
+        assert(s);
+
+        if (ratelimit_test(&s->start_limit))
+                return 0;
+
+        switch (s->start_limit_action) {
+
+        case SERVICE_START_LIMIT_NONE:
+                log_warning("%s start request repeated too quickly, refusing to start.", UNIT(s)->id);
+                break;
+
+        case SERVICE_START_LIMIT_REBOOT: {
+                DBusError error;
+                int r;
+
+                dbus_error_init(&error);
+
+                log_warning("%s start request repeated too quickly, rebooting.", UNIT(s)->id);
+
+                r = manager_add_job_by_name(UNIT(s)->manager, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE, true, &error, NULL);
+                if (r < 0) {
+                        log_error("Failed to reboot: %s.", bus_error(&error, r));
+                        dbus_error_free(&error);
+                }
+
+                break;
+        }
+
+        case SERVICE_START_LIMIT_REBOOT_FORCE:
+                log_warning("%s start request repeated too quickly, force rebooting.", UNIT(s)->id);
+                UNIT(s)->manager->exit_code = MANAGER_REBOOT;
+                break;
+
+        case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
+                log_warning("%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
+                reboot(RB_AUTOBOOT);
+                break;
+
+        default:
+                log_error("start limit action=%i", s->start_limit_action);
+                assert_not_reached("Unknown StartLimitAction.");
+        }
+
+        return -ECANCELED;
+}
+
 static int service_start(Unit *u) {
         Service *s = SERVICE(u);
+        int r;
 
         assert(s);
 
@@ -2305,10 +2401,9 @@ static int service_start(Unit *u) {
         assert(s->state == SERVICE_DEAD || s->state == SERVICE_FAILED || s->state == SERVICE_AUTO_RESTART);
 
         /* Make sure we don't enter a busy loop of some kind. */
-        if (!ratelimit_test(&s->ratelimit)) {
-                log_warning("%s start request repeated too quickly, refusing to start.", u->id);
-                return -ECANCELED;
-        }
+        r = service_start_limit_test(s);
+        if (r < 0)
+                return r;
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -2921,6 +3016,11 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
 
         assert(s);
         assert(elapsed == 1);
+
+        if (w == &s->watchdog_watch) {
+                service_handle_watchdog(s);
+                return;
+        }
 
         assert(w == &s->timer_watch);
 
@@ -3611,10 +3711,19 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
         [SERVICE_FAILURE_TIMEOUT] = "timeout",
         [SERVICE_FAILURE_EXIT_CODE] = "exit-code",
         [SERVICE_FAILURE_SIGNAL] = "signal",
-        [SERVICE_FAILURE_CORE_DUMP] = "core-dump"
+        [SERVICE_FAILURE_CORE_DUMP] = "core-dump",
+        [SERVICE_FAILURE_WATCHDOG] = "watchdog"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
+
+static const char* const start_limit_action_table[_SERVICE_START_LIMIT_MAX] = {
+        [SERVICE_START_LIMIT_NONE] = "none",
+        [SERVICE_START_LIMIT_REBOOT] = "reboot",
+        [SERVICE_START_LIMIT_REBOOT_FORCE] = "reboot-force",
+        [SERVICE_START_LIMIT_REBOOT_IMMEDIATE] = "reboot-immediate"
+};
+DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",

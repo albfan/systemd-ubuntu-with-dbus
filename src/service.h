@@ -95,9 +95,19 @@ typedef enum ServiceResult {
         SERVICE_FAILURE_EXIT_CODE,
         SERVICE_FAILURE_SIGNAL,
         SERVICE_FAILURE_CORE_DUMP,
+        SERVICE_FAILURE_WATCHDOG,
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
+
+typedef enum StartLimitAction {
+        SERVICE_START_LIMIT_NONE,
+        SERVICE_START_LIMIT_REBOOT,
+        SERVICE_START_LIMIT_REBOOT_FORCE,
+        SERVICE_START_LIMIT_REBOOT_IMMEDIATE,
+        _SERVICE_START_LIMIT_MAX,
+        _SERVICE_START_LIMIT_INVALID = -1
+} StartLimitAction;
 
 struct Service {
         Unit meta;
@@ -112,6 +122,8 @@ struct Service {
         usec_t timeout_usec;
 
         dual_timestamp watchdog_timestamp;
+        usec_t watchdog_usec;
+        Watch watchdog_watch;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;
@@ -166,7 +178,9 @@ struct Service {
 
         char *status_text;
 
-        RateLimit ratelimit;
+        RateLimit start_limit;
+        StartLimitAction start_limit_action;
+
 
         UnitRef accept_socket;
 
@@ -199,5 +213,8 @@ NotifyAccess notify_access_from_string(const char *s);
 
 const char* service_result_to_string(ServiceResult i);
 ServiceResult service_result_from_string(const char *s);
+
+const char* start_limit_action_to_string(StartLimitAction i);
+StartLimitAction start_limit_action_from_string(const char *s);
 
 #endif

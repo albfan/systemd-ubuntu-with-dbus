@@ -354,16 +354,39 @@ _public_ int sd_uid_get_seats(uid_t uid, int require_active, char ***seats) {
         return uid_get_array(uid, require_active ? "ACTIVE_SEATS" : "SEATS", seats);
 }
 
+static int file_of_session(const char *session, char **_p) {
+        char *p;
+        int r;
+
+        assert(_p);
+
+        if (session)
+                p = strappend("/run/systemd/sessions/", session);
+        else {
+                char *buf;
+
+                r = sd_pid_get_session(0, &buf);
+                if (r < 0)
+                        return r;
+
+                p = strappend("/run/systemd/sessions/", buf);
+                free(buf);
+        }
+
+        if (!p)
+                return -ENOMEM;
+
+        *_p = p;
+        return 0;
+}
+
 _public_ int sd_session_is_active(const char *session) {
         int r;
         char *p, *s = NULL;
 
-        if (!session)
-                return -EINVAL;
-
-        p = strappend("/run/systemd/sessions/", session);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE, "ACTIVE", &s, NULL);
         free(p);
@@ -386,14 +409,12 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         int r;
         char *p, *s = NULL;
 
-        if (!session)
-                return -EINVAL;
         if (!uid)
                 return -EINVAL;
 
-        p = strappend("/run/systemd/sessions/", session);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE, "UID", &s, NULL);
         free(p);
@@ -412,20 +433,18 @@ _public_ int sd_session_get_uid(const char *session, uid_t *uid) {
         return r;
 }
 
-_public_ int sd_session_get_seat(const char *session, char **seat) {
+static int session_get_string(const char *session, const char *field, char **value) {
         char *p, *s = NULL;
         int r;
 
-        if (!session)
-                return -EINVAL;
-        if (!seat)
+        if (!value)
                 return -EINVAL;
 
-        p = strappend("/run/systemd/sessions/", session);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_session(session, &p);
+        if (r < 0)
+                return r;
 
-        r = parse_env_file(p, NEWLINE, "SEAT", &s, NULL);
+        r = parse_env_file(p, NEWLINE, field, &s, NULL);
         free(p);
 
         if (r < 0) {
@@ -436,35 +455,53 @@ _public_ int sd_session_get_seat(const char *session, char **seat) {
         if (isempty(s))
                 return -ENOENT;
 
-        *seat = s;
+        *value = s;
         return 0;
 }
 
+_public_ int sd_session_get_seat(const char *session, char **seat) {
+        return session_get_string(session, "SEAT", seat);
+}
+
 _public_ int sd_session_get_service(const char *session, char **service) {
-        char *p, *s = NULL;
+        return session_get_string(session, "SERVICE", service);
+}
+
+_public_ int sd_session_get_type(const char *session, char **type) {
+        return session_get_string(session, "TYPE", type);
+}
+
+_public_ int sd_session_get_class(const char *session, char **class) {
+        return session_get_string(session, "CLASS", class);
+}
+
+_public_ int sd_session_get_display(const char *session, char **display) {
+        return session_get_string(session, "DISPLAY", display);
+}
+
+static int file_of_seat(const char *seat, char **_p) {
+        char *p;
         int r;
 
-        if (!session)
-                return -EINVAL;
-        if (!service)
-                return -EINVAL;
+        assert(_p);
 
-        p = strappend("/run/systemd/sessions/", session);
+        if (seat)
+                p = strappend("/run/systemd/seats/", seat);
+        else {
+                char *buf;
+
+                r = sd_session_get_seat(NULL, &buf);
+                if (r < 0)
+                        return r;
+
+                p = strappend("/run/systemd/seats/", buf);
+                free(buf);
+        }
+
         if (!p)
                 return -ENOMEM;
 
-        r = parse_env_file(p, NEWLINE, "SERVICE", &s, NULL);
-        free(p);
-
-        if (r < 0) {
-                free(s);
-                return r;
-        }
-
-        if (isempty(s))
-                return -ENOENT;
-
-        *service = s;
+        *_p = p;
         return 0;
 }
 
@@ -472,14 +509,12 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         char *p, *s = NULL, *t = NULL;
         int r;
 
-        if (!seat)
-                return -EINVAL;
         if (!session && !uid)
                 return -EINVAL;
 
-        p = strappend("/run/systemd/seats/", seat);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_seat(seat, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE,
                            "ACTIVE", &s,
@@ -528,12 +563,9 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
         unsigned n = 0;
         int r;
 
-        if (!seat)
-                return -EINVAL;
-
-        p = strappend("/run/systemd/seats/", seat);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_seat(seat, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE,
                            "SESSIONS", &s,
@@ -619,12 +651,9 @@ _public_ int sd_seat_can_multi_session(const char *seat) {
         char *p, *s = NULL;
         int r;
 
-        if (!seat)
-                return -EINVAL;
-
-        p = strappend("/run/systemd/seats/", seat);
-        if (!p)
-                return -ENOMEM;
+        r = file_of_seat(seat, &p);
+        if (r < 0)
+                return r;
 
         r = parse_env_file(p, NEWLINE,
                            "CAN_MULTI_SESSION", &s,
