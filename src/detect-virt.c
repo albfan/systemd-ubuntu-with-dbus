@@ -25,16 +25,18 @@
 #include <string.h>
 
 #include "util.h"
+#include "virt.h"
 
 int main(int argc, char *argv[]) {
-        int r;
+        Virtualization r;
         const char *id;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
          * environment or not */
 
-        if ((r = detect_virtualization(&id)) < 0) {
+        r = detect_virtualization(&id);
+        if (r < 0) {
                 log_error("Failed to check for virtualization: %s", strerror(-r));
                 return EXIT_FAILURE;
         }
@@ -42,5 +44,5 @@ int main(int argc, char *argv[]) {
         if (r > 0)
                 puts(id);
 
-        return r == 0;
+        return r > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

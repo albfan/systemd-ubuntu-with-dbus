@@ -209,8 +209,10 @@
                                 <listitem><para>Set log
                                 target. Argument must be one of
                                 <option>console</option>,
+                                <option>journal</option>,
                                 <option>syslog</option>,
                                 <option>kmsg</option>,
+                                <option>journal-or-kmsg</option>,
                                 <option>syslog-or-kmsg</option>,
                                 <option>null</option>.</para></listitem>
                         </varlistentry>
@@ -259,18 +261,25 @@
                                 services and sockets, i.e. controls
                                 the default for
                                 <option>StandardOutput=</option>
-                                resp. <option>StandardExecute=</option>
+                                resp. <option>StandardError=</option>
                                 (see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details). Takes one of
                                 <option>inherit</option>,
                                 <option>null</option>,
                                 <option>tty</option>,
+                                <option>journal</option>,
+                                <option>journal+console</option>,
                                 <option>syslog</option>,
                                 <option>syslog+console</option>,
                                 <option>kmsg</option>,
                                 <option>kmsg+console</option>.  If the
-                                argument is omitted it defaults to
+                                argument is omitted
+                                <option>--default-standard-output=</option>
+                                defaults to <option>journal</option>
+                                and
+                                <option>--default-standard-error=</option>
+                                to
                                 <option>inherit</option>.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -808,7 +817,7 @@
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
                                 (resp. <literal>info</literal> on
-                                <literal>SIGRTMIN+32</literal>), as
+                                <literal>SIGRTMIN+23</literal>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
                                 (resp. <varname>systemd.log_level=info</varname>
@@ -818,19 +827,24 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term>SIGRTMIN+26</term>
                                 <term>SIGRTMIN+27</term>
                                 <term>SIGRTMIN+28</term>
                                 <term>SIGRTMIN+29</term>
 
                                 <listitem><para>Sets the log level to
-                                <literal>console</literal>
-                                (resp. <literal>kmsg</literal> on
+                                <literal>journal-or-kmsg</literal>
+                                (resp. <literal>console</literal> on
+                                <literal>SIGRTMIN+27</literal>;
+                                resp. <literal>kmsg</literal> on
                                 <literal>SIGRTMIN+28</literal>;
                                 resp. <literal>syslog-or-kmsg</literal>
                                 on <literal>SIGRTMIN+29</literal>), as
                                 controlled via
-                                <varname>systemd.log_target=console</varname>
-                                (resp. <varname>systemd.log_target=kmsg</varname>
+                                <varname>systemd.log_target=journal-or-kmsg</varname>
+                                (resp. <varname>systemd.log_target=console</varname>
+                                on <literal>SIGRTMIN+27</literal>;
+                                resp. <varname>systemd.log_target=kmsg</varname>
                                 on <literal>SIGRTMIN+28</literal>;
                                 resp
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
@@ -1054,6 +1068,22 @@
                                 above.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>systemd.setenv=</varname></term>
+
+                                <listitem><para>Takes a string
+                                argument in the form
+                                VARIABLE=VALUE. May be used to set
+                                environment variables for the init
+                                process and all its children at boot
+                                time. May be used more than once to
+                                set multiple variables. If the equal
+                                sign and variable are missing unsets
+                                an environment variable which might be
+                                passed in from the initial ram
+                                disk.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 
@@ -1071,19 +1101,6 @@
                                 logic as implemented by
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
 
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><filename>/run/systemd/logger</filename></term>
-
-                                <listitem><para>Used internally by the
-                                <filename>systemd-logger.service</filename>
-                                unit to connect STDOUT and/or STDERR
-                                of spawned processes to
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                or the kernel log buffer. This is an
-                                AF_UNIX stream
-                                socket.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

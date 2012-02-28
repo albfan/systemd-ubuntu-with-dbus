@@ -81,7 +81,7 @@
                                 <term><varname>ShowStatus=yes</varname></term>
                                 <term><varname>SysVConsole=yes</varname></term>
                                 <term><varname>CrashChVT=1</varname></term>
-                                <term><varname>DefaultStandardOutput=null</varname></term>
+                                <term><varname>DefaultStandardOutput=journal</varname></term>
                                 <term><varname>DefaultStandardError=inherit</varname></term>
 
                                 <listitem><para>Configures various
@@ -128,6 +128,26 @@
                                 string to ensure that systemd does not
                                 touch any hierarchies but its
                                 own.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>JoinControllers=cpu,cpuacct</varname></term>
+
+                                <listitem><para>Configures controllers
+                                that shall be mounted in a single
+                                hierarchy. By default systemd will
+                                mount all controllers which are
+                                enabled in the kernel in individual
+                                hierachies, with the exception of
+                                those listed in this setting. Takes a
+                                space separated list of comma
+                                separated controller names, in order
+                                to allow multiple joined
+                                hierarchies. Defaults to
+                                'cpu,cpuacct'. Pass an empty string to
+                                ensure that systemd mounts all
+                                controllers in separate
+                                hierarchies.</para></listitem>
                         </varlistentry>
                 </variablelist>
         </refsect1>

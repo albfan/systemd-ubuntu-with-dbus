@@ -41,6 +41,7 @@ typedef enum PathType {
         PATH_EXISTS_GLOB,
         PATH_DIRECTORY_NOT_EMPTY,
         PATH_CHANGED,
+        PATH_MODIFIED,
         _PATH_TYPE_MAX,
         _PATH_TYPE_INVALID = -1
 } PathType;
@@ -57,23 +58,39 @@ typedef struct PathSpec {
         int primary_wd;
 
         bool previous_exists;
-
 } PathSpec;
 
+int path_spec_watch(PathSpec *s, Unit *u);
+void path_spec_unwatch(PathSpec *s, Unit *u);
+int path_spec_fd_event(PathSpec *s, uint32_t events);
+void path_spec_done(PathSpec *s);
+
+static inline bool path_spec_owns_inotify_fd(PathSpec *s, int fd) {
+        return s->inotify_fd == fd;
+}
+
+typedef enum PathResult {
+        PATH_SUCCESS,
+        PATH_FAILURE_RESOURCES,
+        _PATH_RESULT_MAX,
+        _PATH_RESULT_INVALID = -1
+} PathResult;
+
 struct Path {
-        Meta meta;
+        Unit meta;
 
         LIST_HEAD(PathSpec, specs);
 
-        Unit *unit;
+        UnitRef unit;
 
         PathState state, deserialized_state;
 
-        bool failure;
         bool inotify_triggered;
 
         bool make_directory;
         mode_t directory_mode;
+
+        PathResult result;
 };
 
 void path_unit_notify(Unit *u, UnitActiveState new_state);
@@ -89,5 +106,8 @@ PathState path_state_from_string(const char *s);
 
 const char* path_type_to_string(PathType i);
 PathType path_type_from_string(const char *s);
+
+const char* path_result_to_string(PathResult i);
+PathResult path_result_from_string(const char *s);
 
 #endif

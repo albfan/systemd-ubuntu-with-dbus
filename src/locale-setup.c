@@ -26,12 +26,14 @@
 #include "locale-setup.h"
 #include "util.h"
 #include "macro.h"
+#include "virt.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
          * using LANG instead. */
 
         VARIABLE_LANG,
+        VARIABLE_LANGUAGE,
         VARIABLE_LC_CTYPE,
         VARIABLE_LC_NUMERIC,
         VARIABLE_LC_TIME,
@@ -49,6 +51,7 @@ enum {
 
 static const char * const variable_names[_VARIABLE_MAX] = {
         [VARIABLE_LANG] = "LANG",
+        [VARIABLE_LANGUAGE] = "LANGUAGE",
         [VARIABLE_LC_CTYPE] = "LC_CTYPE",
         [VARIABLE_LC_NUMERIC] = "LC_NUMERIC",
         [VARIABLE_LC_TIME] = "LC_TIME",
@@ -75,6 +78,7 @@ int locale_setup(void) {
                                         "LANG",                     &variables[VARIABLE_LANG],
 #endif
                                         "locale.LANG",              &variables[VARIABLE_LANG],
+                                        "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                         "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
                                         "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
                                         "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
@@ -98,6 +102,7 @@ int locale_setup(void) {
         if (r <= 0 &&
             (r = parse_env_file("/etc/locale.conf", NEWLINE,
                                "LANG",              &variables[VARIABLE_LANG],
+                               "LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
                                "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
                                "LC_TIME",           &variables[VARIABLE_LC_TIME],
@@ -194,7 +199,7 @@ int locale_setup(void) {
                 if (r != -ENOENT)
                         log_warning("Failed to read /etc/profile.env: %s", strerror(-r));
         }
-#elif defined(TARGET_MANDRIVA)
+#elif defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA )
         if (r <= 0 &&
             (r = parse_env_file("/etc/sysconfig/i18n", NEWLINE,
                                 "LANG",              &variables[VARIABLE_LANG],
@@ -212,8 +217,8 @@ int locale_setup(void) {
                                 "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
                                 NULL)) < 0) {
 
-		if (r != -ENOENT)
-			log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
+                if (r != -ENOENT)
+                        log_warning("Failed to read /etc/sysconfig/i18n: %s", strerror(-r));
         }
 
 #endif

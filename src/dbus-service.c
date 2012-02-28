@@ -43,6 +43,12 @@
         "  <property name=\"NotifyAccess\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RestartUSec\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"WatchdogTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitInterval\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitBurst\" type=\"u\" access=\"read\"/>\n" \
+        "  <property name=\"StartLimitAction\" type=\"s\" access=\"read\"/>\n" \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStart")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
@@ -59,8 +65,8 @@
         "  <property name=\"BusName\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"StatusText\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"FsckPassNo\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"Sockets\" type=\"as\" access=\"read\"/>\n" \
-        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                              \
+        "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
+        BUS_SERVICE_SYSV_INTERFACE_FRAGMENT                             \
        " </interface>\n"
 
 #define INTROSPECTION                                                   \
@@ -87,48 +93,76 @@ const char bus_service_invalidating_properties[] =
         "ExecStop\0"
         "ExecStopPost\0"
         "ExecMain\0"
+        "WatchdogTimestamp\0"
+        "WatchdogTimestampMonotonic\0"
         "MainPID\0"
         "ControlPID\0"
-        "StatusText\0";
+        "StatusText\0"
+        "Result\0";
 
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_type, service_type, ServiceType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_restart, service_restart, ServiceRestart);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_notify_access, notify_access, NotifyAccess);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_service_result, service_result, ServiceResult);
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_service_append_start_limit_action, start_limit_action, StartLimitAction);
+
+static const BusProperty bus_exec_main_status_properties[] = {
+        { "ExecMainStartTimestamp",         bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
+        { "ExecMainStartTimestampMonotonic",bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.monotonic) },
+        { "ExecMainExitTimestamp",          bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.realtime)  },
+        { "ExecMainExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(ExecStatus, start_timestamp.monotonic) },
+        { "ExecMainPID",                    bus_property_append_pid,  "u", offsetof(ExecStatus, pid)                       },
+        { "ExecMainCode",                   bus_property_append_int,  "i", offsetof(ExecStatus, code)                      },
+        { "ExecMainStatus",                 bus_property_append_int,  "i", offsetof(ExecStatus, status)                    },
+        { NULL, }
+};
+
+static const BusProperty bus_service_properties[] = {
+        { "Type",                   bus_service_append_type,          "s", offsetof(Service, type)                         },
+        { "Restart",                bus_service_append_restart,       "s", offsetof(Service, restart)                      },
+        { "PIDFile",                bus_property_append_string,       "s", offsetof(Service, pid_file),               true },
+        { "NotifyAccess",           bus_service_append_notify_access, "s", offsetof(Service, notify_access)                },
+        { "RestartUSec",            bus_property_append_usec,         "t", offsetof(Service, restart_usec)                 },
+        { "TimeoutUSec",            bus_property_append_usec,         "t", offsetof(Service, timeout_usec)                 },
+        { "WatchdogUSec",           bus_property_append_usec,         "t", offsetof(Service, watchdog_usec)                },
+        { "WatchdogTimestamp",      bus_property_append_usec,         "t", offsetof(Service, watchdog_timestamp.realtime)  },
+        { "WatchdogTimestampMonotonic",bus_property_append_usec,      "t", offsetof(Service, watchdog_timestamp.monotonic) },
+        { "StartLimitInterval",     bus_property_append_usec,         "t", offsetof(Service, start_limit.interval)         },
+        { "StartLimitBurst",        bus_property_append_uint32,       "u", offsetof(Service, start_limit.burst)            },
+        { "StartLimitAction",       bus_service_append_start_limit_action,"s", offsetof(Service, start_limit_action)       },
+        BUS_EXEC_COMMAND_PROPERTY("ExecStartPre",  offsetof(Service, exec_command[SERVICE_EXEC_START_PRE]),  true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStart",     offsetof(Service, exec_command[SERVICE_EXEC_START]),      true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStartPost", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecReload",    offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]),     true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStop",      offsetof(Service, exec_command[SERVICE_EXEC_STOP]),       true ),
+        BUS_EXEC_COMMAND_PROPERTY("ExecStopPost",  offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]),  true ),
+        { "PermissionsStartOnly",   bus_property_append_bool,         "b", offsetof(Service, permissions_start_only)       },
+        { "RootDirectoryStartOnly", bus_property_append_bool,         "b", offsetof(Service, root_directory_start_only)    },
+        { "RemainAfterExit",        bus_property_append_bool,         "b", offsetof(Service, remain_after_exit)            },
+        { "GuessMainPID",           bus_property_append_bool,         "b", offsetof(Service, guess_main_pid)               },
+        { "MainPID",                bus_property_append_pid,          "u", offsetof(Service, main_pid)                     },
+        { "ControlPID",             bus_property_append_pid,          "u", offsetof(Service, control_pid)                  },
+        { "BusName",                bus_property_append_string,       "s", offsetof(Service, bus_name),               true },
+        { "StatusText",             bus_property_append_string,       "s", offsetof(Service, status_text),            true },
+#ifdef HAVE_SYSV_COMPAT
+        { "SysVRunLevels",          bus_property_append_string,       "s", offsetof(Service, sysv_runlevels),         true },
+        { "SysVStartPriority",      bus_property_append_int,          "i", offsetof(Service, sysv_start_priority)          },
+        { "SysVPath",               bus_property_append_string,       "s", offsetof(Service, sysv_path),              true },
+#endif
+        { "FsckPassNo",             bus_property_append_int,          "i", offsetof(Service, fsck_passno)                  },
+        { "Result",                 bus_service_append_service_result,"s", offsetof(Service, result)                       },
+        { NULL, }
+};
 
 DBusHandlerResult bus_service_message_handler(Unit *u, DBusConnection *connection, DBusMessage *message) {
-        const BusProperty properties[] = {
-                BUS_UNIT_PROPERTIES,
-                { "org.freedesktop.systemd1.Service", "Type",                   bus_service_append_type,    "s", &u->service.type                      },
-                { "org.freedesktop.systemd1.Service", "Restart",                bus_service_append_restart, "s", &u->service.restart                   },
-                { "org.freedesktop.systemd1.Service", "PIDFile",                bus_property_append_string, "s", u->service.pid_file                   },
-                { "org.freedesktop.systemd1.Service", "NotifyAccess",           bus_service_append_notify_access, "s", &u->service.notify_access       },
-                { "org.freedesktop.systemd1.Service", "RestartUSec",            bus_property_append_usec,   "t", &u->service.restart_usec              },
-                { "org.freedesktop.systemd1.Service", "TimeoutUSec",            bus_property_append_usec,   "t", &u->service.timeout_usec              },
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START_PRE],  "ExecStartPre"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START],      "ExecStart"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_START_POST], "ExecStartPost"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_RELOAD],     "ExecReload"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_STOP],       "ExecStop"),
-                BUS_EXEC_COMMAND_PROPERTY("org.freedesktop.systemd1.Service", u->service.exec_command[SERVICE_EXEC_STOP_POST],  "ExecStopPost"),
-                BUS_EXEC_CONTEXT_PROPERTIES("org.freedesktop.systemd1.Service", u->service.exec_context),
-                { "org.freedesktop.systemd1.Service", "PermissionsStartOnly",   bus_property_append_bool,   "b", &u->service.permissions_start_only    },
-                { "org.freedesktop.systemd1.Service", "RootDirectoryStartOnly", bus_property_append_bool,   "b", &u->service.root_directory_start_only },
-                { "org.freedesktop.systemd1.Service", "RemainAfterExit",        bus_property_append_bool,   "b", &u->service.remain_after_exit         },
-                { "org.freedesktop.systemd1.Service", "GuessMainPID",           bus_property_append_bool,   "b", &u->service.guess_main_pid            },
-               BUS_EXEC_STATUS_PROPERTIES("org.freedesktop.systemd1.Service", u->service.main_exec_status, "ExecMain"),
-                { "org.freedesktop.systemd1.Service", "MainPID",                bus_property_append_pid,    "u", &u->service.main_pid                  },
-                { "org.freedesktop.systemd1.Service", "ControlPID",             bus_property_append_pid,    "u", &u->service.control_pid               },
-                { "org.freedesktop.systemd1.Service", "BusName",                bus_property_append_string, "s", u->service.bus_name                   },
-                { "org.freedesktop.systemd1.Service", "StatusText",             bus_property_append_string, "s", u->service.status_text                },
-                { "org.freedesktop.systemd1.Service", "Sockets",                bus_unit_append_dependencies, "as", u->service.configured_sockets         },
-#ifdef HAVE_SYSV_COMPAT
-                { "org.freedesktop.systemd1.Service", "SysVRunLevels",          bus_property_append_string, "s", u->service.sysv_runlevels             },
-                { "org.freedesktop.systemd1.Service", "SysVStartPriority",      bus_property_append_int,    "i", &u->service.sysv_start_priority       },
-                { "org.freedesktop.systemd1.Service", "SysVPath",               bus_property_append_string, "s", u->service.sysv_path                  },
-#endif
-                { "org.freedesktop.systemd1.Service", "FsckPassNo",             bus_property_append_int,    "i", &u->service.fsck_passno               },
-                { NULL, NULL, NULL, NULL, NULL }
+        Service *s = SERVICE(u);
+        const BusBoundProperties bps[] = {
+                { "org.freedesktop.systemd1.Unit",    bus_unit_properties,             u },
+                { "org.freedesktop.systemd1.Service", bus_service_properties,          s },
+                { "org.freedesktop.systemd1.Service", bus_exec_context_properties,     &s->exec_context },
+                { "org.freedesktop.systemd1.Service", bus_exec_main_status_properties, &s->main_exec_status },
+                { NULL, }
         };
 
-        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, properties);
+        return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 }

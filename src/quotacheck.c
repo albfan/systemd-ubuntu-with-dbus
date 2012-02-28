@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "virt.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
@@ -53,7 +54,7 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "quotacheck.mode"))
                         log_warning("Invalid quotacheck.mode= parameter. Ignoring.");
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
                 else if (strneq(w, "forcequotacheck", l))
                         arg_force = true;
 #endif
@@ -64,8 +65,8 @@ static int parse_proc_cmdline(void) {
 }
 
 static void test_files(void) {
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
-        /* This exists only on Fedora or Mandriva */
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
+        /* This exists only on Fedora, Mandriva or Mageia */
         if (access("/forcequotacheck", F_OK) >= 0)
                 arg_force = true;
 #endif
@@ -86,9 +87,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         parse_proc_cmdline();
         test_files();

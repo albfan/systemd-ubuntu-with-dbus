@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/file.h>
 
 #include <libudev.h>
 #include <dbus/dbus.h>
@@ -33,9 +34,11 @@
 #include "dbus-common.h"
 #include "special.h"
 #include "bus-errors.h"
+#include "virt.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
+static bool arg_show_progress = false;
 
 static void start_target(const char *target, bool isolate) {
         DBusMessage *m = NULL, *reply = NULL;
@@ -77,7 +80,7 @@ static void start_target(const char *target, bool isolate) {
 
         if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
 
-                /* Don't print a waring if we aren't called during
+                /* Don't print a warning if we aren't called during
                  * startup */
                 if (!dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
                         log_error("Failed to start unit: %s", bus_error_message(&error));
@@ -124,7 +127,7 @@ static int parse_proc_cmdline(void) {
                         arg_skip = true;
                 else if (startswith(w, "fsck.mode"))
                         log_warning("Invalid fsck.mode= parameter. Ignoring.");
-#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA)
+#if defined(TARGET_FEDORA) || defined(TARGET_MANDRIVA) || defined(TARGET_MAGEIA)
                 else if (strneq(w, "fastboot", l))
                         arg_skip = true;
                 else if (strneq(w, "forcefsck", l))
@@ -142,10 +145,103 @@ static void test_files(void) {
 
         if (access("/forcefsck", F_OK) >= 0)
                 arg_force = true;
+
+        if (access("/run/systemd/show-status", F_OK) >= 0 || plymouth_running())
+                arg_show_progress = true;
+}
+
+static double percent(int pass, unsigned long cur, unsigned long max) {
+        /* Values stolen from e2fsck */
+
+        static const int pass_table[] = {
+                0, 70, 90, 92, 95, 100
+        };
+
+        if (pass <= 0)
+                return 0.0;
+
+        if ((unsigned) pass >= ELEMENTSOF(pass_table) || max == 0)
+                return 100.0;
+
+        return (double) pass_table[pass-1] +
+                ((double) pass_table[pass] - (double) pass_table[pass-1]) *
+                (double) cur / (double) max;
+}
+
+static int process_progress(int fd) {
+        FILE *f, *console;
+        usec_t last = 0;
+        bool locked = false;
+        int clear = 0;
+
+        f = fdopen(fd, "r");
+        if (!f) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        console = fopen("/dev/console", "w");
+        if (!console) {
+                fclose(f);
+                return -ENOMEM;
+        }
+
+        while (!feof(f)) {
+                int pass, m;
+                unsigned long cur, max;
+                char *device;
+                double p;
+                usec_t t;
+
+                if (fscanf(f, "%i %lu %lu %ms", &pass, &cur, &max, &device) != 4)
+                        break;
+
+                /* Only show one progress counter at max */
+                if (!locked) {
+                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0) {
+                                free(device);
+                                continue;
+                        }
+
+                        locked = true;
+                }
+
+                /* Only update once every 50ms */
+                t = now(CLOCK_MONOTONIC);
+                if (last + 50 * USEC_PER_MSEC > t)  {
+                        free(device);
+                        continue;
+                }
+
+                last = t;
+
+                p = percent(pass, cur, max);
+                fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
+                fflush(console);
+
+                free(device);
+
+                if (m > clear)
+                        clear = m;
+        }
+
+        if (clear > 0) {
+                unsigned j;
+
+                fputc('\r', console);
+                for (j = 0; j < (unsigned) clear; j++)
+                        fputc(' ', console);
+                fputc('\r', console);
+                fflush(console);
+        }
+
+        fclose(f);
+        fclose(console);
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
-        const char *cmdline[8];
+        const char *cmdline[9];
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
@@ -153,15 +249,19 @@ int main(int argc, char *argv[]) {
         struct udev_device *udev_device = NULL;
         const char *device;
         bool root_directory;
+        int progress_pipe[2] = { -1, -1 };
+        char dash_c[2+10+1];
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SYSLOG_OR_KMSG);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        umask(0022);
 
         parse_proc_cmdline();
         test_files();
@@ -213,6 +313,12 @@ int main(int argc, char *argv[]) {
                 root_directory = true;
         }
 
+        if (arg_show_progress)
+                if (pipe(progress_pipe) < 0) {
+                        log_error("pipe(): %m");
+                        goto finish;
+                }
+
         cmdline[i++] = "/sbin/fsck";
         cmdline[i++] = "-a";
         cmdline[i++] = "-T";
@@ -224,19 +330,39 @@ int main(int argc, char *argv[]) {
         if (arg_force)
                 cmdline[i++] = "-f";
 
+        if (progress_pipe[1] >= 0) {
+                snprintf(dash_c, sizeof(dash_c), "-C%i", progress_pipe[1]);
+                char_array_0(dash_c);
+                cmdline[i++] = dash_c;
+        }
+
         cmdline[i++] = device;
         cmdline[i++] = NULL;
 
-        if ((pid = fork()) < 0) {
+        pid = fork();
+        if (pid < 0) {
                 log_error("fork(): %m");
                 goto finish;
         } else if (pid == 0) {
                 /* Child */
+                if (progress_pipe[0] >= 0)
+                        close_nointr_nofail(progress_pipe[0]);
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
 
-        if ((q = wait_for_terminate(pid, &status)) < 0) {
+        if (progress_pipe[1] >= 0) {
+                close_nointr_nofail(progress_pipe[1]);
+                progress_pipe[1] = -1;
+        }
+
+        if (progress_pipe[0] >= 0) {
+                process_progress(progress_pipe[0]);
+                progress_pipe[0] = -1;
+        }
+
+        q = wait_for_terminate(pid, &status);
+        if (q < 0) {
                 log_error("waitid(): %s", strerror(-q));
                 goto finish;
         }
@@ -273,6 +399,8 @@ finish:
 
         if (udev)
                 udev_unref(udev);
+
+        close_pipe(progress_pipe);
 
         return r;
 }

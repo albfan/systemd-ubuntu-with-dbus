@@ -30,9 +30,9 @@
 #include "util.h"
 #include "log.h"
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO)
+#if defined(TARGET_FEDORA) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO) || defined(TARGET_MAGEIA)
 #define FILENAME "/etc/sysconfig/network"
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
 #define FILENAME "/etc/HOSTNAME"
 #elif defined(TARGET_ARCH)
 #define FILENAME "/etc/rc.conf"
@@ -64,7 +64,7 @@ static int read_and_strip_hostname(const char *path, char **hn) {
 
 static int read_distro_hostname(char **hn) {
 
-#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO)
+#if defined(TARGET_FEDORA) || defined(TARGET_ARCH) || defined(TARGET_GENTOO) || defined(TARGET_ALTLINUX) || defined(TARGET_MANDRIVA) || defined(TARGET_MEEGO) || defined(TARGET_MAGEIA)
         int r;
         FILE *f;
 
@@ -114,7 +114,7 @@ finish:
         fclose(f);
         return r;
 
-#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE) || defined(TARGET_FRUGALWARE)
+#elif defined(TARGET_SUSE) || defined(TARGET_SLACKWARE)
         return read_and_strip_hostname(FILENAME, hn);
 #else
         return -ENOENT;

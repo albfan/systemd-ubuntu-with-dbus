@@ -52,6 +52,7 @@
 #include "build.h"
 #include "strv.h"
 #include "def.h"
+#include "virt.h"
 
 static enum {
         ACTION_RUN,
@@ -75,7 +76,8 @@ static bool arg_sysv_console = true;
 static bool arg_mount_auto = true;
 static bool arg_swap_auto = true;
 static char **arg_default_controllers = NULL;
-static ExecOutput arg_default_std_output = EXEC_OUTPUT_INHERIT;
+static char ***arg_join_controllers = NULL;
+static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 
 static FILE* serialization = NULL;
@@ -198,12 +200,16 @@ static int console_setup(bool do_reset) {
         if (!do_reset)
                 return 0;
 
-        if ((tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+        tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (tty_fd < 0) {
                 log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
                 return -tty_fd;
         }
 
-        if ((r = reset_terminal_fd(tty_fd)) < 0)
+        /* We don't want to force text mode.
+         * plymouth may be showing pictures already from initrd. */
+        r = reset_terminal_fd(tty_fd, false);
+        if (r < 0)
                 log_error("Failed to reset /dev/console: %s", strerror(-r));
 
         close_nointr_nofail(tty_fd);
@@ -268,7 +274,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 18)) < 0)
-                        log_warning("Failed to parse dump core switch %s, Ignoring.", word + 18);
+                        log_warning("Failed to parse dump core switch %s. Ignoring.", word + 18);
                 else
                         arg_dump_core = r;
 
@@ -276,7 +282,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse crash shell switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse crash shell switch %s. Ignoring.", word + 20);
                 else
                         arg_crash_shell = r;
 
@@ -284,7 +290,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 22)) < 0)
-                        log_warning("Failed to parse confirm spawn switch %s, Ignoring.", word + 22);
+                        log_warning("Failed to parse confirm spawn switch %s. Ignoring.", word + 22);
                 else
                         arg_confirm_spawn = r;
 
@@ -292,7 +298,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int k;
 
                 if (safe_atoi(word + 19, &k) < 0)
-                        log_warning("Failed to parse crash chvt switch %s, Ignoring.", word + 19);
+                        log_warning("Failed to parse crash chvt switch %s. Ignoring.", word + 19);
                 else
                         arg_crash_chvt = k;
 
@@ -300,29 +306,49 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse show status switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse show status switch %s. Ignoring.", word + 20);
                 else
                         arg_show_status = r;
         } else if (startswith(word, "systemd.default_standard_output=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 32)) < 0)
-                        log_warning("Failed to parse default standard output switch %s, Ignoring.", word + 32);
+                        log_warning("Failed to parse default standard output switch %s. Ignoring.", word + 32);
                 else
                         arg_default_std_output = r;
         } else if (startswith(word, "systemd.default_standard_error=")) {
                 int r;
 
                 if ((r = exec_output_from_string(word + 31)) < 0)
-                        log_warning("Failed to parse default standard error switch %s, Ignoring.", word + 31);
+                        log_warning("Failed to parse default standard error switch %s. Ignoring.", word + 31);
                 else
                         arg_default_std_error = r;
+        } else if (startswith(word, "systemd.setenv=")) {
+                char *cenv, *eq;
+                int r;
+
+                cenv = strdup(word + 15);
+                if (!cenv)
+                        return -ENOMEM;
+
+                eq = strchr(cenv, '=');
+                if (!eq) {
+                        r = unsetenv(cenv);
+                        if (r < 0)
+                                log_warning("unsetenv failed %s. Ignoring.", strerror(errno));
+                } else {
+                        *eq = 0;
+                        r = setenv(cenv, eq + 1, 1);
+                        if (r < 0)
+                                log_warning("setenv failed %s. Ignoring.", strerror(errno));
+                }
+                free(cenv);
 #ifdef HAVE_SYSV_COMPAT
         } else if (startswith(word, "systemd.sysv_console=")) {
                 int r;
 
                 if ((r = parse_boolean(word + 21)) < 0)
-                        log_warning("Failed to parse SysV console switch %s, Ignoring.", word + 20);
+                        log_warning("Failed to parse SysV console switch %s. Ignoring.", word + 20);
                 else
                         arg_sysv_console = r;
 #endif
@@ -341,14 +367,14 @@ static int parse_proc_cmdline_word(const char *word) {
 #ifdef HAVE_SYSV_COMPAT
                          "systemd.sysv_console=0|1                 Connect output of SysV scripts to console\n"
 #endif
-                         "systemd.log_target=console|kmsg|syslog|syslog-or-kmsg|null\n"
+                         "systemd.log_target=console|kmsg|journal|journal-or-kmsg|syslog|syslog-or-kmsg|null\n"
                          "                                         Log target\n"
                          "systemd.log_level=LEVEL                  Log level\n"
                          "systemd.log_color=0|1                    Highlight important log messages\n"
                          "systemd.log_location=0|1                 Include code location in log messages\n"
-                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_output=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log output for services\n"
-                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console\n"
+                         "systemd.default_standard_error=null|tty|syslog|syslog+console|kmsg|kmsg+console|journal|journal+console\n"
                          "                                         Set default log error output for services\n");
 
         } else if (streq(word, "quiet")) {
@@ -368,7 +394,7 @@ static int parse_proc_cmdline_word(const char *word) {
         return 0;
 }
 
-static int config_parse_level(
+static int config_parse_level2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -440,7 +466,7 @@ static int config_parse_location(
         return 0;
 }
 
-static int config_parse_cpu_affinity(
+static int config_parse_cpu_affinity2(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -494,34 +520,146 @@ static int config_parse_cpu_affinity(
         return 0;
 }
 
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+static void strv_free_free(char ***l) {
+        char ***i;
+
+        if (!l)
+                return;
+
+        for (i = l; *i; i++)
+                strv_free(*i);
+
+        free(l);
+}
+
+static void free_join_controllers(void) {
+        if (!arg_join_controllers)
+                return;
+
+        strv_free_free(arg_join_controllers);
+        arg_join_controllers = NULL;
+}
+
+static int config_parse_join_controllers(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned n = 0;
+        char *state, *w;
+        size_t length;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        free_join_controllers();
+
+        FOREACH_WORD_QUOTED(w, length, rvalue, state) {
+                char *s, **l;
+
+                s = strndup(w, length);
+                if (!s)
+                        return -ENOMEM;
+
+                l = strv_split(s, ",");
+                free(s);
+
+                strv_uniq(l);
+
+                if (strv_length(l) <= 1) {
+                        strv_free(l);
+                        continue;
+                }
+
+                if (!arg_join_controllers) {
+                        arg_join_controllers = new(char**, 2);
+                        if (!arg_join_controllers) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        arg_join_controllers[0] = l;
+                        arg_join_controllers[1] = NULL;
+
+                        n = 1;
+                } else {
+                        char ***a;
+                        char ***t;
+
+                        t = new0(char**, n+2);
+                        if (!t) {
+                                strv_free(l);
+                                return -ENOMEM;
+                        }
+
+                        n = 0;
+
+                        for (a = arg_join_controllers; *a; a++) {
+
+                                if (strv_overlap(*a, l)) {
+                                        char **c;
+
+                                        c = strv_merge(*a, l);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        strv_free(l);
+                                        l = c;
+                                } else {
+                                        char **c;
+
+                                        c = strv_copy(*a);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return -ENOMEM;
+                                        }
+
+                                        t[n++] = c;
+                                }
+                        }
+
+                        t[n++] = strv_uniq(l);
+
+                        strv_free_free(arg_join_controllers);
+                        arg_join_controllers = t;
+                }
+        }
+
+        return 0;
+}
 
 static int parse_config_file(void) {
 
-        const ConfigItem items[] = {
-                { "LogLevel",              config_parse_level,        0, NULL,                     "Manager" },
-                { "LogTarget",             config_parse_target,       0, NULL,                     "Manager" },
-                { "LogColor",              config_parse_color,        0, NULL,                     "Manager" },
-                { "LogLocation",           config_parse_location,     0, NULL,                     "Manager" },
-                { "DumpCore",              config_parse_bool,         0, &arg_dump_core,           "Manager" },
-                { "CrashShell",            config_parse_bool,         0, &arg_crash_shell,         "Manager" },
-                { "ShowStatus",            config_parse_bool,         0, &arg_show_status,         "Manager" },
+        const ConfigTableItem items[] = {
+                { "Manager", "LogLevel",              config_parse_level2,       0, NULL                     },
+                { "Manager", "LogTarget",             config_parse_target,       0, NULL                     },
+                { "Manager", "LogColor",              config_parse_color,        0, NULL                     },
+                { "Manager", "LogLocation",           config_parse_location,     0, NULL                     },
+                { "Manager", "DumpCore",              config_parse_bool,         0, &arg_dump_core           },
+                { "Manager", "CrashShell",            config_parse_bool,         0, &arg_crash_shell         },
+                { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
 #ifdef HAVE_SYSV_COMPAT
-                { "SysVConsole",           config_parse_bool,         0, &arg_sysv_console,        "Manager" },
+                { "Manager", "SysVConsole",           config_parse_bool,         0, &arg_sysv_console        },
 #endif
-                { "CrashChVT",             config_parse_int,          0, &arg_crash_chvt,          "Manager" },
-                { "CPUAffinity",           config_parse_cpu_affinity, 0, NULL,                     "Manager" },
-                { "MountAuto",             config_parse_bool,         0, &arg_mount_auto,          "Manager" },
-                { "SwapAuto",              config_parse_bool,         0, &arg_swap_auto,           "Manager" },
-                { "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers, "Manager" },
-                { "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output,  "Manager" },
-                { "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error,   "Manager" },
-                { NULL, NULL, 0, NULL, NULL }
-        };
-
-        static const char * const sections[] = {
-                "Manager",
-                NULL
+                { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
+                { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
+                { "Manager", "MountAuto",             config_parse_bool,         0, &arg_mount_auto          },
+                { "Manager", "SwapAuto",              config_parse_bool,         0, &arg_swap_auto           },
+                { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
+                { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
+                { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
+                { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
+                { NULL, NULL, NULL, 0, NULL }
         };
 
         FILE *f;
@@ -529,8 +667,8 @@ static int parse_config_file(void) {
         int r;
 
         fn = arg_running_as == MANAGER_SYSTEM ? SYSTEM_CONFIG_FILE : USER_CONFIG_FILE;
-
-        if (!(f = fopen(fn, "re"))) {
+        f = fopen(fn, "re");
+        if (!f) {
                 if (errno == ENOENT)
                         return 0;
 
@@ -538,7 +676,8 @@ static int parse_config_file(void) {
                 return 0;
         }
 
-        if ((r = config_parse(fn, f, sections, items, false, NULL)) < 0)
+        r = config_parse(fn, f, "Manager\0", config_item_table_lookup, (void*) items, false, NULL);
+        if (r < 0)
                 log_warning("Failed to parse configuration file: %s", strerror(-r));
 
         fclose(f);
@@ -878,7 +1017,7 @@ static int help(void) {
 #ifdef HAVE_SYSV_COMPAT
                "     --sysv-console[=0|1]        Connect output of SysV scripts to console\n"
 #endif
-               "     --log-target=TARGET         Set log target (console, syslog, kmsg, syslog-or-kmsg, null)\n"
+               "     --log-target=TARGET         Set log target (console, journal, syslog, kmsg, journal-or-kmsg, syslog-or-kmsg, null)\n"
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=0|1]           Highlight important log messages\n"
                "     --log-location[=0|1]        Include code location in log messages\n"
@@ -1013,12 +1152,18 @@ static void test_cgroups(void) {
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
+        usec_t before_startup, after_startup;
+        char timespan[FORMAT_TIMESPAN_MAX];
         FDSet *fds = NULL;
         bool reexecute = false;
         const char *shutdown_verb = NULL;
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
-        char systemd[] = "systemd";
+        static char systemd[] = "systemd";
+        bool is_reexec = false;
+        int j;
+        bool loaded_policy = false;
 
+#ifdef HAVE_SYSV_COMPAT
         if (getpid() != 1 && strstr(program_invocation_short_name, "init")) {
                 /* This is compatibility support for SysV, where
                  * calling init as a user is identical to telinit. */
@@ -1028,14 +1173,25 @@ int main(int argc, char *argv[]) {
                 log_error("Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
                 return 1;
         }
+#endif
+
+        /* Determine if this is a reexecution or normal bootup. We do
+         * the full command line parsing much later, so let's just
+         * have a quick peek here. */
+
+        for (j = 1; j < argc; j++)
+                if (streq(argv[j], "--deserialize")) {
+                        is_reexec = true;
+                        break;
+                }
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
            called 'systemd'. That is confusing, hence let's call us
            systemd right-away. */
-
         program_invocation_short_name = systemd;
         prctl(PR_SET_NAME, systemd);
+
         saved_argv = argv;
         saved_argc = argc;
 
@@ -1045,26 +1201,27 @@ int main(int argc, char *argv[]) {
 
         if (getpid() == 1) {
                 arg_running_as = MANAGER_SYSTEM;
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_SYSLOG_OR_KMSG);
-                log_open();
+                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_JOURNAL_OR_KMSG);
 
-                /* This might actually not return, but cause a
-                 * reexecution */
-                if (selinux_setup(argv) < 0)
-                        goto finish;
+                if (!is_reexec)
+                        if (selinux_setup(&loaded_policy) < 0)
+                                goto finish;
+
+                log_open();
 
                 if (label_init() < 0)
                         goto finish;
 
-                if (hwclock_is_localtime() > 0) {
-                        int err, min;
+                if (!is_reexec)
+                        if (hwclock_is_localtime() > 0) {
+                                int min;
 
-                        err = hwclock_apply_localtime_delta(&min);
-                        if (err < 0)
-                                log_error("Failed to apply local time delta: %s", strerror(-err));
-                        else
-                                log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
-                }
+                                r = hwclock_apply_localtime_delta(&min);
+                                if (r < 0)
+                                        log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
+                                else
+                                        log_info("RTC configured in localtime, applying delta of %i minutes to system time.", min);
+                        }
 
         } else {
                 arg_running_as = MANAGER_USER;
@@ -1072,14 +1229,28 @@ int main(int argc, char *argv[]) {
                 log_open();
         }
 
+        /* Initialize default unit */
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
+                goto finish;
+
+        /* By default, mount "cpu" and "cpuacct" together */
+        arg_join_controllers = new(char**, 2);
+        if (!arg_join_controllers)
+                goto finish;
+
+        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
+        arg_join_controllers[1] = NULL;
+
+        if (!arg_join_controllers[0])
                 goto finish;
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS"))
-                if (mount_setup() < 0)
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_setup(loaded_policy);
+                if (r < 0)
                         goto finish;
+        }
 
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
@@ -1141,7 +1312,11 @@ int main(int argc, char *argv[]) {
 
         /* Set up PATH unless it is already set */
         setenv("PATH",
+#ifdef HAVE_SPLIT_USR
                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+#else
+               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
+#endif
                arg_running_as == MANAGER_SYSTEM);
 
         if (arg_running_as == MANAGER_SYSTEM) {
@@ -1175,7 +1350,7 @@ int main(int argc, char *argv[]) {
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
         if (arg_running_as == MANAGER_SYSTEM && arg_action == ACTION_RUN) {
-                console_setup(getpid() == 1 && !serialization);
+                console_setup(getpid() == 1 && !is_reexec);
                 make_null_stdio();
         }
 
@@ -1187,10 +1362,16 @@ int main(int argc, char *argv[]) {
         if (getpid() == 1)
                 install_crash_handler();
 
+        if (geteuid() == 0 && !getenv("SYSTEMD_SKIP_API_MOUNTS")) {
+                r = mount_cgroup_controllers(arg_join_controllers);
+                if (r < 0)
+                        goto finish;
+        }
+
         log_full(arg_running_as == MANAGER_SYSTEM ? LOG_INFO : LOG_DEBUG,
                  PACKAGE_STRING " running in %s mode. (" SYSTEMD_FEATURES "; " DISTRIBUTION ")", manager_running_as_to_string(arg_running_as));
 
-        if (arg_running_as == MANAGER_SYSTEM && !serialization) {
+        if (arg_running_as == MANAGER_SYSTEM && !is_reexec) {
                 locale_setup();
 
                 if (arg_show_status || plymouth_running())
@@ -1212,7 +1393,6 @@ int main(int argc, char *argv[]) {
         }
 
         m->confirm_spawn = arg_confirm_spawn;
-        m->show_status = arg_show_status;
 #ifdef HAVE_SYSV_COMPAT
         m->sysv_console = arg_sysv_console;
 #endif
@@ -1226,6 +1406,10 @@ int main(int argc, char *argv[]) {
 
         if (arg_default_controllers)
                 manager_set_default_controllers(m, arg_default_controllers);
+
+        manager_set_show_status(m, arg_show_status);
+
+        before_startup = now(CLOCK_MONOTONIC);
 
         if ((r = manager_startup(m, serialization, fds)) < 0)
                 log_error("Failed to fully start up daemon: %s", strerror(-r));
@@ -1244,6 +1428,7 @@ int main(int argc, char *argv[]) {
         } else {
                 DBusError error;
                 Unit *target = NULL;
+                Job *default_unit_job;
 
                 dbus_error_init(&error);
 
@@ -1252,39 +1437,46 @@ int main(int argc, char *argv[]) {
                 if ((r = manager_load_unit(m, arg_default_unit, NULL, &error, &target)) < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->meta.load_state == UNIT_ERROR)
-                        log_error("Failed to load default target: %s", strerror(-target->meta.load_error));
-                else if (target->meta.load_state == UNIT_MASKED)
+                } else if (target->load_state == UNIT_ERROR)
+                        log_error("Failed to load default target: %s", strerror(-target->load_error));
+                else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
 
-                if (!target || target->meta.load_state != UNIT_LOADED) {
+                if (!target || target->load_state != UNIT_LOADED) {
                         log_info("Trying to load rescue target...");
 
                         if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target)) < 0) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->meta.load_state == UNIT_ERROR) {
-                                log_error("Failed to load rescue target: %s", strerror(-target->meta.load_error));
+                        } else if (target->load_state == UNIT_ERROR) {
+                                log_error("Failed to load rescue target: %s", strerror(-target->load_error));
                                 goto finish;
-                        } else if (target->meta.load_state == UNIT_MASKED) {
+                        } else if (target->load_state == UNIT_MASKED) {
                                 log_error("Rescue target masked.");
                                 goto finish;
                         }
                 }
 
-                assert(target->meta.load_state == UNIT_LOADED);
+                assert(target->load_state == UNIT_LOADED);
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By units:\n");
                         manager_dump_units(m, stdout, "\t");
                 }
 
-                if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, NULL)) < 0) {
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &error, &default_unit_job);
+                if (r < 0) {
                         log_error("Failed to start default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
                         goto finish;
                 }
+                m->default_unit_job_id = default_unit_job->id;
+
+                after_startup = now(CLOCK_MONOTONIC);
+                log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
+                         "Loaded units and determined initial transaction in %s.",
+                          format_timespan(timespan, sizeof(timespan), after_startup - before_startup));
 
                 if (arg_action == ACTION_TEST) {
                         printf("-> By jobs:\n");
@@ -1349,6 +1541,7 @@ finish:
 
         free(arg_default_unit);
         strv_free(arg_default_controllers);
+        free_join_controllers();
 
         dbus_shutdown();
 

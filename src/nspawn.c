@@ -37,16 +37,20 @@
 #include <termios.h>
 #include <sys/signalfd.h>
 #include <grp.h>
+#include <linux/fs.h>
+
+#include <systemd/sd-daemon.h>
 
 #include "log.h"
 #include "util.h"
 #include "missing.h"
 #include "cgroup-util.h"
-#include "sd-daemon.h"
 #include "strv.h"
+#include "loopback-setup.h"
 
 static char *arg_directory = NULL;
 static char *arg_user = NULL;
+static bool arg_private_network = false;
 
 static int help(void) {
 
@@ -54,7 +58,8 @@ static int help(void) {
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help            Show this help\n"
                "  -D --directory=NAME  Root directory for the container\n"
-               "  -u --user=USER       Run the command under specified user or uid\n",
+               "  -u --user=USER       Run the command under specified user or uid\n"
+               "     --private-network Disable network in container\n",
                program_invocation_short_name);
 
         return 0;
@@ -62,11 +67,16 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_PRIVATE_NETWORK = 0x100
+        };
+
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h' },
-                { "directory", required_argument, NULL, 'D' },
-                { "user",      optional_argument, NULL, 'u' },
-                { NULL,        0,                 NULL, 0   }
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "directory",       required_argument, NULL, 'D'                 },
+                { "user",            required_argument, NULL, 'u'                 },
+                { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
+                { NULL,              0,                 NULL, 0                   }
         };
 
         int c;
@@ -98,6 +108,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -ENOMEM;
                         }
 
+                        break;
+
+                case ARG_PRIVATE_NETWORK:
+                        arg_private_network = true;
                         break;
 
                 case '?':
@@ -133,8 +147,8 @@ static int mount_all(const char *dest) {
                 { "/dev/pts",  "/dev/pts",  "bind",  NULL,       MS_BIND,                      true  },
                 { "tmpfs",     "/run",      "tmpfs", "mode=755", MS_NOSUID|MS_NODEV,           true  },
 #ifdef HAVE_SELINUX
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND,                      false },  /* Bind mount first */
-                { "/selinux",  "/selinux",  "bind",  NULL,       MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND,                      false },  /* Bind mount first */
+                { "/sys/fs/selinux", "/sys/fs/selinux", "bind", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, false },  /* Then, make it r/o */
 #endif
         };
 
@@ -154,7 +168,7 @@ static int mount_all(const char *dest) {
                         break;
                 }
 
-                if ((t = path_is_mount_point(where)) < 0) {
+                if ((t = path_is_mount_point(where, false)) < 0) {
                         log_error("Failed to detect whether %s is a mount point: %s", where, strerror(-t));
                         free(where);
 
@@ -184,8 +198,10 @@ static int mount_all(const char *dest) {
 
         /* Fix the timezone, if possible */
         if (asprintf(&where, "%s/%s", dest, "/etc/localtime") >= 0) {
-                mount("/etc/localtime", where, "bind", MS_BIND, NULL);
-                mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+                if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
+                        mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
                 free(where);
         }
 
@@ -314,7 +330,6 @@ static int copy_devnodes(const char *dest, const char *console) {
         }
 
 finish:
-
         umask(u);
 
         return r;
@@ -347,7 +362,7 @@ static int drop_capabilities(void) {
 
         unsigned long l;
 
-        for (l = 0; l <= MAX(63LU, (unsigned long) CAP_LAST_CAP); l++) {
+        for (l = 0; l <= cap_last_cap(); l++) {
                 unsigned i;
 
                 for (i = 0; i < ELEMENTSOF(retain); i++)
@@ -358,12 +373,6 @@ static int drop_capabilities(void) {
                         continue;
 
                 if (prctl(PR_CAPBSET_DROP, l) < 0) {
-
-                        /* If this capability is not known, EINVAL
-                         * will be returned, let's ignore this. */
-                        if (errno == EINVAL)
-                                break;
-
                         log_error("PR_CAPBSET_DROP failed: %m");
                         return -errno;
                 }
@@ -386,11 +395,9 @@ static int is_os_tree(const char *path) {
         return r < 0 ? 0 : 1;
 }
 
-#define BUFFER_SIZE 1024
-
 static int process_pty(int master, sigset_t *mask) {
 
-        char in_buffer[BUFFER_SIZE], out_buffer[BUFFER_SIZE];
+        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full = 0, out_buffer_full = 0;
         struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
         bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
@@ -511,9 +518,9 @@ static int process_pty(int master, sigset_t *mask) {
                        (master_readable && out_buffer_full <= 0) ||
                        (stdout_writable && out_buffer_full > 0)) {
 
-                        if (stdin_readable && in_buffer_full < BUFFER_SIZE) {
+                        if (stdin_readable && in_buffer_full < LINE_MAX) {
 
-                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, BUFFER_SIZE - in_buffer_full)) < 0) {
+                                if ((k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 stdin_readable = false;
@@ -545,9 +552,9 @@ static int process_pty(int master, sigset_t *mask) {
                                 }
                         }
 
-                        if (master_readable && out_buffer_full < BUFFER_SIZE) {
+                        if (master_readable && out_buffer_full < LINE_MAX) {
 
-                                if ((k = read(master, out_buffer + out_buffer_full, BUFFER_SIZE - out_buffer_full)) < 0) {
+                                if ((k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full)) < 0) {
 
                                         if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
                                                 master_readable = false;
@@ -699,7 +706,7 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS, NULL)) < 0) {
+        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL)) < 0) {
                 log_error("clone() failed: %m");
                 goto finish;
         }
@@ -713,6 +720,7 @@ int main(int argc, char *argv[]) {
                 gid_t gid = (gid_t) -1;
                 const char *envp[] = {
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
                         NULL, /* TERM */
                         NULL, /* HOME */
                         NULL, /* USER */
@@ -720,7 +728,7 @@ int main(int argc, char *argv[]) {
                         NULL
                 };
 
-                envp[1] = strv_find_prefix(environ, "TERM=");
+                envp[2] = strv_find_prefix(environ, "TERM=");
 
                 close_nointr_nofail(master);
 
@@ -776,7 +784,9 @@ int main(int argc, char *argv[]) {
                         goto child_fail;
                 }
 
-                umask(0002);
+                umask(0022);
+
+                loopback_setup();
 
                 if (drop_capabilities() < 0)
                         goto child_fail;
@@ -814,9 +824,9 @@ int main(int argc, char *argv[]) {
                         }
                 }
 
-                if ((asprintf((char**)(envp + 2), "HOME=%s", home? home: "/root") < 0) ||
-                    (asprintf((char**)(envp + 3), "USER=%s", arg_user? arg_user : "root") < 0) ||
-                    (asprintf((char**)(envp + 4), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
+                if ((asprintf((char**)(envp + 3), "HOME=%s", home? home: "/root") < 0) ||
+                    (asprintf((char**)(envp + 4), "USER=%s", arg_user? arg_user : "root") < 0) ||
+                    (asprintf((char**)(envp + 5), "LOGNAME=%s", arg_user? arg_user : "root") < 0)) {
                     log_error("Out of memory");
                     goto child_fail;
                 }

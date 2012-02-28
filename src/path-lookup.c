@@ -209,7 +209,7 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                                                  * the arrays in user_dirs() above! */
                                                 "/run/systemd/user",
                                                 USER_CONFIG_UNIT_PATH,
-                                                "/etc/systemd/system",
+                                                "/etc/systemd/user",
                                                 "/usr/local/lib/systemd/user",
                                                 "/usr/local/share/systemd/user",
                                                 USER_DATA_UNIT_PATH,
@@ -230,7 +230,9 @@ int lookup_paths_init(LookupPaths *p, ManagerRunningAs running_as, bool personal
                                               "/usr/local/lib/systemd/system",
                                               "/usr/lib/systemd/system",
                                               SYSTEM_DATA_UNIT_PATH,
+#ifdef HAVE_SPLIT_USR
                                               "/lib/systemd/system",
+#endif
                                               NULL)))
                                 return -ENOMEM;
         }

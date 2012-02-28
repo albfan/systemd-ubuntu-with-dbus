@@ -59,6 +59,7 @@
                 <filename>halt.target</filename>,
                 <filename>kbrequest.target</filename>,
                 <filename>local-fs.target</filename>,
+                <filename>local-fs-pre.target</filename>,
                 <filename>mail-transfer-agent.target</filename>,
                 <filename>multi-user.target</filename>,
                 <filename>network.target</filename>,
@@ -66,9 +67,9 @@
                 <filename>poweroff.target</filename>,
                 <filename>reboot.target</filename>,
                 <filename>remote-fs.target</filename>,
+                <filename>remote-fs-pre.target</filename>,
                 <filename>rescue.target</filename>,
                 <filename>rpcbind.target</filename>,
-                <filename>time-sync.target</filename>,
                 <filename>runlevel2.target</filename>,
                 <filename>runlevel3.target</filename>,
                 <filename>runlevel4.target</filename>,
@@ -81,8 +82,9 @@
                 <filename>syslog.target</filename>,
                 <filename>systemd-initctl.service</filename>,
                 <filename>systemd-initctl.socket</filename>,
-                <filename>systemd-logger.service</filename>,
-                <filename>systemd-logger.socket</filename>,
+                <filename>systemd-stdout-syslog-bridge.service</filename>,
+                <filename>systemd-stdout-syslog-bridge.socket</filename>,
+                <filename>time-sync.target</filename>,
                 <filename>umount.target</filename></para>
         </refsynopsisdiv>
 
@@ -261,6 +263,18 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>local-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all local mount points marked
+                                        with <option>auto</option>
+                                        (see above). It can be used to
+                                        execute certain units before
+                                        all local mounts.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>mail-transfer-agent.target</filename></term>
                                 <listitem>
                                         <para>The mail transfer agent
@@ -374,6 +388,18 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
+                                <term><filename>remote-fs-pre.target</filename></term>
+                                <listitem>
+                                        <para>This target unit is
+                                        automatically ordered before
+                                        all remote mount points marked
+                                        with <option>auto</option>
+                                        (see above). It can be used to
+                                        execute certain units before
+                                        all remote mounts.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
                                 <term><filename>rescue.target</filename></term>
                                 <listitem>
                                         <para>A special target unit
@@ -395,19 +421,6 @@
                                         units with an LSB header
                                         referring to the
                                         <literal>$rpcbind</literal>
-                                        facility.</para>
-                                </listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><filename>time-sync.target</filename></term>
-                                <listitem>
-                                        <para>systemd automatically
-                                        adds dependencies of type
-                                        After for this target unit to
-                                        all SysV init script service
-                                        units with an LSB header
-                                        referring to the
-                                        <literal>$time</literal>
                                         facility.</para>
                                 </listitem>
                         </varlistentry>
@@ -576,7 +589,7 @@
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>systemd-logger.service</filename></term>
+                                <term><filename>systemd-stdout-syslog-bridge.service</filename></term>
                                 <listitem>
                                         <para>This is internally used
                                         by systemd to provide syslog
@@ -584,15 +597,15 @@
                                         maintains.</para>
                                         <para>This is a
                                         socket-activated service, see
-                                        <filename>system-logger.socket</filename>.</para>
+                                        <filename>system-stdout-syslog-bridge.socket</filename>.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
-                                <term><filename>systemd-logger.socket</filename></term>
+                                <term><filename>systemd-stdout-syslog-bridge.socket</filename></term>
                                 <listitem>
                                         <para>Socket activation unit
                                         for
-                                        <filename>system-logger.service</filename>. systemd
+                                        <filename>system-stdout-syslog-bridge.service</filename>. systemd
                                         will automatically add
                                         dependencies of types Requires
                                         and After to all units that
@@ -620,6 +633,19 @@
                                         <para>Socket activation unit
                                         for
                                         <filename>system-shutdownd.service</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><filename>time-sync.target</filename></term>
+                                <listitem>
+                                        <para>systemd automatically
+                                        adds dependencies of type
+                                        After for this target unit to
+                                        all SysV init script service
+                                        units with an LSB header
+                                        referring to the
+                                        <literal>$time</literal>
+                                        facility.</para>
                                 </listitem>
                         </varlistentry>
                         <varlistentry>
