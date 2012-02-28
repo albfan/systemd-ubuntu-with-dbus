@@ -31,7 +31,8 @@ Build-Depends: debhelper (>= 8.1.0),
                libacl1-dev,
                liblzma-dev,
                libgee-dev,
-               gperf
+               gperf,
+               libkmod-dev (>= 5)
 
 Package: systemd
 Architecture: linux-any

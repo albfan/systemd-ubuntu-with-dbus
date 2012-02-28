@@ -5,6 +5,7 @@ systemd (43-1) unstable; urgency=low
     - Update bash-completion for new verbs and arguments. Closes: #650739
   * Fix up git-to-source package conversion script which makes gitpkg
     happier.
+  * Add libkmod-dev to build-depends
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
