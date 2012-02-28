@@ -1,5 +1,4 @@
 etc
-bin/systemd
 bin/systemctl
 bin/systemd-journalctl
 bin/systemd-notify

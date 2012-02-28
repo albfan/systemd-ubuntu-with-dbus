@@ -6,6 +6,7 @@ systemd (43-1) unstable; urgency=low
   * Fix up git-to-source package conversion script which makes gitpkg
     happier.
   * Add libkmod-dev to build-depends
+  * Add symlink from /bin/systemd to /lib/systemd/systemd.
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
