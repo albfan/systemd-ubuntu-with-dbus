@@ -22,3 +22,7 @@ libsystemd-login.so.0 libsystemd-login0 #MINVER#
  sd_uid_get_sessions@LIBSYSTEMD_LOGIN_31 31
  sd_uid_get_state@LIBSYSTEMD_LOGIN_31 31
  sd_uid_is_on_seat@LIBSYSTEMD_LOGIN_31 31
+ LIBSYSTEMD_LOGIN_43@LIBSYSTEMD_LOGIN_43 43
+ sd_session_get_class@LIBSYSTEMD_LOGIN_43 43
+ sd_session_get_display@LIBSYSTEMD_LOGIN_43 43
+ sd_session_get_type@LIBSYSTEMD_LOGIN_43 43

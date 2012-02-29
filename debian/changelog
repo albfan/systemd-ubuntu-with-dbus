@@ -9,6 +9,7 @@ systemd (43-1) unstable; urgency=low
   * Add symlink from /bin/systemd to /lib/systemd/systemd.
   * Add --with-distro=debian to configure flags, due to no /etc/os-release
     yet.
+  * Add new symbols for libsystemd-login0 to symbols file.
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
