@@ -11,7 +11,8 @@ override_dh_auto_configure:
 		--enable-gtk \
 		--enable-libcryptsetup \
 		--enable-tcpwrap \
-		--enable-selinux
+		--enable-selinux \
+		--with-distro=debian
 
 override_dh_auto_clean:
 	dh_auto_clean

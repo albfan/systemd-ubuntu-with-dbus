@@ -7,6 +7,8 @@ systemd (43-1) unstable; urgency=low
     happier.
   * Add libkmod-dev to build-depends
   * Add symlink from /bin/systemd to /lib/systemd/systemd.
+  * Add --with-distro=debian to configure flags, due to no /etc/os-release
+    yet.
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
