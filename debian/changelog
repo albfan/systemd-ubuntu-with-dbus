@@ -1,6 +1,7 @@
-systemd (43-1) unstable; urgency=low
+systemd (43-1) experimental; urgency=low
 
   [ Tollef Fog Heen ]
+  * Target upload at experimental due to libkmod dependency
   * New upstream release
     - Update bash-completion for new verbs and arguments. Closes: #650739
   * Fix up git-to-source package conversion script which makes gitpkg
