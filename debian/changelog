@@ -11,6 +11,8 @@ systemd (43-1) experimental; urgency=low
   * Add --with-distro=debian to configure flags, due to no /etc/os-release
     yet.
   * Add new symbols for libsystemd-login0 to symbols file.
+  * Install a tmpfiles.d file for the /dev/initctl → /run/initctl
+    migration.  Closes: #657979
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.

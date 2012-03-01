@@ -40,3 +40,4 @@ usr/lib/tmpfiles.d
 debian/init-functions lib/lsb
 debian/debian-fixup lib/systemd/
 debian/debian-fixup.service lib/systemd/system
+debian/tmpfiles.d/debian.conf usr/lib/tmpfiles.d
