@@ -40,6 +40,13 @@ EOF
     fi
 fi
 
+if dpkg --compare-versions "$2" lt "37-1.1"; then
+    # Create /run/initctl → /dev/initctl compat symlink on upgrades
+    if [ -e /sys/fs/cgroup/systemd ]; then
+        systemctl restart systemd-initctl.socket || true
+    fi
+fi
+
 if dpkg --compare-versions "$2" lt "40-1"; then
     # /lib/init/rw has been replaced by /run, so try to remove it on upgrades
     # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=643699

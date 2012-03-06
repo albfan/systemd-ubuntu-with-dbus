@@ -39,4 +39,4 @@ override_dh_autoreconf:
 	dh_autoreconf debian/rules -- autoreconf
 
 %:
-	dh $@ --parallel --with autoreconf
+	dh $@ --with autoreconf
