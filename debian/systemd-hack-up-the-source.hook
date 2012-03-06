@@ -44,6 +44,7 @@ do_patches (){
 		;;
 	    *)
 		git --git-dir "$REPO_DIR/.git" diff "$line" > "$patch_dir/$line"
+                echo "$line" >> "$patch_dir/series"
                 ;;
         esac
     done
