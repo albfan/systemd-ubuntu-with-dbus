@@ -43,19 +43,9 @@ do_patches (){
 	    \#*)
 		;;
 	    *)
-		count=$(wc -l "$patch_dir/series" | cut -f1 -d' ')
-		if PATCHES="$(git --git-dir "$REPO_DIR/.git" diff "$line" > "$patch_dir/$line")"; then
-		    if [ -n "$PATCHES" ]; then
-			echo "$PATCHES" | sed -e "s,$patch_dir/,,g" -e 's, ,\n,g' >> "$patch_dir/series"
-		    else
-			echo "Warning: no patches from $line"
-		    fi
-		else
-		    echo "git --git-dir '$REPO_DIR/.git' diff '$line'"
-		    echo "failed."
-		    exit 1
-		fi
-	esac
+		git --git-dir "$REPO_DIR/.git" diff "$line" > "$patch_dir/$line"
+                ;;
+        esac
     done
 }
 
