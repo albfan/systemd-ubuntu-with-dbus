@@ -52,6 +52,11 @@ if dpkg --compare-versions "$2" lt "40-1"; then
     # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=643699
     _systemctl stop lib-init-rw.automount lib-init-rw.mount || true
     rmdir --ignore-fail-on-non-empty /lib/init/rw || true
+
+    # Create /run/initctl → /dev/initctl compat symlink on upgrades
+    if [ -e /sys/fs/cgroup/systemd ]; then
+        ln -sf /dev/initctl /run/initctl
+    fi
 fi
 
 systemd-machine-id-setup
