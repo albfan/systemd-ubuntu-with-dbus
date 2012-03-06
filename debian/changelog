@@ -45,6 +45,7 @@ systemd (43-1) experimental; urgency=low
     Bump Build-Depends on debhelper accordingly.
   * Rename bash completion file systemctl-bash-completion.sh →
     systemd-bash-completion.sh.
+  * Update /sbin/init symlink. The systemd binary was moved to $pkglibdir.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 07 Feb 2012 21:36:34 +0100
 
