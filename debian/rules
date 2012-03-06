@@ -12,6 +12,7 @@ override_dh_auto_configure:
 		--enable-libcryptsetup \
 		--enable-tcpwrap \
 		--enable-selinux \
+                --disable-coredump \
 		--with-distro=debian
 
 override_dh_auto_clean:
