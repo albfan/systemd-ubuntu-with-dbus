@@ -4,6 +4,7 @@ systemd (43-1) experimental; urgency=low
   * Target upload at experimental due to libkmod dependency
   * New upstream release
     - Update bash-completion for new verbs and arguments. Closes: #650739
+    - Fixes local DoS (CVE-2012-1101).  Closes: #662029
   * Fix up git-to-source package conversion script which makes gitpkg
     happier.
   * Add libkmod-dev to build-depends
