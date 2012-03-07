@@ -15,6 +15,8 @@ systemd (43-1) experimental; urgency=low
   * Install a tmpfiles.d file for the /dev/initctl → /run/initctl
     migration.  Closes: #657979
   * Disable coredump handling, it's not ready yet.
+  * If /run is a symlink, don't try to do the /var/run → /run migration.
+    Ditto for /var/lock → /run/lock.  Closes: #647495
 
   [ Michael Biebl ]
   * Add Build-Depends on liblzma-dev for journal log compression.
