@@ -5,6 +5,7 @@ systemd (43-1) experimental; urgency=low
   * New upstream release
     - Update bash-completion for new verbs and arguments. Closes: #650739
     - Fixes local DoS (CVE-2012-1101).  Closes: #662029
+    - No longer complains if the kernel lacks audit support.  Closes: #642503
   * Fix up git-to-source package conversion script which makes gitpkg
     happier.
   * Add libkmod-dev to build-depends
