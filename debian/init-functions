@@ -13,7 +13,7 @@ if [ -e /sys/fs/cgroup/systemd ]; then
     # If we are called by a maintainer script, chances are good that a
     # new or updated sysv init script was installed.  Reload daemon to
     # pick up any changes.
-        echo "Reloading systemd"
+        echo "Reloading systemd" >&2
         systemctl daemon-reload
     fi
 
