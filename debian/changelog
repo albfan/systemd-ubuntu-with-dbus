@@ -2,6 +2,7 @@ systemd (43-2) UNRELEASED; urgency=low
 
   * Output "reloading systemd message" to stderr, to prevent confusing
     debconf.
+  * Only rmdir /lib/init/rw if it exists.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 08 Mar 2012 15:16:10 +0100
 
