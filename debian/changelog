@@ -3,6 +3,9 @@ systemd (43-2) UNRELEASED; urgency=low
   * Output "reloading systemd message" to stderr, to prevent confusing
     debconf.
   * Only rmdir /lib/init/rw if it exists.
+  * Explicitly order debian-fixup before sysinit.target to prevent a
+    possible race condition with the creation of sockets.  Thanks to
+    Michael Biebl for debugging this.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 08 Mar 2012 15:16:10 +0100
 
