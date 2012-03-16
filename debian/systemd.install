@@ -23,6 +23,9 @@ usr/share/man/man1/systemctl.1
 usr/share/man/man1/systemd-nspawn.1
 usr/share/man/man1/systemd-ask-password.1
 usr/share/man/man1/systemd-loginctl.1
+usr/share/man/man1/systemd-machine-id-setup.1
+usr/share/man/man1/systemd-cat.1
+usr/share/man/man1/systemd-journalctl.1
 usr/share/man/man3
 usr/share/man/man5
 usr/share/man/man7
