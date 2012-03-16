@@ -1,11 +1,15 @@
 systemd (44-1) UNRELEASED; urgency=low
 
+  [ Tollef Fog Heen ]
   * New upstream version.
   * Drop output message from init-functions hook, it's pointless.
   * Only rmdir /lib/init/rw if it exists.
   * Explicitly order debian-fixup before sysinit.target to prevent a
     possible race condition with the creation of sockets.  Thanks to
     Michael Biebl for debugging this.
+
+  [ Michael Biebl ]
+  * Remove workaround for non-interactive sessions from pam config again.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 08 Mar 2012 15:16:10 +0100
 
