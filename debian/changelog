@@ -10,6 +10,9 @@ systemd (44-1) UNRELEASED; urgency=low
 
   [ Michael Biebl ]
   * Remove workaround for non-interactive sessions from pam config again.
+  * Create compat /dev/initctl symlink in case we are upgrading from a system
+    running a newer version of sysvinit (using /run/initctl) and sysvinit is
+    replaced with systemd-sysv during the upgrade. Closes: #663219
 
  -- Tollef Fog Heen <tfheen@debian.org>  Thu, 08 Mar 2012 15:16:10 +0100
 
