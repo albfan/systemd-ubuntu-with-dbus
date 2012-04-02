@@ -197,10 +197,18 @@ static int mount_all(const char *dest) {
         }
 
         /* Fix the timezone, if possible */
-        if (asprintf(&where, "%s/%s", dest, "/etc/localtime") >= 0) {
+        if (asprintf(&where, "%s/etc/localtime", dest) >= 0) {
 
                 if (mount("/etc/localtime", where, "bind", MS_BIND, NULL) >= 0)
                         mount("/etc/localtime", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+
+                free(where);
+        }
+
+        if (asprintf(&where, "%s/etc/timezone", dest) >= 0) {
+
+                if (mount("/etc/timezone", where, "bind", MS_BIND, NULL) >= 0)
+                        mount("/etc/timezone", where, "bind", MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
 
                 free(where);
         }
@@ -706,8 +714,13 @@ int main(int argc, char *argv[]) {
         sigset_add_many(&mask, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1);
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
-        if ((pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL)) < 0) {
-                log_error("clone() failed: %m");
+        pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
+        if (pid < 0) {
+                if (errno == EINVAL)
+                        log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
+                else
+                        log_error("clone() failed: %m");
+
                 goto finish;
         }
 

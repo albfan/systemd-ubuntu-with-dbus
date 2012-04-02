@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.63)
 
-AC_INIT([systemd],[43],[systemd-devel@lists.freedesktop.org])
+AC_INIT([systemd],[44],[systemd-devel@lists.freedesktop.org])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -335,6 +335,7 @@ if test "x$enable_logind" != "xno"; then
         have_logind=yes
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
+AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
 
 have_hostnamed=no
 AC_ARG_ENABLE(hostnamed, AS_HELP_STRING([--disable-hostnamed], [disable hostname daemon]))
@@ -395,7 +396,7 @@ AM_CONDITIONAL(HAVE_XSLTPROC, test x"$XSLTPROC" != x)
 
 AC_PATH_PROG([M4], [m4])
 
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinuxi, mandriva, meego, mageia, angstrom or other]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, ubuntu, arch, gentoo, slackware, altlinux, mandriva, meego, mageia, angstrom or other]))
 if test "z$with_distro" = "z"; then
         if test "$cross_compiling" = yes; then
                 AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
@@ -654,5 +655,5 @@ AC_MSG_RESULT([
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Split /usr:              ${enable_split_usr}
-        Build man pages:         ${have_manpages}
+        man pages:               ${have_manpages}
 ])

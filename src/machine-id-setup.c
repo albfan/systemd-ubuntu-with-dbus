@@ -33,6 +33,29 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "virt.h"
+
+static int shorten_uuid(char destination[36], const char *source) {
+        unsigned i, j;
+
+        for (i = 0, j = 0; i < 36 && j < 32; i++) {
+                int t;
+
+                t = unhexchar(source[i]);
+                if (t < 0)
+                        continue;
+
+                destination[j++] = hexchar(t);
+        }
+
+        if (i == 36 && j == 32) {
+                destination[32] = '\n';
+                destination[33] = 0;
+                return 0;
+        }
+
+        return -EINVAL;
+}
 
 static int generate(char id[34]) {
         int fd, r;
@@ -40,6 +63,7 @@ static int generate(char id[34]) {
         sd_id128_t buf;
         char *q;
         ssize_t k;
+        const char *vm_id;
 
         assert(id);
 
@@ -47,7 +71,7 @@ static int generate(char id[34]) {
         fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
 
-                k = loop_read(fd, id, 33, false);
+                k = loop_read(fd, id, 32, false);
                 close_nointr_nofail(fd);
 
                 if (k >= 32) {
@@ -56,6 +80,74 @@ static int generate(char id[34]) {
 
                         log_info("Initializing machine ID from D-Bus machine ID.");
                         return 0;
+                }
+        }
+
+        /* If that didn't work, see if we are running in qemu/kvm and a
+         * machine ID was passed in via -uuid on the qemu/kvm command
+         * line */
+
+        r = detect_vm(&vm_id);
+        if (r > 0 && streq(vm_id, "kvm")) {
+                char uuid[37];
+
+                fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd >= 0) {
+                        k = loop_read(fd, uuid, 36, false);
+                        close_nointr_nofail(fd);
+
+                        if (k >= 36) {
+                                r = shorten_uuid(id, uuid);
+                                if (r >= 0) {
+                                        log_info("Initializing machine ID from KVM UUID");
+                                        return 0;
+                                }
+                        }
+                }
+        }
+
+        /* If that didn't work either, see if we are running in a
+         * container, and a machine ID was passed in via
+         * $container_uuid the way libvirt/LXC does it */
+
+        r = detect_container(NULL);
+        if (r > 0) {
+                FILE *f;
+
+                f = fopen("/proc/1/environ", "re");
+                if (f) {
+                        bool done = false;
+
+                        do {
+                                char line[LINE_MAX];
+                                unsigned i;
+
+                                for (i = 0; i < sizeof(line)-1; i++) {
+                                        int c;
+
+                                        c = getc(f);
+                                        if (_unlikely_(c == EOF)) {
+                                                done = true;
+                                                break;
+                                        } else if (c == 0)
+                                                break;
+
+                                        line[i] = c;
+                                }
+                                line[i] = 0;
+
+                                if (startswith(line, "container_uuid=") &&
+                                    strlen(line + 15) >= 36) {
+                                        r = shorten_uuid(id, line + 15);
+                                        if (r >= 0) {
+                                                log_info("Initializing machine ID from container UUID");
+                                                return 0;
+                                        }
+                                }
+
+                        } while (!done);
+
+                        fclose(f);
                 }
         }
 

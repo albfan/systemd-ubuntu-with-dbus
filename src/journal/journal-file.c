@@ -40,7 +40,7 @@
 #define COMPRESSION_SIZE_THRESHOLD (512ULL)
 
 /* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)
+#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)                  /* 64 KiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
@@ -48,7 +48,7 @@
 #define DEFAULT_MAX_USE_UPPER (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */
 
 /* This is the upper bound if we deduce max_size from max_use */
-#define DEFAULT_MAX_SIZE_UPPER (16ULL*1024ULL*1024ULL)         /* 16 MiB */
+#define DEFAULT_MAX_SIZE_UPPER (128ULL*1024ULL*1024ULL)        /* 128 MiB */
 
 /* This is the upper bound if we deduce the keep_free value from the
  * file system size */
@@ -162,7 +162,7 @@ static int journal_file_verify_header(JournalFile *f) {
                 return -ENODATA;
 
         if (f->writable) {
-                uint32_t state;
+                uint8_t state;
                 sd_id128_t machine_id;
                 int r;
 
@@ -238,7 +238,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
-        f->header->arena_size = new_size - htole64(f->header->arena_offset);
+        f->header->arena_size = htole64(new_size - le64toh(f->header->arena_offset));
 
         return 0;
 }
@@ -780,14 +780,14 @@ static int journal_file_append_data(
 
 uint64_t journal_file_entry_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == htole64(OBJECT_ENTRY));
+        assert(o->object.type == OBJECT_ENTRY);
 
         return (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem);
 }
 
 static uint64_t journal_file_entry_array_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == htole64(OBJECT_ENTRY_ARRAY));
+        assert(o->object.type == OBJECT_ENTRY_ARRAY);
 
         return (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(uint64_t);
 }
@@ -842,7 +842,7 @@ static int link_entry_into_array(JournalFile *f,
         o->entry_array.items[i] = htole64(p);
 
         if (ap == 0)
-                *first = q;
+                *first = htole64(q);
         else {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, ap, &o);
                 if (r < 0)
@@ -875,7 +875,7 @@ static int link_entry_into_array_plus_one(JournalFile *f,
         else {
                 uint64_t i;
 
-                i = le64toh(*idx) - 1;
+                i = htole64(le64toh(*idx) - 1);
                 r = link_entry_into_array(f, first, &i, p);
                 if (r < 0)
                         return r;
@@ -1727,6 +1727,9 @@ int journal_file_open(
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
+        if (!endswith(fname, ".journal"))
+                return -EINVAL;
+
         f = new0(JournalFile, 1);
         if (!f)
                 return -ENOMEM;
@@ -1736,6 +1739,11 @@ int journal_file_open(
         f->mode = mode;
         f->writable = (flags & O_ACCMODE) != O_RDONLY;
         f->prot = prot_from_flags(flags);
+
+        if (template) {
+                f->metrics = template->metrics;
+                f->compress = template->compress;
+        }
 
         f->path = strdup(fname);
         if (!f->path) {
@@ -1840,7 +1848,7 @@ int journal_file_rotate(JournalFile **f) {
 
         l = strlen(old_file->path);
 
-        p = new(char, l + 1 + 16 + 1 + 32 + 1 + 16 + 1);
+        p = new(char, l + 1 + 32 + 1 + 16 + 1 + 16 + 1);
         if (!p)
                 return -ENOMEM;
 
@@ -1858,13 +1866,53 @@ int journal_file_rotate(JournalFile **f) {
         if (r < 0)
                 return -errno;
 
-        old_file->header->state = le32toh(STATE_ARCHIVED);
+        old_file->header->state = STATE_ARCHIVED;
 
         r = journal_file_open(old_file->path, old_file->flags, old_file->mode, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
         return r;
+}
+
+int journal_file_open_reliably(
+                const char *fname,
+                int flags,
+                mode_t mode,
+                JournalFile *template,
+                JournalFile **ret) {
+
+        int r;
+        size_t l;
+        char *p;
+
+        r = journal_file_open(fname, flags, mode, template, ret);
+        if (r != -EBADMSG)
+                return r;
+
+        if ((flags & O_ACCMODE) == O_RDONLY)
+                return r;
+
+        if (!(flags & O_CREAT))
+                return r;
+
+        /* The file is corrupted. Rotate it away and try it again (but only once) */
+
+        l = strlen(fname);
+        if (asprintf(&p, "%.*s@%016llx-%016llx.journal~",
+                     (int) (l-8), fname,
+                     (unsigned long long) now(CLOCK_REALTIME),
+                     random_ull()) < 0)
+                return -ENOMEM;
+
+        r = rename(fname, p);
+        free(p);
+        if (r < 0)
+                return -errno;
+
+        log_warning("File %s corrupted, renaming and replacing.", fname);
+
+        return journal_file_open(fname, flags, mode, template, ret);
 }
 
 struct vacuum_info {
@@ -1874,6 +1922,8 @@ struct vacuum_info {
         uint64_t realtime;
         sd_id128_t seqnum_id;
         uint64_t seqnum;
+
+        bool have_seqnum;
 };
 
 static int vacuum_compare(const void *_a, const void *_b) {
@@ -1882,7 +1932,8 @@ static int vacuum_compare(const void *_a, const void *_b) {
         a = _a;
         b = _b;
 
-        if (sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
+        if (a->have_seqnum && b->have_seqnum &&
+            sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
                 if (a->seqnum < b->seqnum)
                         return -1;
                 else if (a->seqnum > b->seqnum)
@@ -1895,8 +1946,10 @@ static int vacuum_compare(const void *_a, const void *_b) {
                 return -1;
         else if (a->realtime > b->realtime)
                 return 1;
-        else
+        else if (a->have_seqnum && b->have_seqnum)
                 return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
+        else
+                return strcmp(a->filename, b->filename);
 }
 
 int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free) {
@@ -1923,6 +1976,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 char *p;
                 unsigned long long seqnum, realtime;
                 sd_id128_t seqnum_id;
+                bool have_seqnum;
 
                 k = readdir_r(d, &buf, &de);
                 if (k != 0) {
@@ -1933,41 +1987,71 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 if (!de)
                         break;
 
-                if (!dirent_is_file_with_suffix(de, ".journal"))
-                        continue;
-
-                q = strlen(de->d_name);
-
-                if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
-                        continue;
-
-                if (de->d_name[q-8-16-1] != '-' ||
-                    de->d_name[q-8-16-1-16-1] != '-' ||
-                    de->d_name[q-8-16-1-16-1-32-1] != '@')
-                        continue;
-
                 if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
 
                 if (!S_ISREG(st.st_mode))
                         continue;
 
-                p = strdup(de->d_name);
-                if (!p) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                q = strlen(de->d_name);
 
-                de->d_name[q-8-16-1-16-1] = 0;
-                if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
-                        free(p);
-                        continue;
-                }
+                if (endswith(de->d_name, ".journal")) {
 
-                if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
-                        free(p);
+                        /* Vacuum archived files */
+
+                        if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
+                                continue;
+
+                        if (de->d_name[q-8-16-1] != '-' ||
+                            de->d_name[q-8-16-1-16-1] != '-' ||
+                            de->d_name[q-8-16-1-16-1-32-1] != '@')
+                                continue;
+
+                        p = strdup(de->d_name);
+                        if (!p) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        de->d_name[q-8-16-1-16-1] = 0;
+                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
+                                free(p);
+                                continue;
+                        }
+
+                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
+                                free(p);
+                                continue;
+                        }
+
+                        have_seqnum = true;
+
+                } else if (endswith(de->d_name, ".journal~")) {
+                        unsigned long long tmp;
+
+                        /* Vacuum corrupted files */
+
+                        if (q < 1 + 16 + 1 + 16 + 8 + 1)
+                                continue;
+
+                        if (de->d_name[q-1-8-16-1] != '-' ||
+                            de->d_name[q-1-8-16-1-16-1] != '@')
+                                continue;
+
+                        p = strdup(de->d_name);
+                        if (!p) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
+                                free(p);
+                                continue;
+                        }
+
+                        have_seqnum = false;
+                } else
                         continue;
-                }
 
                 if (n_list >= n_allocated) {
                         struct vacuum_info *j;
@@ -1984,10 +2068,11 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                 }
 
                 list[n_list].filename = p;
-                list[n_list].usage = (uint64_t) st.st_blksize * (uint64_t) st.st_blocks;
+                list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
                 list[n_list].seqnum_id = seqnum_id;
+                list[n_list].have_seqnum = have_seqnum;
 
                 sum += list[n_list].usage;
 
@@ -2009,7 +2094,7 @@ int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t m
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        log_info("Deleted archived journal %s/%s.", directory, list[i].filename);
                         sum -= list[i].usage;
                 } else if (errno != ENOENT)
                         log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
@@ -2177,9 +2262,9 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
-                  format_bytes(a, sizeof(a), m->max_use),
-                  format_bytes(b, sizeof(b), m->max_size),
-                  format_bytes(c, sizeof(c), m->min_size),
-                  format_bytes(d, sizeof(d), m->keep_free));
+        log_info("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
+                 format_bytes(a, sizeof(a), m->max_use),
+                 format_bytes(b, sizeof(b), m->max_size),
+                 format_bytes(c, sizeof(c), m->min_size),
+                 format_bytes(d, sizeof(d), m->keep_free));
 }
