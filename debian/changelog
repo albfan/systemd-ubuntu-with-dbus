@@ -1,5 +1,6 @@
-systemd (43-2) UNRELEASED; urgency=low
+systemd (44-1) UNRELEASED; urgency=low
 
+  * New upstream version.
   * Output "reloading systemd message" to stderr, to prevent confusing
     debconf.
   * Only rmdir /lib/init/rw if it exists.
