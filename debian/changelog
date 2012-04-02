@@ -2,6 +2,12 @@ systemd (44-1) UNRELEASED; urgency=low
 
   [ Tollef Fog Heen ]
   * New upstream version.
+    - Backport 3492207: journal: PAGE_SIZE is not known on ppc and other
+      archs
+    - Backport 5a2a2a1: journal: react with immediate rotation to a couple
+      of more errors
+    - Backport 693ce21: util: never follow symlinks in rm_rf_children()
+      Fixes CVE-2012-1174, closes: #664364
   * Drop output message from init-functions hook, it's pointless.
   * Only rmdir /lib/init/rw if it exists.
   * Explicitly order debian-fixup before sysinit.target to prevent a
