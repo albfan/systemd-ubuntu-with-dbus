@@ -417,6 +417,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
+                "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -429,6 +430,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
+                prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion));
 
         if (s->control_pid > 0)
@@ -562,7 +564,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         b = ntohl(remote.in.sin_addr.s_addr);
 
                 if (asprintf(&r,
-                             "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                             nr,
                              a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
                              ntohs(local.in.sin_port),
                              b >> 24, (b >> 16) & 0xFF, (b >> 8) & 0xFF, b & 0xFF,
@@ -584,7 +587,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                                 *b = remote.in6.sin6_addr.s6_addr+12;
 
                         if (asprintf(&r,
-                                     "%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     "%u-%u.%u.%u.%u:%u-%u.%u.%u.%u:%u",
+                                     nr,
                                      a[0], a[1], a[2], a[3],
                                      ntohs(local.in6.sin6_port),
                                      b[0], b[1], b[2], b[3],
@@ -594,7 +598,8 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                         char a[INET6_ADDRSTRLEN], b[INET6_ADDRSTRLEN];
 
                         if (asprintf(&r,
-                                     "%s:%u-%s:%u",
+                                     "%u-%s:%u-%s:%u",
+                                     nr,
                                      inet_ntop(AF_INET6, &local.in6.sin6_addr, a, sizeof(a)),
                                      ntohs(local.in6.sin6_port),
                                      inet_ntop(AF_INET6, &remote.in6.sin6_addr, b, sizeof(b)),
@@ -674,6 +679,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &one, sizeof(one)) < 0)
                         log_warning("SO_PASSCRED failed: %m");
+        }
+
+        if (s->pass_sec) {
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one)) < 0)
+                        log_warning("SO_PASSSEC failed: %m");
         }
 
         if (s->priority >= 0)
@@ -1483,7 +1494,6 @@ static void socket_enter_running(Socket *s, int cfd) {
 
 fail:
         log_warning("%s failed to queue socket startup job: %s", UNIT(s)->id, bus_error(&error, r));
-        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 
         if (cfd >= 0)
                 close_nointr_nofail(cfd);
@@ -2038,7 +2048,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
-void socket_notify_service_dead(Socket *s) {
+void socket_notify_service_dead(Socket *s, bool failed_permanent) {
         assert(s);
 
         /* The service is dead. Dang!
@@ -2047,8 +2057,11 @@ void socket_notify_service_dead(Socket *s) {
          * services. */
 
         if (s->state == SOCKET_RUNNING) {
-                log_debug("%s got notified about service death.", UNIT(s)->id);
-                socket_enter_listening(s);
+                log_debug("%s got notified about service death (failed permanently: %s)", UNIT(s)->id, yes_no(failed_permanent));
+                if (failed_permanent)
+                        socket_enter_stop_pre(s, SOCKET_FAILURE_SERVICE_FAILED_PERMANENT);
+                else
+                        socket_enter_listening(s);
         }
 }
 
@@ -2156,7 +2169,8 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_TIMEOUT] = "timeout",
         [SOCKET_FAILURE_EXIT_CODE] = "exit-code",
         [SOCKET_FAILURE_SIGNAL] = "signal",
-        [SOCKET_FAILURE_CORE_DUMP] = "core-dump"
+        [SOCKET_FAILURE_CORE_DUMP] = "core-dump",
+        [SOCKET_FAILURE_SERVICE_FAILED_PERMANENT] = "service-failed-permanent"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

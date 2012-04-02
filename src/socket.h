@@ -72,6 +72,7 @@ typedef enum SocketResult {
         SOCKET_FAILURE_EXIT_CODE,
         SOCKET_FAILURE_SIGNAL,
         SOCKET_FAILURE_CORE_DUMP,
+        SOCKET_FAILURE_SERVICE_FAILED_PERMANENT,
         _SOCKET_RESULT_MAX,
         _SOCKET_RESULT_INVALID = -1
 } SocketResult;
@@ -128,6 +129,7 @@ struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_sec;
         int priority;
         int mark;
         size_t receive_buffer;
@@ -148,7 +150,7 @@ struct Socket {
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
 /* Called from the service when it shut down */
-void socket_notify_service_dead(Socket *s);
+void socket_notify_service_dead(Socket *s, bool failed_permanent);
 
 /* Called from the mount code figure out if a mount is a dependency of
  * any of the sockets of this socket */
