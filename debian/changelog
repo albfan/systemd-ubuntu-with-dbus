@@ -1,8 +1,7 @@
 systemd (44-1) UNRELEASED; urgency=low
 
   * New upstream version.
-  * Output "reloading systemd message" to stderr, to prevent confusing
-    debconf.
+  * Drop output message from init-functions hook, it's pointless.
   * Only rmdir /lib/init/rw if it exists.
   * Explicitly order debian-fixup before sysinit.target to prevent a
     possible race condition with the creation of sockets.  Thanks to
