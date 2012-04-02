@@ -189,7 +189,7 @@ static int mount_add_mount_links(Mount *m) {
                                 if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
                                         return r;
 
-                } else if (pm && path_startswith(pm->what, n->where)) {
+                } else if (pm && pm->what && path_startswith(pm->what, n->where)) {
 
                         if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
                                 return r;
@@ -197,7 +197,7 @@ static int mount_add_mount_links(Mount *m) {
                         if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
                                 return r;
 
-                } else if (pn && path_startswith(pn->what, m->where)) {
+                } else if (pn && pn->what && path_startswith(pn->what, m->where)) {
 
                         if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
                                 return r;
@@ -271,7 +271,7 @@ static char* mount_test_option(const char *haystack, const char *needle) {
          * struct mntent */
 
         if (!haystack)
-                return false;
+                return NULL;
 
         zero(me);
         me.mnt_opts = (char*) haystack;
@@ -1578,7 +1578,7 @@ static int mount_load_etc_fstab(Manager *m) {
                 free(what);
                 free(where);
 
-                if (r < 0)
+                if (k < 0)
                         r = k;
         }
 

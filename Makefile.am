@@ -21,7 +21,7 @@ ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = po
 
 LIBSYSTEMD_LOGIN_CURRENT=2
-LIBSYSTEMD_LOGIN_REVISION=0
+LIBSYSTEMD_LOGIN_REVISION=1
 LIBSYSTEMD_LOGIN_AGE=2
 
 LIBSYSTEMD_DAEMON_CURRENT=0
@@ -29,11 +29,11 @@ LIBSYSTEMD_DAEMON_REVISION=1
 LIBSYSTEMD_DAEMON_AGE=0
 
 LIBSYSTEMD_ID128_CURRENT=0
-LIBSYSTEMD_ID128_REVISION=2
+LIBSYSTEMD_ID128_REVISION=3
 LIBSYSTEMD_ID128_AGE=0
 
 LIBSYSTEMD_JOURNAL_CURRENT=0
-LIBSYSTEMD_JOURNAL_REVISION=2
+LIBSYSTEMD_JOURNAL_REVISION=3
 LIBSYSTEMD_JOURNAL_AGE=0
 
 # Dirs of external packages
@@ -468,7 +468,8 @@ libsystemd_basic_la_SOURCES = \
 	src/socket-util.c \
 	src/log.c \
 	src/ratelimit.c \
-	src/exit-status.c
+	src/exit-status.c \
+        src/utf8.c
 
 libsystemd_basic_la_CFLAGS = \
 	$(AM_CFLAGS) \
@@ -649,7 +650,8 @@ EXTRA_DIST += \
 	src/dbus-loop.h \
 	src/spawn-agent.h \
 	src/acl-util.h \
-	src/logs-show.h
+	src/logs-show.h \
+        src/utf8.h
 
 MANPAGES = \
 	man/systemd.1 \
@@ -672,6 +674,7 @@ MANPAGES = \
 	man/systemd.device.5 \
 	man/systemd.snapshot.5 \
 	man/systemd.exec.5 \
+	man/systemd.special.7 \
 	man/daemon.7 \
 	man/runlevel.8 \
 	man/telinit.8 \
@@ -688,7 +691,11 @@ MANPAGES = \
 	man/machine-info.5 \
 	man/modules-load.d.5 \
 	man/sysctl.d.5 \
-	man/systemd-ask-password.1
+	man/systemd-ask-password.1 \
+	man/systemd-cat.1 \
+        man/systemd-machine-id-setup.1 \
+        man/systemd-journald.conf.5 \
+        man/systemd-journalctl.1
 
 MANPAGES_ALIAS = \
 	man/reboot.8 \
@@ -699,32 +706,23 @@ man/reboot.8: man/halt.8
 man/poweroff.8: man/halt.8
 man/init.1: man/systemd.1
 
-if ENABLE_MANPAGES
-dist_man_MANS = \
-	$(MANPAGES) \
-	$(MANPAGES_ALIAS)
-
-nodist_man_MANS = \
-	man/systemd.special.7
-
 XML_FILES = \
 	${patsubst %.1,%.xml,${patsubst %.3,%.xml,${patsubst %.5,%.xml,${patsubst %.7,%.xml,${patsubst %.8,%.xml,$(MANPAGES)}}}}}
 
-XML_IN_FILES = \
-	${patsubst %.1,%.xml.in,${patsubst %.3,%.xml.in,${patsubst %.5,%.xml.in,${patsubst %.7,%.xml.in,${patsubst %.8,%.xml.in,$(nodist_man_MANS)}}}}}
+if ENABLE_MANPAGES
+man_MANS = \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
 
-dist_noinst_DATA = \
+noinst_DATA = \
 	${XML_FILES:.xml=.html}
-
-nodist_noinst_DATA = \
-	${XML_IN_FILES:.xml.in=.html}
+endif
 
 EXTRA_DIST += \
 	$(XML_FILES) \
-	$(XML_IN_FILES) \
-	${nodist_man_MANS:=.in} \
-	${XML_IN_FILES:.xml.in=.html.in}
-endif
+	${XML_FILES:.xml=.html} \
+	$(MANPAGES) \
+	$(MANPAGES_ALIAS)
 
 systemd_SOURCES = \
 	src/main.c
@@ -2064,6 +2062,10 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_get_fd.3 \
 	man/sd_session_get_uid.3 \
 	man/sd_session_get_seat.3 \
+	man/sd_session_get_service.3 \
+	man/sd_session_get_type.3 \
+	man/sd_session_get_class.3 \
+	man/sd_session_get_display.3 \
 	man/sd_pid_get_owner_uid.3 \
 	man/sd_pid_get_unit.3 \
 	man/sd_uid_is_on_seat.3 \
@@ -2079,6 +2081,10 @@ man/sd_login_monitor_flush.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_get_fd.3: man/sd_login_monitor_new.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_session_get_seat.3: man/sd_session_is_active.3
+man/sd_session_get_service.3: man/sd_session_is_active.3
+man/sd_session_get_type.3: man/sd_session_is_active.3
+man/sd_session_get_class.3: man/sd_session_is_active.3
+man/sd_session_get_display.3: man/sd_session_is_active.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
@@ -2178,7 +2184,6 @@ CLEANFILES += \
 	$(nodist_systemunit_DATA) \
 	$(nodist_userunit_DATA) \
 	$(nodist_man_MANS) \
-	${XML_IN_FILES:.xml.in=.html} \
 	$(pkgconfigdata_DATA) \
 	$(pkgconfiglib_DATA) \
 	$(nodist_polkitpolicy_DATA) \
@@ -2201,61 +2206,31 @@ XSLTPROC_PROCESS_MAN = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-XSLTPROC_PROCESS_MAN_IN = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $< && \
-	mv ${@:.in=} $@
-
 XSLTPROC_PROCESS_HTML = \
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
 	$(XSLTPROC) -o $@ $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $<
 
-XSLTPROC_PROCESS_HTML_IN = \
-	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && \
-	$(XSLTPROC) -o ${@:.in=} $(XSLTPROC_FLAGS) $(srcdir)/man/custom-html.xsl $< && \
-	mv ${@:.in=} $@
-
 man/%.1: man/%.xml
-	$(XSLTPROC_PROCESS_MAN)
-
-man/%.1.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.3: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.3.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN)
-
 man/%.5: man/%.xml
-	$(XSLTPROC_PROCESS_MAN)
-
-man/%.5.in: man/%.xml.in
 	$(XSLTPROC_PROCESS_MAN)
 
 man/%.7: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
 
-man/%.7.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN_IN)
-
 man/%.8: man/%.xml
 	$(XSLTPROC_PROCESS_MAN)
-
-man/%.8.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_MAN_IN)
 
 man/%.html: man/%.xml
 	$(XSLTPROC_PROCESS_HTML)
 
-man/%.html.in: man/%.xml.in
-	$(XSLTPROC_PROCESS_HTML_IN)
-
 CLEANFILES += \
 	$(dist_man_MANS) \
-	${nodist_man_MANS:=.in} \
-	${XML_FILES:.xml=.html} \
-	${XML_IN_FILES:.xml.in=.html.in}
+	${XML_FILES:.xml=.html}
 endif
 
 DBUS_PREPROCESS = $(CPP) -P $(DBUS_CFLAGS) -imacros dbus/dbus-protocol.h
@@ -2517,8 +2492,8 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--with-dbusinterfacedir=$$dc_install_base/$(dbusinterfacedir) \
 	--with-udevrulesdir=$$dc_install_base/$(udevrulesdir) \
 	--with-pamlibdir=$$dc_install_base/$(pamlibdir) \
-	--with-rootprefix=$$dc_install_base/$(prefix)
-
+        --with-rootprefix=$$dc_install_base \
+        --disable-split-usr
 
 upload: all distcheck
 	cp -v systemd-$(VERSION).tar.xz /home/lennart/git.fedora/systemd/

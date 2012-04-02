@@ -349,14 +349,22 @@
                                 <command>halt</command>,
                                 <command>poweroff</command>,
                                 <command>reboot</command> or
-                                <command>kexec</command> execute
+                                <command>kexec</command> execute the
                                 selected operation without shutting
                                 down all units. However, all processes
                                 will be killed forcibly and all file
                                 systems are unmounted or remounted
                                 read-only. This is hence a drastic but
                                 relatively safe option to request an
-                                immediate reboot.</para></listitem>
+                                immediate reboot. If
+                                <option>--force</option> is specified
+                                twice for these operations, they will
+                                be executed immediately without
+                                terminating any processes or umounting
+                                any file systems. Warning: specifying
+                                <option>--force</option> twice with
+                                any of these operations might result
+                                in data loss.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -406,6 +414,45 @@
                                 PolicyKit before executing the
                                 operation.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--lines=</option></term>
+                                <term><option>-n</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> controls the
+                                number of journal lines to show,
+                                counting from the most recent
+                                ones. Takes a positive integer
+                                argument. Defaults to
+                                10.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--follow</option></term>
+                                <term><option>-f</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> continously
+                                prints new journal entries as they are
+                                appended to the
+                                journal.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--output=</option></term>
+                                <term><option>-o</option></term>
+
+                                <listitem><para>When used with
+                                <command>status</command> controls the
+                                formatting of the journal entries that
+                                are shown. For the available choices
+                                see
+                                <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Defaults
+                                to
+                                <literal>short</literal>.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -550,14 +597,15 @@
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
-                                units. This function is intended to
-                                generate human-readable output. If you
-                                are looking for computer-parsable
-                                output, use <command>show</command>
-                                instead. If a PID is passed
-                                information about the unit the process
-                                of the PID belongs to is
-                                shown.</para></listitem>
+                                units, followed by its most recent log
+                                data from the journal. This function
+                                is intended to generate human-readable
+                                output. If you are looking for
+                                computer-parsable output, use
+                                <command>show</command> instead. If a
+                                PID is passed information about the
+                                unit the process of the PID belongs to
+                                is shown.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>show [NAME...|JOB...]</command></term>
@@ -1017,14 +1065,19 @@
                                 system. This is mostly equivalent to
                                 <command>start halt.target</command>
                                 but also prints a wall message to all
-                                users.  If
-                                combined with <option>--force</option>
-                                shutdown of all running services is
-                                skipped, however all processes are killed
-                                and all file systems are unmounted or
+                                users.  If combined with
+                                <option>--force</option> shutdown of
+                                all running services is skipped,
+                                however all processes are killed and
+                                all file systems are unmounted or
                                 mounted read-only, immediately
-                                followed by the
-                                system halt.</para></listitem>
+                                followed by the system halt.  If
+                                <option>--force</option> is specified
+                                twice the the operation is immediately
+                                executed without terminating any
+                                processes or unmounting any file
+                                systems. This may result in data
+                                loss.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>poweroff</command></term>
@@ -1033,32 +1086,40 @@
                                 power-off the system. This is mostly
                                 equivalent to <command>start
                                 poweroff.target</command> but also
-                                prints a wall message to all
-                                users. If
+                                prints a wall message to all users. If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes are killed
-                                and all file systems are unmounted or
-                                mounted read-only, immediately
-                                followed by the
-                                powering off.</para></listitem>
+                                skipped, however all processes are
+                                killed and all file systems are
+                                unmounted or mounted read-only,
+                                immediately followed by the powering
+                                off. If <option>--force</option> is
+                                specified twice the the operation is
+                                immediately executed without
+                                terminating any processes or
+                                unmounting any file systems. This may
+                                result in data loss.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>reboot</command></term>
 
-                                <listitem><para>Shut down and
-                                reboot the system. This is mostly
-                                equivalent to <command>start
+                                <listitem><para>Shut down and reboot
+                                the system. This is mostly equivalent
+                                to <command>start
                                 reboot.target</command> but also
-                                prints a wall message to all
-                                users. If
+                                prints a wall message to all users. If
                                 combined with <option>--force</option>
                                 shutdown of all running services is
-                                skipped, however all processes are killed
-                                and all file systems are unmounted or
-                                mounted read-only, immediately
-                                followed by the
-                                reboot.</para></listitem>
+                                skipped, however all processes are
+                                killed and all file systems are
+                                unmounted or mounted read-only,
+                                immediately followed by the reboot. If
+                                <option>--force</option> is specified
+                                twice the the operation is immediately
+                                executed without terminating any
+                                processes or unmounting any file
+                                systems. This may result in data
+                                loss.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><command>kexec</command></term>
@@ -1118,6 +1179,7 @@
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

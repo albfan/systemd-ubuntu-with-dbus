@@ -892,7 +892,7 @@ int load_env_file(
                 char ***rl) {
 
         FILE *f;
-        char **m = 0;
+        char **m = NULL;
         int r;
 
         assert(fname);
@@ -1833,7 +1833,8 @@ char *cunescape_length(const char *s, size_t length) {
 
         /* Undoes C style string escaping */
 
-        if (!(r = new(char, length+1)))
+        r = new(char, length+1);
+        if (!r)
                 return r;
 
         for (f = s, t = r; f < s + length; f++) {
@@ -1887,8 +1888,10 @@ char *cunescape_length(const char *s, size_t length) {
                         /* hexadecimal encoding */
                         int a, b;
 
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
+                        a = unhexchar(f[1]);
+                        b = unhexchar(f[2]);
+
+                        if (a < 0 || b < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = 'x';
@@ -1911,9 +1914,11 @@ char *cunescape_length(const char *s, size_t length) {
                         /* octal encoding */
                         int a, b, c;
 
-                        if ((a = unoctchar(f[0])) < 0 ||
-                            (b = unoctchar(f[1])) < 0 ||
-                            (c = unoctchar(f[2])) < 0) {
+                        a = unoctchar(f[0]);
+                        b = unoctchar(f[1]);
+                        c = unoctchar(f[2]);
+
+                        if (a < 0 || b < 0 || c < 0) {
                                 /* Invalid escape code, let's take it literal then */
                                 *(t++) = '\\';
                                 *(t++) = f[0];
@@ -2202,13 +2207,47 @@ int fd_cloexec(int fd, bool cloexec) {
         return 0;
 }
 
+static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
+        unsigned i;
+
+        assert(n_fdset == 0 || fdset);
+
+        for (i = 0; i < n_fdset; i++)
+                if (fdset[i] == fd)
+                        return true;
+
+        return false;
+}
+
 int close_all_fds(const int except[], unsigned n_except) {
         DIR *d;
         struct dirent *de;
         int r = 0;
 
-        if (!(d = opendir("/proc/self/fd")))
-                return -errno;
+        assert(n_except == 0 || except);
+
+        d = opendir("/proc/self/fd");
+        if (!d) {
+                int fd;
+                struct rlimit rl;
+
+                /* When /proc isn't available (for example in chroots)
+                 * the fallback is brute forcing through the fd
+                 * table */
+
+                assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
+                for (fd = 3; fd < (int) rl.rlim_max; fd ++) {
+
+                        if (fd_in_set(fd, except, n_except))
+                                continue;
+
+                        if (close_nointr(fd) < 0)
+                                if (errno != EBADF && r == 0)
+                                        r = -errno;
+                }
+
+                return r;
+        }
 
         while ((de = readdir(d))) {
                 int fd = -1;
@@ -2226,20 +2265,8 @@ int close_all_fds(const int except[], unsigned n_except) {
                 if (fd == dirfd(d))
                         continue;
 
-                if (except) {
-                        bool found;
-                        unsigned i;
-
-                        found = false;
-                        for (i = 0; i < n_except; i++)
-                                if (except[i] == fd) {
-                                        found = true;
-                                        break;
-                                }
-
-                        if (found)
-                                continue;
-                }
+                if (fd_in_set(fd, except, n_except))
+                        continue;
 
                 if (close_nointr(fd) < 0) {
                         /* Valgrind has its own FD and doesn't want to have it closed */
@@ -4177,7 +4204,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
 
 }
 
-void freeze(void) {
+_noreturn_ void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
         close_all_fds(NULL, 0);
@@ -5577,6 +5604,36 @@ int get_group_creds(const char **groupname, gid_t *gid) {
 
         if (gid)
                 *gid = g->gr_gid;
+
+        return 0;
+}
+
+int in_group(const char *name) {
+        gid_t gid, *gids;
+        int ngroups_max, r, i;
+
+        r = get_group_creds(&name, &gid);
+        if (r < 0)
+                return r;
+
+        if (getgid() == gid)
+                return 1;
+
+        if (getegid() == gid)
+                return 1;
+
+        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        assert(ngroups_max > 0);
+
+        gids = alloca(sizeof(gid_t) * ngroups_max);
+
+        r = getgroups(ngroups_max, gids);
+        if (r < 0)
+                return -errno;
+
+        for (i = 0; i < r; i++)
+                if (gids[i] == gid)
+                        return 1;
 
         return 0;
 }

@@ -39,6 +39,7 @@
 #include "exit-status.h"
 #include "def.h"
 #include "util.h"
+#include "utf8.h"
 
 #ifdef HAVE_SYSV_COMPAT
 
@@ -1436,7 +1437,7 @@ static int service_search_main_pid(Service *s) {
         return 0;
 }
 
-static void service_notify_sockets_dead(Service *s) {
+static void service_notify_sockets_dead(Service *s, bool failed_permanent) {
         Iterator i;
         Unit *u;
 
@@ -1449,7 +1450,7 @@ static void service_notify_sockets_dead(Service *s) {
 
         SET_FOREACH(u, UNIT(s)->dependencies[UNIT_TRIGGERED_BY], i)
                 if (u->type == UNIT_SOCKET)
-                        socket_notify_service_dead(SOCKET(u));
+                        socket_notify_service_dead(SOCKET(u), failed_permanent);
 
         return;
 }
@@ -1511,7 +1512,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_FINAL_SIGKILL ||
             state == SERVICE_FAILED ||
             state == SERVICE_AUTO_RESTART)
-                service_notify_sockets_dead(s);
+                service_notify_sockets_dead(s, false);
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -2359,7 +2360,7 @@ static int service_start_limit_test(Service *s) {
         }
 
         case SERVICE_START_LIMIT_REBOOT_FORCE:
-                log_warning("%s start request repeated too quickly, force rebooting.", UNIT(s)->id);
+                log_warning("%s start request repeated too quickly, forcibly rebooting.", UNIT(s)->id);
                 UNIT(s)->manager->exit_code = MANAGER_REBOOT;
                 break;
 
@@ -2402,8 +2403,10 @@ static int service_start(Unit *u) {
 
         /* Make sure we don't enter a busy loop of some kind. */
         r = service_start_limit_test(s);
-        if (r < 0)
+        if (r < 0) {
+                service_notify_sockets_dead(s, true);
                 return r;
+        }
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -3198,11 +3201,19 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
         }
 
         /* Interpret STATUS= */
-        if ((e = strv_find_prefix(tags, "STATUS="))) {
+        e = strv_find_prefix(tags, "STATUS=");
+        if (e) {
                 char *t;
 
                 if (e[7]) {
-                        if (!(t = strdup(e+7))) {
+
+                        if (!utf8_is_valid(e+7)) {
+                                log_warning("Status message in notification is not UTF-8 clean.");
+                                return;
+                        }
+
+                        t = strdup(e+7);
+                        if (!t) {
                                 log_error("Failed to allocate string.");
                                 return;
                         }
