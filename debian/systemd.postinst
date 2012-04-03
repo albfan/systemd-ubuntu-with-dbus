@@ -40,11 +40,9 @@ EOF
     fi
 fi
 
-if dpkg --compare-versions "$2" lt "37-1.1"; then
-    # Create /run/initctl → /dev/initctl compat symlink on upgrades
-    if [ -e /sys/fs/cgroup/systemd ]; then
-        _systemctl restart systemd-initctl.socket || true
-    fi
+# Create /run/initctl → /dev/initctl compat symlink on upgrades
+if [ -e /sys/fs/cgroup/systemd ]; then
+    _systemctl restart systemd-initctl.socket || true
 fi
 
 if dpkg --compare-versions "$2" lt "40-1"; then

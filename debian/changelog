@@ -13,6 +13,8 @@ systemd (44-1) UNRELEASED; urgency=low
   * Explicitly order debian-fixup before sysinit.target to prevent a
     possible race condition with the creation of sockets.  Thanks to
     Michael Biebl for debugging this.
+  * Always restart the initctl socket on upgrades, to mask sysvinit
+    removing it.
 
   [ Michael Biebl ]
   * Remove workaround for non-interactive sessions from pam config again.
