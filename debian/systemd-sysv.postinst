@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 # We are installing systemd-sysv but systemd is not running.
 # This most likely means we are upgrading from another init, possibly a newer
 # sysvinit version which created the initctl socket at /run/initctl.
@@ -10,3 +12,5 @@ if [ ! -e /sys/fs/cgroup/systemd ] ; then
         ln -sf /run/initctl /dev/initctl
     fi
 fi
+
+#DEBHELPER#
