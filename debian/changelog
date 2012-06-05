@@ -9,6 +9,7 @@ systemd (44-2) UNRELEASED; urgency=low
 
   [ Tollef Fog Heen ]
   * Bring tmpfiles.d/tmp.conf in line with Debian defaults.  Closes: #675422
+  * Make sure /run/sensigs.omit.d exists.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 08 May 2012 18:04:22 +0200
 
