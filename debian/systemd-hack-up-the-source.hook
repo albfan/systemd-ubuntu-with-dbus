@@ -45,6 +45,10 @@ do_patches (){
 	    *)
 		git --git-dir "$REPO_DIR/.git" diff "$line" > "$patch_dir/$line"
                 echo "$line" >> "$patch_dir/series"
+                if [ ! -s "$patch_dir/$line" ]; then
+                    echo "$line generated empty patch, please fix."
+                    exit 1
+                fi
                 ;;
         esac
     done
