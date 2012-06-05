@@ -1,3 +1,16 @@
+systemd (44-2) UNRELEASED; urgency=low
+
+  [ Michael Biebl ]
+  * Tighten the versions in the maintscript file
+  * Ship the /sys directory in the package
+  * Re-add workaround for non-interactive PAM sessions
+  * Mask checkroot-bootclean (Closes: #670591)
+  * Don't ignore errores in systemd-sysv postinst
+
+  [ Tollef Fog Heen ]
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Tue, 08 May 2012 18:04:22 +0200
+
 systemd (44-1) unstable; urgency=low
 
   [ Tollef Fog Heen ]
