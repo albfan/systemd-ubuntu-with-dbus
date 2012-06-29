@@ -74,8 +74,10 @@ Description: system and service manager - SysV links
 
 Package: libpam-systemd
 Architecture: linux-any
+Multi-Arch: same
 Section: admin
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: systemd (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
@@ -107,7 +109,9 @@ Description: system and service manager - GUI
 
 Package: libsystemd-login0
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: systemd login utility library
  The libsystemd-login library provides an interface for the
@@ -125,7 +129,9 @@ Description: systemd login utility library - development files
 
 Package: libsystemd-daemon0
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: systemd utility library
  The sd-daemon library provides a reference implementation of various
@@ -143,7 +149,9 @@ Description: systemd utility library - development files
 
 Package: libsystemd-journal0
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: systemd journal utility library
  The libsystemd-journal library provides an interface for the
@@ -161,7 +169,9 @@ Description: systemd journal utility library - development files
 
 Package: libsystemd-id128-0
 Architecture: linux-any
+Multi-Arch: same
 Section: libs
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: systemd 128 bit ID utility library
  The libsystemd-id128 library provides utility functions for generating

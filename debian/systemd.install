@@ -39,6 +39,7 @@ usr/lib/binfmt.d
 usr/lib/modules-load.d
 usr/lib/sysctl.d
 usr/lib/systemd
+usr/lib/*/systemd
 usr/lib/tmpfiles.d
 debian/init-functions lib/lsb
 debian/debian-fixup lib/systemd/

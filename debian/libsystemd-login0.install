@@ -1,1 +1,1 @@
-lib/libsystemd-login.so.*
+lib/*/libsystemd-login.so.*

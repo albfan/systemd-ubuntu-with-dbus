@@ -3,10 +3,12 @@
 #export DH_VERBOSE=1
 #export DEB_BUILD_OPTIONS="nostrip"
 
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
 override_dh_auto_configure:
 	dh_auto_configure -- \
 		--with-rootprefix= \
-		--with-rootlibdir=/lib \
+		--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
 		--with-udevrulesdir=/lib/udev/rules.d \
 		--enable-gtk \
 		--enable-libcryptsetup \
@@ -24,9 +26,8 @@ override_dh_auto_clean:
 
 override_dh_install:
 	rm debian/tmp/usr/share/doc/systemd/LICENSE
-	rm debian/tmp/lib/security/pam_systemd.la
-	rm debian/tmp/usr/lib/*.la
 	rm debian/tmp/lib/systemd/system/sysinit.target.wants/systemd-vconsole-setup.service
+	find debian/tmp/ -name '*.la' -delete
 	chmod +x debian/debian-fixup
 	dh_install -O--parallel --fail-missing
 	dh_install -plibpam-systemd debian/pam-configs /usr/share
