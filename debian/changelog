@@ -1,3 +1,10 @@
+systemd (44-3) UNRELEASED; urgency=low
+
+  [ Michael Biebl ]
+  * Bump to debhelper 9.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Fri, 29 Jun 2012 22:34:16 +0200
+
 systemd (44-2) unstable; urgency=low
 
   [ Michael Biebl ]
