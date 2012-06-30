@@ -1,4 +1,4 @@
-systemd (44-3) UNRELEASED; urgency=low
+systemd (44-3) unstable; urgency=low
 
   [ Michael Biebl ]
   * Bump to debhelper 9.
