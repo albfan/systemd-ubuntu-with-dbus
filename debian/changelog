@@ -7,6 +7,9 @@ systemd (44-3) UNRELEASED; urgency=low
   [ Tollef Fog Heen ]
   * Cherry-pick d384c7 from upstream to stop journald from leaking
     memory.  Thanks to Andreas Henriksson for testing.  Closes: #677701
+  * Ship lsb init script override/integration in /lib/lsb/init-functions.d
+    rather than diverting /lib/lsb/init-functions itself.  Add appropriate
+    Breaks to ensure upgrades happen.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Fri, 29 Jun 2012 22:34:16 +0200
 

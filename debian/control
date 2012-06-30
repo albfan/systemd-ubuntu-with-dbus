@@ -42,7 +42,7 @@ Recommends: libpam-systemd
 Suggests: systemd-gui, python, python-dbus, python-cairo
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}, util-linux (>= 2.19.1-2), initscripts (>= 2.88dsf-17), udev
-Breaks: lvm2 (<< 2.02.84-1)
+Breaks: lvm2 (<< 2.02.84-1), lsb-base (<< 4.1+Debian4)
 Conflicts: klogd
 Description: system and service manager
  systemd is a replacement for sysvinit.  It is dependency-based and
