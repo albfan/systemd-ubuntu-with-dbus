@@ -1,8 +1,6 @@
 # -*-Shell-script-*-
 # /lib/lsb/init-functions
 
-. /lib/lsb/init-functions.systemd
-
 if [ -e /sys/fs/cgroup/systemd ]; then
     # Some init scripts use "set -e" and "set -u", we don't want that
     # here
