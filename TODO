@@ -18,6 +18,8 @@ Bugfixes:
 
 Features:
 
+* dbus upstream still refers to dbus.target and shouldn't
+
 * journald: make configurable "store-on-var", "store-on-run", "dont-store", "auto"
   (store-persistent, store-volatile?)
 
