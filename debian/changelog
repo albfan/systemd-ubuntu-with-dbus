@@ -1,3 +1,9 @@
+systemd (44-4) unstable; urgency=low
+
+  * Move diversion removal from postinst to preinst.  Closes: #679728
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Sun, 01 Jul 2012 08:17:50 +0200
+
 systemd (44-3) unstable; urgency=low
 
   [ Michael Biebl ]
