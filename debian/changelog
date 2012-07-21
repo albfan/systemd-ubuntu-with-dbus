@@ -1,5 +1,11 @@
 systemd (44-4) unstable; urgency=low
 
+  [ Michael Biebl ]
+  * Override timestamp for man page building, thereby avoiding skew
+    between architectures which caused problems for multi-arch.
+    Closes: #680011
+
+  [ Tollef Fog Heen ]
   * Move diversion removal from postinst to preinst.  Closes: #679728
   * Prevent the journal from crashing when running out of disk space.
     This is 499fb21 from upstream.  Closes: #668047.
