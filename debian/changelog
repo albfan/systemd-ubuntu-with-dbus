@@ -1,3 +1,11 @@
+systemd (44-5) UNRELEASED; urgency=low
+
+  * disable killing on entering START_PRE, START, thanks to Michael
+    Stapelberg for patch.  This avoids killing VMs run through libvirt
+    when restarting libvirtd.  Closes: #688635.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
+
 systemd (44-4) unstable; urgency=low
 
   [ Michael Biebl ]
