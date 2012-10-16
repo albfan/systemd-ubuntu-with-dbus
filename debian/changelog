@@ -7,7 +7,7 @@ systemd (44-5) UNRELEASED; urgency=low
     makes no sense.  Thanks to Michael Stapelberg for the patch.
     Closes: #624599.
   * Try to determine which init scripts support the reload action
-    heurestically.  Closes: #686115, #650382.
+    heuristically.  Closes: #686115, #650382.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
 
