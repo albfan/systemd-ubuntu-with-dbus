@@ -13,6 +13,8 @@ systemd (44-5) UNRELEASED; urgency=low
   [ Michael Biebl ]
   * Update Vcs-* fields, the Git repository is hosted on alioth now. Set the
     default branch to "debian".
+  * Avoid reload and (re)start requests during early boot which can lead to
+    deadlocks.  Closes: #624599
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
 
