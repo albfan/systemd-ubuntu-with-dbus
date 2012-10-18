@@ -1,5 +1,6 @@
 systemd (44-5) UNRELEASED; urgency=low
 
+  [ Tollef Fog Heen ]
   * disable killing on entering START_PRE, START, thanks to Michael
     Stapelberg for patch.  This avoids killing VMs run through libvirt
     when restarting libvirtd.  Closes: #688635.
@@ -8,6 +9,10 @@ systemd (44-5) UNRELEASED; urgency=low
     Closes: #624599.
   * Try to determine which init scripts support the reload action
     heuristically.  Closes: #686115, #650382.
+
+  [ Michael Biebl ]
+  * Update Vcs-* fields, the Git repository is hosted on alioth now. Set the
+    default branch to "debian".
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
 

@@ -3,8 +3,8 @@ Section: admin
 Priority: extra
 Maintainer: Tollef Fog Heen <tfheen@debian.org>
 Standards-Version: 3.9.2
-Vcs-Git: git://git.err.no/systemd/
-Vcs-Browser: http://git.err.no/cgi-bin/gitweb.cgi?p=systemd;a=summary
+Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git -b debian
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-systemd/systemd.git;a=summary
 Homepage: http://www.freedesktop.org/wiki/Software/systemd
 Build-Depends: debhelper (>= 9),
                libcap-dev,
