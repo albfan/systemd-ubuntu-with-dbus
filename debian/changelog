@@ -18,6 +18,7 @@ systemd (44-5) UNRELEASED; urgency=low
   * Make systemd-cgroup work even if not all cgroup mounts are available on
     startup.  Closes: #690916
   * Fix typos in the systemd.path and systemd.unit man page.  Closes: #668344
+  * Add watch file to track new upstream releases.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
 
