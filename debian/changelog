@@ -1,4 +1,6 @@
-systemd (44-5) UNRELEASED; urgency=low
+systemd (44-5) unstable; urgency=low
+
+  * Team upload.
 
   [ Tollef Fog Heen ]
   * disable killing on entering START_PRE, START, thanks to Michael
@@ -20,7 +22,7 @@ systemd (44-5) UNRELEASED; urgency=low
   * Fix typos in the systemd.path and systemd.unit man page.  Closes: #668344
   * Add watch file to track new upstream releases.
 
- -- Tollef Fog Heen <tfheen@debian.org>  Tue, 16 Oct 2012 18:09:10 +0200
+ -- Michael Biebl <biebl@debian.org>  Thu, 25 Oct 2012 21:41:23 +0200
 
 systemd (44-4) unstable; urgency=low
 
