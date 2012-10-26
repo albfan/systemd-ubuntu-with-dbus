@@ -8,7 +8,7 @@ systemd (44-5) unstable; urgency=low
     when restarting libvirtd.  Closes: #688635.
   * Avoid reloading services when shutting down, since that won't work and
     makes no sense.  Thanks to Michael Stapelberg for the patch.
-    Closes: #624599.
+    Closes: #635777.
   * Try to determine which init scripts support the reload action
     heuristically.  Closes: #686115, #650382.
 
