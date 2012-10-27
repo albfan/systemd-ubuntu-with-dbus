@@ -1,3 +1,10 @@
+systemd (44-6) UNRELEASED; urgency=low
+
+  * No longer ship the /sys directory in the systemd package since it is
+    provided by base-files nowadays.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 27 Oct 2012 22:09:29 +0200
+
 systemd (44-5) unstable; urgency=low
 
   * Team upload.
