@@ -109,7 +109,7 @@ CC_CHECK_CFLAGS_APPEND([ \
 LT_PREREQ(2.2)
 LT_INIT
 
-AC_SEARCH_LIBS([clock_gettime], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
+AC_SEARCH_LIBS([mq_open], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 
 save_LIBS="$LIBS"
