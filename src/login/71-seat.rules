@@ -6,6 +6,7 @@
 #  (at your option) any later version.
 
 ACTION=="remove", GOTO="seat_end"
+TEST!="/sys/fs/cgroup/systemd", GOTO="seat_end"
 
 TAG=="uaccess", SUBSYSTEM!="sound", TAG+="seat"
 SUBSYSTEM=="sound", KERNEL=="card*", TAG+="seat"
