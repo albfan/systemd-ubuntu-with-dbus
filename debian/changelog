@@ -1,12 +1,17 @@
 systemd (44-6) UNRELEASED; urgency=low
 
+  [ Michael Biebl ]
   * No longer ship the /sys directory in the systemd package since it is
     provided by base-files nowadays.
   * Don't run udev rules if systemd is not active.
   * Converting /var/run, /var/lock and /etc/mtab to symlinks is a one-time
     migration so don't run the debian-fixup script on every boot.
 
- -- Michael Biebl <biebl@debian.org>  Sat, 27 Oct 2012 22:09:29 +0200
+  [ Tollef Fog Heen ]
+  * Prevent the systemd package from being removed if it's the active init
+    system, since that doesn't work.
+
+ -- Tollef Fog Heen <tfheen@debian.org>  Sat, 01 Dec 2012 18:42:21 +0100
 
 systemd (44-5) unstable; urgency=low
 
