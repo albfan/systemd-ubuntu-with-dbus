@@ -1,4 +1,4 @@
-systemd (44-6) UNRELEASED; urgency=low
+systemd (44-6) unstable; urgency=low
 
   [ Michael Biebl ]
   * No longer ship the /sys directory in the systemd package since it is
@@ -16,7 +16,7 @@ systemd (44-6) UNRELEASED; urgency=low
     Those directories are user-writable which could lead to DoS by filling up
     /run.  Closes: #635131
 
- -- Tollef Fog Heen <tfheen@debian.org>  Sat, 01 Dec 2012 18:42:21 +0100
+ -- Michael Biebl <biebl@debian.org>  Sun, 16 Dec 2012 21:58:37 +0100
 
 systemd (44-5) unstable; urgency=low
 
