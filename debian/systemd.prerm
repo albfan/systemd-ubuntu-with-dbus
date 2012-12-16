@@ -7,7 +7,7 @@ set -e
 # will not work.
 #
 
-if [ -e /sys/fs/cgroup/systemd ]; then
+if [ "$1" = "remove" ] && [ -e /sys/fs/cgroup/systemd ]; then
     echo "systemd is the active init system, please switch to another before removing systemd."
     exit 1
 fi
