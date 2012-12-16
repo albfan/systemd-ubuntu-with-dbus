@@ -59,3 +59,7 @@
 /lib/systemd/system/debian-fixup.service /lib/systemd/system/sysinit.target.wants/debian-fixup.service
 # Compat symlink
 /lib/systemd/systemd /bin/systemd
+
+# Mount separate tmpfs file systems for /run/user and /run/lock
+/lib/systemd/system/run-user.mount /lib/systemd/system/local-fs.target.wants/run-user.mount
+/lib/systemd/system/run-lock.mount /lib/systemd/system/local-fs.target.wants/run-lock.mount

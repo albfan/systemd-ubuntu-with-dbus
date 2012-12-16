@@ -11,6 +11,11 @@ systemd (44-6) UNRELEASED; urgency=low
   * Prevent the systemd package from being removed if it's the active init
     system, since that doesn't work.
 
+  [ Michael Biebl ]
+  * Use a separate tmpfs for /run/lock (size 5M) and /run/user (size 100M).
+    Those directories are user-writable which could lead to DoS by filling up
+    /run.  Closes: #635131
+
  -- Tollef Fog Heen <tfheen@debian.org>  Sat, 01 Dec 2012 18:42:21 +0100
 
 systemd (44-5) unstable; urgency=low
