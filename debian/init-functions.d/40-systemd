@@ -21,6 +21,8 @@ if [ -e /sys/fs/cgroup/systemd ]; then
                 _use_systemctl=1
                 # Some services can't reload through the .service file,
                 # but can through the init script.
+                prog=${0##*/}
+                service="${prog%.sh}.service"
                 if [ "$(systemctl -p CanReload show $service 2>/dev/null)" = "CanReload=no" ] && [ "$1" = "reload" ]; then
                     _use_systemctl=0
                 fi
