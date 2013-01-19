@@ -3,6 +3,8 @@ systemd (44-8) UNRELEASED; urgency=low
   * Use comment=systemd.* syntax in systemd.mount man page. The
     mount/util-linux version in wheezy is not recent enough to support the new
     x-systemd* syntax. Closes: #697141
+  * Don't enable persistent storage of journal log files. The journal in v44
+    is not yet mature enough.
 
  -- Michael Biebl <biebl@debian.org>  Sat, 19 Jan 2013 15:36:20 +0100
 
