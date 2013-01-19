@@ -112,13 +112,13 @@
                 points from <filename>/etc/fstab</filename>. If
                 <option>MountAuto=yes</option> is set in
                 <filename>system.conf</filename> (which is the
-                default), or if <option>x-systemd.mount</option> is
+                default), or if <option>comment=systemd.mount</option> is
                 specified as mount option, then systemd will create a
                 dependency of type <option>Wants</option> from either
                 <filename>local-fs.target</filename> or
                 <filename>remote-fs.target</filename>, depending
                 whether the file system is local or remote. If
-                <option>x-systemd.automount</option> is set, an
+                <option>comment=systemd.automount</option> is set, an
                 automount unit will be created for the file
                 system. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
