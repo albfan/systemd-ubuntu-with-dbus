@@ -48,3 +48,6 @@ debian/tmpfiles.d/debian.conf usr/lib/tmpfiles.d
 debian/ifup@.service lib/systemd/system
 debian/units/run-lock.mount lib/systemd/system/
 debian/units/run-user.mount lib/systemd/system/
+debian/unit.blacklist usr/share/systemd/
+debian/debian-enable-units lib/systemd/
+debian/debian-enable-units.service lib/systemd/system/

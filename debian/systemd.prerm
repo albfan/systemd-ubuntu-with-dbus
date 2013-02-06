@@ -12,5 +12,4 @@ if [ "$1" = "remove" ] && [ -e /sys/fs/cgroup/systemd ]; then
     exit 1
 fi
 
-
 #DEBHELPER#
