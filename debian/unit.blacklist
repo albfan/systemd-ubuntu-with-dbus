@@ -44,3 +44,12 @@ systemd-journald.socket
 syslog.socket
 systemd-shutdownd.socket
 systemd-initctl.socket
+# udev-settle should only be enabled when needed
+udev-settle.service
+# this delays the boot process so should only be enabled as needed
+NetworkManager-wait-online.service
+# thinkfan is disabled by default since it can damage the hardware
+# if not configured correctly
+thinkfan.service
+# pyroman is disabled by default as it needs explicit configuration
+pyroman.service
