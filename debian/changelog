@@ -1,3 +1,11 @@
+systemd (44-9) UNRELEASED; urgency=low
+
+  * Fix typo in systemd.socket man page.  Closes: #700038
+  * Use color specification in "systemctl dot" which is actually
+    understood by dot.  Closes: #643689
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 09 Feb 2013 15:50:44 +0100
+
 systemd (44-8) unstable; urgency=low
 
   * Team upload.
