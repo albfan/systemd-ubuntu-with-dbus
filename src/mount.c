@@ -390,7 +390,7 @@ static int mount_add_fstab_links(Mount *m) {
                 else /* automount + nofail */
                         return unit_add_two_dependencies(tu, UNIT_AFTER, UNIT_WANTS, am, true);
 
-        } else if (handle && !noauto) {
+        } else if (handle && !noauto && !mount_is_network(p)) {
 
                 /* Automatically add mount points that aren't natively
                  * configured to local-fs.target */
