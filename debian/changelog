@@ -1,5 +1,6 @@
-systemd (44-9) UNRELEASED; urgency=low
+systemd (44-9) unstable; urgency=low
 
+  * Team upload.
   * Fix typo in systemd.socket man page.  Closes: #700038
   * Use color specification in "systemctl dot" which is actually
     understood by dot.  Closes: #643689
@@ -9,7 +10,7 @@ systemd (44-9) UNRELEASED; urgency=low
     result they will be inactive after the next boot. This is a workaround for
     wheezy which will be removed again in jessie.  Closes: #692150
 
- -- Michael Biebl <biebl@debian.org>  Sat, 09 Feb 2013 16:24:51 +0100
+ -- Michael Biebl <biebl@debian.org>  Fri, 15 Feb 2013 13:35:39 +0100
 
 systemd (44-8) unstable; urgency=low
 
