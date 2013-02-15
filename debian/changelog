@@ -4,6 +4,10 @@ systemd (44-9) UNRELEASED; urgency=low
   * Use color specification in "systemctl dot" which is actually
     understood by dot.  Closes: #643689
   * Fix mounting of remote filesystems like NFS.  Closes: #673309
+  * Use a file trigger to automatically enable service and socket units. A lot
+    of packages simply install systemd units but do not enable them. As a
+    result they will be inactive after the next boot. This is a workaround for
+    wheezy which will be removed again in jessie.  Closes: #692150
 
  -- Michael Biebl <biebl@debian.org>  Sat, 09 Feb 2013 16:24:51 +0100
 
