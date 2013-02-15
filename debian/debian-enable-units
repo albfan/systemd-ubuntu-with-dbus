@@ -33,7 +33,9 @@ done < $blacklist
 # Get entries which need to be enabled
 needs_enable=$(mktemp)
 while read unit ; do
-    systemctl is-enabled "$unit" >/dev/null || echo "$unit" >> $needs_enable
+    if systemctl is-enabled "$unit" 2> /dev/null | grep -q "disabled"; then
+        echo "$unit" >> $needs_enable
+    fi
 done < $installed
 
 
