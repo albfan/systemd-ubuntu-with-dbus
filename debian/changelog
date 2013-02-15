@@ -1,11 +1,12 @@
-systemd (44-10) UNRELEASED; urgency=low
+systemd (44-10) unstable; urgency=low
 
+  * Team upload.
   * Using the return code of "systemctl is-enabled" to determine whether we
     enable a service or not is unreliable since it also returns a non-zero
     exit code for masked services. As we don't want to enable masked services,
     grep for the string "disabled" instead.
 
- -- Michael Biebl <biebl@debian.org>  Fri, 15 Feb 2013 16:51:38 +0100
+ -- Michael Biebl <biebl@debian.org>  Fri, 15 Feb 2013 17:01:24 +0100
 
 systemd (44-9) unstable; urgency=low
 
