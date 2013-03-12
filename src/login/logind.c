@@ -1371,8 +1371,16 @@ void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
+        Iterator i;
 
         assert(m);
+
+        /* clean up empty sessions when not running under systemd */
+        if (!sd_booted()) {
+                HASHMAP_FOREACH(session, m->session_cgroups, i)
+                        if (session_get_state(session) == SESSION_CLOSING)
+                                session_add_to_gc_queue(session);
+        }
 
         while ((seat = m->seat_gc_queue)) {
                 LIST_REMOVE(Seat, gc_queue, m->seat_gc_queue, seat);
