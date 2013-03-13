@@ -2,6 +2,8 @@ systemd (44-11) UNRELEASED; urgency=low
 
   * Run debian-enable-units.service after sysinit.target to ensure our tmp
     files aren't nuked by systemd-tmpfiles.
+  * The mountoverflowtmp SysV init script no longer exists so remove that
+    from remount-rootfs.service to avoid an unnecessary diff to upstream.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 13 Mar 2013 07:53:25 +0100
 
