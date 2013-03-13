@@ -1,5 +1,6 @@
-systemd (44-11) UNRELEASED; urgency=low
+systemd (44-11) unstable; urgency=low
 
+  * Team upload.
   * Run debian-enable-units.service after sysinit.target to ensure our tmp
     files aren't nuked by systemd-tmpfiles.
   * The mountoverflowtmp SysV init script no longer exists so remove that
@@ -7,7 +8,7 @@ systemd (44-11) UNRELEASED; urgency=low
   * Do not fail on purge if /var/lib/systemd is empty and has been removed
     by dpkg.
 
- -- Michael Biebl <biebl@debian.org>  Wed, 13 Mar 2013 07:53:25 +0100
+ -- Michael Biebl <biebl@debian.org>  Wed, 13 Mar 2013 08:03:06 +0100
 
 systemd (44-10) unstable; urgency=low
 
