@@ -57,7 +57,8 @@
 
 # Run fixups early
 /lib/systemd/system/debian-fixup.service /lib/systemd/system/sysinit.target.wants/debian-fixup.service
-/lib/systemd/system/debian-enable-units.service /lib/systemd/system/sysinit.target.wants/debian-enable-units.service
+# debian-enable-units requires a ready-to-use /tmp so run it in basic.target *after* sysinit.target
+/lib/systemd/system/debian-enable-units.service /lib/systemd/system/basic.target.wants/debian-enable-units.service
 # Compat symlink
 /lib/systemd/systemd /bin/systemd
 

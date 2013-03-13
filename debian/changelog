@@ -1,3 +1,10 @@
+systemd (44-11) UNRELEASED; urgency=low
+
+  * Run debian-enable-units.service after sysinit.target to ensure our tmp
+    files aren't nuked by systemd-tmpfiles.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 13 Mar 2013 07:53:25 +0100
+
 systemd (44-10) unstable; urgency=low
 
   * Team upload.

@@ -2,8 +2,8 @@
 Description=Automatically Enable Systemd Units
 ConditionPathExists=/var/lib/systemd/run-debian-enable-units
 DefaultDependencies=no
-Wants=local-fs.target
-After=local-fs.target
+Wants=sysinit.target
+After=sysinit.target
 
 [Service]
 ExecStart=/lib/systemd/debian-enable-units
