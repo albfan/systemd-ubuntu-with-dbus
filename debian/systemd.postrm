@@ -3,8 +3,8 @@
 set -e
 
 # Clean up the mess we created
-if [ "$1" = "purge" ]; then
-    statedir=/var/lib/systemd
+statedir=/var/lib/systemd
+if [ "$1" = "purge" ] && [ -d $statedir ]; then
     find $statedir -name "*.symlinks" | while read file ; do
         while read symlink ; do
              rm -f "$symlink"
