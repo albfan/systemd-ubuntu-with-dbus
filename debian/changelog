@@ -12,6 +12,8 @@ systemd (44-12) UNRELEASED; urgency=low
     with a standalone systemd-logind.
   * Set Maintainer to pkg-systemd-maintainers@lists.alioth.debian.org. Add
     Tollef and myself as Uploaders.
+  * Stop building the GUI bits. They have been split into a separate source
+    package called systemd-ui.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 00:54:30 +0200
 
