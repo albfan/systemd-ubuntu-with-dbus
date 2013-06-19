@@ -1,4 +1,4 @@
-systemd (44-12) UNRELEASED; urgency=low
+systemd (44-12) unstable; urgency=low
 
   * Cherry-pick e17187 from upstream to fix build failures with newer glibc
     where the clock_* symbols have been moved from librt to libc.
@@ -15,7 +15,7 @@ systemd (44-12) UNRELEASED; urgency=low
   * Stop building the GUI bits. They have been split into a separate source
     package called systemd-ui.
 
- -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 00:54:30 +0200
+ -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 01:32:16 +0200
 
 systemd (44-11) unstable; urgency=low
 
