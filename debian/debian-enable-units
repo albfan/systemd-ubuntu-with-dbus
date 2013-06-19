@@ -5,6 +5,12 @@ enabled_units=/var/lib/systemd/enabled-units
 statedir=/var/lib/systemd
 unitdir=/lib/systemd/system
 
+# If a package is installed using init-system-helpers, do nothing.
+# We don't want to interfere in such a case
+if [ -x /usr/bin/deb-systemd-helper ] ; then
+    exit 0
+fi
+
 # If systemd is not running, schedule a run on next boot
 if ! [ -e /sys/fs/cgroup/systemd ] ; then
     touch $statedir/run-debian-enable-units

@@ -3,6 +3,10 @@ systemd (44-12) UNRELEASED; urgency=low
   * Cherry-pick e17187 from upstream to fix build failures with newer glibc
     where the clock_* symbols have been moved from librt to libc.
     Closes: #701364
+  * If the new init-system-helpers package is installed, make the
+    debian-enable-units script a no-op. The auto-enabler was meant as a
+    temporary workaround and will be removed once all packages use the new
+    helper.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 00:54:30 +0200
 
