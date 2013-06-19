@@ -7,7 +7,7 @@ set -e
 # sysvinit version which created the initctl socket at /run/initctl.
 # systemd's sysv tools expect the socket at /dev/initctl, so create the compat
 # symlink ourselves.
-if [ ! -e /sys/fs/cgroup/systemd ] ; then
+if [ ! -d /run/systemd/system ] ; then
     if [ ! -p /dev/initctl ] && [ -p /run/initctl ] ; then
         ln -sf /run/initctl /dev/initctl
     fi

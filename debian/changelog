@@ -7,6 +7,9 @@ systemd (44-12) UNRELEASED; urgency=low
     debian-enable-units script a no-op. The auto-enabler was meant as a
     temporary workaround and will be removed once all packages use the new
     helper.
+  * Update the checks which test if systemd is the active init. The
+    recommended check is [ -d /run/systemd/system ] as this will also work
+    with a standalone systemd-logind.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 00:54:30 +0200
 

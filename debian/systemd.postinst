@@ -3,7 +3,7 @@
 set -e
 
 _systemctl() {
-    if [ -e /sys/fs/cgroup/systemd ]; then
+    if [ -d /run/systemd/system ]; then
         systemctl "$@"
     fi
 }
@@ -51,7 +51,7 @@ EOF
 fi
 
 # Create /run/initctl → /dev/initctl compat symlink on upgrades
-if [ -e /sys/fs/cgroup/systemd ]; then
+if [ -d /run/systemd/system ]; then
     _systemctl restart systemd-initctl.socket || true
 fi
 
@@ -64,7 +64,7 @@ if dpkg --compare-versions "$2" lt "40-1"; then
     fi
 
     # Create /run/initctl → /dev/initctl compat symlink on upgrades
-    if [ -e /sys/fs/cgroup/systemd ]; then
+    if [ -d /run/systemd/system ]; then
         ln -sf /dev/initctl /run/initctl
     fi
 fi

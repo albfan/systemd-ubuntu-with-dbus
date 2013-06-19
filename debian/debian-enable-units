@@ -12,7 +12,7 @@ if [ -x /usr/bin/deb-systemd-helper ] ; then
 fi
 
 # If systemd is not running, schedule a run on next boot
-if ! [ -e /sys/fs/cgroup/systemd ] ; then
+if ! [ -d /run/systemd/system ] ; then
     touch $statedir/run-debian-enable-units
     exit 0
 else
