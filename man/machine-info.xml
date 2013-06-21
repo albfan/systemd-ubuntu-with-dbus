@@ -9,16 +9,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -74,6 +74,11 @@
                 <para>Depending on the operating system other
                 configuration files might be checked for machine
                 information as well, however only as fallback.</para>
+
+                <para>You may use
+                <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                to change the settings of this file from the command
+                line.</para>
         </refsect1>
 
         <refsect1>
@@ -123,6 +128,34 @@
                                 similar icon name.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>CHASSIS=</varname></term>
+
+                                <listitem><para>The chassis
+                                type. Currently, the following chassis
+                                types are defined:
+                                <literal>desktop</literal>,
+                                <literal>laptop</literal>,
+                                <literal>server</literal>,
+                                <literal>tablet</literal>,
+                                <literal>handset</literal>, as well as
+                                the special chassis types
+                                <literal>vm</literal> and
+                                <literal>container</literal> for
+                                virtualized systems that lack an
+                                immediate physical chassis. Note that
+                                many systems allow detection of the
+                                chassis type automatically (based on
+                                firmware information or
+                                suchlike). This setting (if set) shall
+                                take precedence over automatically
+                                detected information and is useful to
+                                override misdetected configuration or
+                                to manually configure the chassis type
+                                where automatic detection is not
+                                available.</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
 
         </refsect1>
@@ -130,8 +163,9 @@
         <refsect1>
                 <title>Example</title>
 
-                <programlisting>PRETTY_HOSTNAME="Lennart's Computer"
-ICON_NAME=computer-laptop</programlisting>
+                <programlisting>PRETTY_HOSTNAME="Lennart's Tablet"
+ICON_NAME=computer-tablet
+CHASSIS=tablet</programlisting>
         </refsect1>
 
         <refsect1>
@@ -140,7 +174,9 @@ ICON_NAME=computer-laptop</programlisting>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

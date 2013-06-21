@@ -1,15 +1,18 @@
 #  This file is part of systemd.
 #
 #  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
 [Unit]
-Description=Notify Audit System and Update UTMP about System Shutdown
+Description=Update UTMP about System Shutdown
+Documentation=man:systemd-update-utmp-runlevel.service(8) man:utmp(5)
 DefaultDependencies=no
-After=local-fs.target sysinit.target auditd.service systemd-update-utmp-runlevel.service
-Before=poweroff.service reboot.service halt.service
+RequiresMountsFor=/var/log/wtmp
+After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+After=systemd-update-utmp-runlevel.service
+Before=final.target
 
 [Service]
 Type=oneshot

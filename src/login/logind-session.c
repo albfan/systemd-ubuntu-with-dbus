@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,12 +25,15 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 
-#include "logind-session.h"
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "strv.h"
 #include "util.h"
+#include "mkdir.h"
+#include "path-util.h"
 #include "cgroup-util.h"
-
-#define IDLE_THRESHOLD_USEC (5*USEC_PER_MINUTE)
+#include "logind-session.h"
+#include "fileio.h"
 
 Session* session_new(Manager *m, User *u, const char *id) {
         Session *s;
@@ -48,10 +51,10 @@ Session* session_new(Manager *m, User *u, const char *id) {
                 return NULL;
         }
 
-        s->id = file_name_from_path(s->state_file);
+        s->id = path_get_file_name(s->state_file);
 
         if (hashmap_put(m->sessions, s->id, s) < 0) {
-                free(s->id);
+                free(s->state_file);
                 free(s);
                 return NULL;
         }
@@ -86,7 +89,7 @@ void session_free(Session *s) {
         }
 
         if (s->cgroup_path)
-                hashmap_remove(s->manager->cgroups, s->cgroup_path);
+                hashmap_remove(s->manager->session_cgroups, s->cgroup_path);
 
         free(s->cgroup_path);
         strv_free(s->controllers);
@@ -98,7 +101,6 @@ void session_free(Session *s) {
         free(s->service);
 
         hashmap_remove(s->manager->sessions, s->id);
-
         session_remove_fifo(s);
 
         free(s->state_file);
@@ -115,7 +117,7 @@ int session_save(Session *s) {
         if (!s->started)
                 return 0;
 
-        r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -132,11 +134,13 @@ int session_save(Session *s) {
                 "UID=%lu\n"
                 "USER=%s\n"
                 "ACTIVE=%i\n"
+                "STATE=%s\n"
                 "REMOTE=%i\n"
                 "KILL_PROCESSES=%i\n",
                 (unsigned long) s->user->uid,
                 s->user->name,
                 session_is_active(s),
+                session_state_to_string(session_get_state(s)),
                 s->remote,
                 s->kill_processes);
 
@@ -286,14 +290,9 @@ int session_load(Session *s) {
         }
 
         if (leader) {
-                pid_t pid;
-
-                k = parse_pid(leader, &pid);
-                if (k >= 0 && pid >= 1) {
-                        s->leader = pid;
-
-                        audit_session_from_pid(pid, &s->audit_id);
-                }
+                k = parse_pid(leader, &s->leader);
+                if (k >= 0)
+                        audit_session_from_pid(s->leader, &s->audit_id);
         }
 
         if (type) {
@@ -325,7 +324,6 @@ int session_load(Session *s) {
                         close_nointr_nofail(fd);
         }
 
-
 finish:
         free(remote);
         free(kill_processes);
@@ -333,6 +331,7 @@ finish:
         free(vtnr);
         free(leader);
         free(audit_id);
+        free(class);
 
         return r;
 }
@@ -376,26 +375,27 @@ static int session_link_x11_socket(Session *s) {
 
         k = strspn(s->display+1, "0123456789");
         f = new(char, sizeof("/tmp/.X11-unix/X") + k);
-        if (!f) {
-                log_error("Out of memory");
-                return -ENOMEM;
-        }
+        if (!f)
+                return log_oom();
 
         c = stpcpy(f, "/tmp/.X11-unix/X");
         memcpy(c, s->display+1, k);
         c[k] = 0;
 
         if (access(f, F_OK) < 0) {
-                log_warning("Session %s has display %s with nonexisting socket %s.", s->id, s->display, f);
+                log_warning("Session %s has display %s with non-existing socket %s.", s->id, s->display, f);
                 free(f);
                 return -ENOENT;
         }
 
+        /* Note that this cannot be in a subdir to avoid
+         * vulnerabilities since we are privileged but the runtime
+         * path is owned by the user */
+
         t = strappend(s->user->runtime_path, "/X11-display");
         if (!t) {
-                log_error("Out of memory");
                 free(f);
-                return -ENOMEM;
+                return log_oom();
         }
 
         if (link(f, t) < 0) {
@@ -436,15 +436,14 @@ static int session_create_one_group(Session *s, const char *controller, const ch
         int r;
 
         assert(s);
-        assert(controller);
         assert(path);
 
         if (s->leader > 0) {
                 r = cg_create_and_attach(controller, path, s->leader);
                 if (r < 0)
-                        r = cg_create(controller, path);
+                        r = cg_create(controller, path, NULL);
         } else
-                r = cg_create(controller, path);
+                r = cg_create(controller, path, NULL);
 
         if (r < 0)
                 return r;
@@ -466,10 +465,19 @@ static int session_create_cgroup(Session *s) {
         assert(s->user->cgroup_path);
 
         if (!s->cgroup_path) {
-                if (asprintf(&p, "%s/%s", s->user->cgroup_path, s->id) < 0) {
-                        log_error("Out of memory");
-                        return -ENOMEM;
-                }
+                _cleanup_free_ char *name = NULL, *escaped = NULL;
+
+                name = strappend(s->id, ".session");
+                if (!name)
+                        return log_oom();
+
+                escaped = cg_escape(name);
+                if (!escaped)
+                        return log_oom();
+
+                p = strjoin(s->user->cgroup_path, "/", escaped, NULL);
+                if (!p)
+                        return log_oom();
         } else
                 p = s->cgroup_path;
 
@@ -527,7 +535,9 @@ static int session_create_cgroup(Session *s) {
                 }
         }
 
-        hashmap_put(s->manager->cgroups, s->cgroup_path, s);
+        r = hashmap_put(s->manager->session_cgroups, s->cgroup_path, s);
+        if (r < 0)
+                log_warning("Failed to create mapping between cgroup and session");
 
         return 0;
 }
@@ -545,8 +555,13 @@ int session_start(Session *s) {
         if (r < 0)
                 return r;
 
-        log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                 "New session %s of user %s.", s->id, s->user->name);
+        log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
+                   MESSAGE_ID(SD_MESSAGE_SESSION_START),
+                   "SESSION_ID=%s", s->id,
+                   "USER_ID=%s", s->user->name,
+                   "LEADER=%lu", (unsigned long) s->leader,
+                   "MESSAGE=New session %s of user %s.", s->id, s->user->name,
+                   NULL);
 
         /* Create cgroup */
         r = session_create_cgroup(s);
@@ -646,7 +661,7 @@ static int session_terminate_cgroup(Session *s) {
         STRV_FOREACH(k, s->user->manager->controllers)
                 cg_trim(*k, s->cgroup_path, true);
 
-        hashmap_remove(s->manager->cgroups, s->cgroup_path);
+        hashmap_remove(s->manager->session_cgroups, s->cgroup_path);
 
         free(s->cgroup_path);
         s->cgroup_path = NULL;
@@ -667,10 +682,8 @@ static int session_unlink_x11_socket(Session *s) {
         s->user->display = NULL;
 
         t = strappend(s->user->runtime_path, "/X11-display");
-        if (!t) {
-                log_error("Out of memory");
-                return -ENOMEM;
-        }
+        if (!t)
+                return log_oom();
 
         r = unlink(t);
         free(t);
@@ -684,8 +697,13 @@ int session_stop(Session *s) {
         assert(s);
 
         if (s->started)
-                log_full(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
-                         "Removed session %s.", s->id);
+                log_struct(s->type == SESSION_TTY || s->type == SESSION_X11 ? LOG_INFO : LOG_DEBUG,
+                           MESSAGE_ID(SD_MESSAGE_SESSION_STOP),
+                           "SESSION_ID=%s", s->id,
+                           "USER_ID=%s", s->user->name,
+                           "LEADER=%lu", (unsigned long) s->leader,
+                           "MESSAGE=Removed session %s.", s->id,
+                           NULL);
 
         /* Kill cgroup */
         k = session_terminate_cgroup(s);
@@ -702,16 +720,18 @@ int session_stop(Session *s) {
         if (s->started)
                 session_send_signal(s, false);
 
+        s->started = false;
+
         if (s->seat) {
                 if (s->seat->active == s)
                         seat_set_active(s->seat, NULL);
 
                 seat_send_changed(s->seat, "Sessions\0");
+                seat_save(s->seat);
         }
 
         user_send_changed(s->user, "Sessions\0");
-
-        s->started = false;
+        user_save(s->user);
 
         return r;
 }
@@ -725,15 +745,50 @@ bool session_is_active(Session *s) {
         return s->seat->active == s;
 }
 
-int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        char *p;
+static int get_tty_atime(const char *tty, usec_t *atime) {
+        _cleanup_free_ char *p = NULL;
         struct stat st;
-        usec_t u, n;
-        bool b;
-        int k;
+
+        assert(tty);
+        assert(atime);
+
+        if (!path_is_absolute(tty)) {
+                p = strappend("/dev/", tty);
+                if (!p)
+                        return -ENOMEM;
+
+                tty = p;
+        } else if (!path_startswith(tty, "/dev/"))
+                return -ENOENT;
+
+        if (lstat(tty, &st) < 0)
+                return -errno;
+
+        *atime = timespec_load(&st.st_atim);
+        return 0;
+}
+
+static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(pid > 0);
+        assert(atime);
+
+        r = get_ctty(pid, NULL, &p);
+        if (r < 0)
+                return r;
+
+        return get_tty_atime(p, atime);
+}
+
+int session_get_idle_hint(Session *s, dual_timestamp *t) {
+        usec_t atime = 0, n;
+        int r;
 
         assert(s);
 
+        /* Explicit idle hint is set */
         if (s->idle_hint) {
                 if (t)
                         *t = s->idle_hint_timestamp;
@@ -741,41 +796,65 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
                 return s->idle_hint;
         }
 
-        if (isempty(s->tty))
+        /* Graphical sessions should really implement a real
+         * idle hint logic */
+        if (s->display)
                 goto dont_know;
 
-        if (s->tty[0] != '/') {
-                p = strappend("/dev/", s->tty);
-                if (!p)
-                        return -ENOMEM;
-        } else
-                p = NULL;
-
-        if (!startswith(p ? p : s->tty, "/dev/")) {
-                free(p);
-                goto dont_know;
+        /* For sessions with an explicitly configured tty, let's check
+         * its atime */
+        if (s->tty) {
+                r = get_tty_atime(s->tty, &atime);
+                if (r >= 0)
+                        goto found_atime;
         }
 
-        k = lstat(p ? p : s->tty, &st);
-        free(p);
+        /* For sessions with a leader but no explicitly configured
+         * tty, let's check the controlling tty of the leader */
+        if (s->leader > 0) {
+                r = get_process_ctty_atime(s->leader, &atime);
+                if (r >= 0)
+                        goto found_atime;
+        }
 
-        if (k < 0)
-                goto dont_know;
+        /* For other TTY sessions, let's find the most recent atime of
+         * the ttys of any of the processes of the session */
+        if (s->cgroup_path) {
+                _cleanup_fclose_ FILE *f = NULL;
 
-        u = timespec_load(&st.st_atim);
-        n = now(CLOCK_REALTIME);
-        b = u + IDLE_THRESHOLD_USEC < n;
+                if (cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &f) >= 0) {
+                        pid_t pid;
 
-        if (t)
-                dual_timestamp_from_realtime(t, u + b ? IDLE_THRESHOLD_USEC : 0);
+                        atime = 0;
+                        while (cg_read_pid(f, &pid) > 0) {
+                                usec_t a;
 
-        return b;
+                                if (get_process_ctty_atime(pid, &a) >= 0)
+                                        if (atime == 0 || atime < a)
+                                                atime = a;
+                        }
+
+                        if (atime != 0)
+                                goto found_atime;
+                }
+        }
 
 dont_know:
         if (t)
                 *t = s->idle_hint_timestamp;
 
         return 0;
+
+found_atime:
+        if (t)
+                dual_timestamp_from_realtime(t, atime);
+
+        n = now(CLOCK_REALTIME);
+
+        if (s->manager->idle_action_usec <= 0)
+                return 0;
+
+        return atime + s->manager->idle_action_usec <= n;
 }
 
 void session_set_idle_hint(Session *s, bool b) {
@@ -816,7 +895,7 @@ int session_create_fifo(Session *s) {
 
         /* Create FIFO */
         if (!s->fifo_path) {
-                r = safe_mkdir("/run/systemd/sessions", 0755, 0, 0);
+                r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0);
                 if (r < 0)
                         return r;
 
@@ -829,19 +908,18 @@ int session_create_fifo(Session *s) {
 
         /* Open reading side */
         if (s->fifo_fd < 0) {
-                struct epoll_event ev;
+                struct epoll_event ev = {};
 
                 s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
                 if (s->fifo_fd < 0)
                         return -errno;
 
-                r = hashmap_put(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1), s);
+                r = hashmap_put(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1), s);
                 if (r < 0)
                         return r;
 
-                zero(ev);
                 ev.events = 0;
-                ev.data.u32 = FD_FIFO_BASE + s->fifo_fd;
+                ev.data.u32 = FD_OTHER_BASE + s->fifo_fd;
 
                 if (epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->fifo_fd, &ev) < 0)
                         return -errno;
@@ -859,10 +937,13 @@ void session_remove_fifo(Session *s) {
         assert(s);
 
         if (s->fifo_fd >= 0) {
-                assert_se(hashmap_remove(s->manager->fifo_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
+                assert_se(hashmap_remove(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
                 assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
                 close_nointr_nofail(s->fifo_fd);
                 s->fifo_fd = -1;
+
+                session_save(s);
+                user_save(s->user);
         }
 
         if (s->fifo_path) {
@@ -913,6 +994,18 @@ void session_add_to_gc_queue(Session *s) {
         s->in_gc_queue = true;
 }
 
+SessionState session_get_state(Session *s) {
+        assert(s);
+
+        if (s->fifo_fd < 0)
+                return SESSION_CLOSING;
+
+        if (session_is_active(s))
+                return SESSION_ACTIVE;
+
+        return SESSION_ONLINE;
+}
+
 int session_kill(Session *s, KillWho who, int signo) {
         int r = 0;
         Set *pid_set = NULL;
@@ -954,6 +1047,14 @@ int session_kill(Session *s, KillWho who, int signo) {
         return r;
 }
 
+static const char* const session_state_table[_SESSION_TYPE_MAX] = {
+        [SESSION_ONLINE] = "online",
+        [SESSION_ACTIVE] = "active",
+        [SESSION_CLOSING] = "closing"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(session_state, SessionState);
+
 static const char* const session_type_table[_SESSION_TYPE_MAX] = {
         [SESSION_TTY] = "tty",
         [SESSION_X11] = "x11",
@@ -965,7 +1066,8 @@ DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER] = "user",
         [SESSION_GREETER] = "greeter",
-        [SESSION_LOCK_SCREEN] = "lock-screen"
+        [SESSION_LOCK_SCREEN] = "lock-screen",
+        [SESSION_BACKGROUND] = "background"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);

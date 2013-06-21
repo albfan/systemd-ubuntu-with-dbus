@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,6 +25,7 @@
 
 #include "util.h"
 #include "sysfs-show.h"
+#include "path-util.h"
 
 static int show_sysfs_one(
                 struct udev *udev,
@@ -44,6 +45,7 @@ static int show_sysfs_one(
                 struct udev_device *d;
                 const char *sn, *name, *sysfs, *subsystem, *sysname;
                 char *l, *k;
+                bool is_master;
 
                 sysfs = udev_list_entry_get_name(*item);
                 if (!path_startswith(sysfs, sub))
@@ -59,12 +61,14 @@ static int show_sysfs_one(
                 if (isempty(sn))
                         sn = "seat0";
 
-                /* fixme, also check for tag 'seat' here */
+                /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) || !udev_device_has_tag(d, "seat")) {
                         udev_device_unref(d);
                         *item = udev_list_entry_get_next(*item);
                         continue;
                 }
+
+                is_master = udev_device_has_tag(d, "master-of-seat");
 
                 name = udev_device_get_sysattr_value(d, "name");
                 if (!name)
@@ -104,11 +108,13 @@ static int show_sysfs_one(
                 }
 
                 k = ellipsize(sysfs, n_columns, 20);
-                printf("%s%s %s\n", prefix, lookahead ? "\342\224\234" : "\342\224\224", k ? k : sysfs);
+                printf("%s%s%s\n", prefix, draw_special_char(lookahead ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT),
+                                   k ? k : sysfs);
                 free(k);
 
                 if (asprintf(&l,
-                             "(%s:%s)%s%s%s",
+                             "%s%s:%s%s%s%s",
+                             is_master ? "[MASTER] " : "",
                              subsystem, sysname,
                              name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0) {
                         udev_device_unref(d);
@@ -116,7 +122,8 @@ static int show_sysfs_one(
                 }
 
                 k = ellipsize(l, n_columns, 70);
-                printf("%s%s %s\n", prefix, lookahead ? "\342\224\202" : " ", k ? k : l);
+                printf("%s%s%s\n", prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ",
+                                   k ? k : l);
                 free(k);
                 free(l);
 
@@ -124,7 +131,7 @@ static int show_sysfs_one(
                 if (*item) {
                         char *p;
 
-                        p = strappend(prefix, lookahead ? "\342\224\202 " : "  ");
+                        p = strappend(prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ");
                         show_sysfs_one(udev, seat, item, sysfs, p ? p : prefix, n_columns - 2);
                         free(p);
                 }

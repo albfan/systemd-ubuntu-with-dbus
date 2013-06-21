@@ -8,16 +8,16 @@
   Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -49,7 +49,8 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-cgtop <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+                        <command>systemd-cgtop</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -58,10 +59,14 @@
 
                 <para><command>systemd-cgtop</command> shows the top
                 control groups of the local Linux control group
-                hierarchy, ordered by their CPU, memory and disk I/O load. The
+                hierarchy, ordered by their CPU, memory, or disk I/O load. The
                 display is refreshed in regular intervals (by default
                 every 1s), similar in style to
-                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>top</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                If <command>systemd-cgtop</command> is not connected
+                to a tty, only one iteration is performed and no
+                columns headers are printed. This mode is suitable for
+                scripting.</para>
 
                 <para>Resource usage is only accounted for control
                 groups in the relevant hierarchy, i.e. CPU usage is
@@ -78,7 +83,7 @@
                 <literal>blkio</literal> and <literal>memory</literal>
                 to the <varname>DefaultControllers=</varname> setting
                 in <filename>/etc/systemd/system.conf</filename> (see
-                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details). Alternatively, it is possible to enable
                 resource accounting individually for services, by
                 making use of the <varname>ControlGroup=</varname>
@@ -107,6 +112,13 @@
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a version string and
+                                exits.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -143,6 +155,29 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-b</option></term>
+                                <term><option>--batch</option></term>
+
+                                <listitem><para>Run in "batch" mode:
+                                do not accept input and run until the
+                                iteration limit set with
+                                <option>--iterations</option> is
+                                exhausted or until killed. This mode
+                                could be useful for sending output
+                                from <command>systemd-cgtop</command>
+                                to other programs or to a
+                                file.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-n</option></term>
+                                <term><option>--iterations=</option></term>
+
+                                <listitem><para>Perform only this many
+                                iterations.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-d</option></term>
                                 <term><option>--delay=</option></term>
 
@@ -166,7 +201,7 @@
                                 the root group is monitored, for 1
                                 only the first level of control groups
                                 is monitored, and so on. Defaults to
-                                2.</para></listitem>
+                                3.</para></listitem>
                         </varlistentry>
 
                 </variablelist>
@@ -208,19 +243,26 @@
                                 <term>m</term>
                                 <term>i</term>
 
-                                <listitem><para>Change ordering of control groups
+                                <listitem><para>Sort the control groups
                                 by path, number of tasks, CPU load,
-                                memory usage resp. IO
-                                load.</para></listitem>
+                                memory usage, or IO
+                                load, respectively.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>%</term>
+
+                                <listitem><para>Toggle between showing CPU time as
+                                time or percentage.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term>+</term>
                                 <term>-</term>
 
-                                <listitem><para>Increase,
-                                resp. decrease refresh
-                                delay.</para></listitem>
+                                <listitem><para>Increase
+                                or decrease refresh
+                                delay, respectively.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,9 +25,11 @@
 
 #include "logind-user.h"
 #include "util.h"
+#include "mkdir.h"
 #include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"
+#include "fileio.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -74,6 +76,8 @@ void user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
+        if (u->cgroup_path)
+                hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
         free(u->cgroup_path);
 
         free(u->service);
@@ -97,7 +101,7 @@ int user_save(User *u) {
         if (!u->started)
                 return 0;
 
-        r = safe_mkdir("/run/systemd/users", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -136,40 +140,89 @@ int user_save(User *u) {
 
         if (u->sessions) {
                 Session *i;
+                bool first;
 
                 fputs("SESSIONS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        fprintf(f,
-                                "%s%c",
-                                i->id,
-                                i->sessions_by_user_next ? ' ' : '\n');
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
                 }
 
-                fputs("SEATS=", f);
+                fputs("\nSEATS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        if (i->seat)
-                                fprintf(f,
-                                        "%s%c",
-                                        i->seat->id,
-                                        i->sessions_by_user_next ? ' ' : '\n');
+                        if (!i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
                 }
 
-                fputs("ACTIVE_SESSIONS=", f);
-                LIST_FOREACH(sessions_by_user, i, u->sessions)
-                        if (session_is_active(i))
-                                fprintf(f,
-                                        "%lu%c",
-                                        (unsigned long) i->user->uid,
-                                        i->sessions_by_user_next ? ' ' : '\n');
-
-                fputs("ACTIVE_SEATS=", f);
+                fputs("\nACTIVE_SESSIONS=", f);
+                first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                        if (session_is_active(i) && i->seat)
-                                fprintf(f,
-                                        "%s%c",
-                                        i->seat->id,
-                                        i->sessions_by_user_next ? ' ' : '\n');
+                        if (!session_is_active(i))
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
                 }
+
+                fputs("\nONLINE_SESSIONS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (session_get_state(i) == SESSION_CLOSING)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->id, f);
+                }
+
+                fputs("\nACTIVE_SEATS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (!session_is_active(i) || !i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
+                }
+
+                fputs("\nONLINE_SEATS=", f);
+                first = true;
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        if (session_get_state(i) == SESSION_CLOSING || !i->seat)
+                                continue;
+
+                        if (first)
+                                first = false;
+                        else
+                                fputc(' ', f);
+
+                        fputs(i->seat->id, f);
+                }
+                fputc('\n', f);
         }
 
         fflush(f);
@@ -230,23 +283,19 @@ static int user_mkdir_runtime_path(User *u) {
 
         assert(u);
 
-        r = safe_mkdir("/run/user", 0755, 0, 0);
+        r = mkdir_safe_label("/run/user", 0755, 0, 0);
         if (r < 0) {
                 log_error("Failed to create /run/user: %s", strerror(-r));
                 return r;
         }
 
         if (!u->runtime_path) {
-                p = strappend("/run/user/", u->name);
-
-                if (!p) {
-                        log_error("Out of memory");
-                        return -ENOMEM;
-                }
+                if (asprintf(&p, "/run/user/%lu", (unsigned long) u->uid) < 0)
+                        return log_oom();
         } else
                 p = u->runtime_path;
 
-        r = safe_mkdir(p, 0700, u->uid, u->gid);
+        r = mkdir_safe_label(p, 0700, u->uid, u->gid);
         if (r < 0) {
                 log_error("Failed to create runtime directory %s: %s", p, strerror(-r));
                 free(p);
@@ -266,14 +315,22 @@ static int user_create_cgroup(User *u) {
         assert(u);
 
         if (!u->cgroup_path) {
-                if (asprintf(&p, "%s/%s", u->manager->cgroup_path, u->name) < 0) {
-                        log_error("Out of memory");
-                        return -ENOMEM;
-                }
+                _cleanup_free_ char *name = NULL, *escaped = NULL;
+
+                if (asprintf(&name, "%lu.user", (unsigned long) u->uid) < 0)
+                        return log_oom();
+
+                escaped = cg_escape(name);
+                if (!escaped)
+                        return log_oom();
+
+                p = strjoin(u->manager->cgroup_path, "/", escaped, NULL);
+                if (!p)
+                        return log_oom();
         } else
                 p = u->cgroup_path;
 
-        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, p);
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, p, NULL);
         if (r < 0) {
                 log_error("Failed to create cgroup "SYSTEMD_CGROUP_CONTROLLER":%s: %s", p, strerror(-r));
                 free(p);
@@ -288,10 +345,14 @@ static int user_create_cgroup(User *u) {
                 if (strv_contains(u->manager->reset_controllers, *k))
                         continue;
 
-                r = cg_create(*k, p);
+                r = cg_create(*k, p, NULL);
                 if (r < 0)
                         log_warning("Failed to create cgroup %s:%s: %s", *k, p, strerror(-r));
         }
+
+        r = hashmap_put(u->manager->user_cgroups, u->cgroup_path, u);
+        if (r < 0)
+                log_warning("Failed to create mapping between cgroup and user");
 
         return 0;
 }
@@ -397,6 +458,8 @@ static int user_terminate_cgroup(User *u) {
         STRV_FOREACH(k, u->manager->controllers)
                 cg_trim(*k, u->cgroup_path, true);
 
+        hashmap_remove(u->manager->user_cgroups, u->cgroup_path);
+
         free(u->cgroup_path);
         u->cgroup_path = NULL;
 
@@ -497,9 +560,21 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
+static int user_check_linger_file(User *u) {
+        char *p;
+        int r;
+
+        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
+                return -ENOMEM;
+
+        r = access(p, F_OK) >= 0;
+        free(p);
+
+        return r;
+}
+
 int user_check_gc(User *u, bool drop_not_started) {
         int r;
-        char *p;
 
         assert(u);
 
@@ -509,13 +584,7 @@ int user_check_gc(User *u, bool drop_not_started) {
         if (u->sessions)
                 return 1;
 
-        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
-                return -ENOMEM;
-
-        r = access(p, F_OK) >= 0;
-        free(p);
-
-        if (r > 0)
+        if (user_check_linger_file(u) > 0)
                 return 1;
 
         if (u->cgroup_path) {
@@ -542,17 +611,25 @@ void user_add_to_gc_queue(User *u) {
 
 UserState user_get_state(User *u) {
         Session *i;
+        bool all_closing = true;
 
         assert(u);
 
-        if (!u->sessions)
-                return USER_LINGERING;
 
-        LIST_FOREACH(sessions_by_user, i, u->sessions)
+        LIST_FOREACH(sessions_by_user, i, u->sessions) {
                 if (session_is_active(i))
                         return USER_ACTIVE;
+                if (session_get_state(i) != SESSION_CLOSING)
+                        all_closing = false;
+        }
 
-        return USER_ONLINE;
+        if (u->sessions)
+                return all_closing ? USER_CLOSING : USER_ONLINE;
+
+        if (user_check_linger_file(u) > 0)
+                return USER_LINGERING;
+
+        return USER_CLOSING;
 }
 
 int user_kill(User *u, int signo) {
@@ -583,7 +660,8 @@ static const char* const user_state_table[_USER_STATE_MAX] = {
         [USER_OFFLINE] = "offline",
         [USER_LINGERING] = "lingering",
         [USER_ONLINE] = "online",
-        [USER_ACTIVE] = "active"
+        [USER_ACTIVE] = "active",
+        [USER_CLOSING] = "closing"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);

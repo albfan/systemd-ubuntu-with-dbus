@@ -9,20 +9,21 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sys/types.h>
+#include <inttypes.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,7 +35,9 @@ extern "C" {
  * Instead of returning an empty string array or empty uid array, we
  * may return NULL.
  *
- * Free the data we return with libc free().
+ * Free the data the library returns with libc free(). String arrays
+ * are NULL terminated and you need to free the array itself in
+ * addition to the strings contained.
  *
  * We return error codes as negative errno, kernel-style. 0 or
  * positive on success.
@@ -42,6 +45,8 @@ extern "C" {
  * These functions access data in /proc, /sys/fs/cgroup and /run. All
  * of these are virtual file systems, hence the accesses are
  * relatively cheap.
+ *
+ * See sd-login(3) for more information.
  */
 
 /* Get session from PID. Note that 'shared' processes of a user are
@@ -57,11 +62,20 @@ int sd_pid_get_session(pid_t pid, char **session);
  * return an error for system processes. */
 int sd_pid_get_owner_uid(pid_t pid, uid_t *uid);
 
-/* Get systemd unit (i.e. service) name from PID. This will return an
- * error for non-service processes. */
-int sd_pid_get_unit(pid_t, char **unit);
+/* Get systemd unit (i.e. service) name from PID, for system
+ * services. This will return an error for non-service processes. */
+int sd_pid_get_unit(pid_t pid, char **unit);
 
-/* Get state from uid. Possible states: offline, lingering, online, active */
+/* Get systemd unit (i.e. service) name from PID, for user
+ * services. This will return an error for non-user-service
+ * processes. */
+int sd_pid_get_user_unit(pid_t pid, char **unit);
+
+/* Get machine name from PID, for processes assigned to VM or
+ * container. This will return an error for non-service processes. */
+int sd_pid_get_machine_name(pid_t pid, char **name);
+
+/* Get state from uid. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char**state);
 
 /* Return 1 if uid has session on seat. If require_active is true will
@@ -78,8 +92,13 @@ int sd_uid_get_sessions(uid_t uid, int require_active, char ***sessions);
  * just return number of seats.*/
 int sd_uid_get_seats(uid_t uid, int require_active, char ***seats);
 
-/* Return 1 if the session is a active */
+/* Return 1 if the session is a active. */
 int sd_session_is_active(const char *session);
+
+/* Get state from session. Possible states: online, active, closing
+ * (This function is a more generic version of
+ * sd_session_is_active().) */
+int sd_session_get_state(const char *sessio, char **state);
 
 /* Determine user id of session */
 int sd_session_get_uid(const char *session, uid_t *uid);
@@ -99,6 +118,9 @@ int sd_session_get_class(const char *session, char **clazz);
 /* Determine the X11 display of this session. */
 int sd_session_get_display(const char *session, char **display);
 
+/* Determine the TTY of this session. */
+int sd_session_get_tty(const char *session, char **display);
+
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
@@ -109,6 +131,12 @@ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsign
 
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat);
+
+/* Return whether the seat is TTY capable, i.e. suitable for showing console UIs */
+int sd_seat_can_tty(const char *seat);
+
+/* Return whether the seat is graphics capable, i.e. suitable for showing graphical UIs */
+int sd_seat_can_graphical(const char *seat);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL only returns number of seats. */
@@ -122,11 +150,15 @@ int sd_get_sessions(char ***sessions);
  * users. If users is NULL only returns the number of users. */
 int sd_get_uids(uid_t **users);
 
+/* Get all running virtual machines/containers */
+int sd_get_machine_names(char ***machines);
+
 /* Monitor object */
 typedef struct sd_login_monitor sd_login_monitor;
 
 /* Create a new monitor. Category must be NULL, "seat", "session",
- * "uid" to get monitor events for the specific category (or all). */
+ * "uid", "machine" to get monitor events for the specific category
+ * (or all). */
 int sd_login_monitor_new(const char *category, sd_login_monitor** ret);
 
 /* Destroys the passed monitor. Returns NULL. */
@@ -137,6 +169,12 @@ int sd_login_monitor_flush(sd_login_monitor *m);
 
 /* Get FD from monitor */
 int sd_login_monitor_get_fd(sd_login_monitor *m);
+
+/* Get poll() mask to monitor */
+int sd_login_monitor_get_events(sd_login_monitor *m);
+
+/* Get timeout for poll(), as usec value relative to CLOCK_MONOTONIC's epoch */
+int sd_login_monitor_get_timeout(sd_login_monitor *m, uint64_t *timeout_usec);
 
 #ifdef __cplusplus
 }

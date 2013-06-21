@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -38,7 +38,7 @@
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"RuntimePath\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupPath\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Display\" type=\"(so)\" access=\"read\"/>\n" \
         "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
@@ -65,7 +65,7 @@ static int bus_user_append_display(DBusMessageIter *i, const char *property, voi
         DBusMessageIter sub;
         User *u = data;
         const char *id, *path;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(i);
         assert(property);
@@ -86,12 +86,8 @@ static int bus_user_append_display(DBusMessageIter *i, const char *property, voi
         }
 
         if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &id) ||
-            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path)) {
-                free(p);
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &path))
                 return -ENOMEM;
-        }
-
-        free(p);
 
         if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
@@ -189,6 +185,24 @@ static int bus_user_append_idle_hint_since(DBusMessageIter *i, const char *prope
         return 0;
 }
 
+static int bus_user_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
+        User *u = data;
+        _cleanup_free_ char *t = NULL;
+        int r;
+        bool success;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        r = cg_join_spec(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &t);
+        if (r < 0)
+                return r;
+
+        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
+        return success ? 0 : -ENOMEM;
+}
+
 static int get_user_for_path(Manager *m, const char *path, User **_u) {
         User *u;
         unsigned long lu;
@@ -220,7 +234,7 @@ static const BusProperty bus_login_user_properties[] = {
         { "Timestamp",              bus_property_append_usec,        "t", offsetof(User, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,        "t", offsetof(User, timestamp.monotonic) },
         { "RuntimePath",            bus_property_append_string,      "s", offsetof(User, runtime_path),       true },
-        { "ControlGroupPath",       bus_property_append_string,      "s", offsetof(User, cgroup_path),        true },
+        { "DefaultControlGroup",    bus_user_append_default_cgroup,  "s", 0 },
         { "Service",                bus_property_append_string,      "s", offsetof(User, service),            true },
         { "Display",                bus_user_append_display,      "(so)", 0 },
         { "State",                  bus_user_append_state,           "s", 0 },
@@ -237,7 +251,7 @@ static DBusHandlerResult user_message_dispatch(
                 DBusMessage *message) {
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(u);
@@ -284,18 +298,13 @@ static DBusHandlerResult user_message_dispatch(
         }
 
         if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
+                if (!bus_maybe_send_reply(connection, message, reply))
                         goto oom;
-
-                dbus_message_unref(reply);
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -346,9 +355,8 @@ char *user_bus_path(User *u) {
 }
 
 int user_send_signal(User *u, bool new_user) {
-        DBusMessage *m;
-        int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
         uint32_t uid;
 
         assert(u);
@@ -362,7 +370,7 @@ int user_send_signal(User *u, bool new_user) {
 
         p = user_bus_path(u);
         if (!p)
-                goto finish;
+                return -ENOMEM;
 
         uid = u->uid;
 
@@ -371,24 +379,17 @@ int user_send_signal(User *u, bool new_user) {
                             DBUS_TYPE_UINT32, &uid,
                             DBUS_TYPE_OBJECT_PATH, &p,
                             DBUS_TYPE_INVALID))
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(u->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        dbus_message_unref(m);
-        free(p);
-
-        return r;
+        return 0;
 }
 
 int user_send_changed(User *u, const char *properties) {
-        DBusMessage *m;
-        int r = -ENOMEM;
-        char *p = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
 
         assert(u);
 
@@ -401,17 +402,10 @@ int user_send_changed(User *u, const char *properties) {
 
         m = bus_properties_changed_new(p, "org.freedesktop.login1.User", properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(u->manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-        free(p);
-
-        return r;
+        return 0;
 }

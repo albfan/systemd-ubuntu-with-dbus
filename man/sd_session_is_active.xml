@@ -8,20 +8,20 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_session_is_active">
+<refentry id="sd_session_is_active" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>sd_session_is_active</title>
@@ -44,12 +44,14 @@
 
         <refnamediv>
                 <refname>sd_session_is_active</refname>
+                <refname>sd_session_get_state</refname>
                 <refname>sd_session_get_uid</refname>
                 <refname>sd_session_get_seat</refname>
                 <refname>sd_session_get_service</refname>
                 <refname>sd_session_get_type</refname>
                 <refname>sd_session_get_class</refname>
                 <refname>sd_session_get_display</refname>
+                <refname>sd_session_get_tty</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -60,6 +62,12 @@
                         <funcprototype>
                                 <funcdef>int <function>sd_session_is_active</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_state</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>state</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
@@ -97,6 +105,12 @@
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>display</parameter></paramdef>
                         </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_tty</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>char** <parameter>tty</parameter></paramdef>
+                        </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
 
@@ -108,6 +122,25 @@
                 the specified session identifier is currently active
                 (i.e. currently in the foreground and available for
                 user input) or not.</para>
+
+                <para><function>sd_session_get_state()</function> may
+                be used to determine the state of the session
+                identified by the specified session identifier. The
+                following states are currently known:
+                <literal>online</literal> (session logged in, but
+                session not active, i.e. not in the foreground),
+                <literal>active</literal> (session logged in and
+                active, i.e. in the foreground),
+                <literal>closing</literal> (session nominally logged
+                out, but some processes belonging to it are still
+                around). In the future additional states might be
+                defined, client code should be written to be robust in
+                regards to additional state strings being
+                returned. This function is a more generic version of
+                <function>sd_session_is_active()</function>. The returned
+                string needs to be freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
 
                 <para><function>sd_session_get_uid()</function> may be
                 used to determine the user identifier of the Unix user the session
@@ -146,8 +179,9 @@
                 be used to determine the class of the session
                 identified by the specified session identifier. The
                 returned string is one of <literal>user</literal>,
-                <literal>greeter</literal> or
-                <literal>lock-screen</literal> and needs to be freed
+                <literal>greeter</literal>,
+                <literal>lock-screen</literal>, or
+                <literal>background</literal> and needs to be freed
                 with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
@@ -155,7 +189,15 @@
                 <para><function>sd_session_get_display()</function>
                 may be used to determine the X11 display of the
                 session identified by the specified session
-                identifier. The returned string is one of needs to be
+                identifier. The returned string needs to be
+                freed with the libc
+                <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                call after use.</para>
+
+                <para><function>sd_session_get_tty()</function>
+                may be used to determine the TTY device of the
+                session identified by the specified session
+                identifier. The returned string needs to be
                 freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
@@ -172,9 +214,14 @@
                 <para>If the test succeeds
                 <function>sd_session_is_active()</function> returns a
                 positive integer, if it fails 0.  On success
+                <function>sd_session_get_state()</function>,
                 <function>sd_session_get_uid()</function>,
-                <function>sd_session_get_service()</function> and
-                <function>sd_session_get_seat()</function> return 0 or
+                <function>sd_session_get_seat()</function>,
+                <function>sd_session_get_service()</function>,
+                <function>sd_session_get_type()</function>,
+                <function>sd_session_get_class()</function>,
+                <function>sd_session_get_display()</function> and
+                <function>sd_session_get_tty()</function> return 0 or
                 a positive integer. On failure, these calls return a
                 negative errno-style error code.</para>
         </refsect1>
@@ -183,11 +230,16 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_session_is_active()</function>,
+                <function>sd_session_get_state()</function>,
                 <function>sd_session_get_uid()</function>,
-                <function>sd_session_get_service()</function> and
-                <function>sd_session_get_seat()</function> interfaces
-                are available as shared library, which can be compiled
-                and linked to with the
+                <function>sd_session_get_seat()</function>,
+                <function>sd_session_get_service()</function>,
+                <function>sd_session_get_type()</function>,
+                <function>sd_session_get_class()</function>,
+                <function>sd_session_get_display()</function> and
+                <function>sd_session_get_tty()</function>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
                 <literal>libsystemd-login</literal>
                 <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
@@ -198,7 +250,7 @@
 
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_pid_get_session</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
