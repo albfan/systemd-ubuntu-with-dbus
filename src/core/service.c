@@ -2139,8 +2139,7 @@ static void service_enter_start(Service *s) {
         /* We want to ensure that nobody leaks processes from
          * START_PRE here, so let's go on a killing spree, People
          * should not spawn long running processes from START_PRE. */
-        // F17, bz816842, bz805942
-        //cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
+        cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL, true, true, NULL, "control");
 
         if (s->type == SERVICE_FORKING) {
                 s->control_command_id = SERVICE_EXEC_START;
@@ -2219,9 +2218,8 @@ static void service_enter_start_pre(Service *s) {
 
                 /* Before we start anything, let's clear up what might
                  * be left from previous runs. */
-                // F17, bz816842, bz805942
-                //cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
-                //                         true,true, NULL, "control");
+                cgroup_bonding_kill_list(UNIT(s)->cgroup_bondings, SIGKILL,
+                                         true,true, NULL, "control");
 
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
