@@ -1,18 +1,20 @@
 #  This file is part of systemd.
 #
 #  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
-
-# See systemd.special(7) for details
 
 [Unit]
 Description=Login Service
+Documentation=man:systemd-logind.service(8) man:logind.conf(5)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/multiseat
+After=nss-user-lookup.target
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-logind
-Type=dbus
+Restart=always
+RestartSec=0
 BusName=org.freedesktop.login1
 CapabilityBoundingSet=CAP_AUDIT_CONTROL CAP_CHOWN CAP_KILL CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_FOWNER CAP_SYS_TTY_CONFIG
 

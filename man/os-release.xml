@@ -9,16 +9,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -258,7 +258,7 @@
                                 <listitem><para>Links to resources on
                                 the Internet related the operating
                                 system. <varname>HOME_URL=</varname>
-                                should refer to the homepage of the of
+                                should refer to the homepage of the
                                 operating system, or alternatively
                                 some homepage of the specific version
                                 of the operating
@@ -279,8 +279,8 @@
                                 URLs are intended to be exposed in
                                 "About this system" UIs behind links
                                 with captions such as "About this
-                                Operating System", "Obtain Support"
-                                resp. "Report a Bug". The values should
+                                Operating System", "Obtain Support",
+                                and "Report a Bug". The values should
                                 be in <ulink
                                 url="https://tools.ietf.org/html/rfc3986">RFC3986
                                 format</ulink>, and should be
@@ -298,6 +298,28 @@
                                 <literal>BUG_REPORT_URL="https://bugzilla.redhat.com/"</literal></para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>BUILD_ID=</varname></term>
+
+                                <listitem><para>A string uniquely
+                                identifying the system image used as
+                                the origin for a distribution (it is
+                                not updated with system updates). The
+                                field can be identical between
+                                different VERSION_IDs as BUILD_ID is
+                                an only a unique identifier to a
+                                specific version. Distributions that
+                                release each update as a new version
+                                would only need to use VERSION_ID as
+                                each build is already distinct based
+                                on the VERSION_ID. This field is
+                                optional. Example:
+                                <literal>BUILD_ID="2013-03-20.3"</literal>
+                                or
+                                <literal>BUILD_ID=201303203</literal>.
+
+                                </para></listitem>
+                        </varlistentry>
 
                 </variablelist>
 

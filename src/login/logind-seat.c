@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -27,9 +27,13 @@
 #include <linux/vt.h>
 #include <string.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "logind-seat.h"
 #include "logind-acl.h"
 #include "util.h"
+#include "mkdir.h"
+#include "path-util.h"
 
 Seat *seat_new(Manager *m, const char *id) {
         Seat *s;
@@ -47,7 +51,7 @@ Seat *seat_new(Manager *m, const char *id) {
                 return NULL;
         }
 
-        s->id = file_name_from_path(s->state_file);
+        s->id = path_get_file_name(s->state_file);
         s->manager = m;
 
         if (hashmap_put(m->seats, s->id, s) < 0) {
@@ -89,7 +93,7 @@ int seat_save(Seat *s) {
         if (!s->started)
                 return 0;
 
-        r = safe_mkdir("/run/systemd/seats", 0755, 0, 0);
+        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0);
         if (r < 0)
                 goto finish;
 
@@ -102,9 +106,13 @@ int seat_save(Seat *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "IS_VTCONSOLE=%i\n"
-                "CAN_MULTI_SESSION=%i\n",
+                "CAN_MULTI_SESSION=%i\n"
+                "CAN_TTY=%i\n"
+                "CAN_GRAPHICAL=%i\n",
                 seat_is_vtconsole(s),
-                seat_can_multi_session(s));
+                seat_can_multi_session(s),
+                seat_can_tty(s),
+                seat_can_graphical(s));
 
         if (s->active) {
                 assert(s->active->user);
@@ -255,7 +263,8 @@ int seat_set_active(Seat *s, Session *session) {
 
         if (old_active) {
                 session_save(old_active);
-                user_save(old_active->user);
+                if (!session || session->user != old_active->user)
+                        user_save(old_active->user);
         }
 
         return 0;
@@ -331,7 +340,11 @@ int seat_start(Seat *s) {
         if (s->started)
                 return 0;
 
-        log_info("New seat %s.", s->id);
+        log_struct(LOG_INFO,
+                   MESSAGE_ID(SD_MESSAGE_SEAT_START),
+                   "SEAT_ID=%s", s->id,
+                   "MESSAGE=New seat %s.", s->id,
+                   NULL);
 
         /* Initialize VT magic stuff */
         seat_preallocate_vts(s);
@@ -355,7 +368,11 @@ int seat_stop(Seat *s) {
         assert(s);
 
         if (s->started)
-                log_info("Removed seat %s.", s->id);
+                log_struct(LOG_INFO,
+                           MESSAGE_ID(SD_MESSAGE_SEAT_STOP),
+                           "SEAT_ID=%s", s->id,
+                           "MESSAGE=Removed seat %s.", s->id,
+                           NULL);
 
         seat_stop_sessions(s);
 
@@ -425,6 +442,18 @@ bool seat_can_multi_session(Seat *s) {
         return s->manager->console_active_fd >= 0;
 }
 
+bool seat_can_tty(Seat *s) {
+        assert(s);
+
+        return seat_is_vtconsole(s);
+}
+
+bool seat_can_graphical(Seat *s) {
+        assert(s);
+
+        return !!s->devices;
+}
+
 int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         Session *session;
         bool idle_hint = true;
@@ -442,7 +471,7 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
 
                 if (!ih) {
                         if (!idle_hint) {
-                                if (k.monotonic < ts.monotonic)
+                                if (k.monotonic > ts.monotonic)
                                         ts = k;
                         } else {
                                 idle_hint = false;

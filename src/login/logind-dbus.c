@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -27,8 +27,15 @@
 #include "logind.h"
 #include "dbus-common.h"
 #include "strv.h"
+#include "mkdir.h"
+#include "path-util.h"
 #include "polkit.h"
 #include "special.h"
+#include "sleep-config.h"
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define BUS_MANAGER_INTERFACE                                           \
         " <interface name=\"org.freedesktop.login1.Manager\">\n"        \
@@ -60,7 +67,7 @@
         "  <method name=\"CreateSession\">\n"                           \
         "   <arg name=\"uid\" type=\"u\" direction=\"in\"/>\n"          \
         "   <arg name=\"leader\" type=\"u\" direction=\"in\"/>\n"       \
-        "   <arg name=\"sevice\" type=\"s\" direction=\"in\"/>\n"       \
+        "   <arg name=\"service\" type=\"s\" direction=\"in\"/>\n"      \
         "   <arg name=\"type\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"class\" type=\"s\" direction=\"in\"/>\n"        \
         "   <arg name=\"seat\" type=\"s\" direction=\"in\"/>\n"         \
@@ -79,6 +86,10 @@
         "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
         "   <arg name=\"seat\" type=\"s\" direction=\"out\"/>\n"        \
         "   <arg name=\"vtnr\" type=\"u\" direction=\"out\"/>\n"        \
+        "   <arg name=\"existing\" type=\"b\" direction=\"out\"/>\n"    \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReleaseSession\">\n"                          \
+        "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
         "  <method name=\"ActivateSession\">\n"                         \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
@@ -93,6 +104,8 @@
         "  <method name=\"UnlockSession\">\n"                           \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "  </method>\n"                                                 \
+        "  <method name=\"LockSessions\"/>\n"                           \
+        "  <method name=\"UnlockSessions\"/>\n"                         \
         "  <method name=\"KillSession\">\n"                             \
         "   <arg name=\"id\" type=\"s\" direction=\"in\"/>\n"           \
         "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
@@ -130,11 +143,39 @@
         "  <method name=\"Reboot\">\n"                                  \
         "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
         "  </method>\n"                                                 \
+        "  <method name=\"Suspend\">\n"                                 \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
+        "  <method name=\"Hibernate\">\n"                               \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
+        "  <method name=\"HybridSleep\">\n"                             \
+        "   <arg name=\"interactive\" type=\"b\" direction=\"in\"/>\n"  \
+        "  </method>\n"                                                 \
         "  <method name=\"CanPowerOff\">\n"                             \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
         "  </method>\n"                                                 \
         "  <method name=\"CanReboot\">\n"                               \
         "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanSuspend\">\n"                              \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanHibernate\">\n"                            \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"CanHybridSleep\">\n"                          \
+        "   <arg name=\"result\" type=\"s\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"Inhibit\">\n"                                 \
+        "   <arg name=\"what\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"who\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"why\" type=\"s\" direction=\"in\"/>\n"          \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
+        "  </method>\n"                                                 \
+        "  <method name=\"ListInhibitors\">\n"                          \
+        "   <arg name=\"inhibitors\" type=\"a(ssssuu)\" direction=\"out\"/>\n" \
         "  </method>\n"                                                 \
         "  <signal name=\"SessionNew\">\n"                              \
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
@@ -160,6 +201,12 @@
         "   <arg name=\"id\" type=\"s\"/>\n"                            \
         "   <arg name=\"path\" type=\"o\"/>\n"                          \
         "  </signal>\n"                                                 \
+        "  <signal name=\"PrepareForShutdown\">\n"                      \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"PrepareForSleep\">\n"                         \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>\n"                                                 \
         "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
@@ -170,6 +217,17 @@
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"BlockInhibited\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"DelayInhibited\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"InhibitDelayMaxUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"HandlePowerKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleSuspendKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleHibernateKey\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"HandleLidSwitch\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"IdleAction\" type=\"s\" access=\"read\"/>\n" \
+        "  <property name=\"IdleActionUSec\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"PreparingForShutdown\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"PreparingForSleep\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define INTROSPECTION_BEGIN                                             \
@@ -220,22 +278,52 @@ static int bus_manager_append_idle_hint_since(DBusMessageIter *i, const char *pr
         return 0;
 }
 
+static int bus_manager_append_inhibited(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        InhibitWhat w;
+        const char *p;
+
+        w = manager_inhibit_what(m, streq(property, "BlockInhibited") ? INHIBIT_BLOCK : INHIBIT_DELAY);
+        p = inhibit_what_to_string(w);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &p))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_manager_append_preparing(DBusMessageIter *i, const char *property, void *data) {
+        Manager *m = data;
+        dbus_bool_t b;
+
+        assert(i);
+        assert(property);
+
+        if (streq(property, "PreparingForShutdown"))
+                b = !!(m->action_what & INHIBIT_SHUTDOWN);
+        else
+                b = !!(m->action_what & INHIBIT_SLEEP);
+
+        dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b);
+        return 0;
+}
+
 static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMessage **_reply) {
-        Session *session = NULL;
-        User *user = NULL;
-        const char *type, *class, *seat, *tty, *display, *remote_user, *remote_host, *service;
+        const char *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *service;
         uint32_t uid, leader, audit_id = 0;
-        dbus_bool_t remote, kill_processes;
-        char **controllers = NULL, **reset_controllers = NULL;
+        dbus_bool_t remote, kill_processes, exists;
+        _cleanup_strv_free_ char **controllers = NULL, **reset_controllers = NULL;
+        _cleanup_free_ char *cgroup = NULL, *id = NULL, *p = NULL;
         SessionType t;
         SessionClass c;
-        Seat *s;
         DBusMessageIter iter;
         int r;
-        char *id = NULL, *p;
         uint32_t vtnr = 0;
-        int fifo_fd = -1;
-        DBusMessage *reply = NULL;
+        _cleanup_close_ int fifo_fd = -1;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        Session *session = NULL;
+        User *user = NULL;
+        Seat *seat = NULL;
         bool b;
 
         assert(m);
@@ -266,31 +354,38 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 return -EINVAL;
 
         dbus_message_iter_get_basic(&iter, &type);
-        t = session_type_from_string(type);
+        if (isempty(type))
+                t = _SESSION_TYPE_INVALID;
+        else {
+                t = session_type_from_string(type);
+                if (t < 0)
+                        return -EINVAL;
+        }
 
-        if (t < 0 ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
         dbus_message_iter_get_basic(&iter, &class);
         if (isempty(class))
-                c = SESSION_USER;
-        else
+                c = _SESSION_CLASS_INVALID;
+        else {
                 c = session_class_from_string(class);
+                if (c < 0)
+                        return -EINVAL;
+        }
 
-        if (c < 0 ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_STRING)
                 return -EINVAL;
 
-        dbus_message_iter_get_basic(&iter, &seat);
+        dbus_message_iter_get_basic(&iter, &cseat);
 
-        if (isempty(seat))
-                s = NULL;
+        if (isempty(cseat))
+                seat = NULL;
         else {
-                s = hashmap_get(m->seats, seat);
-                if (!s)
+                seat = hashmap_get(m->seats, cseat);
+                if (!seat)
                         return -ENOENT;
         }
 
@@ -309,9 +404,9 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (tty_is_vc(tty)) {
                 int v;
 
-                if (!s)
-                        s = m->vtconsole;
-                else if (s != m->vtconsole)
+                if (!seat)
+                        seat = m->vtconsole;
+                else if (seat != m->vtconsole)
                         return -EINVAL;
 
                 v = vtnr_from_tty(tty);
@@ -323,16 +418,23 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                         vtnr = (uint32_t) v;
                 else if (vtnr != (uint32_t) v)
                         return -EINVAL;
+        } else if (tty_is_console(tty)) {
 
-        } else if (!isempty(tty) && s && seat_is_vtconsole(s))
-                return -EINVAL;
+                if (!seat)
+                        seat = m->vtconsole;
+                else if (seat != m->vtconsole)
+                        return -EINVAL;
 
-        if (s) {
-                if (seat_can_multi_session(s)) {
-                        if (vtnr <= 0 || vtnr > 63)
+                if (vtnr != 0)
+                        return -EINVAL;
+        }
+
+        if (seat) {
+                if (seat_can_multi_session(seat)) {
+                        if (vtnr > 63)
                                 return -EINVAL;
                 } else {
-                        if (vtnr > 0)
+                        if (vtnr != 0)
                                 return -EINVAL;
                 }
         }
@@ -346,6 +448,22 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN)
                 return -EINVAL;
+
+        if (t == _SESSION_TYPE_INVALID) {
+                if (!isempty(display))
+                        t = SESSION_X11;
+                else if (!isempty(tty))
+                        t = SESSION_TTY;
+                else
+                        t = SESSION_UNSPECIFIED;
+        }
+
+        if (c == _SESSION_CLASS_INVALID) {
+                if (!isempty(display) || !isempty(tty))
+                        c = SESSION_USER;
+                else
+                        c = SESSION_BACKGROUND;
+        }
 
         dbus_message_iter_get_basic(&iter, &remote);
 
@@ -370,8 +488,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 return -EINVAL;
 
-        if (strv_contains(controllers, "systemd") ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
             dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRING) {
                 r = -EINVAL;
@@ -382,8 +499,7 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         if (r < 0)
                 goto fail;
 
-        if (strv_contains(reset_controllers, "systemd") ||
-            !dbus_message_iter_next(&iter) ||
+        if (!dbus_message_iter_next(&iter) ||
             dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_BOOLEAN) {
                 r = -EINVAL;
                 goto fail;
@@ -391,80 +507,89 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
 
         dbus_message_iter_get_basic(&iter, &kill_processes);
 
-        r = manager_add_user_by_uid(m, uid, &user);
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
         if (r < 0)
                 goto fail;
 
-        audit_session_from_pid(leader, &audit_id);
+        r = manager_get_session_by_cgroup(m, cgroup, &session);
+        if (r < 0)
+                goto fail;
 
-        if (audit_id > 0) {
-                asprintf(&id, "%lu", (unsigned long) audit_id);
+        if (session) {
+                fifo_fd = session_create_fifo(session);
+                if (fifo_fd < 0) {
+                        r = fifo_fd;
+                        goto fail;
+                }
 
-                if (!id) {
+                /* Session already exists, client is probably
+                 * something like "su" which changes uid but
+                 * is still the same audit session */
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                session = hashmap_get(m->sessions, id);
-
-                if (session) {
-                        free(id);
-
-                        fifo_fd = session_create_fifo(session);
-                        if (fifo_fd < 0) {
-                                r = fifo_fd;
-                                goto fail;
-                        }
-
-                        /* Session already exists, client is probably
-                         * something like "su" which changes uid but
-                         * is still the same audit session */
-
-                        reply = dbus_message_new_method_return(message);
-                        if (!reply) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        p = session_bus_path(session);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        seat = session->seat ? session->seat->id : "";
-                        vtnr = session->vtnr;
-                        b = dbus_message_append_args(
-                                        reply,
-                                        DBUS_TYPE_STRING, &session->id,
-                                        DBUS_TYPE_OBJECT_PATH, &p,
-                                        DBUS_TYPE_STRING, &session->user->runtime_path,
-                                        DBUS_TYPE_UNIX_FD, &fifo_fd,
-                                        DBUS_TYPE_STRING, &seat,
-                                        DBUS_TYPE_UINT32, &vtnr,
-                                        DBUS_TYPE_INVALID);
-                        free(p);
-
-                        if (!b) {
-                                r = -ENOMEM;
-                                goto fail;
-                        }
-
-                        close_nointr_nofail(fifo_fd);
-                        *_reply = reply;
-
-                        strv_free(controllers);
-                        strv_free(reset_controllers);
-
-                        return 0;
+                p = session_bus_path(session);
+                if (!p) {
+                        r = -ENOMEM;
+                        goto fail;
                 }
 
-        } else {
+                cseat = session->seat ? session->seat->id : "";
+                vtnr = session->vtnr;
+                exists = true;
+
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_STRING, &session->id,
+                                DBUS_TYPE_OBJECT_PATH, &p,
+                                DBUS_TYPE_STRING, &session->user->runtime_path,
+                                DBUS_TYPE_UNIX_FD, &fifo_fd,
+                                DBUS_TYPE_STRING, &cseat,
+                                DBUS_TYPE_UINT32, &vtnr,
+                                DBUS_TYPE_BOOLEAN, &exists,
+                                DBUS_TYPE_INVALID);
+                if (!b) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                *_reply = reply;
+                reply = NULL;
+
+                return 0;
+        }
+
+        audit_session_from_pid(leader, &audit_id);
+        if (audit_id > 0) {
+                /* Keep our session IDs and the audit session IDs in sync */
+
+                if (asprintf(&id, "%lu", (unsigned long) audit_id) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                /* Wut? There's already a session by this name and we
+                 * didn't find it above? Weird, then let's not trust
+                 * the audit data and let's better register a new
+                 * ID */
+                if (hashmap_get(m->sessions, id)) {
+                        audit_id = 0;
+
+                        free(id);
+                        id = NULL;
+                }
+        }
+
+        if (!id) {
                 do {
                         free(id);
-                        asprintf(&id, "c%lu", ++m->session_counter);
+                        id = NULL;
 
-                        if (!id) {
+                        if (asprintf(&id, "c%lu", ++m->session_counter) < 0) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -472,8 +597,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 } while (hashmap_get(m->sessions, id));
         }
 
+        r = manager_add_user_by_uid(m, uid, &user);
+        if (r < 0)
+                goto fail;
+
         r = manager_add_session(m, user, id, &session);
-        free(id);
         if (r < 0)
                 goto fail;
 
@@ -482,11 +610,11 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
         session->type = t;
         session->class = c;
         session->remote = remote;
-        session->controllers = controllers;
-        session->reset_controllers = reset_controllers;
         session->kill_processes = kill_processes;
         session->vtnr = vtnr;
 
+        session->controllers = cg_shorten_controllers(controllers);
+        session->reset_controllers = cg_shorten_controllers(reset_controllers);
         controllers = reset_controllers = NULL;
 
         if (!isempty(tty)) {
@@ -535,8 +663,8 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        if (s) {
-                r = seat_attach_session(s, session);
+        if (seat) {
+                r = seat_attach_session(seat, session);
                 if (r < 0)
                         goto fail;
         }
@@ -557,43 +685,187 @@ static int bus_manager_create_session(Manager *m, DBusMessage *message, DBusMess
                 goto fail;
         }
 
-        seat = s ? s->id : "";
+        cseat = seat ? seat->id : "";
+        exists = false;
         b = dbus_message_append_args(
                         reply,
                         DBUS_TYPE_STRING, &session->id,
                         DBUS_TYPE_OBJECT_PATH, &p,
                         DBUS_TYPE_STRING, &session->user->runtime_path,
                         DBUS_TYPE_UNIX_FD, &fifo_fd,
-                        DBUS_TYPE_STRING, &seat,
+                        DBUS_TYPE_STRING, &cseat,
                         DBUS_TYPE_UINT32, &vtnr,
+                        DBUS_TYPE_BOOLEAN, &exists,
                         DBUS_TYPE_INVALID);
-        free(p);
 
         if (!b) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        close_nointr_nofail(fifo_fd);
         *_reply = reply;
+        reply = NULL;
 
         return 0;
 
 fail:
-        strv_free(controllers);
-        strv_free(reset_controllers);
-
         if (session)
                 session_add_to_gc_queue(session);
 
         if (user)
                 user_add_to_gc_queue(user);
 
+        return r;
+}
+
+static int bus_manager_inhibit(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                DBusError *error,
+                DBusMessage **_reply) {
+
+        Inhibitor *i = NULL;
+        char *id = NULL;
+        const char *who, *why, *what, *mode;
+        pid_t pid;
+        InhibitWhat w;
+        InhibitMode mm;
+        unsigned long ul;
+        int r, fifo_fd = -1;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+        assert(error);
+        assert(_reply);
+
+        if (!dbus_message_get_args(
+                            message,
+                            error,
+                            DBUS_TYPE_STRING, &what,
+                            DBUS_TYPE_STRING, &who,
+                            DBUS_TYPE_STRING, &why,
+                            DBUS_TYPE_STRING, &mode,
+                            DBUS_TYPE_INVALID)) {
+                r = -EIO;
+                goto fail;
+        }
+
+        w = inhibit_what_from_string(what);
+        if (w <= 0) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        mm = inhibit_mode_from_string(mode);
+        if (mm < 0) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        /* Delay is only supported for shutdown/sleep */
+        if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP))) {
+                r = -EINVAL;
+                goto fail;
+        }
+
+        /* Don't allow taking delay locks while we are already
+         * executing the operation. We shouldn't create the impression
+         * that the lock was successful if the machine is about to go
+         * down/suspend any moment. */
+        if (m->action_what & w) {
+                r = -EALREADY;
+                goto fail;
+        }
+
+        r = verify_polkit(connection, message,
+                          w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
+                          w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
+                          w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
+                          w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
+                          w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                          w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
+                                                              "org.freedesktop.login1.inhibit-handle-lid-switch",
+                          false, NULL, error);
+        if (r < 0)
+                goto fail;
+
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1) {
+                r = -EIO;
+                goto fail;
+        }
+
+        pid = bus_get_unix_process_id(connection, dbus_message_get_sender(message), error);
+        if (pid <= 0) {
+                r = -EIO;
+                goto fail;
+        }
+
+        do {
+                free(id);
+                id = NULL;
+
+                if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        } while (hashmap_get(m->inhibitors, id));
+
+        r = manager_add_inhibitor(m, id, &i);
+        free(id);
+
+        if (r < 0)
+                goto fail;
+
+        i->what = w;
+        i->mode = mm;
+        i->pid = pid;
+        i->uid = (uid_t) ul;
+        i->why = strdup(why);
+        i->who = strdup(who);
+
+        if (!i->why || !i->who) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        fifo_fd = inhibitor_create_fifo(i);
+        if (fifo_fd < 0) {
+                r = fifo_fd;
+                goto fail;
+        }
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (!dbus_message_append_args(
+                            reply,
+                            DBUS_TYPE_UNIX_FD, &fifo_fd,
+                            DBUS_TYPE_INVALID)) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        close_nointr_nofail(fifo_fd);
+        *_reply = reply;
+        reply = NULL;
+
+        inhibitor_start(i);
+
+        return 0;
+
+fail:
+        if (i)
+                inhibitor_free(i);
+
         if (fifo_fd >= 0)
                 close_nointr_nofail(fifo_fd);
-
-        if (reply)
-                dbus_message_unref(reply);
 
         return r;
 }
@@ -636,7 +908,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
                         goto finish;
                 }
 
-                write_one_line_file(t, "change");
+                write_string_file(t, "change");
                 free(t);
         }
 
@@ -651,7 +923,7 @@ finish:
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
         struct udev_device *d;
-        char *rule = NULL, *file = NULL;
+        _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;
 
@@ -684,17 +956,15 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 goto finish;
         }
 
-        mkdir_p("/etc/udev/rules.d", 0755);
-        r = write_one_line_file_atomic(file, rule);
+        mkdir_p_label("/etc/udev/rules.d", 0755);
+        label_init("/etc");
+        r = write_string_file_atomic_label(file, rule);
         if (r < 0)
                 goto finish;
 
         r = trigger_device(m, d);
 
 finish:
-        free(rule);
-        free(file);
-
         if (d)
                 udev_device_unref(d);
 
@@ -702,7 +972,7 @@ finish:
 }
 
 static int flush_devices(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d;
 
         assert(m);
 
@@ -727,43 +997,394 @@ static int flush_devices(Manager *m) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
                                 log_warning("Failed to unlink %s: %m", de->d_name);
                 }
-
-                closedir(d);
         }
 
         return trigger_device(m, NULL);
 }
 
 static int have_multiple_sessions(
-                DBusConnection *connection,
                 Manager *m,
-                DBusMessage *message,
-                DBusError *error) {
+                uid_t uid) {
 
-        Session *s;
+        Session *session;
+        Iterator i;
 
         assert(m);
 
-        if (hashmap_size(m->sessions) > 1)
-                return true;
-
-        /* Hmm, there's only one session, but let's make sure it
-         * actually belongs to the user who is asking. If not, better
-         * be safe than sorry. */
-
-        s = hashmap_first(m->sessions);
-        if (s) {
-                unsigned long ul;
-
-                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
-                if (ul == (unsigned long) -1)
-                        return -EIO;
-
-                return s->user->uid != ul;
-        }
+        /* Check for other users' sessions. Greeter sessions do not
+         * count, and non-login sessions do not count either. */
+        HASHMAP_FOREACH(session, m->sessions, i)
+                if (session->class == SESSION_USER &&
+                    session->user->uid != uid)
+                        return true;
 
         return false;
 }
+
+static int bus_manager_log_shutdown(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name) {
+
+        const char *p, *q;
+
+        assert(m);
+        assert(unit_name);
+
+        if (w != INHIBIT_SHUTDOWN)
+                return 0;
+
+        if (streq(unit_name, SPECIAL_POWEROFF_TARGET)) {
+                p = "MESSAGE=System is powering down.";
+                q = "SHUTDOWN=power-off";
+        } else if (streq(unit_name, SPECIAL_HALT_TARGET)) {
+                p = "MESSAGE=System is halting.";
+                q = "SHUTDOWN=halt";
+        } else if (streq(unit_name, SPECIAL_REBOOT_TARGET)) {
+                p = "MESSAGE=System is rebooting.";
+                q = "SHUTDOWN=reboot";
+        } else if (streq(unit_name, SPECIAL_KEXEC_TARGET)) {
+                p = "MESSAGE=System is rebooting with kexec.";
+                q = "SHUTDOWN=kexec";
+        } else {
+                p = "MESSAGE=System is shutting down.";
+                q = NULL;
+        }
+
+        return log_struct(LOG_NOTICE, MESSAGE_ID(SD_MESSAGE_SHUTDOWN),
+                          p,
+                          q, NULL);
+}
+
+static int execute_shutdown_or_sleep(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name,
+                DBusError *error) {
+
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        const char *mode = "replace-irreversibly", *p;
+        int r;
+        char *c;
+
+        assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
+        assert(unit_name);
+
+        bus_manager_log_shutdown(m, w, unit_name);
+
+        r = bus_method_call_with_reply(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        &reply,
+                        error,
+                        DBUS_TYPE_STRING, &unit_name,
+                        DBUS_TYPE_STRING, &mode,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_get_args(
+                            reply,
+                            error,
+                            DBUS_TYPE_OBJECT_PATH, &p,
+                            DBUS_TYPE_INVALID))
+                return -EINVAL;
+
+        c = strdup(p);
+        if (!c)
+                return -ENOMEM;
+
+        m->action_unit = unit_name;
+        free(m->action_job);
+        m->action_job = c;
+        m->action_what = w;
+
+        return 0;
+}
+
+static int delay_shutdown_or_sleep(
+                Manager *m,
+                InhibitWhat w,
+                const char *unit_name) {
+
+        assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
+        assert(unit_name);
+
+        m->action_timestamp = now(CLOCK_MONOTONIC);
+        m->action_unit = unit_name;
+        m->action_what = w;
+
+        return 0;
+}
+
+static int bus_manager_can_shutdown_or_sleep(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                InhibitWhat w,
+                const char *action,
+                const char *action_multiple_sessions,
+                const char *action_ignore_inhibit,
+                const char *sleep_verb,
+                DBusError *error,
+                DBusMessage **_reply) {
+
+        bool multiple_sessions, challenge, blocked, b;
+        const char *result = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+        int r;
+        unsigned long ul;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(action);
+        assert(action_multiple_sessions);
+        assert(action_ignore_inhibit);
+        assert(error);
+        assert(_reply);
+
+        if (sleep_verb) {
+                r = can_sleep(sleep_verb);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        result = "na";
+                        goto finish;
+                }
+        }
+
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1)
+                return -EIO;
+
+        r = have_multiple_sessions(m, (uid_t) ul);
+        if (r < 0)
+                return r;
+
+        multiple_sessions = r > 0;
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
+
+        if (multiple_sessions) {
+                r = verify_polkit(connection, message, action_multiple_sessions, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0)
+                        result = "yes";
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        if (blocked) {
+                r = verify_polkit(connection, message, action_ignore_inhibit, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0 && !result)
+                        result = "yes";
+                else if (challenge && (!result || streq(result, "yes")))
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+        if (!multiple_sessions && !blocked) {
+                /* If neither inhibit nor multiple sessions
+                 * apply then just check the normal policy */
+
+                r = verify_polkit(connection, message, action, false, &challenge, error);
+                if (r < 0)
+                        return r;
+
+                if (r > 0)
+                        result = "yes";
+                else if (challenge)
+                        result = "challenge";
+                else
+                        result = "no";
+        }
+
+finish:
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
+                return -ENOMEM;
+
+        b = dbus_message_append_args(
+                        reply,
+                        DBUS_TYPE_STRING, &result,
+                        DBUS_TYPE_INVALID);
+        if (!b)
+                return -ENOMEM;
+
+        *_reply = reply;
+        reply = NULL;
+        return 0;
+}
+
+static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
+        static const char * const signal_name[_INHIBIT_WHAT_MAX] = {
+                [INHIBIT_SHUTDOWN] = "PrepareForShutdown",
+                [INHIBIT_SLEEP] = "PrepareForSleep"
+        };
+
+        dbus_bool_t active = _active;
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
+
+        assert(m);
+        assert(w >= 0);
+        assert(w < _INHIBIT_WHAT_MAX);
+        assert(signal_name[w]);
+
+        message = dbus_message_new_signal("/org/freedesktop/login1", "org.freedesktop.login1.Manager", signal_name[w]);
+        if (!message)
+                return -ENOMEM;
+
+        if (!dbus_message_append_args(message, DBUS_TYPE_BOOLEAN, &active, DBUS_TYPE_INVALID) ||
+            !dbus_connection_send(m->bus, message, NULL))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_manager_shutdown_or_sleep_now_or_later(
+                Manager *m,
+                const char *unit_name,
+                InhibitWhat w,
+                DBusError *error) {
+
+        bool delayed;
+        int r;
+
+        assert(m);
+        assert(unit_name);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(!m->action_job);
+
+        /* Tell everybody to prepare for shutdown/sleep */
+        send_prepare_for(m, w, true);
+
+        delayed =
+                m->inhibit_delay_max > 0 &&
+                manager_is_inhibited(m, w, INHIBIT_DELAY, NULL, false, false, 0);
+
+        if (delayed)
+                /* Shutdown is delayed, keep in mind what we
+                 * want to do, and start a timeout */
+                r = delay_shutdown_or_sleep(m, w, unit_name);
+        else
+                /* Shutdown is not delayed, execute it
+                 * immediately */
+                r = execute_shutdown_or_sleep(m, w, unit_name, error);
+
+        return r;
+}
+
+static int bus_manager_do_shutdown_or_sleep(
+                Manager *m,
+                DBusConnection *connection,
+                DBusMessage *message,
+                const char *unit_name,
+                InhibitWhat w,
+                const char *action,
+                const char *action_multiple_sessions,
+                const char *action_ignore_inhibit,
+                const char *sleep_verb,
+                DBusError *error,
+                DBusMessage **_reply) {
+
+        dbus_bool_t interactive;
+        bool multiple_sessions, blocked;
+        DBusMessage *reply = NULL;
+        int r;
+        unsigned long ul;
+
+        assert(m);
+        assert(connection);
+        assert(message);
+        assert(unit_name);
+        assert(w >= 0);
+        assert(w <= _INHIBIT_WHAT_MAX);
+        assert(action);
+        assert(action_multiple_sessions);
+        assert(action_ignore_inhibit);
+        assert(error);
+        assert(_reply);
+
+        /* Don't allow multiple jobs being executed at the same time */
+        if (m->action_what)
+                return -EALREADY;
+
+        if (!dbus_message_get_args(
+                            message,
+                            error,
+                            DBUS_TYPE_BOOLEAN, &interactive,
+                            DBUS_TYPE_INVALID))
+                return -EINVAL;
+
+        if (sleep_verb) {
+                r = can_sleep(sleep_verb);
+                if (r < 0)
+                        return r;
+
+                if (r == 0)
+                        return -ENOTSUP;
+        }
+
+        ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), error);
+        if (ul == (unsigned long) -1)
+                return -EIO;
+
+        r = have_multiple_sessions(m, (uid_t) ul);
+        if (r < 0)
+                return r;
+
+        multiple_sessions = r > 0;
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, (uid_t) ul);
+
+        if (multiple_sessions) {
+                r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        if (blocked) {
+                r = verify_polkit(connection, message, action_ignore_inhibit, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!multiple_sessions && !blocked) {
+                r = verify_polkit(connection, message, action, interactive, NULL, error);
+                if (r < 0)
+                        return r;
+        }
+
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, unit_name, w, error);
+        if (r < 0)
+                return r;
+
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
+                return -ENOMEM;
+
+        *_reply = reply;
+        return 0;
+}
+
+static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_handle_action, handle_action, HandleAction);
 
 static const BusProperty bus_login_manager_properties[] = {
         { "ControlGroupHierarchy",  bus_property_append_string,         "s",  offsetof(Manager, cgroup_path),        true },
@@ -776,6 +1397,17 @@ static const BusProperty bus_login_manager_properties[] = {
         { "IdleHint",               bus_manager_append_idle_hint,       "b",  0 },
         { "IdleSinceHint",          bus_manager_append_idle_hint_since, "t",  0 },
         { "IdleSinceHintMonotonic", bus_manager_append_idle_hint_since, "t",  0 },
+        { "BlockInhibited",         bus_manager_append_inhibited,       "s",  0 },
+        { "DelayInhibited",         bus_manager_append_inhibited,       "s",  0 },
+        { "InhibitDelayMaxUSec",    bus_property_append_usec,           "t",  offsetof(Manager, inhibit_delay_max)   },
+        { "HandlePowerKey",         bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_power_key)    },
+        { "HandleSuspendKey",       bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_suspend_key)  },
+        { "HandleHibernateKey",     bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_hibernate_key)},
+        { "HandleLidSwitch",        bus_manager_append_handle_action,   "s",  offsetof(Manager, handle_lid_switch)   },
+        { "IdleAction",             bus_manager_append_handle_action,   "s",  offsetof(Manager, idle_action)         },
+        { "IdleActionUSec",         bus_property_append_usec,           "t",  offsetof(Manager, idle_action_usec) },
+        { "PreparingForShutdown",   bus_manager_append_preparing,       "b",  0 },
+        { "PreparingForSleep",      bus_manager_append_preparing,       "b",  0 },
         { NULL, }
 };
 
@@ -787,7 +1419,7 @@ static DBusHandlerResult manager_message_handler(
         Manager *m = userdata;
 
         DBusError error;
-        DBusMessage *reply = NULL;
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
         int r;
 
         assert(connection);
@@ -1063,6 +1695,58 @@ static DBusHandlerResult manager_message_handler(
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ListInhibitors")) {
+                Inhibitor *inhibitor;
+                Iterator i;
+                DBusMessageIter iter, sub;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                dbus_message_iter_init_append(reply, &iter);
+
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssuu)", &sub))
+                        goto oom;
+
+                HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+                        DBusMessageIter sub2;
+                        dbus_uint32_t uid, pid;
+                        const char *what, *who, *why, *mode;
+
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2))
+                                goto oom;
+
+                        what = strempty(inhibit_what_to_string(inhibitor->what));
+                        who = strempty(inhibitor->who);
+                        why = strempty(inhibitor->why);
+                        mode = strempty(inhibit_mode_to_string(inhibitor->mode));
+                        uid = (dbus_uint32_t) inhibitor->uid;
+                        pid = (dbus_uint32_t) inhibitor->pid;
+
+                        if (!dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &what) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &who) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &why) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &mode) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &uid) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &pid))
+                                goto oom;
+
+                        if (!dbus_message_iter_close_container(&sub, &sub2))
+                                goto oom;
+                }
+
+                if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Inhibit")) {
+
+                r = bus_manager_inhibit(m, connection, message, &error, &reply);
+
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CreateSession")) {
 
                 r = bus_manager_create_session(m, message, &reply);
@@ -1073,7 +1757,34 @@ static DBusHandlerResult manager_message_handler(
                  * see this fail quickly then be retried later */
 
                 if (r < 0)
-                        return bus_send_error_reply(connection, message, &error, r);
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ReleaseSession")) {
+                const char *name;
+                Session *session;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &name,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                session = hashmap_get(m->sessions, name);
+                if (!session)
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+
+                /* We use the FIFO to detect stray sessions where the
+                process invoking PAM dies abnormally. We need to make
+                sure that that process is not killed if at the clean
+                end of the session it closes the FIFO. Hence, with
+                this call explicitly turn off the FIFO logic, so that
+                the PAM code can finish clean up on its own */
+                session_remove_fifo(session);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "ActivateSession")) {
                 const char *name;
@@ -1147,10 +1858,21 @@ static DBusHandlerResult manager_message_handler(
 
                 session = hashmap_get(m->sessions, name);
                 if (!session)
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                        return bus_send_error_reply(connection, message, NULL, -ENOENT);
 
                 if (session_send_lock(session, streq(dbus_message_get_member(message), "LockSession")) < 0)
                         goto oom;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "LockSessions") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "UnlockSessions")) {
+
+                r = session_send_lock_all(m, streq(dbus_message_get_member(message), "LockSessions"));
+                if (r < 0)
+                        bus_send_error_reply(connection, message, NULL, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
@@ -1316,9 +2038,9 @@ static DBusHandlerResult manager_message_handler(
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                mkdir_p("/var/lib/systemd", 0755);
+                mkdir_p_label("/var/lib/systemd", 0755);
 
-                r = safe_mkdir("/var/lib/systemd/linger", 0755, 0, 0);
+                r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
@@ -1407,119 +2129,129 @@ static DBusHandlerResult manager_message_handler(
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
-                dbus_bool_t interactive;
-                bool multiple_sessions;
-                DBusMessage *forward, *freply;
-                const char *name;
-                const char *mode = "replace";
-                const char *action;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "PowerOff")) {
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                r = have_multiple_sessions(connection, m, message, &error);
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_POWEROFF_TARGET,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.power-off",
+                                "org.freedesktop.login1.power-off-multiple-sessions",
+                                "org.freedesktop.login1.power-off-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Reboot")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_REBOOT_TARGET,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.reboot",
+                                "org.freedesktop.login1.reboot-multiple-sessions",
+                                "org.freedesktop.login1.reboot-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                multiple_sessions = r > 0;
-
-                if (streq(dbus_message_get_member(message), "PowerOff")) {
-                        if (multiple_sessions)
-                                action = "org.freedesktop.login1.power-off-multiple-sessions";
-                        else
-                                action = "org.freedesktop.login1.power-off";
-
-                        name = SPECIAL_POWEROFF_TARGET;
-                } else {
-                        if (multiple_sessions)
-                                action = "org.freedesktop.login1.reboot-multiple-sessions";
-                        else
-                                action = "org.freedesktop.login1.reboot";
-
-                        name = SPECIAL_REBOOT_TARGET;
-                }
-
-                r = verify_polkit(connection, message, action, interactive, NULL, &error);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Suspend")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_SUSPEND_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.suspend",
+                                "org.freedesktop.login1.suspend-multiple-sessions",
+                                "org.freedesktop.login1.suspend-ignore-inhibit",
+                                "suspend",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "Hibernate")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_HIBERNATE_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "hibernate",
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                forward = dbus_message_new_method_call(
-                              "org.freedesktop.systemd1",
-                              "/org/freedesktop/systemd1",
-                              "org.freedesktop.systemd1.Manager",
-                              "StartUnit");
-                if (!forward)
-                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
-
-                if (!dbus_message_append_args(forward,
-                                              DBUS_TYPE_STRING, &name,
-                                              DBUS_TYPE_STRING, &mode,
-                                              DBUS_TYPE_INVALID)) {
-                        dbus_message_unref(forward);
-                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
-                }
-
-                freply = dbus_connection_send_with_reply_and_block(connection, forward, -1, &error);
-                dbus_message_unref(forward);
-
-                if (!freply)
-                        return bus_send_error_reply(connection, message, &error, -EIO);
-
-                dbus_message_unref(freply);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
-
-                bool multiple_sessions, challenge, b;
-                const char *t, *action;
-
-                r = have_multiple_sessions(connection, m, message, &error);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "HybridSleep")) {
+                r = bus_manager_do_shutdown_or_sleep(
+                                m, connection, message,
+                                SPECIAL_HYBRID_SLEEP_TARGET,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "hybrid-sleep",
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                multiple_sessions = r > 0;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanPowerOff")) {
 
-                if (streq(dbus_message_get_member(message), "CanPowerOff")) {
-                        if (multiple_sessions)
-                                action = "org.freedesktop.login1.power-off-multiple-sessions";
-                        else
-                                action = "org.freedesktop.login1.power-off";
-
-                } else {
-                        if (multiple_sessions)
-                                action = "org.freedesktop.login1.reboot-multiple-sessions";
-                        else
-                                action = "org.freedesktop.login1.reboot";
-                }
-
-                r = verify_polkit(connection, message, action, false, &challenge, &error);
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.power-off",
+                                "org.freedesktop.login1.power-off-multiple-sessions",
+                                "org.freedesktop.login1.power-off-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanReboot")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SHUTDOWN,
+                                "org.freedesktop.login1.reboot",
+                                "org.freedesktop.login1.reboot-multiple-sessions",
+                                "org.freedesktop.login1.reboot-ignore-inhibit",
+                                NULL,
+                                &error, &reply);
                 if (r < 0)
                         return bus_send_error_reply(connection, message, &error, r);
 
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanSuspend")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.suspend",
+                                "org.freedesktop.login1.suspend-multiple-sessions",
+                                "org.freedesktop.login1.suspend-ignore-inhibit",
+                                "suspend",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
-                t =     r > 0 ?     "yes" :
-                        challenge ? "challenge" :
-                                    "no";
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHibernate")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "hibernate",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
-                b = dbus_message_append_args(
-                                reply,
-                                DBUS_TYPE_STRING, &t,
-                                DBUS_TYPE_INVALID);
-                if (!b)
-                        goto oom;
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Manager", "CanHybridSleep")) {
+                r = bus_manager_can_shutdown_or_sleep(
+                                m, connection, message,
+                                INHIBIT_SLEEP,
+                                "org.freedesktop.login1.hibernate",
+                                "org.freedesktop.login1.hibernate-multiple-sessions",
+                                "org.freedesktop.login1.hibernate-ignore-inhibit",
+                                "hybrid-sleep",
+                                &error, &reply);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;
@@ -1593,18 +2325,13 @@ static DBusHandlerResult manager_message_handler(
         }
 
         if (reply) {
-                if (!dbus_connection_send(connection, reply, NULL))
-                        goto oom;
-
-                dbus_message_unref(reply);
+                if (!bus_maybe_send_reply(connection, message, reply))
+                                goto oom;
         }
 
         return DBUS_HANDLER_RESULT_HANDLED;
 
 oom:
-        if (reply)
-                dbus_message_unref(reply);
-
         dbus_error_free(&error);
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
@@ -1637,6 +2364,30 @@ DBusHandlerResult bus_message_filter(
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
                         manager_cgroup_notify_empty(m, cgroup);
+
+        } else if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Manager", "JobRemoved")) {
+                uint32_t id;
+                const char *path, *result, *unit;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_UINT32, &id,
+                                           DBUS_TYPE_OBJECT_PATH, &path,
+                                           DBUS_TYPE_STRING, &unit,
+                                           DBUS_TYPE_STRING, &result,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse JobRemoved message: %s", bus_error_message(&error));
+
+                else if (m->action_job && streq(m->action_job, path)) {
+                        log_info("Operation finished.");
+
+                        /* Tell people that they now may take a lock again */
+                        send_prepare_for(m, m->action_what, false);
+
+                        free(m->action_job);
+                        m->action_job = NULL;
+                        m->action_unit = NULL;
+                        m->action_what = 0;
+                }
         }
 
         dbus_error_free(&error);
@@ -1645,23 +2396,51 @@ DBusHandlerResult bus_message_filter(
 }
 
 int manager_send_changed(Manager *manager, const char *properties) {
-        DBusMessage *m;
-        int r = -ENOMEM;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
 
         assert(manager);
 
-        m = bus_properties_changed_new("/org/freedesktop/login1", "org.freedesktop.login1.Manager", properties);
+        m = bus_properties_changed_new("/org/freedesktop/login1",
+                                       "org.freedesktop.login1.Manager",
+                                       properties);
         if (!m)
-                goto finish;
+                return -ENOMEM;
 
         if (!dbus_connection_send(manager->bus, m, NULL))
-                goto finish;
+                return -ENOMEM;
 
-        r = 0;
+        return 0;
+}
 
-finish:
-        if (m)
-                dbus_message_unref(m);
+int manager_dispatch_delayed(Manager *manager) {
+        DBusError error;
+        int r;
 
-        return r;
+        assert(manager);
+
+        if (manager->action_what == 0 || manager->action_job)
+                return 0;
+
+        /* Continue delay? */
+        if (manager_is_inhibited(manager, manager->action_what, INHIBIT_DELAY, NULL, false, false, 0)) {
+
+                if (manager->action_timestamp + manager->inhibit_delay_max > now(CLOCK_MONOTONIC))
+                        return 0;
+
+                log_info("Delay lock is active but inhibitor timeout is reached.");
+        }
+
+        /* Actually do the operation */
+        dbus_error_init(&error);
+        r = execute_shutdown_or_sleep(manager, manager->action_what, manager->action_unit, &error);
+        if (r < 0) {
+                log_warning("Failed to send delayed message: %s", bus_error(&error, r));
+                dbus_error_free(&error);
+
+                manager->action_unit = NULL;
+                manager->action_what = 0;
+                return r;
+        }
+
+        return 1;
 }

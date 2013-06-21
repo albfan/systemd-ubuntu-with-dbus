@@ -7,16 +7,16 @@
   Copyright 2010 Brandon Philips
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="tmpfiles.d">
@@ -55,39 +55,45 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd-tmpfiles</command> uses the
-		configuration files from the above directories to describe the
-		creation, cleaning and removal of volatile and
-		temporary files and directories which usually reside
-		in directories such as <filename>/run</filename>
-		or <filename>/tmp</filename>.</para>
+                <para><command>systemd-tmpfiles</command> uses the
+                configuration files from the above directories to describe the
+                creation, cleaning and removal of volatile and
+                temporary files and directories which usually reside
+                in directories such as <filename>/run</filename>
+                or <filename>/tmp</filename>.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
-                <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.  Files in
-                <filename>/etc/</filename> override files with the
-                same name in <filename>/usr/lib/</filename>.  Files in
-                <filename>/run</filename> override files with the same
-                name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should
-                install their configuration files in
-                <filename>/usr/lib/</filename>, files in
+                <para>Each configuration file shall be named in the
+                style of <filename>&lt;program&gt;.conf</filename>.
+                Files in <filename>/etc/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>
+                and <filename>/run/</filename>.  Files in
+                <filename>/run/</filename> override files with the same
+                name in <filename>/usr/lib/</filename>. Packages
+                should install their configuration files in
+                <filename>/usr/lib/</filename>. Files in
                 <filename>/etc/</filename> are reserved for the local
-                administrator, who may choose to override the
-                configurations installed from packages. The list of
+                administrator, who may use this logic to override the
+                configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
                 alphabetical order, regardless in which of the
-                directories they reside, to guarantee that a
-                configuration file takes precedence over another
-                configuration file with an alphabetically later
-                name.</para>
+                directories they reside, to guarantee that a specific
+                configuration file takes precedence over another file
+                with an alphabetically later name.</para>
 
-		<para>The configuration format is one line per path
-		containing action, path, mode, ownership, age and argument
-		fields:</para>
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/tmpfiles.d/</filename> bearing the
+                same file name.</para>
+
+                <para>The configuration format is one line per path
+                containing action, path, mode, ownership, age and argument
+                fields:</para>
 
                 <programlisting>Type Path        Mode UID  GID  Age Argument
 d    /run/user   0755 root root 10d -
@@ -108,7 +114,10 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>w</varname></term>
-                                        <listitem><para>Write the argument parameter to a file, if it exists.</para></listitem>
+                                        <listitem><para>Write the argument parameter to a file, if the file exists.
+                                            Lines of this type accept shell-style globs in place of normal path
+                                            names. The argument parameter will be written without a trailing
+                                            newline. C-style backslash escapes are interpreted.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -152,7 +161,22 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                         effect of r or R lines. Lines
                                         of this type accept
                                         shell-style globs in place of
-                                        of normal path
+                                        normal path
+                                        names.</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>X</varname></term>
+                                        <listitem><para>Ignore a path
+                                        during cleanup. Use this type
+                                        to prevent path removal as
+                                        controlled with the Age parameter.
+                                        Note that if path is a directory,
+                                        content of a directory is not
+                                        excluded from clean-up, only
+                                        directory itself. Lines of this
+                                        type accept shell-style globs
+                                        in place of normal path
                                         names.</para></listitem>
                                 </varlistentry>
 
@@ -256,11 +280,22 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         </variablelist>
 
                         <para>If multiple integers and units are specified the time
-                        values are summed up.</para>
+                        values are summed up. If an integer is given without a unit,
+                        s is assumed.
+                        </para>
+
+                        <para>When the age is set to zero, the files are cleaned
+                        unconditionally.</para>
 
                         <para>The age field only applies to lines starting with
                         d, D and x. If omitted or set to - no automatic clean-up
                         is done.</para>
+
+                        <para>If the age field starts with a tilde
+                        character (~) the clean-up is only applied to
+                        files and directories one level inside the
+                        directory specified, but not the files and
+                        directories immediately inside it.</para>
                 </refsect2>
 
                 <refsect2>
@@ -293,7 +328,8 @@ d /var/run/uscreens 0755 root root 10d12h</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

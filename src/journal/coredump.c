@@ -6,16 +6,16 @@
   Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,13 +25,23 @@
 #include <sys/prctl.h>
 
 #include <systemd/sd-journal.h>
+
+#ifdef HAVE_LOGIND
 #include <systemd/sd-login.h>
+#endif
 
 #include "log.h"
 #include "util.h"
+#include "macro.h"
+#include "mkdir.h"
 #include "special.h"
+#include "cgroup-util.h"
 
-#define COREDUMP_MAX (24*1024*1024)
+/* Few programs have less than 3MiB resident */
+#define COREDUMP_MIN_START (3*1024*1024)
+/* Make sure to not make this larger than the maximum journal entry
+ * size. See ENTRY_SIZE_MAX in journald-native.c. */
+#define COREDUMP_MAX (768*1024*1024)
 
 enum {
         ARG_PID = 1,
@@ -44,12 +54,11 @@ enum {
 };
 
 static int divert_coredump(void) {
-        FILE *f;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
 
         log_info("Detected coredump of the journal daemon itself, diverting coredump to /var/lib/systemd/coredump/.");
 
-        mkdir_p("/var/lib/systemd/coredump", 0755);
+        mkdir_p_label("/var/lib/systemd/coredump", 0755);
 
         f = fopen("/var/lib/systemd/coredump/core.systemd-journald", "we");
         if (!f) {
@@ -65,19 +74,16 @@ static int divert_coredump(void) {
                 if (l <= 0) {
                         if (ferror(f)) {
                                 log_error("Failed to read coredump: %m");
-                                r = -errno;
-                                goto finish;
+                                return -errno;
                         }
 
-                        r = 0;
                         break;
                 }
 
                 q = fwrite(buffer, 1, l, f);
                 if (q != l) {
                         log_error("Failed to write coredump: %m");
-                        r = -errno;
-                        goto finish;
+                        return -errno;
                 }
         }
 
@@ -85,25 +91,24 @@ static int divert_coredump(void) {
 
         if (ferror(f)) {
                 log_error("Failed to write coredump: %m");
-                r = -errno;
+                return -errno;
         }
 
-finish:
-        fclose(f);
-        return r;
+        return 0;
 }
 
 int main(int argc, char* argv[]) {
         int r, j = 0;
-        char *p = NULL;
+        char *t;
         ssize_t n;
         pid_t pid;
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
-        char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
+        size_t coredump_bufsize, coredump_size;
+        _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
-                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *t;
+                *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL;
 
         prctl(PR_SET_DUMPABLE, 0);
 
@@ -125,7 +130,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (sd_pid_get_unit(pid, &t) >= 0) {
+        if (cg_pid_get_unit(pid, &t) >= 0) {
 
                 if (streq(t, SPECIAL_JOURNALD_SERVICE)) {
                         /* Make sure we don't make use of the journal,
@@ -138,11 +143,11 @@ int main(int argc, char* argv[]) {
                 }
 
                 core_unit = strappend("COREDUMP_UNIT=", t);
-                free(t);
+        } else if (cg_pid_get_user_unit(pid, &t) >= 0)
+                core_unit = strappend("COREDUMP_USER_UNIT=", t);
 
-                if (core_unit)
-                        IOVEC_SET_STRING(iovec[j++], core_unit);
-        }
+        if (core_unit)
+                IOVEC_SET_STRING(iovec[j++], core_unit);
 
         /* OK, now we know it's not the journal, hence make use of
          * it */
@@ -181,6 +186,7 @@ int main(int argc, char* argv[]) {
         if (core_comm)
                 IOVEC_SET_STRING(iovec[j++], core_comm);
 
+#ifdef HAVE_LOGIND
         if (sd_pid_get_session(pid, &t) >= 0) {
                 core_session = strappend("COREDUMP_SESSION=", t);
                 free(t);
@@ -188,6 +194,8 @@ int main(int argc, char* argv[]) {
                 if (core_session)
                         IOVEC_SET_STRING(iovec[j++], core_session);
         }
+
+#endif
 
         if (get_process_exe(pid, &t) >= 0) {
                 core_exe = strappend("COREDUMP_EXE=", t);
@@ -197,7 +205,7 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_exe);
         }
 
-        if (get_process_cmdline(pid, LINE_MAX, false, &t) >= 0) {
+        if (get_process_cmdline(pid, 0, false, &t) >= 0) {
                 core_cmdline = strappend("COREDUMP_CMDLINE=", t);
                 free(t);
 
@@ -205,14 +213,14 @@ int main(int argc, char* argv[]) {
                         IOVEC_SET_STRING(iovec[j++], core_cmdline);
         }
 
-        core_timestamp = join("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);
+        core_timestamp = strjoin("COREDUMP_TIMESTAMP=", argv[ARG_TIMESTAMP], "000000", NULL);
         if (core_timestamp)
                 IOVEC_SET_STRING(iovec[j++], core_timestamp);
 
         IOVEC_SET_STRING(iovec[j++], "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1");
         IOVEC_SET_STRING(iovec[j++], "PRIORITY=2");
 
-        core_message = join("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
+        core_message = strjoin("MESSAGE=Process ", argv[ARG_PID], " (", argv[ARG_COMM], ") dumped core.", NULL);
         if (core_message)
                 IOVEC_SET_STRING(iovec[j++], core_message);
 
@@ -229,24 +237,35 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        p = malloc(9 + COREDUMP_MAX);
-        if (!p) {
-                log_error("Out of memory");
-                r = -ENOMEM;
+        coredump_bufsize = COREDUMP_MIN_START;
+        coredump_data = malloc(coredump_bufsize);
+        if (!coredump_data) {
+                r = log_oom();
                 goto finish;
         }
 
-        memcpy(p, "COREDUMP=", 9);
+        memcpy(coredump_data, "COREDUMP=", 9);
+        coredump_size = 9;
 
-        n = loop_read(STDIN_FILENO, p + 9, COREDUMP_MAX, false);
-        if (n < 0) {
-                log_error("Failed to read core dump data: %s", strerror(-n));
-                r = (int) n;
-                goto finish;
+        for (;;) {
+                n = loop_read(STDIN_FILENO, coredump_data + coredump_size,
+                              coredump_bufsize - coredump_size, false);
+                if (n < 0) {
+                        log_error("Failed to read core dump data: %s", strerror(-n));
+                        r = (int) n;
+                        goto finish;
+                } else if (n == 0)
+                        break;
+
+                coredump_size += n;
+                if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
+                        r = log_oom();
+                        goto finish;
+                }
         }
 
-        iovec[j].iov_base = p;
-        iovec[j].iov_len = 9 + n;
+        iovec[j].iov_base = coredump_data;
+        iovec[j].iov_len = coredump_size;
         j++;
 
         r = sd_journal_sendv(iovec, j);
@@ -254,18 +273,5 @@ int main(int argc, char* argv[]) {
                 log_error("Failed to send coredump: %s", strerror(-r));
 
 finish:
-        free(p);
-        free(core_pid);
-        free(core_uid);
-        free(core_gid);
-        free(core_signal);
-        free(core_timestamp);
-        free(core_comm);
-        free(core_exe);
-        free(core_cmdline);
-        free(core_unit);
-        free(core_session);
-        free(core_message);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

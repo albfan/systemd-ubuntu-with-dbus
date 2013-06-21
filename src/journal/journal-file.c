@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -27,20 +27,24 @@
 #include <fcntl.h>
 #include <stddef.h>
 
+#ifdef HAVE_XATTR
+#include <attr/xattr.h>
+#endif
+
 #include "journal-def.h"
 #include "journal-file.h"
+#include "journal-authenticate.h"
 #include "lookup3.h"
 #include "compress.h"
+#include "fsprg.h"
 
-#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*16ULL)
-#define DEFAULT_FIELD_HASH_TABLE_SIZE (2047ULL*16ULL)
-
-#define DEFAULT_WINDOW_SIZE (128ULL*1024ULL*1024ULL)
+#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
+#define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
 
 #define COMPRESSION_SIZE_THRESHOLD (512ULL)
 
 /* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (64ULL*1024ULL)                  /* 64 KiB */
+#define JOURNAL_FILE_SIZE_MIN (4ULL*1024ULL*1024ULL)           /* 4 MiB */
 
 /* These are the lower and upper bounds if we deduce the max_use value
  * from the file system size */
@@ -58,30 +62,98 @@
  * size */
 #define DEFAULT_KEEP_FREE (1024ULL*1024ULL)                    /* 1 MB */
 
-static const char signature[] = { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' };
+/* n_data was the first entry we added after the initial file format design */
+#define HEADER_SIZE_MIN ALIGN64(offsetof(Header, n_data))
 
-#define ALIGN64(x) (((x) + 7ULL) & ~7ULL)
+/* How many entries to keep in the entry array chain cache at max */
+#define CHAIN_CACHE_MAX 20
 
-void journal_file_close(JournalFile *f) {
-        int t;
-
+int journal_file_set_online(JournalFile *f) {
         assert(f);
 
-        if (f->header && f->writable)
-                f->header->state = STATE_OFFLINE;
+        if (!f->writable)
+                return -EPERM;
 
+        if (!(f->fd >= 0 && f->header))
+                return -EINVAL;
 
-        for (t = 0; t < _WINDOW_MAX; t++)
-                if (f->windows[t].ptr)
-                        munmap(f->windows[t].ptr, f->windows[t].size);
+        switch(f->header->state) {
+                case STATE_ONLINE:
+                        return 0;
+
+                case STATE_OFFLINE:
+                        f->header->state = STATE_ONLINE;
+                        fsync(f->fd);
+                        return 0;
+
+                default:
+                        return -EINVAL;
+        }
+}
+
+int journal_file_set_offline(JournalFile *f) {
+        assert(f);
+
+        if (!f->writable)
+                return -EPERM;
+
+        if (!(f->fd >= 0 && f->header))
+                return -EINVAL;
+
+        if (f->header->state != STATE_ONLINE)
+                return 0;
+
+        fsync(f->fd);
+
+        f->header->state = STATE_OFFLINE;
+
+        fsync(f->fd);
+
+        return 0;
+}
+
+void journal_file_close(JournalFile *f) {
+        assert(f);
+
+#ifdef HAVE_GCRYPT
+        /* Write the final tag */
+        if (f->seal && f->writable)
+                journal_file_append_tag(f);
+#endif
+
+        /* Sync everything to disk, before we mark the file offline */
+        if (f->mmap && f->fd >= 0)
+                mmap_cache_close_fd(f->mmap, f->fd);
+
+        journal_file_set_offline(f);
+
+        if (f->header)
+                munmap(f->header, PAGE_ALIGN(sizeof(Header)));
 
         if (f->fd >= 0)
                 close_nointr_nofail(f->fd);
 
         free(f->path);
 
+        if (f->mmap)
+                mmap_cache_unref(f->mmap);
+
+        hashmap_free_free(f->chain_cache);
+
 #ifdef HAVE_XZ
         free(f->compress_buffer);
+#endif
+
+#ifdef HAVE_GCRYPT
+        if (f->fss_file)
+                munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
+        else if (f->fsprg_state)
+                free(f->fsprg_state);
+
+        free(f->fsprg_seed);
+
+        if (f->hmac)
+                gcry_md_close(f->hmac);
 #endif
 
         free(f);
@@ -95,8 +167,14 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         assert(f);
 
         zero(h);
-        memcpy(h.signature, signature, 8);
-        h.arena_offset = htole64(ALIGN64(sizeof(h)));
+        memcpy(h.signature, HEADER_SIGNATURE, 8);
+        h.header_size = htole64(ALIGN64(sizeof(h)));
+
+        h.incompatible_flags =
+                htole32(f->compress ? HEADER_INCOMPATIBLE_COMPRESSED : 0);
+
+        h.compatible_flags =
+                htole32(f->seal ? HEADER_COMPATIBLE_SEALED : 0);
 
         r = sd_id128_randomize(&h.file_id);
         if (r < 0)
@@ -104,7 +182,7 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         if (template) {
                 h.seqnum_id = template->header->seqnum_id;
-                h.seqnum = template->header->seqnum;
+                h.tail_entry_seqnum = template->header->tail_entry_seqnum;
         } else
                 h.seqnum_id = h.file_id;
 
@@ -137,9 +215,11 @@ static int journal_file_refresh_header(JournalFile *f) {
 
         f->header->boot_id = boot_id;
 
-        f->header->state = STATE_ONLINE;
+        journal_file_set_online(f);
 
-        __sync_synchronize();
+        /* Sync the online state to disk */
+        msync(f->header, PAGE_ALIGN(sizeof(Header)), MS_SYNC);
+        fdatasync(f->fd);
 
         return 0;
 }
@@ -147,18 +227,57 @@ static int journal_file_refresh_header(JournalFile *f) {
 static int journal_file_verify_header(JournalFile *f) {
         assert(f);
 
-        if (memcmp(f->header, signature, 8))
+        if (memcmp(f->header->signature, HEADER_SIGNATURE, 8))
                 return -EBADMSG;
 
+        /* In both read and write mode we refuse to open files with
+         * incompatible flags we don't know */
 #ifdef HAVE_XZ
-        if ((le64toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) != 0)
+        if ((le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) != 0)
                 return -EPROTONOSUPPORT;
 #else
         if (f->header->incompatible_flags != 0)
                 return -EPROTONOSUPPORT;
 #endif
 
-        if ((uint64_t) f->last_stat.st_size < (le64toh(f->header->arena_offset) + le64toh(f->header->arena_size)))
+        /* When open for writing we refuse to open files with
+         * compatible flags, too */
+        if (f->writable) {
+#ifdef HAVE_GCRYPT
+                if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) != 0)
+                        return -EPROTONOSUPPORT;
+#else
+                if (f->header->compatible_flags != 0)
+                        return -EPROTONOSUPPORT;
+#endif
+        }
+
+        if (f->header->state >= _STATE_MAX)
+                return -EBADMSG;
+
+        /* The first addition was n_data, so check that we are at least this large */
+        if (le64toh(f->header->header_size) < HEADER_SIZE_MIN)
+                return -EBADMSG;
+
+        if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+                return -EBADMSG;
+
+        if ((le64toh(f->header->header_size) + le64toh(f->header->arena_size)) > (uint64_t) f->last_stat.st_size)
+                return -ENODATA;
+
+        if (le64toh(f->header->tail_object_offset) > (le64toh(f->header->header_size) + le64toh(f->header->arena_size)))
+                return -ENODATA;
+
+        if (!VALID64(le64toh(f->header->data_hash_table_offset)) ||
+            !VALID64(le64toh(f->header->field_hash_table_offset)) ||
+            !VALID64(le64toh(f->header->tail_object_offset)) ||
+            !VALID64(le64toh(f->header->entry_array_offset)))
+                return -ENODATA;
+
+        if (le64toh(f->header->data_hash_table_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->field_hash_table_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->tail_object_offset) < le64toh(f->header->header_size) ||
+            le64toh(f->header->entry_array_offset) < le64toh(f->header->header_size))
                 return -ENODATA;
 
         if (f->writable) {
@@ -175,19 +294,27 @@ static int journal_file_verify_header(JournalFile *f) {
 
                 state = f->header->state;
 
-                if (state == STATE_ONLINE)
-                        log_debug("Journal file %s is already online. Assuming unclean closing. Ignoring.", f->path);
-                else if (state == STATE_ARCHIVED)
+                if (state == STATE_ONLINE) {
+                        log_debug("Journal file %s is already online. Assuming unclean closing.", f->path);
+                        return -EBUSY;
+                } else if (state == STATE_ARCHIVED)
                         return -ESHUTDOWN;
-                else if (state != STATE_OFFLINE)
-                        log_debug("Journal file %s has unknown state %u. Ignoring.", f->path, state);
+                else if (state != STATE_OFFLINE) {
+                        log_debug("Journal file %s has unknown state %u.", f->path, state);
+                        return -EBUSY;
+                }
         }
+
+        f->compress = JOURNAL_HEADER_COMPRESSED(f->header);
+
+        f->seal = JOURNAL_HEADER_SEALED(f->header);
 
         return 0;
 }
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
         uint64_t old_size, new_size;
+        int r;
 
         assert(f);
 
@@ -196,12 +323,12 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
          * ourselves */
 
         old_size =
-                le64toh(f->header->arena_offset) +
+                le64toh(f->header->header_size) +
                 le64toh(f->header->arena_size);
 
         new_size = PAGE_ALIGN(offset + size);
-        if (new_size < le64toh(f->header->arena_offset))
-                new_size = le64toh(f->header->arena_offset);
+        if (new_size < le64toh(f->header->header_size))
+                new_size = le64toh(f->header->header_size);
 
         if (new_size <= old_size)
                 return 0;
@@ -232,70 +359,26 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
            as we can. */
-        if (posix_fallocate(f->fd, old_size, new_size - old_size) < 0)
-                return -errno;
+        r = posix_fallocate(f->fd, old_size, new_size - old_size);
+        if (r != 0)
+                return -r;
 
         if (fstat(f->fd, &f->last_stat) < 0)
                 return -errno;
 
-        f->header->arena_size = htole64(new_size - le64toh(f->header->arena_offset));
+        f->header->arena_size = htole64(new_size - le64toh(f->header->header_size));
 
         return 0;
 }
 
-static int journal_file_map(
-                JournalFile *f,
-                uint64_t offset,
-                uint64_t size,
-                void **_window,
-                uint64_t *_woffset,
-                uint64_t *_wsize,
-                void **ret) {
-
-        uint64_t woffset, wsize;
-        void *window;
-
+static int journal_file_move_to(JournalFile *f, int context, bool keep_always, uint64_t offset, uint64_t size, void **ret) {
         assert(f);
-        assert(size > 0);
         assert(ret);
 
-        woffset = offset & ~((uint64_t) page_size() - 1ULL);
-        wsize = size + (offset - woffset);
-        wsize = PAGE_ALIGN(wsize);
+        if (size <= 0)
+                return -EINVAL;
 
         /* Avoid SIGBUS on invalid accesses */
-        if (woffset + wsize > (uint64_t) PAGE_ALIGN(f->last_stat.st_size))
-                return -EADDRNOTAVAIL;
-
-        window = mmap(NULL, wsize, f->prot, MAP_SHARED, f->fd, woffset);
-        if (window == MAP_FAILED)
-                return -errno;
-
-        if (_window)
-                *_window = window;
-
-        if (_woffset)
-                *_woffset = woffset;
-
-        if (_wsize)
-                *_wsize = wsize;
-
-        *ret = (uint8_t*) window + (offset - woffset);
-
-        return 0;
-}
-
-static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_t size, void **ret) {
-        void *p = NULL;
-        uint64_t delta;
-        int r;
-        Window *w;
-
-        assert(f);
-        assert(ret);
-        assert(wt >= 0);
-        assert(wt < _WINDOW_MAX);
-
         if (offset + size > (uint64_t) f->last_stat.st_size) {
                 /* Hmm, out of range? Let's refresh the fstat() data
                  * first, before we trust that check. */
@@ -305,74 +388,25 @@ static int journal_file_move_to(JournalFile *f, int wt, uint64_t offset, uint64_
                         return -EADDRNOTAVAIL;
         }
 
-        w = f->windows + wt;
-
-        if (_likely_(w->ptr &&
-                     w->offset <= offset &&
-                     w->offset + w->size >= offset + size)) {
-
-                *ret = (uint8_t*) w->ptr + (offset - w->offset);
-                return 0;
-        }
-
-        if (w->ptr) {
-                if (munmap(w->ptr, w->size) < 0)
-                        return -errno;
-
-                w->ptr = NULL;
-                w->size = w->offset = 0;
-        }
-
-        if (size < DEFAULT_WINDOW_SIZE) {
-                /* If the default window size is larger then what was
-                 * asked for extend the mapping a bit in the hope to
-                 * minimize needed remappings later on. We add half
-                 * the window space before and half behind the
-                 * requested mapping */
-
-                delta = (DEFAULT_WINDOW_SIZE - size) / 2;
-
-                if (delta > offset)
-                        delta = offset;
-
-                offset -= delta;
-                size = DEFAULT_WINDOW_SIZE;
-        } else
-                delta = 0;
-
-        if (offset + size > (uint64_t) f->last_stat.st_size)
-                size = (uint64_t) f->last_stat.st_size - offset;
-
-        if (size <= 0)
-                return -EADDRNOTAVAIL;
-
-        r = journal_file_map(f,
-                             offset, size,
-                             &w->ptr, &w->offset, &w->size,
-                             &p);
-
-        if (r < 0)
-                return r;
-
-        *ret = (uint8_t*) p + delta;
-        return 0;
+        return mmap_cache_get(f->mmap, f->fd, f->prot, context, keep_always, offset, size, &f->last_stat, ret);
 }
 
-static bool verify_hash(Object *o) {
-        uint64_t h1, h2;
+static uint64_t minimum_header_size(Object *o) {
 
-        assert(o);
+        static uint64_t table[] = {
+                [OBJECT_DATA] = sizeof(DataObject),
+                [OBJECT_FIELD] = sizeof(FieldObject),
+                [OBJECT_ENTRY] = sizeof(EntryObject),
+                [OBJECT_DATA_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_FIELD_HASH_TABLE] = sizeof(HashTableObject),
+                [OBJECT_ENTRY_ARRAY] = sizeof(EntryArrayObject),
+                [OBJECT_TAG] = sizeof(TagObject),
+        };
 
-        if (o->object.type == OBJECT_DATA && !(o->object.flags & OBJECT_COMPRESSED)) {
-                h1 = le64toh(o->data.hash);
-                h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
-        } else if (o->object.type == OBJECT_FIELD) {
-                h1 = le64toh(o->field.hash);
-                h2 = hash64(o->field.payload, le64toh(o->object.size) - offsetof(Object, field.payload));
-        } else
-                return true;
+        if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
+                return sizeof(ObjectHeader);
 
-        return h1 == h2;
+        return table[o->object.type];
 }
 
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret) {
@@ -380,12 +414,19 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         void *t;
         Object *o;
         uint64_t s;
+        unsigned context;
 
         assert(f);
         assert(ret);
-        assert(type < _OBJECT_TYPE_MAX);
 
-        r = journal_file_move_to(f, type >= 0 ? type : WINDOW_UNKNOWN, offset, sizeof(ObjectHeader), &t);
+        /* Objects may only be located at multiple of 64 bit */
+        if (!VALID64(offset))
+                return -EFAULT;
+
+        /* One context for each type, plus one catch-all for the rest */
+        context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
+
+        r = journal_file_move_to(f, context, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
@@ -395,30 +436,33 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (s < sizeof(ObjectHeader))
                 return -EBADMSG;
 
-        if (type >= 0 && o->object.type != type)
+        if (o->object.type <= OBJECT_UNUSED)
+                return -EBADMSG;
+
+        if (s < minimum_header_size(o))
+                return -EBADMSG;
+
+        if (type > 0 && o->object.type != type)
                 return -EBADMSG;
 
         if (s > sizeof(ObjectHeader)) {
-                r = journal_file_move_to(f, o->object.type, offset, s, &t);
+                r = journal_file_move_to(f, o->object.type, false, offset, s, &t);
                 if (r < 0)
                         return r;
 
                 o = (Object*) t;
         }
 
-        if (!verify_hash(o))
-                return -EBADMSG;
-
         *ret = o;
         return 0;
 }
 
-static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
+static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         uint64_t r;
 
         assert(f);
 
-        r = le64toh(f->header->seqnum) + 1;
+        r = le64toh(f->header->tail_entry_seqnum) + 1;
 
         if (seqnum) {
                 /* If an external seqnum counter was passed, we update
@@ -431,28 +475,33 @@ static uint64_t journal_file_seqnum(JournalFile *f, uint64_t *seqnum) {
                 *seqnum = r;
         }
 
-        f->header->seqnum = htole64(r);
+        f->header->tail_entry_seqnum = htole64(r);
 
-        if (f->header->first_seqnum == 0)
-                f->header->first_seqnum = htole64(r);
+        if (f->header->head_entry_seqnum == 0)
+                f->header->head_entry_seqnum = htole64(r);
 
         return r;
 }
 
-static int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset) {
+int journal_file_append_object(JournalFile *f, int type, uint64_t size, Object **ret, uint64_t *offset) {
         int r;
         uint64_t p;
         Object *tail, *o;
         void *t;
 
         assert(f);
+        assert(type > 0 && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
         assert(offset);
         assert(ret);
 
+        r = journal_file_set_online(f);
+        if (r < 0)
+                return r;
+
         p = le64toh(f->header->tail_object_offset);
         if (p == 0)
-                p = le64toh(f->header->arena_offset);
+                p = le64toh(f->header->header_size);
         else {
                 r = journal_file_move_to_object(f, -1, p, &tail);
                 if (r < 0)
@@ -465,7 +514,7 @@ static int journal_file_append_object(JournalFile *f, int type, uint64_t size, O
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, p, size, &t);
+        r = journal_file_move_to(f, type, false, p, size, &t);
         if (r < 0)
                 return r;
 
@@ -491,7 +540,17 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
 
         assert(f);
 
-        s = DEFAULT_DATA_HASH_TABLE_SIZE;
+        /* We estimate that we need 1 hash table entry per 768 of
+           journal file and we want to make sure we never get beyond
+           75% fill level. Calculate the hash table size for the
+           maximum file size based on these metrics. */
+
+        s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
+        if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
+                s = DEFAULT_DATA_HASH_TABLE_SIZE;
+
+        log_debug("Reserving %llu entries in hash table.", (unsigned long long) (s / sizeof(HashItem)));
+
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s,
@@ -513,6 +572,9 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         int r;
 
         assert(f);
+
+        /* We use a fixed size hash table for the fields as this
+         * number should grow very slowly only */
 
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
         r = journal_file_append_object(f,
@@ -541,7 +603,8 @@ static int journal_file_map_data_hash_table(JournalFile *f) {
         s = le64toh(f->header->data_hash_table_size);
 
         r = journal_file_move_to(f,
-                                 WINDOW_DATA_HASH_TABLE,
+                                 OBJECT_DATA_HASH_TABLE,
+                                 true,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -562,7 +625,8 @@ static int journal_file_map_field_hash_table(JournalFile *f) {
         s = le64toh(f->header->field_hash_table_size);
 
         r = journal_file_move_to(f,
-                                 WINDOW_FIELD_HASH_TABLE,
+                                 OBJECT_FIELD_HASH_TABLE,
+                                 true,
                                  p, s,
                                  &t);
         if (r < 0)
@@ -572,14 +636,61 @@ static int journal_file_map_field_hash_table(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, uint64_t hash) {
+static int journal_file_link_field(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t hash) {
+
         uint64_t p, h;
         int r;
 
         assert(f);
         assert(o);
         assert(offset > 0);
-        assert(o->object.type == OBJECT_DATA);
+
+        if (o->object.type != OBJECT_FIELD)
+                return -EINVAL;
+
+        /* This might alter the window we are looking at */
+
+        o->field.next_hash_offset = o->field.head_data_offset = 0;
+
+        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        p = le64toh(f->field_hash_table[h].tail_hash_offset);
+        if (p == 0)
+                f->field_hash_table[h].head_hash_offset = htole64(offset);
+        else {
+                r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (r < 0)
+                        return r;
+
+                o->field.next_hash_offset = htole64(offset);
+        }
+
+        f->field_hash_table[h].tail_hash_offset = htole64(offset);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                f->header->n_fields = htole64(le64toh(f->header->n_fields) + 1);
+
+        return 0;
+}
+
+static int journal_file_link_data(
+                JournalFile *f,
+                Object *o,
+                uint64_t offset,
+                uint64_t hash) {
+
+        uint64_t p, h;
+        int r;
+
+        assert(f);
+        assert(o);
+        assert(offset > 0);
+
+        if (o->object.type != OBJECT_DATA)
+                return -EINVAL;
 
         /* This might alter the window we are looking at */
 
@@ -588,11 +699,11 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
         o->data.n_entries = 0;
 
         h = hash % (le64toh(f->header->data_hash_table_size) / sizeof(HashItem));
-        p = le64toh(f->data_hash_table[h].head_hash_offset);
-        if (p == 0) {
+        p = le64toh(f->data_hash_table[h].tail_hash_offset);
+        if (p == 0)
                 /* Only entry in the hash table is easy */
                 f->data_hash_table[h].head_hash_offset = htole64(offset);
-        } else {
+        else {
                 /* Move back to the previous data object, to patch in
                  * pointer */
 
@@ -605,7 +716,71 @@ static int journal_file_link_data(JournalFile *f, Object *o, uint64_t offset, ui
 
         f->data_hash_table[h].tail_hash_offset = htole64(offset);
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                f->header->n_data = htole64(le64toh(f->header->n_data) + 1);
+
         return 0;
+}
+
+int journal_file_find_field_object_with_hash(
+                JournalFile *f,
+                const void *field, uint64_t size, uint64_t hash,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t p, osize, h;
+        int r;
+
+        assert(f);
+        assert(field && size > 0);
+
+        osize = offsetof(Object, field.payload) + size;
+
+        if (f->header->field_hash_table_size == 0)
+                return -EBADMSG;
+
+        h = hash % (le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
+        p = le64toh(f->field_hash_table[h].head_hash_offset);
+
+        while (p > 0) {
+                Object *o;
+
+                r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+                if (r < 0)
+                        return r;
+
+                if (le64toh(o->field.hash) == hash &&
+                    le64toh(o->object.size) == osize &&
+                    memcmp(o->field.payload, field, size) == 0) {
+
+                        if (ret)
+                                *ret = o;
+                        if (offset)
+                                *offset = p;
+
+                        return 1;
+                }
+
+                p = le64toh(o->field.next_hash_offset);
+        }
+
+        return 0;
+}
+
+int journal_file_find_field_object(
+                JournalFile *f,
+                const void *field, uint64_t size,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t hash;
+
+        assert(f);
+        assert(field && size > 0);
+
+        hash = hash64(field, size);
+
+        return journal_file_find_field_object_with_hash(f,
+                                                        field, size, hash,
+                                                        ret, offset);
 }
 
 int journal_file_find_data_object_with_hash(
@@ -647,7 +822,7 @@ int journal_file_find_data_object_with_hash(
 
                         l -= offsetof(Object, data.payload);
 
-                        if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize))
+                        if (!uncompress_blob(o->data.payload, l, &f->compress_buffer, &f->compress_buffer_size, &rsize, 0))
                                 return -EBADMSG;
 
                         if (rsize == size &&
@@ -701,6 +876,66 @@ int journal_file_find_data_object(
                                                        ret, offset);
 }
 
+static int journal_file_append_field(
+                JournalFile *f,
+                const void *field, uint64_t size,
+                Object **ret, uint64_t *offset) {
+
+        uint64_t hash, p;
+        uint64_t osize;
+        Object *o;
+        int r;
+
+        assert(f);
+        assert(field && size > 0);
+
+        hash = hash64(field, size);
+
+        r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
+        if (r < 0)
+                return r;
+        else if (r > 0) {
+
+                if (ret)
+                        *ret = o;
+
+                if (offset)
+                        *offset = p;
+
+                return 0;
+        }
+
+        osize = offsetof(Object, field.payload) + size;
+        r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
+
+        o->field.hash = htole64(hash);
+        memcpy(o->field.payload, field, size);
+
+        r = journal_file_link_field(f, o, p, hash);
+        if (r < 0)
+                return r;
+
+        /* The linking might have altered the window, so let's
+         * refresh our pointer */
+        r = journal_file_move_to_object(f, OBJECT_FIELD, p, &o);
+        if (r < 0)
+                return r;
+
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_FIELD, o, p);
+        if (r < 0)
+                return r;
+#endif
+
+        if (ret)
+                *ret = o;
+
+        if (offset)
+                *offset = p;
+
+        return 0;
+}
+
 static int journal_file_append_data(
                 JournalFile *f,
                 const void *data, uint64_t size,
@@ -711,6 +946,7 @@ static int journal_file_append_data(
         Object *o;
         int r;
         bool compressed = false;
+        const void *eq;
 
         assert(f);
         assert(data || size == 0);
@@ -749,14 +985,12 @@ static int journal_file_append_data(
                         o->object.size = htole64(offsetof(Object, data.payload) + rsize);
                         o->object.flags |= OBJECT_COMPRESSED;
 
-                        f->header->incompatible_flags = htole32(le32toh(f->header->incompatible_flags) | HEADER_INCOMPATIBLE_COMPRESSED);
-
                         log_debug("Compressed data object %lu -> %lu", (unsigned long) size, (unsigned long) rsize);
                 }
         }
 #endif
 
-        if (!compressed)
+        if (!compressed && size > 0)
                 memcpy(o->data.payload, data, size);
 
         r = journal_file_link_data(f, o, p, hash);
@@ -769,6 +1003,27 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
+        eq = memchr(data, '=', size);
+        if (eq && eq > data) {
+                uint64_t fp;
+                Object *fo;
+
+                /* Create field object ... */
+                r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
+                if (r < 0)
+                        return r;
+
+                /* ... and link it in. */
+                o->data.next_field_offset = fo->field.head_data_offset;
+                fo->field.head_data_offset = le64toh(p);
+        }
+
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_DATA, o, p);
+        if (r < 0)
+                return r;
+#endif
+
         if (ret)
                 *ret = o;
 
@@ -780,21 +1035,35 @@ static int journal_file_append_data(
 
 uint64_t journal_file_entry_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == OBJECT_ENTRY);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, entry.items)) / sizeof(EntryItem);
 }
 
-static uint64_t journal_file_entry_array_n_items(Object *o) {
+uint64_t journal_file_entry_array_n_items(Object *o) {
         assert(o);
-        assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+        if (o->object.type != OBJECT_ENTRY_ARRAY)
+                return 0;
 
         return (le64toh(o->object.size) - offsetof(Object, entry_array.items)) / sizeof(uint64_t);
 }
 
+uint64_t journal_file_hash_table_n_items(Object *o) {
+        assert(o);
+
+        if (o->object.type != OBJECT_DATA_HASH_TABLE &&
+            o->object.type != OBJECT_FIELD_HASH_TABLE)
+                return 0;
+
+        return (le64toh(o->object.size) - offsetof(Object, hash_table.items)) / sizeof(HashItem);
+}
+
 static int link_entry_into_array(JournalFile *f,
-                                 uint64_t *first,
-                                 uint64_t *idx,
+                                 le64_t *first,
+                                 le64_t *idx,
                                  uint64_t p) {
         int r;
         uint64_t n = 0, ap = 0, q, i, a, hidx;
@@ -839,6 +1108,12 @@ static int link_entry_into_array(JournalFile *f,
         if (r < 0)
                 return r;
 
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY_ARRAY, o, q);
+        if (r < 0)
+                return r;
+#endif
+
         o->entry_array.items[i] = htole64(p);
 
         if (ap == 0)
@@ -851,15 +1126,18 @@ static int link_entry_into_array(JournalFile *f,
                 o->entry_array.next_entry_array_offset = htole64(q);
         }
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+                f->header->n_entry_arrays = htole64(le64toh(f->header->n_entry_arrays) + 1);
+
         *idx = htole64(hidx + 1);
 
         return 0;
 }
 
 static int link_entry_into_array_plus_one(JournalFile *f,
-                                          uint64_t *extra,
-                                          uint64_t *first,
-                                          uint64_t *idx,
+                                          le64_t *extra,
+                                          le64_t *first,
+                                          le64_t *idx,
                                           uint64_t p) {
 
         int r;
@@ -873,7 +1151,7 @@ static int link_entry_into_array_plus_one(JournalFile *f,
         if (*idx == 0)
                 *extra = htole64(p);
         else {
-                uint64_t i;
+                le64_t i;
 
                 i = htole64(le64toh(*idx) - 1);
                 r = link_entry_into_array(f, first, &i, p);
@@ -914,7 +1192,9 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
         assert(f);
         assert(o);
         assert(offset > 0);
-        assert(o->object.type == OBJECT_ENTRY);
+
+        if (o->object.type != OBJECT_ENTRY)
+                return -EINVAL;
 
         __sync_synchronize();
 
@@ -969,12 +1249,18 @@ static int journal_file_append_entry_internal(
         if (r < 0)
                 return r;
 
-        o->entry.seqnum = htole64(journal_file_seqnum(f, seqnum));
+        o->entry.seqnum = htole64(journal_file_entry_seqnum(f, seqnum));
         memcpy(o->entry.items, items, n_items * sizeof(EntryItem));
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->boot_id;
+
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
+        if (r < 0)
+                return r;
+#endif
 
         r = journal_file_link_entry(f, o, np);
         if (r < 0)
@@ -1000,7 +1286,17 @@ void journal_file_post_change(JournalFile *f) {
         __sync_synchronize();
 
         if (ftruncate(f->fd, f->last_stat.st_size) < 0)
-                log_error("Failed to to truncate file to its own size: %m");
+                log_error("Failed to truncate file to its own size: %m");
+}
+
+static int entry_item_cmp(const void *_a, const void *_b) {
+        const EntryItem *a = _a, *b = _b;
+
+        if (le64toh(a->object_offset) < le64toh(b->object_offset))
+                return -1;
+        if (le64toh(a->object_offset) > le64toh(b->object_offset))
+                return 1;
+        return 0;
 }
 
 int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
@@ -1013,9 +1309,6 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         assert(f);
         assert(iovec || n_iovec == 0);
 
-        if (!f->writable)
-                return -EPERM;
-
         if (!ts) {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
@@ -1025,7 +1318,14 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
             ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                 return -EINVAL;
 
-        items = alloca(sizeof(EntryItem) * n_iovec);
+#ifdef HAVE_GCRYPT
+        r = journal_file_maybe_append_tag(f, ts->realtime);
+        if (r < 0)
+                return r;
+#endif
+
+        /* alloca() can't take 0, hence let's allocate at least one */
+        items = alloca(sizeof(EntryItem) * MAX(1u, n_iovec));
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -1040,11 +1340,58 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
                 items[i].hash = o->data.hash;
         }
 
+        /* Order by the position on disk, in order to improve seek
+         * times for rotating media. */
+        qsort(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 
         journal_file_post_change(f);
 
         return r;
+}
+
+typedef struct ChainCacheItem {
+        uint64_t first; /* the array at the begin of the chain */
+        uint64_t array; /* the cached array */
+        uint64_t begin; /* the first item in the cached array */
+        uint64_t total; /* the total number of items in all arrays before this one in the chain */
+} ChainCacheItem;
+
+static void chain_cache_put(
+                Hashmap *h,
+                ChainCacheItem *ci,
+                uint64_t first,
+                uint64_t array,
+                uint64_t begin,
+                uint64_t total) {
+
+        if (!ci) {
+                /* If the chain item to cache for this chain is the
+                 * first one it's not worth caching anything */
+                if (array == first)
+                        return;
+
+                if (hashmap_size(h) >= CHAIN_CACHE_MAX)
+                        ci = hashmap_steal_first(h);
+                else {
+                        ci = new(ChainCacheItem, 1);
+                        if (!ci)
+                                return;
+                }
+
+                ci->first = first;
+
+                if (hashmap_put(h, &ci->first, ci) < 0) {
+                        free(ci);
+                        return;
+                }
+        } else
+                assert(ci->first == first);
+
+        ci->array = array;
+        ci->begin = begin;
+        ci->total = total;
 }
 
 static int generic_array_get(JournalFile *f,
@@ -1053,31 +1400,45 @@ static int generic_array_get(JournalFile *f,
                              Object **ret, uint64_t *offset) {
 
         Object *o;
-        uint64_t p = 0, a;
+        uint64_t p = 0, a, t = 0;
         int r;
+        ChainCacheItem *ci;
 
         assert(f);
 
         a = first;
+
+        /* Try the chain cache first */
+        ci = hashmap_get(f->chain_cache, &first);
+        if (ci && i > ci->total) {
+                a = ci->array;
+                i -= ci->total;
+                t = ci->total;
+        }
+
         while (a > 0) {
-                uint64_t n;
+                uint64_t k;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
                 if (r < 0)
                         return r;
 
-                n = journal_file_entry_array_n_items(o);
-                if (i < n) {
+                k = journal_file_entry_array_n_items(o);
+                if (i < k) {
                         p = le64toh(o->entry_array.items[i]);
-                        break;
+                        goto found;
                 }
 
-                i -= n;
+                i -= k;
+                t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
         }
 
-        if (a <= 0 || p <= 0)
-                return 0;
+        return 0;
+
+found:
+        /* Let's cache this item for the next invocation */
+        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -1141,11 +1502,38 @@ static int generic_array_bisect(JournalFile *f,
         bool subtract_one = false;
         Object *o, *array = NULL;
         int r;
+        ChainCacheItem *ci;
 
         assert(f);
         assert(test_object);
 
+        /* Start with the first array in the chain */
         a = first;
+
+        ci = hashmap_get(f->chain_cache, &first);
+        if (ci && n > ci->total) {
+                /* Ah, we have iterated this bisection array chain
+                 * previously! Let's see if we can skip ahead in the
+                 * chain, as far as the last time. But we can't jump
+                 * backwards in the chain, so let's check that
+                 * first. */
+
+                r = test_object(f, ci->begin, needle);
+                if (r < 0)
+                        return r;
+
+                if (r == TEST_LEFT) {
+                        /* OK, what we are looking for is right of th
+                         * begin of this EntryArray, so let's jump
+                         * straight to previously cached array in the
+                         * chain */
+
+                        a = ci->array;
+                        n -= ci->total;
+                        t = ci->total;
+                }
+        }
+
         while (a > 0) {
                 uint64_t left, right, k, lp;
 
@@ -1203,8 +1591,15 @@ static int generic_array_bisect(JournalFile *f,
                         }
                 }
 
-                if (k > n)
+                if (k > n) {
+                        if (direction == DIRECTION_UP) {
+                                i = n;
+                                subtract_one = true;
+                                goto found;
+                        }
+
                         return 0;
+                }
 
                 last_p = lp;
 
@@ -1218,6 +1613,9 @@ static int generic_array_bisect(JournalFile *f,
 found:
         if (subtract_one && t == 0 && i == 0)
                 return 0;
+
+        /* Let's cache this item for the next invocation */
+        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t);
 
         if (subtract_one && i == 0)
                 p = last_p;
@@ -1237,7 +1635,7 @@ found:
                 *offset = p;
 
         if (idx)
-                *idx = t + i - (subtract_one ? 1 : 0);
+                *idx = t + i + (subtract_one ? -1 : 0);
 
         return 1;
 }
@@ -1254,6 +1652,8 @@ static int generic_array_bisect_plus_one(JournalFile *f,
                                          uint64_t *idx) {
 
         int r;
+        bool step_back = false;
+        Object *o;
 
         assert(f);
         assert(test_object);
@@ -1266,33 +1666,80 @@ static int generic_array_bisect_plus_one(JournalFile *f,
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
-        else if (r == TEST_FOUND) {
-                Object *o;
 
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
-                if (r < 0)
-                        return r;
+        if (r == TEST_FOUND)
+                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
 
-                if (ret)
-                        *ret = o;
+        /* if we are looking with DIRECTION_UP then we need to first
+           see if in the actual array there is a matching entry, and
+           return the last one of that. But if there isn't any we need
+           to return this one. Hence remember this, and return it
+           below. */
+        if (r == TEST_LEFT)
+                step_back = direction == DIRECTION_UP;
 
-                if (offset)
-                        *offset = extra;
-
-                if (idx)
-                        *idx = 0;
-
-                return 1;
-        } else if (r == TEST_RIGHT)
-                return 0;
+        if (r == TEST_RIGHT) {
+                if (direction == DIRECTION_DOWN)
+                        goto found;
+                else
+                        return 0;
+        }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, offset, idx);
 
-        if (r > 0)
+        if (r == 0 && step_back)
+                goto found;
+
+        if (r > 0 && idx)
                 (*idx) ++;
 
         return r;
+
+found:
+        r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, &o);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = o;
+
+        if (offset)
+                *offset = extra;
+
+        if (idx)
+                *idx = 0;
+
+        return 1;
 }
+
+_pure_ static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
+        assert(f);
+        assert(p > 0);
+
+        if (p == needle)
+                return TEST_FOUND;
+        else if (p < needle)
+                return TEST_LEFT;
+        else
+                return TEST_RIGHT;
+}
+
+int journal_file_move_to_entry_by_offset(
+                JournalFile *f,
+                uint64_t p,
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset) {
+
+        return generic_array_bisect(f,
+                                    le64toh(f->header->entry_array_offset),
+                                    le64toh(f->header->n_entries),
+                                    p,
+                                    test_object_offset,
+                                    direction,
+                                    ret, offset, NULL);
+}
+
 
 static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         Object *o;
@@ -1383,6 +1830,17 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
                 return TEST_RIGHT;
 }
 
+static inline int find_data_object_by_boot_id(
+                JournalFile *f,
+                sd_id128_t boot_id,
+                Object **o,
+                uint64_t *b) {
+        char t[sizeof("_BOOT_ID=")-1 + 32 + 1] = "_BOOT_ID=";
+
+        sd_id128_to_string(boot_id, t + 9);
+        return journal_file_find_data_object(f, t, sizeof(t) - 1, o, b);
+}
+
 int journal_file_move_to_entry_by_monotonic(
                 JournalFile *f,
                 sd_id128_t boot_id,
@@ -1391,16 +1849,15 @@ int journal_file_move_to_entry_by_monotonic(
                 Object **ret,
                 uint64_t *offset) {
 
-        char t[8+32+1] = "_BOOT_ID=";
         Object *o;
         int r;
 
-        sd_id128_to_string(boot_id, t + 8);
+        assert(f);
 
-        r = journal_file_find_data_object(f, t, strlen(t), &o, NULL);
+        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
         if (r < 0)
                 return r;
-        else if (r == 0)
+        if (r == 0)
                 return -ENOENT;
 
         return generic_array_bisect_plus_one(f,
@@ -1411,18 +1868,6 @@ int journal_file_move_to_entry_by_monotonic(
                                              test_object_monotonic,
                                              direction,
                                              ret, offset, NULL);
-}
-
-static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
-        assert(f);
-        assert(p > 0);
-
-        if (p == needle)
-                return TEST_FOUND;
-        else if (p < needle)
-                return TEST_LEFT;
-        else
-                return TEST_RIGHT;
 }
 
 int journal_file_next_entry(
@@ -1589,6 +2034,117 @@ int journal_file_next_entry_for_data(
                                           ret, offset);
 }
 
+int journal_file_move_to_entry_by_offset_for_data(
+                JournalFile *f,
+                uint64_t data_offset,
+                uint64_t p,
+                direction_t direction,
+                Object **ret, uint64_t *offset) {
+
+        int r;
+        Object *d;
+
+        assert(f);
+
+        r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
+        if (r < 0)
+                return r;
+
+        return generic_array_bisect_plus_one(f,
+                                             le64toh(d->data.entry_offset),
+                                             le64toh(d->data.entry_array_offset),
+                                             le64toh(d->data.n_entries),
+                                             p,
+                                             test_object_offset,
+                                             direction,
+                                             ret, offset, NULL);
+}
+
+int journal_file_move_to_entry_by_monotonic_for_data(
+                JournalFile *f,
+                uint64_t data_offset,
+                sd_id128_t boot_id,
+                uint64_t monotonic,
+                direction_t direction,
+                Object **ret, uint64_t *offset) {
+
+        Object *o, *d;
+        int r;
+        uint64_t b, z;
+
+        assert(f);
+
+        /* First, seek by time */
+        r = find_data_object_by_boot_id(f, boot_id, &o, &b);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        r = generic_array_bisect_plus_one(f,
+                                          le64toh(o->data.entry_offset),
+                                          le64toh(o->data.entry_array_offset),
+                                          le64toh(o->data.n_entries),
+                                          monotonic,
+                                          test_object_monotonic,
+                                          direction,
+                                          NULL, &z, NULL);
+        if (r <= 0)
+                return r;
+
+        /* And now, continue seeking until we find an entry that
+         * exists in both bisection arrays */
+
+        for (;;) {
+                Object *qo;
+                uint64_t p, q;
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_bisect_plus_one(f,
+                                                  le64toh(d->data.entry_offset),
+                                                  le64toh(d->data.entry_array_offset),
+                                                  le64toh(d->data.n_entries),
+                                                  z,
+                                                  test_object_offset,
+                                                  direction,
+                                                  NULL, &p, NULL);
+                if (r <= 0)
+                        return r;
+
+                r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_bisect_plus_one(f,
+                                                  le64toh(o->data.entry_offset),
+                                                  le64toh(o->data.entry_array_offset),
+                                                  le64toh(o->data.n_entries),
+                                                  p,
+                                                  test_object_offset,
+                                                  direction,
+                                                  &qo, &q, NULL);
+
+                if (r <= 0)
+                        return r;
+
+                if (p == q) {
+                        if (ret)
+                                *ret = qo;
+                        if (offset)
+                                *offset = q;
+
+                        return 1;
+                }
+
+                z = q;
+        }
+
+        return 0;
+}
+
 int journal_file_move_to_entry_by_seqnum_for_data(
                 JournalFile *f,
                 uint64_t data_offset,
@@ -1599,8 +2155,10 @@ int journal_file_move_to_entry_by_seqnum_for_data(
         Object *d;
         int r;
 
+        assert(f);
+
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
         return generic_array_bisect_plus_one(f,
@@ -1623,8 +2181,10 @@ int journal_file_move_to_entry_by_realtime_for_data(
         Object *d;
         int r;
 
+        assert(f);
+
         r = journal_file_move_to_object(f, OBJECT_DATA, data_offset, &d);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
         return generic_array_bisect_plus_one(f,
@@ -1638,29 +2198,15 @@ int journal_file_move_to_entry_by_realtime_for_data(
 }
 
 void journal_file_dump(JournalFile *f) {
-        char a[33], b[33], c[33];
         Object *o;
         int r;
         uint64_t p;
 
         assert(f);
 
-        printf("File Path: %s\n"
-               "File ID: %s\n"
-               "Machine ID: %s\n"
-               "Boot ID: %s\n"
-               "Arena size: %llu\n"
-               "Objects: %lu\n"
-               "Entries: %lu\n",
-               f->path,
-               sd_id128_to_string(f->header->file_id, a),
-               sd_id128_to_string(f->header->machine_id, b),
-               sd_id128_to_string(f->header->boot_id, c),
-               (unsigned long long) le64toh(f->header->arena_size),
-               (unsigned long) le64toh(f->header->n_objects),
-               (unsigned long) le64toh(f->header->n_entries));
+        journal_file_print_header(f);
 
-        p = le64toh(f->header->arena_offset);
+        p = le64toh(f->header->header_size);
         while (p != 0) {
                 r = journal_file_move_to_object(f, -1, p, &o);
                 if (r < 0)
@@ -1676,8 +2222,12 @@ void journal_file_dump(JournalFile *f) {
                         printf("Type: OBJECT_DATA\n");
                         break;
 
+                case OBJECT_FIELD:
+                        printf("Type: OBJECT_FIELD\n");
+                        break;
+
                 case OBJECT_ENTRY:
-                        printf("Type: OBJECT_ENTRY %llu %llu %llu\n",
+                        printf("Type: OBJECT_ENTRY seqnum=%llu monotonic=%llu realtime=%llu\n",
                                (unsigned long long) le64toh(o->entry.seqnum),
                                (unsigned long long) le64toh(o->entry.monotonic),
                                (unsigned long long) le64toh(o->entry.realtime));
@@ -1693,6 +2243,16 @@ void journal_file_dump(JournalFile *f) {
 
                 case OBJECT_ENTRY_ARRAY:
                         printf("Type: OBJECT_ENTRY_ARRAY\n");
+                        break;
+
+                case OBJECT_TAG:
+                        printf("Type: OBJECT_TAG seqnum=%llu epoch=%llu\n",
+                               (unsigned long long) le64toh(o->tag.seqnum),
+                               (unsigned long long) le64toh(o->tag.epoch));
+                        break;
+
+                default:
+                        printf("Type: unknown (%u)\n", o->object.type);
                         break;
                 }
 
@@ -1710,10 +2270,88 @@ fail:
         log_error("File corrupt");
 }
 
+void journal_file_print_header(JournalFile *f) {
+        char a[33], b[33], c[33];
+        char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX];
+        struct stat st;
+        char bytes[FORMAT_BYTES_MAX];
+
+        assert(f);
+
+        printf("File Path: %s\n"
+               "File ID: %s\n"
+               "Machine ID: %s\n"
+               "Boot ID: %s\n"
+               "Sequential Number ID: %s\n"
+               "State: %s\n"
+               "Compatible Flags:%s%s\n"
+               "Incompatible Flags:%s%s\n"
+               "Header size: %llu\n"
+               "Arena size: %llu\n"
+               "Data Hash Table Size: %llu\n"
+               "Field Hash Table Size: %llu\n"
+               "Rotate Suggested: %s\n"
+               "Head Sequential Number: %llu\n"
+               "Tail Sequential Number: %llu\n"
+               "Head Realtime Timestamp: %s\n"
+               "Tail Realtime Timestamp: %s\n"
+               "Objects: %llu\n"
+               "Entry Objects: %llu\n",
+               f->path,
+               sd_id128_to_string(f->header->file_id, a),
+               sd_id128_to_string(f->header->machine_id, b),
+               sd_id128_to_string(f->header->boot_id, c),
+               sd_id128_to_string(f->header->seqnum_id, c),
+               f->header->state == STATE_OFFLINE ? "OFFLINE" :
+               f->header->state == STATE_ONLINE ? "ONLINE" :
+               f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
+               JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) ? " ???" : "",
+               JOURNAL_HEADER_COMPRESSED(f->header) ? " COMPRESSED" : "",
+               (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_COMPRESSED) ? " ???" : "",
+               (unsigned long long) le64toh(f->header->header_size),
+               (unsigned long long) le64toh(f->header->arena_size),
+               (unsigned long long) le64toh(f->header->data_hash_table_size) / sizeof(HashItem),
+               (unsigned long long) le64toh(f->header->field_hash_table_size) / sizeof(HashItem),
+               yes_no(journal_file_rotate_suggested(f, 0)),
+               (unsigned long long) le64toh(f->header->head_entry_seqnum),
+               (unsigned long long) le64toh(f->header->tail_entry_seqnum),
+               format_timestamp(x, sizeof(x), le64toh(f->header->head_entry_realtime)),
+               format_timestamp(y, sizeof(y), le64toh(f->header->tail_entry_realtime)),
+               (unsigned long long) le64toh(f->header->n_objects),
+               (unsigned long long) le64toh(f->header->n_entries));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                printf("Data Objects: %llu\n"
+                       "Data Hash Table Fill: %.1f%%\n",
+                       (unsigned long long) le64toh(f->header->n_data),
+                       100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                printf("Field Objects: %llu\n"
+                       "Field Hash Table Fill: %.1f%%\n",
+                       (unsigned long long) le64toh(f->header->n_fields),
+                       100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))));
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_tags))
+                printf("Tag Objects: %llu\n",
+                       (unsigned long long) le64toh(f->header->n_tags));
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
+                printf("Entry Array Objects: %llu\n",
+                       (unsigned long long) le64toh(f->header->n_entry_arrays));
+
+        if (fstat(f->fd, &st) >= 0)
+                printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (off_t) st.st_blocks * 512ULL));
+}
+
 int journal_file_open(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool seal,
+                JournalMetrics *metrics,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -1722,12 +2360,14 @@ int journal_file_open(
         bool newly_created = false;
 
         assert(fname);
+        assert(ret);
 
         if ((flags & O_ACCMODE) != O_RDONLY &&
             (flags & O_ACCMODE) != O_RDWR)
                 return -EINVAL;
 
-        if (!endswith(fname, ".journal"))
+        if (!endswith(fname, ".journal") &&
+            !endswith(fname, ".journal~"))
                 return -EINVAL;
 
         f = new0(JournalFile, 1);
@@ -1735,18 +2375,36 @@ int journal_file_open(
                 return -ENOMEM;
 
         f->fd = -1;
-        f->flags = flags;
         f->mode = mode;
-        f->writable = (flags & O_ACCMODE) != O_RDONLY;
-        f->prot = prot_from_flags(flags);
 
-        if (template) {
-                f->metrics = template->metrics;
-                f->compress = template->compress;
+        f->flags = flags;
+        f->prot = prot_from_flags(flags);
+        f->writable = (flags & O_ACCMODE) != O_RDONLY;
+#ifdef HAVE_XZ
+        f->compress = compress;
+#endif
+#ifdef HAVE_GCRYPT
+        f->seal = seal;
+#endif
+
+        if (mmap_cache)
+                f->mmap = mmap_cache_ref(mmap_cache);
+        else {
+                f->mmap = mmap_cache_new();
+                if (!f->mmap) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
         }
 
         f->path = strdup(fname);
         if (!f->path) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        f->chain_cache = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!f->chain_cache) {
                 r = -ENOMEM;
                 goto fail;
         }
@@ -1763,7 +2421,32 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size == 0 && f->writable) {
-                newly_created = true;
+#ifdef HAVE_XATTR
+                uint64_t crtime;
+
+                /* Let's attach the creation time to the journal file,
+                 * so that the vacuuming code knows the age of this
+                 * file even if the file might end up corrupted one
+                 * day... Ideally we'd just use the creation time many
+                 * file systems maintain for each file, but there is
+                 * currently no usable API to query this, hence let's
+                 * emulate this via extended attributes. If extended
+                 * attributes are not supported we'll just skip this,
+                 * and rely solely on mtime/atime/ctime of the file.*/
+
+                crtime = htole64((uint64_t) now(CLOCK_REALTIME));
+                fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
+#endif
+
+#ifdef HAVE_GCRYPT
+                /* Try to load the FSPRG state, and if we can't, then
+                 * just don't do sealing */
+                if (f->seal) {
+                        r = journal_file_fss_load(f);
+                        if (r < 0)
+                                f->seal = false;
+                }
+#endif
 
                 r = journal_file_init_header(f, template);
                 if (r < 0)
@@ -1773,9 +2456,11 @@ int journal_file_open(
                         r = -errno;
                         goto fail;
                 }
+
+                newly_created = true;
         }
 
-        if (f->last_stat.st_size < (off_t) sizeof(Header)) {
+        if (f->last_stat.st_size < (off_t) HEADER_SIZE_MIN) {
                 r = -EIO;
                 goto fail;
         }
@@ -1793,14 +2478,33 @@ int journal_file_open(
                         goto fail;
         }
 
+#ifdef HAVE_GCRYPT
+        if (!newly_created && f->writable) {
+                r = journal_file_fss_load(f);
+                if (r < 0)
+                        goto fail;
+        }
+#endif
+
         if (f->writable) {
+                if (metrics) {
+                        journal_default_metrics(metrics, f->fd);
+                        f->metrics = *metrics;
+                } else if (template)
+                        f->metrics = template->metrics;
+
                 r = journal_file_refresh_header(f);
                 if (r < 0)
                         goto fail;
         }
 
-        if (newly_created) {
+#ifdef HAVE_GCRYPT
+        r = journal_file_hmac_setup(f);
+        if (r < 0)
+                goto fail;
+#endif
 
+        if (newly_created) {
                 r = journal_file_setup_field_hash_table(f);
                 if (r < 0)
                         goto fail;
@@ -1808,6 +2512,12 @@ int journal_file_open(
                 r = journal_file_setup_data_hash_table(f);
                 if (r < 0)
                         goto fail;
+
+#ifdef HAVE_GCRYPT
+                r = journal_file_append_first_tag(f);
+                if (r < 0)
+                        goto fail;
+#endif
         }
 
         r = journal_file_map_field_hash_table(f);
@@ -1818,9 +2528,7 @@ int journal_file_open(
         if (r < 0)
                 goto fail;
 
-        if (ret)
-                *ret = f;
-
+        *ret = f;
         return 0;
 
 fail:
@@ -1829,7 +2537,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f) {
+int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
         char *p;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -1857,8 +2565,8 @@ int journal_file_rotate(JournalFile **f) {
         sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
         snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
                  "-%016llx-%016llx.journal",
-                 (unsigned long long) le64toh((*f)->header->seqnum),
-                 (unsigned long long) le64toh((*f)->header->tail_entry_realtime));
+                 (unsigned long long) le64toh((*f)->header->head_entry_seqnum),
+                 (unsigned long long) le64toh((*f)->header->head_entry_realtime));
 
         r = rename(old_file->path, p);
         free(p);
@@ -1868,7 +2576,7 @@ int journal_file_rotate(JournalFile **f) {
 
         old_file->header->state = STATE_ARCHIVED;
 
-        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, old_file, &new_file);
+        r = journal_file_open(old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, old_file, &new_file);
         journal_file_close(old_file);
 
         *f = new_file;
@@ -1879,6 +2587,10 @@ int journal_file_open_reliably(
                 const char *fname,
                 int flags,
                 mode_t mode,
+                bool compress,
+                bool seal,
+                JournalMetrics *metrics,
+                MMapCache *mmap_cache,
                 JournalFile *template,
                 JournalFile **ret) {
 
@@ -1886,14 +2598,23 @@ int journal_file_open_reliably(
         size_t l;
         char *p;
 
-        r = journal_file_open(fname, flags, mode, template, ret);
-        if (r != -EBADMSG)
+        r = journal_file_open(fname, flags, mode, compress, seal,
+                              metrics, mmap_cache, template, ret);
+        if (r != -EBADMSG && /* corrupted */
+            r != -ENODATA && /* truncated */
+            r != -EHOSTDOWN && /* other machine */
+            r != -EPROTONOSUPPORT && /* incompatible feature */
+            r != -EBUSY && /* unclean shutdown */
+            r != -ESHUTDOWN /* already archived */)
                 return r;
 
         if ((flags & O_ACCMODE) == O_RDONLY)
                 return r;
 
         if (!(flags & O_CREAT))
+                return r;
+
+        if (!endswith(fname, ".journal"))
                 return r;
 
         /* The file is corrupted. Rotate it away and try it again (but only once) */
@@ -1910,206 +2631,10 @@ int journal_file_open_reliably(
         if (r < 0)
                 return -errno;
 
-        log_warning("File %s corrupted, renaming and replacing.", fname);
+        log_warning("File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(fname, flags, mode, template, ret);
-}
-
-struct vacuum_info {
-        off_t usage;
-        char *filename;
-
-        uint64_t realtime;
-        sd_id128_t seqnum_id;
-        uint64_t seqnum;
-
-        bool have_seqnum;
-};
-
-static int vacuum_compare(const void *_a, const void *_b) {
-        const struct vacuum_info *a, *b;
-
-        a = _a;
-        b = _b;
-
-        if (a->have_seqnum && b->have_seqnum &&
-            sd_id128_equal(a->seqnum_id, b->seqnum_id)) {
-                if (a->seqnum < b->seqnum)
-                        return -1;
-                else if (a->seqnum > b->seqnum)
-                        return 1;
-                else
-                        return 0;
-        }
-
-        if (a->realtime < b->realtime)
-                return -1;
-        else if (a->realtime > b->realtime)
-                return 1;
-        else if (a->have_seqnum && b->have_seqnum)
-                return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
-        else
-                return strcmp(a->filename, b->filename);
-}
-
-int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free) {
-        DIR *d;
-        int r = 0;
-        struct vacuum_info *list = NULL;
-        unsigned n_list = 0, n_allocated = 0, i;
-        uint64_t sum = 0;
-
-        assert(directory);
-
-        if (max_use <= 0)
-                return 0;
-
-        d = opendir(directory);
-        if (!d)
-                return -errno;
-
-        for (;;) {
-                int k;
-                struct dirent buf, *de;
-                size_t q;
-                struct stat st;
-                char *p;
-                unsigned long long seqnum, realtime;
-                sd_id128_t seqnum_id;
-                bool have_seqnum;
-
-                k = readdir_r(d, &buf, &de);
-                if (k != 0) {
-                        r = -k;
-                        goto finish;
-                }
-
-                if (!de)
-                        break;
-
-                if (fstatat(dirfd(d), de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0)
-                        continue;
-
-                if (!S_ISREG(st.st_mode))
-                        continue;
-
-                q = strlen(de->d_name);
-
-                if (endswith(de->d_name, ".journal")) {
-
-                        /* Vacuum archived files */
-
-                        if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
-                                continue;
-
-                        if (de->d_name[q-8-16-1] != '-' ||
-                            de->d_name[q-8-16-1-16-1] != '-' ||
-                            de->d_name[q-8-16-1-16-1-32-1] != '@')
-                                continue;
-
-                        p = strdup(de->d_name);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        de->d_name[q-8-16-1-16-1] = 0;
-                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
-                                free(p);
-                                continue;
-                        }
-
-                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
-                                free(p);
-                                continue;
-                        }
-
-                        have_seqnum = true;
-
-                } else if (endswith(de->d_name, ".journal~")) {
-                        unsigned long long tmp;
-
-                        /* Vacuum corrupted files */
-
-                        if (q < 1 + 16 + 1 + 16 + 8 + 1)
-                                continue;
-
-                        if (de->d_name[q-1-8-16-1] != '-' ||
-                            de->d_name[q-1-8-16-1-16-1] != '@')
-                                continue;
-
-                        p = strdup(de->d_name);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
-                                free(p);
-                                continue;
-                        }
-
-                        have_seqnum = false;
-                } else
-                        continue;
-
-                if (n_list >= n_allocated) {
-                        struct vacuum_info *j;
-
-                        n_allocated = MAX(n_allocated * 2U, 8U);
-                        j = realloc(list, n_allocated * sizeof(struct vacuum_info));
-                        if (!j) {
-                                free(p);
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        list = j;
-                }
-
-                list[n_list].filename = p;
-                list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
-                list[n_list].seqnum = seqnum;
-                list[n_list].realtime = realtime;
-                list[n_list].seqnum_id = seqnum_id;
-                list[n_list].have_seqnum = have_seqnum;
-
-                sum += list[n_list].usage;
-
-                n_list ++;
-        }
-
-        qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
-
-        for(i = 0; i < n_list; i++) {
-                struct statvfs ss;
-
-                if (fstatvfs(dirfd(d), &ss) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                if (sum <= max_use &&
-                    (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free)
-                        break;
-
-                if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_info("Deleted archived journal %s/%s.", directory, list[i].filename);
-                        sum -= list[i].usage;
-                } else if (errno != ENOENT)
-                        log_warning("Failed to delete %s/%s: %m", directory, list[i].filename);
-        }
-
-finish:
-        for (i = 0; i < n_list; i++)
-                free(list[i].filename);
-
-        free(list);
-
-        if (d)
-                closedir(d);
-
-        return r;
+        return journal_file_open(fname, flags, mode, compress, seal,
+                                 metrics, mmap_cache, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
@@ -2134,14 +2659,12 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
             ts.monotonic < le64toh(to->header->tail_entry_monotonic))
                 return -EINVAL;
 
-        if (ts.realtime < le64toh(to->header->tail_entry_realtime))
-                return -EINVAL;
-
         n = journal_file_entry_n_items(o);
         items = alloca(sizeof(EntryItem) * n);
 
         for (i = 0; i < n; i++) {
-                uint64_t le_hash, l, h;
+                uint64_t l, h;
+                le64_t le_hash;
                 size_t t;
                 void *data;
                 Object *u;
@@ -2167,7 +2690,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 #ifdef HAVE_XZ
                         uint64_t rsize;
 
-                        if (!uncompress_blob(o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize))
+                        if (!uncompress_blob(o->data.payload, l, &from->compress_buffer, &from->compress_buffer_size, &rsize, 0))
                                 return -EBADMSG;
 
                         data = from->compress_buffer;
@@ -2253,7 +2776,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         if (m->keep_free == (uint64_t) -1) {
 
                 if (fs_size > 0) {
-                        m->keep_free = PAGE_ALIGN(fs_size / 20); /* 5% of file system size */
+                        m->keep_free = PAGE_ALIGN(fs_size * 3 / 20); /* 15% of file system size */
 
                         if (m->keep_free > DEFAULT_KEEP_FREE_UPPER)
                                 m->keep_free = DEFAULT_KEEP_FREE_UPPER;
@@ -2262,9 +2785,130 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
                         m->keep_free = DEFAULT_KEEP_FREE;
         }
 
-        log_info("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
-                 format_bytes(a, sizeof(a), m->max_use),
-                 format_bytes(b, sizeof(b), m->max_size),
-                 format_bytes(c, sizeof(c), m->min_size),
-                 format_bytes(d, sizeof(d), m->keep_free));
+        log_debug("Fixed max_use=%s max_size=%s min_size=%s keep_free=%s",
+                  format_bytes(a, sizeof(a), m->max_use),
+                  format_bytes(b, sizeof(b), m->max_size),
+                  format_bytes(c, sizeof(c), m->min_size),
+                  format_bytes(d, sizeof(d), m->keep_free));
+}
+
+int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *from, usec_t *to) {
+        assert(f);
+        assert(from || to);
+
+        if (from) {
+                if (f->header->head_entry_realtime == 0)
+                        return -ENOENT;
+
+                *from = le64toh(f->header->head_entry_realtime);
+        }
+
+        if (to) {
+                if (f->header->tail_entry_realtime == 0)
+                        return -ENOENT;
+
+                *to = le64toh(f->header->tail_entry_realtime);
+        }
+
+        return 1;
+}
+
+int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, usec_t *from, usec_t *to) {
+        Object *o;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(from || to);
+
+        r = find_data_object_by_boot_id(f, boot_id, &o, &p);
+        if (r <= 0)
+                return r;
+
+        if (le64toh(o->data.n_entries) <= 0)
+                return 0;
+
+        if (from) {
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, le64toh(o->data.entry_offset), &o);
+                if (r < 0)
+                        return r;
+
+                *from = le64toh(o->entry.monotonic);
+        }
+
+        if (to) {
+                r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
+                if (r < 0)
+                        return r;
+
+                r = generic_array_get_plus_one(f,
+                                               le64toh(o->data.entry_offset),
+                                               le64toh(o->data.entry_array_offset),
+                                               le64toh(o->data.n_entries)-1,
+                                               &o, NULL);
+                if (r <= 0)
+                        return r;
+
+                *to = le64toh(o->entry.monotonic);
+        }
+
+        return 1;
+}
+
+bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
+        assert(f);
+
+        /* If we gained new header fields we gained new features,
+         * hence suggest a rotation */
+        if (le64toh(f->header->header_size) < sizeof(Header)) {
+                log_debug("%s uses an outdated header, suggesting rotation.", f->path);
+                return true;
+        }
+
+        /* Let's check if the hash tables grew over a certain fill
+         * level (75%, borrowing this value from Java's hash table
+         * implementation), and if so suggest a rotation. To calculate
+         * the fill level we need the n_data field, which only exists
+         * in newer versions. */
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
+                if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        log_debug("Data hash table of %s has a fill level at %.1f (%llu of %llu items, %llu file size, %llu bytes per hash table item), suggesting rotation.",
+                                  f->path,
+                                  100.0 * (double) le64toh(f->header->n_data) / ((double) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem))),
+                                  (unsigned long long) le64toh(f->header->n_data),
+                                  (unsigned long long) (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)),
+                                  (unsigned long long) (f->last_stat.st_size),
+                                  (unsigned long long) (f->last_stat.st_size / le64toh(f->header->n_data)));
+                        return true;
+                }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields))
+                if (le64toh(f->header->n_fields) * 4ULL > (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)) * 3ULL) {
+                        log_debug("Field hash table of %s has a fill level at %.1f (%llu of %llu items), suggesting rotation.",
+                                  f->path,
+                                  100.0 * (double) le64toh(f->header->n_fields) / ((double) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem))),
+                                  (unsigned long long) le64toh(f->header->n_fields),
+                                  (unsigned long long) (le64toh(f->header->field_hash_table_size) / sizeof(HashItem)));
+                        return true;
+                }
+
+        /* Are the data objects properly indexed by field objects? */
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+            JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
+            le64toh(f->header->n_data) > 0 &&
+            le64toh(f->header->n_fields) == 0)
+                return true;
+
+        if (max_file_usec > 0) {
+                usec_t t, h;
+
+                h = le64toh(f->header->head_entry_realtime);
+                t = now(CLOCK_REALTIME);
+
+                if (h > 0 && t > h + max_file_usec)
+                        return true;
+        }
+
+        return false;
 }

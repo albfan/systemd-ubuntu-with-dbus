@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -32,6 +32,8 @@
 #include "log.h"
 #include "readahead-common.h"
 #include "util.h"
+#include "missing.h"
+#include "fileio.h"
 
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         assert(fd >= 0);
@@ -62,23 +64,74 @@ int fs_on_ssd(const char *p) {
         struct udev_device *udev_device = NULL, *look_at = NULL;
         bool b = false;
         const char *devtype, *rotational, *model, *id;
+        int r;
 
         assert(p);
 
         if (stat(p, &st) < 0)
                 return -errno;
 
-        if (major(st.st_dev) == 0)
-                return false;
+        if (major(st.st_dev) == 0) {
+                _cleanup_fclose_ FILE *f = NULL;
+                int mount_id;
+                struct file_handle *h;
 
-        if (!(udev = udev_new()))
+                /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
+                 *
+                 * We first determine the mount ID here, if we can,
+                 * and then lookup the mount ID in mountinfo to find
+                 * the mount options. */
+
+                h = alloca(MAX_HANDLE_SZ);
+                h->handle_bytes = MAX_HANDLE_SZ;
+                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
+                if (r < 0)
+                        return false;
+
+                f = fopen("/proc/self/mountinfo", "re");
+                if (!f)
+                        return false;
+
+                for (;;) {
+                        char line[LINE_MAX], *e;
+                        _cleanup_free_ char *opts = NULL;
+                        int mid;
+
+                        if (!fgets(line, sizeof(line), f))
+                                return false;
+
+                        truncate_nl(line);
+
+                        if (sscanf(line, "%i", &mid) != 1)
+                                continue;
+
+                        if (mid != mount_id)
+                                continue;
+
+                        e = strstr(line, " - ");
+                        if (!e)
+                                continue;
+
+                        if (sscanf(e+3, "%*s %*s %ms", &opts) != 1)
+                                continue;
+
+                        if (streq(opts, "ssd") || startswith(opts, "ssd,") || endswith(opts, ",ssd") || strstr(opts, ",ssd,"))
+                                return true;
+                }
+
+                return false;
+        }
+
+        udev = udev_new();
+        if (!udev)
                 return -ENOMEM;
 
-        if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev)))
+        udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+        if (!udev_device)
                 goto finish;
 
-        if ((devtype = udev_device_get_property_value(udev_device, "DEVTYPE")) &&
-            streq(devtype, "partition"))
+        devtype = udev_device_get_property_value(udev_device, "DEVTYPE");
+        if (devtype && streq(devtype, "partition"))
                 look_at = udev_device_get_parent(udev_device);
         else
                 look_at = udev_device;
@@ -87,21 +140,26 @@ int fs_on_ssd(const char *p) {
                 goto finish;
 
         /* First, try high-level property */
-        if ((id = udev_device_get_property_value(look_at, "ID_SSD"))) {
+        id = udev_device_get_property_value(look_at, "ID_SSD");
+        if (id) {
                 b = streq(id, "1");
                 goto finish;
         }
 
         /* Second, try kernel attribute */
-        if ((rotational = udev_device_get_sysattr_value(look_at, "queue/rotational")))
-                if ((b = streq(rotational, "0")))
-                        goto finish;
+        rotational = udev_device_get_sysattr_value(look_at, "queue/rotational");
+        if (rotational) {
+                b = streq(rotational, "0");
+                goto finish;
+        }
 
         /* Finally, fallback to heuristics */
-        if (!(look_at = udev_device_get_parent(look_at)))
+        look_at = udev_device_get_parent(look_at);
+        if (!look_at)
                 goto finish;
 
-        if ((model = udev_device_get_sysattr_value(look_at, "model")))
+        model = udev_device_get_sysattr_value(look_at, "model");
+        if (model)
                 b = !!strstr(model, "SSD");
 
 finish:
@@ -158,16 +216,23 @@ bool enough_ram(void) {
         return si.totalram > 127 * 1024*1024 / si.mem_unit;
 }
 
+static void mkdirs(void) {
+        if (mkdir("/run/systemd", 0755) && errno != EEXIST)
+                log_warning("Failed to create /run/systemd: %m");
+        if (mkdir("/run/systemd/readahead", 0755) && errno != EEXIST)
+                log_warning("Failed to create /run/systemd: %m");
+}
+
 int open_inotify(void) {
         int fd;
 
-        if ((fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK)) < 0) {
+        fd = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+        if (fd < 0) {
                 log_error("Failed to create inotify handle: %m");
                 return -errno;
         }
 
-        mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/readahead", 0755);
+        mkdirs();
 
         if (inotify_add_watch(fd, "/run/systemd/readahead", IN_CREATE) < 0) {
                 log_error("Failed to watch /run/systemd/readahead: %m");
@@ -179,38 +244,38 @@ int open_inotify(void) {
 }
 
 ReadaheadShared *shared_get(void) {
-        int fd;
+        int _cleanup_close_ fd = -1;
         ReadaheadShared *m = NULL;
 
-        mkdir("/run/systemd", 0755);
-        mkdir("/run/systemd/readahead", 0755);
+        mkdirs();
 
-        if ((fd = open("/run/systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644)) < 0) {
+        fd = open("/run/systemd/readahead/shared", O_CREAT|O_RDWR|O_CLOEXEC, 0644);
+        if (fd < 0) {
                 log_error("Failed to create shared memory segment: %m");
-                goto finish;
+                return NULL;
         }
 
         if (ftruncate(fd, sizeof(ReadaheadShared)) < 0) {
                 log_error("Failed to truncate shared memory segment: %m");
-                goto finish;
+                return NULL;
         }
 
-        if ((m = mmap(NULL, sizeof(ReadaheadShared), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        m = mmap(NULL, sizeof(ReadaheadShared), PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+        if (m == MAP_FAILED) {
                 log_error("Failed to mmap shared memory segment: %m");
-                m = NULL;
-                goto finish;
+                return NULL;
         }
-
-finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
 
         return m;
 }
 
-#define BUMP_REQUEST_NR (16*1024)
+/* We use 20K instead of the more human digestable 16K here. Why?
+   Simply so that it is more unlikely that users end up picking this
+   value too so that we can recognize better whether the user changed
+   the value while we had it temporarily bumped. */
+#define BUMP_REQUEST_NR (20*1024)
 
-int bump_request_nr(const char *p) {
+int block_bump_request_nr(const char *p) {
         struct stat st;
         uint64_t u;
         char *ap = NULL, *line = NULL;
@@ -254,12 +319,92 @@ int bump_request_nr(const char *p) {
                 goto finish;
         }
 
-        r = write_one_line_file(ap, line);
+        r = write_string_file(ap, line);
         if (r < 0)
                 goto finish;
 
         log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
         r = 1;
+
+finish:
+        free(ap);
+        free(line);
+
+        return r;
+}
+
+int block_get_readahead(const char *p, uint64_t *bytes) {
+        struct stat st;
+        char *ap = NULL, *line = NULL;
+        int r;
+        dev_t d;
+        uint64_t u;
+
+        assert(p);
+        assert(bytes);
+
+        if (stat(p, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0)
+                return 0;
+
+        d = st.st_dev;
+        block_get_whole_disk(d, &d);
+
+        if (asprintf(&ap, "/sys/dev/block/%u:%u/bdi/read_ahead_kb", major(d), minor(d)) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = read_one_line_file(ap, &line);
+        if (r < 0)
+                goto finish;
+
+        r = safe_atou64(line, &u);
+        if (r < 0)
+                goto finish;
+
+        *bytes = u * 1024ULL;
+
+finish:
+        free(ap);
+        free(line);
+
+        return r;
+}
+
+int block_set_readahead(const char *p, uint64_t bytes) {
+        struct stat st;
+        char *ap = NULL, *line = NULL;
+        int r;
+        dev_t d;
+
+        assert(p);
+        assert(bytes);
+
+        if (stat(p, &st) < 0)
+                return -errno;
+
+        if (major(st.st_dev) == 0)
+                return 0;
+
+        d = st.st_dev;
+        block_get_whole_disk(d, &d);
+
+        if (asprintf(&ap, "/sys/dev/block/%u:%u/bdi/read_ahead_kb", major(d), minor(d)) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (asprintf(&line, "%llu", (unsigned long long) bytes / 1024ULL) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        r = write_string_file(ap, line);
+        if (r < 0)
+                goto finish;
 
 finish:
         free(ap);

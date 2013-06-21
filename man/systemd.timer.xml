@@ -9,16 +9,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -44,11 +44,11 @@
 
         <refnamediv>
                 <refname>systemd.timer</refname>
-                <refpurpose>systemd timer configuration files</refpurpose>
+                <refpurpose>Timer unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.timer</filename></para>
+                <para><filename><replaceable>timer</replaceable>.timer</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -97,7 +97,7 @@
                 defines. The options specific to the [Timer] section
                 of timer units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>OnActiveSec=</varname></term>
                                 <term><varname>OnBootSec=</varname></term>
@@ -105,7 +105,7 @@
                                 <term><varname>OnUnitActiveSec=</varname></term>
                                 <term><varname>OnUnitInactiveSec=</varname></term>
 
-                                <listitem><para>Defines timers
+                                <listitem><para>Defines monotonic timers
                                 relative to different starting points:
                                 <varname>OnActiveSec=</varname> defines a
                                 timer relative to the moment the timer
@@ -115,7 +115,7 @@
                                 machine was booted
                                 up. <varname>OnStartupSec=</varname>
                                 defines a timer relative to when
-                                systemd was
+                                systemd was first
                                 started. <varname>OnUnitActiveSec=</varname>
                                 defines a timer relative to when the
                                 unit the timer is activating was last
@@ -139,8 +139,8 @@
                                 seconds. Example: "OnBootSec=50" means
                                 50s after boot-up. The argument may
                                 also include time units. Example:
-                                "OnBootSec=5h 30min" means 5 hours and 30
-                                minutes after boot-up. For details
+                                "OnBootSec=5h 30min" means 5 hours and
+                                30 minutes after boot-up. For details
                                 about the syntax of time spans see
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
@@ -152,14 +152,35 @@
                                 elapse and the configured unit is
                                 started. This is not the case for
                                 timers defined in the other
-                                directives.</para></listitem>
+                                directives.</para>
 
                                 <para>These are monotonic timers,
                                 independent of wall-clock time and timezones. If the
                                 computer is temporarily suspended, the
                                 monotonic clock stops too.</para>
 
+                                <para>If the empty string is assigned
+                                to any of these options the list of
+                                timers is reset, and all prior
+                                assignments will have no
+                                effect.</para></listitem>
+
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OnCalendar=</varname></term>
+
+                                <listitem><para>Defines realtime
+                                (i.e. wallclock) timers via calendar
+                                event expressions. See
+                                <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for more information on the syntax of
+                                calendar event expressions. Otherwise
+                                the semantics are similar to
+                                <varname>OnActiveSec=</varname> and
+                                related settings.</para></listitem>
+                        </varlistentry>
+
                         <varlistentry>
                                 <term><varname>Unit=</varname></term>
 
@@ -185,7 +206,9 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

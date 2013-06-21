@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologinduserhfoo
-#define foologinduserhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -9,16 +8,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -30,10 +29,11 @@ typedef struct User User;
 #include "logind-session.h"
 
 typedef enum UserState {
-        USER_OFFLINE,
-        USER_LINGERING,
-        USER_ONLINE,
-        USER_ACTIVE,
+        USER_OFFLINE,    /* Not logged in at all */
+        USER_LINGERING,  /* Lingering has been enabled by the admin for this user */
+        USER_ONLINE,     /* User logged in */
+        USER_ACTIVE,     /* User logged in and has a session in the fg */
+        USER_CLOSING,    /* User logged out, but processes still remain and lingering is not enabled */
         _USER_STATE_MAX,
         _USER_STATE_INVALID = -1
 } UserState;
@@ -80,7 +80,5 @@ extern const DBusObjectPathVTable bus_user_vtable;
 int user_send_signal(User *u, bool new_user);
 int user_send_changed(User *u, const char *properties);
 
-const char* user_state_to_string(UserState s);
-UserState user_state_from_string(const char *s);
-
-#endif
+const char* user_state_to_string(UserState s) _const_;
+UserState user_state_from_string(const char *s) _pure_;

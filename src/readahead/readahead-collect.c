@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -42,6 +42,11 @@
 #include <sys/vfs.h>
 #include <getopt.h>
 #include <sys/inotify.h>
+#include <math.h>
+
+#ifdef HAVE_FANOTIFY_INIT
+#include <sys/fanotify.h>
+#endif
 
 #include <systemd/sd-daemon.h>
 
@@ -62,21 +67,15 @@
  * - does ioprio_set work with fadvise()?
  */
 
-static unsigned arg_files_max = 16*1024;
-static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
-static usec_t arg_timeout = 2*USEC_PER_MINUTE;
-
 static ReadaheadShared *shared = NULL;
+static usec_t starttime;
 
 /* Avoid collisions with the NULL pointer */
 #define SECTOR_TO_PTR(s) ULONG_TO_PTR((s)+1)
 #define PTR_TO_SECTOR(p) (PTR_TO_ULONG(p)-1)
 
 static int btrfs_defrag(int fd) {
-        struct btrfs_ioctl_vol_args data;
-
-        zero(data);
-        data.fd = fd;
+        struct btrfs_ioctl_vol_args data = { .fd = fd };
 
         return ioctl(fd, BTRFS_IOC_DEFRAG, &data);
 }
@@ -86,6 +85,7 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         void *start = MAP_FAILED;
         uint8_t *vec;
         uint32_t b, c;
+        uint64_t inode;
         size_t l, pages;
         bool mapped;
         int r = 0, fd = -1, k;
@@ -93,7 +93,8 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
         assert(pack);
         assert(fn);
 
-        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+        fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0) {
 
                 if (errno == ENOENT)
                         return 0;
@@ -106,7 +107,8 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 goto finish;
         }
 
-        if ((k = file_verify(fd, fn, arg_file_size_max, &st)) <= 0) {
+        k = file_verify(fd, fn, arg_file_size_max, &st);
+        if (k <= 0) {
                 r = k;
                 goto finish;
         }
@@ -115,14 +117,14 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
                 btrfs_defrag(fd);
 
         l = PAGE_ALIGN(st.st_size);
-        if ((start = mmap(NULL, l, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+        start = mmap(NULL, l, PROT_READ, MAP_SHARED, fd, 0);
+        if (start == MAP_FAILED) {
                 log_warning("mmap(%s) failed: %m", fn);
                 r = -errno;
                 goto finish;
         }
 
         pages = l / page_size();
-
         vec = alloca(pages);
         memset(vec, 0, pages);
         if (mincore(start, l, vec) < 0) {
@@ -133,6 +135,10 @@ static int pack_file(FILE *pack, const char *fn, bool on_btrfs) {
 
         fputs(fn, pack);
         fputc('\n', pack);
+
+        /* Store the inode, so that we notice when the file is deleted */
+        inode = (uint64_t) st.st_ino;
+        fwrite(&inode, sizeof(inode), 1, pack);
 
         mapped = false;
         for (c = 0; c < pages; c++) {
@@ -177,11 +183,10 @@ static unsigned long fd_first_block(int fd) {
         struct {
                 struct fiemap fiemap;
                 struct fiemap_extent extent;
-        } data;
-
-        zero(data);
-        data.fiemap.fm_length = ~0ULL;
-        data.fiemap.fm_extent_count = 1;
+        } data = {
+                .fiemap.fm_length = ~0ULL,
+                .fiemap.fm_extent_count = 1,
+        };
 
         if (ioctl(fd, FS_IOC_FIEMAP, &data) < 0)
                 return 0;
@@ -198,6 +203,7 @@ static unsigned long fd_first_block(int fd) {
 struct item {
         const char *path;
         unsigned long block;
+        unsigned long bin;
 };
 
 static int qsort_compare(const void *a, const void *b) {
@@ -206,6 +212,13 @@ static int qsort_compare(const void *a, const void *b) {
         i = a;
         j = b;
 
+        /* sort by bin first */
+        if (i->bin < j->bin)
+                return -1;
+        if (i->bin > j->bin)
+                return 1;
+
+        /* then sort by sector */
         if (i->block < j->block)
                 return -1;
         if (i->block > j->block)
@@ -221,7 +234,7 @@ static int collect(const char *root) {
                 FD_INOTIFY,   /* We get notifications to quit early via this fd */
                 _FD_MAX
         };
-        struct pollfd pollfd[_FD_MAX];
+        struct pollfd pollfd[_FD_MAX] = {};
         int fanotify_fd = -1, signal_fd = -1, inotify_fd = -1, r = 0;
         pid_t my_pid;
         Hashmap *files = NULL;
@@ -233,10 +246,26 @@ static int collect(const char *root) {
         bool on_ssd, on_btrfs;
         struct statfs sfs;
         usec_t not_after;
+        uint64_t previous_block_readahead;
+        bool previous_block_readahead_set = false;
 
         assert(root);
 
-        write_one_line_file("/proc/self/oom_score_adj", "1000");
+        if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
+                r = log_oom();
+                goto finish;
+        }
+
+        starttime = now(CLOCK_MONOTONIC);
+
+        /* If there's no pack file yet we lower the kernel readahead
+         * so that mincore() is accurate. If there is a pack file
+         * already we assume it is accurate enough so that kernel
+         * readahead is never triggered. */
+        previous_block_readahead_set =
+                access(pack_fn, F_OK) < 0 &&
+                block_get_readahead(root, &previous_block_readahead) >= 0 &&
+                block_set_readahead(root, 8*1024) >= 0;
 
         if (ioprio_set(IOPRIO_WHO_PROCESS, getpid(), IOPRIO_PRIO_VALUE(IOPRIO_CLASS_IDLE, 0)) < 0)
                 log_warning("Failed to set IDLE IO priority class: %m");
@@ -251,13 +280,15 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        if (!(files = hashmap_new(string_hash_func, string_compare_func))) {
+        files = hashmap_new(string_hash_func, string_compare_func);
+        if (!files) {
                 log_error("Failed to allocate set.");
                 r = -ENOMEM;
                 goto finish;
         }
 
-        if ((fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME)) < 0)  {
+        fanotify_fd = fanotify_init(FAN_CLOEXEC|FAN_NONBLOCK, O_RDONLY|O_LARGEFILE|O_CLOEXEC|O_NOATIME);
+        if (fanotify_fd < 0)  {
                 log_error("Failed to create fanotify object: %m");
                 r = -errno;
                 goto finish;
@@ -269,7 +300,8 @@ static int collect(const char *root) {
                 goto finish;
         }
 
-        if ((inotify_fd = open_inotify()) < 0) {
+        inotify_fd = open_inotify();
+        if (inotify_fd < 0) {
                 r = inotify_fd;
                 goto finish;
         }
@@ -278,7 +310,6 @@ static int collect(const char *root) {
 
         my_pid = getpid();
 
-        zero(pollfd);
         pollfd[FD_FANOTIFY].fd = fanotify_fd;
         pollfd[FD_FANOTIFY].events = POLLIN;
         pollfd[FD_SIGNAL].fd = signal_fd;
@@ -426,11 +457,31 @@ static int collect(const char *root) {
                                         free(p);
                                 else {
                                         unsigned long ul;
+                                        usec_t entrytime;
+                                        struct item *entry;
+
+                                        entry = new0(struct item, 1);
+                                        if (!entry) {
+                                                r = log_oom();
+                                                goto finish;
+                                        }
 
                                         ul = fd_first_block(m->fd);
 
-                                        if ((k = hashmap_put(files, p, SECTOR_TO_PTR(ul))) < 0) {
-                                                log_warning("set_put() failed: %s", strerror(-k));
+                                        entrytime = now(CLOCK_MONOTONIC);
+
+                                        entry->block = ul;
+                                        entry->path = strdup(p);
+                                        if (!entry->path) {
+                                                free(entry);
+                                                r = log_oom();
+                                                goto finish;
+                                        }
+                                        entry->bin = (entrytime - starttime) / 2000000;
+
+                                        k = hashmap_put(files, p, entry);
+                                        if (k < 0) {
+                                                log_warning("hashmap_put() failed: %s", strerror(-k));
                                                 free(p);
                                         }
                                 }
@@ -439,7 +490,7 @@ static int collect(const char *root) {
                                 log_warning("readlink(%s) failed: %s", fn, strerror(-k));
 
                 next_iteration:
-                        if (m->fd)
+                        if (m->fd >= 0)
                                 close_nointr_nofail(m->fd);
                 }
         }
@@ -455,25 +506,22 @@ done:
         on_ssd = fs_on_ssd(root) > 0;
         log_debug("On SSD: %s", yes_no(on_ssd));
 
-        on_btrfs = statfs(root, &sfs) >= 0 && (long) sfs.f_type == (long) BTRFS_SUPER_MAGIC;
+        on_btrfs = statfs(root, &sfs) >= 0 && F_TYPE_CMP(sfs.f_type, BTRFS_SUPER_MAGIC);
         log_debug("On btrfs: %s", yes_no(on_btrfs));
 
-        asprintf(&pack_fn, "%s/.readahead", root);
-        asprintf(&pack_fn_new, "%s/.readahead.new", root);
-
-        if (!pack_fn || !pack_fn_new) {
-                log_error("Out of memory");
-                r = -ENOMEM;
+        if (asprintf(&pack_fn_new, "%s/.readahead.new", root) < 0) {
+                r = log_oom();
                 goto finish;
         }
 
-        if (!(pack = fopen(pack_fn_new, "we"))) {
+        pack = fopen(pack_fn_new, "we");
+        if (!pack) {
                 log_error("Failed to open pack file: %m");
                 r = -errno;
                 goto finish;
         }
 
-        fputs(CANONICAL_HOST "\n", pack);
+        fputs(CANONICAL_HOST READAHEAD_PACK_FILE_VERSION, pack);
         putc(on_ssd ? 'S' : 'R', pack);
 
         if (on_ssd || on_btrfs) {
@@ -494,15 +542,13 @@ done:
 
                 n = hashmap_size(files);
                 if (!(ordered = new(struct item, n))) {
-                        log_error("Out of memory");
-                        r = -ENOMEM;
+                        r = log_oom();
                         goto finish;
                 }
 
                 j = ordered;
                 HASHMAP_FOREACH_KEY(q, p, files, i) {
-                        j->path = p;
-                        j->block = PTR_TO_SECTOR(q);
+                        memcpy(j, q, sizeof(struct item));
                         j++;
                 }
 
@@ -551,7 +597,6 @@ finish:
                 fclose(pack);
                 unlink(pack_fn_new);
         }
-
         free(pack_fn_new);
         free(pack_fn);
 
@@ -560,134 +605,48 @@ finish:
 
         hashmap_free(files);
 
+        if (previous_block_readahead_set) {
+                uint64_t bytes;
+
+                /* Restore the original kernel readahead setting if we
+                 * changed it, and nobody has overwritten it since
+                 * yet. */
+                if (block_get_readahead(root, &bytes) >= 0 && bytes == 8*1024)
+                        block_set_readahead(root, previous_block_readahead);
+        }
+
         return r;
 }
 
-static int help(void) {
+int main_collect(const char *root) {
 
-        printf("%s [OPTIONS...] [DIRECTORY]\n\n"
-               "Collect read-ahead data on early boot.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --max-files=INT        Maximum number of files to read ahead\n"
-               "     --max-file-size=BYTES  Maximum size of files to read ahead\n"
-               "     --timeout=USEC         Maximum time to spend collecting data\n",
-               program_invocation_short_name);
+        if (!root)
+                root = "/";
 
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_FILES_MAX = 0x100,
-                ARG_FILE_SIZE_MAX,
-                ARG_TIMEOUT
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'                },
-                { "files-max",     required_argument, NULL, ARG_FILES_MAX      },
-                { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT        },
-                { NULL,            0,                 NULL, 0                  }
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_FILES_MAX:
-                        if (safe_atou(optarg, &arg_files_max) < 0 || arg_files_max <= 0) {
-                                log_error("Failed to parse maximum number of files %s.", optarg);
-                                return -EINVAL;
-                        }
-                        break;
-
-                case ARG_FILE_SIZE_MAX: {
-                        unsigned long long ull;
-
-                        if (safe_atollu(optarg, &ull) < 0 || ull <= 0) {
-                                log_error("Failed to parse maximum file size %s.", optarg);
-                                return -EINVAL;
-                        }
-
-                        arg_file_size_max = (off_t) ull;
-                        break;
-                }
-
-                case ARG_TIMEOUT:
-                        if (parse_usec(optarg, &arg_timeout) < 0 || arg_timeout <= 0) {
-                                log_error("Failed to parse timeout %s.", optarg);
-                                return -EINVAL;
-                        }
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
-                }
-        }
-
-        if (optind != argc &&
-            optind != argc-1) {
-                help();
-                return -EINVAL;
-        }
-
-        return 1;
-}
-
-int main(int argc, char *argv[]) {
-        int r;
-        const char *root;
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
-
-        if ((r = parse_argv(argc, argv)) <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-        root = optind < argc ? argv[optind] : "/";
-
+        /* Skip this step on read-only media. Note that we check the
+         * underlying block device here, not he read-only flag of the
+         * file system on top, since that one is most likely mounted
+         * read-only anyway at boot, even if the underlying block
+         * device is theoretically writable. */
         if (fs_on_read_only(root) > 0) {
                 log_info("Disabling readahead collector due to read-only media.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
         if (!enough_ram()) {
                 log_info("Disabling readahead collector due to low memory.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
-        if (detect_virtualization(NULL) > 0) {
-                log_info("Disabling readahead collector due to execution in virtualized environment.");
-                return 0;
-        }
-
-        if (!(shared = shared_get()))
-                return 1;
+        shared = shared_get();
+        if (!shared)
+                return EXIT_FAILURE;
 
         shared->collect = getpid();
         __sync_synchronize();
 
         if (collect(root) < 0)
-                return 1;
+                return EXIT_FAILURE;
 
-        return 0;
+        return EXIT_SUCCESS;
 }

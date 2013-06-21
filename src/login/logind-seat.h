@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindseathfoo
-#define foologindseathfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -9,16 +8,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -63,6 +62,9 @@ int seat_attach_session(Seat *s, Session *session);
 
 bool seat_is_vtconsole(Seat *s);
 bool seat_can_multi_session(Seat *s);
+bool seat_can_tty(Seat *s);
+bool seat_can_graphical(Seat *s);
+
 int seat_get_idle_hint(Seat *s, dual_timestamp *t);
 
 int seat_start(Seat *s);
@@ -79,5 +81,3 @@ extern const DBusObjectPathVTable bus_seat_vtable;
 
 int seat_send_signal(Seat *s, bool new_seat);
 int seat_send_changed(Seat *s, const char *properties);
-
-#endif

@@ -8,16 +8,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -39,11 +39,19 @@
 
         <refmeta>
                 <refentrytitle>sd-daemon</refentrytitle>
-                <manvolnum>7</manvolnum>
+                <manvolnum>3</manvolnum>
         </refmeta>
 
         <refnamediv>
                 <refname>sd-daemon</refname>
+                <refname>SD_EMERG</refname>
+                <refname>SD_ALERT</refname>
+                <refname>SD_CRIT</refname>
+                <refname>SD_ERR</refname>
+                <refname>SD_WARNING</refname>
+                <refname>SD_NOTICE</refname>
+                <refname>SD_INFO</refname>
+                <refname>SD_DEBUG</refname>
                 <refpurpose>Reference implementation of APIs for
                 new-style daemons</refpurpose>
         </refnamediv>
@@ -130,8 +138,8 @@
                 <para>In addition, for details about the algorithms
                 check the liberally licensed reference implementation
                 sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/sd-daemon.c"/>
-                resp. <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
+                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
+                and <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para>These APIs are implemented in the reference
                 implementation's <filename>sd-daemon.c</filename> and
@@ -164,7 +172,7 @@
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>fprintf</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
