@@ -8,16 +8,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -45,7 +45,7 @@
         <refnamediv>
                 <refname>systemd</refname>
                 <refname>init</refname>
-                <refpurpose>systemd System and Service Manager</refpurpose>
+                <refpurpose>systemd system and service manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -78,7 +78,7 @@
                 the configuration file
                 <filename>system.conf</filename>, otherwise
                 <filename>user.conf</filename>. See
-                <citerefentry><refentrytitle>systemd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more information.</para>
         </refsect1>
 
@@ -94,6 +94,12 @@
 
                                 <listitem><para>Prints a short help
                                 text and exits.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--version</option></term>
+
+                                <listitem><para>Prints a systemd version
+                                identifier and exits.</para></listitem>
                         </varlistentry>
                         <varlistentry>
                                 <term><option>--test</option></term>
@@ -138,11 +144,13 @@
                                 <term><option>--system</option></term>
                                 <term><option>--user</option></term>
 
-                                <listitem><para>Tell systemd to run a
-                                system instance (resp. user
-                                instance), even if the process ID is
-                                not 1 (resp. is 1), i.e. systemd is
-                                not (resp. is) run as init process.
+                                <listitem><para>For <option>--system</option>,
+                                tell systemd to run a
+                                system instance, even if the process ID is
+                                not 1, i.e. systemd is not run as init process.
+                                <option>--user</option> does the opposite,
+                                running a user instance even if the process
+                                ID is 1.
                                 Normally it should not be necessary to
                                 pass these options, as systemd
                                 automatically detects the mode it is
@@ -186,18 +194,6 @@
                                 <listitem><para>Show terse service
                                 status information while booting. This
                                 switch has no effect when run as user
-                                instance. Takes a boolean argument
-                                which may be omitted which is
-                                interpreted as
-                                <option>true</option>.</para></listitem>
-                        </varlistentry>
-                        <varlistentry>
-                                <term><option>--sysv-console=</option></term>
-
-                                <listitem><para>Controls whether
-                                output of SysV init scripts will be
-                                directed to the console. This switch
-                                has no effect when run as user
                                 instance. Takes a boolean argument
                                 which may be omitted which is
                                 interpreted as
@@ -257,11 +253,11 @@
                                 <term><option>--default-standard-error=</option></term>
 
                                 <listitem><para>Sets the default
-                                output resp. error output for all
-                                services and sockets, i.e. controls
+                                output or error output for all
+                                services and sockets, respectively. That is, controls
                                 the default for
                                 <option>StandardOutput=</option>
-                                resp. <option>StandardError=</option>
+                                and <option>StandardError=</option>
                                 (see
                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details). Takes one of
@@ -492,6 +488,21 @@
                 by systemd are covered by the <ulink
                 url="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
                 Stability Promise</ulink>.</para>
+
+                <para>Units may be generated dynamically at boot and
+                system manager reload time, for example based on other
+                configuration files or parameters passed on the kernel
+                command line. For details see the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators">Generators
+                Specification</ulink>.</para>
+
+                <para>Systems which invoke systemd in a container
+                or initrd environment should implement the
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container
+                Interface</ulink> or <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd
+                Interface</ulink> specifications, respectively.</para>
         </refsect1>
 
         <refsect1>
@@ -524,7 +535,9 @@
                                 <command>disable</command> commands of
                                 the
                                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                                tool.</para></listitem>
+                                tool. Full list of directories is provided in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -553,7 +566,9 @@
                                 tool can handle both global (i.e. for
                                 all users) and private (for one user)
                                 enabling/disabling of
-                                units.</para></listitem>
+                                units. Full list of directories is provided in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -816,14 +831,22 @@
 
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
-                                (resp. <literal>info</literal> on
+                                (or <literal>info</literal> on
                                 <literal>SIGRTMIN+23</literal>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
-                                (resp. <varname>systemd.log_level=info</varname>
+                                (or <varname>systemd.log_level=info</varname>
                                 on <literal>SIGRTMIN+23</literal>) on
                                 the kernel command
                                 line.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term>SIGRTMIN+24</term>
+
+                                <listitem><para>Immediately exits the
+                                manager (only available for --user
+                                instances).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -834,19 +857,19 @@
 
                                 <listitem><para>Sets the log level to
                                 <literal>journal-or-kmsg</literal>
-                                (resp. <literal>console</literal> on
-                                <literal>SIGRTMIN+27</literal>;
-                                resp. <literal>kmsg</literal> on
-                                <literal>SIGRTMIN+28</literal>;
-                                resp. <literal>syslog-or-kmsg</literal>
+                                (or <literal>console</literal> on
+                                <literal>SIGRTMIN+27</literal>,
+                                <literal>kmsg</literal> on
+                                <literal>SIGRTMIN+28</literal>,
+                                or <literal>syslog-or-kmsg</literal>
                                 on <literal>SIGRTMIN+29</literal>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
-                                (resp. <varname>systemd.log_target=console</varname>
-                                on <literal>SIGRTMIN+27</literal>;
-                                resp. <varname>systemd.log_target=kmsg</varname>
-                                on <literal>SIGRTMIN+28</literal>;
-                                resp
+                                (or <varname>systemd.log_target=console</varname>
+                                on <literal>SIGRTMIN+27</literal>,
+                                <varname>systemd.log_target=kmsg</varname>
+                                on <literal>SIGRTMIN+28</literal>,
+                                or
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
                                 on <literal>SIGRTMIN+29</literal>) on
                                 the kernel command
@@ -858,7 +881,7 @@
         <refsect1>
                 <title>Environment</title>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
                                 <listitem><para>systemd reads the
@@ -968,9 +991,10 @@
                 <filename>/proc/cmdline</filename>
                 instead.</para></footnote>:</para>
 
-                <variablelist>
+                <variablelist class='kernel-commandline-options'>
                         <varlistentry>
                                 <term><varname>systemd.unit=</varname></term>
+                                <term><varname>rd.systemd.unit=</varname></term>
 
                                 <listitem><para>Overrides the unit to
                                 activate on boot. Defaults to
@@ -980,8 +1004,12 @@
                                 <filename>rescue.target</filename> or
                                 <filename>emergency.service</filename>. See
                                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details about these
-                                units.</para></listitem>
+                                for details about these units. The
+                                option prefixed with
+                                <literal>rd.</literal> is honored
+                                only in the initial RAM disk (initrd),
+                                while the one that isn't prefixed only
+                                in the main system.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1036,16 +1064,6 @@
                                 argument. If <option>true</option>
                                 shows terse service status updates on
                                 the console during bootup. Defaults to
-                                <option>true</option>.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>systemd.sysv_console=</varname></term>
-
-                                <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
-                                output of SysV init scripts will be
-                                directed to the console. Defaults to
                                 <option>true</option>, unless
                                 <option>quiet</option> is passed as
                                 kernel command line option in which
@@ -1069,12 +1087,12 @@
                                 <term><varname>systemd.default_standard_output=</varname></term>
                                 <term><varname>systemd.default_standard_error=</varname></term>
                                 <listitem><para>Controls default
-                                standard output/error output for
+                                standard output and error output for
                                 services, with the same effect as the
                                 <option>--default-standard-output=</option>
-                                resp. <option>--default-standard-error=</option>
+                                and <option>--default-standard-error=</option>
                                 command line arguments described
-                                above.</para></listitem>
+                                above, respectively.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1087,13 +1105,100 @@
                                 process and all its children at boot
                                 time. May be used more than once to
                                 set multiple variables. If the equal
-                                sign and variable are missing unsets
+                                sign and variable are missing it unsets
                                 an environment variable which might be
                                 passed in from the initial ram
                                 disk.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>quiet</varname></term>
+
+                                <listitem><para>If passed turns off
+                                status output at boot, much like
+                                <varname>systemd.show_status=false</varname>
+                                would. Note that this option is also
+                                read by the kernel itself and disables
+                                kernel log output to the
+                                kernel. Passing this option hence
+                                turns off the usual output from both
+                                the system manager and the
+                                kernel.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>emergency</varname></term>
+
+                                <listitem><para>Boot into emergency
+                                mode. This is equivalent to
+                                <varname>systemd.unit=emergency.target</varname>
+                                and provided for compatibility
+                                reasons and to be easier to type.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>single</varname></term>
+                                <term><varname>s</varname></term>
+                                <term><varname>S</varname></term>
+                                <term><varname>1</varname></term>
+
+                                <listitem><para>Boot into rescue
+                                mode. This is equivalent to
+                                <varname>systemd.unit=rescue.target</varname>
+                                and provided for compatibility reasons
+                                and to be easier to
+                                type.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>2</varname></term>
+                                <term><varname>3</varname></term>
+                                <term><varname>4</varname></term>
+                                <term><varname>5</varname></term>
+
+                                <listitem><para>Boot into the
+                                specified legacy SysV runlevel. These
+                                are equivalent to
+                                <varname>systemd.unit=runlevel2.target</varname>,
+                                <varname>systemd.unit=runlevel3.target</varname>,
+                                <varname>systemd.unit=runlevel4.target</varname>,
+                                and <varname>systemd.unit=runlevel5.target</varname>, respectively,
+                                and provided for compatibility reasons
+                                and to be easier to
+                                type.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>locale.LANG=</varname></term>
+                                <term><varname>locale.LANGUAGE=</varname></term>
+                                <term><varname>locale.LC_CTYPE=</varname></term>
+                                <term><varname>locale.LC_NUMERIC=</varname></term>
+                                <term><varname>locale.LC_TIME=</varname></term>
+                                <term><varname>locale.LC_COLLATE=</varname></term>
+                                <term><varname>locale.LC_MONETARY=</varname></term>
+                                <term><varname>locale.LC_MESSAGES=</varname></term>
+                                <term><varname>locale.LC_PAPER=</varname></term>
+                                <term><varname>locale.LC_NAME=</varname></term>
+                                <term><varname>locale.LC_ADDRESS=</varname></term>
+                                <term><varname>locale.LC_TELEPHONE=</varname></term>
+                                <term><varname>locale.LC_MEASUREMENT=</varname></term>
+                                <term><varname>locale.LC_IDENTIFICATION=</varname></term>
+
+                                <listitem><para>Set the system locale
+                                to use. This overrides the settings in
+                                <filename>/etc/locale.conf</filename>. For
+                                more information see
+                                <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                and
+                                <citerefentry><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                                </para></listitem>
+                        </varlistentry>
                 </variablelist>
+
+                <para>For other kernel command line parameters
+                understood by components of the core OS, please refer
+                to
+                <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
         </refsect1>
 
         <refsect1>
@@ -1153,14 +1258,19 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemadm</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

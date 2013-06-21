@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -26,6 +26,7 @@
 #include "log.h"
 #include "util.h"
 #include "cgroup-util.h"
+#include "fileio.h"
 
 int main(int argc, char*argv[]) {
         int ret = EXIT_FAILURE;
@@ -69,17 +70,18 @@ int main(int argc, char*argv[]) {
                 int r, q;
                 char *cgroup_user_tree = NULL;
 
-                if ((r = write_one_line_file_atomic("/run/nologin", "System is going down.")) < 0)
+                r = write_string_file_atomic("/run/nologin", "System is going down.");
+                if (r < 0)
                         log_error("Failed to create /run/nologin: %s", strerror(-r));
 
-                if ((q = cg_get_user_path(&cgroup_user_tree)) < 0) {
+                q = cg_get_user_path(&cgroup_user_tree);
+                if (q < 0) {
                         log_error("Failed to determine use path: %s", strerror(-q));
                         goto finish;
                 }
 
                 q = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, cgroup_user_tree, true);
                 free(cgroup_user_tree);
-
                 if (q < 0) {
                         log_error("Failed to kill sessions: %s", strerror(-q));
                         goto finish;

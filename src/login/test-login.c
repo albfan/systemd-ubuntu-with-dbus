@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
         char *state;
         char *session2;
         char *t;
-        char **seats, **sessions;
+        char **seats, **sessions, **machines;
         uid_t *uids;
         unsigned n;
         struct pollfd pollfd;
@@ -71,6 +71,11 @@ int main(int argc, char* argv[]) {
         assert_se(r >= 0);
         printf("active = %s\n", yes_no(r));
 
+        r = sd_session_get_state(session, &state);
+        assert_se(r >= 0);
+        printf("state = %s\n", state);
+        free(state);
+
         assert_se(sd_session_get_uid(session, &u) >= 0);
         printf("uid = %lu\n", (unsigned long) u);
         assert_se(u == u2);
@@ -93,6 +98,14 @@ int main(int argc, char* argv[]) {
         r = sd_seat_can_multi_session(seat);
         assert_se(r >= 0);
         printf("can do multi session = %s\n", yes_no(r));
+
+        r = sd_seat_can_tty(seat);
+        assert_se(r >= 0);
+        printf("can do tty = %s\n", yes_no(r));
+
+        r = sd_seat_can_graphical(seat);
+        assert_se(r >= 0);
+        printf("can do graphical = %s\n", yes_no(r));
 
         assert_se(sd_uid_get_state(u, &state) >= 0);
         printf("state = %s\n", state);
@@ -167,15 +180,34 @@ int main(int argc, char* argv[]) {
         printf("n_uids = %i\n", r);
         assert_se(sd_get_uids(NULL) == r);
 
+        r = sd_get_machine_names(&machines);
+        assert_se(r >= 0);
+        assert_se(r == (int) strv_length(machines));
+        assert_se(t = strv_join(machines, ", "));
+        strv_free(machines);
+        printf("n_machines = %i\n", r);
+        printf("machines = %s\n", t);
+        free(t);
+
         r = sd_login_monitor_new("session", &m);
         assert_se(r >= 0);
 
-        zero(pollfd);
-        pollfd.fd = sd_login_monitor_get_fd(m);
-        pollfd.events = POLLIN;
-
         for (n = 0; n < 5; n++) {
-                r = poll(&pollfd, 1, -1);
+                usec_t timeout, nw;
+
+                zero(pollfd);
+                assert_se((pollfd.fd = sd_login_monitor_get_fd(m)) >= 0);
+                assert_se((pollfd.events = sd_login_monitor_get_events(m)) >= 0);
+
+                assert_se(sd_login_monitor_get_timeout(m, &timeout) >= 0);
+
+                nw = now(CLOCK_MONOTONIC);
+
+                r = poll(&pollfd, 1,
+                         timeout == (uint64_t) -1 ? -1 :
+                         timeout > nw ? (int) ((timeout - nw) / 1000) :
+                         0);
+
                 assert_se(r >= 0);
 
                 sd_login_monitor_flush(m);

@@ -6,16 +6,16 @@
   Copyright 2012 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 
 #include <systemd/sd-journal.h>
 
@@ -33,7 +33,7 @@
 #include "build.h"
 
 static char *arg_identifier = NULL;
-static char arg_priority = LOG_INFO;
+static int arg_priority = LOG_INFO;
 static bool arg_level_prefix = true;
 
 static int help(void) {
@@ -81,7 +81,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
-                        puts(DISTRIBUTION);
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
@@ -91,10 +90,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_identifier = NULL;
                         else {
                                 arg_identifier = strdup(optarg);
-                                if (!arg_identifier) {
-                                        log_error("Out of memory.");
-                                        return -ENOMEM;
-                                }
+                                if (!arg_identifier)
+                                        return log_oom();
                         }
                         break;
 

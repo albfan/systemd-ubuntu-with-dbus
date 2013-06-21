@@ -9,16 +9,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -44,11 +44,11 @@
 
         <refnamediv>
                 <refname>systemd.service</refname>
-                <refpurpose>systemd service configuration files</refpurpose>
+                <refpurpose>Service unit configuration</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
-                <para><filename>systemd.service</filename></para>
+                <para><filename><replaceable>service</replaceable>.service</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -72,7 +72,10 @@
                 <para>Additional options are listed in
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the execution environment the commands
-                are executed in.</para>
+                are executed in, and in
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                which define the way the processes of the service are
+                terminated.</para>
 
                 <para>Unless <varname>DefaultDependencies=</varname>
                 is set to <option>false</option>, service units will
@@ -95,7 +98,12 @@
                 <filename>.service</filename> suffix removed) and
                 dynamically creates a service unit from that
                 script. This is useful for compatibility with
-                SysV.</para>
+                SysV. Note that this compatibility is quite
+                comprehensive but not 100%. For details about the
+                incompatibilities see the <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
+                with SysV</ulink> document.
+                </para>
         </refsect1>
 
         <refsect1>
@@ -107,11 +115,13 @@
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
                 options are documented in
-                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
                 options specific to the <literal>[Service]</literal>
                 section of service units are the following:</para>
 
-                <variablelist>
+                <variablelist class='unit-directives'>
                         <varlistentry>
                                 <term><varname>Type=</varname></term>
 
@@ -121,12 +131,14 @@
                                 <option>forking</option>,
                                 <option>oneshot</option>,
                                 <option>dbus</option>,
-                                <option>notify</option>.</para>
+                                <option>notify</option> or
+                                <option>idle</option>.</para>
 
                                 <para>If set to
                                 <option>simple</option> (the default
-                                value) it is expected that the process
-                                configured with
+                                value if <varname>BusName=</varname>
+                                is not specified) it is expected that
+                                the process configured with
                                 <varname>ExecStart=</varname> is the
                                 main process of the service. In this
                                 mode, if the process offers
@@ -148,7 +160,7 @@
                                 complete and all communication
                                 channels set up. The child continues
                                 to run as the main daemon
-                                process. This is the behaviour of
+                                process. This is the behavior of
                                 traditional UNIX daemons. If this
                                 setting is used, it is recommended to
                                 also use the
@@ -159,7 +171,7 @@
                                 soon as the parent process
                                 exits.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>oneshot</option> is similar
                                 to <option>simple</option>, however
                                 it is expected that the process has to
@@ -168,7 +180,7 @@
                                 is particularly useful for this type
                                 of service.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>dbus</option> is similar to
                                 <option>simple</option>, however it is
                                 expected that the daemon acquires a
@@ -181,9 +193,11 @@
                                 option configured implicitly gain
                                 dependencies on the
                                 <filename>dbus.socket</filename>
-                                unit.</para>
+                                unit. This type is the default if
+                                <varname>BusName=</varname> is
+                                specified.</para>
 
-                                <para>Behaviour of
+                                <para>Behavior of
                                 <option>notify</option> is similar to
                                 <option>simple</option>, however it is
                                 expected that the daemon sends a
@@ -201,6 +215,16 @@
                                 <varname>NotifyAccess=</varname> is
                                 not set, it will be implicitly set to
                                 <option>main</option>.</para>
+
+                                <para>Behavior of
+                                <option>idle</option> is very similar
+                                to <option>simple</option>, however
+                                actual execution of the service
+                                binary is delayed until all jobs are
+                                dispatched. This may be used to avoid
+                                interleaving of output of shell
+                                services with the status output on the
+                                console.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -221,7 +245,7 @@
                                 <listitem><para>Takes a boolean value
                                 that specifies whether systemd should
                                 try to guess the main PID of a service
-                                should if it cannot be determined
+                                if it cannot be determined
                                 reliably. This option is ignored
                                 unless <option>Type=forking</option>
                                 is set and <option>PIDFile=</option>
@@ -259,7 +283,7 @@
                                 <term><varname>BusName=</varname></term>
 
                                 <listitem><para>Takes a D-Bus bus
-                                name, where this service is reachable
+                                name, that this service is reachable
                                 as. This option is mandatory for
                                 services where
                                 <varname>Type=</varname> is set to
@@ -272,52 +296,62 @@
 
                         <varlistentry>
                                 <term><varname>ExecStart=</varname></term>
-                                <listitem><para>Takes a command line
-                                that is executed when this service
-                                shall be started up. The first token
-                                of the command line must be an
-                                absolute file name, then followed by
-                                arguments for the process. It is
-                                mandatory to set this option for all
-                                services. This option may not be
-                                specified more than once, except when
-                                <varname>Type=oneshot</varname> is
-                                used in which case more than one
-                                <varname>ExecStart=</varname> line is
-                                accepted which are then invoked one by
-                                one, sequentially in the order they
-                                appear in the unit file.</para>
+                                <listitem><para>Commands with their
+                                arguments that are executed when this
+                                service is started. The first
+                                argument must be an absolute path
+                                name.</para>
 
-                                <para>Optionally, if the absolute file
-                                name is prefixed with
-                                <literal>@</literal>, the second token
-                                will be passed as
-                                <literal>argv[0]</literal> to the
-                                executed process, followed by the
-                                further arguments specified. If the
-                                first token is prefixed with
-                                <literal>-</literal> an exit code of
-                                the command normally considered a
-                                failure (i.e. non-zero exit status or
-                                abnormal exit due to signal) is ignored
-                                and considered success. If both
-                                <literal>-</literal> and
-                                <literal>@</literal> are used for the
-                                same command the former must precede
-                                the latter. Unless
+                                <para>When <varname>Type</varname> is
+                                not <option>oneshot</option>, only one
+                                command may be given. When
+                                <varname>Type=oneshot</varname> is
+                                used, more than one command may be
+                                specified. Multiple command lines may
+                                be concatenated in a single directive,
+                                by separating them with semicolons
+                                (these semicolons must be passed as
+                                separate words). Alternatively, this
+                                directive may be specified more than
+                                once with the same effect. However,
+                                the latter syntax is not recommended
+                                for compatibility with parsers
+                                suitable for XDG
+                                <filename>.desktop</filename> files.
+                                Lone semicolons may be escaped as
+                                '<literal>\;</literal>'. If the empty
+                                string is assigned to this option the
+                                list of commands to start is reset,
+                                prior assignments of this option will
+                                have no effect.</para>
+
+                                <para>If more than one command is
+                                specified, the commands are invoked
+                                one by one sequentially in the order
+                                they appear in the unit file. If one
+                                of the commands fails (and is not
+                                prefixed with '<literal>-</literal>'),
+                                other lines are not executed and the
+                                unit is considered failed.</para>
+
+                                <para>Unless
                                 <varname>Type=forking</varname> is
                                 set, the process started via this
                                 command line will be considered the
-                                main process of the daemon. The
-                                command line accepts % specifiers as
-                                described in
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+                                main process of the daemon.</para>
 
-                                <para>On top of that basic environment
-                                variable substitution is
-                                supported. Use
+                                <para>The command line accepts
+                                '<literal>%</literal>' specifiers as
+                                described in
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
+                                that the first argument of the command
+                                line (i.e. the program to execute) may
+                                not include specifiers.</para>
+
+                                <para>Basic environment variable
+                                substitution is supported. Use
                                 <literal>${FOO}</literal> as part of a
-                                word, or as word of its own on the
+                                word, or as a word of its own on the
                                 command line, in which case it will be
                                 replaced by the value of the
                                 environment variable including all
@@ -327,38 +361,66 @@
                                 word on the command line, in which
                                 case it will be replaced by the value
                                 of the environment variable split up
-                                at whitespace, resulting in no or more
-                                arguments. Note that the first
+                                at whitespace, resulting in zero or
+                                more arguments. Note that the first
                                 argument (i.e. the program to execute)
-                                may not be a variable, and must be a
-                                literal and absolute path
-                                name.</para></listitem>
+                                may not be a variable, since it must
+                                be a literal and absolute path
+                                name.</para>
+
+                                <para>Optionally, if the absolute file
+                                name is prefixed with
+                                '<literal>@</literal>', the second token
+                                will be passed as
+                                <literal>argv[0]</literal> to the
+                                executed process, followed by the
+                                further arguments specified. If the
+                                absolute file name is prefixed with
+                                '<literal>-</literal>' an exit code of
+                                the command normally considered a
+                                failure (i.e. non-zero exit status or
+                                abnormal exit due to signal) is ignored
+                                and considered success. If both
+                                '<literal>-</literal>' and
+                                '<literal>@</literal>' are used they
+                                can appear in either order.</para>
+
+                                <para>Note that this setting does not
+                                directly support shell command
+                                lines. If shell command lines are to
+                                be used they need to be passed
+                                explicitly to a shell implementation
+                                of some kind. Example:</para>
+                                <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
+                                </programlisting>
+
+                                <para>For services run by a user
+                                instance of systemd the special
+                                environment variable
+                                <varname>$MANAGERPID</varname> is set
+                                to the PID of the systemd
+                                instance.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>ExecStartPre=</varname></term>
                                 <term><varname>ExecStartPost=</varname></term>
                                 <listitem><para>Additional commands
-                                that are executed before (resp. after)
+                                that are executed before or after
                                 the command in
-                                <varname>ExecStart=</varname>. Multiple
-                                command lines may be concatenated in a
-                                single directive, by separating them
-                                by semicolons (these semicolons must
-                                be passed as separate words). In that
-                                case, the commands are executed one
-                                after the other,
-                                serially. Alternatively, these
-                                directives may be specified more than
-                                once with the same effect. However,
-                                the latter syntax is not recommended
-                                for compatibility with parsers
-                                suitable for XDG
-                                <filename>.desktop</filename> files.
-                                Use of these settings is
-                                optional. Specifier and environment
-                                variable substitution is
-                                supported.</para></listitem>
+                                <varname>ExecStart=</varname>, respectively.
+                                Syntax is the same as for
+                                <varname>ExecStart=</varname>, except
+                                that multiple command lines are allowed
+                                and the commands are executed one
+                                after the other, serially.</para>
+
+                                <para>If any of those commands (not
+                                prefixed with '<literal>-</literal>')
+                                fail, the rest are not executed and
+                                the unit is considered failed.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -367,20 +429,23 @@
                                 trigger a configuration reload in the
                                 service. This argument takes multiple
                                 command lines, following the same
-                                scheme as pointed out for
-                                <varname>ExecStartPre=</varname>
+                                scheme as described for
+                                <varname>ExecStart=</varname>
                                 above. Use of this setting is
                                 optional. Specifier and environment
                                 variable substitution is supported
                                 here following the same scheme as for
-                                <varname>ExecStart=</varname>. One
-                                special environment variable is set:
-                                if known <literal>$MAINPID</literal> is
-                                set to the main process of the
-                                daemon, and may be used for command
-                                lines like the following:
-                                <command>/bin/kill -HUP
-                                $MAINPID</command>.</para></listitem>
+                                <varname>ExecStart=</varname>.</para>
+
+                                <para>One additional special
+                                environment variables is set: if known
+                                <varname>$MAINPID</varname> is set to
+                                the main process of the daemon, and
+                                may be used for command lines like the
+                                following:</para>
+
+                                <programlisting>/bin/kill -HUP $MAINPID</programlisting>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -389,22 +454,22 @@
                                 stop the service started via
                                 <varname>ExecStart=</varname>. This
                                 argument takes multiple command lines,
-                                following the same scheme as pointed
-                                out for
-                                <varname>ExecStartPre=</varname>
+                                following the same scheme as described
+                                for <varname>ExecStart=</varname>
                                 above. Use of this setting is
                                 optional. All processes remaining for
                                 a service after the commands
                                 configured in this option are run are
                                 terminated according to the
                                 <varname>KillMode=</varname> setting
-                                (see below). If this option is not
-                                specified the process is terminated
-                                right-away when service stop is
-                                requested. Specifier and environment
-                                variable substitution is supported
-                                (including
-                                <literal>$MAINPID</literal>, see
+                                (see
+                                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
+                                this option is not specified the
+                                process is terminated right-away when
+                                service stop is requested. Specifier
+                                and environment variable substitution
+                                is supported (including
+                                <varname>$MAINPID</varname>, see
                                 above).</para></listitem>
                         </varlistentry>
 
@@ -412,13 +477,15 @@
                                 <term><varname>ExecStopPost=</varname></term>
                                 <listitem><para>Additional commands
                                 that are executed after the service
-                                was stopped using the commands
-                                configured in
-                                <varname>ExecStop=</varname>. This
+                                was stopped. This includes cases where
+                                the commands configured in
+                                <varname>ExecStop=</varname> were used,
+                                where the service doesn't have any
+                                <varname>ExecStop=</varname> defined, or
+                                where the service exited unexpectedly. This
                                 argument takes multiple command lines,
-                                following the same scheme as pointed
-                                out for
-                                <varname>ExecStartPre</varname>. Use
+                                following the same scheme as described
+                                for <varname>ExecStart</varname>. Use
                                 of these settings is
                                 optional. Specifier and environment
                                 variable substitution is
@@ -438,54 +505,81 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>TimeoutSec=</varname></term>
+                                <term><varname>TimeoutStartSec=</varname></term>
                                 <listitem><para>Configures the time to
-                                wait for start-up and stop. If a
+                                wait for start-up. If a
                                 daemon service does not signal
                                 start-up completion within the
-                                configured time the service will be
+                                configured time, the service will be
                                 considered failed and be shut down
-                                again. If a service is asked to stop
-                                but does not terminate in the
-                                specified time it will be terminated
-                                forcibly via SIGTERM, and after
-                                another delay of this time with
-                                SIGKILL. (See
-                                <varname>KillMode=</varname>
-                                below.) Takes a unit-less value in seconds, or a
+                                again.
+                                Takes a unit-less value in seconds, or a
                                 time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to
-                                90s.</para></listitem>
+                                logic. Defaults to 90s, except when
+                                <varname>Type=oneshot</varname> is
+                                used in which case the timeout
+                                is disabled by default.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TimeoutStopSec=</varname></term>
+                                <listitem><para>Configures the time to
+                                wait for stop. If a service is asked
+                                to stop but does not terminate in the
+                                specified time, it will be terminated
+                                forcibly via SIGTERM, and after
+                                another delay of this time with
+                                SIGKILL (See
+                                <varname>KillMode=</varname>
+                                in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                Takes a unit-less value in seconds, or a
+                                time span value such as "5min
+                                20s". Pass 0 to disable the timeout
+                                logic. Defaults to 90s.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>TimeoutSec=</varname></term>
+                                <listitem><para>A shorthand for configuring
+                                both <varname>TimeoutStartSec=</varname>
+                                and <varname>TimeoutStopSec=</varname>
+                                to the specified value.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>WatchdogSec=</varname></term>
                                 <listitem><para>Configures the
-                                watchdog timeout for a service. This
-                                is activated when the start-up is
+                                watchdog timeout for a service. The
+                                watchdog is activated when the start-up is
                                 completed. The service must call
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                regularly with "WATCHDOG=1". If the
-                                time between two such calls is larger
-                                than the configured time then the
-                                service is placed in a failure
-                                state. By setting
-                                <varname>Restart=</varname>
-                                to <option>on-failure</option> or
+                                regularly with "WATCHDOG=1" (i.e. the
+                                "keep-alive ping"). If the time
+                                between two such calls is larger than
+                                the configured time then the service
+                                is placed in a failure state. By
+                                setting <varname>Restart=</varname> to
+                                <option>on-failure</option> or
                                 <option>always</option> the service
                                 will be automatically restarted. The
                                 time configured here will be passed to
                                 the executed service process in the
                                 <varname>WATCHDOG_USEC=</varname>
-                                environment variable. If
+                                environment variable. This allows
+                                daemons to automatically enable the
+                                keep-alive pinging logic if watchdog
+                                support is enabled for the service. If
                                 this option is used
                                 <varname>NotifyAccess=</varname> (see
                                 below) should be set to open access to
                                 the notification socket provided by
                                 systemd. If
-                                <varname>NotifyAccess=</varname> is not
-                                set, it will be implicitly set to
+                                <varname>NotifyAccess=</varname> is
+                                not set, it will be implicitly set to
                                 <option>main</option>. Defaults to 0,
                                 which disables this
                                 feature.</para></listitem>
@@ -494,35 +588,122 @@
                         <varlistentry>
                                 <term><varname>Restart=</varname></term>
                                 <listitem><para>Configures whether the
-                                main service process shall be
-                                restarted when it exits. Takes one of
+                                service shall be restarted when the
+                                service process exits, is killed,
+                                or a timeout is reached. The service
+                                process may be the main service
+                                process, but also one of the processes
+                                specified with
+                                <varname>ExecStartPre=</varname>,
+                                <varname>ExecStartPost=</varname>,
+                                <varname>ExecStopPre=</varname>,
+                                <varname>ExecStopPost=</varname>, or
+                                <varname>ExecReload=</varname>.
+                                When the death of the process is a
+                                result of systemd operation (e.g. service
+                                stop or restart), the service will not be
+                                restarted. Timeouts include missing
+                                the watchdog "keep-alive ping"
+                                deadline and a service start, reload,
+                                and stop operation timeouts.</para>
+
+                                <para>Takes one of
                                 <option>no</option>,
                                 <option>on-success</option>,
                                 <option>on-failure</option>,
-                                <option>on-abort</option> or
+                                <option>on-abort</option>, or
                                 <option>always</option>. If set to
                                 <option>no</option> (the default) the
-                                service will not be restarted when it
-                                exits. If set to
+                                service will not be restarted. If set to
                                 <option>on-success</option> it will be
-                                restarted only when it exited cleanly,
-                                i.e. terminated with an exit code of
-                                0. If set to
-                                <option>on-failure</option> it will be
-                                restarted only when it exited with an
-                                exit code not equalling 0, when
-                                terminated by a signal, when an
-                                operation times out or when the
-                                configured watchdog timeout is
-                                triggered. If set to
-                                <option>on-abort</option> it will be
-                                restarted only if it exits due to
-                                reception of an uncaught signal. If
-                                set to <option>always</option> the
-                                service will be restarted regardless
-                                whether it exited cleanly or not,
-                                got terminated abnormally by a
-                                signal or hit a timeout.</para></listitem>
+                                restarted only when the service process
+                                exits cleanly.
+                                In this context, a clean exit means
+                                an exit code of 0, or one of the signals
+                                SIGHUP, SIGINT, SIGTERM, or SIGPIPE, and
+                                additionally, exit statuses and signals
+                                specified in <varname>SuccessExitStatus=</varname>.
+                                If set to <option>on-failure</option>
+                                the service will be restarted when the
+                                process exits with an nonzero exit code,
+                                is terminated by a signal (including on
+                                core dump), when an operation (such as
+                                service reload) times out, and when the
+                                configured watchdog timeout is triggered.
+                                If set to
+                                <option>on-abort</option> the service
+                                will be restarted only if the service
+                                process exits due to an uncaught
+                                signal not specified as a clean exit
+                                status.
+                                If set to
+                                <option>always</option> the service
+                                will be restarted regardless whether
+                                it exited cleanly or not, got
+                                terminated abnormally by a signal or
+                                hit a timeout.</para>
+
+                                <para>In addition to the above settings,
+                                the service will not be restarted if the
+                                exit code or signal is specified in
+                                <varname>RestartPreventExitStatus=</varname>
+                                (see below).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SuccessExitStatus=</varname></term>
+                                <listitem><para>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will be
+                                considered successful termination, in
+                                addition to the normal successful exit
+                                code 0 and the signals SIGHUP, SIGINT,
+                                SIGTERM and SIGPIPE. Exit status
+                                definitions can either be numeric exit
+                                codes or termination signal names,
+                                separated by spaces. Example:
+                                "<literal>SuccessExitStatus=1 2 8
+                                SIGKILL</literal>", ensures that exit
+                                codes 1, 2, 8 and the termination
+                                signal SIGKILL are considered clean
+                                service terminations. This option may
+                                appear more than once in which case
+                                the list of successful exit statuses
+                                is merged. If the empty string is
+                                assigned to this option the list is
+                                reset, all prior assignments of this
+                                option will have no
+                                effect.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RestartPreventExitStatus=</varname></term>
+                                <listitem><para>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will
+                                prevent automatic service restarts
+                                regardless of the restart setting
+                                configured with
+                                <varname>Restart=</varname>. Exit
+                                status definitions can either be
+                                numeric exit codes or termination
+                                signal names, and are separated by
+                                spaces. Defaults to the empty list, so
+                                that by default no exit status is
+                                excluded from the configured restart
+                                logic. Example:
+                                "<literal>RestartPreventExitStatus=1 6
+                                SIGABRT</literal>", ensures that exit
+                                codes 1 and 6 and the termination
+                                signal SIGABRT will not result in
+                                automatic service restarting. This
+                                option may appear more than once in
+                                which case the list of restart preventing
+                                statuses is merged. If the empty
+                                string is assigned to this option the
+                                list is reset, all prior assignments
+                                of this option will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -573,95 +754,6 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>SysVStartPriority=</varname></term>
-                                <listitem><para>Set the SysV start
-                                priority to use to order this service
-                                in relation to SysV services lacking
-                                LSB headers. This option is only
-                                necessary to fix ordering in relation
-                                to legacy SysV services, that have no
-                                ordering information encoded in the
-                                script headers. As such it should only
-                                be used as temporary compatibility
-                                option, and not be used in new unit
-                                files. Almost always it is a better
-                                choice to add explicit ordering
-                                directives via
-                                <varname>After=</varname> or
-                                <varname>Before=</varname>,
-                                instead. For more details see
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
-                                used, pass an integer value in the
-                                range 0-99.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillMode=</varname></term>
-                                <listitem><para>Specifies how
-                                processes of this service shall be
-                                killed. One of
-                                <option>control-group</option>,
-                                <option>process</option>,
-                                <option>none</option>.</para>
-
-                                <para>If set to
-                                <option>control-group</option> all
-                                remaining processes in the control
-                                group of this service will be
-                                terminated on service stop, after the
-                                stop command (as configured with
-                                <varname>ExecStop=</varname>) is
-                                executed. If set to
-                                <option>process</option> only the main
-                                process itself is killed. If set to
-                                <option>none</option> no process is
-                                killed. In this case only the stop
-                                command will be executed on service
-                                stop, but no process be killed
-                                otherwise. Processes remaining alive
-                                after stop are left in their control
-                                group and the control group continues
-                                to exist after stop unless it is
-                                empty. Defaults to
-                                <option>control-group</option>.</para>
-
-                                <para>Processes will first be
-                                terminated via SIGTERM (unless the
-                                signal to send is changed via
-                                <varname>KillSignal=</varname>). If
-                                then after a delay (configured via the
-                                <varname>TimeoutSec=</varname> option)
-                                processes still remain, the
-                                termination request is repeated with
-                                the SIGKILL signal (unless this is
-                                disabled via the
-                                <varname>SendSIGKILL=</varname>
-                                option). See
-                                <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-                                for more
-                                information.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>KillSignal=</varname></term>
-                                <listitem><para>Specifies which signal
-                                to use when killing a
-                                service. Defaults to SIGTERM.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>SendSIGKILL=</varname></term>
-                                <listitem><para>Specifies whether to
-                                send SIGKILL to remaining processes
-                                after a timeout, if the normal
-                                shutdown procedure left processes of
-                                the service around. Takes a boolean
-                                value. Defaults to "yes".
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><varname>NonBlocking=</varname></term>
                                 <listitem><para>Set O_NONBLOCK flag
                                 for all file descriptors passed via
@@ -699,7 +791,7 @@
                                 open access to the notification socket
                                 when using
                                 <varname>Type=notify</varname> or
-                                <varname>WatchdogUsec=</varname> (see
+                                <varname>WatchdogSec=</varname> (see
                                 above). If those options are used but
                                 <varname>NotifyAccess=</varname> not
                                 configured it will be implicitly set
@@ -725,40 +817,22 @@
                                 same time. Also note that a different
                                 service may be activated on incoming
                                 traffic than inherits the sockets. Or
-                                in other words: The
+                                in other words: the
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
-                                doesn't have to match the inverse of the
-                                <varname>Sockets=</varname> setting of
-                                the <filename>.service</filename> it
-                                refers to.</para></listitem>
-                        </varlistentry>
+                                doesn't have to match the inverse of
+                                the <varname>Sockets=</varname>
+                                setting of the
+                                <filename>.service</filename> it
+                                refers to.</para>
 
-                        <varlistentry>
-                                <term><varname>FsckPassNo=</varname></term>
-                                <listitem><para>Set the fsck passno
-                                priority to use to order this service
-                                in relation to other file system
-                                checking services. This option is only
-                                necessary to fix ordering in relation
-                                to fsck jobs automatically created for
-                                all <filename>/etc/fstab</filename>
-                                entries with a value in the fs_passno
-                                column > 0. As such it should only be
-                                used as option for fsck
-                                services. Almost always it is a better
-                                choice to add explicit ordering
-                                directives via
-                                <varname>After=</varname> or
-                                <varname>Before=</varname>,
-                                instead. For more details see
-                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
-                                used, pass an integer value in the
-                                same range as
-                                <filename>/etc/fstab</filename>'s
-                                fs_passno column. See
-                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for details.</para></listitem>
+                                <para>This option may appear more than
+                                once, in which case the list of socket
+                                units is merged. If the empty string
+                                is assigned to this option the list of
+                                sockets is reset, all prior uses of
+                                this setting will have no
+                                effect.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -782,7 +856,27 @@
                                 are allowed (defaults to 5). These
                                 configuration options are particularly
                                 useful in conjunction with
-                                <varname>Restart=</varname>.</para></listitem>
+                                <varname>Restart=</varname>, however
+                                apply to all kinds of starts
+                                (including manual), not just those
+                                triggered by the
+                                <varname>Restart=</varname> logic.
+                                Note that units which are configured
+                                for <varname>Restart=</varname> and
+                                which reach the start limit are not
+                                attempted to be restarted anymore,
+                                however they may still be restarted
+                                manually at a later point from which
+                                point on the restart logic is again
+                                activated. Note that
+                                <command>systemctl
+                                reset-failed</command> will cause the
+                                restart rate counter for a service to
+                                be flushed, which is useful if the
+                                administrator wants to manually start
+                                a service and the start limit
+                                interferes with
+                                that.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -822,6 +916,75 @@
                         </varlistentry>
 
                 </variablelist>
+
+                <para>Check
+                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                and
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                for more settings.</para>
+
+        </refsect1>
+
+        <refsect1>
+                <title>Compatibility Options</title>
+
+                <para>The following options are also available in the
+                <literal>[Service]</literal> section, but exist purely
+                for compatibility reasons and should not be used in
+                newly written service files.</para>
+
+                <variablelist class='unit-directives'>
+                        <varlistentry>
+                                <term><varname>SysVStartPriority=</varname></term>
+                                <listitem><para>Set the SysV start
+                                priority to use to order this service
+                                in relation to SysV services lacking
+                                LSB headers. This option is only
+                                necessary to fix ordering in relation
+                                to legacy SysV services, that have no
+                                ordering information encoded in the
+                                script headers. As such it should only
+                                be used as temporary compatibility
+                                option, and not be used in new unit
+                                files. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                range 0-99.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FsckPassNo=</varname></term>
+                                <listitem><para>Set the fsck passno
+                                priority to use to order this service
+                                in relation to other file system
+                                checking services. This option is only
+                                necessary to fix ordering in relation
+                                to fsck jobs automatically created for
+                                all <filename>/etc/fstab</filename>
+                                entries with a value in the fs_passno
+                                column > 0. As such it should only be
+                                used as option for fsck
+                                services. Almost always it is a better
+                                choice to add explicit ordering
+                                directives via
+                                <varname>After=</varname> or
+                                <varname>Before=</varname>,
+                                instead. For more details see
+                                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
+                                used, pass an integer value in the
+                                same range as
+                                <filename>/etc/fstab</filename>'s
+                                fs_passno column. See
+                                <citerefentry><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details.</para></listitem>
+                        </varlistentry>
+
+                </variablelist>
         </refsect1>
 
         <refsect1>
@@ -830,7 +993,9 @@
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

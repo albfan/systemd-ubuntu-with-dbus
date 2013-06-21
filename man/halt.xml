@@ -8,16 +8,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -88,7 +88,7 @@
                                 <term><option>--halt</option></term>
 
                                 <listitem><para>Halt the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 
@@ -97,7 +97,7 @@
                                 <term><option>--poweroff</option></term>
 
                                 <listitem><para>Power-off the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 
@@ -105,7 +105,7 @@
                                 <term><option>--reboot</option></term>
 
                                 <listitem><para>Reboot the machine,
-                                regardless which one of the three
+                                regardless of which one of the three
                                 commands is invoked.</para></listitem>
                         </varlistentry>
 
@@ -133,15 +133,6 @@
 
                                 <listitem><para>Don't write wtmp
                                 shutdown entry.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-n</option></term>
-                                <term><option>--no-sync</option></term>
-
-                                <listitem><para>Don't sync hard disks/storage media before
-                                halt, power-off,
-                                reboot.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

@@ -7,16 +7,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="sysctl.d">
@@ -54,38 +54,53 @@
         <refsect1>
                 <title>Description</title>
 
-		<para><command>systemd</command> uses configuration files
-		from the above directories to configure
-		<citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-		kernel parameters to load during boot.</para>
+                <para>At boot,
+                <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                reads configuration files from the above directories
+                to configure
+                <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                kernel parameters.</para>
         </refsect1>
 
         <refsect1>
-		<title>Configuration Format</title>
+                <title>Configuration Format</title>
 
-		<para>The configuration files should simply contain a
-		list of variable assignments, separated by
-		newlines. Empty lines and lines whose first
-		non-whitespace character is # or ; are ignored.</para>
+                <para>The configuration files contain a list of
+                variable assignments, separated by newlines. Empty
+                lines and lines whose first non-whitespace character
+                is # or ; are ignored.</para>
 
-                <para>Note that both / and . are accepted as
-                separators in sysctl variable names.</para>
+                <para>Note that both / and . are accepted as label
+                separators within sysctl variable
+                names. <literal>kernel.domainname=foo</literal> and
+                <literal>kernel/domainname=foo</literal> hence are
+                entirely equivalent.</para>
 
-                <para>Each configuration file is named in the style of
-                <filename>&lt;program&gt;.conf</filename>.
-                Files in <filename>/etc/</filename> overwrite
-                files with the same name in <filename>/usr/lib/</filename>.
-                Files in <filename>/run</filename> overwrite files with
-                the same name in <filename>/etc/</filename> and
-                <filename>/usr/lib/</filename>. Packages should install their
-                configuration files in <filename>/usr/lib/</filename>, files
-                in <filename>/etc/</filename> are reserved for the local
-                administration, which possibly decides to overwrite the
-                configurations installed from packages. All files are sorted
-                by filename in alphabetical order, regardless in which of the
-                directories they reside, to ensure that a specific
-                configuration file takes precedence over another file with
-                an alphabetically later name.</para>
+                <para>Each configuration file shall be named in the
+                style of <filename><replaceable>program</replaceable>.conf</filename>.
+                Files in <filename>/etc/</filename> override files
+                with the same name in <filename>/usr/lib/</filename>
+                and <filename>/run/</filename>.  Files in
+                <filename>/run/</filename> override files with the same
+                name in <filename>/usr/lib/</filename>. Packages
+                should install their configuration files in
+                <filename>/usr/lib/</filename>. Files in
+                <filename>/etc/</filename> are reserved for the local
+                administrator, who may use this logic to override the
+                configuration files installed by vendor packages. All
+                configuration files are sorted by their filename in
+                alphabetical order, regardless in which of the
+                directories they reside, to guarantee that a specific
+                configuration file takes precedence over another file
+                with an alphabetically later name, if both files
+                contain the same variable setting.</para>
+
+                <para>If the administrator wants to disable a
+                configuration file supplied by the vendor the
+                recommended way is to place a symlink to
+                <filename>/dev/null</filename> in
+                <filename>/etc/sysctl.d/</filename> bearing the
+                same file name.</para>
         </refsect1>
 
         <refsect1>
@@ -102,6 +117,8 @@ kernel.domainname=example.com</programlisting>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>

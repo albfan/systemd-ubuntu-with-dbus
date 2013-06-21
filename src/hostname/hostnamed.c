@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -32,6 +32,9 @@
 #include "polkit.h"
 #include "def.h"
 #include "virt.h"
+#include "env-util.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define INTERFACE \
         " <interface name=\"org.freedesktop.hostname1\">\n"             \
@@ -39,6 +42,7 @@
         "  <property name=\"StaticHostname\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"PrettyHostname\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"IconName\" type=\"s\" access=\"read\"/>\n"  \
+        "  <property name=\"Chassis\" type=\"s\" access=\"read\"/>\n"   \
         "  <method name=\"SetHostname\">\n"                             \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
@@ -52,6 +56,10 @@
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
         "  <method name=\"SetIconName\">\n"                             \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetChassis\">\n"                              \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
         "  </method>\n"                                                 \
@@ -77,10 +85,12 @@ enum {
         PROP_STATIC_HOSTNAME,
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
+        PROP_CHASSIS,
         _PROP_MAX
 };
 
 static char *data[_PROP_MAX] = {
+        NULL,
         NULL,
         NULL,
         NULL,
@@ -114,6 +124,7 @@ static int read_data(void) {
         r = parse_env_file("/etc/machine-info", NEWLINE,
                            "PRETTY_HOSTNAME", &data[PROP_PRETTY_HOSTNAME],
                            "ICON_NAME", &data[PROP_ICON_NAME],
+                           "CHASSIS", &data[PROP_CHASSIS],
                            NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -122,10 +133,10 @@ static int read_data(void) {
 }
 
 static bool check_nss(void) {
-
         void *dl;
 
-        if ((dl = dlopen("libnss_myhostname.so.2", RTLD_LAZY))) {
+        dl = dlopen("libnss_myhostname.so.2", RTLD_LAZY);
+        if (dl) {
                 dlclose(dl);
                 return true;
         }
@@ -133,25 +144,77 @@ static bool check_nss(void) {
         return false;
 }
 
-static const char* fallback_icon_name(void) {
+static bool valid_chassis(const char *chassis) {
 
-#if defined(__i386__) || defined(__x86_64__)
+        assert(chassis);
+
+        return nulstr_contains(
+                        "vm\0"
+                        "container\0"
+                        "desktop\0"
+                        "laptop\0"
+                        "server\0"
+                        "tablet\0"
+                        "handset\0",
+                        chassis);
+}
+
+static const char* fallback_chassis(void) {
         int r;
         char *type;
         unsigned t;
-#endif
+        Virtualization v;
 
-        if (detect_virtualization(NULL) > 0)
-                return "computer-vm";
+        v = detect_virtualization(NULL);
 
-#if defined(__i386__) || defined(__x86_64__)
+        if (v == VIRTUALIZATION_VM)
+                return "vm";
+        if (v == VIRTUALIZATION_CONTAINER)
+                return "container";
+
+        r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
+        if (r < 0)
+                goto try_dmi;
+
+        r = safe_atou(type, &t);
+        free(type);
+        if (r < 0)
+                goto try_dmi;
+
+        /* We only list the really obvious cases here as the ACPI data
+         * is not really super reliable.
+         *
+         * See the ACPI 5.0 Spec Section 5.2.9.1 for details:
+         *
+         * http://www.acpi.info/DOWNLOADS/ACPIspec50.pdf
+         */
+
+        switch(t) {
+
+        case 1:
+        case 3:
+        case 6:
+                return "desktop";
+
+        case 2:
+                return "laptop";
+
+        case 4:
+        case 5:
+        case 7:
+                return "server";
+
+        case 8:
+                return "tablet";
+        }
+
+try_dmi:
         r = read_one_line_file("/sys/class/dmi/id/chassis_type", &type);
         if (r < 0)
                 return NULL;
 
         r = safe_atou(type, &t);
         free(type);
-
         if (r < 0)
                 return NULL;
 
@@ -171,20 +234,36 @@ static const char* fallback_icon_name(void) {
         case 0x4:
         case 0x6:
         case 0x7:
-                return "computer-desktop";
+                return "desktop";
 
+        case 0x8:
         case 0x9:
         case 0xA:
         case 0xE:
-                return "computer-laptop";
+                return "laptop";
+
+        case 0xB:
+                return "handset";
 
         case 0x11:
         case 0x1C:
-                return "computer-server";
+                return "server";
         }
 
-#endif
         return NULL;
+}
+
+static char* fallback_icon_name(void) {
+        const char *chassis;
+
+        if (!isempty(data[PROP_CHASSIS]))
+                return strappend("computer-", data[PROP_CHASSIS]);
+
+        chassis = fallback_chassis();
+        if (chassis)
+                return strappend("computer-", chassis);
+
+        return strdup("computer");
 }
 
 static int write_data_hostname(void) {
@@ -210,21 +289,21 @@ static int write_data_static_hostname(void) {
 
                 return 0;
         }
-
-        return write_one_line_file_atomic("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
+        return write_string_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
 }
 
 static int write_data_other(void) {
 
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
-                [PROP_ICON_NAME] = "ICON_NAME"
+                [PROP_ICON_NAME] = "ICON_NAME",
+                [PROP_CHASSIS] = "CHASSIS"
         };
 
         char **l = NULL;
         int r, p;
 
-        r = load_env_file("/etc/machine-info", &l);
+        r = load_env_file("/etc/machine-info", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -260,7 +339,7 @@ static int write_data_other(void) {
                 return 0;
         }
 
-        r = write_env_file("/etc/machine-info", l);
+        r = write_env_file_label("/etc/machine-info", l);
         strv_free(l);
 
         return r;
@@ -268,14 +347,29 @@ static int write_data_other(void) {
 
 static int bus_hostname_append_icon_name(DBusMessageIter *i, const char *property, void *userdata) {
         const char *name;
+        _cleanup_free_ char *n = NULL;
 
         assert(i);
         assert(property);
 
         if (isempty(data[PROP_ICON_NAME]))
-                name = fallback_icon_name();
+                name = n = fallback_icon_name();
         else
                 name = data[PROP_ICON_NAME];
+
+        return bus_property_append_string(i, property, (void*) name);
+}
+
+static int bus_hostname_append_chassis(DBusMessageIter *i, const char *property, void *userdata) {
+        const char *name;
+
+        assert(i);
+        assert(property);
+
+        if (isempty(data[PROP_CHASSIS]))
+                name = fallback_chassis();
+        else
+                name = data[PROP_CHASSIS];
 
         return bus_property_append_string(i, property, (void*) name);
 }
@@ -285,6 +379,7 @@ static const BusProperty bus_hostname_properties[] = {
         { "StaticHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_STATIC_HOSTNAME, true },
         { "PrettyHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_PRETTY_HOSTNAME, true },
         { "IconName",       bus_hostname_append_icon_name, "s", sizeof(data[0])*PROP_ICON_NAME,       true },
+        { "Chassis",        bus_hostname_append_chassis,   "s", sizeof(data[0])*PROP_CHASSIS,         true },
         { NULL, }
 };
 
@@ -349,7 +444,7 @@ static DBusHandlerResult hostname_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        log_info("Changed host name to '%s'", strempty(data[PROP_HOSTNAME]));
+                        log_info("Changed host name to '%s'", strna(data[PROP_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -403,7 +498,7 @@ static DBusHandlerResult hostname_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        log_info("Changed static host name to '%s'", strempty(data[PROP_STATIC_HOSTNAME]));
+                        log_info("Changed static host name to '%s'", strna(data[PROP_STATIC_HOSTNAME]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
@@ -414,7 +509,8 @@ static DBusHandlerResult hostname_message_handler(
                 }
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetPrettyHostname") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetIconName")) {
+                   dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetIconName") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetChassis")) {
 
                 const char *name;
                 dbus_bool_t interactive;
@@ -431,7 +527,8 @@ static DBusHandlerResult hostname_message_handler(
                 if (isempty(name))
                         name = NULL;
 
-                k = streq(dbus_message_get_member(message), "SetPrettyHostname") ? PROP_PRETTY_HOSTNAME : PROP_ICON_NAME;
+                k = streq(dbus_message_get_member(message), "SetPrettyHostname") ? PROP_PRETTY_HOSTNAME :
+                        streq(dbus_message_get_member(message), "SetChassis") ? PROP_CHASSIS : PROP_ICON_NAME;
 
                 if (!streq_ptr(name, data[k])) {
 
@@ -451,6 +548,16 @@ static DBusHandlerResult hostname_message_handler(
                         } else {
                                 char *h;
 
+                                /* The icon name might ultimately be
+                                 * used as file name, so better be
+                                 * safe than sorry */
+                                if (k == PROP_ICON_NAME && !filename_is_safe(name))
+                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                                if (k == PROP_PRETTY_HOSTNAME && string_has_cc(name))
+                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                                if (k == PROP_CHASSIS && !valid_chassis(name))
+                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
                                 h = strdup(name);
                                 if (!h)
                                         goto oom;
@@ -465,12 +572,15 @@ static DBusHandlerResult hostname_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        log_info("Changed %s to '%s'", k == PROP_PRETTY_HOSTNAME ? "pretty host name" : "icon name", strempty(data[k]));
+                        log_info("Changed %s to '%s'",
+                                 k == PROP_PRETTY_HOSTNAME ? "pretty host name" :
+                                 k == PROP_CHASSIS ? "chassis" : "icon name", strna(data[k]));
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/hostname1",
                                         "org.freedesktop.hostname1",
-                                        k == PROP_PRETTY_HOSTNAME ? "PrettyHostname\0" : "IconName\0");
+                                        k == PROP_PRETTY_HOSTNAME ? "PrettyHostname\0" :
+                                        k == PROP_CHASSIS ? "Chassis\0" : "IconName\0");
                         if (!changed)
                                 goto oom;
                 }
@@ -478,10 +588,11 @@ static DBusHandlerResult hostname_message_handler(
         } else
                 return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
 
-        if (!(reply = dbus_message_new_method_return(message)))
+        reply = dbus_message_new_method_return(message);
+        if (!reply)
                 goto oom;
 
-        if (!dbus_connection_send(connection, reply, NULL))
+        if (!bus_maybe_send_reply(connection, message, reply))
                 goto oom;
 
         dbus_message_unref(reply);
@@ -532,8 +643,7 @@ static int connect_bus(DBusConnection **_bus) {
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Not enough memory");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -574,6 +684,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         umask(0022);
+        label_init("/etc");
 
         if (argc == 2 && streq(argv[1], "--introspect")) {
                 fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE

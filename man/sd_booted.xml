@@ -8,16 +8,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -44,7 +44,7 @@
 
         <refnamediv>
                 <refname>sd_booted</refname>
-                <refpurpose>Test whether the system is running the systemd init system.</refpurpose>
+                <refpurpose>Test whether the system is running the systemd init system</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -85,16 +85,15 @@
                 implementation.</para>
 
                 <para>Internally, this function checks whether the
-                <filename>/sys/fs/cgroup/systemd</filename> virtual file
-                system is mounted, by comparing the st_dev value of
-                the <function>stat()</function> data of
-                <filename>/sys/fs/cgroup</filename> and
-                <filename>/sys/fs/cgroup/systemd</filename>.</para>
+                directory <filename>/run/systemd/system/</filename>
+                exists. A simple check like this can also be
+                implemented trivially in shell or any other
+                language.</para>
 
                 <para>For details about the algorithm check the
                 liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/sd-daemon.c"/>
-                resp. <ulink
+                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
+                and <ulink
                 url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_booted()</function> is implemented
@@ -109,7 +108,7 @@
                 may copy the implementation into their source
                 tree. For more details about the reference
                 implementation see
-                <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>If the reference implementation is used as
                 drop-in files and -DDISABLE_SYSTEMD is set during
@@ -121,7 +120,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

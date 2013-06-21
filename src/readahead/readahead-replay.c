@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -44,8 +44,6 @@
 #include "readahead-common.h"
 #include "virt.h"
 
-static off_t arg_file_size_max = READAHEAD_FILE_SIZE_MAX;
-
 static ReadaheadShared *shared = NULL;
 
 static int unpack_file(FILE *pack) {
@@ -53,6 +51,7 @@ static int unpack_file(FILE *pack) {
         int r = 0, fd = -1;
         bool any = false;
         struct stat st;
+        uint64_t inode;
 
         assert(pack);
 
@@ -62,14 +61,30 @@ static int unpack_file(FILE *pack) {
         char_array_0(fn);
         truncate_nl(fn);
 
-        if ((fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW)) < 0) {
+        fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOATIME|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0) {
 
-                if (errno != ENOENT && errno != EPERM && errno != EACCES)
+                if (errno != ENOENT && errno != EPERM && errno != EACCES && errno != ELOOP)
                         log_warning("open(%s) failed: %m", fn);
 
         } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
                 close_nointr_nofail(fd);
                 fd = -1;
+        }
+
+        if (fread(&inode, sizeof(inode), 1, pack) != 1) {
+                log_error("Premature end of pack file.");
+                r = -EIO;
+                goto finish;
+        }
+
+        if (fd >= 0) {
+                /* If the inode changed the file got deleted, so just
+                 * ignore this entry */
+                if (st.st_ino != (uint64_t) inode) {
+                        close_nointr_nofail(fd);
+                        fd = -1;
+                }
         }
 
         for (;;) {
@@ -132,16 +147,15 @@ static int replay(const char *root) {
 
         assert(root);
 
-        write_one_line_file("/proc/self/oom_score_adj", "1000");
-        bump_request_nr(root);
+        block_bump_request_nr(root);
 
         if (asprintf(&pack_fn, "%s/.readahead", root) < 0) {
-                log_error("Out of memory");
-                r = -ENOMEM;
+                r = log_oom();
                 goto finish;
         }
 
-        if ((!(pack = fopen(pack_fn, "re")))) {
+        pack = fopen(pack_fn, "re");
+        if (!pack) {
                 if (errno == ENOENT)
                         log_debug("No pack file found.");
                 else {
@@ -167,8 +181,8 @@ static int replay(const char *root) {
 
         char_array_0(line);
 
-        if (!streq(line, CANONICAL_HOST "\n")) {
-                log_debug("Pack file host type mismatch.");
+        if (!streq(line, CANONICAL_HOST READAHEAD_PACK_FILE_VERSION)) {
+                log_debug("Pack file host or version type mismatch.");
                 goto finish;
         }
 
@@ -273,106 +287,25 @@ finish:
         return r;
 }
 
+int main_replay(const char *root) {
 
-static int help(void) {
-
-        printf("%s [OPTIONS...] [DIRECTORY]\n\n"
-               "Replay collected read-ahead data on early boot.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --max-file-size=BYTES  Maximum size of files to read ahead\n",
-               program_invocation_short_name);
-
-        return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_FILE_SIZE_MAX
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'                },
-                { "file-size-max", required_argument, NULL, ARG_FILE_SIZE_MAX  },
-                { NULL,            0,                 NULL, 0                  }
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_FILE_SIZE_MAX: {
-                        unsigned long long ull;
-
-                        if (safe_atollu(optarg, &ull) < 0 || ull <= 0) {
-                                log_error("Failed to parse maximum file size %s.", optarg);
-                                return -EINVAL;
-                        }
-
-                        arg_file_size_max = (off_t) ull;
-                        break;
-                }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
-                }
-        }
-
-        if (optind != argc &&
-            optind != argc-1) {
-                help();
-                return -EINVAL;
-        }
-
-        return 1;
-}
-
-int main(int argc, char*argv[]) {
-        int r;
-        const char *root;
-
-        log_set_target(LOG_TARGET_AUTO);
-        log_parse_environment();
-        log_open();
-
-        umask(0022);
-
-        if ((r = parse_argv(argc, argv)) <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-
-        root = optind < argc ? argv[optind] : "/";
+        if (!root)
+                root = "/";
 
         if (!enough_ram()) {
                 log_info("Disabling readahead replay due to low memory.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
-        if (detect_virtualization(NULL) > 0) {
-                log_info("Disabling readahead replay due to execution in virtualized environment.");
-                return 0;
-        }
-
-        if (!(shared = shared_get()))
-                return 1;
+        shared = shared_get();
+        if (!shared)
+                return EXIT_FAILURE;
 
         shared->replay = getpid();
         __sync_synchronize();
 
         if (replay(root) < 0)
-                return 1;
+                return EXIT_FAILURE;
 
-        return 0;
+        return EXIT_SUCCESS;
 }

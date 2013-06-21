@@ -1,15 +1,14 @@
 #  This file is part of systemd.
 #
 #  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
 ACTION=="remove", GOTO="uaccess_end"
 ENV{MAJOR}=="", GOTO="uaccess_end"
 
 # PTP/MTP protocol devices, cameras, portable media players
-SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{program}="usb_id --export %p"
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="*:060101:*", TAG+="uaccess"
 
 # Digicams with proprietary protocol
@@ -50,6 +49,9 @@ SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
 
 # smart-card readers
 ENV{ID_SMARTCARD_READER}=="*?", TAG+="uaccess"
+
+# (USB) authentication devices
+ENV{ID_SECURITY_TOKEN}=="*?", TAG+="uaccess"
 
 # PDA devices
 ENV{ID_PDA}=="*?", TAG+="uaccess"

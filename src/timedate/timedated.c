@@ -6,16 +6,16 @@
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -25,11 +25,18 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "systemd/sd-id128.h"
+#include "systemd/sd-messages.h"
 #include "util.h"
 #include "strv.h"
 #include "dbus-common.h"
 #include "polkit.h"
 #include "def.h"
+#include "hwclock.h"
+#include "conf-files.h"
+#include "path-util.h"
+#include "fileio-label.h"
+#include "label.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
@@ -38,6 +45,7 @@
         " <interface name=\"org.freedesktop.timedate1\">\n"             \
         "  <property name=\"Timezone\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"LocalRTC\" type=\"b\" access=\"read\"/>\n"  \
+        "  <property name=\"CanNTP\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"NTP\" type=\"b\" access=\"read\"/>\n"       \
         "  <method name=\"SetTime\">\n"                                 \
         "   <arg name=\"usec_utc\" type=\"x\" direction=\"in\"/>\n"     \
@@ -77,10 +85,14 @@ const char timedate_interface[] _introspect_("timedate1") = INTERFACE;
 typedef struct TZ {
         char *zone;
         bool local_rtc;
+        int can_ntp;
         int use_ntp;
 } TZ;
 
 static TZ tz = {
+        .zone = NULL,
+        .local_rtc = false,
+        .can_ntp = -1,
         .use_ntp = -1,
 };
 
@@ -141,61 +153,41 @@ static bool valid_timezone(const char *name) {
         return true;
 }
 
-static void verify_timezone(void) {
-        char *p, *a = NULL, *b = NULL;
-        size_t l, q;
-        int j, k;
-
-        if (!tz.zone)
-                return;
-
-        p = strappend("/usr/share/zoneinfo/", tz.zone);
-        if (!p) {
-                log_error("Out of memory");
-                return;
-        }
-
-        j = read_full_file("/etc/localtime", &a, &l);
-        k = read_full_file(p, &b, &q);
-
-        free(p);
-
-        if (j < 0 || k < 0 || l != q || memcmp(a, b, l)) {
-                log_warning("/etc/localtime and /etc/timezone out of sync.");
-                free(tz.zone);
-                tz.zone = NULL;
-        }
-
-        free(a);
-        free(b);
-}
-
 static int read_data(void) {
         int r;
+        _cleanup_free_ char *t = NULL;
 
         free_data();
 
-        r = read_one_line_file("/etc/timezone", &tz.zone);
+        r = readlink_malloc("/etc/localtime", &t);
         if (r < 0) {
-                if (r != -ENOENT)
-                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
+                if (r == -EINVAL)
+                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in /usr/share/zoneinfo/.");
+                else
+                        log_warning("Failed to get target of /etc/localtime: %s", strerror(-r));
+        } else {
+                const char *e;
 
-#ifdef TARGET_FEDORA
-                r = parse_env_file("/etc/sysconfig/clock", NEWLINE,
-                                   "ZONE", &tz.zone,
-                                   NULL);
+                e = path_startswith(t, "/usr/share/zoneinfo/");
+                if (!e)
+                        e = path_startswith(t, "../usr/share/zoneinfo/");
 
-                if (r < 0 && r != -ENOENT)
-                        log_warning("Failed to read /etc/sysconfig/clock: %s", strerror(-r));
-#endif
+                if (!e)
+                        log_warning("/etc/localtime should be a symbolic link to a timezone data file in /usr/share/zoneinfo/.");
+                else {
+                        tz.zone = strdup(e);
+                        if (!tz.zone)
+                                return log_oom();
+
+                        goto have_timezone;
+                }
         }
 
+have_timezone:
         if (isempty(tz.zone)) {
                 free(tz.zone);
                 tz.zone = NULL;
         }
-
-        verify_timezone();
 
         tz.local_rtc = hwclock_is_localtime() > 0;
 
@@ -204,31 +196,20 @@ static int read_data(void) {
 
 static int write_data_timezone(void) {
         int r = 0;
-        char *p;
+        _cleanup_free_ char *p = NULL;
 
         if (!tz.zone) {
-                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
-                        r = -errno;
-
                 if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                         r = -errno;
 
                 return r;
         }
 
-        p = strappend("/usr/share/zoneinfo/", tz.zone);
-        if (!p) {
-                log_error("Out of memory");
-                return -ENOMEM;
-        }
+        p = strappend("../usr/share/zoneinfo/", tz.zone);
+        if (!p)
+                return log_oom();
 
-        r = symlink_or_copy_atomic(p, "/etc/localtime");
-        free(p);
-
-        if (r < 0)
-                return r;
-
-        r = write_one_line_file_atomic("/etc/timezone", tz.zone);
+        r = symlink_atomic(p, "/etc/localtime");
         if (r < 0)
                 return r;
 
@@ -237,7 +218,7 @@ static int write_data_timezone(void) {
 
 static int write_data_local_rtc(void) {
         int r;
-        char *s, *w;
+        _cleanup_free_ char *s = NULL, *w = NULL;
 
         r = read_full_file("/etc/adjtime", &s, NULL);
         if (r < 0) {
@@ -255,109 +236,153 @@ static int write_data_local_rtc(void) {
                 size_t a, b;
 
                 p = strchr(s, '\n');
-                if (!p) {
-                        free(s);
+                if (!p)
                         return -EIO;
-                }
 
                 p = strchr(p+1, '\n');
-                if (!p) {
-                        free(s);
+                if (!p)
                         return -EIO;
-                }
 
                 p++;
                 e = strchr(p, '\n');
-                if (!e) {
-                        free(s);
+                if (!e)
                         return -EIO;
-                }
 
                 a = p - s;
                 b = strlen(e);
 
                 w = new(char, a + (tz.local_rtc ? 5 : 3) + b + 1);
-                if (!w) {
-                        free(s);
+                if (!w)
                         return -ENOMEM;
-                }
 
                 *(char*) mempcpy(stpcpy(mempcpy(w, s, a), tz.local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        free(w);
-
-                        if (unlink("/etc/adjtime") < 0) {
+                        if (unlink("/etc/adjtime") < 0)
                                 if (errno != ENOENT)
                                         return -errno;
-                        }
 
                         return 0;
                 }
         }
+        label_init("/etc");
+        return write_string_file_atomic_label("/etc/adjtime", w);
+}
 
-        r = write_one_line_file_atomic("/etc/adjtime", w);
-        free(w);
+static char** get_ntp_services(void) {
+        _cleanup_strv_free_ char **r = NULL, **files;
+        char **i;
+        int k;
 
-        return r;
+        k = conf_files_list(&files, ".list", NULL,
+                            "/etc/systemd/ntp-units.d",
+                            "/run/systemd/ntp-units.d",
+                            "/usr/local/lib/systemd/ntp-units.d",
+                            "/usr/lib/systemd/ntp-units.d",
+                            NULL);
+        if (k < 0)
+                return NULL;
+
+        STRV_FOREACH(i, files) {
+                _cleanup_fclose_ FILE *f;
+
+                f = fopen(*i, "re");
+                if (!f)
+                        continue;
+
+                for (;;) {
+                        char line[PATH_MAX], *l;
+
+                        if (!fgets(line, sizeof(line), f)) {
+
+                                if (ferror(f))
+                                        log_error("Failed to read NTP units file: %m");
+
+                                break;
+                        }
+
+                        l = strstrip(line);
+                        if (l[0] == 0 || l[0] == '#')
+                                continue;
+
+                        if (strv_extend(&r, l) < 0) {
+                                log_oom();
+                                return NULL;
+                        }
+                }
+        }
+
+        i = r;
+        r = NULL; /* avoid cleanup */
+
+        return strv_uniq(i);
 }
 
 static int read_ntp(DBusConnection *bus) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char *name = "ntpd.service", *s;
         DBusError error;
         int r;
+        char **i, **l;
 
         assert(bus);
 
         dbus_error_init(&error);
 
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnitFileState");
+        l = get_ntp_services();
+        STRV_FOREACH(i, l) {
+                const char *s;
 
-        if (!m) {
-                log_error("Out of memory");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &name,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
-        if (!reply) {
-
-                if (streq(error.name, "org.freedesktop.DBus.Error.FileNotFound")) {
-                        /* NTP is not installed. */
-                        tz.use_ntp = false;
-                        r = 0;
+                if (m)
+                        dbus_message_unref(m);
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "GetUnitFileState");
+                if (!m) {
+                        r = log_oom();
                         goto finish;
                 }
 
-                log_error("Failed to issue method call: %s", bus_error_message(&error));
-                r = -EIO;
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, i,
+                                              DBUS_TYPE_INVALID)) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+                if (!reply) {
+                        if (streq(error.name, "org.freedesktop.DBus.Error.FileNotFound")) {
+                                /* This implementation does not exist, try next one */
+                                dbus_error_free(&error);
+                                continue;
+                        }
+
+                        log_error("Failed to issue method call: %s", bus_error_message(&error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                if (!dbus_message_get_args(reply, &error,
+                                           DBUS_TYPE_STRING, &s,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse reply: %s", bus_error_message(&error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                tz.can_ntp = 1;
+                tz.use_ntp =
+                        streq(s, "enabled") ||
+                        streq(s, "enabled-runtime");
+                r = 0;
                 goto finish;
         }
 
-        if (!dbus_message_get_args(reply, &error,
-                                   DBUS_TYPE_STRING, &s,
-                                   DBUS_TYPE_INVALID)) {
-                log_error("Failed to parse reply: %s", bus_error_message(&error));
-                r = -EIO;
-                goto finish;
-        }
-
-        tz.use_ntp =
-                streq(s, "enabled") ||
-                streq(s, "enabled-runtime");
+        /* NTP is not installed. */
+        tz.can_ntp = 0;
+        tz.use_ntp = 0;
         r = 0;
 
 finish:
@@ -366,6 +391,8 @@ finish:
 
         if (reply)
                 dbus_message_unref(reply);
+
+        strv_free(l);
 
         dbus_error_free(&error);
 
@@ -374,40 +401,58 @@ finish:
 
 static int start_ntp(DBusConnection *bus, DBusError *error) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char *name = "ntpd.service", *mode = "replace";
+        const char *mode = "replace";
+        char **i, **l;
         int r;
 
         assert(bus);
         assert(error);
 
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        tz.use_ntp ? "StartUnit" : "StopUnit");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
+        l = get_ntp_services();
+        STRV_FOREACH(i, l) {
+                if (m)
+                        dbus_message_unref(m);
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                tz.use_ntp ? "StartUnit" : "StopUnit");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, i,
+                                              DBUS_TYPE_STRING, &mode,
+                                              DBUS_TYPE_INVALID)) {
+                        log_error("Could not append arguments to message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+                if (!reply) {
+                        if (streq(error->name, "org.freedesktop.DBus.Error.FileNotFound") ||
+                            streq(error->name, "org.freedesktop.systemd1.LoadFailed") ||
+                            streq(error->name, "org.freedesktop.systemd1.NoSuchUnit")) {
+                                /* This implementation does not exist, try next one */
+                                dbus_error_free(error);
+                                continue;
+                        }
+
+                        log_error("Failed to issue method call: %s", bus_error_message(error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                r = 0;
                 goto finish;
         }
 
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &name,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not append arguments to message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
+        /* No implementaiton available... */
+        r = -ENOENT;
 
 finish:
         if (m)
@@ -415,83 +460,104 @@ finish:
 
         if (reply)
                 dbus_message_unref(reply);
+
+        strv_free(l);
 
         return r;
 }
 
 static int enable_ntp(DBusConnection *bus, DBusError *error) {
         DBusMessage *m = NULL, *reply = NULL;
-        const char * const names[] = { "ntpd.service", NULL };
         int r;
         DBusMessageIter iter;
         dbus_bool_t f = FALSE, t = TRUE;
+        char **i, **l;
 
         assert(bus);
         assert(error);
 
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        tz.use_ntp ? "EnableUnitFiles" : "DisableUnitFiles");
+        l = get_ntp_services();
+        STRV_FOREACH(i, l) {
+                char* k[2];
 
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        dbus_message_iter_init_append(m, &iter);
-
-        r = bus_append_strv_iter(&iter, (char**) names);
-        if (r < 0) {
-                log_error("Failed to append unit files.");
-                goto finish;
-        }
-        /* send runtime bool */
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &f)) {
-                log_error("Failed to append runtime boolean.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        if (tz.use_ntp) {
-                /* send force bool */
-                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &t)) {
-                        log_error("Failed to append force boolean.");
+                if (m)
+                        dbus_message_unref(m);
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                tz.use_ntp ? "EnableUnitFiles" : "DisableUnitFiles");
+                if (!m) {
+                        log_error("Could not allocate message.");
                         r = -ENOMEM;
                         goto finish;
                 }
-        }
 
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(error));
-                r = -EIO;
+                dbus_message_iter_init_append(m, &iter);
+
+                k[0] = *i;
+                k[1] = NULL;
+
+                r = bus_append_strv_iter(&iter, k);
+                if (r < 0) {
+                        log_error("Failed to append unit files.");
+                        goto finish;
+                }
+
+                /* send runtime bool */
+                if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &f)) {
+                        log_error("Failed to append runtime boolean.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (tz.use_ntp) {
+                        /* send force bool */
+                        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_BOOLEAN, &t)) {
+                                log_error("Failed to append force boolean.");
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+                }
+
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+                if (!reply) {
+                        if (streq(error->name, "org.freedesktop.DBus.Error.FileNotFound")) {
+                                /* This implementation does not exist, try next one */
+                                dbus_error_free(error);
+                                continue;
+                        }
+
+                        log_error("Failed to issue method call: %s", bus_error_message(error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                dbus_message_unref(m);
+                m = dbus_message_new_method_call(
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "Reload");
+                if (!m) {
+                        log_error("Could not allocate message.");
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                dbus_message_unref(reply);
+                reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
+                if (!reply) {
+                        log_error("Failed to issue method call: %s", bus_error_message(error));
+                        r = -EIO;
+                        goto finish;
+                }
+
+                r = 0;
                 goto finish;
         }
 
-        dbus_message_unref(m);
-        m = dbus_message_new_method_call(
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
-        if (!m) {
-                log_error("Could not allocate message.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        dbus_message_unref(reply);
-        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, error);
-        if (!reply) {
-                log_error("Failed to issue method call: %s", bus_error_message(error));
-                r = -EIO;
-                goto finish;
-        }
-
-        r = 0;
+        r = -ENOENT;
 
 finish:
         if (m)
@@ -500,7 +566,23 @@ finish:
         if (reply)
                 dbus_message_unref(reply);
 
+        strv_free(l);
+
         return r;
+}
+
+static int property_append_can_ntp(DBusMessageIter *i, const char *property, void *data) {
+        dbus_bool_t db;
+
+        assert(i);
+        assert(property);
+
+        db = tz.can_ntp > 0;
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
+                return -ENOMEM;
+
+        return 0;
 }
 
 static int property_append_ntp(DBusMessageIter *i, const char *property, void *data) {
@@ -520,6 +602,7 @@ static int property_append_ntp(DBusMessageIter *i, const char *property, void *d
 static const BusProperty bus_timedate_properties[] = {
         { "Timezone", bus_property_append_string, "s", offsetof(TZ, zone),     true },
         { "LocalRTC", bus_property_append_bool,   "b", offsetof(TZ, local_rtc) },
+        { "CanNTP",   property_append_can_ntp,    "b", offsetof(TZ, can_ntp)   },
         { "NTP",      property_append_ntp,        "b", offsetof(TZ, use_ntp)   },
         { NULL, }
 };
@@ -579,12 +662,12 @@ static DBusHandlerResult timedate_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
+                        /* 2. Tell the kernel our time zone */
+                        hwclock_set_timezone(NULL);
+
                         if (tz.local_rtc) {
                                 struct timespec ts;
                                 struct tm *tm;
-
-                                /* 2. Teach kernel new timezone */
-                                hwclock_apply_localtime_delta(NULL);
 
                                 /* 3. Sync RTC from system clock, with the new delta */
                                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -592,7 +675,11 @@ static DBusHandlerResult timedate_message_handler(
                                 hwclock_set_time(tm);
                         }
 
-                        log_info("Changed timezone to '%s'.", tz.zone);
+                        log_struct(LOG_INFO,
+                                   MESSAGE_ID(SD_MESSAGE_TIMEZONE_CHANGE),
+                                   "TIMEZONE=%s", tz.zone,
+                                   "MESSAGE=Changed timezone to '%s'.", tz.zone,
+                                   NULL);
 
                         changed = bus_properties_changed_new(
                                         "/org/freedesktop/timedate1",
@@ -632,11 +719,8 @@ static DBusHandlerResult timedate_message_handler(
                                 return bus_send_error_reply(connection, message, NULL, r);
                         }
 
-                        /* 2. Teach kernel new timezone */
-                        if (tz.local_rtc)
-                                hwclock_apply_localtime_delta(NULL);
-                        else
-                                hwclock_reset_localtime_delta();
+                        /* 2. Tell the kernel our time zone */
+                        hwclock_set_timezone(NULL);
 
                         /* 3. Synchronize clocks */
                         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -710,14 +794,23 @@ static DBusHandlerResult timedate_message_handler(
                         struct timespec ts;
                         struct tm* tm;
 
+                        if (relative) {
+                                usec_t n, x;
+
+                                n = now(CLOCK_REALTIME);
+                                x = n + utc;
+
+                                if ((utc > 0 && x < n) ||
+                                    (utc < 0 && x > n))
+                                        return bus_send_error_reply(connection, message, NULL, -EOVERFLOW);
+
+                                timespec_store(&ts, x);
+                        } else
+                                timespec_store(&ts, (usec_t) utc);
+
                         r = verify_polkit(connection, message, "org.freedesktop.timedate1.set-time", interactive, NULL, &error);
                         if (r < 0)
                                 return bus_send_error_reply(connection, message, &error, r);
-
-                        if (relative)
-                                timespec_store(&ts, now(CLOCK_REALTIME) + utc);
-                        else
-                                timespec_store(&ts, utc);
 
                         /* Set system clock */
                         if (clock_settime(CLOCK_REALTIME, &ts) < 0) {
@@ -733,7 +826,11 @@ static DBusHandlerResult timedate_message_handler(
 
                         hwclock_set_time(tm);
 
-                        log_info("Changed local time to %s", ctime(&ts.tv_sec));
+                        log_struct(LOG_INFO,
+                                   MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
+                                   "REALTIME=%llu", (unsigned long long) timespec_load(&ts),
+                                   "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
+                                   NULL);
                 }
         } else if (dbus_message_is_method_call(message, "org.freedesktop.timedate1", "SetNTP")) {
                 dbus_bool_t ntp;
@@ -779,7 +876,7 @@ static DBusHandlerResult timedate_message_handler(
         if (!(reply = dbus_message_new_method_return(message)))
                 goto oom;
 
-        if (!dbus_connection_send(connection, reply, NULL))
+        if (!bus_maybe_send_reply(connection, message, reply))
                 goto oom;
 
         dbus_message_unref(reply);
@@ -823,15 +920,14 @@ static int connect_bus(DBusConnection **_bus) {
         if (!bus) {
                 log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
                 r = -ECONNREFUSED;
-                goto fail;
+                goto fail2;
         }
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
 
         if (!dbus_connection_register_object_path(bus, "/org/freedesktop/timedate1", &timedate_vtable, NULL) ||
             !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                log_error("Not enough memory");
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
@@ -856,7 +952,7 @@ static int connect_bus(DBusConnection **_bus) {
 fail:
         dbus_connection_close(bus);
         dbus_connection_unref(bus);
-
+fail2:
         dbus_error_free(&error);
 
         return r;
@@ -911,7 +1007,7 @@ int main(int argc, char *argv[]) {
 
                 if (!exiting && remain_until < now(CLOCK_MONOTONIC)) {
                         exiting = true;
-                        bus_async_unregister_and_exit(bus, "org.freedesktop.hostname1");
+                        bus_async_unregister_and_exit(bus, "org.freedesktop.timedated1");
                 }
         }
 

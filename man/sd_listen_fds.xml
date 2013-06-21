@@ -8,16 +8,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
@@ -44,7 +44,8 @@
 
         <refnamediv>
                 <refname>sd_listen_fds</refname>
-                <refpurpose>Check for file descriptors passed by the init system.</refpurpose>
+                <refname>SD_LISTEN_FDS_START</refname>
+                <refpurpose>Check for file descriptors passed by the system manager</refpurpose>
         </refnamediv>
 
         <refsynopsisdiv>
@@ -140,8 +141,8 @@
 
                 <para>For details about the algorithm check the
                 liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/sd-daemon.c"/>
-                resp. <ulink
+                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
+                and <ulink
                 url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
 
                 <para><function>sd_listen_fds()</function> is
@@ -156,7 +157,7 @@
                 may copy the implementation into their source
                 tree. For more details about the reference
                 implementation see
-                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
                 <para>If the reference implementation is used as
                 drop-in files and -DDISABLE_SYSTEMD is set during
@@ -167,7 +168,7 @@
         <refsect1>
                 <title>Environment</title>
 
-                <variablelist>
+                <variablelist class='environment-variables'>
                         <varlistentry>
                                 <term><varname>$LISTEN_PID</varname></term>
                                 <term><varname>$LISTEN_FDS</varname></term>
@@ -189,7 +190,7 @@
 
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_is_socket</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

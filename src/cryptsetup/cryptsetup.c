@@ -6,16 +6,16 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
@@ -29,6 +29,7 @@
 
 #include "log.h"
 #include "util.h"
+#include "path-util.h"
 #include "strv.h"
 #include "ask-password-api.h"
 #include "def.h"
@@ -36,11 +37,14 @@
 static const char *opt_type = NULL; /* LUKS1 or PLAIN */
 static char *opt_cipher = NULL;
 static unsigned opt_key_size = 0;
+static unsigned opt_keyfile_size = 0;
+static unsigned opt_keyfile_offset = 0;
 static char *opt_hash = NULL;
 static unsigned opt_tries = 0;
 static bool opt_readonly = false;
 static bool opt_verify = false;
-static usec_t opt_timeout = DEFAULT_TIMEOUT_USEC;
+static bool opt_discards = false;
+static usec_t opt_timeout = 0;
 
 /* Options Debian's crypttab knows we don't:
 
@@ -58,13 +62,14 @@ static int parse_one_option(const char *option) {
         assert(option);
 
         /* Handled outside of this tool */
-        if (streq(option, "noauto"))
+        if (streq(option, "noauto") || streq(option, "nofail"))
                 return 0;
 
         if (startswith(option, "cipher=")) {
                 char *t;
 
-                if (!(t = strdup(option+7)))
+                t = strdup(option+7);
+                if (!t)
                         return -ENOMEM;
 
                 free(opt_cipher);
@@ -77,10 +82,25 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
+        } else if (startswith(option, "keyfile-size=")) {
+
+                if (safe_atou(option+13, &opt_keyfile_size) < 0) {
+                        log_error("keyfile-size= parse failure, ignoring.");
+                        return 0;
+                }
+
+        } else if (startswith(option, "keyfile-offset=")) {
+
+                if (safe_atou(option+15, &opt_keyfile_offset) < 0) {
+                        log_error("keyfile-offset= parse failure, ignoring.");
+                        return 0;
+                }
+
         } else if (startswith(option, "hash=")) {
                 char *t;
 
-                if (!(t = strdup(option+5)))
+                t = strdup(option+5);
+                if (!t)
                         return -ENOMEM;
 
                 free(opt_hash);
@@ -93,10 +113,12 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if (streq(option, "readonly"))
+        } else if (streq(option, "readonly") || streq(option, "read-only"))
                 opt_readonly = true;
         else if (streq(option, "verify"))
                 opt_verify = true;
+        else if (streq(option, "allow-discards"))
+                opt_discards = true;
         else if (streq(option, "luks"))
                 opt_type = CRYPT_LUKS1;
         else if (streq(option, "plain") ||
@@ -105,7 +127,7 @@ static int parse_one_option(const char *option) {
                 opt_type = CRYPT_PLAIN;
         else if (startswith(option, "timeout=")) {
 
-                if (parse_usec(option+8, &opt_timeout) < 0) {
+                if (parse_sec(option+8, &opt_timeout) < 0) {
                         log_error("timeout= parse failure, ignoring.");
                         return 0;
                 }
@@ -117,22 +139,19 @@ static int parse_one_option(const char *option) {
 }
 
 static int parse_options(const char *options) {
-        char *state;
-        char *w;
+        char *state, *w;
         size_t l;
+        int r;
 
         assert(options);
 
         FOREACH_WORD_SEPARATOR(w, l, options, ",", state) {
-                char *o;
-                int r;
+                _cleanup_free_ char *o;
 
-                if (!(o = strndup(w, l)))
+                o = strndup(w, l);
+                if (!o)
                         return -ENOMEM;
-
                 r = parse_one_option(o);
-                free(o);
-
                 if (r < 0)
                         return r;
         }
@@ -145,11 +164,19 @@ static void log_glue(int level, const char *msg, void *usrptr) {
 }
 
 static char *disk_description(const char *path) {
+
+        static const char name_fields[] = {
+                "ID_PART_ENTRY_NAME\0"
+                "DM_NAME\0"
+                "ID_MODEL_FROM_DATABASE\0"
+                "ID_MODEL\0"
+        };
+
         struct udev *udev = NULL;
         struct udev_device *device = NULL;
         struct stat st;
         char *description = NULL;
-        const char *model;
+        const char *i;
 
         assert(path);
 
@@ -159,16 +186,23 @@ static char *disk_description(const char *path) {
         if (!S_ISBLK(st.st_mode))
                 return NULL;
 
-        if (!(udev = udev_new()))
+        udev = udev_new();
+        if (!udev)
                 return NULL;
 
-        if (!(device = udev_device_new_from_devnum(udev, 'b', st.st_rdev)))
+        device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!device)
                 goto finish;
 
-        if ((model = udev_device_get_property_value(device, "ID_MODEL_FROM_DATABASE")) ||
-            (model = udev_device_get_property_value(device, "ID_MODEL")) ||
-            (model = udev_device_get_property_value(device, "DM_NAME")))
-                description = strdup(model);
+        NULSTR_FOREACH(i, name_fields) {
+                const char *name;
+
+                name = udev_device_get_property_value(device, i);
+                if (!isempty(name)) {
+                        description = strdup(name);
+                        break;
+                }
+        }
 
 finish:
         if (device)
@@ -190,7 +224,8 @@ static char *disk_mount_point(const char *label) {
         if (asprintf(&device, "/dev/mapper/%s", label) < 0)
                 goto finish;
 
-        if (!(f = setmntent("/etc/fstab", "r")))
+        f = setmntent("/etc/fstab", "r");
+        if (!f)
                 goto finish;
 
         while ((m = getmntent(f)))
@@ -225,7 +260,6 @@ int main(int argc, char *argv[]) {
         char **passwords = NULL, *truncated_cipher = NULL;
         const char *cipher = NULL, *cipher_mode = NULL, *hash = NULL, *name = NULL;
         char *description = NULL, *name_buffer = NULL, *mount_point = NULL;
-        unsigned keyfile_size = 0;
 
         if (argc <= 1) {
                 help();
@@ -269,8 +303,10 @@ int main(int argc, char *argv[]) {
                                 key_file = argv[4];
                 }
 
-                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-"))
-                        parse_options(argv[5]);
+                if (argc >= 6 && argv[5][0] && !streq(argv[5], "-")) {
+                        if (parse_options(argv[5]) < 0)
+                                goto finish;
+                }
 
                 /* A delicious drop of snake oil */
                 mlockall(MCL_FUTURE);
@@ -295,7 +331,8 @@ int main(int argc, char *argv[]) {
 
                 name = name_buffer ? name_buffer : argv[2];
 
-                if ((k = crypt_init(&cd, argv[3]))) {
+                k = crypt_init(&cd, argv[3]);
+                if (k) {
                         log_error("crypt_init() failed: %s", strerror(-k));
                         goto finish;
                 }
@@ -312,6 +349,9 @@ int main(int argc, char *argv[]) {
                 if (opt_readonly)
                         flags |= CRYPT_ACTIVATE_READONLY;
 
+                if (opt_discards)
+                        flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
+
                 if (opt_timeout > 0)
                         until = now(CLOCK_MONOTONIC) + opt_timeout;
                 else
@@ -319,15 +359,21 @@ int main(int argc, char *argv[]) {
 
                 opt_tries = opt_tries > 0 ? opt_tries : 3;
                 opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
-                hash = opt_hash ? opt_hash : "ripemd160";
+                if (opt_hash) {
+                        /* plain isn't a real hash type. it just means "use no hash" */
+                        if (!streq(opt_hash, "plain"))
+                                hash = opt_hash;
+                } else
+                        hash = "ripemd160";
 
                 if (opt_cipher) {
                         size_t l;
 
                         l = strcspn(opt_cipher, "-");
+                        truncated_cipher = strndup(opt_cipher, l);
 
-                        if (!(truncated_cipher = strndup(opt_cipher, l))) {
-                                log_error("Out of memory");
+                        if (!truncated_cipher) {
+                                log_oom();
                                 goto finish;
                         }
 
@@ -345,11 +391,10 @@ int main(int argc, char *argv[]) {
                         passwords = NULL;
 
                         if (!key_file) {
-                                char *text;
-                                char **p;
+                                char *text, **p;
 
                                 if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0) {
-                                        log_error("Out of memory");
+                                        log_oom();
                                         goto finish;
                                 }
 
@@ -367,7 +412,7 @@ int main(int argc, char *argv[]) {
                                         assert(strv_length(passwords) == 1);
 
                                         if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0) {
-                                                log_error("Out of memory");
+                                                log_oom();
                                                 goto finish;
                                         }
 
@@ -400,7 +445,7 @@ int main(int argc, char *argv[]) {
 
                                         /* Pad password if necessary */
                                         if (!(c = new(char, opt_key_size))) {
-                                                log_error("Out of memory.");
+                                                log_oom();
                                                 goto finish;
                                         }
 
@@ -416,10 +461,12 @@ int main(int argc, char *argv[]) {
                                 k = crypt_load(cd, CRYPT_LUKS1, NULL);
 
                         if ((!opt_type && k < 0) || streq_ptr(opt_type, CRYPT_PLAIN)) {
-                                struct crypt_params_plain params;
+                                struct crypt_params_plain params = { .hash = hash };
 
-                                zero(params);
-                                params.hash = hash;
+                                /* for CRYPT_PLAIN limit reads
+                                * from keyfile to key length, and
+                                * ignore keyfile-size */
+                                opt_keyfile_size = opt_key_size / 8;
 
                                 /* In contrast to what the name
                                  * crypt_setup() might suggest this
@@ -432,14 +479,11 @@ int main(int argc, char *argv[]) {
                                                  cipher_mode,
                                                  NULL,
                                                  NULL,
-                                                 opt_key_size / 8,
+                                                 opt_keyfile_size,
                                                  &params);
 
-                                pass_volume_key = streq(hash, "plain");
-
-                               /* for CRYPT_PLAIN limit reads
-                                * from keyfile to key length */
-                                keyfile_size = opt_key_size / 8;
+                                /* hash == NULL implies the user passed "plain" */
+                                pass_volume_key = (hash == NULL);
                         }
 
                         if (k < 0) {
@@ -453,9 +497,25 @@ int main(int argc, char *argv[]) {
                                  crypt_get_volume_key_size(cd)*8,
                                  argv[3]);
 
-                        if (key_file)
-                                k = crypt_activate_by_keyfile(cd, argv[2], CRYPT_ANY_SLOT, key_file, keyfile_size, flags);
-                        else {
+                        if (key_file) {
+                                struct stat st;
+
+                                /* Ideally we'd do this on the open
+                                 * fd, but since this is just a
+                                 * warning it's OK to do this in two
+                                 * steps */
+                                if (stat(key_file, &st) >= 0 && (st.st_mode & 0005))
+                                        log_warning("Key file %s is world-readable. That's certainly not a good idea.", key_file);
+
+                                k = crypt_activate_by_keyfile_offset(
+                                                cd, argv[2], CRYPT_ANY_SLOT, key_file, opt_keyfile_size,
+                                                opt_keyfile_offset, flags);
+                                if (k < 0) {
+                                        log_error("Failed to activate with key file '%s': %s", key_file, strerror(-k));
+                                        key_file = NULL;
+                                        continue;
+                                }
+                        } else {
                                 char **p;
 
                                 STRV_FOREACH(p, passwords) {
@@ -490,14 +550,16 @@ int main(int argc, char *argv[]) {
         } else if (streq(argv[1], "detach")) {
                 int k;
 
-                if ((k = crypt_init_by_name(&cd, argv[2]))) {
+                k = crypt_init_by_name(&cd, argv[2]);
+                if (k) {
                         log_error("crypt_init() failed: %s", strerror(-k));
                         goto finish;
                 }
 
                 crypt_set_log_callback(cd, log_glue, NULL);
 
-                if ((k = crypt_deactivate(cd, argv[2])) < 0) {
+                k = crypt_deactivate(cd, argv[2]);
+                if (k < 0) {
                         log_error("Failed to deactivate: %s", strerror(-k));
                         goto finish;
                 }

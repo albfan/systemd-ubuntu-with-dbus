@@ -8,20 +8,20 @@
   Copyright 2010 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
   (at your option) any later version.
 
   systemd is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  General Public License for more details.
+  Lesser General Public License for more details.
 
-  You should have received a copy of the GNU General Public License
+  You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_uid_get_state">
+<refentry id="sd_uid_get_state" conditional='HAVE_PAM'>
 
         <refentryinfo>
                 <title>sd_uid_get_state</title>
@@ -56,27 +56,27 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_uid_get_state</function></funcdef>
-                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>uid_t <parameter>uid</parameter></paramdef>
                                 <paramdef>char** <parameter>state</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_uid_is_on_seat</function></funcdef>
-                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>uid_t <parameter>uid</parameter></paramdef>
                                 <paramdef>int <parameter>require_active</parameter></paramdef>
                                 <paramdef>const char* <parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_uid_get_sessions</function></funcdef>
-                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>uid_t <parameter>uid</parameter></paramdef>
                                 <paramdef>int <parameter>require_active</parameter></paramdef>
                                 <paramdef>char*** <parameter>sessions</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_uid_get_seats</function></funcdef>
-                                <paramdef>uid_t <parameter>pid</parameter></paramdef>
+                                <paramdef>uid_t <parameter>uid</parameter></paramdef>
                                 <paramdef>int <parameter>require_active</parameter></paramdef>
                                 <paramdef>char*** <parameter>seats</parameter></paramdef>
                         </funcprototype>
@@ -93,8 +93,12 @@
                 at all), <literal>lingering</literal> (user not logged
                 in, but some user services running),
                 <literal>online</literal> (user logged in, but not
-                active), <literal>active</literal> (user logged in on
-                an active seat). In the future additional states might
+                active, i.e. has no session in the foreground),
+                <literal>active</literal> (user logged in, and has at
+                least one active session, i.e. one session in the
+                foreground), <literal>closing</literal> (user not
+                logged in, and not lingering, but some processes are
+                still around). In the future additional states might
                 be defined, client code should be written to be robust
                 in regards to additional state strings being
                 returned. The returned string needs to be freed with
@@ -107,7 +111,7 @@
                 or active on a specific seat. Accepts a Unix user
                 identifier and a seat identifier string as
                 parameters. The <parameter>require_active</parameter>
-                parameter is a boolean. If non-zero (true) this
+                parameter is a boolean value. If non-zero (true) this
                 function will test if the user is active (i.e. has a
                 session that is in the foreground and accepting user
                 input) on the specified seat, otherwise (false) only
@@ -116,15 +120,16 @@
 
                 <para><function>sd_uid_get_sessions()</function> may
                 be used to determine the current sessions of the
-                specified user. Acceptes a Unix user identifier as
+                specified user. Accepts a Unix user identifier as
                 parameter. The <parameter>require_active</parameter>
-                boolean parameter controls whether the returned list
-                shall consist of only those sessions where the user is
-                currently active (true) or where the user is currently
-                logged in at all, possibly inactive (false). The call
-                returns a NULL terminated string array of session
-                identifiers in <parameter>sessions</parameter> which
-                needs to be freed by the caller with the libc
+                parameter controls whether the returned list shall
+                consist of only those sessions where the user is
+                currently active (&gt; 0), where the user is currently
+                online but possibly inactive (= 0), or
+                logged in at all but possibly closing the session (&lt; 0). The call returns a
+                NULL terminated string array of session identifiers in
+                <parameter>sessions</parameter> which needs to be
+                freed by the caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including all the strings
                 referenced. If the string array parameter is passed as
@@ -177,7 +182,7 @@
 
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
