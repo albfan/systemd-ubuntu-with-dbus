@@ -4,6 +4,7 @@ systemd (204-1) UNRELEASED; urgency=low
     - In v183 the udev sources have been merged into the systemd source tree.
       As a result, the udev binary packages will now be built from the systemd
       source package.
+  * Add Marco to Uploaders.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
