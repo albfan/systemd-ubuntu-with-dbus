@@ -47,7 +47,7 @@ net_ifup() {
     fi
 
     wait_for_interface lo
-    if [ -e /sys/fs/cgroup/systemd ]; then
+    if [ -d /run/systemd/system ]; then
       exec systemctl start ifup@${INTERFACE}.service
     else
       exec ifup --allow=hotplug $INTERFACE
