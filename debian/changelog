@@ -18,6 +18,8 @@ systemd (204-1) UNRELEASED; urgency=low
     Recommends on pciutils and usbutils accordingly.
   * Drop our faketime hack. Upstream uses a custom xsl style sheet now to
     generate the man pages which no longer embeds the build date.
+  * Add Depends on libpam-runtime (>= 1.0.1-6) to libpam-systemd as we are
+    using pam-auth-update.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
