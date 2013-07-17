@@ -36,7 +36,7 @@ Architecture: linux-any
 Section: admin
 Priority: extra
 Recommends: libpam-systemd
-Suggests: systemd-ui, python, python-dbus, python-cairo
+Suggests: systemd-ui
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends}, ${misc:Depends}, util-linux (>= 2.19.1-2), initscripts (>= 2.88dsf-17), udev
 Breaks: lvm2 (<< 2.02.84-1), lsb-base (<< 4.1+Debian4)
