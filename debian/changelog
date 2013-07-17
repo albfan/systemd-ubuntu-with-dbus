@@ -37,6 +37,8 @@ systemd (204-1) UNRELEASED; urgency=low
   * Run gtkdocize on autoreconf.
   * Enable python bindings for the systemd libraries and ship them in a new
     package named python-systemd.
+  * Tighten Depends on libsystemd-id128-dev for libsystemd-journal-dev as per
+    libsystemd-journal.pc.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
