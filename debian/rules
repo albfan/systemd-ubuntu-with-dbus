@@ -77,6 +77,20 @@ override_dh_install:
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
 	# install some files manually, --sourcedir makes that necessary
+	# udev-udeb
+	install -D --mode=755 debian/extra/udev.startup \
+		debian/udev-udeb/lib/debian-installer/start-udev
+	install -D --mode=755 debian/extra/udev.base-installer \
+		debian/udev-udeb/usr/lib/base-installer.d/05udev
+	# udev: initramfs-tools support
+	install -D --mode=755 debian/extra/initramfs.hook \
+		debian/udev/usr/share/initramfs-tools/hooks/udev
+	install -D --mode=755 debian/extra/initramfs.top \
+		debian/udev/usr/share/initramfs-tools/scripts/init-top/udev
+	install -D --mode=755 debian/extra/initramfs.bottom \
+		debian/udev/usr/share/initramfs-tools/scripts/init-bottom/udev
+	# udev: debian specific rules and helpers
+	
 	# systemd
 	cp -a debian/pam-configs debian/libpam-systemd/usr/share/
 	install -D --mode=644 debian/init-functions.d/40-systemd \
@@ -121,6 +135,11 @@ override_dh_installdocs:
 	dh_installdocs -pudev -plibudev-dev --link-doc=libudev1
 	dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0
 	dh_installdocs --remaining-packages
+
+override_dh_installinit:
+	dh_installinit --no-start --update-rcd-params='start 03 S .'
+	dh_installinit --no-start --update-rcd-params='start 36 S .' \
+		--name=udev-mtab
 
 override_dh_makeshlibs:
 	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb
