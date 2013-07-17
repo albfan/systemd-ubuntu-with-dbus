@@ -41,6 +41,7 @@ systemd (204-1) UNRELEASED; urgency=low
     libsystemd-journal.pc.
   * Remove obsolete bash-completion scripts on upgrades. Nowadays they are
     installed in /usr/share/bash-completion/completions.
+  * Rename conffiles for logind and journald.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
