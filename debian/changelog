@@ -12,6 +12,8 @@ systemd (204-1) UNRELEASED; urgency=low
   * Don't hard-code Pre-Depends in udev but use ${misc:Pre-Depends} instead.
     Also drop the hard-coded Depends on libglib2.0-0 from gir1.2-gudev-1.0.
   * Drop old Conflicts, Replaces and Breaks, which are no longer necessary.
+  * Make libgudev-1.0-dev depend on gir1.2-gudev-1.0 as per GObject
+    introspection mini-policy.  Closes: #691313
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
