@@ -195,7 +195,7 @@ Description: systemd 128 bit ID utility library - development files
 Package: udev
 Architecture: linux-any
 Multi-Arch: foreign
-Pre-Depends: debconf (>= 1.4.69) | debconf-2.0
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libudev0 (= ${binary:Version}),
@@ -333,8 +333,7 @@ Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         ${gir:Depends},
-         libglib2.0-0
+         ${gir:Depends}
 Conflicts: gir1.0-gudev-1.0
 Replaces: gir1.0-gudev-1.0
 Description: libgudev-1.0 introspection data
