@@ -5,30 +5,75 @@
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+CONFFLAGS = \
+	--with-rootprefix= \
+	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
+	--with-sysvinit-path=/etc/init.d \
+	--with-sysvrcnd-path=/etc \
+	--with-firmware-path=/lib/firmware \
+	--enable-libcryptsetup \
+	--enable-tcpwrap \
+	--disable-coredump \
+	--disable-efi \
+	--disable-myhostname \
+	--disable-vconsole
+
+CONFFLAGS_deb = \
+	--enable-selinux \
+	--enable-introspection \
+	--enable-gtk-doc
+
+CONFFLAGS_udeb = \
+	--disable-selinux \
+	--disable-introspection \
+	--disable-gtk-doc \
+	--disable-binfmt \
+	--disable-readahead \
+	--disable-bootchart \
+	--disable-quotacheck \
+	--disable-randomseed \
+	--disable-logind \
+	--disable-hostnamed \
+	--disable-timedated \
+	--disable-localed \
+	--disable-polkit \
+	--disable-acl \
+	--disable-xattr \
+	--disable-gudev \
+	--disable-manpages \
+	--without-python
+
 override_dh_auto_configure:
-	dh_auto_configure -- \
-		--with-rootprefix= \
-		--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
-		--with-udevrulesdir=/lib/udev/rules.d \
-		--disable-gtk \
-		--enable-libcryptsetup \
-		--enable-tcpwrap \
-		--enable-selinux \
-                --disable-coredump \
-		--with-distro=debian
+	dh_auto_configure --builddirectory=build-deb \
+		-- $(CONFFLAGS) $(CONFFLAGS_deb)
+	dh_auto_configure --builddirectory=build-udeb \
+		-- $(CONFFLAGS) $(CONFFLAGS_udeb)
+
+override_dh_auto_build:
+	dh_auto_build --builddirectory=build-deb
+	dh_auto_build --builddirectory=build-udeb
+
+override_dh_auto_install:
+	dh_auto_install --builddirectory=build-deb \
+		--destdir=debian/install/deb
+	dh_auto_install --builddirectory=build-udeb \
+		--destdir=debian/install/udeb
 
 override_dh_auto_clean:
-	dh_auto_clean
-	rm -f man/*.[1358]
+	dh_auto_clean --builddirectory=build-deb
+	dh_auto_clean --builddirectory=build-udeb
+	rm -rf debian/install/
+	# remove pre-generated man pages so they are rebuilt
+	rm -f man/*.[13578]
 
 override_dh_install:
-	rm debian/tmp/usr/share/doc/systemd/LICENSE
-	rm debian/tmp/usr/share/man/man1/systemadm.1
-	rm debian/tmp/lib/systemd/system/sysinit.target.wants/systemd-vconsole-setup.service
-	find debian/tmp/ -name '*.la' -delete
-	chmod +x debian/debian-fixup
-	dh_install -O--parallel --fail-missing
-	dh_install -plibpam-systemd debian/pam-configs /usr/share
+	# remove unnecessary files
+	rm -f debian/install/*/usr/share/doc/systemd/LICENSE.*
+	rm -f debian/install/*/var/log/README
+	rm -f debian/install/*/etc/init.d/README
+	find debian/install/ -name '*.la' -delete
+	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
+	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
 
 autoreconf:
 	gtkdocize --copy --docdir docs/

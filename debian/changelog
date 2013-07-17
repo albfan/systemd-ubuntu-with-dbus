@@ -43,6 +43,8 @@ systemd (204-1) UNRELEASED; urgency=low
     installed in /usr/share/bash-completion/completions.
   * Rename conffiles for logind and journald.
   * Rename udev-gtk-udeb → libudev1-udeb to better reflect its actual contents.
+  * Build two flavours: a regular build and one for the udev udebs with
+    reduced features/dependencies.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
