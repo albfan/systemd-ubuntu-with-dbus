@@ -1,3 +1,12 @@
+systemd (204-1) UNRELEASED; urgency=low
+
+  * New upstream release.  Closes: #675175, #675177
+    - In v183 the udev sources have been merged into the systemd source tree.
+      As a result, the udev binary packages will now be built from the systemd
+      source package.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
+
 systemd (44-12) unstable; urgency=low
 
   * Cherry-pick e17187 from upstream to fix build failures with newer glibc
