@@ -108,6 +108,10 @@ override_dh_installdocs:
 	dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0
 	dh_installdocs --remaining-packages
 
+override_dh_makeshlibs:
+	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb
+	dh_makeshlibs --remaining-packages
+
 autoreconf:
 	gtkdocize --copy --docdir docs/
 	intltoolize -f -c
