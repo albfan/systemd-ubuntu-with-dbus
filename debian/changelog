@@ -7,6 +7,7 @@ systemd (204-1) UNRELEASED; urgency=low
   * Add Marco to Uploaders.
   * Drop Suggests on the various python packages from systemd. The
     systemd-analyze tool has been reimplemented in C.
+  * Add binary packages as found in the udev 175-7.2 source package.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
