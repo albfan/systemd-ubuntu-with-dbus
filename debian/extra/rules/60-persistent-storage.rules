@@ -79,10 +79,6 @@ KERNEL=="cciss*", 			ENV{ID_SERIAL}!="?*", \
 KERNEL=="dasd*", \
 	IMPORT{program}="dasd_id --export $tempnode"
 
-# BIOS Enhanced Disk Device
-KERNEL=="sd*|hd*|cciss*", \
-	IMPORT{program}="edd_id --export $tempnode"
-
 # scsi compat links for ATA devices
 KERNEL=="sd*", ENV{ID_BUS}=="ata", \
     PROGRAM="scsi_id --whitelisted --replace-whitespace -p0x80 -d$tempnode", \

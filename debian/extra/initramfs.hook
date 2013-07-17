@@ -62,7 +62,7 @@ YES|yes|Yes|Y|y)
 esac
 
 cp /lib/udev/hotplug.functions $DESTDIR/lib/udev/
-for program in ata_id edd_id scsi_id; do
+for program in ata_id scsi_id; do
   copy_exec /lib/udev/$program /lib/udev
 done
 copy_exec /sbin/blkid /sbin
