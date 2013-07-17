@@ -20,6 +20,7 @@ systemd (204-1) UNRELEASED; urgency=low
     generate the man pages which no longer embeds the build date.
   * Add Depends on libpam-runtime (>= 1.0.1-6) to libpam-systemd as we are
     using pam-auth-update.
+  * Explicitly set Section and Priority for the udev binary package.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 

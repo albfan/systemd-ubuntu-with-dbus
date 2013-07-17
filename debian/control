@@ -193,6 +193,8 @@ Description: systemd 128 bit ID utility library - development files
  This package contains the development files
 
 Package: udev
+Section: admin
+Priority: important
 Architecture: linux-any
 Multi-Arch: foreign
 Pre-Depends: ${misc:Pre-Depends}
