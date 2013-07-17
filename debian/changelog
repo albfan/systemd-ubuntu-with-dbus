@@ -30,6 +30,7 @@ systemd (204-1) UNRELEASED; urgency=low
     - Add libgcrypt11-dev for encryption support in the journal.
     - Add libblkid-dev for the blkid udev builtin.
   * Use gir dh addon to ensure ${gir:Depends} is properly set.
+  * Rename libudev0 → libudev1 for the SONAME bump.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
