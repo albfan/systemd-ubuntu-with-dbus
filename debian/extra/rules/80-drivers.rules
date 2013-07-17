@@ -37,8 +37,6 @@ LABEL="hotplug_vio_end"
 # From here on follows the hotplug agents which do not load modules
 LABEL="hotplug_driver_loaded"
 
-SUBSYSTEM=="firmware",			RUN+="firmware.agent"
-
 LABEL="drivers_end"
 
 # Log every event to /dev/hotplug.log (for debugging).
