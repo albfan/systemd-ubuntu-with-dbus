@@ -205,61 +205,7 @@ Depends: ${shlibs:Depends},
          procps
 Recommends: usbutils,
             pciutils
-Conflicts: libc6 (<< 2.9-22)
 Replaces: libudev0
-Breaks: dmsetup (<< 2.02.84-1),
- mdadm (<< 3.0-3),
- consolekit (<< 0.4.1),
- libsane (<< 1.0.21-3),
- multipath-tools (<< 0.4.8-12),
- systemd (<< 28),
- linux-image-2.6-alpha-generic (<< 2.6.32) [alpha],
- linux-image-2.6-alpha-legacy (<< 2.6.32) [alpha],
- linux-image-2.6-alpha-smp (<< 2.6.32) [alpha],
- linux-image-2.6-openvz-amd64 (<< 2.6.32) [amd64],
- linux-image-2.6-vserver-amd64 (<< 2.6.32) [amd64],
- linux-image-2.6-xen-amd64 (<< 2.6.32) [amd64],
- linux-image-2.6-amd64 (<< 2.6.32) [amd64 i386],
- linux-image-2.6-footbridge (<< 2.6.32) [arm],
- linux-image-2.6-iop32x (<< 2.6.32) [arm armel],
- linux-image-2.6-ixp4xx (<< 2.6.32) [arm armel],
- linux-image-2.6-orion5x (<< 2.6.32) [arm armel],
- linux-image-2.6-versatile (<< 2.6.32) [armel],
- linux-image-2.6-parisc (<< 2.6.32) [hppa],
- linux-image-2.6-parisc64 (<< 2.6.32) [hppa],
- linux-image-2.6-parisc64-smp (<< 2.6.32) [hppa],
- linux-image-2.6-parisc-smp (<< 2.6.32) [hppa],
- linux-image-2.6-486 (<< 2.6.32) [i386],
- linux-image-2.6-686 (<< 2.6.32) [i386],
- linux-image-2.6-686-bigmem (<< 2.6.32) [i386],
- linux-image-2.6-k7 (<< 2.6.32) [i386],
- linux-image-2.6-openvz-686 (<< 2.6.32) [i386],
- linux-image-2.6-vserver-686 (<< 2.6.32) [i386],
- linux-image-2.6-vserver-686-bigmem (<< 2.6.32) [i386],
- linux-image-2.6-xen-686 (<< 2.6.32) [i386],
- linux-image-2.6-itanium (<< 2.6.32) [ia64],
- linux-image-2.6-mckinley (<< 2.6.32) [ia64],
- linux-image-2.6-vserver-itanium (<< 2.6.32) [ia64],
- linux-image-2.6-vserver-mckinley (<< 2.6.32) [ia64],
- linux-image-2.6-r4k-ip22 (<< 2.6.32) [mips],
- linux-image-2.6-r5k-ip32 (<< 2.6.32) [mips],
- linux-image-2.6-r5k-cobalt (<< 2.6.32) [mipsel],
- linux-image-2.6-4kc-malta (<< 2.6.32) [mips mipsel],
- linux-image-2.6-5kc-malta (<< 2.6.32) [mips mipsel],
- linux-image-2.6-sb1a-bcm91480b (<< 2.6.32) [mips mipsel],
- linux-image-2.6-sb1-bcm91250a (<< 2.6.32) [mips mipsel],
- linux-image-2.6-powerpc (<< 2.6.32) [powerpc],
- linux-image-2.6-powerpc64 (<< 2.6.32) [powerpc],
- linux-image-2.6-powerpc-smp (<< 2.6.32) [powerpc],
- linux-image-2.6-vserver-powerpc (<< 2.6.32) [powerpc],
- linux-image-2.6-vserver-powerpc64 (<< 2.6.32) [powerpc],
- linux-image-2.6-s390 (<< 2.6.32) [s390],
- linux-image-2.6-s390-tape (<< 2.6.32) [s390],
- linux-image-2.6-s390x (<< 2.6.32) [s390],
- linux-image-2.6-vserver-s390x (<< 2.6.32) [s390],
- linux-image-2.6-sparc64 (<< 2.6.32) [sparc],
- linux-image-2.6-sparc64-smp (<< 2.6.32) [sparc],
- linux-image-2.6-vserver-sparc64 (<< 2.6.32) [sparc]
 Description: /dev/ and hotplug management daemon
  udev is a daemon which dynamically creates and removes device nodes from
  /dev/, handles hotplug events and loads drivers at boot time.
@@ -334,8 +280,6 @@ Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          ${gir:Depends}
-Conflicts: gir1.0-gudev-1.0
-Replaces: gir1.0-gudev-1.0
 Description: libgudev-1.0 introspection data
  This package contains the GObject-introspection data of libgudev-1.0 in
  binary typelib format.
