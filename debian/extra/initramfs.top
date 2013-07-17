@@ -14,7 +14,7 @@ esac
 echo > /sys/kernel/uevent_helper
 
 UDEV_ROOT=/dev \
-udevd --daemon --resolve-names=never
+/lib/systemd/systemd-udevd --daemon --resolve-names=never
 
 udevadm trigger --action=add
 udevadm settle || true

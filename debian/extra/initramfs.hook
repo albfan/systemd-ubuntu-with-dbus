@@ -22,8 +22,9 @@ root_over_the_network() {
 
 . /usr/share/initramfs-tools/hook-functions
 
-copy_exec /sbin/udevd      /sbin
-copy_exec /sbin/udevadm    /sbin
+mkdir -p $DESTDIR/lib/systemd
+copy_exec /lib/systemd/systemd-udevd      /lib/systemd
+copy_exec /bin/udevadm    /bin
 
 mkdir -p $DESTDIR/etc/udev
 cp -p /etc/udev/udev.conf $DESTDIR/etc/udev/
