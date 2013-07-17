@@ -172,6 +172,11 @@ upgrade_fixes() {
       && grep -E -q "^[^[:space:]]+ /run tmpfs " /proc/mounts; then
     mv /dev/.udev/ /run/udev/
   fi
+
+  if dpkg --compare-versions "$2" lt "204-1"; then
+    # We dropped udev-mtab with udev 204.
+    update-rc.d udev-mtab remove
+  fi
 }
 
 case "$1" in

@@ -24,10 +24,6 @@
 /dev/null /lib/systemd/system/stop-bootlogd-single.service
 /dev/null /lib/systemd/system/stop-bootlogd.service
 
-# These are pointless, /etc/mtab should be a symlink
-/dev/null /lib/systemd/system/mtab.service
-/dev/null /lib/systemd/system/udev-mtab.service
-
 # systemd sets the hwclock internally
 # http://cgit.freedesktop.org/systemd/systemd/commit/?id=7948c4dfbea73ac21250b588089039aa17a90386
 /dev/null /lib/systemd/system/hwclock.service
