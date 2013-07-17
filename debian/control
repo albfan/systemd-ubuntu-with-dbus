@@ -6,6 +6,7 @@ Uploaders: Tollef Fog Heen <tfheen@debian.org>, Michael Biebl <biebl@debian.org>
 Standards-Version: 3.9.2
 Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git -b debian
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-systemd/systemd.git;a=summary
+X-Python-Version: >= 2.7
 Homepage: http://www.freedesktop.org/wiki/Software/systemd
 Build-Depends: debhelper (>= 9),
                pkg-config,
@@ -35,6 +36,7 @@ Build-Depends: debhelper (>= 9),
                libblkid-dev (>= 2.20),
                libgirepository1.0-dev (>= 1.31.1),
                gobject-introspection (>= 1.31.1),
+               python-dev,
                libglib2.0-doc
 
 Package: systemd
@@ -304,3 +306,13 @@ Depends: ${shlibs:Depends},
 Description: libgudev-1.0 development files
  This package contains the files needed for developing applications that
  use libgudev-1.0.
+
+Package: python-systemd
+Section: python
+Priority: extra
+Architecture: linux-any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         ${python:Depends}
+Description: python bindings for systemd
+ This package contains Python bindings for the systemd libraries.

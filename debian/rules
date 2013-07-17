@@ -39,4 +39,4 @@ override_dh_autoreconf:
 	dh_autoreconf debian/rules -- autoreconf
 
 %:
-	dh $@ --with autoreconf,gir
+	dh $@ --with autoreconf,gir,python2
