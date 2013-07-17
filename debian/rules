@@ -74,6 +74,33 @@ override_dh_install:
 	find debian/install/ -name '*.la' -delete
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
+	# remove duplicates
+	# files shipped by systemd-sysv / sysvinit
+	rm debian/systemd/usr/share/man/man1/init.1
+	rm debian/systemd/usr/share/man/man8/halt.8
+	rm debian/systemd/usr/share/man/man8/poweroff.8
+	rm debian/systemd/usr/share/man/man8/reboot.8
+	rm debian/systemd/usr/share/man/man8/shutdown.8
+	rm debian/systemd/usr/share/man/man8/telinit.8
+	rm debian/systemd/usr/share/man/man8/runlevel.8
+	# files shipped by libpam-systemd
+	rm debian/systemd/usr/share/man/man8/pam_systemd.8
+	# files shipped by udev
+	rm -r debian/systemd/etc/udev/
+	rm debian/systemd/lib/systemd/system/systemd-udev*
+	rm debian/systemd/lib/systemd/system/*.target.wants/systemd-udev*
+	rm debian/systemd/lib/systemd/systemd-udevd
+	rm debian/systemd/usr/share/man/man7/udev.7
+	rm debian/systemd/usr/share/man/man8/*udev*.8
+	# files shipped by udev / bash-completion
+	rm debian/systemd/usr/share/bash-completion/completions/udevadm
+	# files systemd by cryptsetup
+	rm debian/systemd/usr/share/man/man5/crypttab.5
+	# files shipped by systemd
+	rm debian/udev/lib/udev/rules.d/70-uaccess.rules
+	rm debian/udev/lib/udev/rules.d/73-seat-late.rules
+	rm debian/udev/lib/udev/rules.d/71-seat.rules
+	rm debian/udev/lib/udev/rules.d/99-systemd.rules
 
 autoreconf:
 	gtkdocize --copy --docdir docs/
