@@ -45,6 +45,8 @@ systemd (204-1) UNRELEASED; urgency=low
   * Rename udev-gtk-udeb → libudev1-udeb to better reflect its actual contents.
   * Build two flavours: a regular build and one for the udev udebs with
     reduced features/dependencies.
+  * Create a few compat symlinks for the udev package, most notably
+    /sbin/udevadm and /sbin/udevd.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
