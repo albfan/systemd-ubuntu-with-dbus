@@ -8,14 +8,11 @@ _systemctl() {
     fi
 }
 
-if [ "$1" = triggered ]; then
-    /lib/systemd/debian-enable-units
-    exit 0
-fi
-
-# Run the script after the initial installation or once on upgrades
-if [ -z "$2" ] || dpkg --compare-versions "$2" lt "44-9"; then
-    /lib/systemd/debian-enable-units
+# Cleanup state files from the auto-enabler which we used in wheezy
+if dpkg --compare-versions "$2" lt "204-1"; then
+    rm -f /var/lib/systemd/enabled-units
+    rm -f /var/lib/systemd/run-debian-enable-units
+    rm -f /var/lib/systemd/*.symlinks
 fi
 
 if [ -n "$2" ]; then

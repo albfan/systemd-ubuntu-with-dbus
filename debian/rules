@@ -83,11 +83,8 @@ override_dh_install:
 		debian/systemd/usr/lib/tmpfiles.d/
 	install --mode=644 debian/debian-fixup.service debian/ifup@.service \
 		debian/units/run-lock.mount debian/units/run-user.mount \
-		debian/debian-enable-units.service \
 		debian/systemd/lib/systemd/system/
-	install --mode=644 debian/unit.blacklist \
-		debian/systemd/usr/share/systemd/
-	install --mode=755 debian/debian-fixup debian/debian-enable-units \
+	install --mode=755 debian/debian-fixup \
 		debian/systemd/lib/systemd/
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit

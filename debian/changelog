@@ -47,6 +47,9 @@ systemd (204-1) UNRELEASED; urgency=low
     reduced features/dependencies.
   * Create a few compat symlinks for the udev package, most notably
     /sbin/udevadm and /sbin/udevd.
+  * Remove the dpkg-triggered debian-enable-units script. This was a temporary
+    workaround for wheezy. Packages should use dh-systemd now to properly
+    integrate service files with systemd.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
