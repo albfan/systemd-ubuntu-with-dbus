@@ -34,6 +34,7 @@ systemd (204-1) UNRELEASED; urgency=low
   * Update symbols files. libudev now uses symbols versioning as the other
     libsystemd libraries. The libgudev-1.0-0 symbols file has been copied from
     the old udev package.
+  * Run gtkdocize on autoreconf.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
