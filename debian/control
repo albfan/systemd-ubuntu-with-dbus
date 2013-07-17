@@ -28,8 +28,7 @@ Build-Depends: debhelper (>= 9),
                libacl1-dev,
                liblzma-dev,
                gperf,
-               libkmod-dev (>= 5),
-               faketime
+               libkmod-dev (>= 5)
 
 Package: systemd
 Architecture: linux-any
