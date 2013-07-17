@@ -39,6 +39,8 @@ systemd (204-1) UNRELEASED; urgency=low
     package named python-systemd.
   * Tighten Depends on libsystemd-id128-dev for libsystemd-journal-dev as per
     libsystemd-journal.pc.
+  * Remove obsolete bash-completion scripts on upgrades. Nowadays they are
+    installed in /usr/share/bash-completion/completions.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
