@@ -74,6 +74,21 @@ override_dh_install:
 	find debian/install/ -name '*.la' -delete
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
+	# install some files manually, --sourcedir makes that necessary
+	# systemd
+	cp -a debian/pam-configs debian/libpam-systemd/usr/share/
+	install -D --mode=644 debian/init-functions.d/40-systemd \
+		debian/systemd/lib/lsb/init-functions.d/40-systemd
+	install --mode=644 debian/tmpfiles.d/debian.conf \
+		debian/systemd/usr/lib/tmpfiles.d/
+	install --mode=644 debian/debian-fixup.service debian/ifup@.service \
+		debian/units/run-lock.mount debian/units/run-user.mount \
+		debian/debian-enable-units.service \
+		debian/systemd/lib/systemd/system/
+	install --mode=644 debian/unit.blacklist \
+		debian/systemd/usr/share/systemd/
+	install --mode=755 debian/debian-fixup debian/debian-enable-units \
+		debian/systemd/lib/systemd/
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
