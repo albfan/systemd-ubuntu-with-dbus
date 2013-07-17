@@ -189,7 +189,7 @@ case "$1" in
 	  echo "Please reboot the system as soon as possible."
 	  rm /etc/udev/kernel-upgrade
 	elif can_start_udevd; then
-	  rm -f /run/systemd/system/udev.service
+	  rm -f /run/systemd/system/systemd-udevd.service
 	  invoke-rc.d udev restart
 	fi
       fi
