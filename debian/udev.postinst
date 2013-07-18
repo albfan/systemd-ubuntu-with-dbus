@@ -179,8 +179,15 @@ upgrade_fixes() {
   fi
 }
 
+update_hwdb() {
+  udevadm hwdb --update || true
+}
+
 case "$1" in
     configure)
+    # update/create hwdb before we (re)start udev
+    update_hwdb
+
     if [ -z "$2" ]; then # first install
       if ! chrooted && ! in_debootstrap; then
 	write_interfaces_rules
