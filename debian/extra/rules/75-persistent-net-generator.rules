@@ -10,6 +10,8 @@
 #   INTERFACE_NAME	requested name supplied by external tool
 #   INTERFACE_NEW	new interface name returned by rule writer
 
+IMPORT{cmdline}="net.ifnames"
+ENV{net.ifnames}=="1",                  GOTO="persistent_net_generator_end"
 ACTION!="add",				GOTO="persistent_net_generator_end"
 SUBSYSTEM!="net",			GOTO="persistent_net_generator_end"
 
