@@ -7,6 +7,6 @@
 
 [D-BUS Service]
 Name=org.freedesktop.locale1
-Exec=/bin/false
+Exec=/lib/systemd/systemd-localed
 User=root
 SystemdService=dbus-org.freedesktop.locale1.service

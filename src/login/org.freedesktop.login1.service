@@ -7,6 +7,6 @@
 
 [D-BUS Service]
 Name=org.freedesktop.login1
-Exec=/bin/false
+Exec=/lib/systemd/systemd-logind
 User=root
 SystemdService=dbus-org.freedesktop.login1.service

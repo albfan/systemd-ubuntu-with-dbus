@@ -7,6 +7,6 @@
 
 [D-BUS Service]
 Name=org.freedesktop.timedate1
-Exec=/bin/false
+Exec=/lib/systemd/systemd-timedated
 User=root
 SystemdService=dbus-org.freedesktop.timedate1.service
