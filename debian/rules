@@ -82,6 +82,26 @@ override_dh_install:
 		debian/udev-udeb/lib/debian-installer/start-udev
 	install -D --mode=755 debian/extra/udev.base-installer \
 		debian/udev-udeb/usr/lib/base-installer.d/05udev
+	mkdir -p debian/udev-udeb/lib/udev/rules.d/
+	install -D --mode=644 \
+		debian/extra/rules/50-udev-default.rules \
+		debian/extra/rules/60-persistent-storage.rules \
+		debian/extra/rules/75-cd-aliases-generator.rules \
+		debian/extra/rules/75-persistent-net-generator.rules \
+		debian/extra/rules/80-drivers.rules \
+		debian/extra/rules/91-permissions.rules \
+		debian/udev-udeb/lib/udev/rules.d/
+	install -D --mode=644 debian/extra/links.conf \
+		debian/udev-udeb/etc/udev/links.conf
+	mkdir -p debian/udev-udeb/lib/udev
+	install -D --mode=644 \
+		debian/extra/hotplug.functions \
+		debian/extra/rule_generator.functions \
+		debian/udev-udeb/lib/udev/
+	install -D --mode=755 \
+		debian/extra/write_cd_rules \
+		debian/extra/write_net_rules \
+		debian/udev-udeb/lib/udev/
 	# udev: initramfs-tools support
 	install -D --mode=755 debian/extra/initramfs.hook \
 		debian/udev/usr/share/initramfs-tools/hooks/udev
@@ -90,7 +110,24 @@ override_dh_install:
 	install -D --mode=755 debian/extra/initramfs.bottom \
 		debian/udev/usr/share/initramfs-tools/scripts/init-bottom/udev
 	# udev: debian specific rules and helpers
-	
+	install -D --mode=644 debian/extra/rules/* \
+		debian/udev/lib/udev/rules.d/
+	install -D --mode=644 debian/extra/links.conf \
+		debian/udev/etc/udev/
+	install -D --mode=644 debian/extra/fbdev-blacklist.conf \
+		debian/udev/etc/modprobe.d/fbdev-blacklist.conf
+	install -D --mode=644 \
+		debian/extra/hotplug.functions \
+		debian/extra/rule_generator.functions \
+		debian/udev/lib/udev/
+	install -D --mode=755 \
+		debian/extra/create_static_nodes \
+		debian/extra/dsl-modem.agent \
+		debian/extra/logger.agent \
+		debian/extra/net.agent \
+		debian/extra/write_cd_rules \
+		debian/extra/write_net_rules \
+		debian/udev/lib/udev/
 	# systemd
 	cp -a debian/pam-configs debian/libpam-systemd/usr/share/
 	install -D --mode=644 debian/init-functions.d/40-systemd \
