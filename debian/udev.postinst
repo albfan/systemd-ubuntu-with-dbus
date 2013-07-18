@@ -183,6 +183,25 @@ update_hwdb() {
   udevadm hwdb --update || true
 }
 
+# In udev-204, we ship systemd-udevd.service (upstream name), whereas previous
+# versions used udev.service. We replace udev.service with a symlink to
+# systemd-udevd.service, but systemd (both 44 and 204) exposes weird behavior:
+# After a daemon-reload, it forgets about the /sbin/udevd process in the
+# udev.service cgroup, so a restart will lead to having two udevd processes
+# running — one in the udev.service cgroup and one in the systemd-udevd.service
+# cgroup.
+#
+# To fix this, we explicitly stop udev.service and the corresponding sockets,
+# then issue the daemon-reload, then restart the new systemd-udevd.service (via
+# invoke-rc.d).
+handle_service_rename() {
+  if dpkg --compare-versions "$2" lt "204-1"; then
+    if [ -d /run/systemd/system ]; then
+      systemctl stop udev.service udev-control.socket udev-kernel.socket >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 case "$1" in
     configure)
     # update/create hwdb before we (re)start udev
@@ -201,7 +220,14 @@ case "$1" in
 	  echo "Please reboot the system as soon as possible."
 	  rm /etc/udev/kernel-upgrade
 	elif can_start_udevd; then
+          handle_service_rename
 	  rm -f /run/systemd/system/systemd-udevd.service
+	  rm -f /run/systemd/system/udev.service
+          # This is necessary for the handle_service_rename case, but does not
+          # hurt in general (invoke-rc.d does it, too).
+	  if [ -d /run/systemd/system ] ; then
+	    systemctl daemon-reload || true
+	  fi
 	  invoke-rc.d udev restart
 	fi
       fi
