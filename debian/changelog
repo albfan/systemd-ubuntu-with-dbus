@@ -3,7 +3,8 @@ systemd (204-1) UNRELEASED; urgency=low
   * New upstream release.  Closes: #675175, #675177
     - In v183 the udev sources have been merged into the systemd source tree.
       As a result, the udev binary packages will now be built from the systemd
-      source package.
+      source package. To align the version numbers 139 releases were skipped.
+    - For a complete list of changes, please refer to the NEWS file.
   * Add Marco to Uploaders.
   * Drop Suggests on the various python packages from systemd. The
     systemd-analyze tool has been reimplemented in C.
@@ -50,6 +51,22 @@ systemd (204-1) UNRELEASED; urgency=low
     workaround for wheezy. Packages should use dh-systemd now to properly
     integrate service files with systemd.
   * Update debian/copyright using the machine-readable copyright format 1.0.
+  * Integrate changes from udev 175-7 and acknowledge the 175-7.1 and 175-7.2
+    non-maintainer uploads.
+  * Keep the old persistent network interface naming scheme for now and make
+    the new one opt-in via net.ifnames=1 on the kernel command line.
+  * Drop the obsolete udev-mtab SysV init script and properly clean up on
+    upgrades.
+  * Simplify the udev SysV init script and remove experimental and obsolete
+    features.
+  * Revert upstream commits which dropped support for distro specific
+    features and config files.
+  * Make logind, hostnamed, localed and timedated D-Bus activatable and
+    usable when systemd is not running.
+  * Store hwdb binary database in /lib/udev, not /etc/udev. Create the file on
+    install and upgrades.
+  * Provide a dpkg file trigger for hwdb, so the database is automatically
+    updated when packages install files into /lib/udev/hwdb.d.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
 
