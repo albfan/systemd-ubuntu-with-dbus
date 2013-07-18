@@ -140,6 +140,10 @@ override_dh_installinit:
 	dh_installinit --no-start --update-rcd-params='start 03 S .'
 	dh_installinit --no-start --update-rcd-params='start 36 S .' \
 		--name=udev-mtab
+	dh_installinit --name=udev-finish --no-start -- start 37 S .
+	dh_installinit --name=udevtrigger --no-start
+	dh_installinit --name=udevmonitor --no-start
+	dh_installinit --name=udev-fallback-graphics --no-start
 
 override_dh_makeshlibs:
 	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb

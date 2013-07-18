@@ -160,6 +160,9 @@ if [ "$udev_root" != "/dev" ]; then
 
 case "$1" in
     start)
+    if init_is_upstart 2>/dev/null; then
+	exit 1
+    fi
     if mountpoint -q $udev_root/; then
 	log_failure_msg "$udev_root is already mounted"
 	log_end_msg 1
@@ -189,6 +192,11 @@ case "$1" in
 
     ;;
     stop)
+    # make sure a manual invocation of the init script doesn't stop an
+    # upstart-controlled instance of udev
+    if init_is_upstart 2>/dev/null && status udev | grep -q start; then
+	exit 0
+    fi
     log_daemon_msg "Stopping the hotplug events dispatcher" "udevd"
     if start-stop-daemon --stop --name udevd --user root --quiet --oknodo --retry 5; then
 	log_end_msg $?
@@ -206,6 +214,9 @@ case "$1" in
     ;;
 
     restart)
+    if init_is_upstart 2>/dev/null; then
+	exit 1
+    fi
     log_daemon_msg "Stopping the hotplug events dispatcher" "udevd"
     if start-stop-daemon --stop --name udevd --user root --quiet --oknodo --retry 5; then
 	log_end_msg $?
@@ -246,6 +257,9 @@ fi # udev_root != /dev
 
 case "$1" in
     start)
+    if init_is_upstart 2>/dev/null; then
+	exit 1
+    fi
     if mountpoint -q $udev_root/; then
 	TMPFS_MOUNTED=1
     elif [ -e "$udev_root/.udev/" ]; then
@@ -314,6 +328,9 @@ case "$1" in
     ;;
 
     restart)
+    if init_is_upstart 2>/dev/null; then
+	exit 1
+    fi
     log_daemon_msg "Stopping the hotplug events dispatcher" "udevd"
     if start-stop-daemon --stop --name udevd --user root --quiet --oknodo --retry 5; then
 	log_end_msg $?
