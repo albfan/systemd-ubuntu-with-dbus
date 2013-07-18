@@ -67,10 +67,12 @@ override_dh_auto_clean:
 	rm -f man/*.[13578]
 
 override_dh_install:
-	# remove unnecessary files
+	# remove unnecessary / unused files
 	rm -f debian/install/*/usr/share/doc/systemd/LICENSE.*
 	rm -f debian/install/*/var/log/README
 	rm -f debian/install/*/etc/init.d/README
+	rm -rf debian/install/*/etc/rpm/
+	rm -rf debian/install/*/etc/kernel/
 	find debian/install/ -name '*.la' -delete
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
