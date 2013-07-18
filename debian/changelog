@@ -1,4 +1,4 @@
-systemd (204-1) UNRELEASED; urgency=low
+systemd (204-1) experimental; urgency=low
 
   * New upstream release.  Closes: #675175, #675177
     - In v183 the udev sources have been merged into the systemd source tree.
@@ -68,7 +68,7 @@ systemd (204-1) UNRELEASED; urgency=low
   * Provide a dpkg file trigger for hwdb, so the database is automatically
     updated when packages install files into /lib/udev/hwdb.d.
 
- -- Michael Biebl <biebl@debian.org>  Wed, 17 Jul 2013 16:57:58 +0200
+ -- Michael Biebl <biebl@debian.org>  Fri, 19 Jul 2013 00:32:36 +0200
 
 systemd (44-12) unstable; urgency=low
 
