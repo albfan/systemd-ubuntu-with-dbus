@@ -213,6 +213,11 @@ case "$1" in
     abort-upgrade|abort-remove|abort-deconfigure)
     ;;
 
+    triggered)
+    update_hwdb
+    exit 0
+    ;;
+
     interfaces)
     write_interfaces_rules
     ;;
