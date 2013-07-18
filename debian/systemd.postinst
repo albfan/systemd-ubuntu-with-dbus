@@ -17,6 +17,7 @@ fi
 
 if [ -n "$2" ]; then
     _systemctl daemon-reexec || true
+    _systemctl try-restart systemd-journald.service || true
 fi
 
 # Do a one-time migration of the local time setting
