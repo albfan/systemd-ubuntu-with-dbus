@@ -26,6 +26,9 @@ mkdir -p $DESTDIR/lib/systemd
 copy_exec /lib/systemd/systemd-udevd      /lib/systemd
 copy_exec /bin/udevadm    /bin
 
+# copy compat symlink
+cp -a /sbin/udevadm $DESTDIR/sbin/udevadm
+
 mkdir -p $DESTDIR/etc/udev
 cp -p /etc/udev/udev.conf $DESTDIR/etc/udev/
 
