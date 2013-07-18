@@ -206,7 +206,7 @@ Section: admin
 Priority: important
 Architecture: linux-any
 Multi-Arch: foreign
-Pre-Depends: ${misc:Pre-Depends}
+Pre-Depends: debconf (>= 1.4.69) | debconf-2.0
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libudev1 (= ${binary:Version}),
