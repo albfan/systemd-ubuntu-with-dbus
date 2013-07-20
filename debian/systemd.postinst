@@ -8,6 +8,16 @@ _systemctl() {
     fi
 }
 
+_update_catalog() {
+    journalctl --update-catalog || true
+}
+
+# Update Message Catalogs database in response to dpkg trigger
+if [ "$1" = "triggered" ]; then
+    _update_catalog
+    exit 0
+fi
+
 # Cleanup state files from the auto-enabler which we used in wheezy
 if dpkg --compare-versions "$2" lt "204-1"; then
     rm -f /var/lib/systemd/enabled-units
@@ -68,5 +78,8 @@ if dpkg --compare-versions "$2" lt "40-1"; then
 fi
 
 systemd-machine-id-setup
+
+# initial update of the Message Catalogs database
+_update_catalog
 
 #DEBHELPER#
