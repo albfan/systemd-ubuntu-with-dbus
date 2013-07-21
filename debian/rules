@@ -16,7 +16,8 @@ CONFFLAGS = \
 	--disable-coredump \
 	--disable-efi \
 	--disable-myhostname \
-	--disable-vconsole
+	--disable-vconsole \
+	--disable-silent-rules
 
 CONFFLAGS_deb = \
 	--enable-selinux \
