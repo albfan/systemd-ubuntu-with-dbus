@@ -1,1 +1,1 @@
-interest /lib/udev/hwdb.d
+interest-noawait /lib/udev/hwdb.d
