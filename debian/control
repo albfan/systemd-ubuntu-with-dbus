@@ -1,6 +1,6 @@
 Source: systemd
 Section: admin
-Priority: extra
+Priority: optional
 Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
 Uploaders: Tollef Fog Heen <tfheen@debian.org>, Michael Biebl <biebl@debian.org>, Marco d'Itri <md@linux.it>
 Standards-Version: 3.9.4
@@ -42,7 +42,7 @@ Build-Depends: debhelper (>= 9),
 Package: systemd
 Architecture: linux-any
 Section: admin
-Priority: extra
+Priority: optional
 Recommends: libpam-systemd
 Suggests: systemd-ui
 Pre-Depends: ${misc:Pre-Depends}
@@ -90,7 +90,7 @@ Package: libpam-systemd
 Architecture: linux-any
 Multi-Arch: same
 Section: admin
-Priority: extra
+Priority: optional
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
@@ -112,6 +112,7 @@ Package: libsystemd-login0
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
+Priority: optional
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
@@ -122,6 +123,7 @@ Description: systemd login utility library
 Package: libsystemd-login-dev
 Architecture: linux-any
 Section: libdevel
+Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-login0 (= ${binary:Version})
@@ -135,6 +137,7 @@ Package: libsystemd-daemon0
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
+Priority: optional
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
@@ -145,6 +148,7 @@ Description: systemd utility library
 Package: libsystemd-daemon-dev
 Architecture: linux-any
 Section: libdevel
+Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-daemon0 (= ${binary:Version})
@@ -158,6 +162,7 @@ Package: libsystemd-journal0
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
+Priority: optional
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
@@ -168,6 +173,7 @@ Description: systemd journal utility library
 Package: libsystemd-journal-dev
 Architecture: linux-any
 Section: libdevel
+Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-journal0 (= ${binary:Version}),
@@ -182,6 +188,7 @@ Package: libsystemd-id128-0
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
+Priority: optional
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
@@ -192,6 +199,7 @@ Description: systemd 128 bit ID utility library
 Package: libsystemd-id128-dev
 Architecture: linux-any
 Section: libdevel
+Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-id128-0 (= ${binary:Version})
@@ -245,6 +253,7 @@ Description: libudev development files
 Package: udev-udeb
 XC-Package-Type: udeb
 Section: debian-installer
+Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
@@ -309,7 +318,7 @@ Description: libgudev-1.0 development files
 
 Package: python-systemd
 Section: python
-Priority: extra
+Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
