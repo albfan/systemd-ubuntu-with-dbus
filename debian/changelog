@@ -1,4 +1,4 @@
-systemd (204-2) UNRELEASED; urgency=low
+systemd (204-2) experimental; urgency=low
 
   [ Daniel Schaal ]
   * Enable verbose build logs.  Closes: #717465
@@ -25,7 +25,7 @@ systemd (204-2) UNRELEASED; urgency=low
   * Restart systemd-logind.service on upgrades due to changes in the
     CreateSession D-Bus API between v44 and v204.  Closes: #717403
 
- -- Michael Biebl <biebl@debian.org>  Wed, 24 Jul 2013 23:36:57 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 24 Jul 2013 23:47:59 +0200
 
 systemd (204-1) experimental; urgency=low
 
