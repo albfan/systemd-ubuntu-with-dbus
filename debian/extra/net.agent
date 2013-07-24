@@ -48,14 +48,20 @@ net_ifup() {
 
     wait_for_interface lo
     if [ -d /run/systemd/system ]; then
-      exec systemctl start ifup@${INTERFACE}.service
+        exec systemctl start ifup@${INTERFACE}.service
     else
-      exec ifup --allow=hotplug $INTERFACE
+        exec ifup --allow=hotplug $INTERFACE
     fi
 }
 
 net_ifdown() {
     check_program /sbin/ifdown
+
+    # systemd will automatically ifdown the interface on device
+    # removal by binding the instanced service to the network device
+    if [ -d /run/systemd/system ]; then
+        exit 0
+    fi
 
     if ps -C ifdown ho args | grep -q $INTERFACE; then
 	debug_mesg "Already ifdown-ing interface $INTERFACE"

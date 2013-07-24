@@ -1,6 +1,7 @@
 [Unit]
 Description=ifup for %I
 After=local-fs.target
+BindTo=sys-subsystem-net-devices-%i.device
 
 [Service]
 ExecStart=/sbin/ifup --allow=hotplug %I
