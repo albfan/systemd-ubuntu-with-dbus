@@ -1,3 +1,32 @@
+systemd (204-2) UNRELEASED; urgency=low
+
+  [ Daniel Schaal ]
+  * Enable verbose build logs.  Closes: #717465
+  * Add handling of Message Catalog files to provide additional information
+    for log entries.  Closes: #717427
+  * Remove leftover symlink to debian-enable-units.service.  Closes: #717349
+
+  [ Michael Stapelberg ]
+  * Install 50-firmware.rules in the initramfs and udeb.  Closes: #717635
+
+  [ Michael Biebl ]
+  * Don't pass static start priorities to dh_installinit anymore.
+  * Switch the hwdb trigger to interest-noawait.
+  * Remove obsolete support for configurable udev root from initramfs.
+  * Bind ifup@.service to the network device. This ensures that ifdown is run
+    when the device is removed and the service is stopped.
+    Closes: #660861, #703033
+  * Bump Standards-Version to 3.9.4. No further changes.
+  * Add Breaks against consolekit (<< 0.4.6-1) for udev-acl.  Closes: #717385
+  * Make all packages Priority: optional, with the exception of udev and
+    libudev1, which remain Priority: important, and systemd-sysv, which
+    remains Priority: extra due to the conflict with sysvinit.
+    Closes: #717365
+  * Restart systemd-logind.service on upgrades due to changes in the
+    CreateSession D-Bus API between v44 and v204.  Closes: #717403
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 24 Jul 2013 23:36:57 +0200
+
 systemd (204-1) experimental; urgency=low
 
   * New upstream release.  Closes: #675175, #675177
