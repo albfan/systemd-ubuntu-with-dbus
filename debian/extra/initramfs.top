@@ -13,7 +13,6 @@ esac
 
 echo > /sys/kernel/uevent_helper
 
-UDEV_ROOT=/dev \
 /lib/systemd/systemd-udevd --daemon --resolve-names=never
 
 udevadm trigger --action=add
