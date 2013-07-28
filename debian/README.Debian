@@ -13,9 +13,6 @@ systemd-sysv package.
 Known bugs and problems
 =======================
 
-The PAM module makes su exit with an error after running the command,
-hiding the real exit status of the process.
-
 Older ifupdown's postinst has a bug where it ends up creating
 /etc/network/run as a normal directory rather than a symlink to
 /run.  This can cause network interfaces to not
