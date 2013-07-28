@@ -1,0 +1,23 @@
+#!/bin/sh
+
+_header() {
+    echo "--------------" >&3
+    echo "$1:" >&3
+    echo "--------------" >&3
+}
+
+_header "systemd-delta"
+# remove highlighting escape codes from systemd-delta output
+systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >&3
+
+if [ -d /run/systemd/system ]; then
+    echo >&3
+    _header "systemctl dump"
+    systemctl --no-pager dump >&3
+fi
+
+if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then
+    echo >&3
+    _header "Contents of /var/lib/systemd/deb-systemd-helper-enabled"
+    head -n100 $(find /var/lib/systemd/deb-systemd-helper-enabled -type f | tr '\n' ' ') >&3
+fi
