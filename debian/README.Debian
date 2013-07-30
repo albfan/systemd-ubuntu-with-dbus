@@ -10,15 +10,4 @@ init=/bin/systemd
 to the kernel command line and then rebooting, or install the
 systemd-sysv package.
 
-Known bugs and problems
-=======================
-
-Older ifupdown's postinst has a bug where it ends up creating
-/etc/network/run as a normal directory rather than a symlink to
-/run.  This can cause network interfaces to not
-start correctly on boot.  The easiest way to fix this is to run:
-
-  mv /etc/network/run /lib/init/rw/network
-  ln -s /run /etc/network/run
-
  -- Tollef Fog Heen <tfheen@debian.org>, Wed, 12 Oct 2011 08:43:50 +0200
