@@ -4042,9 +4042,6 @@ static int enable_sysv_units(char **args) {
 
                 name = args[f];
 
-                if (!endswith(name, ".service"))
-                        continue;
-
                 if (path_is_absolute(name))
                         continue;
 
@@ -4076,7 +4073,8 @@ static int enable_sysv_units(char **args) {
                         goto finish;
                 }
 
-                p[strlen(p) - sizeof(".service") + 1] = 0;
+                if (endswith(name, ".service"))
+                        p[strlen(p) - sizeof(".service") + 1] = 0;
                 found_sysv = access(p, F_OK) >= 0;
 
                 if (!found_sysv)
