@@ -11,7 +11,7 @@ CONFFLAGS = \
 	--with-sysvinit-path=/etc/init.d \
 	--with-sysvrcnd-path=/etc \
 	--with-firmware-path=/lib/firmware \
-	--with-debug-shell=/bin/sh \
+	--with-debug-shell=/bin/bash \
 	--enable-libcryptsetup \
 	--enable-tcpwrap \
 	--disable-coredump \
