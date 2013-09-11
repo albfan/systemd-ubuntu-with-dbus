@@ -1,3 +1,36 @@
+systemd (204-3) UNRELEASED; urgency=low
+
+  [ Michael Biebl ]
+  * Upload to unstable.
+  * Use /bin/bash in debug-shell.service as Debian doesn't have /sbin/sushell.
+  * Only import net.ifaces cmdline property for network devices.
+  * Generate strict dependencies between the binary packages using a
+    shlibs.local file and add an explicit versioned dependency on
+    libsystemd-login0 to systemd to ensure packages are upgraded in sync.
+    Closes: #719444
+  * Drop obsolete Replaces: libudev0 from udev package.
+  * Use correct paths for various binaries, like /sbin/quotaon, which are
+    installed in / and not /usr in Debian.  Closes: #721347
+  * Don't install kernel-install(8) man page since we don't install the
+    corresponding binary either.  Closes: #722180
+  * Cherry-pick upstream fixes to make switching runlevels and starting
+    reboot via ctrl-alt-del more robust.
+  * Cherry-pick upstream fix to properly apply ACLs to Journal files.
+
+  [ Michael Stapelberg ]
+  * Make systemctl enable|disable call update-rc.d for SysV init scripts.
+    Closes: #709780
+  * Don't mount /tmp as tmpfs by default and make it possible to enable this
+    feature via "systemctl enable tmp.mount".
+
+  [ Daniel Schaal ]
+  * Add bug-script to systemd and udev.  Closes: #711245
+
+  [ Ondrej Balaz ]
+  * Recognize discard option in /etc/crypttab.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 11 Sep 2013 23:14:31 +0200
+
 systemd (204-2) experimental; urgency=low
 
   [ Daniel Schaal ]
