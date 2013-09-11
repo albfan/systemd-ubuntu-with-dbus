@@ -1,4 +1,4 @@
-systemd (204-3) UNRELEASED; urgency=low
+systemd (204-3) unstable; urgency=low
 
   [ Michael Biebl ]
   * Upload to unstable.
@@ -29,7 +29,7 @@ systemd (204-3) UNRELEASED; urgency=low
   [ Ondrej Balaz ]
   * Recognize discard option in /etc/crypttab.
 
- -- Michael Biebl <biebl@debian.org>  Wed, 11 Sep 2013 23:14:31 +0200
+ -- Michael Biebl <biebl@debian.org>  Thu, 12 Sep 2013 00:13:11 +0200
 
 systemd (204-2) experimental; urgency=low
 
