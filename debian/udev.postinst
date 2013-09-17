@@ -75,54 +75,10 @@ can_start_udevd() {
 enable_udev() {
   can_start_udevd || return 0
 
-  echo > /sys/kernel/uevent_helper
+  invoke-rc.d udev start
 
-  # create the directory which will hold our new /dev
-  TEMPDEV=$(tempdir)
-
-  export UDEV_ROOT=$TEMPDEV
-  invoke-rc.d udev restart
-
-  if ! mount -n -o size=10M,mode=0755 -t tmpfs tmpfs $TEMPDEV; then
-    echo "Not enabling udev because the system lacks tmpfs support!"
-    rm -f $TEMPDEV/.udev/uevent_seqnum
-    rmdir $TEMPDEV/.udev/ 2> /dev/null || true
-    return
-  fi
-
-  echo "Populating the new /dev filesystem temporarily mounted on $TEMPDEV/..."
-  /lib/udev/create_static_nodes $TEMPDEV
-  udevadm trigger --action=add
-
-  # wait for the udevd children to finish
-  udevadm settle || true
-
-  for dir in pts shm; do
-    [ -d /dev/$dir ] || continue
-    mkdir -p $TEMPDEV/$dir
-    if mountpoint -q /dev/$dir; then
-      mount -n --move /dev/$dir $TEMPDEV/$dir
-    fi
-  done
-
-  mount -n --move $TEMPDEV /dev
-
-  # start the final daemon with the normal configuration
-  unset UDEV_ROOT
-  invoke-rc.d udev restart
-
-  # XXX Some people reported that the directory was not empty.
-  # This should fix the issue (udevd reopens the file for each event):
-  rm -f $TEMPDEV/.udev/uevent_seqnum
-  rmdir $TEMPDEV/.udev/ 2> /dev/null || true
-
-  if ! rmdir $TEMPDEV; then
-    echo "WARNING: $TEMPDEV is not empty!"
-    ls -laR $TEMPDEV
-  fi
-
-  # restart some daemons because their /dev sockets have been hidden by
-  # the tmpfs
+  # restart some daemons because their /dev sockets might have been hidden by
+  # the devtmpfs
   kill -s HUP 1
   local sysloginits="inetutils-syslogd rsyslog socklog-run sysklogd syslog-ng"
   for script in $sysloginits; do
