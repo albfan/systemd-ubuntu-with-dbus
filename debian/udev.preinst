@@ -238,14 +238,6 @@ check_version() {
     rm_conffile /etc/scsi_id.config
   fi # 146-1
 
-  if dpkg --compare-versions $2 lt 157-1; then
-    # suppress errors when the new rules files contain options not supported by
-    # the old daemon
-    if ! chrooted; then
-      udevadm control --log-priority=0 || true
-    fi
-  fi # 157-1
-
   if dpkg --compare-versions $2 lt 168-2; then
     # these must be checked first to allow aborting before changing anything
     if chrooted; then
@@ -263,6 +255,14 @@ check_version() {
   if dpkg --compare-versions $2 lt 175-7.1; then
     stop_on_upstart_upgrade
   fi # 175-7.1
+
+  if dpkg --compare-versions $2 lt 204-4; then
+    # suppress errors when the new rules files contain options not supported by
+    # the old daemon
+    if ! chrooted; then
+      udevadm control --log-priority=0 || true
+    fi
+  fi # 204-4
 }
 
 case "$1" in
