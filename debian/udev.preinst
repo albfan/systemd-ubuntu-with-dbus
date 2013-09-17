@@ -117,6 +117,12 @@ check_kernel_features() {
 
   fi
 
+  local missing_devtmpfs=0
+  if ! grep -q '[[:space:]]devtmpfs$' /proc/filesystems; then
+    missing_devtmpfs=1
+    abort_install=1
+  fi
+
   local sysfs_deprecated=0
   if [ -d /sys/class/mem/null -a ! -L /sys/class/mem/null ]; then
     sysfs_deprecated=1
@@ -132,6 +138,15 @@ the running kernel:
 
 - inotify(2)       (CONFIG_INOTIFY_USER)
 - signalfd(2)      (CONFIG_SIGNALFD)
+END
+  fi
+
+  if [ "$missing_devtmpfs" -eq 1 ]; then
+    cat <<END
+Since release 176, udev requires support for the following features in
+the running kernel:
+
+- devtmpfs         (CONFIG_DEVTMPFS)
 END
   fi
 
@@ -203,7 +218,7 @@ check_version() {
   # $2 is non-empty when installing from the "config-files" state
   [ "$2" ] || return 0
 
-  if dpkg --compare-versions $2 lt 168-2; then
+  if dpkg --compare-versions $2 lt 204-4; then
     # these must be checked first to allow aborting before changing anything
     if chrooted; then
       echo 'Running in a chroot, skipping the kernel versions checks!'
