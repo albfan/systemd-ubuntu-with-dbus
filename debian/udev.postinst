@@ -144,17 +144,7 @@ write_interfaces_rules() {
   done
 }
 
-fix_persistent_net_rules() {
-  if [ -e /etc/udev/rules.d/70-persistent-net.rules ]; then
-    sed -i -e 's/\bATTRS{/ATTR{/g' /etc/udev/rules.d/70-persistent-net.rules
-  fi
-}
-
 upgrade_fixes() {
-  if dpkg --compare-versions "$2" lt "140-2"; then
-    fix_persistent_net_rules
-  fi
-
   # 167-1 introduced /run/udev/ but does not move the old database on
   # upgrades when it decides to switch to /run/.
   if ! chrooted && [ -d /dev/.udev/ -a ! -d /run/udev/ ] \

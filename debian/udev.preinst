@@ -182,15 +182,6 @@ mv_conffile() {
   fi
 }
 
-replace_sysfs_attr() {
-  local file=$1
-  [ -f $file ] || return 0
-  egrep '^[^#].+\<SYSFS\{' $file || return 0
-
-  sed -r -e '/^#/!s/\<SYSFS(\{[^}]+}==)/ATTR\1/g' < $file > $file.tmp
-  mv $file.tmp $file
-}
-
 mask_systemd_service() {
   if [ -x '/bin/systemctl' -a -d '/run/systemd/system/' ]; then
     ln -s /dev/null /run/systemd/system/systemd-udevd.service
@@ -211,32 +202,6 @@ stop_on_upstart_upgrade() {
 check_version() {
   # $2 is non-empty when installing from the "config-files" state
   [ "$2" ] || return 0
-
-  if dpkg --compare-versions $2 lt 0.124-1; then
-    echo 'Upgrading udev from packages older than 0.124-1 is not supported.'
-    echo 'Please purge the package and then reinstall it.'
-    exit 1
-  fi # 0.124-1
-
-  if dpkg --compare-versions $2 lt 0.140-1; then
-    rm_conffile /etc/modprobe.d/display_class
-    rm_conffile /etc/modprobe.d/pnp-hotplug
-    mv_conffile /etc/modprobe.d/blacklist /etc/modprobe.d/blacklist.conf
-
-    for file in 50-udev 60-persistent-input 60-persistent-storage \
-        60-persistent-storage-tape 60-persistent-v4l 91-permissions 80-drivers \
-        75-cd-aliases-generator 75-persistent-net-generator 95-late; do
-      rm_conffile /etc/udev/rules.d/$file.rules
-    done
-
-    # SYSFS is equivalent to ATTRS, and multiple ATTRS attributes do not match
-    # when the keys are from different kobjects like in this case.
-    replace_sysfs_attr /etc/udev/rules.d/70-persistent-net.rules
-  fi # 0.140-1
-
-  if dpkg --compare-versions $2 lt 150-1; then
-    rm_conffile /etc/scsi_id.config
-  fi # 146-1
 
   if dpkg --compare-versions $2 lt 168-2; then
     # these must be checked first to allow aborting before changing anything
