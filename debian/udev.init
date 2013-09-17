@@ -45,12 +45,12 @@ create_dev_makedev() {
 # If the initramfs does not have /run, the initramfs udev database must
 # be migrated from /dev/.udev/ to /run/udev/.
 move_udev_database() {
-  [ -e "$udev_root/.udev/" ] || return 0
+  [ -e "/dev/.udev/" ] || return 0
   [ ! -e /run/udev/ ] || return 0
   [ -e /run/ ] || return 0
   mountpoint -q /run/ || return 0
 
-  mv $udev_root/.udev/ /run/udev/ || true
+  mv /dev/.udev/ /run/udev/ || true
 }
 
 supported_kernel() {
@@ -95,7 +95,6 @@ PATH="/sbin:/bin"
 
 # defaults
 tmpfs_size="10M"
-udev_root="/dev"
 
 if [ -e /etc/udev/udev.conf ]; then
   . /etc/udev/udev.conf
@@ -149,13 +148,13 @@ case "$1" in
     if init_is_upstart 2>/dev/null; then
 	exit 1
     fi
-    if mountpoint -q $udev_root/; then
+    if mountpoint -q /dev/; then
 	TMPFS_MOUNTED=1
-    elif [ -e "$udev_root/.udev/" ]; then
-	log_warning_msg ".udev/ already exists on the static $udev_root"
+    elif [ -e "/dev/.udev/" ]; then
+	log_warning_msg ".udev/ already exists on the static /dev"
     fi
 
-    if [ ! -e "$udev_root/.udev/" -a ! -e "/run/udev/" ]; then
+    if [ ! -e "/dev/.udev/" -a ! -e "/run/udev/" ]; then
 	warn_if_interactive
     fi
 
