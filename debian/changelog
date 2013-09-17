@@ -1,3 +1,25 @@
+systemd (204-4) UNRELEASED; urgency=low
+
+  * Add preinst check to abort udev upgrade if the currently running kernel
+    lacks devtmpfs support. Since udev 176, devtmpfs is mandatory as udev no
+    longer creates any device nodes itself. This only affects self-compiled
+    kernels which now need CONFIG_DEVTMPFS=y.  Closes: #722580
+  * Fix SysV init script to correctly mount a devtmpfs instead of tmpfs. This
+    only affects users without an initramfs, which usually is responsible for
+    mounting the devtmpfs.  Closes: #722604
+  * Drop pre-squeeze upgrade code from maintainer scripts and simplify the
+    various upgrade checks.
+  * Suppress errors about unknown hwdb builtin. udev 196 introduced a new
+    "hwdb" builtin which is not understood by the old udev daemon.
+  * Add missing udeb line to shlibs.local. This ensures that udev-udeb gets a
+    proper dependency on libudev1-udeb and not libudev1.  Closes: #722939
+  * Remove udev-udeb dependency from libudev1-udeb.  This dependency was
+    copied over from the old udev-gtk-udeb package and no longer makes any
+    sense since libudev1-udeb only contains a library nowadays. It also leads
+    to a circular dependency.
+
+ -- Michael Biebl <biebl@debian.org>  Tue, 17 Sep 2013 23:37:43 +0200
+
 systemd (204-3) unstable; urgency=low
 
   [ Michael Biebl ]
