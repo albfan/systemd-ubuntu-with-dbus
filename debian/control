@@ -270,8 +270,7 @@ Section: debian-installer
 Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         udev-udeb
+         ${misc:Depends}
 Description: libudev shared library
  This library provides access to udev device information.
  .
