@@ -151,19 +151,8 @@ fix_persistent_net_rules() {
 }
 
 upgrade_fixes() {
-  if dpkg --compare-versions "$2" lt "171-3"; then
-
-  # in 171-2 this directory becomes a symlink to libudev0, so it must be
-  # manually deleted because dpkg cannot automatically deal with this  
-  if [ -e /usr/share/doc/udev -a ! -L /usr/share/doc/udev ]; then
-    rm -rf /usr/share/doc/udev
-    ln -s libudev0 /usr/share/doc/udev
-  fi
-  
   if dpkg --compare-versions "$2" lt "140-2"; then
     fix_persistent_net_rules
-  fi
-
   fi
 
   # 167-1 introduced /run/udev/ but does not move the old database on
@@ -171,6 +160,15 @@ upgrade_fixes() {
   if ! chrooted && [ -d /dev/.udev/ -a ! -d /run/udev/ ] \
       && grep -E -q "^[^[:space:]]+ /run tmpfs " /proc/mounts; then
     mv /dev/.udev/ /run/udev/
+  fi
+
+  if dpkg --compare-versions "$2" lt "171-3"; then
+    # in 171-2 this directory becomes a symlink to libudev0, so it must be
+    # manually deleted because dpkg cannot automatically deal with this
+    if [ -e /usr/share/doc/udev -a ! -L /usr/share/doc/udev ]; then
+      rm -rf /usr/share/doc/udev
+      ln -s libudev0 /usr/share/doc/udev
+    fi
   fi
 
   if dpkg --compare-versions "$2" lt "204-1"; then
