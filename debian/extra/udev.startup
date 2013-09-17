@@ -16,8 +16,8 @@ make_extra_nodes() {
 
 echo > /sys/kernel/uevent_helper
 
-if ! grep -E -q "^[^[:space:]]+ /dev (dev)?tmpfs" /proc/mounts; then
-  mount -n -o mode=0755 -t tmpfs tmpfs /dev
+if ! grep -E -q "^[^[:space:]]+ /dev devtmpfs" /proc/mounts; then
+  mount -n -o mode=0755 -t devtmpfs devtmpfs /dev
 fi
 make_extra_nodes
 

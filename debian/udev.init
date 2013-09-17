@@ -8,7 +8,7 @@
 # Short-Description: Start udevd, populate /dev and load drivers.
 ### END INIT INFO
 
-# we need to unmount /dev/pts/ and remount it later over the tmpfs
+# we need to unmount /dev/pts/ and remount it later over the devtmpfs
 unmount_devpts() {
   if mountpoint -q /dev/pts/; then
     umount -n -l /dev/pts/
@@ -19,15 +19,15 @@ unmount_devpts() {
   fi
 }
 
-# mount a tmpfs over /dev, if somebody did not already do it
-mount_tmpfs() {
-  if grep -E -q "^[^[:space:]]+ /dev (dev)?tmpfs" /proc/mounts; then
-    mount -n -o remount,${dev_mount_options} -t tmpfs tmpfs /dev
+# mount a devtmpfs over /dev, if somebody did not already do it
+mount_devtmpfs() {
+  if grep -E -q "^[^[:space:]]+ /dev devtmpfs" /proc/mounts; then
+    mount -n -o remount,size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev
     return
   fi
 
-  if ! mount -n -o $dev_mount_options -t tmpfs tmpfs /dev; then
-    log_failure_msg "udev requires tmpfs support, not started"
+  if ! mount -n -o size=$tmpfs_size,mode=0755 -t devtmpfs devtmpfs /dev; then
+    log_failure_msg "udev requires devtmpfs support, not started"
     log_end_msg 1
   fi
 
@@ -112,8 +112,8 @@ if [ ! -e /proc/filesystems ]; then
   log_end_msg 1
 fi
 
-if ! grep -q '[[:space:]]tmpfs$' /proc/filesystems; then
-  log_failure_msg "udev requires tmpfs support, not started"
+if ! grep -q '[[:space:]]devtmpfs$' /proc/filesystems; then
+  log_failure_msg "udev requires devtmpfs support, not started"
   log_end_msg 1
 fi
 
@@ -164,7 +164,7 @@ case "$1" in
 
     if [ -z "$TMPFS_MOUNTED" ]; then
 	unmount_devpts
-	mount_tmpfs
+	mount_devtmpfs
 	[ -d /proc/1 ] || mount -n /proc
     fi
 
