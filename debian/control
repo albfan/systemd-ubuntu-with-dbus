@@ -265,7 +265,7 @@ Description: /dev/ and hotplug management daemon
  This is a minimal version, only for use in the installation system.
 
 Package: libudev1-udeb
-XC-Package-Type: udeb
+Package-Type: udeb
 Section: debian-installer
 Priority: optional
 Architecture: linux-any
