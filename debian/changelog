@@ -1,4 +1,4 @@
-systemd (204-4) UNRELEASED; urgency=low
+systemd (204-4) unstable; urgency=low
 
   * Add preinst check to abort udev upgrade if the currently running kernel
     lacks devtmpfs support. Since udev 176, devtmpfs is mandatory as udev no
@@ -18,7 +18,7 @@ systemd (204-4) UNRELEASED; urgency=low
     sense since libudev1-udeb only contains a library nowadays. It also leads
     to a circular dependency.
 
- -- Michael Biebl <biebl@debian.org>  Tue, 17 Sep 2013 23:37:43 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 18 Sep 2013 00:05:21 +0200
 
 systemd (204-3) unstable; urgency=low
 
