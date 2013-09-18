@@ -13,10 +13,10 @@ systemd (204-4) unstable; urgency=low
     "hwdb" builtin which is not understood by the old udev daemon.
   * Add missing udeb line to shlibs.local. This ensures that udev-udeb gets a
     proper dependency on libudev1-udeb and not libudev1.  Closes: #722939
-  * Remove udev-udeb dependency from libudev1-udeb.  This dependency was
-    copied over from the old udev-gtk-udeb package and no longer makes any
-    sense since libudev1-udeb only contains a library nowadays. It also leads
-    to a circular dependency.
+  * Remove udev-udeb dependency from libudev1-udeb to avoid a circular
+    dependency between the two packages. This dependency was copied over from
+    the old udev-gtk-udeb package and no longer makes any sense since
+    libudev1-udeb only contains a library nowadays.
 
  -- Michael Biebl <biebl@debian.org>  Wed, 18 Sep 2013 00:05:21 +0200
 
