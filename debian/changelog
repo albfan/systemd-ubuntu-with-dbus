@@ -1,4 +1,4 @@
-systemd (204-5) UNRELEASED; urgency=low
+systemd (204-5) unstable; urgency=high
 
   * Cherry-pick 72fd713 from upstream which fixes insecure calling of polkit
     by avoiding a race condition in scraping /proc (CVE-2013-4327).
