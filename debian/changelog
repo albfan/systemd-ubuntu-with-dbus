@@ -1,3 +1,11 @@
+systemd (204-5) UNRELEASED; urgency=low
+
+  * Cherry-pick 72fd713 from upstream which fixes insecure calling of polkit
+    by avoiding a race condition in scraping /proc (CVE-2013-4327).
+    Closes: #723713
+
+ -- Michael Biebl <biebl@debian.org>  Mon, 23 Sep 2013 11:59:53 +0200
+
 systemd (204-4) unstable; urgency=low
 
   * Add preinst check to abort udev upgrade if the currently running kernel
