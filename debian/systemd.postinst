@@ -80,6 +80,10 @@ fi
 
 systemd-machine-id-setup
 
+if ! getent group systemd-journal >/dev/null; then
+    addgroup --system systemd-journal
+fi
+
 # initial update of the Message Catalogs database
 _update_catalog
 
