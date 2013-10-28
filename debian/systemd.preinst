@@ -18,7 +18,7 @@ preserve_unit() {
     fi
 }
 
-if [ "$1" = "install" ] || [ "$1" = "upgrade" ] && [ -n "$2" ] && dpkg --compare-versions "$2" lt "204-1"; then
+if [ "$1" = "install" ] || [ "$1" = "upgrade" ] && [ -n "$2" ] && dpkg --compare-versions "$2" lt "204-1" && [ -d /run/systemd/system ]; then
     preserve_unit "var-lock.mount"
     preserve_unit "var-run.mount"
 fi
