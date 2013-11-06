@@ -7,6 +7,8 @@ systemd (204-6) UNRELEASED; urgency=low
   [ Martin Pitt ]
   * debian/udev.upstart: Fix path to udevd, the /sbin/udevd compat symlink
     should go away at some point.
+  * debian/udev-udeb.install: Add 64-btrfs.rules and 75-probe_mtd.rules, they
+    are potentially useful in a d-i environment.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Mon, 28 Oct 2013 14:31:16 +0100
 
