@@ -1,7 +1,12 @@
 systemd (204-6) UNRELEASED; urgency=low
 
+  [ Tollef Fog Heen ]
   * Make 99-systemd.rules check for /run/systemd/systemd instead of the
     ill-named cgroups directory.
+
+  [ Martin Pitt ]
+  * debian/udev.upstart: Fix path to udevd, the /sbin/udevd compat symlink
+    should go away at some point.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Mon, 28 Oct 2013 14:31:16 +0100
 
