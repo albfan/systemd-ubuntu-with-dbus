@@ -9,6 +9,8 @@ systemd (204-6) UNRELEASED; urgency=low
     should go away at some point.
   * debian/udev-udeb.install: Add 64-btrfs.rules and 75-probe_mtd.rules, they
     are potentially useful in a d-i environment.
+  * debian/shlibs.local: Drop libudev; this unnecessarily generates overly
+    strict dependencies, the libudev ABI is stable.
 
  -- Tollef Fog Heen <tfheen@debian.org>  Mon, 28 Oct 2013 14:31:16 +0100
 
