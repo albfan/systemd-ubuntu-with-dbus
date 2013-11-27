@@ -51,7 +51,8 @@ Depends: ${shlibs:Depends},
          libsystemd-login0 (= ${binary:Version}),
          util-linux (>= 2.19.1-2),
          initscripts (>= 2.88dsf-17),
-         udev
+         udev,
+         acl
 Breaks: lvm2 (<< 2.02.84-1),
         lsb-base (<< 4.1+Debian4)
 Conflicts: klogd
