@@ -1,5 +1,12 @@
 systemd (204-6) UNRELEASED; urgency=low
 
+  * Run update-rc.d defaults before update-rc.d <enable|disable>
+    (Closes: #722523)
+  * preinst: preserve var-{lock,run}.mount when upgrading from 44 to 204
+    (Closes: #723936)
+  * fstab-generator: don’t rely on /usr being mounted in the initrd
+    (Closes: #724797)
+  * systemctl: mangle names when avoiding dbus (Closes: #723855)
   * Make 99-systemd.rules check for /run/systemd/systemd instead of the
     ill-named cgroups directory.
 
