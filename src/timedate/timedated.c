@@ -153,6 +153,94 @@ static bool valid_timezone(const char *name) {
         return true;
 }
 
+static int symlink_or_copy(const char *from, const char *to) {
+        char *pf = NULL, *pt = NULL;
+        struct stat a, b;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        if (path_get_parent(from, &pf) < 0 ||
+            path_get_parent(to, &pt) < 0) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        if (stat(pf, &a) < 0 ||
+            stat(pt, &b) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (a.st_dev != b.st_dev) {
+                free(pf);
+                free(pt);
+
+                return copy_file(from, to);
+        }
+
+        if (symlink(from, to) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        free(pf);
+        free(pt);
+
+        return r;
+}
+
+static int symlink_or_copy_atomic(const char *from, const char *to) {
+        char *t, *x;
+        const char *fn;
+        size_t k;
+        unsigned long long ull;
+        unsigned i;
+        int r;
+
+        assert(from);
+        assert(to);
+
+        t = new(char, strlen(to) + 1 + 16 + 1);
+        if (!t)
+                return -ENOMEM;
+
+        fn = path_get_file_name(to);
+        k = fn-to;
+        memcpy(t, to, k);
+        t[k] = '.';
+        x = stpcpy(t+k+1, fn);
+
+        ull = random_ull();
+        for (i = 0; i < 16; i++) {
+                *(x++) = hexchar(ull & 0xF);
+                ull >>= 4;
+        }
+
+        *x = 0;
+
+        r = symlink_or_copy(from, t);
+        if (r < 0) {
+                unlink(t);
+                free(t);
+                return r;
+        }
+
+        if (rename(t, to) < 0) {
+                r = -errno;
+                unlink(t);
+                free(t);
+                return r;
+        }
+
+        free(t);
+        return r;
+}
+
 static int read_data(void) {
         int r;
         _cleanup_free_ char *t = NULL;
@@ -220,7 +308,7 @@ static int write_data_timezone(void) {
         if (!p)
                 return log_oom();
 
-        r = symlink_atomic(p, "/etc/localtime");
+        r = symlink_or_copy_atomic(p, "/etc/localtime");
         if (r < 0)
                 return r;
 
