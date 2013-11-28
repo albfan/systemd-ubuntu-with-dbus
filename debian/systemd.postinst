@@ -91,6 +91,6 @@ _update_catalog
 # filesystem ACL. This makes them able to read the journal.
 # Failure is ignored since there might be file systems mounted without ACL
 # support.
-setfacl -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
+setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
 
 #DEBHELPER#
