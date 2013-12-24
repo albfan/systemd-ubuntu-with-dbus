@@ -1,5 +1,19 @@
 systemd (204-6) UNRELEASED; urgency=low
 
+  [ Michael Stapelberg ]
+  * Run update-rc.d defaults before update-rc.d <enable|disable>
+    (Closes: #722523)
+  * preinst: preserve var-{lock,run}.mount when upgrading from 44 to 204
+    (Closes: #723936)
+  * fstab-generator: don’t rely on /usr being mounted in the initrd
+    (Closes: #724797)
+  * systemctl: mangle names when avoiding dbus (Closes: #723855)
+  * allow group adm read access on /var/log/journal (Closes: #717386)
+  * add systemd-journal group (Thanks Guido Günther) (Closes: #724668)
+  * copy /etc/localtime instead of symlinking (Closes: #726256)
+  * don’t try to start autovt units when not running with systemd as pid 1
+    (Closes: #726466)
+
   [ Tollef Fog Heen ]
   * Make 99-systemd.rules check for /run/systemd/systemd instead of the
     ill-named cgroups directory.
