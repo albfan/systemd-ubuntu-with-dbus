@@ -13,6 +13,8 @@ systemd (204-6) UNRELEASED; urgency=low
   * copy /etc/localtime instead of symlinking (Closes: #726256)
   * don’t try to start autovt units when not running with systemd as pid 1
     (Closes: #726466)
+  * Add breaks/replaces for the new sysvinit-core package (Thanks Alf Gaida)
+    (Closes: #733240)
 
   [ Tollef Fog Heen ]
   * Make 99-systemd.rules check for /run/systemd/systemd instead of the

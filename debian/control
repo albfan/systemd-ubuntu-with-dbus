@@ -70,10 +70,12 @@ Package: systemd-sysv
 Architecture: linux-any
 Section: admin
 Priority: extra
-Conflicts: sysvinit,
+Conflicts: sysvinit (<< 2.88dsf-44~),
            upstart,
            runit-run
-Replaces: sysvinit
+Replaces: sysvinit (<< 2.88dsf-44~),
+          sysvinit-core
+Breaks: sysvinit-core
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version})
