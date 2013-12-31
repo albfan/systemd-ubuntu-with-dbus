@@ -15,6 +15,7 @@ systemd (204-6) UNRELEASED; urgency=low
     (Closes: #726466)
   * Add breaks/replaces for the new sysvinit-core package (Thanks Alf Gaida)
     (Closes: #733240)
+  * Add myself to uploaders
 
   [ Tollef Fog Heen ]
   * Make 99-systemd.rules check for /run/systemd/systemd instead of the
