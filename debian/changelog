@@ -1,3 +1,10 @@
+systemd (204-7) unstable; urgency=low
+
+  * fix systemctl enable/disable/… error message “Failed to issue method call:
+    No such file or directory” (Closes: #734809)
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Sun, 19 Jan 2014 18:40:43 +0100
+
 systemd (204-6) unstable; urgency=low
 
   [ Michael Stapelberg ]
