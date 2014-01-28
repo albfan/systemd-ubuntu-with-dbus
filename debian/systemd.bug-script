@@ -1,23 +1,56 @@
 #!/bin/sh
 
-_header() {
-    echo "--------------" >&3
-    echo "$1:" >&3
-    echo "--------------" >&3
-}
+REPORTBUG_VERSION=$(dpkg-query -f '${source:Version}' -W reportbug)
 
-_header "systemd-delta"
-# remove highlighting escape codes from systemd-delta output
-systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >&3
+# Depending on whether reportbug is new enough, we either write the output of
+# our various commands to a file and attach them to the report (this needs
+# reportbug ≥ 6.5.0) or just write them to the body of the bug report.
+if dpkg --compare-versions "$REPORTBUG_VERSION" ge "6.5.0"; then
 
-if [ -d /run/systemd/system ]; then
-    echo >&3
-    _header "systemctl dump"
-    systemctl --no-pager dump >&3
-fi
+    # We don’t clean up this directory because there is no way to know when
+    # reportbug finished running, and reportbug needs the files around.
+    # Given that those are just a couple of kilobytes in size and people
+    # generally don’t file a lot of bugs, I don’t think it’s a big deal.
+    DIR=$(mktemp -d)
 
-if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then
-    echo >&3
-    _header "Contents of /var/lib/systemd/deb-systemd-helper-enabled"
-    head -n100 $(find /var/lib/systemd/deb-systemd-helper-enabled -type f | tr '\n' ' ') >&3
+    echo "-- BEGIN ATTACHMENTS --" >&3
+
+    # remove highlighting escape codes from systemd-delta output
+    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >$DIR/systemd-delta.txt
+    echo "$DIR/systemd-delta.txt" >&3
+
+    if [ -d /run/systemd/system ]; then
+        systemctl --no-pager dump >$DIR/systemctl-dump.txt
+        echo "$DIR/systemctl-dump.txt" >&3
+    fi
+
+    if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then
+        head -n100 $(find /var/lib/systemd/deb-systemd-helper-enabled -type f | tr '\n' ' ') >$DIR/dsh-enabled.txt
+        echo "$DIR/dsh-enabled.txt" >&3
+    fi
+
+    echo "/etc/fstab" >&3
+    echo "-- END ATTACHMENTS --" >&3
+else
+    _header() {
+        echo "--------------" >&3
+        echo "$1:" >&3
+        echo "--------------" >&3
+    }
+
+    _header "systemd-delta"
+    # remove highlighting escape codes from systemd-delta output
+    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >&3
+
+    if [ -d /run/systemd/system ]; then
+        echo >&3
+        _header "systemctl dump"
+        systemctl --no-pager dump >&3
+    fi
+
+    if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then
+        echo >&3
+        _header "Contents of /var/lib/systemd/deb-systemd-helper-enabled"
+        head -n100 $(find /var/lib/systemd/deb-systemd-helper-enabled -type f | tr '\n' ' ') >&3
+    fi
 fi
