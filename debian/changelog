@@ -5,6 +5,7 @@ systemd (204-7) unstable; urgency=low
   * cherry-pick:
     order remote mounts from mountinfo before remote-fs.target (77009452cfd)
     (Closes: #719945)
+    Fix CPUShares configuration option (ccd90a976dba) (Closes: #737156)
 
  -- Michael Stapelberg <stapelberg@debian.org>  Sun, 19 Jan 2014 18:40:43 +0100
 
