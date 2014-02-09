@@ -2,6 +2,8 @@ systemd (204-7) unstable; urgency=low
 
   * fix systemctl enable/disable/… error message “Failed to issue method call:
     No such file or directory” (Closes: #734809)
+  * add stage1 bootstrap support to avoid Build-Depends cycles (Thanks Daniel
+    Schepler) (Closes: #738319)
   * cherry-pick:
     order remote mounts from mountinfo before remote-fs.target (77009452cfd)
     (Closes: #719945)
