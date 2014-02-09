@@ -2,6 +2,8 @@ systemd (204-7) unstable; urgency=low
 
   * fix systemctl enable/disable/… error message “Failed to issue method call:
     No such file or directory” (Closes: #734809)
+  * bug-script: attach instead of paste extra info with reportbug ≥ 6.5.0
+    (Closes: #722530)
   * add stage1 bootstrap support to avoid Build-Depends cycles (Thanks Daniel
     Schepler) (Closes: #738319)
   * cherry-pick:
