@@ -5,14 +5,14 @@ systemd (204-7) unstable; urgency=low
   * bug-script: attach instead of paste extra info with reportbug ≥ 6.5.0
     (Closes: #722530)
   * add stage1 bootstrap support to avoid Build-Depends cycles (Thanks Daniel
-    Schepler) (Closes: #738319)
+    Schepler)
   * cherry-pick:
     order remote mounts from mountinfo before remote-fs.target (77009452cfd)
     (Closes: #719945)
     Fix CPUShares configuration option (ccd90a976dba) (Closes: #737156)
     fix reference in systemd-inhibit(1) (07b4b9b) (Closes: #738316)
 
- -- Michael Stapelberg <stapelberg@debian.org>  Sun, 19 Jan 2014 18:40:43 +0100
+ -- Michael Stapelberg <stapelberg@debian.org>  Tue, 11 Feb 2014 23:34:42 +0100
 
 systemd (204-6) unstable; urgency=low
 
