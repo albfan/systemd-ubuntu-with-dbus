@@ -1,3 +1,10 @@
+systemd (204-8) UNRELEASED; urgency=low
+
+  * move manpages from systemd to libsystemd-*-dev as appropriate
+    (Closes: #738723)
+
+ -- Michael Stapelberg <stapelberg@debian.org>  Thu, 13 Feb 2014 22:52:45 +0100
+
 systemd (204-7) unstable; urgency=low
 
   * fix systemctl enable/disable/… error message “Failed to issue method call:
