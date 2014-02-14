@@ -134,6 +134,8 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-login0 (= ${binary:Version})
+Breaks: systemd (<< 204-8)
+Replaces: systemd (<< 204-8)
 Description: systemd login utility library - development files
  The libsystemd-login library provides an interface for the
  systemd-logind service which is used to track user sessions and seats.
@@ -159,6 +161,8 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-daemon0 (= ${binary:Version})
+Breaks: systemd (<< 204-8)
+Replaces: systemd (<< 204-8)
 Description: systemd utility library - development files
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.
@@ -185,6 +189,8 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-journal0 (= ${binary:Version}),
          libsystemd-id128-dev (= ${binary:Version})
+Breaks: systemd (<< 204-8)
+Replaces: systemd (<< 204-8)
 Description: systemd journal utility library - development files
  The libsystemd-journal library provides an interface for the
  systemd journal service.
@@ -210,6 +216,8 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-id128-0 (= ${binary:Version})
+Breaks: systemd (<< 204-8)
+Replaces: systemd (<< 204-8)
 Description: systemd 128 bit ID utility library - development files
  The libsystemd-id128 library provides utility functions for generating
  128 bit IDs.
