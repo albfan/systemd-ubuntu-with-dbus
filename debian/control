@@ -111,7 +111,9 @@ Description: system and service manager - PAM module
  availability of a given mount point or dbus service.
  .
  This package contains the PAM module which registers user sessions in
- the systemd control group hierarchy
+ the systemd control group hierarchy.
+ .
+ If in doubt, do install this package.
 
 Package: libsystemd-login0
 Architecture: linux-any
