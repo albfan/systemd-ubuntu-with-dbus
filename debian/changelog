@@ -2,6 +2,9 @@ systemd (204-8) UNRELEASED; urgency=low
 
   * move manpages from systemd to libsystemd-*-dev as appropriate
     (Closes: #738723)
+  * fix systemctl enable/disable/… error message “Failed to issue method call:
+    No such file or directory” (the previous upload did actually not contain
+    this fix due to a merge conflict) (Closes: #738843)
 
  -- Michael Stapelberg <stapelberg@debian.org>  Thu, 13 Feb 2014 22:52:45 +0100
 

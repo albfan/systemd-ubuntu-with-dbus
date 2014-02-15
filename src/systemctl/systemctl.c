@@ -4255,6 +4255,9 @@ static int enable_unit(DBusConnection *bus, char **args) {
         if (r < 0)
                 return r;
 
+        if (!args[1])
+                return 0;
+
         dbus_error_init(&error);
 
         if (!bus || avoid_bus()) {
