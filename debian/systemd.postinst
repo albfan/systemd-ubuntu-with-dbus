@@ -59,6 +59,20 @@ EOF
     fi
 fi
 
+# Do a one-time migration of the RAMTMP setting
+if dpkg --compare-versions "$2" lt "204-8"; then
+    if [ -f /etc/default/rcS ]; then
+        . /etc/default/rcS
+    fi
+    if [ -f /etc/default/tmpfs ]; then
+        . /etc/default/tmpfs
+    fi
+    if [ "$RAMTMP" = "yes" ]; then
+        # systemctl enable will work even when systemd is not the active PID 1.
+        systemctl enable tmp.mount || true
+    fi
+fi
+
 # Create /run/initctl → /dev/initctl compat symlink on upgrades
 if [ -d /run/systemd/system ]; then
     _systemctl restart systemd-initctl.socket || true
