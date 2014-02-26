@@ -51,6 +51,7 @@ Depends: ${shlibs:Depends},
          libsystemd-login0 (= ${binary:Version}),
          util-linux (>= 2.19.1-2),
          initscripts (>= 2.88dsf-17),
+         sysv-rc,
          udev,
          acl,
          adduser

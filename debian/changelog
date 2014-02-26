@@ -6,6 +6,10 @@ systemd (204-8) UNRELEASED; urgency=low
   * fix systemctl enable/disable/… error message “Failed to issue method call:
     No such file or directory” (the previous upload did actually not contain
     this fix due to a merge conflict) (Closes: #738843)
+  * add explicit “Depends: sysv-rc” so that initscript’s “Depends: sysv-rc |
+    file-rc” will not be satisfied with file-rc. We need the invoke-rc.d and
+    update-rc.d from sysv-rc, file-rc’s doesn’t have support for systemd.
+    (Closes: #739679)
 
   [ Michael Biebl ]
   * do a one-time migration of RAMTMP= from /etc/default/rcS and
