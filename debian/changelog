@@ -10,6 +10,9 @@ systemd (204-8) UNRELEASED; urgency=low
     file-rc” will not be satisfied with file-rc. We need the invoke-rc.d and
     update-rc.d from sysv-rc, file-rc’s doesn’t have support for systemd.
     (Closes: #739679)
+  * set capabilities cap_dac_override,cap_sys_ptrace=ep for
+    systemd-detect-virt, so that it works for unprivileged users.
+    (Closes: #739699)
 
   [ Michael Biebl ]
   * do a one-time migration of RAMTMP= from /etc/default/rcS and

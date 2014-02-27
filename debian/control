@@ -54,7 +54,8 @@ Depends: ${shlibs:Depends},
          sysv-rc,
          udev,
          acl,
-         adduser
+         adduser,
+         libcap2-bin
 Breaks: lvm2 (<< 2.02.84-1),
         lsb-base (<< 4.1+Debian4)
 Conflicts: klogd

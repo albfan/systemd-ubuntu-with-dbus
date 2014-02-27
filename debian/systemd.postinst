@@ -112,4 +112,6 @@ if [ -d /var/log/journal ]; then
         setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
 fi
 
+setcap cap_dac_override,cap_sys_ptrace=ep /usr/bin/systemd-detect-virt || true
+
 #DEBHELPER#
