@@ -329,6 +329,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         dbus_bool_t remote, existing;
         int r;
         uint32_t vtnr = 0;
+        struct stat st;
 
         assert(handle);
 
@@ -565,10 +566,24 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+        /* only set $XDG_RUNTIME_DIR if it is owned by the target user, as per
+         * XDG basedir-spec; this avoids su sessions to scribble over a runtime
+         * dir of a different user */
+        r = lstat(runtime_path, &st);
+        if (r != 0) {
+                pam_syslog(handle, LOG_ERR, "Failed to stat runtime dir: %s", strerror(errno));
+                r = PAM_SYSTEM_ERR;
                 goto finish;
+        }
+        if (st.st_uid == uid) {
+                r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                        goto finish;
+                }
+        } else if (debug) {
+                pam_syslog(handle, LOG_DEBUG, "Runtime dir %s is not owned by the target uid %u, ignoring.",
+                           runtime_path, uid);
         }
 
         if (!isempty(seat)) {

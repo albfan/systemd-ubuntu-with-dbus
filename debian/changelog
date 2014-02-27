@@ -13,6 +13,7 @@ systemd (204-8) UNRELEASED; urgency=low
   * set capabilities cap_dac_override,cap_sys_ptrace=ep for
     systemd-detect-virt, so that it works for unprivileged users.
     (Closes: #739699)
+  * pam: Check $XDG_RUNTIME_DIR owner (Closes: #731300)
 
   [ Michael Biebl ]
   * do a one-time migration of RAMTMP= from /etc/default/rcS and
