@@ -628,6 +628,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                         /* Try to parse Red Hat style chkconfig headers */
 
+/* chkconfig headers are often broken in Debian, see
+ * http://bugs.debian.org/634472, so we ignore them entirely. */
+#if 0
                         if (startswith_no_case(t, "chkconfig:")) {
                                 int start_priority;
                                 char runlevels[16], *k;
@@ -669,7 +672,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else if (startswith_no_case(t, "description:")) {
+                        } else
+#endif
+
+if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;

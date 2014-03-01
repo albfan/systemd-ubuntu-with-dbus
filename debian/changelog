@@ -14,6 +14,8 @@ systemd (204-8) UNRELEASED; urgency=low
     systemd-detect-virt, so that it works for unprivileged users.
     (Closes: #739699)
   * pam: Check $XDG_RUNTIME_DIR owner (Closes: #731300)
+  * Ignore chkconfig headers entirely, they are often broken in Debian
+    (Closes: #634472)
 
   [ Michael Biebl ]
   * do a one-time migration of RAMTMP= from /etc/default/rcS and
