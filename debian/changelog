@@ -20,6 +20,7 @@ systemd (204-8) UNRELEASED; urgency=low
   [ Michael Biebl ]
   * do a one-time migration of RAMTMP= from /etc/default/rcS and
     /etc/default/tmpfs, i.e. enable tmp.mount (Closes: #738687)
+  * Bump Standards-Version to 3.9.5.
 
  -- Michael Stapelberg <stapelberg@debian.org>  Thu, 13 Feb 2014 22:52:45 +0100
 
