@@ -1,4 +1,4 @@
-systemd (204-8) UNRELEASED; urgency=low
+systemd (204-8) unstable; urgency=low
 
   [ Michael Stapelberg ]
   * move manpages from systemd to libsystemd-*-dev as appropriate
@@ -22,7 +22,7 @@ systemd (204-8) UNRELEASED; urgency=low
     /etc/default/tmpfs, i.e. enable tmp.mount (Closes: #738687)
   * Bump Standards-Version to 3.9.5.
 
- -- Michael Stapelberg <stapelberg@debian.org>  Thu, 13 Feb 2014 22:52:45 +0100
+ -- Michael Biebl <biebl@debian.org>  Wed, 19 Mar 2014 18:57:35 +0100
 
 systemd (204-7) unstable; urgency=low
 
