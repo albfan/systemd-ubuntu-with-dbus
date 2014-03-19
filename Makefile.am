@@ -4042,8 +4042,7 @@ SHUTDOWN_TARGET_WANTS += \
 	systemd-update-utmp-shutdown.service
 LOCAL_FS_TARGET_WANTS += \
 	systemd-remount-fs.service \
-	systemd-fsck-root.service \
-	tmp.mount
+	systemd-fsck-root.service
 MULTI_USER_TARGET_WANTS += \
 	getty.target \
 	systemd-ask-password-wall.path

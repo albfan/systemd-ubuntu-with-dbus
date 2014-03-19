@@ -152,8 +152,6 @@ override_dh_install:
 		debian/systemd/lib/systemd/
 	install --mode=755 debian/systemd-logind-launch \
 		debian/systemd/lib/systemd/
-	# Remove tmp.mount symlink to avoid mounting /tmp as tmpfs by default.
-	rm debian/systemd/lib/systemd/system/local-fs.target.wants/tmp.mount
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
