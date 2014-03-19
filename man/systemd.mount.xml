@@ -146,7 +146,7 @@
                 system. See
                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for details. If
-                <option>x-systemd.device-timeout=</option> is
+                <option>comment=systemd.device-timeout=</option> is
                 specified it may be used to configure how long systemd
                 should wait for a device to show up before giving up
                 on an entry from
