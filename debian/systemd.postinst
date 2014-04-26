@@ -45,6 +45,7 @@ fi
 if dpkg --compare-versions "$2" lt "204-9"; then
     # Fix up potentially broken tmp.conf, see Debian#738862
     if [ -e /etc/tmpfiles.d/tmp.conf ]; then
+        sed -i '/^# Clear \/var\/tmp/d' /etc/tmpfiles.d/tmp.conf
         sed -i 's,^\(d /var/tmp\),#\1,g' /etc/tmpfiles.d/tmp.conf
     fi
 
