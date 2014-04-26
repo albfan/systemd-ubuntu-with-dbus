@@ -3,7 +3,6 @@ systemd (204-9) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Do not send potentially private fstab information without prior user
     confirmation. (Closes: #743158)
-  * Switch from gitpkg to git-buildpackage. Update README.source accordingly.
 
   [ Steve Langasek ]
   * Do proper refcounting of the PAM module package on prerm, so that we
@@ -44,6 +43,10 @@ systemd (204-9) UNRELEASED; urgency=medium
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases
     of udev. (Closes: #648325)
+
+  [ Michael Stapelberg ]
+  * Add systemd-dbg package, thanks Daniel Schaal (Closes: #742724).
+  * Switch from gitpkg to git-buildpackage. Update README.source accordingly.
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 

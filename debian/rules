@@ -208,6 +208,9 @@ autoreconf:
 override_dh_autoreconf:
 	dh_autoreconf debian/rules -- autoreconf
 
+override_dh_strip:
+	dh_strip --dbg-package=systemd-dbg
+
 %:
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 	dh $@ --with autoreconf,gir,python2

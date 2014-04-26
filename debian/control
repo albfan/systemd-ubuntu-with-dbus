@@ -340,3 +340,26 @@ Depends: ${shlibs:Depends},
          ${python:Depends}
 Description: python bindings for systemd
  This package contains Python bindings for the systemd libraries.
+
+Package: systemd-dbg
+Architecture: linux-any
+Section: debug
+Priority: extra
+Depends: ${misc:Depends},
+         systemd (= ${binary:Version}),
+         libsystemd-login0 (= ${binary:Version}),
+         libsystemd-daemon0 (= ${binary:Version}),
+         libsystemd-journal0 (= ${binary:Version}),
+         libsystemd-id128-0 (= ${binary:Version}),
+         python-systemd (= ${binary:Version})
+Description: system and service manager (debug symbols)
+ systemd is a replacement for sysvinit.  It is dependency-based and
+ able to read the LSB init script headers in addition to parsing rcN.d
+ links as hints.
+ .
+ It also provides process supervision using cgroups and the ability to
+ not only depend on other init script being started, but also
+ availability of a given mount point or dbus service.
+ .
+ This package contains the debugging symbols for systemd and related
+ libraries.
