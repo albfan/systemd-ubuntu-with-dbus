@@ -241,7 +241,7 @@ endif
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
 
 override_dh_installinit:
-	dh_installinit --no-start
+	dh_installinit -R --no-start
 	dh_installinit --name=udev-finish --no-start
 	dh_installinit --name=udevtrigger --no-start
 	dh_installinit --name=udevmonitor --no-start
