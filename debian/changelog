@@ -45,6 +45,9 @@ systemd (217-1ubuntu1) vivid; urgency=medium
     - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
       for those in plymouth.
 
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 28 Nov 2014 16:26:18 +0100
 
 systemd (217-1) experimental; urgency=medium
