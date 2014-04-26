@@ -38,6 +38,7 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Kill /etc/udev/links.conf, create_static_nodes, and associated code. It's
     obsolete with devtmpfs (which is required now), and doesn't run with
     systemd or upstart anyway.
+  * Drop unnecessary udev.dirs.
 
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases
