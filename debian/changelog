@@ -5,6 +5,8 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
       /etc/writable/ instead.
     - Keep our much simpler udev maintainer scripts (all platforms must
       support udev, no debconf).
+    - initramfs init-top: Drop scsi_wait_scan and udevadm settle, we do that
+      in a more sensible way with wait-for-root.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
 
