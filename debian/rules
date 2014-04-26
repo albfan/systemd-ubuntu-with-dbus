@@ -99,8 +99,6 @@ override_dh_install:
 	install -D --mode=644 \
 		debian/extra/rules/75-persistent-net-generator.rules \
 		debian/udev-udeb/lib/udev/rules.d/
-	install -D --mode=644 debian/extra/links.conf \
-		debian/udev-udeb/etc/udev/links.conf
 	mkdir -p debian/udev-udeb/lib/udev
 	install -D --mode=644 \
 		debian/extra/hotplug.functions \
@@ -119,8 +117,6 @@ override_dh_install:
 	# udev: debian specific rules and helpers
 	install -D --mode=644 debian/extra/rules/* \
 		debian/udev/lib/udev/rules.d/
-	install -D --mode=644 debian/extra/links.conf \
-		debian/udev/etc/udev/
 	install -D --mode=644 debian/extra/fbdev-blacklist.conf \
 		debian/udev/etc/modprobe.d/fbdev-blacklist.conf
 	install -D --mode=644 \
@@ -128,7 +124,6 @@ override_dh_install:
 		debian/extra/rule_generator.functions \
 		debian/udev/lib/udev/
 	install -D --mode=755 \
-		debian/extra/create_static_nodes \
 		debian/extra/dsl-modem.agent \
 		debian/extra/logger.agent \
 		debian/extra/net.agent \

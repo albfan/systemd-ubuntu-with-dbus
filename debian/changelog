@@ -35,6 +35,9 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Make sd_login_monitor_new() work for logind without systemd.
   * Cherry-pick upstream fix for polkit permissions for rebooting with
     multiple sessions.
+  * Kill /etc/udev/links.conf, create_static_nodes, and associated code. It's
+    obsolete with devtmpfs (which is required now), and doesn't run with
+    systemd or upstart anyway.
 
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases

@@ -174,9 +174,6 @@ case "$1" in
     # set the SELinux context for devices created in the initramfs
     [ -x /sbin/restorecon ] && /sbin/restorecon -R /dev
 
-    # /dev/null must be created before udevd is started
-    /lib/udev/create_static_nodes || true
-
     log_daemon_msg "Starting the hotplug events dispatcher" "udevd"
     if udevd --daemon; then
 	log_end_msg $?
