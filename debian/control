@@ -70,7 +70,9 @@ Breaks: lvm2 (<< 2.02.104-1),
         lsb-base (<< 4.1+Debian4),
         apparmor (<< 2.9.2-1),
         systemd-shim (<< 8-2)
-Conflicts: klogd
+Conflicts: klogd, systemd-services
+Replaces: systemd-services
+Provides: systemd-services
 Description: system and service manager
  systemd is a system and service manager for Linux. It provides aggressive
  parallelization capabilities, uses socket and D-Bus activation for starting

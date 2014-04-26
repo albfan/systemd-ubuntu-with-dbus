@@ -43,6 +43,9 @@ systemd (225-1ubuntu1) UNRELEASED; urgency=medium
       libmicrohttpd-dev. This is blocked by the MIR (LP #1488341) and feature
       freeze.
 
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Aug 2015 08:08:12 +0200
 
 systemd (225-1) unstable; urgency=medium
