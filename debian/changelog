@@ -1,4 +1,6 @@
-systemd (204-9) UNRELEASED; urgency=medium
+systemd (204-9) unstable; urgency=medium
+
+  * The "Flemish Beef and Beer Stew" release.
 
   [ Steve Langasek ]
   * Do proper refcounting of the PAM module package on prerm, so that we
@@ -78,7 +80,7 @@ systemd (204-9) UNRELEASED; urgency=medium
     setting from /etc/default/rcS. Fix up existing broken configurations.
     (Closes: #738862)
 
- -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
+ -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 21:37:29 +0200
 
 systemd (204-8) unstable; urgency=low
 
