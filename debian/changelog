@@ -17,6 +17,7 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
       Debian gets wait-for-root in initramfs-tools.
     - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
       otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
