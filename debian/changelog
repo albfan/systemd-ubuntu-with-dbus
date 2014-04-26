@@ -51,6 +51,7 @@ systemd (204-9) UNRELEASED; urgency=medium
     60-cdrom_id, which will create symlinks for one at random among the
     devices installed. Since the common case is having a single device
     then everything will work out just fine most of the times...
+    (Closes: #655924)
 
   [ Michael Stapelberg ]
   * Add systemd-dbg package, thanks Daniel Schaal (Closes: #742724).
