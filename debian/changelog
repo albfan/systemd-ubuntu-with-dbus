@@ -29,6 +29,8 @@ systemd (204-10ubuntu1) UNRELEASED; urgency=medium
     - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
       otherwise we get missing LV symlinks. Workaround for LP #1185394.
     - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
+    - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
+      for those in plymouth.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 22:13:02 +0200
 
