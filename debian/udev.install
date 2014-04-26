@@ -9,3 +9,6 @@ usr/share/man/man8/*udev*.8
 # currently installed by bash-completion, file a bug to get it removed
 #usr/share/bash-completion/completions/udevadm
 usr/share/pkgconfig/udev.pc
+
+# Ubuntu
+../../extra/udev.py usr/share/apport/package-hooks
