@@ -6,6 +6,8 @@ systemd (208-6ubuntu1) UNRELEASED; urgency=medium
       and run tests during package build.
     - Fix FTBFS against recent kernels & glibc.
     - Create disk/by-partlabel links for mmcblk partitions.
+    - Hack to support system-image read-only /etc, and modify files in
+      /etc/writable/ instead.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 17:29:00 +0200
 
