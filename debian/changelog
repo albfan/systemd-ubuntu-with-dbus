@@ -50,6 +50,9 @@ systemd (219-7ubuntu1) UNRELEASED; urgency=medium
       This currently fails when being triggered by Jenkins, but is totally
       unreproducible when running this manually on the exact same machine.
 
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 14:23:13 +0100
 
 systemd (219-7) experimental; urgency=medium
