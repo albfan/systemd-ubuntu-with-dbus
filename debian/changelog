@@ -5,6 +5,7 @@ systemd (204-10) UNRELEASED; urgency=medium
     containers.
   * Drop udev.NEWS, it only applies to pre-squeeze.
   * Remove /var/log/udev on purge.
+  * Always probe cpu support drivers. (LP #1207705)
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 26 Apr 2014 22:28:07 +0200
 

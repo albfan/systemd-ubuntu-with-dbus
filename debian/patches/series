@@ -53,3 +53,4 @@
 0053-insserv.conf-generator.patch
 0054-Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 0055-more-cd-aliases.patch
+0056-Always-probe-cpu-support-drivers.patch
