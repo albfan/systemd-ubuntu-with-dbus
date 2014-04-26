@@ -36,6 +36,10 @@ systemd (204-9) UNRELEASED; urgency=medium
     also reads the hwdb info for USB devices (Closes: #717405) and gets rid of
     some syntax errors (Closes: #706221)
 
+  [ Marco d'Itri ]
+  * preinst: check for all the system calls required by modern releases
+    of udev.
+
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
 systemd (204-8) unstable; urgency=low

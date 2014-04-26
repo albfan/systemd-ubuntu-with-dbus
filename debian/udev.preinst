@@ -105,10 +105,10 @@ check_kernel_features() {
 
   if [ -e /proc/kallsyms ]; then
 
-  local needed_symbols='sys_inotify_init sys_signalfd'
+  local needed_symbols='inotify_init signalfd open_by_handle_at timerfd_create epoll_create'
   local missing_symbol=0
   for symbol in $needed_symbols; do
-    if ! egrep -q "^[a-fA-F0-9]+ T \.?${symbol}$" /proc/kallsyms; then
+    if ! egrep -q "^[a-fA-F0-9]+ T \.?sys_${symbol}$" /proc/kallsyms; then
       missing_symbol=1
       abort_install=1
       break
@@ -133,11 +133,14 @@ check_kernel_features() {
 
   if [ "$missing_symbol" -eq 1 ]; then
     cat <<END
-Since release 146, udev requires support for the following features in
+Since release 198, udev requires support for the following features in
 the running kernel:
 
-- inotify(2)       (CONFIG_INOTIFY_USER)
-- signalfd(2)      (CONFIG_SIGNALFD)
+- inotify(2)            (CONFIG_INOTIFY_USER)
+- signalfd(2)           (CONFIG_SIGNALFD)
+- open_by_handle_at(2)  (CONFIG_FHANDLE)
+- timerfd_create(2)     (CONFIG_TIMERFD)
+- epoll_create(2)       (CONFIG_EPOLL)
 END
   fi
 
