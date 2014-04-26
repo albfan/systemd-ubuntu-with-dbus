@@ -1,3 +1,9 @@
+systemd (218-2ubuntu1) UNRELEASED; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+
 systemd (218-2) experimental; urgency=medium
 
   * boot-and-services AppArmor autopkgtest: Stop checking the dmesg log; it is
@@ -55,6 +61,62 @@ systemd (217-4) experimental; urgency=medium
     (LP: #1400680)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 11 Dec 2014 18:06:54 +0200
+
+systemd (217-3ubuntu1) vivid; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+    - Create disk/by-partlabel links for mmcblk partitions.
+    - Hack to support system-image read-only /etc, and modify files in
+      /etc/writable/ instead.
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
+    - debian/rules: Add an epoch to libgudev.
+    - Don't install 80-networking.rules and the Debian *.agent scripts, we
+      never supported them in Ubuntu. Instead, extend systemd's "net" device
+      udev rule to trigger ifup@.service on network devices.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
+    - Add udev Apport package hook.
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
+    - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
+      for those in plymouth.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
+      device setup, and thus is be compatible with systemd, too.
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
+    - Add HP ProLiant Server Cartridge power control support.
+    - Provide shutdown fallback for upstart. (LP: #1370329)
+    - debian/ifup@.service: Additionally run for "auto" class. We don't really
+      support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+      "auto" devices appearing after "/etc/init.d/networking start" already
+      ran.  (LP: #1374521)
+    - Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In
+      Ubuntu we currently keep the setting whether the RTC is in local or UTC
+      time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
+      (LP: #1377258)
+    - Add systemd Apport hook for adding systemd-delta and information about
+      failed units.
+    - Put session scopes into all cgroup controllers. This makes unprivileged
+      user LXC containers work under systemd. (LP: #1346734)
+    - Do not realize and migrate cgroups multiple times, in particular
+      "-.slice". This fixes PIDs in non-systemd cgroup controllers to be
+      randomly migrated back to /.
+    - Build-depend on libapparmor-dev to enable AppArmor support
+      (LP: #1396270)
+
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+    - Remove obsolete systemd-logind upstart job.
+    - Clean up obsolete /etc/udev/rules.d/README on upgrades. (LP: #1381655)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 02 Dec 2014 19:37:35 +0100
 
 systemd (217-3) experimental; urgency=medium
 
@@ -127,6 +189,19 @@ systemd (217-1) experimental; urgency=medium
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 28 Nov 2014 10:53:58 +0100
 
+systemd (215-6ubuntu2) vivid; urgency=medium
+
+  [ Martin Pitt ]
+  * Merge fixes from Debian master.
+  * Put user slices into all cgroup controllers. This makes unprivileged user
+    LXC containers work under systemd. (LP: #1396270)
+  * boot-and-services autopkgtest: Test AppArmor confined units (LP #1396270)
+
+  [ Marc Deslauriers ]
+  * Build-depend on libapparmor-dev to enable AppArmor support. (LP: #1396270)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Nov 2014 16:38:55 +0100
+
 systemd (215-7) unstable; urgency=medium
 
   [ Martin Pitt ]
@@ -155,6 +230,59 @@ systemd (215-7) unstable; urgency=medium
     (LP: #1320534, Closes: #674755).
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 28 Nov 2014 06:43:15 +0100
+
+systemd (215-6ubuntu1) vivid; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+    - Create disk/by-partlabel links for mmcblk partitions.
+    - Hack to support system-image read-only /etc, and modify files in
+      /etc/writable/ instead.
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
+    - debian/rules: Add an epoch to libgudev.
+    - Don't install 80-networking.rules and the Debian *.agent scripts, we
+      never supported them in Ubuntu. Instead, extend systemd's "net" device
+      udev rule to trigger ifup@.service on network devices.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
+    - Add udev Apport package hook.
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
+    - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
+      for those in plymouth.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf
+      (LP: #1320534, Closes: #674755).
+    - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
+      device setup, and thus is be compatible with systemd, too.
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
+    - Add HP ProLiant Server Cartridge power control support.
+    - Provide shutdown fallback for upstart. (LP: #1370329)
+    - Add boot-and-services autopkgtest to check booting with systemd-sysv and
+      that the most crucial services behave as expected.
+    - debian/ifup@.service: Additionally run for "auto" class. We don't really
+      support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+      "auto" devices appearing after "/etc/init.d/networking start" already
+      ran.  (LP: #1374521)
+
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+    - Remove obsolete systemd-logind upstart job.
+
+  * Clean up obsolete /etc/udev/rules.d/README on upgrades. (LP: #1381655)
+  * Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In Ubuntu
+    we currently keep the setting whether the RTC is in local or UTC time
+    in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime. (LP: #1377258)
+  * Add systemd Apport hook for adding systemd-delta and information about
+    failed units.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 19 Nov 2014 08:55:55 +0100
 
 systemd (215-6) unstable; urgency=medium
 
@@ -371,6 +499,104 @@ systemd (214-1) experimental; urgency=medium
 
  -- Sjoerd Simons <sjoerd@debian.org>  Sun, 24 Aug 2014 14:54:27 +0200
 
+systemd (208-8ubuntu8) utopic; urgency=medium
+
+  * debian/tests/boot-and-services: Be more liberal about the expected
+    NetworkManager rsyslog lines; curiously on i386 we don't get NM's
+    "starting" message, but plenty of others. Fixes failing i386 autopkgtest.
+  * Pull latest keymaps from upstream. Fixes touchpad toggle on Asus laptops.
+    (LP: #1377352)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 07 Oct 2014 12:16:29 +0200
+
+systemd (208-8ubuntu7) utopic; urgency=medium
+
+  * Reinstate udev-fallback-graphics.conf fix below fails to
+    install this replaced init script.  Fixes brown paper bag fail.
+    (LP: #1375805)
+
+ -- Andy Whitcroft <apw@ubuntu.com>  Wed, 01 Oct 2014 13:19:40 +0100
+
+systemd (208-8ubuntu6) utopic; urgency=medium
+
+  * Reinstate udev-fallback-graphics.conf without which we will
+    no longer start a display manager unless we have a primary
+    graphics device.  This leads to no display manager on some vbox
+    instances and some binary drivers.  Note that this version of
+    the job also includes the fix used in the LTS SRUs for LP#1367241
+    which initially removed this file.  (LP: #1375805, #1367241)
+
+ -- Andy Whitcroft <apw@ubuntu.com>  Tue, 30 Sep 2014 17:08:35 +0100
+
+systemd (208-8ubuntu5) utopic; urgency=medium
+
+  * Extend systemd's "net" device udev rule to trigger ifup@.service on
+    network devices. In Debian this is done through net.agent, but we do not
+    install this in Ubuntu. (LP: #1374521)
+  * debian/ifup@.service: Additionally run for "auto" class. We don't really
+    support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+    "auto" devices appearing after "/etc/init.d/networking start" already ran.
+    (LP: #1374521)
+  * Pull latest keymaps from upstream trunk.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 30 Sep 2014 07:55:12 +0200
+
+systemd (208-8ubuntu4) utopic; urgency=medium
+
+  * debian/tests/boot-and-services: Accept lower-case spelling of "command
+    line" in dmesg log. Curiously the case differs between amd64 and i386..
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 18 Sep 2014 21:10:42 +0200
+
+systemd (208-8ubuntu3) utopic; urgency=medium
+
+  [ Dariusz Gadomski ]
+  * Remove udev-fallback-graphics.conf (LP: #1367241).
+
+  [ Martin Pitt ]
+  * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
+    (LP: #1367883)
+  * Provide shutdown fallback for upstart. (LP: #1370329)
+  * debian/tests/boot-and-services: Check rsyslog and udev.
+  * debian/tests/boot-and-services: Add tests for journal.
+  * debian/tests/boot-and-services: Replace grub kernel command line mangling
+    with installing systemd-sysv. Rebooting after that works now, and most
+    dependencies to "upstart" got fixed/dropped.
+
+  [ Andy Whitcroft ]
+  * Unblacklist hyperv_fb again, it is needed for graphical support on Hyper-V
+    platforms. (LP: #1359933)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 18 Sep 2014 08:39:21 +0200
+
+systemd (208-8ubuntu2) utopic; urgency=medium
+
+  [ Ben Howard ]
+  * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
+
+  [ Martin Pitt ]
+  * Add new autopkgtest boot_and_services which reboots the testbed with
+    systemd as init and verifies that the most critical services like lightdm,
+    D-BUS, NetworkManager, and cron work. (To be extended in the future)
+  * Fix udev path in udev(7). (LP: #1357782)
+  * path_id: suppress ID_PATH for devices with an unknown parent device type.
+    (LP: #1321816)
+  * udev-builtin-keyboard: Allow numeric key codes. (LP: #1247584)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 08 Sep 2014 14:44:35 +0200
+
+systemd (208-8ubuntu1) utopic; urgency=medium
+
+  [ Martin Pitt ]
+  * Merge with Debian unstable.
+  * debian/gbp.conf: Put ubuntu tags in the ubuntu/ namespace.
+
+  [ Dann Frazier ]
+  * Add support for HP ProLiant m400 Server Cartridge soft powerdown
+    (LP: #1354306)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 21 Aug 2014 07:58:30 +0200
+
 systemd (208-8) unstable; urgency=medium
 
   [ Martin Pitt ]
@@ -403,6 +629,71 @@ systemd (208-8) unstable; urgency=medium
     which conflicts with emergency.target. (Closes: #755581)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 21 Aug 2014 00:14:21 +0200
+
+systemd (208-7ubuntu4) utopic; urgency=medium
+
+  * Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
+    device setup, and thus should be compatible with systemd, too.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Aug 2014 07:11:28 +0200
+
+systemd (208-7ubuntu3) utopic; urgency=medium
+
+  * Make libpam-systemd prefer systemd-shim over systemd-sysv for now, as
+    otherwise large swathes of build-dependency trees fail to install when
+    the systemd-sysv package is present.  This needs to be revisited, but
+    will unblock builds for now.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Thu, 07 Aug 2014 01:16:40 +0200
+
+systemd (208-7ubuntu2) utopic; urgency=medium
+
+  * Lower initscripts dependency until the sysvinit merge lands. Until then,
+    no reliable NFS mounts under systemd for you.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 06 Aug 2014 19:44:03 +0200
+
+systemd (208-7ubuntu1) utopic; urgency=medium
+
+  [ Martin Pitt]
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+    - Add patches for specifying an alternate /etc/machine-id location, skip
+      tests that fail on buildds (presumably due to missing /etc/hostname),
+      and run tests during package build.
+    - Create disk/by-partlabel links for mmcblk partitions.
+    - Hack to support system-image read-only /etc, and modify files in
+      /etc/writable/ instead.
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
+    - debian/rules: Add an epoch to libgudev.
+    - Drop 80-networking.rules and the Debian *.agent scripts, we never
+      supported them in Ubuntu.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
+    - Add udev Apport package hook.
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
+    - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
+      for those in plymouth.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+    - Remove obsolete systemd-logind upstart job.
+
+  * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf
+    (LP: #1320534, Closes: #674755).
+
+  [ Manoj Iyer ]
+  * Add HP ProLiant m800 Server Cartridge power control support. The cartridge
+    uses gpio_keys.12 to emulate shutdown. (LP: #1347776)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 06 Aug 2014 15:30:15 +0200
 
 systemd (208-7) unstable; urgency=medium
 
@@ -458,6 +749,46 @@ systemd (208-7) unstable; urgency=medium
     Thanks to Michael Biebl for the script! (Closes: #749021)
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 06 Aug 2014 13:33:22 +0200
+
+systemd (208-6ubuntu1) utopic; urgency=medium
+
+  * Merge with Debian unstable. Remaining Ubuntu changes:
+    - Add patches for specifying an alternate /etc/machine-id location, skip
+      tests that fail on buildds (presumably due to missing /etc/hostname),
+      and run tests during package build.
+    - Fix FTBFS against recent kernels & glibc.
+    - Create disk/by-partlabel links for mmcblk partitions.
+    - Hack to support system-image read-only /etc, and modify files in
+      /etc/writable/ instead.
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
+    - debian/rules: Add an epoch to libgudev.
+    - Don't build the systemd-sysv package for now.
+    - Drop 80-networking.rules and the Debian *.agent scripts, we never
+      supported them in Ubuntu.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
+    - Add udev Apport package hook.
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
+    - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
+      for those in plymouth.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Re-add systemd-shim alternative dependency to libpam-systemd, and
+      version it to ensure cgmanager support. (LP: #1343802)
+    - Revert 2d54bc3: Drop patches to make logind D-Bus activatable; this
+      was wrong to do in Debian, as it's necessary for non-systemd pid 1.
+
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+    - Remove obsolete systemd-logind upstart job.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 21 Jul 2014 12:56:58 +0200
 
 systemd (208-6) unstable; urgency=medium
 
@@ -728,6 +1059,84 @@ systemd (204-9) unstable; urgency=medium
     (Closes: #738862)
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 21:37:29 +0200
+
+systemd (204-8ubuntu1) utopic; urgency=medium
+
+  * Merge with Debian unstable. Drop the systemd-services split as we want to
+    move to systemd as pid 1 (UbuntuSpec:core-1403-systemd-transition) so that
+    we can start experimenting with booting Ubuntu with systemd. This does NOT
+    yet change the default, with this upstart will still be used to bring up
+    the system. To boot with systemd, add init=/lib/systemd/systemd to the
+    grub menu (at boot or in /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT).
+
+    Remaining Ubuntu specific changes:
+    - debian/rules: Don't build the systemd-sysv package for now.
+    - debian/udev.templates: Drop debconfiscation of udev, not necessary for
+      Ubuntu. Drop debconf pre-dependency.
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. (Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.)
+    - Drop debian/extra/{50-udev-default.rules,60-persistent-storage*.rules,
+      75-cd-aliases-generator.rules,80-drivers.rules,80-networking.rules,
+      91-permissions.rules}: These are the Debian specific rules, in Ubuntu we
+      have always used the upstream ones.
+    - Add debian/extra/rules/78-graphics-card.rules: Mark graphics devices as
+      PRIMARY_DEVICE_FOR_DISPLAY so that we can wait for those in plymouth.
+    - Add debian/extra/rules/73-idrac.rules: On Dell PowerEdge systems, the
+      iDRAC7 and later support a USB Virtual NIC for management. Name this
+      interface "idrac" to avoid confusion with "real" network interfaces.
+    - Add debian/extra/udev.py: Apport hook.
+    - debian/extra/udev.startup, debian/rules: Don't install/support
+      /etc/udev/links.conf, that's a hack (if you want links, create udev
+      rules).
+    - Drop debian/source/{git-patches,options}, we use proper patches.
+    - debian/rules: We continue to use the old net iface naming schema for the
+      time being. Install old udev rule generator in debian/udev.install.
+    - debian/rules: Don't install init.d scripts, only the upstart jobs.
+    - debian/rules: Add an epoch to libgudev.
+    - Drop debian/udev.dirs, not necessary.
+    - Drop debian/udev.NEWS, debian/udev.maintscript: Not applicable to
+      Ubuntu.
+    - debian/udev.{postinst,postrm,preinst,prerm}: Keep our much simpler
+      versions (all platforms must support udev, no debconf).
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
+    - Add debian/extra/rules/40-hyperv-hotadd.rules: Workaround for LP #1233466
+    - Various debian/patches/*, see patch headers.
+
+    Applicable to Debian:
+    - Add libpam-systemd.systemd-logind.upstart to bring up logind at boot
+      when using upstart.
+    - debian/control, debian/tests/: Add autopkgtest.
+    - debian/extra/initramfs.hook, debian/udev.*{pre,post}inst: Divert udevadm
+      to udevadm.upgrade during upgrades while udev is unconfigured.
+    - Add debian/extra/60-keyboard.hwdb: Latest upstream keymaps, for easy
+      backporting.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. (LP #1185394)
+    - Add debian/extra/README-{etc,lib}-rules.d documentation, install into
+      udev.
+    - debian/rules: Run tests during package build.
+    - debian/udev.udev-finish.upstart: Fix path to tmp-rules,
+      debian/extra/rule_generator.functions creates them in /run/udev/.
+    - debian/udev-udeb.install: Add 64-btrfs.rules, 75-probe_mtd.rules, and
+      80-drivers.rules, they are potentially useful in a d-i environment.
+    - debian/extra/rules/75-persistent-net-generator.rules: Add new block of
+      Windows Azure ethernet hardware address to ignore persistent naming
+      (LP #1274348).
+    - debian/extra/udev.startup: Mount devpts with the correct permissions to
+      avoid needing pt_chown.
+    - debian/libpam-systemd.prerm: Do proper refcounting of the PAM module
+      package on prerm, so that we don't drop the module from the PAM config
+      when uninstalling a foreign-arch package.  Related to LP #1295521.
+    - Run dh_install with --list-missing.
+
+    Upgrade fixes, keep until 16.04 LTS release:
+    - debian/control: Conflicts/Replaces/Provides systemd-services.
+  * debian/tests/timedated: Get along with comments in /etc/timezone,
+    cloud-init puts one there.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 17:29:00 +0200
 
 systemd (204-8) unstable; urgency=low
 
