@@ -35,6 +35,8 @@ systemd (204-9) UNRELEASED; urgency=medium
     which Debian-specific rules are obsolete! Amongst other things, this now
     also reads the hwdb info for USB devices (Closes: #717405) and gets rid of
     some syntax errors (Closes: #706221)
+  * Set default polling interval on removable devices as well, for kernels
+    which have "block" built in instead of being a module. (Closes: #713877)
 
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases

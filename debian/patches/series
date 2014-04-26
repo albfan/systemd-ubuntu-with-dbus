@@ -49,3 +49,4 @@
 0049-Order-remote-fs.target-after-local-fs.target.patch
 0050-Load-sg-module-from-80-drivers.rules.patch
 0051-Updates-to-default-device-permissions.patch
+0052-Set-default-polling-interval-on-removable-devices-as.patch
