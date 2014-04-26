@@ -11,13 +11,21 @@ case "$1" in
     ;;
 esac
 
+# we cannot properly synthesize LVM LV change events with udevadm trigger, so
+# if we use LVM, we need to let it finish; otherwise we get missing LV symlinks
+# (LP #1185394)
+if [ -x /sbin/vgchange ]; then
+    udevadm settle --timeout=121 || true
+fi
+
 # Stop udevd, we'll miss a few events while we run init, but we catch up
-udevadm control --exit
+udevadm control --timeout=121 --exit || \
+            echo "udev exit failed -- rc=$?"
 
 # move the /dev tmpfs to the rootfs
 mount -n -o move /dev ${rootmnt}/dev
 
 # create a temporary symlink to the final /dev for other initramfs scripts
-nuke /dev
+rm -rf /dev
 ln -s ${rootmnt}/dev /dev
 
