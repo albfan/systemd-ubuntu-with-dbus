@@ -28,6 +28,8 @@ systemd (217-1ubuntu1) vivid; urgency=medium
     - Create disk/by-partlabel links for mmcblk partitions.
     - Hack to support system-image read-only /etc, and modify files in
       /etc/writable/ instead.
+    - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
+      upgrades, and we already have the automatic per-file symlinking.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 28 Nov 2014 16:26:18 +0100
 
