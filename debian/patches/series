@@ -48,3 +48,4 @@
 0048-Fix-mounting-of-remote-filesystems-like-NFS.patch
 0049-Order-remote-fs.target-after-local-fs.target.patch
 0050-Load-sg-module-from-80-drivers.rules.patch
+0051-Updates-to-default-device-permissions.patch

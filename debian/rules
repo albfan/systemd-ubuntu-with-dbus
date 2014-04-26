@@ -97,10 +97,8 @@ override_dh_install:
 		debian/udev-udeb/usr/lib/base-installer.d/05udev
 	mkdir -p debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 \
-		debian/extra/rules/50-udev-default.rules \
 		debian/extra/rules/75-cd-aliases-generator.rules \
 		debian/extra/rules/75-persistent-net-generator.rules \
-		debian/extra/rules/91-permissions.rules \
 		debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 debian/extra/links.conf \
 		debian/udev-udeb/etc/udev/links.conf

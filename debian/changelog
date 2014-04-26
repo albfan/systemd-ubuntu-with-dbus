@@ -29,6 +29,12 @@ systemd (204-9) UNRELEASED; urgency=medium
     a patch for the sg module (see #657948). These now stop calling modprobe
     and use the kmod builtin, giving some nice boot speed improvement.
     (Closes: #717404)
+  * Drop our Debian specific 50-udev-default.rules and 91-permissions.rules
+    and use the upstream rules with a patch for the remaining Debian specific
+    default device permissions. Many thanks to Marco d'Itri for researching
+    which Debian-specific rules are obsolete! Amongst other things, this now
+    also reads the hwdb info for USB devices (Closes: #717405) and gets rid of
+    some syntax errors (Closes: #706221)
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
