@@ -54,3 +54,4 @@ insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 Always-probe-cpu-support-drivers.patch
+Add-cgmanager-support-to-logind.patch

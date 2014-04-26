@@ -1,0 +1,997 @@
+From: =?utf-8?q?St=C3=A9phane_Graber?= <stgraber@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:09:25 +0200
+Subject: Add cgmanager support to logind
+
+This will use the cgmanager socket instead of cgroupfs when cgmanager is
+available. Otherwise it'll simply fallback on the cgroupfs code.
+
+Forwarded: no
+Bug-Ubuntu: https://launchpad.net/bugs/1297363
+---
+ Makefile.am               |  19 +++
+ configure.ac              |  19 +++
+ src/login/logind.c        | 104 ++++++++++++++++
+ src/shared/cgmanager.c    | 239 ++++++++++++++++++++++++++++++++++++
+ src/shared/cgmanager.h    |  44 +++++++
+ src/shared/cgroup-label.c |  22 ++++
+ src/shared/cgroup-util.c  | 302 +++++++++++++++++++++++++++++++++++++++++++++-
+ src/shared/cgroup-util.h  |   2 +
+ 8 files changed, 749 insertions(+), 2 deletions(-)
+ create mode 100644 src/shared/cgmanager.c
+ create mode 100644 src/shared/cgmanager.h
+
+diff --git a/Makefile.am b/Makefile.am
+index 7026b15..40f2309 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -177,6 +177,10 @@ AM_CPPFLAGS = \
+ 	-I $(top_srcdir)/src/libsystemd-bus \
+ 	$(OUR_CPPFLAGS)
+ 
++if ENABLE_CGMANAGER
++AM_CPPFLAGS += -DHAVE_CGMANAGER
++endif
++
+ AM_CFLAGS = $(OUR_CFLAGS)
+ AM_LDFLAGS = $(OUR_LDFLAGS)
+ 
+@@ -681,6 +685,8 @@ libsystemd_shared_la_SOURCES = \
+ 	src/shared/cgroup-util.h \
+ 	src/shared/cgroup-show.c \
+ 	src/shared/cgroup-show.h \
++	src/shared/cgmanager.c \
++	src/shared/cgmanager.h \
+ 	src/shared/unit-name.c \
+ 	src/shared/unit-name.h \
+ 	src/shared/utmp-wtmp.c \
+@@ -705,6 +711,14 @@ libsystemd_shared_la_SOURCES = \
+ 	src/shared/MurmurHash3.c \
+ 	src/shared/MurmurHash3.h
+ 
++if ENABLE_CGMANAGER
++libsystemd_shared_la_CFLAGS = \
++	$(AM_CFLAGS) \
++	$(CGMANAGER_CFLAGS)
++libsystemd_shared_la_LIBADD = \
++	$(CGMANAGER_LIBS)
++endif
++
+ #-------------------------------------------------------------------------------
+ noinst_LTLIBRARIES += \
+ 	libsystemd-dbus.la
+@@ -769,6 +783,11 @@ libsystemd_label_la_CFLAGS = \
+ libsystemd_label_la_LIBADD = \
+ 	$(SELINUX_LIBS)
+ 
++if ENABLE_CGMANAGER
++libsystemd_label_la_CFLAGS += $(CGMANAGER_CFLAGS)
++libsystemd_label_la_LIBADD += $(CGMANAGER_LIBS)
++endif
++
+ # ------------------------------------------------------------------------------
+ noinst_LTLIBRARIES += \
+ 	libsystemd-logs.la
+diff --git a/configure.ac b/configure.ac
+index b2871d1..1af7b7c 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -780,6 +780,24 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
+ 
+ # ------------------------------------------------------------------------------
+ 
++AC_ARG_ENABLE([cgmanager],
++	[AC_HELP_STRING([--enable-cgmanager], [enable cgmanager support [default=auto]])],
++	[], [enable_cgmanager=auto])
++
++if test "x$enable_cgmanager" = "xauto" ; then
++	AC_CHECK_LIB([cgmanager],[cgmanager_create],[enable_cgmanager=yes],[enable_cgmanager=no],[-lnih -lnih-dbus -ldbus-1])
++fi
++AM_CONDITIONAL([ENABLE_CGMANAGER], [test "x$enable_cgmanager" = "xyes"])
++
++AM_COND_IF([ENABLE_CGMANAGER],
++	[PKG_CHECK_MODULES([CGMANAGER], [libcgmanager])
++	PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
++	PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
++	PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
++	])
++
++# ------------------------------------------------------------------------------
++
+ # Location of the init scripts as mandated by LSB
+ SYSTEM_SYSVINIT_PATH=/etc/init.d
+ SYSTEM_SYSVRCND_PATH=/etc/rc.d
+@@ -946,6 +964,7 @@ AC_MSG_RESULT([
+         gtk-doc:                 ${enable_gtk_doc}
+         Split /usr:              ${enable_split_usr}
+         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
++        CGManager                ${enable_cgmanager}
+ 
+         prefix:                  ${prefix}
+         rootprefix:              ${with_rootprefix}
+diff --git a/src/login/logind.c b/src/login/logind.c
+index cee2b9b..bb40421 100644
+--- a/src/login/logind.c
++++ b/src/login/logind.c
+@@ -38,6 +38,7 @@
+ #include "strv.h"
+ #include "conf-parser.h"
+ #include "mkdir.h"
++#include "cgmanager.h"
+ 
+ Manager *manager_new(void) {
+         Manager *m;
+@@ -601,6 +602,57 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
+         int r = 0, k;
+         char *name;
+ 
++        char **children;
++        int i;
++
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                r = cgm_list_children("systemd", m->cgroup_path,
++                                      &children);
++
++                cgm_dbus_disconnect();
++                if (!r)
++                        return -1;
++
++                if (children) {
++                        i = 0;
++                        while (children[i]) {
++                                User *user;
++                                char *e;
++
++                                name = children[i];
++
++                                e = endswith(name, ".user");
++                                if (e) {
++                                        *e = 0;
++
++                                        k = manager_add_user_by_name(m, name, &user);
++                                        if (k < 0) {
++                                                r = k;
++                                                i++;
++                                                continue;
++                                        }
++
++                                        user_add_to_gc_queue(user);
++
++                                        if (!user->cgroup_path) {
++                                                user->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
++                                                if (!user->cgroup_path) {
++                                                        r = log_oom();
++                                                        break;
++                                                }
++                                        }
++                                }
++                                i++;
++                        }
++                        nih_free(children);
++                }
++
++                return r;
++        }
++        #endif
++
+         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
+         if (r < 0) {
+                 if (r == -ENOENT)
+@@ -737,6 +789,9 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
+         Iterator i;
+         int r = 0;
+ 
++        char **children;
++        int i1;
++
+         HASHMAP_FOREACH(u, m->users, i) {
+                 _cleanup_closedir_ DIR *d = NULL;
+                 char *name;
+@@ -745,6 +800,55 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
+                 if (!u->cgroup_path)
+                         continue;
+ 
++                #ifdef HAVE_CGMANAGER
++                /* CGManager support */
++                if (cgm_dbus_connect()) {
++                        r = cgm_list_children("systemd",
++                                              u->cgroup_path, &children);
++
++                        cgm_dbus_disconnect();
++
++                        if (!r)
++                                return -1;
++
++                        if (children) {
++                                i1 = 0;
++                                while (children[i1]) {
++                                        Session *session;
++                                        char *e;
++
++                                        name = children[i1];
++
++                                        e = endswith(name, ".session");
++                                        if (e) {
++                                                *e = 0;
++
++                                                k = manager_add_session(m, u, name, &session);
++                                                if (k < 0) {
++                                                        r = k;
++                                                        i1++;
++                                                        continue;
++                                                }
++
++                                                session_add_to_gc_queue(session);
++
++                                                if (!session->cgroup_path) {
++                                                        session->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
++                                                        if (!session->cgroup_path) {
++                                                                r = log_oom();
++                                                                break;
++                                                        }
++                                                }
++                                        }
++                                        i1++;
++                                }
++                                nih_free(children);
++                        }
++
++                        continue;
++                }
++                #endif
++
+                 k = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &d);
+                 if (k < 0) {
+                         if (k == -ENOENT)
+diff --git a/src/shared/cgmanager.c b/src/shared/cgmanager.c
+new file mode 100644
+index 0000000..8001f66
+--- /dev/null
++++ b/src/shared/cgmanager.c
+@@ -0,0 +1,239 @@
++/*
++ * lxc: linux Container library
++ *
++ * (C) Copyright Canonical Ltd. 2013-2014
++ *
++ * Authors:
++ * Serge Hallyn <serge.hallyn@canonical.com>
++ * Stéphane Graber <stephane.graber@canonical.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#ifdef HAVE_CGMANAGER
++
++#include <libgen.h>
++#include <stdlib.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++#include "cgmanager.h"
++#include "log.h"
++
++static NihDBusProxy *cgroup_manager = NULL;
++
++#define CGMANAGER_DBUS_SOCK "unix:path=/sys/fs/cgroup/cgmanager/sock"
++bool cgm_dbus_connect(void)
++{
++	DBusError dbus_error;
++	DBusConnection *connection;
++	dbus_error_init(&dbus_error);
++
++	connection = dbus_connection_open_private(CGMANAGER_DBUS_SOCK, &dbus_error);
++	if (!connection) {
++		dbus_error_free(&dbus_error);
++		return false;
++	}
++
++	dbus_connection_set_exit_on_disconnect(connection, FALSE);
++	dbus_error_free(&dbus_error);
++	cgroup_manager = nih_dbus_proxy_new(NULL, connection,
++				NULL /* p2p */,
++				"/org/linuxcontainers/cgmanager", NULL, NULL);
++	dbus_connection_unref(connection);
++	if (!cgroup_manager) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: Error opening proxy: %s", nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	// force fd passing negotiation
++	if (cgmanager_ping_sync(NULL, cgroup_manager, 0) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: Error pinging manager: %s", nerr->message);
++		nih_free(nerr);
++		nih_free(cgroup_manager);
++		cgroup_manager = NULL;
++	}
++	return true;
++}
++
++void cgm_dbus_disconnect(void)
++{
++	if (cgroup_manager) {
++		dbus_connection_flush(cgroup_manager->connection);
++		dbus_connection_close(cgroup_manager->connection);
++		nih_free(cgroup_manager);
++		cgroup_manager = NULL;
++	}
++}
++
++bool cgm_create(const char *controller, const char *cgroup_path, int32_t *existed)
++{
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if ( cgmanager_create_sync(NULL, cgroup_manager, controller,
++				       cgroup_path, existed) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_create for controller=%s, cgroup_path=%s failed: %s",
++		          controller, cgroup_path, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	return true;
++}
++
++bool cgm_remove(const char *controller, const char *cgroup_path, int recursive)
++{
++	int existed;
++
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if ( cgmanager_remove_sync(NULL, cgroup_manager, controller,
++				   cgroup_path, recursive, &existed) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_remove for controller=%s, cgroup_path=%s, recursive=%d failed: %s",
++		          controller, cgroup_path, recursive, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	if (existed == -1) {
++		log_error("cgmanager: cgm_remove failed: %s:%s did not exist", controller, cgroup_path);
++		return false;
++	}
++	return true;
++}
++
++char *cgm_get(const char *controller, const char *cgroup_path, const char *key)
++{
++	char *result = NULL;
++
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if (cgmanager_get_value_sync(NULL, cgroup_manager, controller, cgroup_path, key, &result) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_get for controller=%s, cgroup_path=%s failed: %s",
++		          controller, cgroup_path, nerr->message);
++		nih_free(nerr);
++		free(result);
++		return NULL;
++	}
++	return result;
++}
++
++bool cgm_chmod(const char *controller, const char *cgroup_path, int mode)
++{
++	nih_local char *path_dirname = NULL;
++	nih_local char *path_basename = NULL;
++
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	path_dirname = NIH_MUST(nih_strdup(NULL, cgroup_path));
++	path_basename = NIH_MUST(nih_strdup(NULL, cgroup_path));
++
++	if (cgmanager_chmod_sync(NULL, cgroup_manager, controller,
++			dirname(path_dirname), basename(path_basename), mode) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_chmod for controller=%s, cgroup_path=%s, mode=%d failed: %s",
++		          controller, cgroup_path, mode, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	return true;
++}
++
++bool cgm_chown(const char *controller, const char *cgroup_path, int uid, int gid)
++{
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if (cgmanager_chown_sync(NULL, cgroup_manager, controller,
++			cgroup_path, uid, gid) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_chown for controller=%s, cgroup_path=%s, uid=%d, gid=%d failed: %s",
++		          controller, cgroup_path, uid, gid, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	return true;
++}
++
++bool cgm_list_children(const char *controller, const char *cgroup_path, char ***children)
++{
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if ( cgmanager_list_children_sync(NULL, cgroup_manager, controller,
++				       cgroup_path, children) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_list_children for controller=%s, cgroup_path=%s failed: %s",
++		          controller, cgroup_path, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++
++	return true;
++}
++
++bool cgm_controller_exists(const char *controller)
++{
++	char *cgroup_name = NULL;
++
++	if ( cgmanager_get_pid_cgroup_sync(NULL, cgroup_manager, controller,
++				        getpid(), &cgroup_name) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		nih_free(nerr);
++		return false;
++	}
++
++	nih_free(cgroup_name);
++	return true;
++}
++
++bool cgm_enter(const char *controller, const char *cgroup_path, pid_t pid)
++{
++	if (cgroup_path[0] == '/')
++		cgroup_path++;
++
++	if (cgmanager_move_pid_sync(NULL, cgroup_manager, controller,
++			cgroup_path, pid) != 0) {
++		NihError *nerr;
++		nerr = nih_error_get();
++		log_error("cgmanager: cgm_enter for controller=%s, cgroup_path=%s, pid=%d failed: %s",
++		          controller, cgroup_path, pid, nerr->message);
++		nih_free(nerr);
++		return false;
++	}
++	return true;
++}
++#endif
+diff --git a/src/shared/cgmanager.h b/src/shared/cgmanager.h
+new file mode 100644
+index 0000000..2676170
+--- /dev/null
++++ b/src/shared/cgmanager.h
+@@ -0,0 +1,44 @@
++/*
++ * lxc: linux Container library
++ *
++ * (C) Copyright Canonical Ltd. 2013-2014
++ *
++ * Authors:
++ * Serge Hallyn <serge.hallyn@canonical.com>
++ * Stéphane Graber <stephane.graber@canonical.com>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#ifdef HAVE_CGMANAGER
++
++#include <stdbool.h>
++#include <nih-dbus/dbus_connection.h>
++#include <cgmanager/cgmanager-client.h>
++#include <nih/alloc.h>
++#include <nih/error.h>
++#include <nih/string.h>
++
++bool cgm_dbus_connect(void);
++void cgm_dbus_disconnect(void);
++bool cgm_create(const char *controller, const char *cgroup_path, int32_t *existed);
++bool cgm_remove(const char *controller, const char *cgroup_path, int recursive);
++char *cgm_get(const char *controller, const char *path, const char *key);
++bool cgm_chmod(const char *controller, const char *cgroup_path, int mode);
++bool cgm_chown(const char *controller, const char *cgroup_path, int uid, int gid);
++bool cgm_list_children(const char *controller, const char *cgroup_path, char ***children);
++bool cgm_controller_exists(const char *controller);
++bool cgm_enter(const char *controller, const char *cgroup_path, pid_t pid);
++#endif
+diff --git a/src/shared/cgroup-label.c b/src/shared/cgroup-label.c
+index 5b5163c..9904283 100644
+--- a/src/shared/cgroup-label.c
++++ b/src/shared/cgroup-label.c
+@@ -30,6 +30,7 @@
+ #include <ftw.h>
+ 
+ #include "cgroup-util.h"
++#include "cgmanager.h"
+ #include "log.h"
+ #include "set.h"
+ #include "macro.h"
+@@ -40,6 +41,27 @@ int cg_create(const char *controller, const char *path, const char *suffix) {
+         _cleanup_free_ char *fs = NULL;
+         int r;
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        int existed;
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_create(normalize_controller(controller),
++                                         path, &existed);
++
++                cgm_dbus_disconnect();
++
++                if (!r)
++                        return -1;
++
++                return 1;
++        }
++        #endif
++
+         r = cg_get_path_and_check(controller, path, suffix, &fs);
+         if (r < 0)
+                 return r;
+diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
+index 43c415d..7a0c7e6 100644
+--- a/src/shared/cgroup-util.c
++++ b/src/shared/cgroup-util.c
+@@ -29,6 +29,7 @@
+ #include <sys/types.h>
+ #include <ftw.h>
+ 
++#include "cgmanager.h"
+ #include "cgroup-util.h"
+ #include "log.h"
+ #include "set.h"
+@@ -43,9 +44,57 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f)
+         _cleanup_free_ char *fs = NULL;
+         FILE *f;
+         int r;
++        char *value = NULL;
++        char *template = NULL;
++        int fd;
+ 
+         assert(_f);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                value = cgm_get(normalize_controller(controller),
++                                path, "cgroup.procs");
++
++                cgm_dbus_disconnect();
++
++                if (!value)
++                        return -1;
++
++                template = strdup("/tmp/.cgmanager-logind.XXXXXX");
++                if (!template)
++                        return -1;
++
++                fd = mkstemp(template);
++
++                if (fd < 0) {
++                        free(template);
++                        return -1;
++                }
++
++                f = fdopen(fd, "w+");
++                if (!f) {
++                        close(fd);
++                        free(template);
++                        return -1;
++                }
++
++                unlink(template);
++                free(template);
++                write(fd, value, strlen(value));
++                fflush(f);
++                rewind(f);
++
++                *_f = f;
++                return 0;
++        }
++        #endif
++
+         r = cg_get_path(controller, path, "cgroup.procs", &fs);
+         if (r < 0)
+                 return r;
+@@ -62,9 +111,56 @@ int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f) {
+         _cleanup_free_ char *fs = NULL;
+         FILE *f;
+         int r;
++        char *value = NULL;
++        char *template = NULL;
++        int fd;
+ 
+         assert(_f);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                value = cgm_get(normalize_controller(controller),
++                                path, "tasks");
++
++                cgm_dbus_disconnect();
++
++                if (!value)
++                        return -1;
++
++                template = strdup("/tmp/.cgmanager-logind.XXXXXX");
++                if (!template)
++                        return -1;
++
++                fd = mkstemp(template);
++                if (fd < 0) {
++                        free(template);
++                        return -1;
++                }
++
++                f = fdopen(fd, "w+");
++                if (!f) {
++                        close(fd);
++                        free(template);
++                        return -1;
++                }
++
++                unlink(template);
++                free(template);
++                write(fd, value, strlen(value));
++                fflush(f);
++                rewind(f);
++
++                *_f = f;
++                return 0;
++        }
++        #endif
++
+         r = cg_get_path(controller, path, "tasks", &fs);
+         if (r < 0)
+                 return r;
+@@ -154,6 +250,26 @@ int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
+         _cleanup_free_ char *p = NULL;
+         int r;
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_remove(normalize_controller(controller),
++                                         path, 0);
++
++                cgm_dbus_disconnect();
++
++                if (!r)
++                        return -1;
++
++                return 0;
++        }
++        #endif
++
+         r = cg_get_path(controller, path, NULL, &p);
+         if (r < 0)
+                 return r;
+@@ -462,7 +578,7 @@ int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto,
+         return ret;
+ }
+ 
+-static const char *normalize_controller(const char *controller) {
++const char *normalize_controller(const char *controller) {
+ 
+         assert(controller);
+ 
+@@ -531,9 +647,24 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
+ 
+ static int check_hierarchy(const char *p) {
+         char *cc;
++        int r;
+ 
+         assert(p);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                r = cgm_controller_exists(p);
++
++                cgm_dbus_disconnect();
++
++                if (!r)
++                        return -1;
++
++                return 0;
++        }
++        #endif
++
+         /* Check if this controller actually really exists */
+         cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
+         strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
+@@ -592,9 +723,58 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
+ int cg_trim(const char *controller, const char *path, bool delete_root) {
+         _cleanup_free_ char *fs = NULL;
+         int r = 0;
++        char **children = NULL;
++        int i = 0;
++        char *p1 = NULL;
+ 
+         assert(path);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                if (delete_root) {
++                        r = cgm_remove(normalize_controller(controller),
++                                       path, 1);
++
++                        if (!r) {
++                                cgm_dbus_disconnect();
++                                return -1;
++                        }
++                }
++                else {
++                        r = cgm_list_children(normalize_controller(controller),
++                                              path, &children);
++
++                        if (!r) {
++                                cgm_dbus_disconnect();
++                                return -1;
++                        }
++
++                        if (children) {
++                                while (children[i]) {
++                                        p1 = strjoin(path, "/", children[i], NULL);
++
++                                        r = cgm_remove(normalize_controller(controller),
++                                                       p1, 1);
++
++                                        free(p1);
++                                        i++;
++                                }
++                                nih_free(children);
++                        }
++                }
++
++                cgm_dbus_disconnect();
++
++                return 0;
++        }
++        #endif
++
+         r = cg_get_path(controller, path, NULL, &fs);
+         if (r < 0)
+                 return r;
+@@ -644,6 +824,26 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
+         assert(path);
+         assert(pid >= 0);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_enter(normalize_controller(controller),
++                              path, pid);
++
++                cgm_dbus_disconnect();
++
++                if (!r)
++                        return -1;
++
++                return 0;
++        }
++        #endif
++
+         r = cg_get_path_and_check(controller, path, "tasks", &fs);
+         if (r < 0)
+                 return r;
+@@ -664,10 +864,33 @@ int cg_set_group_access(
+                 gid_t gid) {
+ 
+         _cleanup_free_ char *fs = NULL;
+-        int r;
++        int r, r1;
+ 
+         assert(path);
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_chmod(normalize_controller(controller),
++                                         path, mode);
++
++                r1 = cgm_chown(normalize_controller(controller),
++                                         path, uid, gid);
++
++                cgm_dbus_disconnect();
++
++                if (!r && !r1)
++                        return -1;
++
++                return 0;
++        }
++        #endif
++
+         if (mode != (mode_t) -1)
+                 mode &= 0777;
+ 
+@@ -697,6 +920,36 @@ int cg_set_task_access(
+         if (mode != (mode_t) -1)
+                 mode &= 0666;
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_chmod(normalize_controller(controller),
++                              path, mode);
++
++                if (!r) {
++                        cgm_dbus_disconnect();
++                        return -1;
++                    }
++
++                r = cgm_chown(normalize_controller(controller),
++                              path, uid, gid);
++
++                if (!r) {
++                        cgm_dbus_disconnect();
++                        return -1;
++                }
++
++                cgm_dbus_disconnect();
++                return 0;
++        }
++        #endif
++
++
+         r = cg_get_path(controller, path, "tasks", &fs);
+         if (r < 0)
+                 return r;
+@@ -906,14 +1159,59 @@ int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
+ int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
+         _cleanup_closedir_ DIR *d = NULL;
+         char *fn;
++        char *p;
+         int r;
+ 
++        char **children;
++        char *p1;
++        int i;
++
+         assert(path);
+ 
+         r = cg_is_empty(controller, path, ignore_self);
+         if (r <= 0)
+                 return r;
+ 
++        #ifdef HAVE_CGMANAGER
++        /* CGManager support */
++        if (cgm_dbus_connect()) {
++                if (!controller) {
++                    cgm_dbus_disconnect();
++                    return -1;
++                }
++
++                r = cgm_list_children(normalize_controller(controller),
++                                      path, &children);
++
++                cgm_dbus_disconnect();
++
++                if (!r)
++                        return -1;
++
++                if (children) {
++                        r = 0;
++                        while (children[i]) {
++                                p1 = strjoin(path, "/", children[i], NULL);
++
++                                if (cg_is_empty_recursive(controller,  p1, ignore_self) != 0) {
++                                        r = -1;
++                                        free(p1);
++                                        break;
++                                }
++
++                                free(p1);
++                                i++;
++                        }
++                        nih_free(children);
++
++                        if (r < 0)
++                                return r;
++                }
++
++                return 1;
++        }
++        #endif
++
+         r = cg_enumerate_subgroups(controller, path, &d);
+         if (r < 0)
+                 return r == -ENOENT ? 1 : r;
+diff --git a/src/shared/cgroup-util.h b/src/shared/cgroup-util.h
+index 25dd277..f364959 100644
+--- a/src/shared/cgroup-util.h
++++ b/src/shared/cgroup-util.h
+@@ -113,3 +113,5 @@ char *cg_escape(const char *p);
+ char *cg_unescape(const char *p) _pure_;
+ 
+ bool cg_controller_is_valid(const char *p, bool allow_named);
++
++const char *normalize_controller(const char *controller);

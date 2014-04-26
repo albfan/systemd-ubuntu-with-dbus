@@ -32,6 +32,7 @@ CONFFLAGS_deb = \
 	--enable-gtk-doc
 
 CONFFLAGS_udeb = \
+	--disable-cgmanager \
 	--disable-selinux \
 	--disable-introspection \
 	--disable-gtk-doc \
