@@ -56,3 +56,6 @@ sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
 hostnamectl-Exit-with-zero-on-success.patch
+
+## Ubuntu patches:
+Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
