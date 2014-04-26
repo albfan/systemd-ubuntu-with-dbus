@@ -351,11 +351,12 @@ Section: debug
 Priority: extra
 Depends: ${misc:Depends},
          systemd (= ${binary:Version}),
+         udev (= ${binary:Version}),
          libsystemd-login0 (= ${binary:Version}),
          libsystemd-daemon0 (= ${binary:Version}),
          libsystemd-journal0 (= ${binary:Version}),
          libsystemd-id128-0 (= ${binary:Version}),
-         python-systemd (= ${binary:Version})
+         libudev1 (= ${binary:Version})
 Description: system and service manager (debug symbols)
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -365,5 +366,5 @@ Description: system and service manager (debug symbols)
  not only depend on other init script being started, but also
  availability of a given mount point or dbus service.
  .
- This package contains the debugging symbols for systemd and related
- libraries.
+ This package contains the debugging symbols for systemd, udev and
+ related libraries.
