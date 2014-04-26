@@ -74,7 +74,10 @@ Breaks: lvm2 (<< 2.02.104-1),
         ifupdown (<< 0.8.5~),
         udev (<< 228-5),
 Replaces: udev (<< 228-5),
-Conflicts: klogd
+          systemd-services,
+Conflicts: klogd,
+           systemd-services,
+Provides: systemd-services
 Description: system and service manager
  systemd is a system and service manager for Linux. It provides aggressive
  parallelization capabilities, uses socket and D-Bus activation for starting
