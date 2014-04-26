@@ -49,3 +49,4 @@ Re-enable-journal-forwarding-to-syslog.patch
 
 ## Ubuntu patches:
 Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
+Support-system-image-read-only-etc.patch
