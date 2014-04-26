@@ -10,3 +10,6 @@ usr/share/man/man8/*udev*.8
 #usr/share/bash-completion/completions/udevadm
 usr/share/pkgconfig/udev.pc
 ../../extra/*.hwdb lib/udev/hwdb.d
+
+# Ubuntu
+../../extra/udev.py usr/share/apport/package-hooks

@@ -35,6 +35,7 @@ systemd (217-1ubuntu1) vivid; urgency=medium
       never supported them in Ubuntu.
     - Keep our much simpler udev maintainer scripts (all platforms must
       support udev, no debconf).
+    - Add udev Apport package hook.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 28 Nov 2014 16:26:18 +0100
 
