@@ -1,0 +1,37 @@
+From: =?utf-8?q?St=C3=A9phane_Graber?= <stgraber@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:35:52 +0200
+Subject: Enable all cgroup controllers in logind
+
+This changes the default logind configuration to enable all cgroup controllers.
+Doing so will result in a /user/$UID.user/cX.session cgroup being created for
+each of the listed controller with the cX.session entry belonging to the user.
+
+In the event that one of the listed controllers doesn't exist under
+/sys/fs/cgroup, logind will simply ignore it.  The list in this patch should be
+kept up to date as new cgroup controllers are added to the kernel and the
+distro (the config option unfortunately doesn't support wildcards).
+
+This configuration is required, almongst other things by LXC for unprivileged
+containers.
+
+Origin: vendor
+Forwarded: not-needed
+---
+ src/login/logind.conf | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/login/logind.conf b/src/login/logind.conf
+index 0861d73..a87278b 100644
+--- a/src/login/logind.conf
++++ b/src/login/logind.conf
+@@ -13,8 +13,8 @@
+ #KillUserProcesses=no
+ #KillOnlyUsers=
+ #KillExcludeUsers=root
+-#Controllers=
+-#ResetControllers=cpu
++Controllers=blkio cpu cpuacct cpuset devices freezer hugetlb memory perf_event
++ResetControllers=
+ #InhibitDelayMaxSec=5
+ #HandlePowerKey=poweroff
+ #HandleSuspendKey=suspend

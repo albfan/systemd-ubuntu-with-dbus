@@ -8,6 +8,8 @@ systemd (204-10ubuntu1) UNRELEASED; urgency=medium
     - Cherry-pick hwdb updates and the keymap builtin, and pull latest keymap
       hwdb from upstream trunk.
     - Fix FTBFS against recent kernels & glibc.
+    - Enable all cgroup controllers in logind, for unprivileged LXC
+      containers.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 22:13:02 +0200
 
