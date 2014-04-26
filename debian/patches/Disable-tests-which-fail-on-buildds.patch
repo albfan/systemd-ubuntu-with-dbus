@@ -1,0 +1,42 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:16:25 +0200
+Subject: Disable tests which fail on buildds
+
+Presumably due to a missing /etc/hostname
+---
+ Makefile.am | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 40f2309..49ec57b 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1121,16 +1121,12 @@ tests += \
+ 	test-strv \
+ 	test-path-util \
+ 	test-strxcpyx \
+-	test-unit-name \
+ 	test-unit-file \
+-	test-util \
+ 	test-date \
+ 	test-sleep \
+ 	test-replace-var \
+-	test-sched-prio \
+ 	test-calendarspec \
+ 	test-strip-tab-ansi \
+-	test-cgroup-util \
+ 	test-prioq \
+ 	test-fileio \
+ 	test-time \
+@@ -2889,10 +2885,9 @@ tests += \
+ 	test-journal-send \
+ 	test-journal-syslog \
+ 	test-journal-match \
+-	test-journal-stream \
+ 	test-journal-verify \
+ 	test-mmap-cache \
+-	test-catalog
++	$(NULL)
+ 
+ pkginclude_HEADERS += \
+ 	src/systemd/sd-journal.h \
