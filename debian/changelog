@@ -21,6 +21,9 @@ systemd (217-1ubuntu1) UNRELEASED; urgency=medium
     - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
       for those in plymouth.
 
+    Upgrade fixes, keep until 16.04 LTS release:
+    - systemd Conflicts/Replaces/Provides systemd-services.
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
 
 systemd (217-2) UNRELEASED; urgency=medium
