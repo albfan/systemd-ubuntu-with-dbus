@@ -47,6 +47,7 @@ systemd (217-1ubuntu1) vivid; urgency=medium
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
+    - Remove obsolete systemd-logind upstart job.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 28 Nov 2014 16:26:18 +0100
 
