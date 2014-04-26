@@ -3,6 +3,8 @@ systemd (219-7ubuntu1) UNRELEASED; urgency=medium
   * Merge with Debian experimental branch. Remaining Ubuntu changes:
     - Hack to support system-image read-only /etc, and modify files in
       /etc/writable/ instead.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 14:23:13 +0100
 
