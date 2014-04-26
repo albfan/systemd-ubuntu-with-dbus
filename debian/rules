@@ -86,7 +86,7 @@ override_dh_install:
 	rm -rf debian/install/*/usr/lib/kernel/install.d
 	rm -rf debian/install/*/etc/rpm/
 	rm -rf debian/install/*/etc/kernel/
-	rm debian/systemd/usr/lib/sysctl.d/50-default.conf
+	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	find debian/install/ -name '*.la' -delete
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
