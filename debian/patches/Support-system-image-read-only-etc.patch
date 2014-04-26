@@ -1,0 +1,153 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:49:32 +0200
+Subject: Support system-image read-only /etc
+
+On Ubuntu Phone with readonly /etc we symlink
+/etc/{adjtime,localtime,timezone,hostname,machine-info} to /etc/writable/, so
+we need to update those files instead if the original files are symlinks into
+/etc/writable/.
+
+Forwarded: OMGno, this is a rather nasty hack until we fix system-image to get a writable /etc
+Bug-Ubuntu: https://launchpad.net/bugs/1227520
+---
+ src/hostname/hostnamed.c | 28 ++++++++++++++++++++++++----
+ src/timedate/timedated.c | 31 +++++++++++++++++++++++++------
+ 2 files changed, 49 insertions(+), 10 deletions(-)
+
+diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
+index c37e32e..e3012c5 100644
+--- a/src/hostname/hostnamed.c
++++ b/src/hostname/hostnamed.c
+@@ -30,6 +30,7 @@
+ #include "hostname-util.h"
+ #include "parse-util.h"
+ #include "path-util.h"
++#include "fs-util.h"
+ #include "selinux-util.h"
+ #include "strv.h"
+ #include "user-util.h"
+@@ -75,6 +76,25 @@ static void context_free(Context *c) {
+         bus_verify_polkit_async_registry_free(c->polkit_registry);
+ }
+ 
++/* Hack for Ubuntu phone: check if path is an existing symlink to
++ * /etc/writable; if it is, update that instead */
++static const char* writable_filename(const char *path) {
++        ssize_t r;
++        static char realfile_buf[PATH_MAX];
++        _cleanup_free_ char *realfile = NULL;
++        const char *result = path;
++        int orig_errno = errno;
++
++        r = readlink_and_make_absolute(path, &realfile);
++        if (r >= 0 && startswith(realfile, "/etc/writable")) {
++                snprintf(realfile_buf, sizeof(realfile_buf), "%s", realfile);
++                result = realfile_buf;
++        }
++
++        errno = orig_errno;
++        return result;
++}
++
+ static int context_read_data(Context *c) {
+         int r;
+         struct utsname u;
+@@ -302,12 +322,12 @@ static int context_write_data_static_hostname(Context *c) {
+ 
+         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
+ 
+-                if (unlink("/etc/hostname") < 0)
++                if (unlink(writable_filename("/etc/hostname")) < 0)
+                         return errno == ENOENT ? 0 : -errno;
+ 
+                 return 0;
+         }
+-        return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
++        return write_string_file_atomic_label(writable_filename("/etc/hostname"), c->data[PROP_STATIC_HOSTNAME]);
+ }
+ 
+ static int context_write_data_machine_info(Context *c) {
+@@ -353,13 +373,13 @@ static int context_write_data_machine_info(Context *c) {
+         }
+ 
+         if (strv_isempty(l)) {
+-                if (unlink("/etc/machine-info") < 0)
++                if (unlink(writable_filename("/etc/machine-info")) < 0)
+                         return errno == ENOENT ? 0 : -errno;
+ 
+                 return 0;
+         }
+ 
+-        return write_env_file_label("/etc/machine-info", l);
++        return write_env_file_label(writable_filename("/etc/machine-info"), l);
+ }
+ 
+ static int property_get_icon_name(
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index 0d95316..520cb70 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -83,6 +83,25 @@ static int context_read_data(Context *c) {
+         return 0;
+ }
+ 
++/* Hack for Ubuntu phone: check if path is an existing symlink to
++ * /etc/writable; if it is, update that instead */
++static const char* writable_filename(const char *path) {
++        ssize_t r;
++        static char realfile_buf[PATH_MAX];
++        _cleanup_free_ char *realfile = NULL;
++        const char *result = path;
++        int orig_errno = errno;
++
++        r = readlink_and_make_absolute(path, &realfile);
++        if (r >= 0 && startswith(realfile, "/etc/writable")) {
++                snprintf(realfile_buf, sizeof(realfile_buf), "%s", realfile);
++                result = realfile_buf;
++        }
++
++        errno = orig_errno;
++        return result;
++}
++
+ static int context_write_data_timezone(Context *c) {
+         _cleanup_free_ char *p = NULL;
+         int r = 0;
+@@ -91,10 +110,10 @@ static int context_write_data_timezone(Context *c) {
+         assert(c);
+ 
+         if (isempty(c->zone)) {
+-                if (unlink("/etc/localtime") < 0 && errno != ENOENT)
++                if (unlink(writable_filename("/etc/localtime")) < 0 && errno != ENOENT)
+                         r = -errno;
+ 
+-                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
++                if (unlink(writable_filename("/etc/timezone")) < 0 && errno != ENOENT)
+                         r = -errno;
+ 
+                 return r;
+@@ -104,12 +123,12 @@ static int context_write_data_timezone(Context *c) {
+         if (!p)
+                 return log_oom();
+ 
+-        r = symlink_atomic(p, "/etc/localtime");
++        r = symlink_atomic(p, writable_filename("/etc/localtime"));
+         if (r < 0)
+                 return r;
+ 
+-        if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
+-                r = write_string_file("/etc/timezone", c->zone, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
++        if (stat(writable_filename("/etc/timezone"), &st) == 0 && S_ISREG(st.st_mode)) {
++                r = write_string_file(writable_filename("/etc/timezone"), c->zone, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+                 if (r < 0)
+                         return r;
+         }
+@@ -175,7 +194,7 @@ static int context_write_data_local_rtc(Context *c) {
+                 *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+ 
+                 if (streq(w, NULL_ADJTIME_UTC)) {
+-                        if (unlink("/etc/adjtime") < 0)
++                        if (unlink(writable_filename("/etc/adjtime")) < 0)
+                                 if (errno != ENOENT)
+                                         return -errno;
+ 
