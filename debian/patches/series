@@ -62,3 +62,4 @@ upstream-hwdb-updates.patch
 udev-add-builtin-keyboard-to-manage-key-mappings.patch
 Fix-FTBFS-against-recent-kernels-glibc.patch
 Enable-all-cgroup-controllers-in-logind.patch
+Fix-a-race-condition-at-boot-with-serio-devices.patch
