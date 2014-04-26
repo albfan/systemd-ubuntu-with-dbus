@@ -9,4 +9,8 @@ if ! mountpoint -q /sys/fs/cgroup/systemd; then
 fi
 mkdir -p /run/systemd
 
+# necessary for unprivileged LXC containers
+ulimit -S -n 16384 || true
+ulimit -H -n 16384 || true
+
 exec /lib/systemd/systemd-logind
