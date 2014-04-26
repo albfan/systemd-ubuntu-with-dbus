@@ -5,6 +5,8 @@
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+VERSION = $(shell dpkg-parsechangelog | sed -n -e '/^Version:/s/.*: //p')
+
 ifneq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 BOOTSTRAP_DH_FLAGS := -Ngir1.2-gudev-1.0 -Nlibgudev-1.0-0 -Nlibgudev-1.0-dev
 endif
@@ -227,3 +229,7 @@ ifeq (, $(findstring nocheck, $(DEB_BUILD_OPTIONS)))
 		for f in test-*.log; do echo "==== $$f ===="; cat $$f; done; \
 		exit 1; )
 endif
+
+override_dh_gencontrol:
+	# Ubuntu has an epoch on gudev
+	dh_gencontrol -plibgudev-1.0-0 -plibgudev-1.0-dev -pgir1.2-gudev-1.0 -- "-v1:$(VERSION)"
