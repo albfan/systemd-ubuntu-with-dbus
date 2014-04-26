@@ -524,3 +524,4 @@ tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 # Ubuntu patches:
 Add-env-variable-for-machine-ID-path.patch
 Disable-tests-which-fail-on-buildds.patch
+Fix-FTBFS-against-recent-kernels-glibc.patch
