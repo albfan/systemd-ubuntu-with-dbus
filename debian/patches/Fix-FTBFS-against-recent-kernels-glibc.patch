@@ -1,0 +1,20 @@
+From: Dimitri John Ledkov <xnox@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:32:02 +0200
+Subject: Fix FTBFS against recent kernels & glibc
+
+---
+ src/core/socket.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/core/socket.c b/src/core/socket.c
+index 1b08f0a..54a0e3b 100644
+--- a/src/core/socket.c
++++ b/src/core/socket.c
+@@ -29,6 +29,7 @@
+ #include <arpa/inet.h>
+ #include <mqueue.h>
+ #ifdef HAVE_XATTR
++#include <sys/xattr.h>
+ #include <attr/xattr.h>
+ #endif
+ 
