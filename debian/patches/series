@@ -46,3 +46,6 @@ Add-env-variable-for-machine-ID-path.patch
 sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
 Re-enable-journal-forwarding-to-syslog.patch
+
+## Ubuntu patches:
+Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
