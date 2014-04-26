@@ -1,0 +1,35 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd-random-seed-load.service</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd-random-seed-load.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-random-seed-load.service, systemd-random-seed-save.service, systemd-random-seed — Load and save the system random seed at boot and shutdown</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-random-seed-load.service</code></p><p><code class="filename">systemd-random-seed-save.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-random-seed</code></p></div><div class="refsect1"><a name="idm259770741616"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-random-seed-load.service</code>
+                is an early-boot service that restores the random seed
+                of the
+                system. <code class="filename">systemd-random-seed-save.service</code>
+                is a late-shutdown service that saves the random seed
+                of the system. See
+                <a href="random.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a>
+                for details. Saving/restoring the random seed across
+                boots increases the amount of available entropy early
+                at boot. On disk the random seed is stored in
+                <code class="filename">/var/lib/random-seed</code>.</p></div><div class="refsect1"><a name="idm259766975248"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="random.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a>
+                </p></div></div></body></html>

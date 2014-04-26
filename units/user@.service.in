@@ -1,0 +1,23 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=User Manager for %u
+After=systemd-user-sessions.service
+
+[Service]
+User=%I
+PAMName=systemd-shared
+# in order to allow MEM_CG features to work, add "memory:/" here
+ControlGroup=%R/user/%U.user/shared cpu:/
+ControlGroupModify=yes
+Type=notify
+ExecStart=-@rootlibexecdir@/systemd --user
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/dbus/user_bus_socket
+
+[Install]
+Alias=user@%i.service

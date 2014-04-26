@@ -1,0 +1,771 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd.unit</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.unit"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.unit — Unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+                <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
+                <code class="filename"><em class="replaceable"><code>device</code></em>.device</code>,
+                <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
+                <code class="filename"><em class="replaceable"><code>automount</code></em>.automount</code>,
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code>,
+                <code class="filename"><em class="replaceable"><code>target</code></em>.target</code>,
+                <code class="filename"><em class="replaceable"><code>path</code></em>.path</code>,
+                <code class="filename"><em class="replaceable"><code>timer</code></em>.timer</code>,
+                <code class="filename"><em class="replaceable"><code>snapshot</code></em>.snapshot</code></p><div class="literallayout"><p><code class="filename">/etc/systemd/system/*</code><br>
+<code class="filename">/run/systemd/system/*</code><br>
+<code class="filename">/usr/lib/systemd/system/*</code><br>
+<code class="filename">...</code><br>
+                </p></div><div class="literallayout"><p><code class="filename">/etc/systemd/user/*</code><br>
+<code class="filename">/run/systemd/user/*</code><br>
+<code class="filename">/usr/lib/systemd/user/*</code><br>
+<code class="filename">...</code><br>
+                </p></div></div><div class="refsect1"><a name="idm259770089184"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file encodes information
+                about a service, a socket, a device, a mount point, an
+                automount point, a swap file or partition, a start-up
+                target, a file system path, or a timer controlled and
+                supervised by
+                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>. The
+                syntax is inspired by <a class="ulink" href="http://standards.freedesktop.org/desktop-entry-spec/latest/" target="_top">XDG
+                Desktop Entry Specification</a> <code class="filename">.desktop</code> files, which are in turn
+                inspired by Microsoft Windows
+                <code class="filename">.ini</code> files.</p><p>This man page lists the common configuration
+                options of all the unit types. These options need to
+                be configured in the [Unit] or [Install]
+                sections of the unit files.</p><p>In addition to the generic [Unit] and [Install]
+                sections described here, each unit may have a
+                type-specific section, e.g. [Service] for a service
+                unit. See the respective man pages for more
+                information:
+                <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
+                <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>,
+                <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>,
+                <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
+                <a href="systemd.automount.html"><span class="citerefentry"><span class="refentrytitle">systemd.automount</span>(5)</span></a>,
+                <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>,
+                <a href="systemd.target.html"><span class="citerefentry"><span class="refentrytitle">systemd.target</span>(5)</span></a>,
+                <a href="systemd.path.html"><span class="citerefentry"><span class="refentrytitle">systemd.path</span>(5)</span></a>,
+                <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>,
+                <a href="systemd.snapshot.html"><span class="citerefentry"><span class="refentrytitle">systemd.snapshot</span>(5)</span></a>.
+                </p><p>Unit files are loaded from a set of paths
+                determined during compilation, described in the next section.
+                </p><p>Unit files may contain additional options on top
+                of those listed here. If systemd encounters an unknown
+                option it will write a warning log message but
+                continue loading the unit. If an option is prefixed
+                with <code class="option">X-</code> it is ignored completely by
+                systemd. Applications may use this to include
+                additional information in the unit files.</p><p>Boolean arguments used in unit files can be
+                written in various formats. For positive settings the
+                strings <code class="option">1</code>, <code class="option">yes</code>,
+                <code class="option">true</code> and <code class="option">on</code> are
+                equivalent. For negative settings the strings
+                <code class="option">0</code>, <code class="option">no</code>,
+                <code class="option">false</code> and <code class="option">off</code> are
+                equivalent.</p><p>Time span values encoded in unit files can be
+                written in various formats. A stand-alone number
+                specifies a time in seconds. If suffixed with a time
+                unit, the unit is honored. A concatenation of multiple
+                values with units is supported, in which case the
+                values are added up. Example: "50" refers to 50
+                seconds; "2min 200ms" refers to 2 minutes plus 200
+                milliseconds, i.e. 120200ms. The following time units
+                are understood: s, min, h, d, w, ms, us. For details
+                see
+                <a href="systemd.time.html"><span class="citerefentry"><span class="refentrytitle">systemd.time</span>(7)</span></a>.</p><p>Empty lines and lines starting with # or ; are
+                ignored. This may be used for commenting. Lines ending
+                in a backslash are concatenated with the following
+                line while reading and the backslash is replaced by a
+                space character. This may be used to wrap long lines.</p><p>Along with a unit file
+                <code class="filename">foo.service</code> the directory
+                <code class="filename">foo.service.wants/</code> may exist. All
+                unit files symlinked from such a directory are
+                implicitly added as dependencies of type
+                <code class="varname">Wanted=</code> to the unit. This is useful
+                to hook units into the start-up of other units,
+                without having to modify their unit files. For details
+                about the semantics of <code class="varname">Wanted=</code> see
+                below. The preferred way to create symlinks in the
+                <code class="filename">.wants/</code> directory of a unit file
+                is with the <span class="command"><strong>enable</strong></span> command of the
+                <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>
+                tool which reads information from the [Install]
+                section of unit files (see below). A similar
+                functionality exists for <code class="varname">Requires=</code>
+                type dependencies as well, the directory suffix is
+                <code class="filename">.requires/</code> in this case.</p><p>Along with a unit file
+                <code class="filename">foo.service</code> a directory
+                <code class="filename">foo.service.d/</code> may exist. All
+                files with the suffix <code class="filename">.conf</code> from
+                this directory will be parsed after the file itself is
+                parsed. This is useful to alter or add configuration
+                settings to a unit, without having to modify their
+                unit files. Make sure that the file that is included
+                has the appropriate section headers before any
+                directive.</p><p>If a line starts with <code class="option">.include</code>
+                followed by a file name, the specified file will be
+                parsed at this point. Make sure that the file that is
+                included has the appropriate section headers before
+                any directives.</p><p>Note that while systemd offers a flexible
+                dependency system between units it is recommended to
+                use this functionality only sparingly and instead rely
+                on techniques such as bus-based or socket-based
+                activation which make dependencies implicit, resulting
+                in a both simpler and more flexible system.</p><p>Some unit names reflect paths existing in the
+                file system name space. Example: a device unit
+                <code class="filename">dev-sda.device</code> refers to a device
+                with the device node <code class="filename">/dev/sda</code> in
+                the file system namespace. If this applies a special
+                way to escape the path name is used, so that the
+                result is usable as part of a file name. Basically,
+                given a path, "/" is replaced by "-", and all
+                unprintable characters and the "-" are replaced by
+                C-style "\x20" escapes. The root directory "/" is
+                encoded as single dash, while otherwise the initial
+                and ending "/" is removed from all paths during
+                transformation. This escaping is reversible.</p><p>Optionally, units may be instantiated from a
+                template file at runtime. This allows creation of
+                multiple units from a single configuration file. If
+                systemd looks for a unit configuration file it will
+                first search for the literal unit name in the
+                filesystem. If that yields no success and the unit
+                name contains an @ character, systemd will look for a
+                unit template that shares the same name but with the
+                instance string (i.e. the part between the @ character
+                and the suffix) removed. Example: if a service
+                <code class="filename">getty@tty3.service</code> is requested
+                and no file by that name is found, systemd will look
+                for <code class="filename">getty@.service</code> and
+                instantiate a service from that configuration file if
+                it is found.</p><p>To refer to the instance string from
+                within the configuration file you may use the special
+                <code class="literal">%i</code> specifier in many of the
+                configuration options. See below for details.</p><p>If a unit file is empty (i.e. has the file size
+                0) or is symlinked to <code class="filename">/dev/null</code>
+                its configuration will not be loaded and it appears
+                with a load state of <code class="literal">masked</code>, and
+                cannot be activated. Use this as an effective way to
+                fully disable a unit, making it impossible to start it
+                even manually.</p><p>The unit file format is covered by the
+                <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise" target="_top">Interface
+                Stability Promise</a>.</p></div><div class="refsect1"><a name="idm259770239584"></a><h2 id="Unit Load Path">Unit Load Path<a class="headerlink" title="Permalink to this headline" href="#Unit%20Load%20Path">¶</a></h2><p>Unit files are loaded from a set of paths
+                determined during compilation, described in the two
+                tables below. Unit files found in directories higher
+                in the hierarchy override files with the same name
+                lower in the hierarchy, thus allowing overrides.
+                </p><p>When systemd is running in user mode
+                (<code class="option">--user</code>) and the variable
+                <code class="varname">$SYSTEMD_UNIT_PATH</code> is set, this
+                contents of this variable overrides the unit load
+                path.
+                </p><div class="table"><a name="idm259770236848"></a><p class="title"><b>Table 1. 
+                    Load path when running in system mode (<code class="option">--system</code>).
+                  </b></p><div class="table-contents"><table summary="
+                    Load path when running in system mode (--system).
+                  " border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Path</th><th>Description</th></tr></thead><tbody><tr><td><code class="filename">/run/systemd/generator.early</code></td><td>Generated units (early)</td></tr><tr><td><code class="filename">/etc/systemd/system</code></td><td>Local configuration</td></tr><tr><td><code class="filename">/run/systemd/systemd</code></td><td>Volatile units</td></tr><tr><td><code class="filename">/run/systemd/generator</code></td><td>Generated units (middle)</td></tr><tr><td><code class="filename">/usr/local/lib/systemd/system</code></td><td>Units for local packages</td></tr><tr><td><code class="filename">/usr/lib/systemd/system</code></td><td>Units for installed packages</td></tr><tr><td><code class="filename">/run/systemd/generator.late</code></td><td>Generated units (late)</td></tr></tbody></table></div></div><br class="table-break"><div class="table"><a name="idm259770220320"></a><p class="title"><b>Table 2. 
+                    Load path when running in session mode (<code class="option">--user</code>).
+                  </b></p><div class="table-contents"><table summary="
+                    Load path when running in session mode (--user).
+                  " border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Path</th><th>Description</th></tr></thead><tbody><tr><td><code class="filename">/tmp/systemd-generator.early.<em class="replaceable"><code>XXXXXX</code></em></code></td><td>Generated units (early)</td></tr><tr><td><code class="filename">/etc/systemd/user</code></td><td>Local configuration</td></tr><tr><td><code class="filename">/run/systemd/user</code></td><td>Volatile units</td></tr><tr><td><code class="filename">/tmp/systemd-generator.<em class="replaceable"><code>XXXXXX</code></em></code></td><td>Generated units (middle)</td></tr><tr><td><code class="filename">/usr/local/lib/systemd/user</code></td><td>Units for local packages</td></tr><tr><td><code class="filename">/usr/lib/systemd/user</code></td><td>Units for installed packages</td></tr><tr><td><code class="filename">/tmp/systemd-generator.late.<em class="replaceable"><code>XXXXXX</code></em></code></td><td>Generated units (late)</td></tr></tbody></table></div></div><br class="table-break"><p>Additional units might be loaded into systemd
+                ("linked") from directories not on the unit load
+                path. See the <span class="command"><strong>link</strong></span> command for
+                <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>.
+                </p></div><div class="refsect1"><a name="idm259765544848"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Unit file may include a [Unit] section, which
+                carries generic information about the unit that is not
+                dependent on the type of unit:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A free-form string
+                                describing the unit. This is intended
+                                for use in UIs to show descriptive
+                                information along with the unit
+                                name.</p></dd><dt id="Documentation="><span class="term"><code class="varname">Documentation=</code></span><a class="headerlink" title="Permalink to this term" href="#Documentation=">¶</a></dt><dd><p>A space separated list
+                                of URIs referencing documentation for
+                                this unit or its
+                                configuration. Accepted are only URIs
+                                of the types
+                                <code class="literal">http://</code>,
+                                <code class="literal">https://</code>,
+                                <code class="literal">file:</code>,
+                                <code class="literal">info:</code>,
+                                <code class="literal">man:</code>. For more
+                                information about the syntax of these
+                                URIs see
+                                <a href="uri.html"><span class="citerefentry"><span class="refentrytitle">uri</span>(7)</span></a>. The
+                                URIs should be listed in order of
+                                relevance, starting with the most
+                                relevant. It is a good idea to first
+                                reference documentation that explains
+                                what the unit's purpose is, followed
+                                by how it is configured, followed by
+                                any other related documentation. This
+                                option may be specified more than once
+                                in which case the specified list of
+                                URIs is merged. If the empty string is
+                                assigned to this option the list is
+                                reset and all prior assignments will
+                                have no effect.</p></dd><dt id="Requires="><span class="term"><code class="varname">Requires=</code></span><a class="headerlink" title="Permalink to this term" href="#Requires=">¶</a></dt><dd><p>Configures requirement
+                                dependencies on other units. If this
+                                unit gets activated, the units listed
+                                here will be activated as well. If one
+                                of the other units gets deactivated or
+                                its activation fails, this unit will
+                                be deactivated. This option may be
+                                specified more than once, in which
+                                case requirement dependencies for all
+                                listed names are created. Note that
+                                requirement dependencies do not
+                                influence the order in which services
+                                are started or stopped. This has to be
+                                configured independently with the
+                                <code class="varname">After=</code> or
+                                <code class="varname">Before=</code> options. If
+                                a unit
+                                <code class="filename">foo.service</code>
+                                requires a unit
+                                <code class="filename">bar.service</code> as
+                                configured with
+                                <code class="varname">Requires=</code> and no
+                                ordering is configured with
+                                <code class="varname">After=</code> or
+                                <code class="varname">Before=</code>, then both
+                                units will be started simultaneously
+                                and without any delay between them if
+                                <code class="filename">foo.service</code> is
+                                activated. Often it is a better choice
+                                to use <code class="varname">Wants=</code>
+                                instead of
+                                <code class="varname">Requires=</code> in order
+                                to achieve a system that is more
+                                robust when dealing with failing
+                                services.</p><p>Note that dependencies of this
+                                type may also be configured outside of
+                                the unit configuration file by
+                                adding a symlink to a
+                                <code class="filename">.requires/</code> directory
+                                accompanying the unit file. For
+                                details see above.</p></dd><dt id="RequiresOverridable="><span class="term"><code class="varname">RequiresOverridable=</code></span><a class="headerlink" title="Permalink to this term" href="#RequiresOverridable=">¶</a></dt><dd><p>Similar to
+                                <code class="varname">Requires=</code>.
+                                Dependencies listed in
+                                <code class="varname">RequiresOverridable=</code>
+                                which cannot be fulfilled or fail to
+                                start are ignored if the startup was
+                                explicitly requested by the user. If
+                                the start-up was pulled in indirectly
+                                by some dependency or automatic
+                                start-up of units that is not
+                                requested by the user this dependency
+                                must be fulfilled and otherwise the
+                                transaction fails. Hence, this option
+                                may be used to configure dependencies
+                                that are normally honored unless the
+                                user explicitly starts up the unit, in
+                                which case whether they failed or not
+                                is irrelevant.</p></dd><dt id="Requisite="><span class="term"><code class="varname">Requisite=</code>, </span><span class="term"><code class="varname">RequisiteOverridable=</code></span><a class="headerlink" title="Permalink to this term" href="#Requisite=">¶</a></dt><dd><p>Similar to
+                                <code class="varname">Requires=</code>
+                                and <code class="varname">RequiresOverridable=</code>, respectively. However,
+                                if a unit listed here is not started
+                                already it will not be started and the
+                                transaction fails
+                                immediately.</p></dd><dt id="Wants="><span class="term"><code class="varname">Wants=</code></span><a class="headerlink" title="Permalink to this term" href="#Wants=">¶</a></dt><dd><p>A weaker version of
+                                <code class="varname">Requires=</code>. A unit
+                                listed in this option will be started
+                                if the configuring unit is. However,
+                                if the listed unit fails to start up
+                                or cannot be added to the transaction
+                                this has no impact on the validity of
+                                the transaction as a whole. This is
+                                the recommended way to hook start-up
+                                of one unit to the start-up of another
+                                unit.</p><p>Note that dependencies of this
+                                type may also be configured outside of
+                                the unit configuration file by
+                                adding a symlink to a
+                                <code class="filename">.wants/</code> directory
+                                accompanying the unit file. For
+                                details see above.</p></dd><dt id="BindsTo="><span class="term"><code class="varname">BindsTo=</code></span><a class="headerlink" title="Permalink to this term" href="#BindsTo=">¶</a></dt><dd><p>Configures requirement
+                                dependencies, very similar in style to
+                                <code class="varname">Requires=</code>, however
+                                in addition to this behavior it also
+                                declares that this unit is stopped
+                                when any of the units listed suddenly
+                                disappears. Units can suddenly,
+                                unexpectedly disappear if a service
+                                terminates on its own choice, a device
+                                is unplugged or a mount point
+                                unmounted without involvement of
+                                systemd.</p></dd><dt id="PartOf="><span class="term"><code class="varname">PartOf=</code></span><a class="headerlink" title="Permalink to this term" href="#PartOf=">¶</a></dt><dd><p>Configures dependencies
+                                similar to <code class="varname">Requires=</code>,
+                                but limited to stopping and restarting
+                                of units. When systemd stops or restarts
+                                the units listed here, the action is
+                                propagated to this unit.
+                                Note that this is a one way dependency -
+                                changes to this unit do not affect the
+                                listed units.
+                                </p></dd><dt id="Conflicts="><span class="term"><code class="varname">Conflicts=</code></span><a class="headerlink" title="Permalink to this term" href="#Conflicts=">¶</a></dt><dd><p>Configures negative
+                                requirement dependencies. If a unit
+                                has a
+                                <code class="varname">Conflicts=</code> setting
+                                on another unit, starting the former
+                                will stop the latter and vice
+                                versa. Note that this setting is
+                                independent of and orthogonal to the
+                                <code class="varname">After=</code> and
+                                <code class="varname">Before=</code> ordering
+                                dependencies.</p><p>If a unit A that conflicts with
+                                a unit B is scheduled to be started at
+                                the same time as B, the transaction
+                                will either fail (in case both are
+                                required part of the transaction) or
+                                be modified to be fixed (in case one
+                                or both jobs are not a required part
+                                of the transaction). In the latter
+                                case the job that is not the required
+                                will be removed, or in case both are
+                                not required the unit that conflicts
+                                will be started and the unit that is
+                                conflicted is
+                                stopped.</p></dd><dt id="Before="><span class="term"><code class="varname">Before=</code>, </span><span class="term"><code class="varname">After=</code></span><a class="headerlink" title="Permalink to this term" href="#Before=">¶</a></dt><dd><p>Configures ordering
+                                dependencies between units. If a unit
+                                <code class="filename">foo.service</code>
+                                contains a setting
+                                <code class="option">Before=bar.service</code>
+                                and both units are being started,
+                                <code class="filename">bar.service</code>'s
+                                start-up is delayed until
+                                <code class="filename">foo.service</code> is
+                                started up. Note that this setting is
+                                independent of and orthogonal to the
+                                requirement dependencies as configured
+                                by <code class="varname">Requires=</code>. It is
+                                a common pattern to include a unit
+                                name in both the
+                                <code class="varname">After=</code> and
+                                <code class="varname">Requires=</code> option in
+                                which case the unit listed will be
+                                started before the unit that is
+                                configured with these options. This
+                                option may be specified more than
+                                once, in which case ordering
+                                dependencies for all listed names are
+                                created. <code class="varname">After=</code> is
+                                the inverse of
+                                <code class="varname">Before=</code>, i.e. while
+                                <code class="varname">After=</code> ensures that
+                                the configured unit is started after
+                                the listed unit finished starting up,
+                                <code class="varname">Before=</code> ensures the
+                                opposite, i.e.  that the configured
+                                unit is fully started up before the
+                                listed unit is started. Note that when
+                                two units with an ordering dependency
+                                between them are shut down, the
+                                inverse of the start-up order is
+                                applied. i.e. if a unit is configured
+                                with <code class="varname">After=</code> on
+                                another unit, the former is stopped
+                                before the latter if both are shut
+                                down. If one unit with an ordering
+                                dependency on another unit is shut
+                                down while the latter is started up,
+                                the shut down is ordered before the
+                                start-up regardless whether the
+                                ordering dependency is actually of
+                                type <code class="varname">After=</code> or
+                                <code class="varname">Before=</code>. If two
+                                units have no ordering dependencies
+                                between them they are shut down
+                                or started up simultaneously, and
+                                no ordering takes
+                                place. </p></dd><dt id="OnFailure="><span class="term"><code class="varname">OnFailure=</code></span><a class="headerlink" title="Permalink to this term" href="#OnFailure=">¶</a></dt><dd><p>Lists one or more
+                                units that are activated when this
+                                unit enters the
+                                '<code class="literal">failed</code>'
+                                state.</p></dd><dt id="PropagatesReloadTo="><span class="term"><code class="varname">PropagatesReloadTo=</code>, </span><span class="term"><code class="varname">ReloadPropagatedFrom=</code></span><a class="headerlink" title="Permalink to this term" href="#PropagatesReloadTo=">¶</a></dt><dd><p>Lists one or more
+                                units where reload requests on the
+                                unit will be propagated to/on the
+                                other unit will be propagated
+                                from. Issuing a reload request on a
+                                unit will automatically also enqueue a
+                                reload request on all units that the
+                                reload request shall be propagated to
+                                via these two
+                                settings.</p></dd><dt id="RequiresMountsFor="><span class="term"><code class="varname">RequiresMountsFor=</code></span><a class="headerlink" title="Permalink to this term" href="#RequiresMountsFor=">¶</a></dt><dd><p>Takes a space
+                                separated list of absolute paths. Automatically
+                                adds dependencies of type
+                                <code class="varname">Requires=</code> and
+                                <code class="varname">After=</code> for all
+                                mount units required to access the
+                                specified path.</p></dd><dt id="OnFailureIsolate="><span class="term"><code class="varname">OnFailureIsolate=</code></span><a class="headerlink" title="Permalink to this term" href="#OnFailureIsolate=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code> the
+                                unit listed in
+                                <code class="varname">OnFailure=</code> will be
+                                enqueued in isolation mode, i.e. all
+                                units that are not its dependency will
+                                be stopped. If this is set only a
+                                single unit may be listed in
+                                <code class="varname">OnFailure=</code>. Defaults
+                                to
+                                <code class="option">false</code>.</p></dd><dt id="IgnoreOnIsolate="><span class="term"><code class="varname">IgnoreOnIsolate=</code></span><a class="headerlink" title="Permalink to this term" href="#IgnoreOnIsolate=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                this unit will not be stopped when
+                                isolating another unit. Defaults to
+                                <code class="option">false</code>.</p></dd><dt id="IgnoreOnSnapshot="><span class="term"><code class="varname">IgnoreOnSnapshot=</code></span><a class="headerlink" title="Permalink to this term" href="#IgnoreOnSnapshot=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                this unit will not be included in
+                                snapshots. Defaults to
+                                <code class="option">true</code> for device and
+                                snapshot units, <code class="option">false</code>
+                                for the others.</p></dd><dt id="StopWhenUnneeded="><span class="term"><code class="varname">StopWhenUnneeded=</code></span><a class="headerlink" title="Permalink to this term" href="#StopWhenUnneeded=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                this unit will be stopped when it is
+                                no longer used. Note that in order to
+                                minimize the work to be executed,
+                                systemd will not stop units by default
+                                unless they are conflicting with other
+                                units, or the user explicitly
+                                requested their shut down. If this
+                                option is set, a unit will be
+                                automatically cleaned up if no other
+                                active unit requires it. Defaults to
+                                <code class="option">false</code>.</p></dd><dt id="RefuseManualStart="><span class="term"><code class="varname">RefuseManualStart=</code>, </span><span class="term"><code class="varname">RefuseManualStop=</code></span><a class="headerlink" title="Permalink to this term" href="#RefuseManualStart=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                this unit can only be activated
+                                or deactivated indirectly. In
+                                this case explicit start-up
+                                or termination requested by the
+                                user is denied, however if it is
+                                started or stopped as a
+                                dependency of another unit, start-up
+                                or termination will succeed. This
+                                is mostly a safety feature to ensure
+                                that the user does not accidentally
+                                activate units that are not intended
+                                to be activated explicitly, and not
+                                accidentally deactivate units that are
+                                not intended to be deactivated.
+                                These options default to
+                                <code class="option">false</code>.</p></dd><dt id="AllowIsolate="><span class="term"><code class="varname">AllowIsolate=</code></span><a class="headerlink" title="Permalink to this term" href="#AllowIsolate=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                this unit may be used with the
+                                <span class="command"><strong>systemctl isolate</strong></span>
+                                command. Otherwise this will be
+                                refused. It probably is a good idea to
+                                leave this disabled except for target
+                                units that shall be used similar to
+                                runlevels in SysV init systems, just
+                                as a precaution to avoid unusable
+                                system states. This option defaults to
+                                <code class="option">false</code>.</p></dd><dt id="DefaultDependencies="><span class="term"><code class="varname">DefaultDependencies=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultDependencies=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>
+                                (the default), a few default
+                                dependencies will implicitly be
+                                created for the unit. The actual
+                                dependencies created depend on the
+                                unit type. For example, for service
+                                units, these dependencies ensure that
+                                the service is started only after
+                                basic system initialization is
+                                completed and is properly terminated on
+                                system shutdown. See the respective
+                                man pages for details. Generally, only
+                                services involved with early boot or
+                                late shutdown should set this option
+                                to <code class="option">false</code>. It is
+                                highly recommended to leave this
+                                option enabled for the majority of
+                                common units. If set to
+                                <code class="option">false</code> this option
+                                does not disable all implicit
+                                dependencies, just non-essential
+                                ones.</p></dd><dt id="JobTimeoutSec="><span class="term"><code class="varname">JobTimeoutSec=</code></span><a class="headerlink" title="Permalink to this term" href="#JobTimeoutSec=">¶</a></dt><dd><p>When clients are
+                                waiting for a job of this unit to
+                                complete, time out after the specified
+                                time. If this time limit is reached
+                                the job will be cancelled, the unit
+                                however will not change state or even
+                                enter the '<code class="literal">failed</code>'
+                                mode. This value defaults to 0 (job
+                                timeouts disabled), except for device
+                                units. NB: this timeout is independent
+                                from any unit-specific timeout (for
+                                example, the timeout set with
+                                <code class="varname">Timeout=</code> in service
+                                units) as the job timeout has no
+                                effect on the unit itself, only on the
+                                job that might be pending for it. Or
+                                in other words: unit-specific timeouts
+                                are useful to abort unit state
+                                changes, and revert them. The job
+                                timeout set with this option however
+                                is useful to abort only the job
+                                waiting for the unit state to
+                                change.</p></dd><dt id="ConditionPathExists="><span class="term"><code class="varname">ConditionPathExists=</code>, </span><span class="term"><code class="varname">ConditionPathExistsGlob=</code>, </span><span class="term"><code class="varname">ConditionPathIsDirectory=</code>, </span><span class="term"><code class="varname">ConditionPathIsSymbolicLink=</code>, </span><span class="term"><code class="varname">ConditionPathIsMountPoint=</code>, </span><span class="term"><code class="varname">ConditionPathIsReadWrite=</code>, </span><span class="term"><code class="varname">ConditionDirectoryNotEmpty=</code>, </span><span class="term"><code class="varname">ConditionFileNotEmpty=</code>, </span><span class="term"><code class="varname">ConditionFileIsExecutable=</code>, </span><span class="term"><code class="varname">ConditionKernelCommandLine=</code>, </span><span class="term"><code class="varname">ConditionVirtualization=</code>, </span><span class="term"><code class="varname">ConditionSecurity=</code>, </span><span class="term"><code class="varname">ConditionCapability=</code>, </span><span class="term"><code class="varname">ConditionHost=</code>, </span><span class="term"><code class="varname">ConditionACPower=</code>, </span><span class="term"><code class="varname">ConditionNull=</code></span><a class="headerlink" title="Permalink to this term" href="#ConditionPathExists=">¶</a></dt><dd><p>Before starting a unit
+                                verify that the specified condition is
+                                true. If it is not true the starting
+                                of the unit will be skipped, however
+                                all ordering dependencies of it are
+                                still respected. A failing condition
+                                will not result in the unit being
+                                moved into a failure state. The
+                                condition is checked at the time the
+                                queued start job is to be
+                                executed.</p><p>With
+                                <code class="varname">ConditionPathExists=</code>
+                                a file existence condition is
+                                checked before a unit is started. If
+                                the specified absolute path name does
+                                not exist the condition will
+                                fail. If the absolute path name passed
+                                to
+                                <code class="varname">ConditionPathExists=</code>
+                                is prefixed with an exclamation mark
+                                ('!'), the test is negated, and the unit
+                                is only started if the path does not
+                                exist.</p><p><code class="varname">ConditionPathExistsGlob=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>,
+                                but checks for the existence of at
+                                least one file or directory matching
+                                the specified globbing pattern.</p><p><code class="varname">ConditionPathIsDirectory=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists and is a
+                                directory.</p><p><code class="varname">ConditionPathIsSymbolicLink=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists and is a symbolic
+                                link.</p><p><code class="varname">ConditionPathIsMountPoint=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists and is a mount
+                                point.</p><p><code class="varname">ConditionPathIsReadWrite=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether the underlying
+                                file system is readable and writable
+                                (i.e. not mounted
+                                read-only).</p><p><code class="varname">ConditionDirectoryNotEmpty=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists and is a non-empty
+                                directory.</p><p><code class="varname">ConditionFileNotEmpty=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists and refers to a regular file
+                                with a non-zero size.</p><p><code class="varname">ConditionFileIsExecutable=</code>
+                                is similar to
+                                <code class="varname">ConditionPathExists=</code>
+                                but verifies whether a certain path
+                                exists, is a regular file and marked
+                                executable.</p><p>Similar,
+                                <code class="varname">ConditionKernelCommandLine=</code>
+                                may be used to check whether a
+                                specific kernel command line option is
+                                set (or if prefixed with the
+                                exclamation mark unset). The argument
+                                must either be a single word, or an
+                                assignment (i.e. two words, separated
+                                '='). In the former
+                                case the kernel command line is
+                                searched for the word appearing as is,
+                                or as left hand side of an
+                                assignment. In the latter case the
+                                exact assignment is looked for with
+                                right and left hand side
+                                matching.</p><p><code class="varname">ConditionVirtualization=</code>
+                                may be used to check whether the
+                                system is executed in a virtualized
+                                environment and optionally test
+                                whether it is a specific
+                                implementation. Takes either boolean
+                                value to check if being executed in
+                                any virtualized environment, or one of
+                                <code class="varname">vm</code> and
+                                <code class="varname">container</code> to test
+                                against a generic type of
+                                virtualization solution, or one of
+                                <code class="varname">qemu</code>,
+                                <code class="varname">kvm</code>,
+                                <code class="varname">vmware</code>,
+                                <code class="varname">microsoft</code>,
+                                <code class="varname">oracle</code>,
+                                <code class="varname">xen</code>,
+                                <code class="varname">bochs</code>,
+                                <code class="varname">chroot</code>,
+                                <code class="varname">openvz</code>,
+                                <code class="varname">lxc</code>,
+                                <code class="varname">lxc-libvirt</code>,
+                                <code class="varname">systemd-nspawn</code> to
+                                test against a specific
+                                implementation. If multiple
+                                virtualization technologies are nested
+                                only the innermost is considered. The
+                                test may be negated by prepending an
+                                exclamation mark.</p><p><code class="varname">ConditionSecurity=</code>
+                                may be used to check whether the given
+                                security module is enabled on the
+                                system.  Currently the only recognized
+                                values are <code class="varname">selinux</code>,
+                                <code class="varname">apparmor</code>, and
+                                <code class="varname">smack</code>.
+                                The test may be negated by prepending
+                                an exclamation
+                                mark.</p><p><code class="varname">ConditionCapability=</code>
+                                may be used to check whether the given
+                                capability exists in the capability
+                                bounding set of the service manager
+                                (i.e. this does not check whether
+                                capability is actually available in
+                                the permitted or effective sets, see
+                                <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
+                                for details). Pass a capability name
+                                such as <code class="literal">CAP_MKNOD</code>,
+                                possibly prefixed with an exclamation
+                                mark to negate the check.</p><p><code class="varname">ConditionHost=</code>
+                                may be used to match against the
+                                host name or machine ID of the
+                                host. This either takes a host name
+                                string (optionally with shell style
+                                globs) which is tested against the
+                                locally set host name as returned by
+                                <a href="gethostname.html"><span class="citerefentry"><span class="refentrytitle">gethostname</span>(2)</span></a>,
+                                or a machine ID formatted as string
+                                (see
+                                <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a>).
+                                The test may be negated by prepending
+                                an exclamation mark.</p><p><code class="varname">ConditionACPower=</code>
+                                may be used to check whether the
+                                system has AC power, or is exclusively
+                                battery powered at the time of
+                                activation of the unit. This takes a
+                                boolean argument. If set to
+                                <code class="varname">true</code> the condition
+                                will hold only if at least one AC
+                                connector of the system is connected
+                                to a power source, or if no AC
+                                connectors are known. Conversely, if
+                                set to <code class="varname">false</code> the
+                                condition will hold only if there is
+                                at least one AC connector known and
+                                all AC connectors are disconnected
+                                from a power source.</p><p>Finally,
+                                <code class="varname">ConditionNull=</code> may
+                                be used to add a constant condition
+                                check value to the unit. It takes a
+                                boolean argument. If set to
+                                <code class="varname">false</code> the condition
+                                will always fail, otherwise
+                                succeed.</p><p>If multiple conditions are
+                                specified the unit will be executed if
+                                all of them apply (i.e. a logical AND
+                                is applied). Condition checks can be
+                                prefixed with a pipe symbol (|) in
+                                which case a condition becomes a
+                                triggering condition. If at least one
+                                triggering condition is defined for a
+                                unit then the unit will be executed if
+                                at least one of the triggering
+                                conditions apply and all of the
+                                non-triggering conditions. If you
+                                prefix an argument with the pipe
+                                symbol and an exclamation mark the
+                                pipe symbol must be passed first, the
+                                exclamation second. Except for
+                                <code class="varname">ConditionPathIsSymbolicLink=</code>,
+                                all path checks follow symlinks. If
+                                any of these options is assigned the
+                                empty string the list of conditions is
+                                reset completely, all previous
+                                condition settings (of any kind) will
+                                have no effect.</p></dd><dt id="SourcePath="><span class="term"><code class="varname">SourcePath=</code></span><a class="headerlink" title="Permalink to this term" href="#SourcePath=">¶</a></dt><dd><p>A path to a
+                                configuration file this unit has been
+                                generated from. This is primarily
+                                useful for implementation of generator
+                                tools that convert configuration from
+                                an external configuration file format
+                                into native unit files. Thus
+                                functionality should not be used in
+                                normal units.</p></dd></dl></div><p>Unit file may include a [Install] section, which
+                carries installation information for the unit. This
+                section is not interpreted by
+                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
+                during runtime. It is used exclusively by the
+                <span class="command"><strong>enable</strong></span> and
+                <span class="command"><strong>disable</strong></span> commands of the
+                <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>
+                tool during installation of a unit:</p><div class="variablelist"><dl class="variablelist"><dt id="Alias="><span class="term"><code class="varname">Alias=</code></span><a class="headerlink" title="Permalink to this term" href="#Alias=">¶</a></dt><dd><p>Additional names this
+                                unit shall be installed under. The
+                                names listed here must have the same
+                                suffix (i.e. type) as the unit file
+                                name. This option may be specified
+                                more than once, in which case all
+                                listed names are used. At installation
+                                time,
+                                <span class="command"><strong>systemctl enable</strong></span>
+                                will create symlinks from these names
+                                to the unit file name.</p></dd><dt id="WantedBy="><span class="term"><code class="varname">WantedBy=</code>, </span><span class="term"><code class="varname">RequiredBy=</code></span><a class="headerlink" title="Permalink to this term" href="#WantedBy=">¶</a></dt><dd><p>Installs a symlink in
+                                the <code class="filename">.wants/</code>
+                                or <code class="filename">.requires/</code>
+                                subdirectory for a unit, respectively. This has the
+                                effect that when the listed unit name
+                                is activated the unit listing it is
+                                activated
+                                too. <span class="command"><strong>WantedBy=foo.service</strong></span>
+                                in a service
+                                <code class="filename">bar.service</code> is
+                                mostly equivalent to
+                                <span class="command"><strong>Alias=foo.service.wants/bar.service</strong></span>
+                                in the same file.</p></dd><dt id="Also="><span class="term"><code class="varname">Also=</code></span><a class="headerlink" title="Permalink to this term" href="#Also=">¶</a></dt><dd><p>Additional units to
+                                install/deinstall when this unit is
+                                installed/deinstalled. If the user
+                                requests installation/deinstallation
+                                of a unit with this option configured,
+                                <span class="command"><strong>systemctl enable</strong></span>
+                                and <span class="command"><strong>systemctl
+                                disable</strong></span> will automatically
+                                install/uninstall units listed in this option as
+                                well.</p></dd></dl></div><p>The following specifiers are interpreted in the
+                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b.
+                For their meaning see the next section.
+                </p></div><div class="refsect1"><a name="idm259765388784"></a><h2 id="Specifiers">Specifiers<a class="headerlink" title="Permalink to this headline" href="#Specifiers">¶</a></h2><p>Many settings resolve specifiers which may be
+                used to write generic unit files referring to runtime
+                or unit parameters that are replaced when the unit
+                files are loaded. The following specifiers are
+                understood:</p><div class="table"><a name="idm259765387472"></a><p class="title"><b>Table 3. Specifiers available in unit files</b></p><div class="table-contents"><table summary="Specifiers available in unit files" border="1"><colgroup><col align="left" class="spec"><col align="left" class="mean"><col align="left" class="detail"></colgroup><thead><tr><th align="left">Specifier</th><th align="left">Meaning</th><th align="left">Details</th></tr></thead><tbody><tr><td align="left"><code class="literal">%n</code></td><td align="left">Full unit name</td><td align="left"> </td></tr><tr><td align="left"><code class="literal">%N</code></td><td align="left">Unescaped full unit name</td><td align="left"> </td></tr><tr><td align="left"><code class="literal">%p</code></td><td align="left">Prefix name</td><td align="left">For instantiated units this refers to the string before the @. For non-instantiated units this refers to to the name of the unit with the type suffix removed.</td></tr><tr><td align="left"><code class="literal">%P</code></td><td align="left">Unescaped prefix name</td><td align="left"> </td></tr><tr><td align="left"><code class="literal">%i</code></td><td align="left">Instance name</td><td align="left">For instantiated units: this is the string between the @ character and the suffix.</td></tr><tr><td align="left"><code class="literal">%I</code></td><td align="left">Unescaped instance name</td><td align="left"> </td></tr><tr><td align="left"><code class="literal">%f</code></td><td align="left">Unescaped file name</td><td align="left">This is either the unescaped instance name (if applicable) with <code class="filename">/</code> prepended (if applicable), or the prefix name similarly prepended with <code class="filename">/</code>.</td></tr><tr><td align="left"><code class="literal">%c</code></td><td align="left">Control group path of the unit</td><td align="left"> </td></tr><tr><td align="left"><code class="literal">%r</code></td><td align="left">Root control group path where units are placed.</td><td align="left">For system instances this usually resolves to <code class="filename">/system</code>, except in containers, where the path might be prefixed with the container's root control group.</td></tr><tr><td align="left"><code class="literal">%R</code></td><td align="left">Parent directory of the control group path where units are placed.</td><td align="left">For system instances this usually resolves to <code class="filename">/</code>, except in containers, where this resolves to the container's root directory. This specifier is particularly useful in the <code class="varname">ControlGroup=</code> setting (see <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>).</td></tr><tr><td align="left"><code class="literal">%t</code></td><td align="left">Runtime socket dir</td><td align="left">This is either <code class="filename">/run</code> (for the system manager) or <code class="literal">$XDG_RUNTIME_DIR</code> (for user managers).</td></tr><tr><td align="left"><code class="literal">%u</code></td><td align="left">User name</td><td align="left">This is the name of the configured user of the unit, or (if none is set) the user running the systemd instance.</td></tr><tr><td align="left"><code class="literal">%U</code></td><td align="left">User UID</td><td align="left">This is the UID of the configured user of the unit, or (if none is set) the user running the systemd instance.</td></tr><tr><td align="left"><code class="literal">%h</code></td><td align="left">User home directory</td><td align="left">This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance.</td></tr><tr><td align="left"><code class="literal">%s</code></td><td align="left">User shell</td><td align="left">This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance.  If the user is <code class="literal">root</code> (UID equal to 0), the shell configured in account database is ignored and <code class="filename">/bin/sh</code> is always used.</td></tr><tr><td align="left"><code class="literal">%m</code></td><td align="left">Machine ID</td><td align="left">The machine ID of the running system, formatted as string. See <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a> for more information.</td></tr><tr><td align="left"><code class="literal">%b</code></td><td align="left">Boot ID</td><td align="left">The boot ID of the running system, formatted as string. See <a href="random.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a> for more information.</td></tr><tr><td align="left"><code class="literal">%H</code></td><td align="left">Host name</td><td align="left">The host name of the running system.</td></tr><tr><td align="left"><code class="literal">%%</code></td><td align="left">Escaped %</td><td align="left">Single percent sign.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect1"><a name="idm259765336960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
+                        <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>,
+                        <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
+                        <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>,
+                        <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>,
+                        <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
+                        <a href="systemd.automount.html"><span class="citerefentry"><span class="refentrytitle">systemd.automount</span>(5)</span></a>,
+                        <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>,
+                        <a href="systemd.target.html"><span class="citerefentry"><span class="refentrytitle">systemd.target</span>(5)</span></a>,
+                        <a href="systemd.path.html"><span class="citerefentry"><span class="refentrytitle">systemd.path</span>(5)</span></a>,
+                        <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>,
+                        <a href="systemd.snapshot.html"><span class="citerefentry"><span class="refentrytitle">systemd.snapshot</span>(5)</span></a>,
+                        <a href="systemd.time.html"><span class="citerefentry"><span class="refentrytitle">systemd.time</span>(7)</span></a>,
+                        <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>,
+                        <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
+                </p></div></div></body></html>
