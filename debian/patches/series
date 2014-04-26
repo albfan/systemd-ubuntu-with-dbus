@@ -531,3 +531,4 @@ Add-support-for-TuxOnIce-hibernation.patch
 # Ubuntu patches:
 Add-env-variable-for-machine-ID-path.patch
 Disable-tests-which-fail-on-buildds.patch
+Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
