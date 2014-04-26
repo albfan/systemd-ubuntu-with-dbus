@@ -4,6 +4,7 @@ systemd (204-10) UNRELEASED; urgency=medium
   * systemd-logind-launch: Set the #files ulimit, for unprivileged LXC
     containers.
   * Drop udev.NEWS, it only applies to pre-squeeze.
+  * Remove /var/log/udev on purge.
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 26 Apr 2014 22:28:07 +0200
 
