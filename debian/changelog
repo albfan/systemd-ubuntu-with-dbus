@@ -15,6 +15,8 @@ systemd (215-6ubuntu1) UNRELEASED; urgency=medium
     - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
       sensible way with wait-for-root. Will get applicable to Debian once
       Debian gets wait-for-root in initramfs-tools.
+    - debian/extra/initramfs.bottom: If LVM is installed, settle udev,
+      otherwise we get missing LV symlinks. Workaround for LP #1185394.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
 
