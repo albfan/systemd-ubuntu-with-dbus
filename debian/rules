@@ -88,7 +88,7 @@ override_dh_install:
 	rm -rf debian/install/*/etc/kernel/
 	find debian/install/ -name '*.la' -delete
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
-	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb
+	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
 	# install some files manually, --sourcedir makes that necessary
 	# udev-udeb
 	install -D --mode=755 debian/extra/udev.startup \
