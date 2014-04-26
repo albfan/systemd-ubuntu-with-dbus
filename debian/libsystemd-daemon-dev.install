@@ -1,6 +1,7 @@
 usr/lib/*/libsystemd-daemon.so
 usr/lib/*/pkgconfig/libsystemd-daemon.pc
 usr/include/systemd/sd-daemon.h
+usr/include/systemd/sd-shutdown.h
 usr/share/man/man3/sd-daemon.3
 usr/share/man/man3/SD_EMERG.3
 usr/share/man/man3/SD_ALERT.3
