@@ -51,3 +51,4 @@
 0051-Updates-to-default-device-permissions.patch
 0052-Set-default-polling-interval-on-removable-devices-as.patch
 0053-Make-sd_login_monitor_new-work-for-logind-without-sy.patch
+0054-logind-if-a-user-is-sitting-in-front-of-the-computer.patch

@@ -38,6 +38,8 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Set default polling interval on removable devices as well, for kernels
     which have "block" built in instead of being a module. (Closes: #713877)
   * Make sd_login_monitor_new() work for logind without systemd.
+  * Cherry-pick upstream fix for polkit permissions for rebooting with
+    multiple sessions.
 
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases
