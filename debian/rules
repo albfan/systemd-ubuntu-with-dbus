@@ -82,6 +82,8 @@ override_dh_install:
 	rm -f debian/install/*/var/log/README
 	rm -f debian/install/*/etc/init.d/README
 	rm -f debian/install/*/usr/share/man/man8/kernel-install.8
+	rm -f debian/install/*/usr/bin/kernel-install
+	rm -rf debian/install/*/usr/lib/kernel/install.d
 	rm -rf debian/install/*/etc/rpm/
 	rm -rf debian/install/*/etc/kernel/
 	find debian/install/ -name '*.la' -delete
