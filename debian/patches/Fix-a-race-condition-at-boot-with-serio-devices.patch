@@ -1,0 +1,21 @@
+From: Eric Miao <eric.miao@canonical.com>
+Date: Sat, 26 Apr 2014 23:42:11 +0200
+Subject: Fix a race condition at boot with serio devices
+
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1014460
+---
+ rules/80-drivers.rules | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
+index c65ea15..4750499 100644
+--- a/rules/80-drivers.rules
++++ b/rules/80-drivers.rules
+@@ -9,6 +9,7 @@ SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN{builtin}="kmod load tifm_ms"
+ SUBSYSTEM=="memstick", RUN{builtin}="kmod load ms_block mspro_block"
+ SUBSYSTEM=="i2o", RUN{builtin}="kmod load i2o_block"
+ SUBSYSTEM=="module", KERNEL=="parport_pc", RUN{builtin}="kmod load ppdev"
++SUBSYSTEM=="serio", ENV{MODALIAS}=="?*", RUN{builtin}="kmod load $env{MODALIAS}"
+ KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", RUN{builtin}="kmod load sm_ftl"
+ SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="kmod sg"
+ 
