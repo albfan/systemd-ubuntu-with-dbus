@@ -39,6 +39,8 @@ systemd (204-9) UNRELEASED; urgency=medium
     obsolete with devtmpfs (which is required now), and doesn't run with
     systemd or upstart anyway.
   * Drop unnecessary udev.dirs.
+  * Add autopkgtests for smoke-testing logind, hostnamed, timedated, localed,
+    and a compile/link/run test against libsystemd-login-dev.
 
   [ Marco d'Itri ]
   * preinst: check for all the system calls required by modern releases
