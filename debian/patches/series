@@ -50,3 +50,4 @@
 0050-Load-sg-module-from-80-drivers.rules.patch
 0051-Updates-to-default-device-permissions.patch
 0052-Set-default-polling-interval-on-removable-devices-as.patch
+0053-Make-sd_login_monitor_new-work-for-logind-without-sy.patch
