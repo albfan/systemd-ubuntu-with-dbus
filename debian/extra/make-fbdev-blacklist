@@ -31,6 +31,7 @@ while read file; do
       # This is needed for text consoles on OLPC XO-1, and it used to be
       # built-in anyway.
       ;;
+    viafb) ;; # Needed by OLPC XO-1.5
     *)
       /sbin/modinfo $file | grep -q '^alias: *pci:' \
 	&& echo blacklist $name || true
