@@ -527,3 +527,7 @@ core-transaction-fix-cycle-break-attempts-outside-tr.patch
 tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Add-support-for-TuxOnIce-hibernation.patch
+
+# Ubuntu patches:
+Add-env-variable-for-machine-ID-path.patch
+Disable-tests-which-fail-on-buildds.patch
