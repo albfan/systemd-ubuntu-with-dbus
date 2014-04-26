@@ -63,3 +63,6 @@ path_is_mount_point-handle-false-positive-on-some-fs.patch
 syslog-Increase-max_dgram_qlen-by-pulling-in-systemd.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Add-fsckd-po-files.patch
+
+## Ubuntu patches:
+Support-system-image-read-only-etc.patch
