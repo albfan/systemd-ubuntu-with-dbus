@@ -22,6 +22,9 @@ systemd (204-9) UNRELEASED; urgency=medium
     pt_chown (not available on all architectures). Thanks Adam Conrad.
   * Add new block of Windows Azure ethernet hardware address to
     75-persistent-net-generator.rules. (LP: #1274348)
+  * Drop our Debian specific 60-persistent-storage{,-tape}.rules and use the
+    upstream rules. They are compatible and do a superset of the
+    functionality.
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
