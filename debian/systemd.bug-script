@@ -1,6 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
 REPORTBUG_VERSION=$(dpkg-query -f '${source:Version}' -W reportbug)
+
 
 # Depending on whether reportbug is new enough, we either write the output of
 # our various commands to a file and attach them to the report (this needs
@@ -29,7 +30,11 @@ if dpkg --compare-versions "$REPORTBUG_VERSION" ge "6.5.0"; then
         echo "$DIR/dsh-enabled.txt" >&3
     fi
 
-    echo "/etc/fstab" >&3
+    yesno "Do you want to provide fstab information [Y|n]? " yep
+    if [ "$REPLY" = yep ]; then
+        echo "/etc/fstab" >&3
+    fi
+
     echo "-- END ATTACHMENTS --" >&3
 else
     _header() {
