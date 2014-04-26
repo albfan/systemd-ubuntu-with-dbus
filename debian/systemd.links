@@ -61,3 +61,6 @@
 # Mount separate tmpfs file systems for /run/user and /run/lock
 /lib/systemd/system/run-user.mount /lib/systemd/system/local-fs.target.wants/run-user.mount
 /lib/systemd/system/run-lock.mount /lib/systemd/system/local-fs.target.wants/run-lock.mount
+
+# Create a compat symlink as systemd-sysctl no longer reads /etc/sysctl.conf
+/etc/sysctl.conf /etc/sysctl.d/99-sysctl.conf
