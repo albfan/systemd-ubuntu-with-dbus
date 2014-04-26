@@ -20,6 +20,8 @@ systemd (204-10ubuntu1) UNRELEASED; urgency=medium
     - Don't build the systemd-sysv package for now.
     - Drop 80-networking.rules and the Debian *.agent scripts, we never
       supported them in Ubuntu.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 22:13:02 +0200
 
