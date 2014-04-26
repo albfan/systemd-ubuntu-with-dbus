@@ -12,6 +12,8 @@ systemd (208-7ubuntu1) UNRELEASED; urgency=medium
     - debian/rules: Add an epoch to libgudev.
     - Drop 80-networking.rules and the Debian *.agent scripts, we never
       supported them in Ubuntu.
+    - Keep our much simpler udev maintainer scripts (all platforms must
+      support udev, no debconf).
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 17:29:00 +0200
 
