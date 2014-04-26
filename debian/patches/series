@@ -36,3 +36,6 @@ cgroup-don-t-trim-cgroup-trees-created-by-someone-el.patch
 fsckd-daemon-for-inter-fsckd-communication.patch
 Skip-filesystem-check-if-already-done-by-the-initram.patch
 Revert-core-one-step-back-again-for-nspawn-we-actual.patch
+
+## Ubuntu patches:
+Support-system-image-read-only-etc.patch
