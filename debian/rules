@@ -182,9 +182,6 @@ override_dh_install:
 		debian/extra/rule_generator.functions \
 		debian/udev/lib/udev/
 	install -D --mode=755 \
-		debian/extra/dsl-modem.agent \
-		debian/extra/logger.agent \
-		debian/extra/net.agent \
 		debian/extra/udev-finish \
 		debian/extra/write_net_rules \
 		debian/udev/lib/udev/
