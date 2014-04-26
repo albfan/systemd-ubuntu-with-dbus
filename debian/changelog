@@ -25,6 +25,10 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Drop our Debian specific 60-persistent-storage{,-tape}.rules and use the
     upstream rules. They are compatible and do a superset of the
     functionality.
+  * Drop our Debian specific 80-drivers.rules and use the upstream rules with
+    a patch for the sg module (see #657948). These now stop calling modprobe
+    and use the kmod builtin, giving some nice boot speed improvement.
+    (Closes: #717404)
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 

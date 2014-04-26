@@ -9,3 +9,4 @@ lib/udev/rules.d/60-persistent-input.rules
 lib/udev/rules.d/60-persistent-storage.rules
 lib/udev/rules.d/64-btrfs.rules
 lib/udev/rules.d/75-probe_mtd.rules
+lib/udev/rules.d/80-drivers.rules

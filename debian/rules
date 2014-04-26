@@ -100,7 +100,6 @@ override_dh_install:
 		debian/extra/rules/50-udev-default.rules \
 		debian/extra/rules/75-cd-aliases-generator.rules \
 		debian/extra/rules/75-persistent-net-generator.rules \
-		debian/extra/rules/80-drivers.rules \
 		debian/extra/rules/91-permissions.rules \
 		debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 debian/extra/links.conf \

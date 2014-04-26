@@ -47,3 +47,4 @@
 0047-ignore-chkconfig-headers-entirely-they-are-often-bro.patch
 0048-Fix-mounting-of-remote-filesystems-like-NFS.patch
 0049-Order-remote-fs.target-after-local-fs.target.patch
+0050-Load-sg-module-from-80-drivers.rules.patch
