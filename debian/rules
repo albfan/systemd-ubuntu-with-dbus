@@ -215,7 +215,7 @@ override_dh_installdocs:
 	dh_installdocs --remaining-packages
 
 override_dh_installinit:
-	dh_installinit --no-start
+	dh_installinit -R --no-start
 	dh_installinit --name=udev-finish --no-start
 	# the following are only upstart jobs
 	dh_installinit --name=udevtrigger --noscripts
