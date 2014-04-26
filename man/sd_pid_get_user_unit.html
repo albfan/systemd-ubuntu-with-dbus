@@ -1,0 +1,90 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>sd_pid_get_session</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="sd_pid_get_session"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_pid_get_session, sd_pid_get_unit, sd_pid_get_user_unit, sd_pid_get_owner_uid, sd_pid_get_machine_name — Determine session, service, owner of a session or container/VM of a specific PID</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_pid_get_session</b>(</code></td><td>pid_t <var class="pdparam">pid</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">session</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_pid_get_unit</b>(</code></td><td>pid_t <var class="pdparam">pid</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">unit</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_pid_get_user_unit</b>(</code></td><td>pid_t <var class="pdparam">pid</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">unit</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_pid_get_owner_uid</b>(</code></td><td>pid_t <var class="pdparam">pid</var>, </td></tr><tr><td> </td><td>uid_t* <var class="pdparam">uid</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_pid_get_machine_name</b>(</code></td><td>pid_t <var class="pdparam">pid</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">name</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm259781218496"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_pid_get_session()</code> may be
+                used to determine the login session identifier of a
+                process identified by the specified process
+                identifier. The session identifier is a short string,
+                suitable for usage in file system paths. Note that not
+                all processes are part of a login session (e.g. system
+                service processes, user processes that are shared
+                between multiple sessions of the same user, or kernel
+                threads). For processes not being part of a login
+                session this function will fail. The returned string
+                needs to be freed with the libc
+                <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
+                call after use.</p><p><code class="function">sd_pid_get_unit()</code> may be
+                used to determine the systemd system unit (i.e. system
+                service) identifier of a process identified by the
+                specified PID. The unit name is a short string,
+                suitable for usage in file system paths. Note that not
+                all processes are part of a system unit/service
+                (e.g. user processes, or kernel threads). For
+                processes not being part of a systemd system unit this
+                function will fail. (More specifically: this call will
+                not work for processes that are part of user units,
+                use <code class="function">sd_pid_get_user_unit()</code> for
+                that.) The returned string needs to be freed with the
+                libc
+                <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
+                call after use.</p><p><code class="function">sd_pid_get_user_unit()</code> may
+                be used to determine the systemd user unit (i.e. user
+                service) identifier of a process identified by the
+                specified PID. This is similar to
+                <code class="function">sd_pid_get_unit()</code> but applies to
+                user units instead of system units.</p><p><code class="function">sd_pid_get_owner_uid()</code> may
+                be used to determine the Unix user identifier of the
+                owner of the session of a process identified the
+                specified PID. Note that this function will succeed
+                for user processes which are shared between multiple
+                login sessions of the same user, where
+                <code class="function">sd_pid_get_session()</code> will
+                fail. For processes not being part of a login session
+                and not being a shared process of a user this function
+                will fail.</p><p><code class="function">sd_pid_machine_name()</code> may
+                be used to determine the name of the VM or container
+                is a member of. The machine name is a short string,
+                suitable for usage in file system paths. The returned
+                string needs to be freed with the libc
+                <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
+                call after use.</p><p>If the <code class="literal">pid</code> parameter of any
+                of these functions is passed as 0 the operation is
+                executed for the calling process.</p></div><div class="refsect1"><a name="idm259785104832"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On success these calls return 0 or a positive
+                integer. On failure, these calls return a negative
+                errno-style error code.</p></div><div class="refsect1"><a name="idm259785103472"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_pid_get_session()</code>,
+                <code class="function">sd_pid_get_unit()</code>,
+                <code class="function">sd_pid_get_user_unit()</code>,
+                <code class="function">sd_pid_get_owner_uid()</code> and
+                <code class="function">sd_pid_get_machine_name()</code>
+                interfaces are available as shared library, which can
+                be compiled and linked to with the
+                <code class="literal">libsystemd-login</code>
+                <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                file.</p><p>Note that the login session identifier as
+                returned by <code class="function">sd_pid_get_session()</code>
+                is completely unrelated to the process session
+                identifier as returned by
+                <a href="getsid.html"><span class="citerefentry"><span class="refentrytitle">getsid</span>(2)</span></a>.</p></div><div class="refsect1"><a name="idm259785087648"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="sd-login.html"><span class="citerefentry"><span class="refentrytitle">sd-login</span>(3)</span></a>,
+                        <a href="sd_session_is_active.html"><span class="citerefentry"><span class="refentrytitle">sd_session_is_active</span>(3)</span></a>,
+                        <a href="getsid.html"><span class="citerefentry"><span class="refentrytitle">getsid</span>(2)</span></a>
+                </p></div></div></body></html>
