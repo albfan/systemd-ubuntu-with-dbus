@@ -1,9 +1,5 @@
 systemd (204-9) UNRELEASED; urgency=medium
 
-  [ Michael Biebl ]
-  * Do not send potentially private fstab information without prior user
-    confirmation. (Closes: #743158)
-
   [ Steve Langasek ]
   * Do proper refcounting of the PAM module package on prerm, so that we
     don't drop the module from the PAM config when uninstalling a
@@ -60,6 +56,8 @@ systemd (204-9) UNRELEASED; urgency=medium
     need logind functionality should depend on libpam-systemd.
 
   [ Michael Biebl ]
+  * Do not send potentially private fstab information without prior user
+    confirmation. (Closes: #743158)
   * Add support for LSB facilities defined by insserv.
     Parse /etc/insserv.conf.d content and /etc/insserv.conf and generate
     systemd unit drop-in files to add corresponding dependencies. Also ship
