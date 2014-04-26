@@ -56,6 +56,9 @@ systemd (204-9) UNRELEASED; urgency=medium
     (Closes: #655924)
   * Fix write_net_rules for systemd and sysvinit users by copying the
     temporary rules from /run/udev/ to /etc/udev/. (Closes: #735563)
+  * Do not install sysctl.d/50-default.conf because the systemd package
+    should not change kernel policies, at least until it will become
+    the only supported init system.
 
   [ Michael Stapelberg ]
   * Add systemd-dbg package, thanks Daniel Schaal (Closes: #742724).

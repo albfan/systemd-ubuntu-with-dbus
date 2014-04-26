@@ -37,7 +37,6 @@
 0037-Make-net.ifnames-opt-in-instead-of-opt-out.patch
 0038-Don-t-move-libgudev-to-lib.patch
 0039-Use-different-default-paths-for-various-binaries.patch
-0040-Remove-kernel.sysrq-setting-from-sysctl.d-50-default.patch
 0041-pam-Check-XDG_RUNTIME_DIR-owner.patch
 0042-Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch
 0043-Avoid-reloading-services-when-shutting-down.patch
