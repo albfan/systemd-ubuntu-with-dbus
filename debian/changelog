@@ -11,6 +11,7 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
       never supported them in Ubuntu.
     - Keep our much simpler udev maintainer scripts (all platforms must
       support udev, no debconf).
+    - Add udev Apport package hook.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
