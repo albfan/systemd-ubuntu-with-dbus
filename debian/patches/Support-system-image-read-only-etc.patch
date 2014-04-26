@@ -1,0 +1,190 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Sat, 26 Apr 2014 23:49:32 +0200
+Subject: Support system-image read-only /etc
+
+On Ubuntu Phone with readonly /etc we symlink
+/etc/{adjtime,localtime,timezone,hostname,machine-info} to /etc/writable/, so
+we need to update those files instead if the original files are symlinks into
+/etc/writable/.
+
+Forwarded: OMGno, this is a rather nasty hack until we get a clean solution for an /etc overlay
+Bug-Ubuntu: https://launchpad.net/bugs/1227520
+---
+ src/hostname/hostnamed.c | 34 +++++++++++++++++++++++++++-------
+ src/timedate/timedated.c | 37 ++++++++++++++++++++++++++++---------
+ 2 files changed, 55 insertions(+), 16 deletions(-)
+
+diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
+index 0437e33..9ff1f98 100644
+--- a/src/hostname/hostnamed.c
++++ b/src/hostname/hostnamed.c
+@@ -108,6 +108,26 @@ static void free_data(void) {
+         }
+ }
+ 
++/* Hack for Ubuntu phone: check if path is an existing symlink to
++ * /etc/writable; if it is, update that instead */
++static const char* writable_filename(const char *path) {
++        ssize_t r;
++        static char realfile_buf[PATH_MAX];
++        _cleanup_free_ char *realfile = NULL;
++        const char *result = path;
++        int orig_errno = errno;
++
++        r = readlink_and_make_absolute(path, &realfile);
++        if (r >= 0 && startswith(realfile, "/etc/writable")) {
++                snprintf(realfile_buf, sizeof(realfile_buf), "%s", realfile);
++                result = realfile_buf;
++        }
++
++        errno = orig_errno;
++        return result;
++}
++
++
+ static int read_data(void) {
+         int r;
+ 
+@@ -117,11 +137,11 @@ static int read_data(void) {
+         if (!data[PROP_HOSTNAME])
+                 return -ENOMEM;
+ 
+-        r = read_one_line_file("/etc/hostname", &data[PROP_STATIC_HOSTNAME]);
++        r = read_one_line_file(writable_filename("/etc/hostname"), &data[PROP_STATIC_HOSTNAME]);
+         if (r < 0 && r != -ENOENT)
+                 return r;
+ 
+-        r = parse_env_file("/etc/machine-info", NEWLINE,
++        r = parse_env_file(writable_filename("/etc/machine-info"), NEWLINE,
+                            "PRETTY_HOSTNAME", &data[PROP_PRETTY_HOSTNAME],
+                            "ICON_NAME", &data[PROP_ICON_NAME],
+                            "CHASSIS", &data[PROP_CHASSIS],
+@@ -284,12 +304,12 @@ static int write_data_static_hostname(void) {
+ 
+         if (isempty(data[PROP_STATIC_HOSTNAME])) {
+ 
+-                if (unlink("/etc/hostname") < 0)
++                if (unlink(writable_filename("/etc/hostname")) < 0)
+                         return errno == ENOENT ? 0 : -errno;
+ 
+                 return 0;
+         }
+-        return write_string_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
++        return write_string_file_atomic_label(writable_filename("/etc/hostname"), data[PROP_STATIC_HOSTNAME]);
+ }
+ 
+ static int write_data_other(void) {
+@@ -303,7 +323,7 @@ static int write_data_other(void) {
+         char **l = NULL;
+         int r, p;
+ 
+-        r = load_env_file("/etc/machine-info", NULL, &l);
++        r = load_env_file(writable_filename("/etc/machine-info"), NULL, &l);
+         if (r < 0 && r != -ENOENT)
+                 return r;
+ 
+@@ -333,13 +353,13 @@ static int write_data_other(void) {
+ 
+         if (strv_isempty(l)) {
+ 
+-                if (unlink("/etc/machine-info") < 0)
++                if (unlink(writable_filename("/etc/machine-info")) < 0)
+                         return errno == ENOENT ? 0 : -errno;
+ 
+                 return 0;
+         }
+ 
+-        r = write_env_file_label("/etc/machine-info", l);
++        r = write_env_file_label(writable_filename("/etc/machine-info"), l);
+         strv_free(l);
+ 
+         return r;
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index 467f567..8bbc457 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -105,6 +105,25 @@ static void free_data(void) {
+         tz.local_rtc = false;
+ }
+ 
++/* Hack for Ubuntu phone: check if path is an existing symlink to
++ * /etc/writable; if it is, update that instead */
++static const char* writable_filename(const char *path) {
++        ssize_t r;
++        static char realfile_buf[PATH_MAX];
++        _cleanup_free_ char *realfile = NULL;
++        const char *result = path;
++        int orig_errno = errno;
++
++        r = readlink_and_make_absolute(path, &realfile);
++        if (r >= 0 && startswith(realfile, "/etc/writable")) {
++                snprintf(realfile_buf, sizeof(realfile_buf), "%s", realfile);
++                result = realfile_buf;
++        }
++
++        errno = orig_errno;
++        return result;
++}
++
+ static bool valid_timezone(const char *name) {
+         const char *p;
+         char *t;
+@@ -247,7 +266,7 @@ static int read_data(void) {
+ 
+         free_data();
+ 
+-        r = readlink_malloc("/etc/localtime", &t);
++        r = readlink_malloc(writable_filename("/etc/localtime"), &t);
+         if (r < 0) {
+                 if (r == -EINVAL)
+                         log_warning("/etc/localtime should be a symbolic link to a timezone data file in /usr/share/zoneinfo/.");
+@@ -295,25 +314,25 @@ static int write_data_timezone(void) {
+         struct stat st;
+ 
+         if (!tz.zone) {
+-                if (unlink("/etc/localtime") < 0 && errno != ENOENT)
++                if (unlink(writable_filename("/etc/localtime")) < 0 && errno != ENOENT)
+                         r = -errno;
+ 
+-                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
++                if (unlink(writable_filename("/etc/timezone")) < 0 && errno != ENOENT)
+                         r = -errno;
+ 
+                 return r;
+         }
+ 
+-        p = strappend("../usr/share/zoneinfo/", tz.zone);
++        p = strappend("/usr/share/zoneinfo/", tz.zone);
+         if (!p)
+                 return log_oom();
+ 
+-        r = symlink_or_copy_atomic(p, "/etc/localtime");
++        r = symlink_or_copy_atomic(p, writable_filename("/etc/localtime"));
+         if (r < 0)
+                 return r;
+ 
+-        if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
+-                r = write_string_file_atomic("/etc/timezone", tz.zone);
++        if (stat(writable_filename("/etc/timezone"), &st) == 0 && S_ISREG(st.st_mode)) {
++                r = write_string_file_atomic(writable_filename("/etc/timezone"), tz.zone);
+                 if (r < 0)
+                         return r;
+         }
+@@ -364,7 +383,7 @@ static int write_data_local_rtc(void) {
+                 *(char*) mempcpy(stpcpy(mempcpy(w, s, a), tz.local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
+ 
+                 if (streq(w, NULL_ADJTIME_UTC)) {
+-                        if (unlink("/etc/adjtime") < 0)
++                        if (unlink(writable_filename("/etc/adjtime")) < 0)
+                                 if (errno != ENOENT)
+                                         return -errno;
+ 
+@@ -372,7 +391,7 @@ static int write_data_local_rtc(void) {
+                 }
+         }
+         label_init("/etc");
+-        return write_string_file_atomic_label("/etc/adjtime", w);
++        return write_string_file_atomic_label(writable_filename("/etc/adjtime"), w);
+ }
+ 
+ static char** get_ntp_services(void) {
