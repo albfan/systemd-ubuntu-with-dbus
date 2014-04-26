@@ -25,7 +25,7 @@ make_extra_nodes
 
 udevadm trigger --action=add
 
-mount /dev/pts
+mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 udevadm settle || true
 
