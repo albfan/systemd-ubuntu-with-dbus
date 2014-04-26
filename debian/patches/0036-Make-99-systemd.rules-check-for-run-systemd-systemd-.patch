@@ -1,0 +1,21 @@
+From: Tollef Fog Heen <tfheen@err.no>
+Date: Mon, 28 Oct 2013 14:31:37 +0100
+Subject: Make 99-systemd.rules check for /run/systemd/systemd instead of the
+ ill-named cgroups directory.
+
+---
+ rules/99-systemd.rules.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index d17bdd9..b523b35 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -6,6 +6,7 @@
+ #  (at your option) any later version.
+ 
+ ACTION=="remove", GOTO="systemd_end"
++TEST!="/run/systemd/system", GOTO="systemd_end"
+ 
+ SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*", TAG+="systemd"
+ 

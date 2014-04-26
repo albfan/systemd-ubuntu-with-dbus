@@ -1,0 +1,26 @@
+From: Michael Stapelberg <michael@stapelberg.de>
+Date: Sat, 10 Aug 2013 11:06:06 +0200
+Subject: =?utf-8?q?systemctl=3A_don=E2=80=99t_skip_native_units_when_enabl?=
+ =?utf-8?q?ing/disabling_sysv_units?=
+
+---
+ src/systemctl/systemctl.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index aaad4fa..53d0612 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -4080,8 +4080,10 @@ static int enable_sysv_units(char **args) {
+                 if (!found_sysv)
+                         continue;
+ 
+-                /* Mark this entry, so that we don't try enabling it as native unit */
+-                args[f] = (char*) "";
++                if (!found_native) {
++                        /* Mark this entry, so that we don't try enabling it as native unit */
++                        args[f] = (char*) "";
++                }
+ 
+                 log_info("Synchronizing state for %s with sysvinit using update-rc.d...", name);
+ 

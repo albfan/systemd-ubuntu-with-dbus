@@ -1,0 +1,216 @@
+From: Michael Biebl <biebl@debian.org>
+Date: Thu, 18 Jul 2013 20:07:31 +0200
+Subject: Revert "service: ignore dependencies on $syslog and $local_fs in LSB
+ scripts"
+
+This reverts commit 5d4caf565471ff3401bd9b53aa814c8545a18a93.
+
+Since we added back support for rcS style services, we re-add support for
+$local_fs, too.
+---
+ Makefile.am                   |  1 +
+ man/systemd.special.xml       | 35 +++++++++++++++++++++++++++++++++++
+ src/core/service.c            | 16 +++++++++-------
+ src/core/special.h            |  3 ++-
+ units/syslog.socket           |  5 ++++-
+ units/syslog.target           | 19 +++++++++++++++++++
+ units/systemd-journald.socket |  2 +-
+ 7 files changed, 71 insertions(+), 10 deletions(-)
+ create mode 100644 units/syslog.target
+
+diff --git a/Makefile.am b/Makefile.am
+index 48cfba6..6944fbc 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -404,6 +404,7 @@ dist_systemunit_DATA = \
+ 	units/quotaon.service \
+ 	units/systemd-ask-password-wall.path \
+ 	units/systemd-ask-password-console.path \
++	units/syslog.target \
+ 	units/systemd-udevd-control.socket \
+ 	units/systemd-udevd-kernel.socket \
+ 	units/system-update.target \
+diff --git a/man/systemd.special.xml b/man/systemd.special.xml
+index 7164b1e..036b6e5 100644
+--- a/man/systemd.special.xml
++++ b/man/systemd.special.xml
+@@ -97,6 +97,7 @@
+                 <filename>swap.target</filename>,
+                 <filename>sysinit.target</filename>,
+                 <filename>syslog.socket</filename>,
++                <filename>syslog.target</filename>,
+                 <filename>system-update.target</filename>,
+                 <filename>time-sync.target</filename>,
+                 <filename>timers.target</filename>,
+@@ -363,6 +364,27 @@
+                                         that have the
+                                         <option>auto</option> mount
+                                         option set.</para>
++
++                                        <para>systemd automatically
++                                        adds dependencies of type
++                                        After for this target unit to
++                                        all SysV init script service
++                                        units with an LSB header
++                                        referring to the
++                                        <literal>$local_fs</literal>
++                                        facility.</para>
++                                </listitem>
++                        </varlistentry>
++                        <varlistentry>
++                                <term><filename>local-fs-pre.target</filename></term>
++                                <listitem>
++                                        <para>This target unit is
++                                        automatically ordered before
++                                        all local mount points marked
++                                        with <option>auto</option>
++                                        (see above). It can be used to
++                                        execute certain units before
++                                        all local mounts.</para>
+                                 </listitem>
+                         </varlistentry>
+                         <varlistentry>
+@@ -671,6 +693,19 @@
+                                 </listitem>
+                         </varlistentry>
+                         <varlistentry>
++                                <term><filename>syslog.target</filename></term>
++                                <listitem>
++                                        <para>systemd automatically
++                                        adds dependencies of type
++                                        After for this target unit to
++                                        all SysV init script service
++                                        units with an LSB header
++                                        referring to the
++                                        <literal>$syslog</literal>
++                                        facility.</para>
++                                </listitem>
++                        </varlistentry>
++                        <varlistentry>
+                                 <term><filename>system-update.target</filename></term>
+                                 <listitem>
+                                         <para>A special target unit
+diff --git a/src/core/service.c b/src/core/service.c
+index 3617c24..06fa127 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -324,8 +324,7 @@ static void service_done(Unit *u) {
+ static char *sysv_translate_name(const char *name) {
+         char *r;
+ 
+-        r = new(char, strlen(name) + sizeof(".service"));
+-        if (!r)
++        if (!(r = new(char, strlen(name) + sizeof(".service"))))
+                 return NULL;
+ 
+         if (endswith(name, ".sh"))
+@@ -348,12 +347,16 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+ 
+         static const char * const table[] = {
+                 /* LSB defined facilities */
+-                "local_fs",             NULL,
++                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
++                /* Due to unfortunate name selection in Mandriva,
++                 * $network is provided by network-up which is ordered
++                 * after network which actually starts interfaces.
++                 * To break the loop, just ignore it */
+                 "network",              SPECIAL_NETWORK_TARGET,
+                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
+                 "portmap",              SPECIAL_RPCBIND_TARGET,
+                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
+-                "syslog",               NULL,
++                "syslog",               SPECIAL_SYSLOG_TARGET,
+                 "time",                 SPECIAL_TIME_SYNC_TARGET,
+         };
+ 
+@@ -374,9 +377,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+                 if (!table[i+1])
+                         return 0;
+ 
+-                r = strdup(table[i+1]);
+-                if (!r)
+-                        return log_oom();
++                if (!(r = strdup(table[i+1])))
++                        return -ENOMEM;
+ 
+                 goto finish;
+         }
+diff --git a/src/core/special.h b/src/core/special.h
+index a9b50bc..6865c04 100644
+--- a/src/core/special.h
++++ b/src/core/special.h
+@@ -48,7 +48,7 @@
+ #define SPECIAL_SOCKETS_TARGET "sockets.target"
+ #define SPECIAL_TIMERS_TARGET "timers.target"
+ #define SPECIAL_PATHS_TARGET "paths.target"
+-#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
++#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
+ #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
+ #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
+ #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
+@@ -62,6 +62,7 @@
+ #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
+ #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
+ #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
++#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog */
+ #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
+ 
+ /*
+diff --git a/units/syslog.socket b/units/syslog.socket
+index e6e9cf8..c784357 100644
+--- a/units/syslog.socket
++++ b/units/syslog.socket
+@@ -10,11 +10,14 @@ Description=Syslog Socket
+ Documentation=man:systemd.special(7)
+ Documentation=http://www.freedesktop.org/wiki/Software/systemd/syslog
+ DefaultDependencies=no
+-Before=sockets.target shutdown.target
++Before=sockets.target syslog.target shutdown.target
+ 
+ # Don't allow logging until the very end
+ Conflicts=shutdown.target
+ 
++# Pull in syslog.target to tell people that /dev/log is now accessible
++Wants=syslog.target
++
+ [Socket]
+ ListenDatagram=/run/systemd/journal/syslog
+ SocketMode=0666
+diff --git a/units/syslog.target b/units/syslog.target
+new file mode 100644
+index 0000000..423fef3
+--- /dev/null
++++ b/units/syslog.target
+@@ -0,0 +1,19 @@
++#  This file is part of systemd.
++#
++#  systemd is free software; you can redistribute it and/or modify it
++#  under the terms of the GNU Lesser General Public License as published by
++#  the Free Software Foundation; either version 2.1 of the License, or
++#  (at your option) any later version.
++
++# This exists mostly for compatibility with SysV/LSB units, and
++# implementations lacking socket/bus activation.
++
++[Unit]
++Description=Syslog
++Documentation=man:systemd.special(7)
++Documentation=http://www.freedesktop.org/wiki/Software/systemd/syslog
++
++# Avoid that we conflict with shutdown.target, so that we can stay
++# until the very end and do not cancel shutdown.target if we should
++# happen to be activated very late.
++DefaultDependencies=no
+diff --git a/units/systemd-journald.socket b/units/systemd-journald.socket
+index 4f0619d..dbe8882 100644
+--- a/units/systemd-journald.socket
++++ b/units/systemd-journald.socket
+@@ -9,7 +9,7 @@
+ Description=Journal Socket
+ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+ DefaultDependencies=no
+-Before=sockets.target
++Before=sockets.target syslog.target
+ 
+ # Mount and swap units need this. If this socket unit is removed by an
+ # isolate request the mount and and swap units would be removed too,

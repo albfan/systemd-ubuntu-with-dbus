@@ -1,0 +1,78 @@
+From: Michael Stapelberg <michael@stapelberg.de>
+Date: Mon, 29 Jul 2013 22:01:21 +0200
+Subject: Make systemctl enable/disable call update-rc.d for sysv init scripts
+ (#709780)
+
+---
+ src/systemctl/systemctl.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 3cca861..a008517 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -4008,7 +4008,6 @@ static int set_environment(DBusConnection *bus, char **args) {
+ static int enable_sysv_units(char **args) {
+         int r = 0;
+ 
+-#if defined(HAVE_SYSV_COMPAT) && defined(HAVE_CHKCONFIG)
+         const char *verb = args[0];
+         unsigned f = 1, t = 1;
+         LookupPaths paths = {};
+@@ -4017,8 +4016,9 @@ static int enable_sysv_units(char **args) {
+                 return 0;
+ 
+         if (!streq(verb, "enable") &&
+-            !streq(verb, "disable") &&
+-            !streq(verb, "is-enabled"))
++            !streq(verb, "disable"))
++            // update-rc.d currently does not provide is-enabled
++            //!streq(verb, "is-enabled"))
+                 return 0;
+ 
+         /* Processes all SysV units, and reshuffles the array so that
+@@ -4034,7 +4034,7 @@ static int enable_sysv_units(char **args) {
+                 _cleanup_free_ char *p = NULL, *q = NULL;
+                 bool found_native = false, found_sysv;
+                 unsigned c = 1;
+-                const char *argv[6] = { "/sbin/chkconfig", NULL, NULL, NULL, NULL };
++                const char *argv[6] = { "/usr/sbin/update-rc.d", NULL, NULL, NULL, NULL };
+                 char **k, *l;
+                 int j;
+                 pid_t pid;
+@@ -4067,9 +4067,6 @@ static int enable_sysv_units(char **args) {
+                                 break;
+                 }
+ 
+-                if (found_native)
+-                        continue;
+-
+                 if (!isempty(arg_root))
+                         asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
+                 else
+@@ -4088,15 +4085,10 @@ static int enable_sysv_units(char **args) {
+                 /* Mark this entry, so that we don't try enabling it as native unit */
+                 args[f] = (char*) "";
+ 
+-                log_info("%s is not a native service, redirecting to /sbin/chkconfig.", name);
+-
+-                if (!isempty(arg_root))
+-                        argv[c++] = q = strappend("--root=", arg_root);
++                log_info("%s is not a native service, redirecting to /usr/sbin/update-rc.d.", name);
+ 
+                 argv[c++] = path_get_file_name(p);
+-                argv[c++] =
+-                        streq(verb, "enable") ? "on" :
+-                        streq(verb, "disable") ? "off" : "--level=5";
++                argv[c++] = streq(verb, "enable") ? "defaults" : "remove";
+                 argv[c] = NULL;
+ 
+                 l = strv_join((char**)argv, " ");
+@@ -4162,7 +4154,6 @@ finish:
+ 
+         args[t] = NULL;
+ 
+-#endif
+         return r;
+ }
+ 

@@ -1,0 +1,127 @@
+From: Michael Stapelberg <stapelberg@debian.org>
+Date: Wed, 27 Nov 2013 22:48:47 +0100
+Subject: =?utf-8?q?timedated=3A_don=E2=80=99t_rely_on_/usr_being_mounted_i?=
+ =?utf-8?q?n_the_initrd?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+This reverts commit 92c4ef2d357baeef78b6f82f119b92f7ed12ac77
+
+We don’t have /usr mounted in the initramfs yet in Debian, so let’s
+support split usr by copying the file instead of symlinking if
+necessary, for now.
+
+Closes: #726256
+---
+ src/timedate/timedated.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 89 insertions(+), 1 deletion(-)
+
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index c183438..467f567 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -153,6 +153,94 @@ static bool valid_timezone(const char *name) {
+         return true;
+ }
+ 
++static int symlink_or_copy(const char *from, const char *to) {
++        char *pf = NULL, *pt = NULL;
++        struct stat a, b;
++        int r;
++
++        assert(from);
++        assert(to);
++
++        if (path_get_parent(from, &pf) < 0 ||
++            path_get_parent(to, &pt) < 0) {
++                r = -ENOMEM;
++                goto finish;
++        }
++
++        if (stat(pf, &a) < 0 ||
++            stat(pt, &b) < 0) {
++                r = -errno;
++                goto finish;
++        }
++
++        if (a.st_dev != b.st_dev) {
++                free(pf);
++                free(pt);
++
++                return copy_file(from, to);
++        }
++
++        if (symlink(from, to) < 0) {
++                r = -errno;
++                goto finish;
++        }
++
++        r = 0;
++
++finish:
++        free(pf);
++        free(pt);
++
++        return r;
++}
++
++static int symlink_or_copy_atomic(const char *from, const char *to) {
++        char *t, *x;
++        const char *fn;
++        size_t k;
++        unsigned long long ull;
++        unsigned i;
++        int r;
++
++        assert(from);
++        assert(to);
++
++        t = new(char, strlen(to) + 1 + 16 + 1);
++        if (!t)
++                return -ENOMEM;
++
++        fn = path_get_file_name(to);
++        k = fn-to;
++        memcpy(t, to, k);
++        t[k] = '.';
++        x = stpcpy(t+k+1, fn);
++
++        ull = random_ull();
++        for (i = 0; i < 16; i++) {
++                *(x++) = hexchar(ull & 0xF);
++                ull >>= 4;
++        }
++
++        *x = 0;
++
++        r = symlink_or_copy(from, t);
++        if (r < 0) {
++                unlink(t);
++                free(t);
++                return r;
++        }
++
++        if (rename(t, to) < 0) {
++                r = -errno;
++                unlink(t);
++                free(t);
++                return r;
++        }
++
++        free(t);
++        return r;
++}
++
+ static int read_data(void) {
+         int r;
+         _cleanup_free_ char *t = NULL;
+@@ -220,7 +308,7 @@ static int write_data_timezone(void) {
+         if (!p)
+                 return log_oom();
+ 
+-        r = symlink_atomic(p, "/etc/localtime");
++        r = symlink_or_copy_atomic(p, "/etc/localtime");
+         if (r < 0)
+                 return r;
+ 

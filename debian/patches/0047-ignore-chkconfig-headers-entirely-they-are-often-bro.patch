@@ -1,0 +1,35 @@
+From: Michael Stapelberg <stapelberg@debian.org>
+Date: Sat, 1 Mar 2014 10:28:15 +0100
+Subject: ignore chkconfig headers entirely, they are often broken in Debian
+
+Closes: #634472
+---
+ src/core/service.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index 2d420c1..9377a81 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -628,6 +628,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
+ 
+                         /* Try to parse Red Hat style chkconfig headers */
+ 
++/* chkconfig headers are often broken in Debian, see
++ * http://bugs.debian.org/634472, so we ignore them entirely. */
++#if 0
+                         if (startswith_no_case(t, "chkconfig:")) {
+                                 int start_priority;
+                                 char runlevels[16], *k;
+@@ -669,7 +672,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
+                                         s->sysv_runlevels = d;
+                                 }
+ 
+-                        } else if (startswith_no_case(t, "description:")) {
++                        } else
++#endif
++
++if (startswith_no_case(t, "description:")) {
+ 
+                                 size_t k = strlen(t);
+                                 char *d;

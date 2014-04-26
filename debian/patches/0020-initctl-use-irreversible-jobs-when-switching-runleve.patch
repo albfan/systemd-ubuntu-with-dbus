@@ -1,0 +1,22 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 23 Jul 2013 22:01:39 -0400
+Subject: initctl: use irreversible jobs when switching runlevels
+
+Spotted by uau in #systemd.
+---
+ src/initctl/initctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/initctl/initctl.c b/src/initctl/initctl.c
+index 735f1e1..5fbce4a 100644
+--- a/src/initctl/initctl.c
++++ b/src/initctl/initctl.c
+@@ -122,7 +122,7 @@ static void change_runlevel(Server *s, int runlevel) {
+         if (isolate)
+                 mode = "isolate";
+         else
+-                mode = "replace";
++                mode = "replace-irreversibly";
+ 
+         log_debug("Running request %s/start/%s", target, mode);
+ 

@@ -1,0 +1,44 @@
+From: Michael Stapelberg <michael@stapelberg.de>
+Date: Thu, 8 Aug 2013 15:50:41 -0400
+Subject: =?utf-8?q?Don=E2=80=99t_mount_/tmp_as_tmpfs_by_default?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+…by adding an [Install] section to tmp.mount and removing the
+local-fs.target.wants symlink.
+
+Users can use “systemctl enable tmp.mount” to enable mounting /tmp after
+the next reboot and “systemctl start tmp.mount” to get /tmp mounted as
+tmpfs right now (beware, files currently in /tmp will not be visible
+anymore afterwards).
+---
+ Makefile.am     | 3 +--
+ units/tmp.mount | 3 +++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 3a196a6..cabb303 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -4050,8 +4050,7 @@ SHUTDOWN_TARGET_WANTS += \
+ 	systemd-update-utmp-shutdown.service
+ LOCAL_FS_TARGET_WANTS += \
+ 	systemd-remount-fs.service \
+-	systemd-fsck-root.service \
+-	tmp.mount
++	systemd-fsck-root.service
+ MULTI_USER_TARGET_WANTS += \
+ 	getty.target \
+ 	systemd-ask-password-wall.path
+diff --git a/units/tmp.mount b/units/tmp.mount
+index 99a3ba3..3b4d6f8 100644
+--- a/units/tmp.mount
++++ b/units/tmp.mount
+@@ -18,3 +18,6 @@ What=tmpfs
+ Where=/tmp
+ Type=tmpfs
+ Options=mode=1777,strictatime
++
++[Install]
++WantedBy=local-fs.target

@@ -1,0 +1,26 @@
+From: Michael Stapelberg <stapelberg@debian.org>
+Date: Sat, 21 Dec 2013 18:49:10 +0100
+Subject: =?utf-8?q?don=E2=80=99t_try_to_start_autovt_units_when_not_runnin?=
+ =?utf-8?q?g_with_systemd_as_pid_1?=
+
+Closes: #726466
+---
+ src/login/logind.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/login/logind.c b/src/login/logind.c
+index 5a39440..f415c6b 100644
+--- a/src/login/logind.c
++++ b/src/login/logind.c
+@@ -978,6 +978,11 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
+             (unsigned) vtnr != m->reserve_vt)
+                 return 0;
+ 
++        /* It only makes sense to send a StartUnit call to systemd if this
++         * machine is actually booted with systemd. */
++        if (!sd_booted())
++                return 0;
++
+         if ((unsigned) vtnr != m->reserve_vt) {
+                 /* If this is the reserved TTY, we'll start the getty
+                  * on it in any case, but otherwise only if it is not

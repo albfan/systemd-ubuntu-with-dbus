@@ -1,0 +1,93 @@
+From: Michael Biebl <biebl@debian.org>
+Date: Thu, 18 Jul 2013 20:11:02 +0200
+Subject: Add back support for Debian specific config files
+
+For now fallback to read the locale settings from /etc/default/locale.
+
+This reverts the Debian specific bits from
+46a2911bf2780f616396df5671dd901cc7cb54fd
+99f861310d3f05f4e86cb9582a94b891dbb3382b
+---
+ src/core/locale-setup.c  | 21 +++++++++++++++++++++
+ src/timedate/timedated.c | 18 ++++++++++++++++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
+index d7113b9..ac922f1 100644
+--- a/src/core/locale-setup.c
++++ b/src/core/locale-setup.c
+@@ -117,6 +117,27 @@ int locale_setup(void) {
+                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
+         }
+ 
++        if (r <= 0 &&
++            (r = parse_env_file("/etc/default/locale", NEWLINE,
++                                "LANG",              &variables[VARIABLE_LANG],
++                                "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
++                                "LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
++                                "LC_TIME",           &variables[VARIABLE_LC_TIME],
++                                "LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
++                                "LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
++                                "LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
++                                "LC_PAPER",          &variables[VARIABLE_LC_PAPER],
++                                "LC_NAME",           &variables[VARIABLE_LC_NAME],
++                                "LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
++                                "LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
++                                "LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
++                                "LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
++                                NULL)) < 0) {
++
++                if (r != -ENOENT)
++                        log_warning("Failed to read /etc/default/locale: %s", strerror(-r));
++        }
++
+         if (!variables[VARIABLE_LANG]) {
+                 variables[VARIABLE_LANG] = strdup("C");
+                 if (!variables[VARIABLE_LANG]) {
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index cdb6e5b..c183438 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -183,6 +183,12 @@ static int read_data(void) {
+                 }
+         }
+ 
++        r = read_one_line_file("/etc/timezone", &tz.zone);
++        if (r < 0) {
++                if (r != -ENOENT)
++                        log_warning("Failed to read /etc/timezone: %s", strerror(-r));
++        }
++
+ have_timezone:
+         if (isempty(tz.zone)) {
+                 free(tz.zone);
+@@ -198,10 +204,15 @@ static int write_data_timezone(void) {
+         int r = 0;
+         _cleanup_free_ char *p = NULL;
+ 
++        struct stat st;
++
+         if (!tz.zone) {
+                 if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                         r = -errno;
+ 
++                if (unlink("/etc/timezone") < 0 && errno != ENOENT)
++                        r = -errno;
++
+                 return r;
+         }
+ 
+@@ -213,6 +224,13 @@ static int write_data_timezone(void) {
+         if (r < 0)
+                 return r;
+ 
++        if (stat("/etc/timezone", &st) == 0 && S_ISREG(st.st_mode)) {
++                r = write_string_file_atomic("/etc/timezone", tz.zone);
++                if (r < 0)
++                        return r;
++        }
++
++
+         return 0;
+ }
+ 

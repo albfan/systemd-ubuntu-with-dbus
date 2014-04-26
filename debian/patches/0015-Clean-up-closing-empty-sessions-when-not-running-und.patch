@@ -1,0 +1,34 @@
+From: Martin Pitt <martinpitt@gnome.org>
+Date: Tue, 12 Mar 2013 16:00:13 +0100
+Subject: Clean up closing empty sessions when not running under systemd
+
+In logind's manager_gc(), submit "closing" session to garbage collection, to
+clean them up once they are empty. This is usually triggered through
+manager_cgroup_notify_empty() from a org.freedesktop.systemd1.Agent.Released
+signal, but that doesn't happen when not running under systemd.
+---
+ src/login/logind.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/login/logind.c b/src/login/logind.c
+index f415c6b..cee2b9b 100644
+--- a/src/login/logind.c
++++ b/src/login/logind.c
+@@ -1376,9 +1376,17 @@ void manager_gc(Manager *m, bool drop_not_started) {
+         Seat *seat;
+         Session *session;
+         User *user;
++        Iterator i;
+ 
+         assert(m);
+ 
++        /* clean up empty sessions when not running under systemd */
++        if (!sd_booted()) {
++                HASHMAP_FOREACH(session, m->session_cgroups, i)
++                        if (session_get_state(session) == SESSION_CLOSING)
++                                session_add_to_gc_queue(session);
++        }
++
+         while ((seat = m->seat_gc_queue)) {
+                 LIST_REMOVE(Seat, gc_queue, m->seat_gc_queue, seat);
+                 seat->in_gc_queue = false;

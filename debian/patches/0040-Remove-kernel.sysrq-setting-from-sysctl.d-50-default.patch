@@ -1,0 +1,28 @@
+From: Michael Stapelberg <stapelberg@debian.org>
+Date: Wed, 19 Feb 2014 23:35:34 +0100
+Subject: Remove kernel.sysrq= setting from sysctl.d/50-default.conf
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+(Following Ben Hutching’s recommendation.)
+
+Closes: #725422
+---
+ sysctl.d/50-default.conf | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/sysctl.d/50-default.conf b/sysctl.d/50-default.conf
+index 46bae21..8d202a6 100644
+--- a/sysctl.d/50-default.conf
++++ b/sysctl.d/50-default.conf
+@@ -7,9 +7,6 @@
+ 
+ # See sysctl.d(5) and core(5) for for details.
+ 
+-# System Request functionality of the kernel (SYNC)
+-kernel.sysrq = 16
+-
+ # Append the PID to the core filename
+ kernel.core_uses_pid = 1
+ 

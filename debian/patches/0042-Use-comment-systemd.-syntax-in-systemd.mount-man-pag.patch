@@ -1,0 +1,33 @@
+From: Michael Biebl <biebl@debian.org>
+Date: Sat, 19 Jan 2013 15:33:44 +0100
+Subject: Use comment=systemd.* syntax in systemd.mount man page
+
+The mount/util-linux version in wheezy is not recent enough to support
+the new x-systemd* syntax. It requires util-linux 2.21 or newer with the
+--enable-new-mount option enabled.
+
+Once we have such a version in Debian, this commit should be reverted
+again.
+---
+ man/systemd.mount.xml | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
+index 21177a2..db5e6d1 100644
+--- a/man/systemd.mount.xml
++++ b/man/systemd.mount.xml
+@@ -141,12 +141,12 @@
+                 <filename>local-fs.target</filename> or
+                 <filename>remote-fs.target</filename>, depending
+                 whether the file system is local or remote. If
+-                <option>x-systemd.automount</option> is set, an
++                <option>comment=systemd.automount</option> is set, an
+                 automount unit will be created for the file
+                 system. See
+                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                 for details. If
+-                <option>x-systemd.device-timeout=</option> is
++                <option>comment=systemd.device-timeout=</option> is
+                 specified it may be used to configure how long systemd
+                 should wait for a device to show up before giving up
+                 on an entry from

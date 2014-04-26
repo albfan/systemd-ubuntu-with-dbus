@@ -1,0 +1,22 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sun, 9 Feb 2014 06:34:20 +0000
+Subject: man: fix reference in systemd-inhibit(1)
+
+http://bugs.debian.org/738316
+---
+ man/systemd-inhibit.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemd-inhibit.xml b/man/systemd-inhibit.xml
+index 6f63c8c..e17e715 100644
+--- a/man/systemd-inhibit.xml
++++ b/man/systemd-inhibit.xml
+@@ -198,7 +198,7 @@
+                 <title>See Also</title>
+                 <para>
+                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+-                        <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
++                        <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                 </para>
+         </refsect1>
+ 
