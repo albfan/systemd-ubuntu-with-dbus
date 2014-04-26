@@ -57,3 +57,5 @@ Always-probe-cpu-support-drivers.patch
 Add-cgmanager-support-to-logind.patch
 Add-env-variable-for-machine-ID-path.patch
 Disable-tests-which-fail-on-buildds.patch
+upstream-hwdb-updates.patch
+udev-add-builtin-keyboard-to-manage-key-mappings.patch

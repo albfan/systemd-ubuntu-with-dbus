@@ -20,6 +20,7 @@ CONFFLAGS = \
 	--disable-coredump \
 	--disable-efi \
 	--disable-myhostname \
+	--disable-keymap \
 	--disable-vconsole \
 	--disable-silent-rules
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
