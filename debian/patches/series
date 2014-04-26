@@ -53,3 +53,4 @@
 0053-logind-if-a-user-is-sitting-in-front-of-the-computer.patch
 0054-insserv.conf-generator.patch
 0055-Add-targets-for-compatibility-with-Debian-insserv-sy.patch
+0056-more-cd-aliases.patch

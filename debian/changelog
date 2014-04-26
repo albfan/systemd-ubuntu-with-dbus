@@ -46,6 +46,11 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Updated fbdev-blacklist.conf for recent kernels.
   * Do not blacklist viafb because it is required on the OLPC XO-1.5.
     (Closes: #705792)
+  * Remove write_cd_rules and the associated rules which create "persistent"
+    symlinks for CD/DVD devices and replace them with more rules in
+    60-cdrom_id, which will create symlinks for one at random among the
+    devices installed. Since the common case is having a single device
+    then everything will work out just fine most of the times...
 
   [ Michael Stapelberg ]
   * Add systemd-dbg package, thanks Daniel Schaal (Closes: #742724).

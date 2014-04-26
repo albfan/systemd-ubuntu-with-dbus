@@ -97,7 +97,6 @@ override_dh_install:
 		debian/udev-udeb/usr/lib/base-installer.d/05udev
 	mkdir -p debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 \
-		debian/extra/rules/75-cd-aliases-generator.rules \
 		debian/extra/rules/75-persistent-net-generator.rules \
 		debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 debian/extra/links.conf \
@@ -108,7 +107,6 @@ override_dh_install:
 		debian/extra/rule_generator.functions \
 		debian/udev-udeb/lib/udev/
 	install -D --mode=755 \
-		debian/extra/write_cd_rules \
 		debian/extra/write_net_rules \
 		debian/udev-udeb/lib/udev/
 	# udev: initramfs-tools support
@@ -134,7 +132,6 @@ override_dh_install:
 		debian/extra/dsl-modem.agent \
 		debian/extra/logger.agent \
 		debian/extra/net.agent \
-		debian/extra/write_cd_rules \
 		debian/extra/write_net_rules \
 		debian/udev/lib/udev/
 	# systemd
