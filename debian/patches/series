@@ -55,3 +55,5 @@ Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 Always-probe-cpu-support-drivers.patch
 Add-cgmanager-support-to-logind.patch
+Add-env-variable-for-machine-ID-path.patch
+Disable-tests-which-fail-on-buildds.patch
