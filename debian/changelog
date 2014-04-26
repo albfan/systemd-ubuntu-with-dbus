@@ -65,6 +65,9 @@ systemd (204-9) UNRELEASED; urgency=medium
     systemd unit drop-in files to add corresponding dependencies. Also ship
     targets for the Debian specific $x-display-manager and
     $mail-transport-agent system facilities. (Closes: #690892)
+  * Do not accidentally re-enable /var/tmp cleaning when migrating the TMPTIME
+    setting from /etc/default/rcS. Fix up existing broken configurations.
+    (Closes: #738862)
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
