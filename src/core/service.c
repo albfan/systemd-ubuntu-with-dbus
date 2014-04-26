@@ -51,8 +51,7 @@
 
 typedef enum RunlevelType {
         RUNLEVEL_UP,
-        RUNLEVEL_DOWN,
-        RUNLEVEL_SYSINIT
+        RUNLEVEL_DOWN
 } RunlevelType;
 
 static const struct {
@@ -67,9 +66,6 @@ static const struct {
         { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
 
-        /* Debian style rcS.d */
-        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
-
         /* Standard SysV runlevels for shutdown */
         { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
         { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
@@ -78,12 +74,10 @@ static const struct {
            directories in this order, and we want to make sure that
            sysv_start_priority is known when we first load the
            unit. And that value we only know from S links. Hence
-           UP/SYSINIT must be read before DOWN */
+           UP must be read before DOWN */
 };
 
 #define RUNLEVELS_UP "12345"
-/* #define RUNLEVELS_DOWN "06" */
-#define RUNLEVELS_BOOT "bBsS"
 #endif
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
@@ -330,7 +324,8 @@ static void service_done(Unit *u) {
 static char *sysv_translate_name(const char *name) {
         char *r;
 
-        if (!(r = new(char, strlen(name) + sizeof(".service"))))
+        r = new(char, strlen(name) + sizeof(".service"));
+        if (!r)
                 return NULL;
 
         if (endswith(name, ".sh"))
@@ -353,16 +348,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
 
         static const char * const table[] = {
                 /* LSB defined facilities */
-                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
-                /* Due to unfortunate name selection in Mandriva,
-                 * $network is provided by network-up which is ordered
-                 * after network which actually starts interfaces.
-                 * To break the loop, just ignore it */
+                "local_fs",             NULL,
                 "network",              SPECIAL_NETWORK_TARGET,
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
-                "portmap",              SPECIAL_RPCBIND_SERVICE,
+                "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
-                "syslog",               SPECIAL_SYSLOG_TARGET,
+                "syslog",               NULL,
                 "time",                 SPECIAL_TIME_SYNC_TARGET,
         };
 
@@ -383,8 +374,9 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
                 if (!table[i+1])
                         return 0;
 
-                if (!(r = strdup(table[i+1])))
-                        return -ENOMEM;
+                r = strdup(table[i+1]);
+                if (!r)
+                        return log_oom();
 
                 goto finish;
         }
@@ -628,9 +620,6 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                         /* Try to parse Red Hat style chkconfig headers */
 
-/* chkconfig headers are often broken in Debian, see
- * http://bugs.debian.org/634472, so we ignore them entirely. */
-#if 0
                         if (startswith_no_case(t, "chkconfig:")) {
                                 int start_priority;
                                 char runlevels[16], *k;
@@ -672,10 +661,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         s->sysv_runlevels = d;
                                 }
 
-                        } else
-#endif
-
-if (startswith_no_case(t, "description:")) {
+                        } else if (startswith_no_case(t, "description:")) {
 
                                 size_t k = strlen(t);
                                 char *d;
@@ -919,13 +905,6 @@ if (startswith_no_case(t, "description:")) {
 
         if ((r = sysv_exec_commands(s, supports_reload)) < 0)
                 goto finish;
-        if (s->sysv_runlevels &&
-            chars_intersect(RUNLEVELS_BOOT, s->sysv_runlevels) &&
-            chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
-                /* Service has both boot and "up" runlevels
-                   configured.  Kill the "up" ones. */
-                delete_chars(s->sysv_runlevels, RUNLEVELS_UP);
-        }
 
         if (s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                 /* If there a runlevels configured for this service
@@ -3551,7 +3530,7 @@ static int service_enumerate(Manager *m) {
 
                                 if (de->d_name[0] == 'S')  {
 
-                                        if (rcnd_table[i].type == RUNLEVEL_UP || rcnd_table[i].type == RUNLEVEL_SYSINIT) {
+                                        if (rcnd_table[i].type == RUNLEVEL_UP) {
                                                 SERVICE(service)->sysv_start_priority_from_rcnd =
                                                         MAX(a*10 + b, SERVICE(service)->sysv_start_priority_from_rcnd);
 
@@ -3568,8 +3547,7 @@ static int service_enumerate(Manager *m) {
                                                 goto finish;
 
                                 } else if (de->d_name[0] == 'K' &&
-                                           (rcnd_table[i].type == RUNLEVEL_DOWN ||
-                                            rcnd_table[i].type == RUNLEVEL_SYSINIT)) {
+                                           (rcnd_table[i].type == RUNLEVEL_DOWN)) {
 
                                         r = set_ensure_allocated(&shutdown_services,
                                                                  trivial_hash_func, trivial_compare_func);

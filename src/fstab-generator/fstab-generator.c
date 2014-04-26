@@ -194,7 +194,9 @@ static bool mount_is_network(struct mntent *me) {
 static bool mount_in_initrd(struct mntent *me) {
         assert(me);
 
-        return hasmntopt(me, "x-initrd.mount");
+        return
+                hasmntopt(me, "x-initrd.mount") ||
+                streq(me->mnt_dir, "/usr");
 }
 
 static int add_mount(
@@ -313,8 +315,7 @@ static int add_mount(
         }
 
         if (!noauto) {
-                /* don't start network mounts automatically, we do that via ifupdown hooks for now */
-                if (post && !streq(post, SPECIAL_REMOTE_FS_TARGET)) {
+                if (post) {
                         lnk = strjoin(arg_dest, "/", post, nofail || automount ? ".wants/" : ".requires/", name, NULL);
                         if (!lnk)
                                 return log_oom();

@@ -329,13 +329,16 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         dbus_bool_t remote, existing;
         int r;
         uint32_t vtnr = 0;
-        struct stat st;
 
         assert(handle);
 
         dbus_error_init(&error);
 
         /* pam_syslog(handle, LOG_INFO, "pam-systemd initializing"); */
+
+        /* Make this a NOP on non-logind systems */
+        if (!logind_running())
+                return PAM_SUCCESS;
 
         if (parse_argv(handle,
                        argc, argv,
@@ -397,8 +400,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
         if (!bus) {
-                if (debug)
-                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", bus_error_message(&error));
+                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", bus_error_message(&error));
                 r = PAM_SESSION_ERR;
                 goto finish;
         }
@@ -566,24 +568,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 goto finish;
         }
 
-        /* only set $XDG_RUNTIME_DIR if it is owned by the target user, as per
-         * XDG basedir-spec; this avoids su sessions to scribble over a runtime
-         * dir of a different user */
-        r = lstat(runtime_path, &st);
-        if (r != 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to stat runtime dir: %s", strerror(errno));
-                r = PAM_SYSTEM_ERR;
+        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
                 goto finish;
-        }
-        if (st.st_uid == uid) {
-                r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
-                        goto finish;
-                }
-        } else if (debug) {
-                pam_syslog(handle, LOG_DEBUG, "Runtime dir %s is not owned by the target uid %u, ignoring.",
-                           runtime_path, uid);
         }
 
         if (!isempty(seat)) {

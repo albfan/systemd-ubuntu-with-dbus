@@ -978,11 +978,6 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
             (unsigned) vtnr != m->reserve_vt)
                 return 0;
 
-        /* It only makes sense to send a StartUnit call to systemd if this
-         * machine is actually booted with systemd. */
-        if (!sd_booted())
-                return 0;
-
         if ((unsigned) vtnr != m->reserve_vt) {
                 /* If this is the reserved TTY, we'll start the getty
                  * on it in any case, but otherwise only if it is not
@@ -1376,16 +1371,8 @@ void manager_gc(Manager *m, bool drop_not_started) {
         Seat *seat;
         Session *session;
         User *user;
-        Iterator i;
 
         assert(m);
-
-        /* clean up empty sessions when not running under systemd */
-        if (!sd_booted()) {
-                HASHMAP_FOREACH(session, m->session_cgroups, i)
-                        if (session_get_state(session) == SESSION_CLOSING)
-                                session_add_to_gc_queue(session);
-        }
 
         while ((seat = m->seat_gc_queue)) {
                 LIST_REMOVE(Seat, gc_queue, m->seat_gc_queue, seat);

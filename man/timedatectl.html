@@ -1,0 +1,136 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>timedatectl</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="timedatectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>timedatectl — Control the system time and date</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">timedatectl [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm259798163584"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>timedatectl</strong></span> may be used to
+                query and change the system clock and its
+                settings.</p></div><div class="refsect1"><a name="idm259798234656"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
+                                text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a short version
+                                string and exits.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a
+                                pager.</p></dd><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Don't query the user
+                                for authentication for privileged
+                                operations.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p>Execute the operation
+                                remotely. Specify a hostname, or
+                                username and hostname separated by @,
+                                to connect to. This will use SSH to
+                                talk to a remote
+                                system.</p></dd><dt id="--adjust-system-clock"><span class="term"><code class="option">--adjust-system-clock</code></span><a class="headerlink" title="Permalink to this term" href="#--adjust-system-clock">¶</a></dt><dd><p>If
+                                <span class="command"><strong>set-local-rtc</strong></span> is
+                                invoked and this option is passed the
+                                system clock is synchronized from the
+                                RTC again, taking the new setting into
+                                account. Otherwise the RTC is
+                                synchronized from the system
+                                clock.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="status"><span class="term"><span class="command"><strong>status</strong></span></span><a class="headerlink" title="Permalink to this term" href="#status">¶</a></dt><dd><p>Show current settings
+                                of the system clock and
+                                RTC.</p></dd><dt id="set-time [TIME]"><span class="term"><span class="command"><strong>set-time [TIME]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-time%20%5BTIME%5D">¶</a></dt><dd><p>Set the system clock
+                                to the specified time. This will also
+                                update the RTC time accordingly. The time
+                                may be specified in the format
+                                "2012-10-30
+                                18:17:16".</p></dd><dt id="set-timezone [TIMEZONE]"><span class="term"><span class="command"><strong>set-timezone [TIMEZONE]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-timezone%20%5BTIMEZONE%5D">¶</a></dt><dd><p>Set the system time
+                                zone to the specified value. Available
+                                time zones can be listed with
+                                <span class="command"><strong>list-timezones</strong></span>. If
+                                the RTC is configured to be in the
+                                local time this will also update the
+                                RTC time. This call will alter the
+                                <code class="filename">/etc/localtime</code>
+                                symlink. See
+                                <a href="localtime.html"><span class="citerefentry"><span class="refentrytitle">localtime</span>(5)</span></a>
+                                for more
+                                information.</p></dd><dt id="list-timezones"><span class="term"><span class="command"><strong>list-timezones</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list-timezones">¶</a></dt><dd><p>List available time
+                                zones, one per line. Entries from the
+                                list can be set as the system
+                                time zone with
+                                <span class="command"><strong>set-timezone</strong></span>.</p></dd><dt id="set-local-rtc [BOOL]"><span class="term"><span class="command"><strong>set-local-rtc [BOOL]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-local-rtc%20%5BBOOL%5D">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="literal">0</code> the
+                                system is configured to maintain the
+                                RTC in universal time, if
+                                <code class="literal">1</code> it will maintain
+                                the RTC in local time instead. Note
+                                that maintaining the RTC in the local
+                                time zone is not fully supported and
+                                will create various problems with time
+                                zone changes and daylight saving
+                                adjustments. If at all possible use
+                                RTC in UTC. Note that invoking this
+                                will also synchronize the RTC from the
+                                system clock, unless
+                                <code class="option">--adjust-system-clock</code> is
+                                passed (see above). This command will
+                                change the 3rd line of
+                                <code class="filename">/etc/adjtime</code>, as
+                                documented in
+                                <a href="hwclock.html"><span class="citerefentry"><span class="refentrytitle">hwclock</span>(8)</span></a>.</p></dd><dt id="set-ntp [BOOL]"><span class="term"><span class="command"><strong>set-ntp [BOOL]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#set-ntp%20%5BBOOL%5D">¶</a></dt><dd><p>Takes a boolean
+                                argument. Controls whether NTP based
+                                network time synchronization is
+                                enabled (if
+                                available).</p></dd></dl></div></div><div class="refsect1"><a name="idm259798321808"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm259798320624"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+                                <code class="option">--no-pager</code> is not given;
+                                overrides <code class="varname">$PAGER</code>.  Setting
+                                this to an empty string or the value
+                                <code class="literal">cat</code> is equivalent to passing
+                                <code class="option">--no-pager</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm259798308656"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Show current settings:
+                </p><pre class="programlisting">
+$ timedatectl
+      Local time: Fri, 2012-11-02 09:26:46 CET
+  Universal time: Fri, 2012-11-02 08:26:46 UTC
+        RTC time: Fri, 2012-11-02 08:26:45
+        Timezone: Europe/Warsaw
+      UTC offset: +0100
+     NTP enabled: no
+NTP synchronized: no
+ RTC in local TZ: no
+      DST active: no
+ Last DST change: CEST → CET, DST became inactive
+                  Sun, 2012-10-28 02:59:59 CEST
+                  Sun, 2012-10-28 02:00:00 CET
+ Next DST change: CET → CEST, DST will become active
+                  the clock will jump one hour forward
+                  Sun, 2013-03-31 01:59:59 CET
+                  Sun, 2013-03-31 03:00:00 CEST
+                </pre><p>
+                </p><p>Enable an NTP daemon (chronyd):
+                </p><pre class="programlisting">
+$ timedatectl set-ntp true
+==== AUTHENTICATING FOR org.freedesktop.timedate1.set-ntp ===
+Authentication is required to control whether network time synchronization shall be enabled.
+Authenticating as: user
+Password: ********
+==== AUTHENTICATION COMPLETE ===
+                </pre><p>
+
+                </p><pre class="programlisting">
+$ systemctl status chronyd.service
+chronyd.service - NTP client/server
+          Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled)
+          Active: active (running) since Fri, 2012-11-02 09:36:25 CET; 5s ago
+...
+                </pre><p>
+                </p></div><div class="refsect1"><a name="idm259798303280"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="hwclock.html"><span class="citerefentry"><span class="refentrytitle">hwclock</span>(8)</span></a>,
+                        <a href="date.html"><span class="citerefentry"><span class="refentrytitle">date</span>(1)</span></a>,
+                        <a href="localtime.html"><span class="citerefentry"><span class="refentrytitle">localtime</span>(5)</span></a>,
+                        <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
+                        <a href="systemd-timedated.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-timedated.service</span>(8)</span></a>
+                </p></div></div></body></html>

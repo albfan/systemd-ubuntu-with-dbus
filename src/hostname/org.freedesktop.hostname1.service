@@ -7,6 +7,6 @@
 
 [D-BUS Service]
 Name=org.freedesktop.hostname1
-Exec=/lib/systemd/systemd-hostnamed
+Exec=/bin/false
 User=root
 SystemdService=dbus-org.freedesktop.hostname1.service

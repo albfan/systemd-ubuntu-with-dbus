@@ -569,7 +569,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
                           trie->strings->dedup_len, trie->strings->dedup_count);
 
-                if (asprintf(&hwdb_bin, "%s/" UDEVLIBEXECDIR "/hwdb.bin", root) < 0) {
+                if (asprintf(&hwdb_bin, "%s/etc/udev/hwdb.bin", root) < 0) {
                         rc = EXIT_FAILURE;
                         goto out;
                 }

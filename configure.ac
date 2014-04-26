@@ -64,12 +64,12 @@ AC_PROG_GCC_TRADITIONAL
 AC_PATH_PROG([M4], [m4])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
-AC_PATH_PROG([QUOTAON], [quotaon], [/sbin/quotaon])
-AC_PATH_PROG([QUOTACHECK], [quotacheck], [/sbin/quotacheck])
+AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon])
+AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck])
 
-AC_PATH_PROG([SETCAP], [setcap], [/sbin/setcap])
+AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
 
-AC_PATH_PROG([KILL], [kill], [/bin/kill])
+AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
@@ -680,13 +680,13 @@ AC_ARG_WITH(kbd-loadkeys,
         AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                 [Path to loadkeys]),
         [KBD_LOADKEYS="$withval"],
-        [KBD_LOADKEYS="/bin/loadkeys"])
+        [KBD_LOADKEYS="/usr/bin/loadkeys"])
 
 AC_ARG_WITH(kbd-setfont,
         AS_HELP_STRING([--with-kbd-setfont=PATH],
                 [Path to setfont]),
         [KBD_SETFONT="$withval"],
-        [KBD_SETFONT="/bin/setfont"])
+        [KBD_SETFONT="/usr/bin/setfont"])
 
 AC_DEFINE_UNQUOTED(KBD_LOADKEYS, ["$KBD_LOADKEYS"], [Path of loadkeys])
 AC_DEFINE_UNQUOTED(KBD_SETFONT, ["$KBD_SETFONT"], [Path of setfont])

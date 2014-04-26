@@ -642,7 +642,7 @@ static int session_terminate_cgroup(Session *s) {
 
                         r = manager_get_session_by_pid(s->manager, s->leader, &t);
                         if (r > 0 && t == s) {
-                                /*kill(s->leader, SIGTERM); */ /* for normal processes */
+                                kill(s->leader, SIGTERM); /* for normal processes */
                                 kill(s->leader, SIGHUP);  /* for shells */
                                 kill(s->leader, SIGCONT); /* in case they are stopped */
                         }

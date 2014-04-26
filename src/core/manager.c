@@ -874,8 +874,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, DBusError *e, Job **_ret) {
         int r;
         Transaction *tr;
-        Job *j;
-        Iterator i;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
@@ -885,44 +883,6 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
         if (mode == JOB_ISOLATE && type != JOB_START) {
                 dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "Isolate is only valid for start.");
                 return -EINVAL;
-        }
-
-        if (type == JOB_RELOAD || type == JOB_RELOAD_OR_START || type == JOB_RESTART || type == JOB_TRY_RESTART) {
-                /* If final.target is queued (happens on poweroff, reboot and
-                 * halt), we will not accept new reload jobs. They would not be
-                 * executed ever anyways (since the shutdown comes first), but
-                 * they block the shutdown process: when systemd tries to stop
-                 * a unit such as ifup@eth0.service, that unit might invoke a
-                 * systemctl reload command, which blockingly waits (but only
-                 * gets executed after all other queued units for the shutdown
-                 * have been executed).
-                 *
-                 * See http://bugs.debian.org/624599 and
-                 *     http://bugs.debian.org/635777 */
-                HASHMAP_FOREACH(j, m->jobs, i) {
-                        assert(j->installed);
-
-                        if (strcmp(j->unit->id, "final.target") == 0) {
-                                log_debug("final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-                                return -EINVAL;
-                        }
-                        /* Trying to reload services from multi-user.target
-                         * during the early boot stage can lead to deadlocks.
-                         * An example is samba being reloaded by the dhcp hook
-                         * when the network is activated during rcS.
-                         * As a workaround we ignore reload or (re)start
-                         * requests while sysinit.target is queued for
-                         * services which have the DefaultDependencies option
-                         * set to yes.
-                         *
-                         * See http://bugs.debian.org/624599 */
-                        if (strcmp(j->unit->id, "sysinit.target") == 0 && unit->default_dependencies) {
-                                log_debug("sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-                                return -EINVAL;
-                        }
-                }
         }
 
         if (mode == JOB_ISOLATE && !unit->allow_isolate) {
@@ -1412,7 +1372,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
+                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
                                 break;
                         }
 

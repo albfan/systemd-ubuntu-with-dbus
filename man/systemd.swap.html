@@ -1,0 +1,124 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd.swap</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.swap"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.swap — Swap unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm259782483392"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+                <code class="filename">.swap</code> encodes information about a
+                swap device or file for memory paging controlled and
+                supervised by systemd.</p><p>This man page lists the configuration options
+                specific to this unit type. See
+                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                for the common options of all unit configuration
+                files. The common configuration items are configured
+                in the generic [Unit] and [Install] sections. The swap
+                specific configuration options are configured in the
+                [Swap] section.</p><p>Additional options are listed in
+                <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
+                which define the execution environment the
+                <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+                binary is executed in, and in
+                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
+                which define the way the processes are
+                terminated.</p><p>Swap units must be named after the devices
+                or files they control. Example: the swap device
+                <code class="filename">/dev/sda5</code> must be configured in a
+                unit file <code class="filename">dev-sda5.swap</code>. For
+                details about the escaping logic used to convert a
+                file system path to a unit name see
+                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.</p><p>All swap units automatically get the appropriate
+                dependencies on the devices or on the mount points
+                of the files they are activated from.</p><p>Swap units with
+                <code class="varname">DefaultDependencies=</code> enabled
+                implicitly acquire a conflicting dependency to
+                <code class="filename">umount.target</code> so that they are
+                deactivated at shutdown.</p></div><div class="refsect1"><a name="idm259782607008"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Swap units may either be configured via unit
+                files, or via <code class="filename">/etc/fstab</code> (see
+                <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
+                for details). Swaps listed in
+                <code class="filename">/etc/fstab</code> will be converted into
+                native units dynamically at boot and when the
+                configuration of the system manager is
+                reloaded. See
+                <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
+                for details about the conversion.</p><p>If a swap device or file is configured in both
+                <code class="filename">/etc/fstab</code> and a unit file the
+                configuration in the latter takes precedence.</p><p>Unless the <code class="option">noauto</code> option is set
+                for them all swap units configured in
+                <code class="filename">/etc/fstab</code> are also added as
+                requirements to <code class="filename">swap.target</code>, so
+                that they are waited for and activated during
+                boot.</p></div><div class="refsect1"><a name="idm259782666976"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Swap files must include a [Swap] section, which
+                carries information about the swap device it
+                supervises. A number of options that may be used in
+                this section are shared with other unit types. These
+                options are documented in
+                <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
+                and
+                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>. The
+                options specific to the [Swap] section of swap units
+                are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="What="><span class="term"><code class="varname">What=</code></span><a class="headerlink" title="Permalink to this term" href="#What=">¶</a></dt><dd><p>Takes an absolute path
+                                of a device node or file to use for
+                                paging. See
+                                <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+                                for details. If this refers to a
+                                device node, a dependency on the
+                                respective device unit is
+                                automatically created. (See
+                                <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>
+                                for more information.) If this refers
+                                to a file, a dependency on the
+                                respective mount unit is automatically
+                                created. (See
+                                <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>
+                                for more information.) This option is
+                                mandatory.</p></dd><dt id="Priority="><span class="term"><code class="varname">Priority=</code></span><a class="headerlink" title="Permalink to this term" href="#Priority=">¶</a></dt><dd><p>Swap priority to use
+                                when activating the swap device or
+                                file. This takes an integer. This
+                                setting is optional.</p></dd><dt id="TimeoutSec="><span class="term"><code class="varname">TimeoutSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimeoutSec=">¶</a></dt><dd><p>Configures the time to
+                                wait for the swapon command to
+                                finish. If a command does not exit
+                                within the configured time the swap
+                                will be considered failed and be shut
+                                down again. All commands still running
+                                will be terminated forcibly via
+                                SIGTERM, and after another delay of
+                                this time with SIGKILL. (See
+                                <code class="option">KillMode=</code> in
+                                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>.)
+                                Takes a unit-less value in seconds, or
+                                a time span value such as "5min
+                                20s". Pass 0 to disable the timeout
+                                logic. Defaults to
+                                90s.</p></dd></dl></div><p>Check
+                <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
+                and
+                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
+                for more settings.</p></div><div class="refsect1"><a name="idm259782643520"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                          <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
+                          <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
+                          <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
+                          <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
+                          <a href="systemd.device.html"><span class="citerefentry"><span class="refentrytitle">systemd.device</span>(5)</span></a>,
+                          <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
+                          <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>,
+                          <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>,
+                          <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
+                  </p></div></div></body></html>

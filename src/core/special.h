@@ -48,7 +48,7 @@
 #define SPECIAL_SOCKETS_TARGET "sockets.target"
 #define SPECIAL_TIMERS_TARGET "timers.target"
 #define SPECIAL_PATHS_TARGET "paths.target"
-#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"         /* LSB's $local_fs */
+#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
 #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
 #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
 #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
@@ -61,8 +61,7 @@
 /* LSB compatibility */
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
-#define SPECIAL_RPCBIND_SERVICE "rpcbind.service"         /* LSB's $portmap */
-#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* LSB's $syslog */
+#define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
 
 /*
