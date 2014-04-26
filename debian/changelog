@@ -21,7 +21,7 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Mount /dev/pts with the correct permissions in the udev, to avoid needing
     pt_chown (not available on all architectures). Thanks Adam Conrad.
   * Add new block of Windows Azure ethernet hardware address to
-    75-persistent-net-generator.rules. (LP: #1274348)
+    75-persistent-net-generator.rules. (LP: #1274348, Closes: #739018)
   * Drop our Debian specific 60-persistent-storage{,-tape}.rules and use the
     upstream rules. They are compatible and do a superset of the
     functionality.
