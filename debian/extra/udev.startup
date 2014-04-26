@@ -10,6 +10,7 @@ fi
 
 udevadm trigger --action=add
 
+mkdir -p /dev/pts
 mount -t devpts -o noexec,nosuid,gid=5,mode=0620 devpts /dev/pts
 
 udevadm settle || true

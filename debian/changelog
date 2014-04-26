@@ -1,3 +1,9 @@
+systemd (204-10) UNRELEASED; urgency=medium
+
+  * In the udeb's udev.startup, make sure that /dev/pts exists.
+
+ -- Martin Pitt <mpitt@debian.org>  Sat, 26 Apr 2014 22:28:07 +0200
+
 systemd (204-9) unstable; urgency=medium
 
   * The "Flemish Beef and Beer Stew" release.
