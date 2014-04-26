@@ -6,6 +6,7 @@ systemd (217-1ubuntu1) UNRELEASED; urgency=medium
       /etc/writable/ instead.
     - debian/rules: Drop doc dir symlinking. It creates havoc with dpkg
       upgrades, and we already have the automatic per-file symlinking.
+    - debian/rules: Add an epoch to libgudev.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
 
