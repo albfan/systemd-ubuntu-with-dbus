@@ -102,7 +102,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version}),
-         libpam-runtime (>= 1.0.1-6)
+         libpam-runtime (>= 1.0.1-6),
+         systemd-sysv | systemd-shim
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -116,6 +117,8 @@ Description: system and service manager - PAM module
  the systemd control group hierarchy.
  .
  If in doubt, do install this package.
+ .
+ Packages that depend on logind functionality need to depend on libpam-systemd.
 
 Package: libsystemd-login0
 Architecture: linux-any
