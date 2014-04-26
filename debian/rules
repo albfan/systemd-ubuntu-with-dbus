@@ -188,12 +188,6 @@ endif
 	find debian/libsystemd-*-dev -name "*.3" -exec sh -c \
 		'rm debian/systemd/usr/share/man/man3/$$(basename {})' \;
 
-# use symlinked doc directories as the old udev package did
-override_dh_installdocs:
-	dh_installdocs -pudev -plibudev-dev --link-doc=libudev1
-	dh_installdocs -pgir1.2-gudev-1.0 -plibgudev-1.0-dev --link-doc=libgudev-1.0-0
-	dh_installdocs --remaining-packages
-
 override_dh_installinit:
 	dh_installinit --no-start
 	dh_installinit --name=udev-finish --no-start
