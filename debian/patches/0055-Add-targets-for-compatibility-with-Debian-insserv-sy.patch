@@ -1,0 +1,65 @@
+From: Michael Biebl <biebl@debian.org>
+Date: Sat, 26 Apr 2014 14:25:41 +0200
+Subject: Add targets for compatibility with Debian insserv system facilities
+
+---
+ Makefile.am                       |  6 ++++++
+ units/mail-transport-agent.target | 12 ++++++++++++
+ units/x-display-manager.target    | 12 ++++++++++++
+ 3 files changed, 30 insertions(+)
+ create mode 100644 units/mail-transport-agent.target
+ create mode 100644 units/x-display-manager.target
+
+diff --git a/Makefile.am b/Makefile.am
+index 0e6bd17..7026b15 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -449,6 +449,12 @@ nodist_systemunit_DATA = \
+ 	units/initrd-switch-root.service \
+ 	units/systemd-nspawn@.service
+ 
++if HAVE_SYSV_COMPAT
++nodist_systemunit_DATA += \
++	units/x-display-manager.target \
++	units/mail-transport-agent.target
++endif
++
+ dist_userunit_DATA = \
+ 	units/user/default.target \
+ 	units/user/exit.target
+diff --git a/units/mail-transport-agent.target b/units/mail-transport-agent.target
+new file mode 100644
+index 0000000..4d74ec7
+--- /dev/null
++++ b/units/mail-transport-agent.target
+@@ -0,0 +1,12 @@
++#  This file is part of systemd.
++#
++#  systemd is free software; you can redistribute it and/or modify it
++#  under the terms of the GNU Lesser General Public License as published by
++#  the Free Software Foundation; either version 2.1 of the License, or
++#  (at your option) any later version.
++
++#  This exists mostly for compatibility with SysV/LSB units
++#  depending on the $mail-transport-agent system facility.
++[Unit]
++Description=Mail Transport Agent
++RefuseManualStart=yes
+diff --git a/units/x-display-manager.target b/units/x-display-manager.target
+new file mode 100644
+index 0000000..a528dff
+--- /dev/null
++++ b/units/x-display-manager.target
+@@ -0,0 +1,12 @@
++#  This file is part of systemd.
++#
++#  systemd is free software; you can redistribute it and/or modify it
++#  under the terms of the GNU Lesser General Public License as published by
++#  the Free Software Foundation; either version 2.1 of the License, or
++#  (at your option) any later version.
++
++#  This exists mostly for compatibility with SysV/LSB units
++#  depending on the $x-display-manager system facility.
++[Unit]
++Description=X11 Display Manager
++RefuseManualStart=yes

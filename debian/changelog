@@ -53,6 +53,13 @@ systemd (204-9) UNRELEASED; urgency=medium
   * Make libpam-systemd depend on systemd-sysv | systemd-shim. Packages that
     need logind functionality should depend on libpam-systemd.
 
+  [ Michael Biebl ]
+  * Add support for LSB facilities defined by insserv.
+    Parse /etc/insserv.conf.d content and /etc/insserv.conf and generate
+    systemd unit drop-in files to add corresponding dependencies. Also ship
+    targets for the Debian specific $x-display-manager and
+    $mail-transport-agent system facilities. (Closes: #690892)
+
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
 systemd (204-8) unstable; urgency=low
