@@ -1,19 +1,9 @@
-To build systemd from source, install “gitpkg” and run the following steps:
+To build systemd from source, install “git-buildpackage” and run the following
+steps:
 
-git clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
+gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
 cd systemd
-git checkout upstream-fixes
-git checkout pristine-tar
-git checkout debian
-cat >> .git/config <<'EOT'
-[gitpkg]
-    pre-export-hook = /usr/share/gitpkg/hooks/pristine-tar-pre-export-hook
-    deb-export-hook = ./debian/systemd-hack-up-the-source.hook
-    orig-compressor = xz
-    create-fake-orig = false
-    force-overwrite-orig = false
-EOT
-gitpkg debian
+git-buildpackage
 
-In ../deb-packages/systemd, you’ll now find the generated package, with a .dsc
-file that you can just feed to cowbuilder/pbuilder.
+We recommend you use pbuilder to make sure you build in a clean environment:
+git-buildpackage --git-pbuilder
