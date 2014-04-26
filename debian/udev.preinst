@@ -105,7 +105,7 @@ check_kernel_features() {
 
   if [ -e /proc/kallsyms ]; then
 
-  local needed_symbols='inotify_init signalfd open_by_handle_at timerfd_create epoll_create'
+  local needed_symbols='inotify_init signalfd accept4 open_by_handle_at timerfd_create epoll_create'
   local missing_symbol=0
   for symbol in $needed_symbols; do
     if ! egrep -q "^[a-fA-F0-9]+ T \.?sys_${symbol}$" /proc/kallsyms; then
@@ -138,6 +138,7 @@ the running kernel:
 
 - inotify(2)            (CONFIG_INOTIFY_USER)
 - signalfd(2)           (CONFIG_SIGNALFD)
+- accept4(2)
 - open_by_handle_at(2)  (CONFIG_FHANDLE)
 - timerfd_create(2)     (CONFIG_TIMERFD)
 - epoll_create(2)       (CONFIG_EPOLL)
