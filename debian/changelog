@@ -8,6 +8,9 @@ systemd (218-2ubuntu1) UNRELEASED; urgency=medium
       never supported them in Ubuntu.
     - Keep our much simpler udev maintainer scripts (all platforms must
       support udev, no debconf).
+    - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
+      sensible way with wait-for-root. Will get applicable to Debian once
+      Debian gets wait-for-root in initramfs-tools.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
