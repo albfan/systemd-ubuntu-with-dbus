@@ -1,8 +1,14 @@
 systemd (204-9) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * Do not send potentially private fstab information without prior user
     confirmation. (Closes: #743158)
   * Switch from gitpkg to git-buildpackage. Update README.source accordingly.
+
+  [ Steve Langasek ]
+  * Do proper refcounting of the PAM module package on prerm, so that we
+    don't drop the module from the PAM config when uninstalling a
+    foreign-arch package.  Related to Ubuntu bug #1295521.
 
  -- Michael Biebl <biebl@debian.org>  Sat, 26 Apr 2014 10:41:18 +0200
 
