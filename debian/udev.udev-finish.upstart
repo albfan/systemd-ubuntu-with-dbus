@@ -21,10 +21,5 @@ script
     fi
 
     # Copy any rules generated while the root filesystem was read-only
-    for file in /run/tmp-rules--*
-    do
-	[ -e "$file" ] || continue
-	cat "$file" >> "/etc/udev/rules.d/${file##*tmp-rules--}"
-	rm -f "$file"
-    done
+    /lib/udev/udev-finish
 end script

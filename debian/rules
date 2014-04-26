@@ -127,6 +127,7 @@ override_dh_install:
 		debian/extra/dsl-modem.agent \
 		debian/extra/logger.agent \
 		debian/extra/net.agent \
+		debian/extra/udev-finish \
 		debian/extra/write_net_rules \
 		debian/udev/lib/udev/
 	# systemd
@@ -138,6 +139,9 @@ override_dh_install:
 	install --mode=644 debian/debian-fixup.service debian/ifup@.service \
 		debian/units/run-lock.mount debian/units/run-user.mount \
 		debian/systemd/lib/systemd/system/
+	install --mode=644 debian/extra/udev-finish.service \
+		debian/udev/lib/systemd/system/
+	ln -s ../udev-finish.service debian/udev/lib/systemd/system/sysinit.target.wants/
 	install --mode=755 debian/debian-fixup \
 		debian/systemd/lib/systemd/
 	install --mode=755 debian/systemd-logind-launch \
