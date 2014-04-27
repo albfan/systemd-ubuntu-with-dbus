@@ -1,4 +1,4 @@
-systemd (204-10ubuntu1) UNRELEASED; urgency=medium
+systemd (204-10ubuntu1) utopic; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Add cgmanager support for logind.
@@ -36,7 +36,7 @@ systemd (204-10ubuntu1) UNRELEASED; urgency=medium
     - systemd Conflicts/Replaces/Provides systemd-services.
     - Remove obsolete systemd-logind upstart job.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 22:13:02 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 27 Apr 2014 13:21:11 +0200
 
 systemd (204-11) UNRELEASED; urgency=medium
 
