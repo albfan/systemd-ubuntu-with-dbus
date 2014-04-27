@@ -154,8 +154,6 @@ override_dh_install:
 	ln -s ../udev-finish.service debian/udev/lib/systemd/system/sysinit.target.wants/
 	install --mode=755 debian/debian-fixup \
 		debian/systemd/lib/systemd/
-	install --mode=755 debian/systemd-logind-launch \
-		debian/systemd/lib/systemd/
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
