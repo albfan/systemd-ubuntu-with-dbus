@@ -98,6 +98,7 @@ override_dh_install:
 		debian/udev-udeb/usr/lib/base-installer.d/05udev
 	mkdir -p debian/udev-udeb/lib/udev/rules.d/
 	install -D --mode=644 \
+		debian/extra/rules/73-idrac.rules \
 		debian/extra/rules/75-persistent-net-generator.rules \
 		debian/udev-udeb/lib/udev/rules.d/
 	mkdir -p debian/udev-udeb/lib/udev
