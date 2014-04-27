@@ -8,6 +8,8 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Create a compat symlink /etc/sysctl.d/99-sysctl.conf as systemd-sysctl no
     longer reads /etc/sysctl.conf.
   * Bump Build-Depends on kmod to (>= 14).
+  * Bump Build-Depends on libcryptsetup-dev to (>= 2:1.6.0) for tcrypt
+    support.
   * Make kmod-static-nodes.service check for the kmod binary since we don't
     want a hard dependency on kmod e.g. for container installations.
 
