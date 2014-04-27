@@ -16,6 +16,9 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Move new sd_pid_get_slice and sd_session_get_vt man pages into
     libsystemd-login-dev.
   * Make no-patch-numbers the default for gbp-pq.
+  * Adjust systemd-user pam config file for Debian.
+    This pam config file is used by libpam-systemd/systemd-logind when
+    launching systemd user instances.
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
