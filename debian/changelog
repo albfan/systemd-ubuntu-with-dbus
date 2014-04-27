@@ -3,6 +3,8 @@ systemd (208-1) UNRELEASED; urgency=medium
   * New upstream release.
   * Update patches.
   * Update symbols files for libsystemd-journal and libsystemd-login.
+  * Install new files and remove the ones we don't use.
+  * Install zsh completion files. (Closes: #717540)
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
