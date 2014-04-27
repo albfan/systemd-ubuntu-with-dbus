@@ -1,5 +1,6 @@
 systemd (208-1) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * New upstream release. (Closes: #729566)
   * Update patches.
   * Update symbols files for libsystemd-journal and libsystemd-login.
@@ -19,6 +20,9 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Adjust systemd-user pam config file for Debian.
     This pam config file is used by libpam-systemd/systemd-logind when
     launching systemd user instances.
+
+  [ Martin Pitt ]
+  * Explain patch management in debian/README.source.
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
