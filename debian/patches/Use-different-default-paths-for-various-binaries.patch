@@ -12,10 +12,10 @@ paths.  Closes: #721347
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index e1278e8..b2871d1 100644
+index 4f26092..5ce4adb 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -64,12 +64,12 @@ AC_PROG_GCC_TRADITIONAL
+@@ -67,12 +67,12 @@ AC_PROG_GCC_TRADITIONAL
  AC_PATH_PROG([M4], [m4])
  AC_PATH_PROG([XSLTPROC], [xsltproc])
  
@@ -30,9 +30,9 @@ index e1278e8..b2871d1 100644
 -AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 +AC_PATH_PROG([KILL], [kill], [/bin/kill])
  
- # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
- m4_ifdef([GTK_DOC_CHECK], [
-@@ -680,13 +680,13 @@ AC_ARG_WITH(kbd-loadkeys,
+ AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
+ 
+@@ -790,13 +790,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
          [KBD_LOADKEYS="$withval"],

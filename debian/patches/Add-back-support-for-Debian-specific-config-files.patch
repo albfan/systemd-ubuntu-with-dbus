@@ -13,10 +13,10 @@ This reverts the Debian specific bits from
  2 files changed, 39 insertions(+)
 
 diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
-index d7113b9..ac922f1 100644
+index 276deb9..b823638 100644
 --- a/src/core/locale-setup.c
 +++ b/src/core/locale-setup.c
-@@ -117,6 +117,27 @@ int locale_setup(void) {
+@@ -120,6 +120,27 @@ int locale_setup(char ***environment) {
                          log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
          }
  
@@ -41,11 +41,11 @@ index d7113b9..ac922f1 100644
 +                        log_warning("Failed to read /etc/default/locale: %s", strerror(-r));
 +        }
 +
-         if (!variables[VARIABLE_LANG]) {
-                 variables[VARIABLE_LANG] = strdup("C");
-                 if (!variables[VARIABLE_LANG]) {
+         add = NULL;
+         for (i = 0; i < _VARIABLE_MAX; i++) {
+                 char *s;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index cdb6e5b..c183438 100644
+index 525c72e..863adba 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -183,6 +183,12 @@ static int read_data(void) {

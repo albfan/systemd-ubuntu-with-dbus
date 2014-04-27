@@ -8,7 +8,7 @@ Subject: Make 99-systemd.rules check for /run/systemd/systemd instead of the
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
-index d17bdd9..b523b35 100644
+index bbb7d0c..152eed1 100644
 --- a/rules/99-systemd.rules.in
 +++ b/rules/99-systemd.rules.in
 @@ -6,6 +6,7 @@

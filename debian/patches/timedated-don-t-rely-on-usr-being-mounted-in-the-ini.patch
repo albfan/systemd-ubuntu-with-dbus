@@ -18,7 +18,7 @@ Closes: #726256
  1 file changed, 89 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index c183438..467f567 100644
+index 863adba..eb6a6d8 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -153,6 +153,94 @@ static bool valid_timezone(const char *name) {

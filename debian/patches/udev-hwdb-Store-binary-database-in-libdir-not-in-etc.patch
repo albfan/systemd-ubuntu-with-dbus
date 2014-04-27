@@ -15,10 +15,10 @@ Move it to udevlibexecdir instead.
  4 files changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index cabb303..eb57ea3 100644
+index 7d1f408..631bfde 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -2087,7 +2087,7 @@ INSTALL_DATA_HOOKS += \
+@@ -2388,7 +2388,7 @@ INSTALL_DATA_HOOKS += \
  	hwdb-update-hook
  
  hwdb-remove-hook:
@@ -49,10 +49,10 @@ index d0b257d..75a73c2 100644
              udev daemon will detect a new database on its own and does not need to be
              notified about it.</para>
 diff --git a/src/libudev/libudev-hwdb.c b/src/libudev/libudev-hwdb.c
-index 42ab6d9..e159ae7 100644
+index de1cb83..274282d 100644
 --- a/src/libudev/libudev-hwdb.c
 +++ b/src/libudev/libudev-hwdb.c
-@@ -271,30 +271,30 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
+@@ -275,30 +275,30 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
          hwdb->refcount = 1;
          udev_list_init(udev, &hwdb->properties_list, true);
  
@@ -89,10 +89,10 @@ index 42ab6d9..e159ae7 100644
                  return NULL;
          }
 diff --git a/src/udev/udevadm-hwdb.c b/src/udev/udevadm-hwdb.c
-index 3e849aa..65f08f0 100644
+index d9dc73b..e1433c0 100644
 --- a/src/udev/udevadm-hwdb.c
 +++ b/src/udev/udevadm-hwdb.c
-@@ -569,7 +569,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+@@ -628,7 +628,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                  log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
                            trie->strings->dedup_len, trie->strings->dedup_count);
  

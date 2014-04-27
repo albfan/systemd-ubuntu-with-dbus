@@ -18,11 +18,11 @@ anymore afterwards).
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 3a196a6..cabb303 100644
+index 8d9c587..7d1f408 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -4050,8 +4050,7 @@ SHUTDOWN_TARGET_WANTS += \
- 	systemd-update-utmp-shutdown.service
+@@ -4413,8 +4413,7 @@ SYSINIT_TARGET_WANTS += \
+ 	systemd-update-utmp.service
  LOCAL_FS_TARGET_WANTS += \
  	systemd-remount-fs.service \
 -	systemd-fsck-root.service \

@@ -12,10 +12,10 @@ https://bugs.freedesktop.org/show_bug.cgi?id=70002
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index 10073b5..8777b47 100644
+index 3d46557..93bfa99 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
-@@ -1508,6 +1508,9 @@ static int mount_add_one(
+@@ -1440,6 +1440,9 @@ static int mount_add_one(
  
          u = manager_get_unit(m, e);
          if (!u) {
@@ -25,7 +25,7 @@ index 10073b5..8777b47 100644
                  delete = true;
  
                  u = unit_new(m, sizeof(Mount));
-@@ -1534,7 +1537,7 @@ static int mount_add_one(
+@@ -1466,7 +1469,7 @@ static int mount_add_one(
                          goto fail;
                  }
  

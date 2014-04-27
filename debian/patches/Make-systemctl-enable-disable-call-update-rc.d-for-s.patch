@@ -8,10 +8,10 @@ Subject: Make systemctl enable/disable call update-rc.d for sysv init scripts
  1 file changed, 6 insertions(+), 15 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 3cca861..a008517 100644
+index bb7ada9..a5624a8 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4008,7 +4008,6 @@ static int set_environment(DBusConnection *bus, char **args) {
+@@ -4221,7 +4221,6 @@ static int set_environment(DBusConnection *bus, char **args) {
  static int enable_sysv_units(char **args) {
          int r = 0;
  
@@ -19,7 +19,7 @@ index 3cca861..a008517 100644
          const char *verb = args[0];
          unsigned f = 1, t = 1;
          LookupPaths paths = {};
-@@ -4017,8 +4016,9 @@ static int enable_sysv_units(char **args) {
+@@ -4230,8 +4229,9 @@ static int enable_sysv_units(char **args) {
                  return 0;
  
          if (!streq(verb, "enable") &&
@@ -31,7 +31,7 @@ index 3cca861..a008517 100644
                  return 0;
  
          /* Processes all SysV units, and reshuffles the array so that
-@@ -4034,7 +4034,7 @@ static int enable_sysv_units(char **args) {
+@@ -4247,7 +4247,7 @@ static int enable_sysv_units(char **args) {
                  _cleanup_free_ char *p = NULL, *q = NULL;
                  bool found_native = false, found_sysv;
                  unsigned c = 1;
@@ -40,7 +40,7 @@ index 3cca861..a008517 100644
                  char **k, *l;
                  int j;
                  pid_t pid;
-@@ -4067,9 +4067,6 @@ static int enable_sysv_units(char **args) {
+@@ -4280,9 +4280,6 @@ static int enable_sysv_units(char **args) {
                                  break;
                  }
  
@@ -50,7 +50,7 @@ index 3cca861..a008517 100644
                  if (!isempty(arg_root))
                          asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
                  else
-@@ -4088,15 +4085,10 @@ static int enable_sysv_units(char **args) {
+@@ -4301,15 +4298,10 @@ static int enable_sysv_units(char **args) {
                  /* Mark this entry, so that we don't try enabling it as native unit */
                  args[f] = (char*) "";
  
@@ -68,7 +68,7 @@ index 3cca861..a008517 100644
                  argv[c] = NULL;
  
                  l = strv_join((char**)argv, " ");
-@@ -4162,7 +4154,6 @@ finish:
+@@ -4375,7 +4367,6 @@ finish:
  
          args[t] = NULL;
  

@@ -7,11 +7,11 @@ Subject: fix remaining reference to systemd-logind.conf
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/man/systemd-inhibit.xml b/man/systemd-inhibit.xml
-index e17e715..47da4f7 100644
+index cac0ef6..f915fb8 100644
 --- a/man/systemd-inhibit.xml
 +++ b/man/systemd-inhibit.xml
 @@ -158,7 +158,7 @@
-                                 time elapses the lock is ignored and
+                                 time elapses, the lock is ignored and
                                  the operation executed. The time limit
                                  may be specified in
 -                                <citerefentry><refentrytitle>systemd-logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note

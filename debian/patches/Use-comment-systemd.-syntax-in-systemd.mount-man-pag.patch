@@ -13,10 +13,10 @@ again.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
-index 21177a2..db5e6d1 100644
+index 48af1ca..66be987 100644
 --- a/man/systemd.mount.xml
 +++ b/man/systemd.mount.xml
-@@ -141,12 +141,12 @@
+@@ -145,12 +145,12 @@
                  <filename>local-fs.target</filename> or
                  <filename>remote-fs.target</filename>, depending
                  whether the file system is local or remote. If
@@ -28,6 +28,6 @@ index 21177a2..db5e6d1 100644
                  for details. If
 -                <option>x-systemd.device-timeout=</option> is
 +                <option>comment=systemd.device-timeout=</option> is
-                 specified it may be used to configure how long systemd
+                 specified, it may be used to configure how long systemd
                  should wait for a device to show up before giving up
                  on an entry from

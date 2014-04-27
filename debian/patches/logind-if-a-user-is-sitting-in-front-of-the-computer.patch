@@ -8,10 +8,10 @@ Subject: logind: if a user is sitting in front of the computer and can
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/login/org.freedesktop.login1.policy.in b/src/login/org.freedesktop.login1.policy.in
-index 0c551d4..b96d32d 100644
+index b96d32d..df12398 100644
 --- a/src/login/org.freedesktop.login1.policy.in
 +++ b/src/login/org.freedesktop.login1.policy.in
-@@ -190,7 +190,7 @@
+@@ -201,7 +201,7 @@
                  <defaults>
                          <allow_any>auth_admin_keep</allow_any>
                          <allow_inactive>auth_admin_keep</allow_inactive>

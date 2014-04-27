@@ -19,11 +19,11 @@ $local_fs, too.
  create mode 100644 units/syslog.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 48cfba6..6944fbc 100644
+index 43f1ec6..909bf58 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -404,6 +404,7 @@ dist_systemunit_DATA = \
- 	units/quotaon.service \
+@@ -415,6 +415,7 @@ dist_systemunit_DATA = \
+ 	units/smartcard.target \
  	units/systemd-ask-password-wall.path \
  	units/systemd-ask-password-console.path \
 +	units/syslog.target \
@@ -31,7 +31,7 @@ index 48cfba6..6944fbc 100644
  	units/systemd-udevd-kernel.socket \
  	units/system-update.target \
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 7164b1e..036b6e5 100644
+index 863a029..0876ccc 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
 @@ -97,6 +97,7 @@
@@ -42,7 +42,7 @@ index 7164b1e..036b6e5 100644
                  <filename>system-update.target</filename>,
                  <filename>time-sync.target</filename>,
                  <filename>timers.target</filename>,
-@@ -363,6 +364,27 @@
+@@ -367,6 +368,27 @@
                                          that have the
                                          <option>auto</option> mount
                                          option set.</para>
@@ -70,7 +70,7 @@ index 7164b1e..036b6e5 100644
                                  </listitem>
                          </varlistentry>
                          <varlistentry>
-@@ -671,6 +693,19 @@
+@@ -675,6 +697,19 @@
                                  </listitem>
                          </varlistentry>
                          <varlistentry>
@@ -91,10 +91,10 @@ index 7164b1e..036b6e5 100644
                                  <listitem>
                                          <para>A special target unit
 diff --git a/src/core/service.c b/src/core/service.c
-index 3617c24..06fa127 100644
+index 6792024..47587d0 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -324,8 +324,7 @@ static void service_done(Unit *u) {
+@@ -332,8 +332,7 @@ static void service_done(Unit *u) {
  static char *sysv_translate_name(const char *name) {
          char *r;
  
@@ -104,7 +104,7 @@ index 3617c24..06fa127 100644
                  return NULL;
  
          if (endswith(name, ".sh"))
-@@ -348,12 +347,16 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -356,12 +355,16 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
@@ -123,7 +123,7 @@ index 3617c24..06fa127 100644
                  "time",                 SPECIAL_TIME_SYNC_TARGET,
          };
  
-@@ -374,9 +377,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -382,9 +385,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
                  if (!table[i+1])
                          return 0;
  
@@ -136,7 +136,7 @@ index 3617c24..06fa127 100644
                  goto finish;
          }
 diff --git a/src/core/special.h b/src/core/special.h
-index a9b50bc..6865c04 100644
+index 6d252e7..28be074 100644
 --- a/src/core/special.h
 +++ b/src/core/special.h
 @@ -48,7 +48,7 @@
@@ -202,7 +202,7 @@ index 0000000..423fef3
 +# happen to be activated very late.
 +DefaultDependencies=no
 diff --git a/units/systemd-journald.socket b/units/systemd-journald.socket
-index 4f0619d..dbe8882 100644
+index fbeb10b..71de86a 100644
 --- a/units/systemd-journald.socket
 +++ b/units/systemd-journald.socket
 @@ -9,7 +9,7 @@
@@ -213,4 +213,4 @@ index 4f0619d..dbe8882 100644
 +Before=sockets.target syslog.target
  
  # Mount and swap units need this. If this socket unit is removed by an
- # isolate request the mount and and swap units would be removed too,
+ # isolate request the mount and swap units would be removed too,

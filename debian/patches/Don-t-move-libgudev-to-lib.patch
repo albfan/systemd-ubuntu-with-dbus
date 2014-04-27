@@ -8,10 +8,10 @@ libgobject and libgmodule are currently installed in /usr/lib.
  1 file changed, 9 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index eb57ea3..48cfba6 100644
+index 631bfde..43f1ec6 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -2353,15 +2353,6 @@ typelibs_DATA = \
+@@ -2654,15 +2654,6 @@ typelibs_DATA = \
  CLEANFILES += $(gir_DATA) $(typelibs_DATA)
  endif # HAVE_INTROSPECTION
  

@@ -8,7 +8,7 @@ http://bugs.debian.org/738316
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/man/systemd-inhibit.xml b/man/systemd-inhibit.xml
-index 6f63c8c..e17e715 100644
+index de2f264..cac0ef6 100644
 --- a/man/systemd-inhibit.xml
 +++ b/man/systemd-inhibit.xml
 @@ -198,7 +198,7 @@

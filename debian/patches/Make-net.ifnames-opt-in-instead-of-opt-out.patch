@@ -10,7 +10,7 @@ http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceName
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/rules/80-net-name-slot.rules b/rules/80-net-name-slot.rules
-index 15b5bc4..c0f66d1 100644
+index c5f1b38..4738e53 100644
 --- a/rules/80-net-name-slot.rules
 +++ b/rules/80-net-name-slot.rules
 @@ -5,7 +5,7 @@ SUBSYSTEM!="net", GOTO="net_name_slot_end"

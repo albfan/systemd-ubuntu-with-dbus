@@ -25,10 +25,10 @@ Closes: #734809
  1 file changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 81ac83e..3147c4a 100644
+index 357ceac..78bdeb2 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4246,10 +4246,6 @@ static int enable_unit(DBusConnection *bus, char **args) {
+@@ -4459,10 +4459,6 @@ static int enable_unit(DBusConnection *bus, char **args) {
  
          dbus_error_init(&error);
  
@@ -39,7 +39,7 @@ index 81ac83e..3147c4a 100644
          if (!args[1])
                  return 0;
  
-@@ -4257,6 +4253,13 @@ static int enable_unit(DBusConnection *bus, char **args) {
+@@ -4470,6 +4466,13 @@ static int enable_unit(DBusConnection *bus, char **args) {
          if (r < 0)
                  goto finish;
  
