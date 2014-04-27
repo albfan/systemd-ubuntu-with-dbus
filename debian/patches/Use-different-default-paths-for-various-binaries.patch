@@ -8,14 +8,14 @@ Update the defaults in configure.ac so we don't have to build-depend on
 quota, libcap2-bin, procps, kmod and kexec-tools just to get the correct
 paths.  Closes: #721347
 ---
- configure.ac | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ configure.ac | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 4f26092..5ce4adb 100644
+index 4f26092..eb700ac 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -67,12 +67,12 @@ AC_PROG_GCC_TRADITIONAL
+@@ -67,16 +67,16 @@ AC_PROG_GCC_TRADITIONAL
  AC_PATH_PROG([M4], [m4])
  AC_PATH_PROG([XSLTPROC], [xsltproc])
  
@@ -30,8 +30,14 @@ index 4f26092..5ce4adb 100644
 -AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 +AC_PATH_PROG([KILL], [kill], [/bin/kill])
  
- AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
+-AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
++AC_PATH_PROG([KMOD], [kmod], [/bin/kmod])
  
+-AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec])
++AC_PATH_PROG([KEXEC], [kexec], [/sbin/kexec])
+ 
+ # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
+ m4_ifdef([GTK_DOC_CHECK], [
 @@ -790,13 +790,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
