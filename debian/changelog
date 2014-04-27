@@ -8,6 +8,8 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Create a compat symlink /etc/sysctl.d/99-sysctl.conf as systemd-sysctl no
     longer reads /etc/sysctl.conf.
   * Bump Build-Depends on kmod to (>= 14).
+  * Make kmod-static-nodes.service check for the kmod binary since we don't
+    want a hard dependency on kmod e.g. for container installations.
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
