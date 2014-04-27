@@ -1,6 +1,6 @@
 systemd (208-1) UNRELEASED; urgency=medium
 
-  * New upstream release.
+  * New upstream release. (Closes: #729566)
   * Update patches.
   * Update symbols files for libsystemd-journal and libsystemd-login.
   * Install new files and remove the ones we don't use.
