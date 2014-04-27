@@ -44,7 +44,8 @@ static enum transport {
         TRANSPORT_POLKIT
 } arg_transport = TRANSPORT_NORMAL;
 static bool arg_ask_password = true;
-static const char *arg_host = NULL;
+static char *arg_host = NULL;
+static char *arg_user = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -197,7 +198,7 @@ static void print_status_info(StatusInfo *i) {
 
         if (i->local_rtc)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
+                      "Warning: The RTC is configured to maintain time in the local timezone. This\n"
                       "         mode is not fully supported and will create various problems with time\n"
                       "         zone changes and daylight saving adjustments. If at all possible use\n"
                       "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
@@ -304,7 +305,7 @@ static int show_status(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_time(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t relative = false, interactive = true;
+        dbus_bool_t relative = false, interactive = arg_ask_password;
         usec_t t;
         dbus_int64_t u;
         int r;
@@ -338,7 +339,7 @@ static int set_time(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true;
+        dbus_bool_t interactive = arg_ask_password;
 
         assert(args);
         assert(n == 2);
@@ -360,7 +361,7 @@ static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b, q;
+        dbus_bool_t interactive = arg_ask_password, b, q;
         int r;
 
         assert(args);
@@ -393,7 +394,7 @@ static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
 
 static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = true, b;
+        dbus_bool_t interactive = arg_ask_password, b;
         int r;
 
         assert(args);
@@ -501,6 +502,7 @@ static int help(void) {
                "     --adjust-system-clock\n"
                "                         Adjust system clock when changing local RTC mode\n"
                "     --no-pager          Do not pipe output into a pager\n"
+               "  -P --privileged        Acquire privileges before execution\n"
                "     --no-ask-password   Do not prompt for password\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n\n"
                "Commands:\n"
@@ -540,7 +542,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hH:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -559,7 +561,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'H':
                         arg_transport = TRANSPORT_SSH;
-                        arg_host = optarg;
+                        parse_user_at_host(optarg, &arg_user, &arg_host);
+                        break;
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
                         break;
 
                 case ARG_ADJUST_SYSTEM_CLOCK:

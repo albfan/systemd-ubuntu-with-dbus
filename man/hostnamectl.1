@@ -1,0 +1,140 @@
+'\" t
+.TH "HOSTNAMECTL" "1" "" "systemd 208" "hostnamectl"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+hostnamectl \- Control the system hostname
+.SH "SYNOPSIS"
+.HP \w'\fBhostnamectl\fR\ 'u
+\fBhostnamectl\fR [OPTIONS...] {COMMAND}
+.SH "DESCRIPTION"
+.PP
+\fBhostnamectl\fR
+may be used to query and change the system hostname and related settings\&.
+.PP
+This tool distinguishes three different hostnames: the high\-level "pretty" hostname which might include all kinds of special characters (e\&.g\&. "Lennart\*(Aqs Laptop"), the static hostname which is used to initialize the kernel hostname at boot (e\&.g\&. "lennarts\-laptop"), and the transient hostname which might be assigned temporarily due to network configuration and might revert back to the static hostname if network connectivity is lost and is only temporarily written to the kernel hostname (e\&.g\&. "dhcp\-47\-11")\&.
+.PP
+Note that the pretty hostname has little restrictions on the characters used, while the static and transient hostnames are limited to the usually accepted characters of Internet domain names\&.
+.PP
+The static hostname is stored in
+/etc/hostname, see
+\fBhostname\fR(5)
+for more information\&. The pretty hostname, chassis type, and icon name are stored in
+/etc/machine\-info, see
+\fBmachine-id\fR(5)\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Prints a short version string and exits\&.
+.RE
+.PP
+\fB\-\-no\-ask\-password\fR
+.RS 4
+Do not query the user for authentication for privileged operations\&.
+.RE
+.PP
+\fB\-P\fR, \fB\-\-privileged\fR
+.RS 4
+Acquire privileges via PolicyKit before executing the operation\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to a remote system\&.
+.RE
+.PP
+\fB\-\-static\fR, \fB\-\-transient\fR, \fB\-\-pretty\fR
+.RS 4
+If
+\fBstatus\fR
+is used (or no explicit command is given) and one of those fields is given,
+\fBhostnamectl\fR
+will print out just this selected hostname\&.
+.sp
+If used with
+\fBset\-hostname\fR, only the selected hostname(s) will be updated\&. When more than one of those options is used, all the specified hostnames will be updated\&.
+.RE
+.PP
+The following commands are understood:
+.PP
+\fBstatus\fR
+.RS 4
+Show current system hostname and related information\&.
+.RE
+.PP
+\fBset\-hostname [NAME]\fR
+.RS 4
+Set the system hostname\&. By default, this will alter the pretty, the static, and the transient hostname alike; however, if one or more of
+\fB\-\-static\fR,
+\fB\-\-transient\fR,
+\fB\-\-pretty\fR
+are used, only the selected hostnames are changed\&. If the pretty hostname is being set, and static or transient are being set as well, the specified hostname will be simplified in regards to the character set used before the latter are updated\&. This is done by replacing spaces with
+"\-"
+and removing special characters\&. This ensures that the pretty and the static hostname are always closely related while still following the validity rules of the specific name\&. This simplification of the hostname string is not done if only the transient and/or static host names are set, and the pretty host name is left untouched\&. Pass the empty string
+""
+as the hostname to reset the selected hostnames to their default (usually
+"localhost")\&.
+.RE
+.PP
+\fBset\-icon\-name [NAME]\fR
+.RS 4
+Set the system icon name\&. The icon name is used by some graphical applications to visualize this host\&. The icon name should follow the
+\m[blue]\fBIcon Naming Specification\fR\m[]\&\s-2\u[1]\d\s+2\&. Pass an empty string to this operation to reset the icon name to the default value, which is determined from chassis type (see below) and possibly other parameters\&.
+.RE
+.PP
+\fBset\-chassis [TYPE]\fR
+.RS 4
+Set the chassis type\&. The chassis type is used by some graphical applications to visualize the host or alter user interaction\&. Currently, the following chassis types are defined:
+"desktop",
+"laptop",
+"server",
+"tablet",
+"handset", as well as the special chassis types
+"vm"
+and
+"container"
+for virtualized systems that lack an immediate physical chassis\&. Pass an empty string to this operation to reset the chassis type to the default value which is determined from the firmware and possibly other parameters\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+On success 0 is returned, a non\-zero failure code otherwise\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBhostname\fR(1),
+\fBhostname\fR(5),
+\fBmachine-info\fR(5),
+\fBsystemctl\fR(1),
+\fBsystemd-hostnamed.service\fR(8)
+.SH "NOTES"
+.IP " 1." 4
+Icon Naming Specification
+.RS 4
+\%http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
+.RE

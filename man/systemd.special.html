@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.special"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.special — Special systemd units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">basic.target</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.special"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.special — Special systemd units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">basic.target</code>,
                 <code class="filename">bluetooth.target</code>,
                 <code class="filename">ctrl-alt-del.target</code>,
                 <code class="filename">cryptsetup.target</code>,
@@ -71,9 +71,13 @@
                 <code class="filename">system-update.target</code>,
                 <code class="filename">time-sync.target</code>,
                 <code class="filename">timers.target</code>,
-                <code class="filename">umount.target</code></p></div><div class="refsect1"><a name="idm259772036336"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A few units are treated specially by
+                <code class="filename">umount.target</code>,
+                <code class="filename">-.slice</code>,
+                <code class="filename">system.slice</code>,
+                <code class="filename">user.slice</code>,
+                <code class="filename">machine.slice</code></p></div><div class="refsect1"><a name="idm274680627360"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A few units are treated specially by
                 systemd. They have special internal semantics and
-                cannot be renamed.</p></div><div class="refsect1"><a name="idm259772034992"></a><h2 id="Special System Units">Special System Units<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="basic.target"><span class="term"><code class="filename">basic.target</code></span><a class="headerlink" title="Permalink to this term" href="#basic.target">¶</a></dt><dd><p>A special target unit
+                cannot be renamed.</p></div><div class="refsect1"><a name="idm274680626016"></a><h2 id="Special System Units">Special System Units<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="basic.target"><span class="term"><code class="filename">basic.target</code></span><a class="headerlink" title="Permalink to this term" href="#basic.target">¶</a></dt><dd><p>A special target unit
                                         covering basic boot-up.</p><p>systemd automatically
                                         adds dependencies of the types
                                         <code class="varname">Requires=</code>
@@ -155,7 +159,7 @@
                                         best configured via
                                         <code class="varname">WantedBy=graphical.target</code>
                                         in the unit's
-                                        <code class="literal">[Install]</code>
+                                        "<code class="literal">[Install]</code>"
                                         section.</p></dd><dt id="hibernate.target"><span class="term"><code class="filename">hibernate.target</code></span><a class="headerlink" title="Permalink to this term" href="#hibernate.target">¶</a></dt><dd><p>A special target unit
                                         for hibernating the
                                         system. This pulls in
@@ -176,7 +180,7 @@
                                         dependencies of type
                                         <code class="varname">Before=</code> to
                                         <code class="filename">sysroot-usr.mount</code>
-                                        and all mount points fround in
+                                        and all mount points found in
                                         <code class="filename">/etc/fstab</code>
                                         that have the
                                         <code class="option">auto</code> and
@@ -215,9 +219,9 @@
                                         this unit during
                                         installation. This is best
                                         configured via
-                                        <code class="varname">WantedBy=multi-uer.target</code>
+                                        <code class="varname">WantedBy=multi-user.target</code>
                                         in the unit's
-                                        <code class="literal">[Install]</code>
+                                        "<code class="literal">[Install]</code>"
                                         section.</p></dd><dt id="network-online.target"><span class="term"><code class="filename">network-online.target</code></span><a class="headerlink" title="Permalink to this term" href="#network-online.target">¶</a></dt><dd><p>Units that strictly
                                         require a configured network
                                         connection should pull in
@@ -267,7 +271,7 @@
                                         after it. Note that networking
                                         daemons that simply provide
                                         functionality to other hosts
-                                        generally don't need to pull
+                                        generally do not need to pull
                                         this in.</p></dd><dt id="paths.target"><span class="term"><code class="filename">paths.target</code></span><a class="headerlink" title="Permalink to this term" href="#paths.target">¶</a></dt><dd><p>A special target unit
                                         that sets up all path units
                                         (see
@@ -282,7 +286,7 @@
                                         via a
                                         <code class="varname">WantedBy=paths.target</code>
                                         in the path unit's
-                                        <code class="literal">[Install]</code>
+                                        "<code class="literal">[Install]</code>"
                                         section.</p></dd><dt id="poweroff.target"><span class="term"><code class="filename">poweroff.target</code></span><a class="headerlink" title="Permalink to this term" href="#poweroff.target">¶</a></dt><dd><p>A special target unit
                                         for shutting down and powering off the system.</p><p>Applications wanting to
                                         power off the system should start
@@ -302,7 +306,7 @@
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
-                                        <code class="literal">$remote_fs</code>
+                                        "<code class="literal">$remote_fs</code>"
                                         facility.</p></dd><dt id="rescue.target"><span class="term"><code class="filename">rescue.target</code></span><a class="headerlink" title="Permalink to this term" href="#rescue.target">¶</a></dt><dd><p>A special target unit
                                         for setting up the base system
                                         and a rescue shell.</p><p><code class="filename">runlevel1.target</code>
@@ -361,7 +365,7 @@
                                         configured via a
                                         <code class="varname">WantedBy=sockets.target</code>
                                         in the socket unit's
-                                        <code class="literal">[Install]</code>
+                                        "<code class="literal">[Install]</code>"
                                         section.</p></dd><dt id="suspend.target"><span class="term"><code class="filename">suspend.target</code></span><a class="headerlink" title="Permalink to this term" href="#suspend.target">¶</a></dt><dd><p>A special target unit
                                         for suspending the
                                         system. This pulls in
@@ -402,7 +406,7 @@
                                         via
                                         <code class="varname">WantedBy=timers.target</code>
                                         in the timer unit's
-                                        <code class="literal">[Install]</code>
+                                        "<code class="literal">[Install]</code>"
                                         section.</p></dd><dt id="umount.target"><span class="term"><code class="filename">umount.target</code></span><a class="headerlink" title="Permalink to this term" href="#umount.target">¶</a></dt><dd><p>A special target unit
                                         that umounts all mount and
                                         automount points on system
@@ -413,7 +417,7 @@
                                         their mount unit, which is
                                         implicitly done when
                                         <code class="varname">DefaultDependencies=yes</code>
-                                        is set (the default).</p></dd></dl></div></div><div class="refsect1"><a name="idm259766971904"></a><h2 id="Special System Units for Devices">Special System Units for Devices<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units%20for%20Devices">¶</a></h2><p>Some target units are automatically pulled in as
+                                        is set (the default).</p></dd></dl></div></div><div class="refsect1"><a name="idm274675515024"></a><h2 id="Special System Units for Devices">Special System Units for Devices<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units%20for%20Devices">¶</a></h2><p>Some target units are automatically pulled in as
                 devices of certain kinds show up in the system. These
                 may be used to automatically activate various services
                 based on the specific type of the available
@@ -448,7 +452,7 @@
                                         boot.</p><p>This may be used to pull
                                         in audio management daemons
                                         dynamically when audio
-                                        hardware is found.</p></dd></dl></div></div><div class="refsect1"><a name="idm259766958752"></a><h2 id="Special Passive System Units ">Special Passive System Units <a class="headerlink" title="Permalink to this headline" href="#Special%20Passive%20System%20Units%20">¶</a></h2><p>A number of special system targets are defined
+                                        hardware is found.</p></dd></dl></div></div><div class="refsect1"><a name="idm274675501872"></a><h2 id="Special Passive System Units ">Special Passive System Units <a class="headerlink" title="Permalink to this headline" href="#Special%20Passive%20System%20Units%20">¶</a></h2><p>A number of special system targets are defined
                 that can be used to properly order boot-up of optional
                 services. These targets are generally not part of the
                 initial boot transaction, unless they are explicitly
@@ -462,8 +466,8 @@
                 before these targets (as appropriate) and pull it in
                 (via a <code class="varname">Wants=</code> type
                 dependency).</p><p>Note that these passive units cannot be started
-                manually, i.e. <code class="literal">systemctl start
-                time-sync.target</code> will fail with an
+                manually, i.e. "<code class="literal">systemctl start
+                time-sync.target</code>" will fail with an
                 error. They can only be pulled in by dependency. This
                 is enforced since they exist for ordering purposes
                 only and thus are not useful as only unit within a
@@ -496,7 +500,7 @@
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
-                                        <code class="literal">$network</code>
+                                        "<code class="literal">$network</code>"
                                         facility.</p></dd><dt id="nss-lookup.target"><span class="term"><code class="filename">nss-lookup.target</code></span><a class="headerlink" title="Permalink to this term" href="#nss-lookup.target">¶</a></dt><dd><p>A target that should be
                                         used as synchronization point
                                         for all host/network name
@@ -512,7 +516,7 @@
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
-                                        <code class="literal">$named</code>
+                                        "<code class="literal">$named</code>"
                                         facility.</p></dd><dt id="nss-user-lookup.target"><span class="term"><code class="filename">nss-user-lookup.target</code></span><a class="headerlink" title="Permalink to this term" href="#nss-user-lookup.target">¶</a></dt><dd><p>A target that should be
                                         used as synchronization point
                                         for all user/group name
@@ -536,7 +540,7 @@
                                         <code class="varname">Wants=</code> type
                                         dependency. If the unit wants
                                         to be pulled in by the first
-                                        remote mount showing up it
+                                        remote mount showing up, it
                                         should use
                                         <code class="filename">network-online.target</code>
                                         (see above).</p><p>Again, this target unit
@@ -549,15 +553,15 @@
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
-                                        <code class="literal">$portmap</code>
+                                        "<code class="literal">$portmap</code>"
                                         facility.</p></dd><dt id="time-sync.target"><span class="term"><code class="filename">time-sync.target</code></span><a class="headerlink" title="Permalink to this term" href="#time-sync.target">¶</a></dt><dd><p>systemd automatically
                                         adds dependencies of type
                                         <code class="varname">After=</code> for
                                         this target unit to all SysV
                                         init script service units with
                                         an LSB header referring to the
-                                        <code class="literal">$time</code>
-                                        facility.</p></dd></dl></div></div><div class="refsect1"><a name="idm259766925744"></a><h2 id="Special User Units">Special User Units<a class="headerlink" title="Permalink to this headline" href="#Special%20User%20Units">¶</a></h2><p>When systemd runs as a user instance, the
+                                        "<code class="literal">$time</code>"
+                                        facility.</p></dd></dl></div></div><div class="refsect1"><a name="idm274675468624"></a><h2 id="Special User Units">Special User Units<a class="headerlink" title="Permalink to this headline" href="#Special%20User%20Units">¶</a></h2><p>When systemd runs as a user instance, the
                 following special units are available, which have
                 similar definitions as their system counterparts:
                 <code class="filename">default.target</code>,
@@ -575,19 +579,41 @@
                                         terminate the user service
                                         manager should start this
                                         unit. If systemd receives
-                                        SIGTERM or SIGINT when running
-                                        as user service daemon it will
+                                        <code class="constant">SIGTERM</code> or <code class="constant">SIGINT</code> when running
+                                        as user service daemon, it will
                                         start this unit.</p><p>Normally, this pulls in
                                         <code class="filename">shutdown.target</code>
                                         which in turn should be
                                         conflicted by all units that
                                         want to be shut down on
-                                        user service manager exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm259766913616"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                        user service manager exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm274675455728"></a><h2 id="Special Slice Units">Special Slice Units<a class="headerlink" title="Permalink to this headline" href="#Special%20Slice%20Units">¶</a></h2><p>There are four "<code class="literal">.slice</code>" units
+                which form the basis of the hierarchy for assignment
+                of resources for services, users, and virtual machines
+                or containers.</p><div class="variablelist"><dl class="variablelist"><dt id="-.slice"><span class="term"><code class="filename">-.slice</code></span><a class="headerlink" title="Permalink to this term" href="#-.slice">¶</a></dt><dd><p>The root slice is the
+                                        root of the hierarchy. It
+                                        usually does not contain units
+                                        directly, but may be used to
+                                        set defaults for the whole
+                                        tree.</p></dd><dt id="system.slice"><span class="term"><code class="filename">system.slice</code></span><a class="headerlink" title="Permalink to this term" href="#system.slice">¶</a></dt><dd><p>By default, all services
+                                        services started by
+                                        <span class="command"><strong>systemd</strong></span> are
+                                        found in this slice.</p></dd><dt id="user.slice"><span class="term"><code class="filename">user.slice</code></span><a class="headerlink" title="Permalink to this term" href="#user.slice">¶</a></dt><dd><p>By default, all user
+                                        processes and services started
+                                        on behalf of the user,
+                                        including the per-user systemd
+                                        instance are found in this
+                                        slice.</p></dd><dt id="machine.slice"><span class="term"><code class="filename">machine.slice</code></span><a class="headerlink" title="Permalink to this term" href="#machine.slice">¶</a></dt><dd><p>By defalt, all virtual
+                                        machines and containers
+                                        registered with
+                                        <span class="command"><strong>systemd-machined</strong></span>
+                                        are found in this slice.
+                                        </p></dd></dl></div></div><div class="refsect1"><a name="idm274675443264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
                           <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>,
                           <a href="systemd.target.html"><span class="citerefentry"><span class="refentrytitle">systemd.target</span>(5)</span></a>,
+                          <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>,
                           <a href="bootup.html"><span class="citerefentry"><span class="refentrytitle">bootup</span>(7)</span></a>,
                           <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
                   </p></div></div></body></html>

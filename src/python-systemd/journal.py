@@ -33,7 +33,8 @@ from syslog import (LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR,
                     LOG_WARNING, LOG_NOTICE, LOG_INFO, LOG_DEBUG)
 from ._journal import __version__, sendv, stream_fd
 from ._reader import (_Reader, NOP, APPEND, INVALIDATE,
-                      LOCAL_ONLY, RUNTIME_ONLY, SYSTEM_ONLY,
+                      LOCAL_ONLY, RUNTIME_ONLY,
+                      SYSTEM, SYSTEM_ONLY, CURRENT_USER,
                       _get_catalog)
 from . import id128 as _id128
 
@@ -54,6 +55,9 @@ def _convert_realtime(t):
 
 def _convert_timestamp(s):
     return _datetime.datetime.fromtimestamp(int(s) / 1000000)
+
+def _convert_trivial(x):
+    return x
 
 if _sys.version_info >= (3,):
     def _convert_uuid(s):
@@ -87,6 +91,7 @@ DEFAULT_CONVERTERS = {
     '__REALTIME_TIMESTAMP': _convert_realtime,
     '_SOURCE_MONOTONIC_TIMESTAMP': _convert_source_monotonic,
     '__MONOTONIC_TIMESTAMP': _convert_monotonic,
+    '__CURSOR': _convert_trivial,
     'COREDUMP': bytes,
     'COREDUMP_PID': int,
     'COREDUMP_UID': int,
@@ -119,7 +124,7 @@ class Reader(_Reader):
     See systemd.journal-fields(7) for more info on typical fields
     found in the journal.
     """
-    def __init__(self, flags=0, path=None, converters=None):
+    def __init__(self, flags=0, path=None, files=None, converters=None):
         """Create an instance of Reader, which allows filtering and
         return of journal entries.
 
@@ -145,7 +150,7 @@ class Reader(_Reader):
         Reader implements the context manager protocol: the journal
         will be closed when exiting the block.
         """
-        super(Reader, self).__init__(flags, path)
+        super(Reader, self).__init__(flags, path, files)
         if _sys.version_info >= (3,3):
             self.converters = _ChainMap()
             if converters is not None:
@@ -187,18 +192,18 @@ class Reader(_Reader):
         """
         return self
 
-    if _sys.version_info >= (3,):
-        def __next__(self):
-            """Part of iterator protocol.
-            Returns self.get_next().
-            """
-            return self.get_next()
-    else:
-        def next(self):
-            """Part of iterator protocol.
-            Returns self.get_next().
-            """
-            return self.get_next()
+    def __next__(self):
+        """Part of iterator protocol.
+        Returns self.get_next() or raises StopIteration.
+        """
+        ans = self.get_next()
+        if ans:
+            return ans
+        else:
+            raise StopIteration()
+
+    if _sys.version_info < (3,):
+        next = __next__
 
     def add_match(self, *args, **kwargs):
         """Add one or more matches to the filter journal log entries.

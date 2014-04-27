@@ -506,7 +506,7 @@ static int find_symlinks_in_scope(
                 UnitFileState *state) {
 
         int r;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path2 = NULL;
         bool same_name_link_runtime = false, same_name_link = false;
 
         assert(scope >= 0);
@@ -514,6 +514,7 @@ static int find_symlinks_in_scope(
         assert(name);
 
         if (scope == UNIT_FILE_SYSTEM || scope == UNIT_FILE_GLOBAL) {
+                _cleanup_free_ char *path = NULL;
 
                 /* First look in runtime config path */
                 r = get_config_path(scope, true, root_dir, &path);
@@ -530,11 +531,11 @@ static int find_symlinks_in_scope(
         }
 
         /* Then look in the normal config path */
-        r = get_config_path(scope, false, root_dir, &path);
+        r = get_config_path(scope, false, root_dir, &path2);
         if (r < 0)
                 return r;
 
-        r = find_symlinks(name, path, &same_name_link);
+        r = find_symlinks(name, path2, &same_name_link);
         if (r < 0)
                 return r;
         else if (r > 0) {
@@ -966,14 +967,15 @@ static int config_parse_user(const char *unit,
 
         InstallInfo *i = data;
         char* printed;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        printed = install_full_printf(i, rvalue);
-        if (!printed)
-                return -ENOMEM;
+        r = install_full_printf(i, rvalue, &printed);
+        if (r < 0)
+                return r;
 
         free(i->user);
         i->user = printed;
@@ -1061,8 +1063,8 @@ static int unit_file_search(
                         info->path = path;
                 else {
                         if (r == -ENOENT && unit_name_is_instance(info->name)) {
-                                /* unit file doesn't exist, however instance enablement was request */
-                                /* we will check if it is possible to load template unit file */
+                                /* Unit file doesn't exist, however instance enablement was requested.
+                                 * We will check if it is possible to load template unit file. */
                                 char *template = NULL,
                                      *template_path = NULL,
                                      *template_dir = NULL;
@@ -1073,7 +1075,7 @@ static int unit_file_search(
                                         return -ENOMEM;
                                 }
 
-                                /* we will reuse path variable since we don't need it anymore */
+                                /* We will reuse path variable since we don't need it anymore. */
                                 template_dir = path;
                                 *(strrchr(path, '/') + 1) = '\0';
 
@@ -1084,7 +1086,7 @@ static int unit_file_search(
                                         return -ENOMEM;
                                 }
 
-                                /* let's try to load template unit */
+                                /* Let's try to load template unit. */
                                 r = unit_file_load(c, info, template_path, allow_symlink);
                                 if (r >= 0) {
                                         info->path = strdup(template_path);
@@ -1199,9 +1201,9 @@ static int install_info_symlink_alias(
         STRV_FOREACH(s, i->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 alias_path = path_make_absolute(dst, config_path);
                 if (!alias_path)
@@ -1231,9 +1233,9 @@ static int install_info_symlink_wants(
         STRV_FOREACH(s, i->wanted_by) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;
@@ -1268,9 +1270,9 @@ static int install_info_symlink_requires(
         STRV_FOREACH(s, i->required_by) {
                 _cleanup_free_ char *path = NULL, *dst = NULL;
 
-                dst = install_full_printf(i, *s);
-                if (!dst)
-                        return -ENOMEM;
+                q = install_full_printf(i, *s, &dst);
+                if (q < 0)
+                        return q;
 
                 if (!unit_name_is_valid(dst, true)) {
                         r = -EINVAL;
@@ -1413,7 +1415,9 @@ static int install_context_mark_for_removal(
                 assert_se(hashmap_move_one(c->have_installed, c->will_install, i->name) == 0);
 
                 q = unit_file_search(c, i, paths, root_dir, false);
-                if (q < 0) {
+                if (q == -ENOENT) {
+                        /* do nothing */
+                } else if (q < 0) {
                         if (r >= 0)
                                 r = q;
 
@@ -1422,16 +1426,30 @@ static int install_context_mark_for_removal(
                         r += q;
 
                 if (unit_name_is_instance(i->name)) {
-                        char *unit_file = NULL;
+                        char *unit_file;
 
-                        unit_file = path_get_file_name(i->path);
+                        if (i->path) {
+                                unit_file = path_get_file_name(i->path);
 
-                        if (unit_name_is_instance(unit_file))
-                                /* unit file named as instance exists, thus all symlinks pointing to it, will be removed */
-                                q = mark_symlink_for_removal(remove_symlinks_to, i->name);
-                        else
-                                /* does not exist, thus we will mark for removal symlinks to template unit file */
+                                if (unit_name_is_instance(unit_file))
+                                        /* unit file named as instance exists, thus all symlinks
+                                         * pointing to it will be removed */
+                                        q = mark_symlink_for_removal(remove_symlinks_to, i->name);
+                                else
+                                        /* does not exist, thus we will mark for removal symlinks
+                                         * to template unit file */
+                                        q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
+                        } else {
+                                /* If i->path is not set, it means that we didn't actually find
+                                 * the unit file. But we can still remove symlinks to the
+                                 * nonexistent template. */
+                                unit_file = unit_name_template(i->name);
+                                if (!unit_file)
+                                        return log_oom();
+
                                 q = mark_symlink_for_removal(remove_symlinks_to, unit_file);
+                                free(unit_file);
+                        }
                 } else
                         q = mark_symlink_for_removal(remove_symlinks_to, i->name);
 
@@ -1531,43 +1549,101 @@ int unit_file_reenable(
                 bool force,
                 UnitFileChange **changes,
                 unsigned *n_changes) {
+        int r;
+
+        r = unit_file_disable(scope, runtime, root_dir, files,
+                              changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return unit_file_enable(scope, runtime, root_dir, files, force,
+                                changes, n_changes);
+}
+
+int unit_file_set_default(
+                UnitFileScope scope,
+                const char *root_dir,
+                char *file,
+                UnitFileChange **changes,
+                unsigned *n_changes) {
 
         _cleanup_lookup_paths_free_ LookupPaths paths = {};
         _cleanup_install_context_done_ InstallContext c = {};
-        char **i;
         _cleanup_free_ char *config_path = NULL;
-        _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        int r, q;
+        char *path;
+        int r;
+        InstallInfo *i = NULL;
 
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        if (unit_name_to_type(file) != UNIT_TARGET)
+                return -EINVAL;
 
         r = lookup_paths_init_from_scope(&paths, scope);
         if (r < 0)
                 return r;
 
-        r = get_config_path(scope, runtime, root_dir, &config_path);
+        r = get_config_path(scope, false, root_dir, &config_path);
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, files) {
-                r = mark_symlink_for_removal(&remove_symlinks_to, *i);
-                if (r < 0)
+        r = install_info_add_auto(&c, file);
+        if (r < 0)
+                return r;
+
+        i = (InstallInfo*)hashmap_first(c.will_install);
+
+        r = unit_file_search(&c, i, &paths, root_dir, false);
+        if (r < 0)
+                return r;
+
+        path = strappenda(config_path, "/default.target");
+        r = create_symlink(i->path, path, true, changes, n_changes);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int unit_file_get_default(
+                UnitFileScope scope,
+                const char *root_dir,
+                char **name) {
+
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        char **p;
+        int r;
+
+        r = lookup_paths_init_from_scope(&paths, scope);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, paths.unit_path) {
+                _cleanup_free_ char *path = NULL, *tmp = NULL;
+
+                if (isempty(root_dir))
+                        path = strappend(*p, "/default.target");
+                else
+                        path = strjoin(root_dir, "/", *p, "/default.target", NULL);
+
+                if (!path)
+                        return -ENOMEM;
+
+                r = readlink_malloc(path, &tmp);
+                if (r == -ENOENT)
+                        continue;
+                else if (r < 0)
                         return r;
 
-                r = install_info_add_auto(&c, *i);
-                if (r < 0)
-                        return r;
+                *name = strdup(path_get_file_name(tmp));
+                if (!*name)
+                        return -ENOMEM;
+
+                return 0;
         }
 
-        r = remove_marked_symlinks(remove_symlinks_to, config_path, changes, n_changes, files);
-
-        /* Returns number of symlinks that where supposed to be installed. */
-        q = install_context_apply(&c, &paths, config_path, root_dir, force, changes, n_changes);
-        if (r == 0)
-                r = q;
-
-        return r;
+        return -ENOENT;
 }
 
 UnitFileState unit_file_get_state(
@@ -1609,24 +1685,29 @@ UnitFileState unit_file_get_state(
                 if (!path)
                         return -ENOMEM;
 
+                /*
+                 * Search for a unit file in our default paths, to
+                 * be sure, that there are no broken symlinks.
+                 */
                 if (lstat(path, &st) < 0) {
                         r = -errno;
-                        if (errno == ENOENT)
+                        if (errno != ENOENT)
+                                return r;
+
+                        if (!unit_name_is_instance(name))
                                 continue;
+                } else {
+                        if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
+                                return -ENOENT;
 
-                        return -errno;
-                }
-
-                if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode))
-                        return -ENOENT;
-
-                r = null_or_empty_path(path);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                else if (r > 0) {
-                        state = path_startswith(*i, "/run") ?
-                                UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
-                        return state;
+                        r = null_or_empty_path(path);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                        else if (r > 0) {
+                                state = path_startswith(*i, "/run") ?
+                                        UNIT_FILE_MASKED_RUNTIME : UNIT_FILE_MASKED;
+                                return state;
+                        }
                 }
 
                 r = find_symlinks_in_scope(scope, root_dir, name, &state);

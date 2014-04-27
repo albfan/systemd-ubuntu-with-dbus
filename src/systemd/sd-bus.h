@@ -27,6 +27,7 @@
 
 #include <sd-id128.h>
 #include "sd-bus-protocol.h"
+#include "sd-memfd.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,18 +41,6 @@ extern "C" {
 #  endif
 #endif
 
-/* TODO:
- * - add page donation logic
- * - api for appending/reading fixed arrays
- * - merge busctl into systemctl or so?
- * - default policy (allow uid == 0 and our own uid)
- *
- * - enforce alignment of pointers passed in
- * - negotiation for attach attributes
- *
- * - for kernel and unix transports allow setting the unix user/access mode for the node
- */
-
 typedef struct sd_bus sd_bus;
 typedef struct sd_bus_message sd_bus_message;
 
@@ -61,7 +50,7 @@ typedef struct {
         int need_free;
 } sd_bus_error;
 
-typedef int (*sd_bus_message_handler_t)(sd_bus *bus, int ret, sd_bus_message *m, void *userdata);
+typedef int (*sd_bus_message_handler_t)(sd_bus *bus, sd_bus_message *m, void *userdata);
 
 /* Connections */
 
@@ -75,7 +64,14 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id);
 int sd_bus_set_anonymous(sd_bus *bus, int b);
-int sd_bus_set_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_negotiate_fds(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_comm(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_exe(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_caps(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b);
+int sd_bus_negotiate_attach_audit(sd_bus *bus, int b);
 int sd_bus_start(sd_bus *ret);
 
 void sd_bus_close(sd_bus *bus);
@@ -163,11 +159,17 @@ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
 
 int sd_bus_message_append(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
+int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
+int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr);
+int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *memfd);
+int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
+int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd* memfd);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
 
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
+int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_enter_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_exit_container(sd_bus_message *m);
 int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **contents);
@@ -202,6 +204,12 @@ void sd_bus_error_set_const(sd_bus_error *e, const char *name, const char *messa
 int sd_bus_error_copy(sd_bus_error *dest, const sd_bus_error *e);
 int sd_bus_error_is_set(const sd_bus_error *e);
 int sd_bus_error_has_name(const sd_bus_error *e, const char *name);
+
+#define SD_BUS_APPEND_ID128(x) 16,                                          \
+                (x).bytes[0],  (x).bytes[1],  (x).bytes[2],  (x).bytes[3],  \
+                (x).bytes[4],  (x).bytes[5],  (x).bytes[6],  (x).bytes[7],  \
+                (x).bytes[8],  (x).bytes[9],  (x).bytes[10], (x).bytes[11], \
+                (x).bytes[12], (x).bytes[13], (x).bytes[14], (x).bytes[15]
 
 #ifdef __cplusplus
 }

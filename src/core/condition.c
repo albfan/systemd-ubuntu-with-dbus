@@ -37,6 +37,7 @@
 #include "virt.h"
 #include "path-util.h"
 #include "fileio.h"
+#include "unit.h"
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate) {
         Condition *c;
@@ -157,15 +158,28 @@ static bool test_virtualization(const char *parameter) {
         return v > 0 && streq(parameter, id);
 }
 
+static bool test_apparmor_enabled(void) {
+        int r;
+        _cleanup_free_ char *p = NULL;
+
+        r = read_one_line_file("/sys/module/apparmor/parameters/enabled", &p);
+        if (r < 0)
+                return false;
+
+        return parse_boolean(p) > 0;
+}
+
 static bool test_security(const char *parameter) {
 #ifdef HAVE_SELINUX
         if (streq(parameter, "selinux"))
                 return is_selinux_enabled() > 0;
 #endif
-	if (streq(parameter, "apparmor"))
-		return access("/sys/kernel/security/apparmor/", F_OK) == 0;
-	if (streq(parameter, "smack"))
-		return access("/sys/fs/smackfs", F_OK) == 0;
+        if (streq(parameter, "apparmor"))
+                return test_apparmor_enabled();
+        if (streq(parameter, "ima"))
+                return access("/sys/kernel/security/ima/", F_OK) == 0;
+        if (streq(parameter, "smack"))
+                return access("/sys/fs/smackfs", F_OK) == 0;
         return false;
 }
 
@@ -236,7 +250,7 @@ static bool test_ac_power(const char *parameter) {
         return (on_ac_power() != 0) == !!r;
 }
 
-bool condition_test(Condition *c) {
+static bool condition_test(Condition *c) {
         assert(c);
 
         switch(c->type) {
@@ -320,7 +334,7 @@ bool condition_test(Condition *c) {
         }
 }
 
-bool condition_test_list(Condition *first) {
+bool condition_test_list(const char *unit, Condition *first) {
         Condition *c;
         int triggered = -1;
 
@@ -335,6 +349,16 @@ bool condition_test_list(Condition *first) {
                 bool b;
 
                 b = condition_test(c);
+                if (unit)
+                        log_debug_unit(unit,
+                                       "%s=%s%s%s %s for %s.",
+                                       condition_type_to_string(c->type),
+                                       c->trigger ? "|" : "",
+                                       c->negate ? "!" : "",
+                                       c->parameter,
+                                       b ? "succeeded" : "failed",
+                                       unit);
+                c->state = b ? 1 : -1;
 
                 if (!c->trigger && !b)
                         return false;
@@ -354,12 +378,13 @@ void condition_dump(Condition *c, FILE *f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%s\t%s: %s%s%s\n",
+                "%s\t%s: %s%s%s %s\n",
                 prefix,
                 condition_type_to_string(c->type),
                 c->trigger ? "|" : "",
                 c->negate ? "!" : "",
-                c->parameter);
+                c->parameter,
+                c->state < 0 ? "failed" : c->state > 0 ? "succeeded" : "untested");
 }
 
 void condition_dump_list(Condition *first, FILE *f, const char *prefix) {
@@ -378,9 +403,11 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_READ_WRITE] = "ConditionPathIsReadWrite",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY] = "ConditionFileNotEmpty",
+        [CONDITION_FILE_IS_EXECUTABLE] = "ConditionFileIsExecutable",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_SECURITY] = "ConditionSecurity",
+        [CONDITION_CAPABILITY] = "ConditionCapability",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_AC_POWER] = "ConditionACPower",
         [CONDITION_NULL] = "ConditionNull"

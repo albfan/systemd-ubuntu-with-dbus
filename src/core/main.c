@@ -64,12 +64,10 @@
 #endif
 #include "hostname-setup.h"
 #include "machine-id-setup.h"
-#include "locale-setup.h"
 #include "selinux-setup.h"
 #include "ima-setup.h"
 #include "fileio.h"
 #include "smack-setup.h"
-#include "efivars.h"
 
 static enum {
         ACTION_RUN,
@@ -89,12 +87,12 @@ static int arg_crash_chvt = -1;
 static bool arg_confirm_spawn = false;
 static bool arg_show_status = true;
 static bool arg_switched_root = false;
-static char **arg_default_controllers = NULL;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[RLIMIT_NLIMITS] = {};
 static uint64_t arg_capability_bounding_set_drop = 0;
 static nsec_t arg_timer_slack_nsec = (nsec_t) -1;
@@ -106,7 +104,10 @@ static void nop_handler(int sig) {
 
 _noreturn_ static void crash(int sig) {
 
-        if (!arg_dump_core)
+        if (getpid() != 1)
+                /* Pass this on immediately, if this is not PID 1 */
+                raise(sig);
+        else if (!arg_dump_core)
                 log_error("Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 struct sigaction sa = {
@@ -116,7 +117,7 @@ _noreturn_ static void crash(int sig) {
                 pid_t pid;
 
                 /* We want to wait for the core process, hence let's enable SIGCHLD */
-                assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
+                sigaction(SIGCHLD, &sa, NULL);
 
                 pid = fork();
                 if (pid < 0)
@@ -128,7 +129,7 @@ _noreturn_ static void crash(int sig) {
                         /* Enable default signal handler for core dump */
                         zero(sa);
                         sa.sa_handler = SIG_DFL;
-                        assert_se(sigaction(sig, &sa, NULL) == 0);
+                        sigaction(sig, &sa, NULL);
 
                         /* Don't limit the core dump size */
                         rl.rlim_cur = RLIM_INFINITY;
@@ -136,7 +137,7 @@ _noreturn_ static void crash(int sig) {
                         setrlimit(RLIMIT_CORE, &rl);
 
                         /* Just to be sure... */
-                        assert_se(chdir("/") == 0);
+                        chdir("/");
 
                         /* Raise the signal again */
                         raise(sig);
@@ -347,32 +348,21 @@ static int parse_proc_cmdline_word(const char *word) {
                         arg_default_std_error = r;
         } else if (startswith(word, "systemd.setenv=")) {
                 _cleanup_free_ char *cenv = NULL;
-                char *eq;
-                int r;
 
                 cenv = strdup(word + 15);
                 if (!cenv)
                         return -ENOMEM;
 
-                eq = strchr(cenv, '=');
-                if (!eq) {
-                        if (!env_name_is_valid(cenv))
-                                log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
-                        else  {
-                                r = unsetenv(cenv);
-                                if (r < 0)
-                                        log_warning("Unsetting environment variable '%s' failed, ignoring: %m", cenv);
-                        }
-                } else {
-                        if (!env_assignment_is_valid(cenv))
-                                log_warning("Environment variable assignment '%s' is not valid. Ignoring.", cenv);
-                        else {
-                                *eq = 0;
-                                r = setenv(cenv, eq + 1, 1);
-                                if (r < 0)
-                                        log_warning("Setting environment variable '%s=%s' failed, ignoring: %m", cenv, eq + 1);
-                        }
-                }
+                if (env_assignment_is_valid(cenv)) {
+                        char **env;
+
+                        env = strv_env_set(arg_default_environment, cenv);
+                        if (env)
+                                arg_default_environment = env;
+                        else
+                                log_warning("Setting environment variable '%s' failed, ignoring: %m", cenv);
+                } else
+                        log_warning("Environment variable name '%s' is not valid. Ignoring.", cenv);
 
         } else if (startswith(word, "systemd.") ||
                    (in_initrd() && startswith(word, "rd.systemd."))) {
@@ -411,7 +401,14 @@ static int parse_proc_cmdline_word(const char *word) {
 
         } else if (streq(word, "quiet"))
                 arg_show_status = false;
-        else if (!in_initrd()) {
+        else if (streq(word, "debug")) {
+                /* Log to kmsg, the journal socket will fill up before the
+                 * journal is started and tools running during that time
+                 * will block with every log message for for 60 seconds,
+                 * before they give up. */
+                log_set_max_level(LOG_DEBUG);
+                log_set_target(LOG_TARGET_KMSG);
+        } else if (!in_initrd()) {
                 unsigned i;
 
                 /* SysV compatibility */
@@ -637,7 +634,6 @@ static int parse_config_file(void) {
                 { "Manager", "ShowStatus",            config_parse_bool,         0, &arg_show_status         },
                 { "Manager", "CrashChVT",             config_parse_int,          0, &arg_crash_chvt          },
                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
-                { "Manager", "DefaultControllers",    config_parse_strv,         0, &arg_default_controllers },
                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
@@ -645,6 +641,7 @@ static int parse_config_file(void) {
                 { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
                 { "Manager", "CapabilityBoundingSet", config_parse_bounding_set, 0, &arg_capability_bounding_set_drop },
                 { "Manager", "TimerSlackNSec",        config_parse_nsec,         0, &arg_timer_slack_nsec    },
+                { "Manager", "DefaultEnvironment",    config_parse_environ,      0, &arg_default_environment },
                 { "Manager", "DefaultLimitCPU",       config_parse_limit,        0, &arg_default_rlimit[RLIMIT_CPU]},
                 { "Manager", "DefaultLimitFSIZE",     config_parse_limit,        0, &arg_default_rlimit[RLIMIT_FSIZE]},
                 { "Manager", "DefaultLimitDATA",      config_parse_limit,        0, &arg_default_rlimit[RLIMIT_DATA]},
@@ -1051,14 +1048,15 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         assert(_f);
         assert(_fds);
 
-        /* Make sure nothing is really destructed when we shut down */
-        m->n_reloading ++;
-
         r = manager_open_serialization(m, &f);
         if (r < 0) {
                 log_error("Failed to create serialization file: %s", strerror(-r));
                 goto fail;
         }
+
+        /* Make sure nothing is really destructed when we shut down */
+        m->n_reloading ++;
+        bus_broadcast_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {
@@ -1138,25 +1136,6 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
         }
 
         return 0;
-}
-
-static struct dual_timestamp* parse_initrd_timestamp(struct dual_timestamp *t) {
-        const char *e;
-        unsigned long long a, b;
-
-        assert(t);
-
-        e = getenv("RD_TIMESTAMP");
-        if (!e)
-                return NULL;
-
-        if (sscanf(e, "%llu %llu", &a, &b) != 2)
-                return NULL;
-
-        t->realtime = (usec_t) a;
-        t->monotonic = (usec_t) b;
-
-        return t;
 }
 
 static void test_mtab(void) {
@@ -1239,8 +1218,6 @@ int main(int argc, char *argv[]) {
         dual_timestamp initrd_timestamp = { 0ULL, 0ULL };
         dual_timestamp userspace_timestamp = { 0ULL, 0ULL };
         dual_timestamp kernel_timestamp = { 0ULL, 0ULL };
-        dual_timestamp firmware_timestamp = { 0ULL, 0ULL };
-        dual_timestamp loader_timestamp = { 0ULL, 0ULL };
         static char systemd[] = "systemd";
         bool skip_setup = false;
         int j;
@@ -1288,28 +1265,20 @@ int main(int argc, char *argv[]) {
 
         log_show_color(isatty(STDERR_FILENO) > 0);
 
+        /* Disable the umask logic */
+        if (getpid() == 1)
+                umask(0);
+
         if (getpid() == 1 && detect_container(NULL) <= 0) {
-#ifdef ENABLE_EFI
-                efi_get_boot_timestamps(&userspace_timestamp, &firmware_timestamp, &loader_timestamp);
-#endif
+
                 /* Running outside of a container as PID 1 */
                 arg_running_as = SYSTEMD_SYSTEM;
                 make_null_stdio();
                 log_set_target(LOG_TARGET_KMSG);
                 log_open();
 
-                if (in_initrd()) {
-                        char *rd_timestamp = NULL;
-
+                if (in_initrd())
                         initrd_timestamp = userspace_timestamp;
-                        asprintf(&rd_timestamp, "%llu %llu",
-                                 (unsigned long long) initrd_timestamp.realtime,
-                                 (unsigned long long) initrd_timestamp.monotonic);
-                        if (rd_timestamp) {
-                                setenv("RD_TIMESTAMP", rd_timestamp, 1);
-                                free(rd_timestamp);
-                        }
-                }
 
                 if (!skip_setup) {
                         mount_setup_early();
@@ -1345,10 +1314,10 @@ int main(int argc, char *argv[]) {
                                  */
                                 hwclock_reset_timezone();
 
-                                /* Tell the kernel our time zone */
+                                /* Tell the kernel our timezone */
                                 r = hwclock_set_timezone(NULL);
                                 if (r < 0)
-                                        log_error("Failed to set the kernel's time zone, ignoring: %s", strerror(-r));
+                                        log_error("Failed to set the kernel's timezone, ignoring: %s", strerror(-r));
                         }
                 }
 
@@ -1408,7 +1377,6 @@ int main(int argc, char *argv[]) {
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
 
-        /* If we are init, we can block sigkill. Yay. */
         ignore_signals(SIGNALS_IGNORE, -1);
 
         if (parse_config_file() < 0)
@@ -1474,59 +1442,12 @@ int main(int argc, char *argv[]) {
         if (serialization)
                 assert_se(fdset_remove(fds, fileno(serialization)) >= 0);
 
-        /* Set up PATH unless it is already set */
-        setenv("PATH",
-#ifdef HAVE_SPLIT_USR
-               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-#else
-               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin",
-#endif
-               arg_running_as == SYSTEMD_SYSTEM);
-
-        if (arg_running_as == SYSTEMD_SYSTEM) {
-                /* Parse the data passed to us. We leave this
-                 * variables set, but the manager later on will not
-                 * pass them on to our children. */
-                if (!in_initrd())
-                        parse_initrd_timestamp(&initrd_timestamp);
-
-                /* Unset some environment variables passed in from the
-                 * kernel that don't really make sense for us. */
-                unsetenv("HOME");
-                unsetenv("TERM");
-
-                /* When we are invoked by a shell, these might be set,
-                 * but make little sense to pass on */
-                unsetenv("PWD");
-                unsetenv("SHLVL");
-                unsetenv("_");
-
-                /* When we are invoked by a chroot-like tool such as
-                 * nspawn, these might be set, but make little sense
-                 * to pass on */
-                unsetenv("USER");
-                unsetenv("LOGNAME");
-
-                /* We suppress the socket activation env vars, as
-                 * we'll try to match *any* open fd to units if
-                 * possible. */
-                unsetenv("LISTEN_FDS");
-                unsetenv("LISTEN_PID");
-
-                /* All other variables are left as is, so that clients
-                 * can still read them via /proc/1/environ */
-        }
-
-        /* Move out of the way, so that we won't block unmounts */
-        assert_se(chdir("/")  == 0);
-
-        if (arg_running_as == SYSTEMD_SYSTEM) {
+        if (arg_running_as == SYSTEMD_SYSTEM)
                 /* Become a session leader if we aren't one yet. */
                 setsid();
 
-                /* Disable the umask logic */
-                umask(0);
-        }
+        /* Move out of the way, so that we won't block unmounts */
+        assert_se(chdir("/")  == 0);
 
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
@@ -1565,8 +1486,6 @@ int main(int argc, char *argv[]) {
                 log_debug(PACKAGE_STRING " running in user mode. (" SYSTEMD_FEATURES ")");
 
         if (arg_running_as == SYSTEMD_SYSTEM && !skip_setup) {
-                locale_setup();
-
                 if (arg_show_status || plymouth_running())
                         status_welcome();
 
@@ -1590,14 +1509,14 @@ int main(int argc, char *argv[]) {
                         log_error("Failed to adjust timer slack: %m");
 
         if (arg_capability_bounding_set_drop) {
-                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
-                if (r < 0) {
-                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
-                        goto finish;
-                }
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set_drop);
                 if (r < 0) {
                         log_error("Failed to drop capability bounding set of usermode helpers: %s", strerror(-r));
+                        goto finish;
+                }
+                r = capability_bounding_set_drop(arg_capability_bounding_set_drop, true);
+                if (r < 0) {
+                        log_error("Failed to drop capability bounding set: %s", strerror(-r));
                         goto finish;
                 }
         }
@@ -1614,7 +1533,7 @@ int main(int argc, char *argv[]) {
         if (arg_running_as == SYSTEMD_SYSTEM)
                 bump_rlimit_nofile(&saved_rlimit_nofile);
 
-        r = manager_new(arg_running_as, &m);
+        r = manager_new(arg_running_as, !!serialization, &m);
         if (r < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
@@ -1627,14 +1546,12 @@ int main(int argc, char *argv[]) {
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->userspace_timestamp = userspace_timestamp;
         m->kernel_timestamp = kernel_timestamp;
-        m->firmware_timestamp = firmware_timestamp;
-        m->loader_timestamp = loader_timestamp;
         m->initrd_timestamp = initrd_timestamp;
 
         manager_set_default_rlimits(m, arg_default_rlimit);
 
-        if (arg_default_controllers)
-                manager_set_default_controllers(m, arg_default_controllers);
+        if (arg_default_environment)
+                manager_environment_add(m, arg_default_environment);
 
         manager_set_show_status(m, arg_show_status);
 
@@ -1650,6 +1567,7 @@ int main(int argc, char *argv[]) {
         /* This will close all file descriptors that were opened, but
          * not claimed by any unit. */
         fdset_free(fds);
+        fds = NULL;
 
         if (serialization) {
                 fclose(serialization);
@@ -1669,7 +1587,7 @@ int main(int argc, char *argv[]) {
                 if (r < 0) {
                         log_error("Failed to load default target: %s", bus_error(&error, r));
                         dbus_error_free(&error);
-                } else if (target->load_state == UNIT_ERROR)
+                } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND)
                         log_error("Failed to load default target: %s", strerror(-target->load_error));
                 else if (target->load_state == UNIT_MASKED)
                         log_error("Default target masked.");
@@ -1682,7 +1600,7 @@ int main(int argc, char *argv[]) {
                                 log_error("Failed to load rescue target: %s", bus_error(&error, r));
                                 dbus_error_free(&error);
                                 goto finish;
-                        } else if (target->load_state == UNIT_ERROR) {
+                        } else if (target->load_state == UNIT_ERROR || target->load_state == UNIT_NOT_FOUND) {
                                 log_error("Failed to load rescue target: %s", strerror(-target->load_error));
                                 goto finish;
                         } else if (target->load_state == UNIT_MASKED) {
@@ -1805,7 +1723,6 @@ finish:
                 free(arg_default_rlimit[j]);
 
         free(arg_default_unit);
-        strv_free(arg_default_controllers);
         free_join_controllers();
 
         dbus_shutdown();
@@ -1864,6 +1781,10 @@ finish:
                         args[i++] = "--deserialize";
                         args[i++] = sfd;
                         args[i++] = NULL;
+
+                        /* do not pass along the environment we inherit from the kernel or initrd */
+                        if (switch_root_dir)
+                                clearenv();
 
                         assert(i <= args_size);
                         execv(args[0], (char* const*) args);
@@ -1945,6 +1866,12 @@ finish:
                         env_block = strv_copy(environ);
                         watchdog_close(true);
                 }
+
+                /* Avoid the creation of new processes forked by the
+                 * kernel; at this point, we will not listen to the
+                 * signals anyway */
+                if (detect_container(NULL) <= 0)
+                        cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
                 execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
                 free(env_block);

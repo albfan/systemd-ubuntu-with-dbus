@@ -40,7 +40,9 @@
 #include "label.h"
 
 #define SMACK_CONFIG "/etc/smack/accesses.d/"
-#define CIPSO_CONFIG "/etc/smack/cipso/"
+#define CIPSO_CONFIG "/etc/smack/cipso.d/"
+
+#ifdef HAVE_SMACK
 
 static int write_rules(const char* dstpath, const char* srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
@@ -111,8 +113,12 @@ static int write_rules(const char* dstpath, const char* srcdir) {
        return r;
 }
 
+#endif
 
 int smack_setup(void) {
+
+#ifdef HAVE_SMACK
+
         int r;
 
         r = write_rules("/sys/fs/smackfs/load2", SMACK_CONFIG);
@@ -148,4 +154,8 @@ int smack_setup(void) {
                             strerror(abs(r)));
                 return 0;
         }
+
+#endif
+
+        return 0;
 }

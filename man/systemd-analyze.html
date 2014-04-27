@@ -19,13 +19,14 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd-analyze"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-analyze — Analyze system boot-up performance</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-analyze [OPTIONS...] time</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze [OPTIONS...] blame </code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze [OPTIONS...] critical-chain </code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze [OPTIONS...] plot  [&gt; file.svg]</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze [OPTIONS...] dot  [pattern...] </code> </p></div></div><div class="refsect1"><a name="idm259795164352"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-analyze</strong></span> may be used
-                to determine system boot-up performance of the current
-                boot.</p><p><span class="command"><strong>systemd-analyze time</strong></span>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-analyze"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-analyze — Analyze system boot-up performance</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...] [time]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  blame </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  critical-chain  [<em class="replaceable"><code>UNIT</code></em>...]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  plot  [&gt; file.svg]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  dot  [<em class="replaceable"><code>PATTERN</code></em>...] [&gt; file.dot]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  dump </p></div><div class="cmdsynopsis"><p><code class="command">systemd-analyze</code>  [OPTIONS...]  set-log-level  [<em class="replaceable"><code>LEVEL</code></em>]</p></div></div><div class="refsect1"><a name="idm274682235296"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-analyze</strong></span> may be used
+                to determine system boot-up performance statistics and
+                retrieve other state and tracing information from the
+                system and service manager.</p><p><span class="command"><strong>systemd-analyze time</strong></span>
                 prints the time spent in the kernel before
                 userspace has been reached, the time spent in the
                 initial RAM disk (initrd) before normal system
-                userspace has been reached and the time normal system
+                userspace has been reached, and the time normal system
                 userspace took to initialize. Note that these
                 measurements simply measure the time passed up to the
                 point where all system services have been spawned, but
@@ -36,8 +37,10 @@
                 optimize boot-up times. Note that the output might be
                 misleading as the initialization of one service might
                 be slow simply because it waits for the initialization
-                of another service to complete.</p><p><span class="command"><strong>systemd-analyze critical-chain</strong></span>
-                prints a tree of the time critical chain of units.
+                of another service to complete.</p><p><span class="command"><strong>systemd-analyze critical-chain [<em class="replaceable"><code>UNIT...</code></em>]</strong></span>
+                prints a tree of the time-critical chain of units
+                (for each of the specified <em class="replaceable"><code>UNIT</code></em>s
+                or for the default target otherwise).
                 The time after the unit is active or started is printed
                 after the "@" character. The time the unit takes to
                 start is printed after the "+" character.
@@ -47,7 +50,7 @@
                 of units.</p><p><span class="command"><strong>systemd-analyze plot</strong></span> prints
                 an SVG graphic detailing which system services have
                 been started at what time, highlighting the time they
-                spent on initialization.</p><p><span class="command"><strong>systemd-analyze dot</strong></span> Generate
+                spent on initialization.</p><p><span class="command"><strong>systemd-analyze dot</strong></span> generates
                 textual dependency graph description in dot format for
                 further processing with the GraphViz
                 <a href="dot.html"><span class="citerefentry"><span class="refentrytitle">dot</span>(1)</span></a>
@@ -55,14 +58,24 @@
                 dot | dot -Tsvg &gt; systemd.svg</strong></span> to generate a
                 graphical dependency tree. Unless
                 <code class="option">--order</code> or <code class="option">--require</code>
-                is passed the generated graph will show both ordering
+                is passed, the generated graph will show both ordering
                 and requirement dependencies. Optional pattern
                 globbing style specifications
                 (e.g. <code class="filename">*.target</code>) may be given at
                 the end. A unit dependency is included in the graph if
                 any of these patterns match either the origin or
-                destination node.</p><p>If no command is passed <span class="command"><strong>systemd-analyze
-                time</strong></span> is implied.</p></div><div class="refsect1"><a name="idm259799104080"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
+                destination node.</p><p><span class="command"><strong>systemd-analyze dump</strong></span> outputs
+                a (usually very long) human-readable serialization of
+                the complete server state. Its format is subject to
+                change without notice and should not be parsed by
+                applications.</p><p><span class="command"><strong>systemd-analyze set-log-level
+                <em class="replaceable"><code>LEVEL</code></em></strong></span> changes the
+                current log level of the <span class="command"><strong>systemd</strong></span>
+                daemon to <em class="replaceable"><code>LEVEL</code></em> (accepts
+                the same values as <code class="option">--log-level=</code>
+                described in
+                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>).</p><p>If no command is passed, <span class="command"><strong>systemd-analyze
+                time</strong></span> is implied.</p></div><div class="refsect1"><a name="idm274682209024"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
                                 text and exits.</p></dd><dt id="--user"><span class="term"><code class="option">--user</code></span><a class="headerlink" title="Permalink to this term" href="#--user">¶</a></dt><dd><p>Shows performance data
                                 of user sessions instead of the system
                                 manager.</p></dd><dt id="--order"><span class="term"><code class="option">--order</code>, </span><span class="term"><code class="option">--require</code></span><a class="headerlink" title="Permalink to this term" href="#--order">¶</a></dt><dd><p>When used in
@@ -70,33 +83,33 @@
                                 <span class="command"><strong>dot</strong></span> command (see
                                 above), selects which dependencies are
                                 shown in the dependency graph. If
-                                <code class="option">--order</code> is passed
+                                <code class="option">--order</code> is passed,
                                 only dependencies of type
                                 <code class="varname">After=</code> or
                                 <code class="varname">Before=</code> are
                                 shown. If <code class="option">--require</code>
-                                is passed only dependencies of type
+                                is passed, only dependencies of type
                                 <code class="varname">Requires=</code>,
                                 <code class="varname">RequiresOverridable=</code>,
                                 <code class="varname">Requisite=</code>,
                                 <code class="varname">RequisiteOverridable=</code>,
                                 <code class="varname">Wants=</code> and
                                 <code class="varname">Conflicts=</code> are
-                                shown. If neither is passed, shows
+                                shown. If neither is passed, this shows
                                 dependencies of all these
                                 types.</p></dd><dt id="--from-pattern="><span class="term"><code class="option">--from-pattern=</code>, </span><span class="term"><code class="option">--to-pattern=</code></span><a class="headerlink" title="Permalink to this term" href="#--from-pattern=">¶</a></dt><dd><p>When used in
                                 conjunction with the
                                 <span class="command"><strong>dot</strong></span> command (see
-                                above), selects which relationships
+                                above), this selects which relationships
                                 are shown in the dependency graph.
                                 They both require
                                 <a href="glob.html"><span class="citerefentry"><span class="refentrytitle">glob</span>(7)</span></a>
                                 patterns as arguments, which are
-                                matched against lefthand and
-                                righthand, respectively, nodes of a
+                                matched against left-hand and
+                                right-hand, respectively, nodes of a
                                 relationship. Each of these can be
-                                used more than once which means a
-                                unit name must match one of given
+                                used more than once, which means a
+                                unit name must match one of the given
                                 values.</p></dd><dt id="--fuzz=timespan"><span class="term"><code class="option">--fuzz=</code><em class="replaceable"><code>timespan</code></em></span><a class="headerlink" title="Permalink to this term" href="#--fuzz=timespan">¶</a></dt><dd><p>When used in conjunction
                                 with the <span class="command"><strong>critical-chain</strong></span>
                                 command (see above), also show units, which
@@ -104,11 +117,15 @@
                                 latest unit in the same level. The unit of
                                 <em class="replaceable"><code>timespan</code></em> is seconds
                                 unless specified with a different unit,
-                                i.e. "50ms".</p></dd></dl></div></div><div class="refsect1"><a name="idm259799075808"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm259799074624"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>This plots all dependencies of any unit whose
+                                e.g. "50ms".</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm274677273488"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm274677272336"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>This plots all dependencies of any unit whose
                 name starts with "<code class="literal">avahi-daemon.</code>":</p><pre class="programlisting">$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg &gt; avahi.svg
-$ eog avahi.svg</pre><p>This plots the dependencies between all known target units:</p><pre class="programlisting">systemd-analyze dot --to-pattern='*.target' --from-patter='*.target' | dot -Tsvg &gt; targets.svg
-$ eog targets.svg</pre></div><div class="refsect1"><a name="idm259799070928"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+$ eog avahi.svg</pre><p>This plots the dependencies between all known target units:</p><pre class="programlisting">systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg &gt; targets.svg
+$ eog targets.svg</pre></div><div class="refsect1"><a name="idm274677268800"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when <code class="option">--no-pager</code> is not
+                                        given; overrides <code class="varname">$PAGER</code>.  Setting this to
+                                        an empty string or the value "<code class="literal">cat</code>" is
+                                        equivalent to passing
+                                        <code class="option">--no-pager</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm274677263728"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>
                 </p></div></div></body></html>

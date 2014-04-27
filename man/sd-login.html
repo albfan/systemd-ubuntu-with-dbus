@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="sd-login"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-login — APIs for
-                tracking logins</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd-login</code> </p></div></div><div class="refsect1"><a name="idm259797573152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-login.h</code> provides APIs to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd-login"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-login — APIs for
+                tracking logins</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd-login</code> </p></div></div><div class="refsect1"><a name="idm274697454064"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-login.h</code> provides APIs to
                 introspect and monitor seat, login session and user
                 status information on the local system. </p><p>See <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/multiseat" target="_top">Multi-Seat
                 on Linux</a> for an introduction into multi-seat
@@ -43,13 +43,13 @@
                 <code class="filename">sd-login.h</code> interfaces such as the
                 login monitor are asynchronous and not ordered against
                 each other.</p><p>If the functions return string arrays, these are
-                generally NULL terminated and need to be freed by the
+                generally <code class="constant">NULL</code> terminated and need to be freed by the
                 caller with the libc
                 <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
                 call after use, including the strings referenced
                 therein. Similar, individual strings returned need to
                 be freed, as well.</p><p>As a special exception, instead of an empty
-                string array NULL may be returned, which should be
+                string array <code class="constant">NULL</code> may be returned, which should be
                 treated equivalent to an empty string array.</p><p>See
                 <a href="sd_pid_get_session.html"><span class="citerefentry"><span class="refentrytitle">sd_pid_get_session</span>(3)</span></a>,
                 <a href="sd_uid_get_state.html"><span class="citerefentry"><span class="refentrytitle">sd_uid_get_state</span>(3)</span></a>,
@@ -58,11 +58,10 @@
                 <a href="sd_get_seats.html"><span class="citerefentry"><span class="refentrytitle">sd_get_seats</span>(3)</span></a>,
                 <a href="sd_login_monitor_new.html"><span class="citerefentry"><span class="refentrytitle">sd_login_monitor_new</span>(3)</span></a>
                 for more information about the functions
-                implemented.</p></div><div class="refsect1"><a name="idm259793849024"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>These APIs are implemented as shared library,
+                implemented.</p></div><div class="refsect1"><a name="idm274701395328"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>These APIs are implemented as shared library,
                 which can be compiled and linked to with the
-                <code class="literal">libsystemd-login</code>
-                <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-                file.</p></div><div class="refsect1"><a name="idm259793846176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                <code class="constant">libsystemd-login</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                file.</p></div><div class="refsect1"><a name="idm274701392672"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd_pid_get_session.html"><span class="citerefentry"><span class="refentrytitle">sd_pid_get_session</span>(3)</span></a>,
                         <a href="sd_uid_get_state.html"><span class="citerefentry"><span class="refentrytitle">sd_uid_get_state</span>(3)</span></a>,

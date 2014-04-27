@@ -77,7 +77,7 @@
                 notification.</para>
 
                 <para>If the <parameter>unset_environment</parameter>
-                parameter is non-zero <function>sd_notify()</function>
+                parameter is non-zero, <function>sd_notify()</function>
                 will unset the <varname>$NOTIFY_SOCKET</varname>
                 environment variable before returning (regardless
                 whether the function call itself succeeded or
@@ -197,10 +197,10 @@
                 errno-style error code. If
                 <varname>$NOTIFY_SOCKET</varname> was not set and
                 hence no status data could be sent, 0 is returned. If
-                the status was sent these functions return with a
+                the status was sent, these functions return with a
                 positive return value. In order to support both, init
                 systems that implement this scheme and those which
-                don't, it is generally recommended to ignore the return
+                do not, it is generally recommended to ignore the return
                 value of this call.</para>
         </refsect1>
 
@@ -217,10 +217,10 @@
 
                 <para>Internally, these functions send a single
                 datagram with the state string as payload to the
-                AF_UNIX socket referenced in the
+                <constant>AF_UNIX</constant> socket referenced in the
                 <varname>$NOTIFY_SOCKET</varname> environment
                 variable. If the first character of
-                <varname>$NOTIFY_SOCKET</varname> is @ the string is
+                <varname>$NOTIFY_SOCKET</varname> is <literal>@</literal>, the string is
                 understood as Linux abstract namespace socket. The
                 datagram is accompanied by the process credentials of
                 the sending daemon, using SCM_CREDENTIALS.</para>
@@ -238,8 +238,7 @@
                 <filename>sd-daemon.h</filename> files. These
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-daemon</literal>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source tree. For
                 more details about the reference implementation see
@@ -247,7 +246,7 @@
 
                 <para>If the reference implementation is used as
                 drop-in files and -DDISABLE_SYSTEMD is set during
-                compilation these functions will always return 0 and
+                compilation, these functions will always return 0 and
                 otherwise become a NOP.</para>
         </refsect1>
 

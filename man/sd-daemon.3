@@ -1,0 +1,122 @@
+'\" t
+.TH "SD\-DAEMON" "3" "" "systemd 208" "sd-daemon"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, SD_DEBUG \- Reference implementation of APIs for new\-style daemons
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <systemd/sd\-daemon\&.h>
+.fi
+.ft
+.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\-daemon\fR\ 'u
+\fBpkg\-config \-\-cflags \-\-libs libsystemd\-daemon\fR
+.SH "DESCRIPTION"
+.PP
+sd\-daemon\&.c
+and
+sd\-daemon\&.h
+provide a reference implementation of various APIs for new\-style daemons, as implemented by the
+\fBsystemd\fR(1)
+init system\&.
+.PP
+See
+\fBsd_listen_fds\fR(3),
+\fBsd_notify\fR(3),
+\fBsd_booted\fR(3),
+\fBsd_is_fifo\fR(3)
+for more information about the functions implemented\&. In addition to these functions a couple of logging prefixes are defined as macros:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+#define SD_EMERG   "<0>"  /* system is unusable */
+#define SD_ALERT   "<1>"  /* action must be taken immediately */
+#define SD_CRIT    "<2>"  /* critical conditions */
+#define SD_ERR     "<3>"  /* error conditions */
+#define SD_WARNING "<4>"  /* warning conditions */
+#define SD_NOTICE  "<5>"  /* normal but significant condition */
+#define SD_INFO    "<6>"  /* informational */
+#define SD_DEBUG   "<7>"  /* debug\-level messages */
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+These prefixes are intended to be used in conjunction with STDERR\-based logging as implemented by systemd\&. If a systemd service definition file is configured with
+\fIStandardError=syslog\fR
+or
+\fIStandardError=kmsg\fR, these prefixes can be used to encode a log level in lines printed\&. This is similar to the kernel
+\fBprintk()\fR\-style logging\&. See
+\fBklogctl\fR(2)
+for more information\&.
+.PP
+The log levels are identical to
+\fBsyslog\fR(3)\*(Aqs log level system\&. To use these prefixes simply prefix every line with one of these strings\&. A line that is not prefixed will be logged at the default log level SD_INFO\&.
+.PP
+\fBExample\ \&1.\ \&Hello World\fR
+.PP
+A daemon may log with the log level NOTICE by issuing this call:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+fprintf(stderr, SD_NOTICE "Hello World!\en");
+.fi
+.if n \{\
+.RE
+.\}
+.SH "NOTES"
+.PP
+These interfaces are provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithms they implement are simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&. See the respective function man pages for details\&.
+.PP
+In addition, for details about the algorithms check the liberally licensed reference implementation sources:
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
+and
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
+.PP
+These APIs are implemented in the reference implementation\*(Aqs
+sd\-daemon\&.c
+and
+sd\-daemon\&.h
+files\&. These interfaces are available as shared library, which can be compiled and linked to with the
+\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
+file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree, either verbatim or in excerpts\&.
+.PP
+The functions directly related to new\-style daemons become NOPs when \-DDISABLE_SYSTEMD is set during compilation and the reference implementation is used as drop\-in files\&. In addition, if
+sd\-daemon\&.c
+is compiled on non\-Linux systems they become NOPs\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsd_listen_fds\fR(3),
+\fBsd_notify\fR(3),
+\fBsd_booted\fR(3),
+\fBsd_is_fifo\fR(3),
+\fBdaemon\fR(7),
+\fBsystemd.service\fR(5),
+\fBsystemd.socket\fR(5),
+\fBfprintf\fR(3),
+\fBsd-readahead\fR(3),
+\fBpkg-config\fR(1)

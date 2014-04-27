@@ -67,7 +67,7 @@
 
                 <para>Each file contains a list of binfmt_misc kernel
                 binary format rules. Consult <ulink
-                url="http://www.kernel.org/doc/Documentation/binfmt_misc.txt">binfmt_misc.txt</ulink>
+                url="https://www.kernel.org/doc/Documentation/binfmt_misc.txt">binfmt_misc.txt</ulink>
                 for more information on registration of additional
                 binary formats and how to write rules.</para>
 
@@ -88,17 +88,17 @@
                 administrator, who may use this logic to override the
                 configuration files installed from vendor
                 packages. All files are sorted by their filename in
-                alphabetical order, regardless in which of the
-                directories they reside, to guarantee that a specific
-                configuration file takes precedence over another file
-                with an alphabetically later name.</para>
+                lexicographic order, regardless in which of the
+                directories they reside. If multiple files specify
+                the same binary type name, the entry in the file with
+                the lexicographically latest name will be applied.</para>
 
                 <para>If the administrator wants to disable a
-                configuration file supplied by the vendor the
+                configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/binfmt.d/</filename> bearing the
-                same file name.</para>
+                same filename.</para>
         </refsect1>
 
         <refsect1>

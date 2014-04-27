@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm259788122528"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm274700965504"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 <code class="filename">.service</code> encodes information
                 about a process controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -27,16 +27,19 @@
                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
                 for the common options of all unit configuration
                 files. The common configuration items are configured
-                in the generic <code class="literal">[Unit]</code> and
-                <code class="literal">[Install]</code> sections. The service
+                in the generic "<code class="literal">[Unit]</code>" and
+                "<code class="literal">[Install]</code>" sections. The service
                 specific configuration options are configured in the
-                <code class="literal">[Service]</code> section.</p><p>Additional options are listed in
+                "<code class="literal">[Service]</code>" section.</p><p>Additional options are listed in
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
                 which define the execution environment the commands
                 are executed in, and in
-                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
+                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
                 which define the way the processes of the service are
-                terminated.</p><p>Unless <code class="varname">DefaultDependencies=</code>
+                terminated, and in
+                <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
+                which configure resource control settings for the
+                processes of the service.</p><p>Unless <code class="varname">DefaultDependencies=</code>
                 is set to <code class="option">false</code>, service units will
                 implicitly have dependencies of type
                 <code class="varname">Requires=</code> and
@@ -59,8 +62,8 @@
                 comprehensive but not 100%. For details about the
                 incompatibilities see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities" target="_top">Incompatibilities
                 with SysV</a> document.
-                </p></div><div class="refsect1"><a name="idm259787988448"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
-                <code class="literal">[Service]</code> section, which carries
+                </p></div><div class="refsect1"><a name="idm274704848656"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
+                "<code class="literal">[Service]</code>" section, which carries
                 information about the service and the process it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -68,7 +71,7 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>. The
-                options specific to the <code class="literal">[Service]</code>
+                options specific to the "<code class="literal">[Service]</code>"
                 section of service units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="Type="><span class="term"><code class="varname">Type=</code></span><a class="headerlink" title="Permalink to this term" href="#Type=">¶</a></dt><dd><p>Configures the process
                                 start-up type for this service
                                 unit. One of <code class="option">simple</code>,
@@ -79,26 +82,26 @@
                                 <code class="option">idle</code>.</p><p>If set to
                                 <code class="option">simple</code> (the default
                                 value if <code class="varname">BusName=</code>
-                                is not specified) it is expected that
+                                is not specified), it is expected that
                                 the process configured with
                                 <code class="varname">ExecStart=</code> is the
                                 main process of the service. In this
                                 mode, if the process offers
                                 functionality to other processes on
-                                the system its communication channels
+                                the system, its communication channels
                                 should be installed before the daemon
                                 is started up (e.g. sockets set up by
                                 systemd, via socket activation), as
                                 systemd will immediately proceed
                                 starting follow-up units.</p><p>If set to
-                                <code class="option">forking</code> it is
+                                <code class="option">forking</code>, it is
                                 expected that the process configured
                                 with <code class="varname">ExecStart=</code>
                                 will call <code class="function">fork()</code>
                                 as part of its start-up. The parent process is
                                 expected to exit when start-up is
                                 complete and all communication
-                                channels set up. The child continues
+                                channels are set up. The child continues
                                 to run as the main daemon
                                 process. This is the behavior of
                                 traditional UNIX daemons. If this
@@ -141,14 +144,18 @@
                                 starting up. systemd will proceed
                                 starting follow-up units after this
                                 notification message has been sent. If
-                                this option is used
+                                this option is used,
                                 <code class="varname">NotifyAccess=</code> (see
                                 below) should be set to open access to
                                 the notification socket provided by
                                 systemd. If
                                 <code class="varname">NotifyAccess=</code> is
                                 not set, it will be implicitly set to
-                                <code class="option">main</code>.</p><p>Behavior of
+                                <code class="option">main</code>. Note that
+                                currently
+                                <code class="varname">Type=</code><code class="option">notify</code>
+                                will not work if used in combination with
+                                <code class="varname">PrivateNetwork=</code><code class="option">yes</code>.</p><p>Behavior of
                                 <code class="option">idle</code> is very similar
                                 to <code class="option">simple</code>, however
                                 actual execution of the service
@@ -173,7 +180,7 @@
                                 guessing algorithm might come to
                                 incorrect conclusions if a daemon
                                 consists of more than one process. If
-                                the main PID cannot be determined
+                                the main PID cannot be determined,
                                 failure detection and automatic
                                 restarting of a service will not work
                                 reliably. Defaults to
@@ -215,8 +222,8 @@
                                 suitable for XDG
                                 <code class="filename">.desktop</code> files.
                                 Lone semicolons may be escaped as
-                                '<code class="literal">\;</code>'. If the empty
-                                string is assigned to this option the
+                                "<code class="literal">\;</code>". If the empty
+                                string is assigned to this option, the
                                 list of commands to start is reset,
                                 prior assignments of this option will
                                 have no effect.</p><p>If more than one command is
@@ -224,55 +231,56 @@
                                 one by one sequentially in the order
                                 they appear in the unit file. If one
                                 of the commands fails (and is not
-                                prefixed with '<code class="literal">-</code>'),
+                                prefixed with "<code class="literal">-</code>"),
                                 other lines are not executed and the
                                 unit is considered failed.</p><p>Unless
                                 <code class="varname">Type=forking</code> is
                                 set, the process started via this
                                 command line will be considered the
                                 main process of the daemon.</p><p>The command line accepts
-                                '<code class="literal">%</code>' specifiers as
+                                "<code class="literal">%</code>" specifiers as
                                 described in
                                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>. Note
                                 that the first argument of the command
                                 line (i.e. the program to execute) may
                                 not include specifiers.</p><p>Basic environment variable
                                 substitution is supported. Use
-                                <code class="literal">${FOO}</code> as part of a
+                                "<code class="literal">${FOO}</code>" as part of a
                                 word, or as a word of its own on the
                                 command line, in which case it will be
                                 replaced by the value of the
                                 environment variable including all
                                 whitespace it contains, resulting in a
                                 single argument.  Use
-                                <code class="literal">$FOO</code> as a separate
+                                "<code class="literal">$FOO</code>" as a separate
                                 word on the command line, in which
                                 case it will be replaced by the value
                                 of the environment variable split up
                                 at whitespace, resulting in zero or
-                                more arguments. Note that the first
+                                more arguments. To pass literal dollar sign
+                                use "<code class="literal">$$</code>". Note that the first
                                 argument (i.e. the program to execute)
                                 may not be a variable, since it must
                                 be a literal and absolute path
                                 name.</p><p>Optionally, if the absolute file
                                 name is prefixed with
-                                '<code class="literal">@</code>', the second token
+                                "<code class="literal">@</code>", the second token
                                 will be passed as
-                                <code class="literal">argv[0]</code> to the
+                                "<code class="literal">argv[0]</code>" to the
                                 executed process, followed by the
                                 further arguments specified. If the
-                                absolute file name is prefixed with
-                                '<code class="literal">-</code>' an exit code of
+                                absolute filename is prefixed with
+                                "<code class="literal">-</code>", an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or
                                 abnormal exit due to signal) is ignored
                                 and considered success. If both
-                                '<code class="literal">-</code>' and
-                                '<code class="literal">@</code>' are used they
+                                "<code class="literal">-</code>" and
+                                "<code class="literal">@</code>" are used, they
                                 can appear in either order.</p><p>Note that this setting does not
                                 directly support shell command
                                 lines. If shell command lines are to
-                                be used they need to be passed
+                                be used, they need to be passed
                                 explicitly to a shell implementation
                                 of some kind. Example:</p><pre class="programlisting">ExecStart=/bin/sh -c 'dmesg | tac'
                                 </pre><p>For services run by a user
@@ -289,7 +297,7 @@
                                 that multiple command lines are allowed
                                 and the commands are executed one
                                 after the other, serially.</p><p>If any of those commands (not
-                                prefixed with '<code class="literal">-</code>')
+                                prefixed with "<code class="literal">-</code>")
                                 fail, the rest are not executed and
                                 the unit is considered failed.</p></dd><dt id="ExecReload="><span class="term"><code class="varname">ExecReload=</code></span><a class="headerlink" title="Permalink to this term" href="#ExecReload=">¶</a></dt><dd><p>Commands to execute to
                                 trigger a configuration reload in the
@@ -320,7 +328,7 @@
                                 <code class="varname">KillMode=</code> setting
                                 (see
                                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>). If
-                                this option is not specified the
+                                this option is not specified, the
                                 process is terminated right-away when
                                 service stop is requested. Specifier
                                 and environment variable substitution
@@ -331,7 +339,7 @@
                                 was stopped. This includes cases where
                                 the commands configured in
                                 <code class="varname">ExecStop=</code> were used,
-                                where the service doesn't have any
+                                where the service does not have any
                                 <code class="varname">ExecStop=</code> defined, or
                                 where the service exited unexpectedly. This
                                 argument takes multiple command lines,
@@ -365,9 +373,9 @@
                                 wait for stop. If a service is asked
                                 to stop but does not terminate in the
                                 specified time, it will be terminated
-                                forcibly via SIGTERM, and after
+                                forcibly via <code class="constant">SIGTERM</code>, and after
                                 another delay of this time with
-                                SIGKILL (See
+                                <code class="constant">SIGKILL</code> (See
                                 <code class="varname">KillMode=</code>
                                 in <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>).
                                 Takes a unit-less value in seconds, or a
@@ -386,11 +394,11 @@
                                 regularly with "WATCHDOG=1" (i.e. the
                                 "keep-alive ping"). If the time
                                 between two such calls is larger than
-                                the configured time then the service
+                                the configured time, then the service
                                 is placed in a failure state. By
                                 setting <code class="varname">Restart=</code> to
                                 <code class="option">on-failure</code> or
-                                <code class="option">always</code> the service
+                                <code class="option">always</code>, the service
                                 will be automatically restarted. The
                                 time configured here will be passed to
                                 the executed service process in the
@@ -399,7 +407,7 @@
                                 daemons to automatically enable the
                                 keep-alive pinging logic if watchdog
                                 support is enabled for the service. If
-                                this option is used
+                                this option is used,
                                 <code class="varname">NotifyAccess=</code> (see
                                 below) should be set to open access to
                                 the notification socket provided by
@@ -430,19 +438,20 @@
                                 <code class="option">no</code>,
                                 <code class="option">on-success</code>,
                                 <code class="option">on-failure</code>,
+                                <code class="option">on-watchdog</code>,
                                 <code class="option">on-abort</code>, or
                                 <code class="option">always</code>. If set to
-                                <code class="option">no</code> (the default) the
+                                <code class="option">no</code> (the default), the
                                 service will not be restarted. If set to
-                                <code class="option">on-success</code> it will be
+                                <code class="option">on-success</code>, it will be
                                 restarted only when the service process
                                 exits cleanly.
                                 In this context, a clean exit means
                                 an exit code of 0, or one of the signals
-                                SIGHUP, SIGINT, SIGTERM, or SIGPIPE, and
+                                <code class="constant">SIGHUP</code>, <code class="constant">SIGINT</code>, <code class="constant">SIGTERM</code>, or <code class="constant">SIGPIPE</code>, and
                                 additionally, exit statuses and signals
                                 specified in <code class="varname">SuccessExitStatus=</code>.
-                                If set to <code class="option">on-failure</code>
+                                If set to <code class="option">on-failure</code>,
                                 the service will be restarted when the
                                 process exits with an nonzero exit code,
                                 is terminated by a signal (including on
@@ -450,13 +459,17 @@
                                 service reload) times out, and when the
                                 configured watchdog timeout is triggered.
                                 If set to
-                                <code class="option">on-abort</code> the service
+                                <code class="option">on-abort</code>, the service
                                 will be restarted only if the service
                                 process exits due to an uncaught
                                 signal not specified as a clean exit
                                 status.
                                 If set to
-                                <code class="option">always</code> the service
+                                <code class="option">on-watchdog</code>, the service
+                                will be restarted only if the watchdog
+                                timeout for the service expires.
+                                If set to
+                                <code class="option">always</code>, the service
                                 will be restarted regardless whether
                                 it exited cleanly or not, got
                                 terminated abnormally by a signal or
@@ -469,20 +482,20 @@
                                 by the main service process will be
                                 considered successful termination, in
                                 addition to the normal successful exit
-                                code 0 and the signals SIGHUP, SIGINT,
-                                SIGTERM and SIGPIPE. Exit status
+                                code 0 and the signals <code class="constant">SIGHUP</code>, <code class="constant">SIGINT</code>,
+                                <code class="constant">SIGTERM</code> and <code class="constant">SIGPIPE</code>. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. Example:
                                 "<code class="literal">SuccessExitStatus=1 2 8
-                                SIGKILL</code>", ensures that exit
+                                <code class="constant">SIGKILL</code></code>", ensures that exit
                                 codes 1, 2, 8 and the termination
-                                signal SIGKILL are considered clean
+                                signal <code class="constant">SIGKILL</code> are considered clean
                                 service terminations. This option may
                                 appear more than once in which case
                                 the list of successful exit statuses
                                 is merged. If the empty string is
-                                assigned to this option the list is
+                                assigned to this option, the list is
                                 reset, all prior assignments of this
                                 option will have no
                                 effect.</p></dd><dt id="RestartPreventExitStatus="><span class="term"><code class="varname">RestartPreventExitStatus=</code></span><a class="headerlink" title="Permalink to this term" href="#RestartPreventExitStatus=">¶</a></dt><dd><p>Takes a list of exit
@@ -507,7 +520,7 @@
                                 option may appear more than once in
                                 which case the list of restart preventing
                                 statuses is merged. If the empty
-                                string is assigned to this option the
+                                string is assigned to this option, the
                                 list is reset, all prior assignments
                                 of this option will have no
                                 effect.</p></dd><dt id="PermissionsStartOnly="><span class="term"><code class="varname">PermissionsStartOnly=</code></span><a class="headerlink" title="Permalink to this term" href="#PermissionsStartOnly=">¶</a></dt><dd><p>Takes a boolean
@@ -565,13 +578,13 @@
                                 <code class="option">none</code> (the default),
                                 <code class="option">main</code> or
                                 <code class="option">all</code>. If
-                                <code class="option">none</code> no daemon status
+                                <code class="option">none</code>, no daemon status
                                 updates are accepted from the service
                                 processes, all status update messages
-                                are ignored. If <code class="option">main</code>
+                                are ignored. If <code class="option">main</code>,
                                 only service updates sent from the
                                 main process of the service are
-                                accepted. If <code class="option">all</code> all
+                                accepted. If <code class="option">all</code>, all
                                 services updates from all members of
                                 the service's control group are
                                 accepted. This option should be set to
@@ -580,8 +593,8 @@
                                 <code class="varname">Type=notify</code> or
                                 <code class="varname">WatchdogSec=</code> (see
                                 above). If those options are used but
-                                <code class="varname">NotifyAccess=</code> not
-                                configured it will be implicitly set
+                                <code class="varname">NotifyAccess=</code> is not
+                                configured, it will be implicitly set
                                 to
                                 <code class="option">main</code>.</p></dd><dt id="Sockets="><span class="term"><code class="varname">Sockets=</code></span><a class="headerlink" title="Permalink to this term" href="#Sockets=">¶</a></dt><dd><p>Specifies the name of
                                 the socket units this service shall
@@ -600,23 +613,23 @@
                                 in other words: the
                                 <code class="varname">Service=</code> setting of
                                 <code class="filename">.socket</code> units
-                                doesn't have to match the inverse of
+                                does not have to match the inverse of
                                 the <code class="varname">Sockets=</code>
                                 setting of the
                                 <code class="filename">.service</code> it
                                 refers to.</p><p>This option may appear more than
                                 once, in which case the list of socket
                                 units is merged. If the empty string
-                                is assigned to this option the list of
+                                is assigned to this option, the list of
                                 sockets is reset, all prior uses of
                                 this setting will have no
                                 effect.</p></dd><dt id="StartLimitInterval="><span class="term"><code class="varname">StartLimitInterval=</code>, </span><span class="term"><code class="varname">StartLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#StartLimitInterval=">¶</a></dt><dd><p>Configure service
-                                start rate limiting. By default
+                                start rate limiting. By default,
                                 services which are started more often
                                 than 5 times within 10s are not
                                 permitted to start any more times
                                 until the 10s interval ends. With
-                                these two options this rate limiting
+                                these two options, this rate limiting
                                 may be modified. Use
                                 <code class="varname">StartLimitInterval=</code>
                                 to configure the checking interval
@@ -681,8 +694,8 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm259783100944"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
-                <code class="literal">[Service]</code> section, but exist purely
+                for more settings.</p></div><div class="refsect1"><a name="idm274699763520"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
+                "<code class="literal">[Service]</code>" section, but exist purely
                 for compatibility reasons and should not be used in
                 newly written service files.</p><div class="variablelist"><dl class="variablelist"><dt id="SysVStartPriority="><span class="term"><code class="varname">SysVStartPriority=</code></span><a class="headerlink" title="Permalink to this term" href="#SysVStartPriority=">¶</a></dt><dd><p>Set the SysV start
                                 priority to use to order this service
@@ -724,11 +737,12 @@
                                 <code class="filename">/etc/fstab</code>'s
                                 fs_passno column. See
                                 <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
-                                for details.</p></dd></dl></div></div><div class="refsect1"><a name="idm259783088144"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                for details.</p></dd></dl></div></div><div class="refsect1"><a name="idm274699749792"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
+                          <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
                           <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
                           <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
                   </p></div></div></body></html>

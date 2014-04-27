@@ -26,11 +26,10 @@
 #include "path-util.h"
 #include "util.h"
 #include "unit-name.h"
+#include "def.h"
 
 #define VALID_CHARS                             \
-        "0123456789"                            \
-        "abcdefghijklmnopqrstuvwxyz"            \
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        DIGITS LETTERS                          \
         ":-_.\\"
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -44,6 +43,8 @@ static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_TIMER] = "timer",
         [UNIT_SWAP] = "swap",
         [UNIT_PATH] = "path",
+        [UNIT_SLICE] = "slice",
+        [UNIT_SCOPE] = "scope"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
@@ -51,6 +52,7 @@ DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
+        [UNIT_NOT_FOUND] = "not-found",
         [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged",
         [UNIT_MASKED] = "masked"
@@ -184,6 +186,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         assert(n);
         assert(unit_name_is_valid(n, true));
         assert(suffix);
+        assert(suffix[0] == '.');
 
         assert_se(e = strrchr(n, '.'));
         a = e - n;
@@ -298,7 +301,7 @@ char *unit_name_path_escape(const char *f) {
 
         path_kill_slashes(p);
 
-        if (streq(p, "/")) {
+        if (streq(p, "/") || streq(p, "")) {
                 free(p);
                 return strdup("-");
         }
@@ -401,7 +404,6 @@ char *unit_name_template(const char *f) {
 
         strcpy(mempcpy(r, f, a), e);
         return r;
-
 }
 
 char *unit_name_from_path(const char *path, const char *suffix) {
@@ -453,7 +455,7 @@ char *unit_name_to_path(const char *name) {
 }
 
 char *unit_dbus_path_from_name(const char *name) {
-        char *e, *p;
+        _cleanup_free_ char *e = NULL;
 
         assert(name);
 
@@ -461,10 +463,23 @@ char *unit_dbus_path_from_name(const char *name) {
         if (!e)
                 return NULL;
 
-        p = strappend("/org/freedesktop/systemd1/unit/", e);
-        free(e);
+        return strappend("/org/freedesktop/systemd1/unit/", e);
+}
 
-        return p;
+int unit_name_from_dbus_path(const char *path, char **name) {
+        const char *e;
+        char *n;
+
+        e = startswith(path, "/org/freedesktop/systemd1/unit/");
+        if (!e)
+                return -EINVAL;
+
+        n = bus_path_unescape(e);
+        if (!n)
+                return -ENOMEM;
+
+        *name = n;
+        return 0;
 }
 
 char *unit_name_mangle(const char *name) {
@@ -506,16 +521,18 @@ char *unit_name_mangle(const char *name) {
         return r;
 }
 
-char *snapshot_name_mangle(const char *name) {
+char *unit_name_mangle_with_suffix(const char *name, const char *suffix) {
         char *r, *t;
         const char *f;
 
         assert(name);
+        assert(suffix);
+        assert(suffix[0] == '.');
 
         /* Similar to unit_name_mangle(), but is called when we know
          * that this is about snapshot units. */
 
-        r = new(char, strlen(name) * 4 + 1 + sizeof(".snapshot")-1);
+        r = new(char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!r)
                 return NULL;
 
@@ -528,8 +545,8 @@ char *snapshot_name_mangle(const char *name) {
                         *(t++) = *f;
         }
 
-        if (!endswith(name, ".snapshot"))
-                strcpy(t, ".snapshot");
+        if (!endswith(name, suffix))
+                strcpy(t, suffix);
         else
                 *t = 0;
 
@@ -546,4 +563,31 @@ UnitType unit_name_to_type(const char *n) {
                 return _UNIT_TYPE_INVALID;
 
         return unit_type_from_string(e + 1);
+}
+
+int build_subslice(const char *slice, const char*name, char **subslice) {
+        char *ret;
+
+        assert(slice);
+        assert(name);
+        assert(subslice);
+
+        if (streq(slice, "-.slice"))
+                ret = strappend(name, ".slice");
+        else {
+                char *e;
+
+                e = endswith(slice, ".slice");
+                if (!e)
+                        return -EINVAL;
+
+                ret = new(char, (e - slice) + 1 + strlen(name) + 6 + 1);
+                if (!ret)
+                        return -ENOMEM;
+
+                stpcpy(stpcpy(stpcpy(mempcpy(ret, slice, e - slice), "-"), name), ".slice");
+        }
+
+        *subslice = ret;
+        return 0;
 }

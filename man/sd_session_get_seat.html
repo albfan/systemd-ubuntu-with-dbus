@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="sd_session_is_active"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_session_is_active, sd_session_get_state, sd_session_get_uid, sd_session_get_seat, sd_session_get_service, sd_session_get_type, sd_session_get_class, sd_session_get_display, sd_session_get_tty — Determine state of a specific session</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_is_active</b>(</code></td><td>const char* <var class="pdparam">session</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_state</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">state</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_uid</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>uid_t* <var class="pdparam">uid</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_seat</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">seat</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_service</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">service</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_type</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">type</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_class</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">class</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_display</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">display</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_tty</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">tty</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm259799547264"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_session_is_active()</code> may
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd_session_is_active"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_session_is_active, sd_session_get_state, sd_session_get_uid, sd_session_get_seat, sd_session_get_service, sd_session_get_type, sd_session_get_class, sd_session_get_display, sd_session_get_tty, sd_session_get_vt — Determine state of a specific session</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-login.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_is_active</b>(</code></td><td>const char* <var class="pdparam">session</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_state</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">state</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_uid</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>uid_t* <var class="pdparam">uid</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_seat</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">seat</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_service</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">service</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_type</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">type</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_class</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">class</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_display</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">display</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_tty</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>char** <var class="pdparam">tty</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_session_get_vt</b>(</code></td><td>const char* <var class="pdparam">session</var>, </td></tr><tr><td> </td><td>unsigned int* <var class="pdparam">vt</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm274695276976"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_session_is_active()</code> may
                 be used to determine whether the session identified by
                 the specified session identifier is currently active
                 (i.e. currently in the foreground and available for
@@ -27,11 +27,11 @@
                 be used to determine the state of the session
                 identified by the specified session identifier. The
                 following states are currently known:
-                <code class="literal">online</code> (session logged in, but
+                "<code class="literal">online</code>" (session logged in, but
                 session not active, i.e. not in the foreground),
-                <code class="literal">active</code> (session logged in and
+                "<code class="literal">active</code>" (session logged in and
                 active, i.e. in the foreground),
-                <code class="literal">closing</code> (session nominally logged
+                "<code class="literal">closing</code>" (session nominally logged
                 out, but some processes belonging to it are still
                 around). In the future additional states might be
                 defined, client code should be written to be robust in
@@ -60,18 +60,18 @@
                 call after use.</p><p><code class="function">sd_session_get_type()</code> may
                 be used to determine the type of the session
                 identified by the specified session identifier. The
-                returned string is one of <code class="literal">x11</code>,
-                <code class="literal">tty</code> or
-                <code class="literal">unspecified</code> and needs to be freed
+                returned string is one of "<code class="literal">x11</code>",
+                "<code class="literal">tty</code>" or
+                "<code class="literal">unspecified</code>" and needs to be freed
                 with the libc
                 <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
                 call after use.</p><p><code class="function">sd_session_get_class()</code> may
                 be used to determine the class of the session
                 identified by the specified session identifier. The
-                returned string is one of <code class="literal">user</code>,
-                <code class="literal">greeter</code>,
-                <code class="literal">lock-screen</code>, or
-                <code class="literal">background</code> and needs to be freed
+                returned string is one of "<code class="literal">user</code>",
+                "<code class="literal">greeter</code>",
+                "<code class="literal">lock-screen</code>", or
+                "<code class="literal">background</code>" and needs to be freed
                 with the libc
                 <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
                 call after use.</p><p><code class="function">sd_session_get_display()</code>
@@ -86,10 +86,15 @@
                 identifier. The returned string needs to be
                 freed with the libc
                 <a href="free.html"><span class="citerefentry"><span class="refentrytitle">free</span>(3)</span></a>
-                call after use.</p><p>If the <code class="literal">session</code> parameter of
-                any of these functions is passed as NULL the operation
-                is executed for the session the calling process is a
-                member of, if there is any.</p></div><div class="refsect1"><a name="idm259799512752"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>If the test succeeds
+                call after use.</p><p><code class="function">sd_session_get_vt()</code>
+                may be used to determine the VT number of the
+                session identified by the specified session
+                identifier. This function will return an error if
+                the seat does not support VTs.</p><p>If the <code class="varname">session</code> parameter of
+                any of these functions is passed as
+                <code class="constant">NULL</code>, the operation is executed
+                for the session the calling process is a member of, if
+                there is any.</p></div><div class="refsect1"><a name="idm274690339776"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>If the test succeeds,
                 <code class="function">sd_session_is_active()</code> returns a
                 positive integer, if it fails 0.  On success
                 <code class="function">sd_session_get_state()</code>,
@@ -101,7 +106,7 @@
                 <code class="function">sd_session_get_display()</code> and
                 <code class="function">sd_session_get_tty()</code> return 0 or
                 a positive integer. On failure, these calls return a
-                negative errno-style error code.</p></div><div class="refsect1"><a name="idm259794878944"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_session_is_active()</code>,
+                negative errno-style error code.</p></div><div class="refsect1"><a name="idm274690332752"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_session_is_active()</code>,
                 <code class="function">sd_session_get_state()</code>,
                 <code class="function">sd_session_get_uid()</code>,
                 <code class="function">sd_session_get_seat()</code>,
@@ -112,9 +117,8 @@
                 <code class="function">sd_session_get_tty()</code>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <code class="literal">libsystemd-login</code>
-                <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-                file.</p></div><div class="refsect1"><a name="idm259794870624"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                <code class="constant">libsystemd-login</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                file.</p></div><div class="refsect1"><a name="idm274690324672"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd-login.html"><span class="citerefentry"><span class="refentrytitle">sd-login</span>(3)</span></a>,
                         <a href="sd_pid_get_session.html"><span class="citerefentry"><span class="refentrytitle">sd_pid_get_session</span>(3)</span></a>

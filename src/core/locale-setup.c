@@ -28,6 +28,8 @@
 #include "macro.h"
 #include "virt.h"
 #include "fileio.h"
+#include "strv.h"
+#include "env-util.h"
 
 enum {
         /* We don't list LC_ALL here on purpose. People should be
@@ -67,7 +69,8 @@ static const char * const variable_names[_VARIABLE_MAX] = {
         [VARIABLE_LC_IDENTIFICATION] = "LC_IDENTIFICATION"
 };
 
-int locale_setup(void) {
+int locale_setup(char ***environment) {
+        char **add;
         char *variables[_VARIABLE_MAX] = {};
         int r = 0, i;
 
@@ -117,27 +120,44 @@ int locale_setup(void) {
                         log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
         }
 
-        if (!variables[VARIABLE_LANG]) {
-                variables[VARIABLE_LANG] = strdup("C");
-                if (!variables[VARIABLE_LANG]) {
+        add = NULL;
+        for (i = 0; i < _VARIABLE_MAX; i++) {
+                char *s;
+
+                if (!variables[i])
+                        continue;
+
+                s = strjoin(variable_names[i], "=", variables[i], NULL);
+                if (!s) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if (strv_push(&add, s) < 0) {
+                        free(s);
                         r = -ENOMEM;
                         goto finish;
                 }
         }
 
-        for (i = 0; i < _VARIABLE_MAX; i++) {
-                if (variables[i]) {
-                        if (setenv(variable_names[i], variables[i], 1) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
-                } else
-                        unsetenv(variable_names[i]);
+        if (!strv_isempty(add)) {
+                char **e;
+
+                e = strv_env_merge(2, *environment, add);
+                if (!e) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                strv_free(*environment);
+                *environment = e;
         }
 
         r = 0;
 
 finish:
+        strv_free(add);
+
         for (i = 0; i < _VARIABLE_MAX; i++)
                 free(variables[i]);
 

@@ -34,6 +34,7 @@
 #include "pager.h"
 #include "build.h"
 #include "output-mode.h"
+#include "fileio.h"
 
 static bool arg_no_pager = false;
 static bool arg_kernel_threads = false;
@@ -49,7 +50,7 @@ static void help(void) {
                "     --version        Show package version\n"
                "     --no-pager       Do not pipe output into a pager\n"
                "  -a --all            Show all groups, including empty\n"
-               "  --full              Do not ellipsize output\n"
+               "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine        Show container\n",
                program_invocation_short_name);
@@ -60,7 +61,6 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_NO_PAGER = 0x100,
                 ARG_VERSION,
-                ARG_FULL,
         };
 
         static const struct option options[] = {
@@ -68,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",   no_argument,       NULL, ARG_VERSION  },
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "all",       no_argument,       NULL, 'a'          },
-                { "full",      no_argument,       NULL, ARG_FULL     },
+                { "full",      no_argument,       NULL, 'l'          },
                 { "machine",   required_argument, NULL, 'M'          },
                 { NULL,        0,                 NULL, 0            }
         };
@@ -78,7 +78,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hkaM:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hkalM:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -99,7 +99,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_all = true;
                         break;
 
-                case ARG_FULL:
+                case 'l':
                         arg_full = true;
                         break;
 
@@ -156,7 +156,9 @@ int main(int argc, char *argv[]) {
 
                 for (i = optind; i < argc; i++) {
                         int q;
-                        printf("%s:\n", argv[i]);
+
+                        fprintf(stdout, "%s:\n", argv[i]);
+                        fflush(stdout);
 
                         if (arg_machine)
                                 root = strjoin("machine/", arg_machine, "/", argv[i], NULL);
@@ -185,9 +187,11 @@ int main(int argc, char *argv[]) {
                         r = show_cgroup_by_path(p, NULL, 0,
                                                 arg_kernel_threads, output_flags);
                 } else {
-                        if (arg_machine)
-                                r = cg_get_machine_path(arg_machine, &root);
-                        else
+                        if (arg_machine) {
+                                char *m;
+                                m = strappenda("/run/systemd/machines/", arg_machine);
+                                r = parse_env_file(m, NEWLINE, "CGROUP", &root, NULL);
+                        } else
                                 r = cg_get_root_path(&root);
                         if (r < 0) {
                                 log_error("Failed to get %s path: %s",

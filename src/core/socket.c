@@ -88,6 +88,7 @@ static void socket_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
         kill_context_init(&s->kill_context);
+        cgroup_context_init(&s->cgroup_context);
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 }
@@ -128,6 +129,8 @@ static void socket_done(Unit *u) {
         socket_free_ports(s);
 
         exec_context_done(&s->exec_context, manager_is_reloading_or_reexecuting(u->manager));
+        cgroup_context_init(&s->cgroup_context);
+
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -255,53 +258,24 @@ static int socket_verify(Socket *s) {
         return 0;
 }
 
-static bool socket_needs_mount(Socket *s, const char *prefix) {
+static int socket_add_mount_links(Socket *s) {
         SocketPort *p;
+        int r;
 
         assert(s);
 
         LIST_FOREACH(port, p, s->ports) {
+                const char *path = NULL;
 
-                if (p->type == SOCKET_SOCKET) {
-                        if (socket_address_needs_mount(&p->address, prefix))
-                                return true;
-                } else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL) {
-                        if (path_startswith(p->path, prefix))
-                                return true;
-                }
-        }
+                if (p->type == SOCKET_SOCKET)
+                        path = socket_address_get_path(&p->address);
+                else if (p->type == SOCKET_FIFO || p->type == SOCKET_SPECIAL)
+                        path = p->path;
 
-        return false;
-}
+                if (!path)
+                        continue;
 
-int socket_add_one_mount_link(Socket *s, Mount *m) {
-        int r;
-
-        assert(s);
-        assert(m);
-
-        if (UNIT(s)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        if (!socket_needs_mount(s, m->where))
-                return 0;
-
-        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int socket_add_mount_links(Socket *s) {
-        Unit *other;
-        int r;
-
-        assert(s);
-
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT]) {
-                r = socket_add_one_mount_link(s, MOUNT(other));
+                r = unit_require_mounts_for(UNIT(s), path);
                 if (r < 0)
                         return r;
         }
@@ -395,7 +369,8 @@ static int socket_load(Unit *u) {
                         if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                                 return r;
 
-                if ((r = unit_add_default_cgroups(u)) < 0)
+                r = unit_add_default_slice(u);
+                if (r < 0)
                         return r;
 
                 if (UNIT(s)->default_dependencies)
@@ -531,6 +506,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sMessageQueueMessageSize: %li\n",
                         prefix, s->mq_msgsize);
+
+        if (s->reuseport)
+                fprintf(f,
+                        "%sReusePort: %s\n",
+                         prefix, yes_no(s->reuseport));
 
         if (s->smack)
                 fprintf(f,
@@ -788,7 +768,13 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 if (setsockopt(fd, SOL_TCP, TCP_CONGESTION, s->tcp_congestion, strlen(s->tcp_congestion)+1) < 0)
                         log_warning_unit(UNIT(s)->id, "TCP_CONGESTION failed: %m");
 
-#ifdef HAVE_XATTR
+        if (s->reuseport) {
+                int b = s->reuseport;
+                if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &b, sizeof(b)))
+                        log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
+        }
+
+#ifdef HAVE_SMACK
         if (s->smack_ip_in)
                 if (fsetxattr(fd, "security.SMACK64IPIN", s->smack_ip_in, strlen(s->smack_ip_in), 0) < 0)
                         log_error_unit(UNIT(s)->id,
@@ -810,7 +796,7 @@ static void socket_apply_fifo_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id,
                                          "F_SETPIPE_SZ: %m");
 
-#ifdef HAVE_XATTR
+#ifdef HAVE_SMACK
         if (s->smack)
                 if (fsetxattr(fd, "security.SMACK64", s->smack, strlen(s->smack), 0) < 0)
                         log_error_unit(UNIT(s)->id,
@@ -1000,7 +986,7 @@ static int socket_open_fds(Socket *s) {
                                 if ((r = socket_instantiate_service(s)) < 0)
                                         return r;
 
-                                if (UNIT_DEREF(s->service) &&
+                                if (UNIT_ISSET(s->service) &&
                                     SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
                                         r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
 
@@ -1205,15 +1191,15 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(s));
+
         r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
         if (r < 0)
                 goto fail;
 
-        argv = unit_full_printf_strv(UNIT(s), c->argv);
-        if (!argv) {
-                r = -ENOMEM;
+        r = unit_full_printf_strv(UNIT(s), c->argv, &argv);
+        if (r < 0)
                 goto fail;
-        }
 
         r = exec_spawn(c,
                        argv,
@@ -1224,9 +1210,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        true,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_bondings,
-                       UNIT(s)->cgroup_attributes,
-                       NULL,
+                       UNIT(s)->manager->cgroup_supported,
+                       UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
                        &pid);
@@ -1628,7 +1613,7 @@ static int socket_start(Unit *u) {
                 return 0;
 
         /* Cannot run this without the service being around */
-        if (UNIT_DEREF(s->service)) {
+        if (UNIT_ISSET(s->service)) {
                 Service *service;
 
                 service = SERVICE(UNIT_DEREF(s->service));
@@ -2261,7 +2246,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
-void socket_notify_service_dead(Socket *s, bool failed_permanent) {
+static void socket_notify_service_dead(Socket *s, bool failed_permanent) {
         assert(s);
 
         /* The service is dead. Dang!
@@ -2304,6 +2289,41 @@ static void socket_reset_failed(Unit *u) {
                 socket_set_state(s, SOCKET_DEAD);
 
         s->result = SOCKET_SUCCESS;
+}
+
+static void socket_trigger_notify(Unit *u, Unit *other) {
+        Socket *s = SOCKET(u);
+        Service *se = SERVICE(other);
+
+        assert(u);
+        assert(other);
+
+        /* Don't propagate state changes from the service if we are
+           already down or accepting connections */
+        if ((s->state !=  SOCKET_RUNNING &&
+            s->state != SOCKET_LISTENING) ||
+            s->accept)
+                return;
+
+        if (other->load_state != UNIT_LOADED ||
+            other->type != UNIT_SERVICE)
+                return;
+
+        if (se->state == SERVICE_FAILED)
+                socket_notify_service_dead(s, se->result == SERVICE_FAILURE_START_LIMIT);
+
+        if (se->state == SERVICE_DEAD ||
+            se->state == SERVICE_STOP ||
+            se->state == SERVICE_STOP_SIGTERM ||
+            se->state == SERVICE_STOP_SIGKILL ||
+            se->state == SERVICE_STOP_POST ||
+            se->state == SERVICE_FINAL_SIGTERM ||
+            se->state == SERVICE_FINAL_SIGKILL ||
+            se->state == SERVICE_AUTO_RESTART)
+                socket_notify_service_dead(s, false);
+
+        if (se->state == SERVICE_RUNNING)
+                socket_set_state(s, SOCKET_RUNNING);
 }
 
 static int socket_kill(Unit *u, KillWho who, int signo, DBusError *error) {
@@ -2356,8 +2376,9 @@ const UnitVTable socket_vtable = {
                 "Socket\0"
                 "Install\0",
 
+        .private_section = "Socket",
         .exec_context_offset = offsetof(Socket, exec_context),
-        .exec_section = "Socket",
+        .cgroup_context_offset = offsetof(Socket, cgroup_context),
 
         .init = socket_init,
         .done = socket_done,
@@ -2385,11 +2406,15 @@ const UnitVTable socket_vtable = {
         .sigchld_event = socket_sigchld_event,
         .timer_event = socket_timer_event,
 
+        .trigger_notify = socket_trigger_notify,
+
         .reset_failed = socket_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Socket",
         .bus_message_handler = bus_socket_message_handler,
         .bus_invalidating_properties =  bus_socket_invalidating_properties,
+        .bus_set_property = bus_socket_set_property,
+        .bus_commit_properties = bus_socket_commit_properties,
 
         .status_message_formats = {
                 /*.starting_stopping = {

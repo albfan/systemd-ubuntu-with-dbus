@@ -1,0 +1,67 @@
+'\" t
+.TH "SD_BOOTED" "3" "" "systemd 208" "sd_booted"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sd_booted \- Test whether the system is running the systemd init system
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <systemd/sd\-daemon\&.h>
+.fi
+.ft
+.HP \w'int\ sd_booted('u
+.BI "int sd_booted(void);"
+.SH "DESCRIPTION"
+.PP
+\fBsd_booted()\fR
+checks whether the system was booted up using the systemd init system\&.
+.SH "RETURN VALUE"
+.PP
+On failure, this call returns a negative errno\-style error code\&. If the system was booted up with systemd as init system, this call returns a positive return value, zero otherwise\&.
+.SH "NOTES"
+.PP
+This function is provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithm it implements is simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&.
+.PP
+Internally, this function checks whether the directory
+/run/systemd/system/
+exists\&. A simple check like this can also be implemented trivially in shell or any other language\&.
+.PP
+For details about the algorithm check the liberally licensed reference implementation sources:
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
+and
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
+.PP
+\fBsd_booted()\fR
+is implemented in the reference implementation\*(Aqs
+sd\-daemon\&.c
+and
+sd\-daemon\&.h
+files\&. These interfaces are available as shared library, which can be compiled and linked to with the
+\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
+file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree\&. For more details about the reference implementation see
+\fBsd-daemon\fR(3)\&.
+.PP
+If the reference implementation is used as drop\-in files and \-DDISABLE_SYSTEMD is set during compilation, this function will always return 0 and otherwise become a NOP\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsd-daemon\fR(3)

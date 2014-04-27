@@ -1,0 +1,279 @@
+'\" t
+.TH "TMPFILES\&.D" "5" "" "systemd 208" "tmpfiles.d"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+tmpfiles.d \- Configuration for creation, deletion and cleaning of volatile and temporary files
+.SH "SYNOPSIS"
+.PP
+/etc/tmpfiles\&.d/*\&.conf
+.PP
+/run/tmpfiles\&.d/*\&.conf
+.PP
+/usr/lib/tmpfiles\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-tmpfiles\fR
+uses the configuration files from the above directories to describe the creation, cleaning and removal of volatile and temporary files and directories which usually reside in directories such as
+/run
+or
+/tmp\&.
+.SH "CONFIGURATION FORMAT"
+.PP
+Each configuration file shall be named in the style of
+<package>\&.conf\&. Files in
+/etc/
+override files with the same name in
+/usr/lib/
+and
+/run/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&. Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries logged as errors\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in
+/etc/tmpfiles\&.d/
+bearing the same filename\&.
+.PP
+The configuration format is one line per path containing action, path, mode, ownership, age and argument fields:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Type Path        Mode UID  GID  Age Argument
+d    /run/user   0755 root root 10d \-
+L    /tmp/foobar \-    \-    \-    \-   /dev/null
+.fi
+.if n \{\
+.RE
+.\}
+.SS "Type"
+.PP
+The following line types are understood:
+.PP
+\fIf\fR
+.RS 4
+Create a file if it does not exist yet (optionally writing a short string into it, if the argument parameter is passed)
+.RE
+.PP
+\fIF\fR
+.RS 4
+Create or truncate a file (optionally writing a short string into it, if the argument parameter is passed)
+.RE
+.PP
+\fIw\fR
+.RS 4
+Write the argument parameter to a file, if the file exists\&. Lines of this type accept shell\-style globs in place of normal path names\&. The argument parameter will be written without a trailing newline\&. C\-style backslash escapes are interpreted\&.
+.RE
+.PP
+\fId\fR
+.RS 4
+Create a directory if it does not exist yet
+.RE
+.PP
+\fID\fR
+.RS 4
+Create or empty a directory
+.RE
+.PP
+\fIp\fR
+.RS 4
+Create a named pipe (FIFO) if it does not exist yet
+.RE
+.PP
+\fIL\fR
+.RS 4
+Create a symlink if it does not exist yet
+.RE
+.PP
+\fIc\fR
+.RS 4
+Create a character device node if it does not exist yet
+.RE
+.PP
+\fIb\fR
+.RS 4
+Create a block device node if it does not exist yet
+.RE
+.PP
+\fIm\fR
+.RS 4
+If the specified file path exists adjust its access mode, group and user to the specified values and reset the SELinux label\&. If it doesn\*(Aqt exist do nothing\&.
+.RE
+.PP
+\fIx\fR
+.RS 4
+Ignore a path during cleaning\&. Use this type to exclude paths from clean\-up as controlled with the Age parameter\&. Note that lines of this type do not influence the effect of r or R lines\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.PP
+\fIX\fR
+.RS 4
+Ignore a path during cleanup\&. Use this type to prevent path removal as controlled with the Age parameter\&. Note that if path is a directory, content of a directory is not excluded from clean\-up, only directory itself\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.PP
+\fIr\fR
+.RS 4
+Remove a file or directory if it exists\&. This may not be used to remove non\-empty directories, use R for that\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.PP
+\fIR\fR
+.RS 4
+Recursively remove a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.PP
+\fIz\fR
+.RS 4
+Restore SELinux security context label and set ownership and access mode of a file or directory if it exists\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.PP
+\fIZ\fR
+.RS 4
+Recursively restore SELinux security context label and set ownership and access mode of a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+.RE
+.SS "Path"
+.PP
+The file system path specification supports simple specifier expansion\&. The following expansions are understood:
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&1.\ \&Specifiers available
+.TS
+allbox tab(:);
+lB lB lB.
+T{
+Specifier
+T}:T{
+Meaning
+T}:T{
+Details
+T}
+.T&
+l l l
+l l l
+l l l
+l l l
+l l l.
+T{
+"%m"
+T}:T{
+Machine ID
+T}:T{
+The machine ID of the running system, formatted as string\&. See \fBmachine-id\fR(5) for more information\&.
+T}
+T{
+"%b"
+T}:T{
+Boot ID
+T}:T{
+The boot ID of the running system, formatted as string\&. See \fBrandom\fR(4) for more information\&.
+T}
+T{
+"%H"
+T}:T{
+Host name
+T}:T{
+The hostname of the running system\&.
+T}
+T{
+"%v"
+T}:T{
+Kernel release
+T}:T{
+Identical to \fBuname \-r\fR output\&.
+T}
+T{
+"%%"
+T}:T{
+Escaped %
+T}:T{
+Single percent sign\&.
+T}
+.TE
+.sp 1
+.SS "Mode"
+.PP
+The file access mode to use when creating this file or directory\&. If omitted or when set to \-, the default is used: 0755 for directories, 0644 for all other file objects\&. For z, Z lines, if omitted or when set to \-, the file access mode will not be modified\&. This parameter is ignored for x, r, R, L lines\&.
+.SS "UID, GID"
+.PP
+The user and group to use for this file or directory\&. This may either be a numeric user/group ID or a user or group name\&. If omitted or when set to \-, the default 0 (root) is used\&. For z, Z lines, when omitted or when set to \-, the file ownership will not be modified\&. These parameters are ignored for x, r, R, L lines\&.
+.SS "Age"
+.PP
+The date field, when set, is used to decide what files to delete when cleaning\&. If a file or directory is older than the current time minus the age field, it is deleted\&. The field format is a series of integers each followed by one of the following postfixes for the respective time units:
+.PP
+\fIs\fR, \fImin\fR, \fIh\fR, \fId\fR, \fIw\fR, \fIms\fR, \fIm\fR, \fIus\fR
+.RS 4
+.RE
+.PP
+If multiple integers and units are specified, the time values are summed up\&. If an integer is given without a unit, s is assumed\&.
+.PP
+When the age is set to zero, the files are cleaned unconditionally\&.
+.PP
+The age field only applies to lines starting with d, D and x\&. If omitted or set to \-, no automatic clean\-up is done\&.
+.PP
+If the age field starts with a tilde character (~), the clean\-up is only applied to files and directories one level inside the directory specified, but not the files and directories immediately inside it\&.
+.SS "Argument"
+.PP
+For L lines determines the destination path of the symlink\&. For c, b determines the major/minor of the device node, with major and minor formatted as integers, separated by :, e\&.g\&. "1:3"\&. For f, F, w may be used to specify a short string that is written to the file, suffixed by a newline\&. Ignored for all other lines\&.
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/tmpfiles.d/screen.conf example\fR
+.PP
+\fBscreen\fR
+needs two directories created at boot with specific modes and ownership\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+d /var/run/screens  1777 root root 10d
+d /var/run/uscreens 0755 root root 10d12h
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&2.\ \&/etc/tmpfiles.d/abrt.conf example\fR
+.PP
+\fBabrt\fR
+needs a directory created at boot with specific mode and ownership and its content should be preserved\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+d /var/tmp/abrt 0755 abrt abrt
+x /var/tmp/abrt/*
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-tmpfiles\fR(8),
+\fBsystemd-delta\fR(1)

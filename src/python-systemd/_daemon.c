@@ -40,43 +40,6 @@ PyDoc_STRVAR(module__doc__,
         "running under systemd."
 );
 
-static PyObject* set_error(int r, const char* invalid_message) {
-        assert (r < 0);
-
-        if (r == -EINVAL && invalid_message)
-                PyErr_SetString(PyExc_ValueError, invalid_message);
-        else if (r == -ENOMEM)
-                PyErr_SetString(PyExc_MemoryError, "Not enough memory");
-        else {
-                errno = -r;
-                PyErr_SetFromErrno(PyExc_OSError);
-        }
-
-        return NULL;
-}
-
-
-#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
-static int Unicode_FSConverter(PyObject* obj, void *_result) {
-        PyObject **result = _result;
-
-        assert(result);
-
-        if (!obj)
-                /* cleanup: we don't return Py_CLEANUP_SUPPORTED, so
-                 * we can assume that it was PyUnicode_FSConverter. */
-                return PyUnicode_FSConverter(obj, result);
-
-        if (obj == Py_None) {
-                *result = NULL;
-                return 1;
-        }
-
-        return PyUnicode_FSConverter(obj, result);
-}
-#endif
-
-
 PyDoc_STRVAR(booted__doc__,
              "booted() -> bool\n\n"
              "Return True iff this system is running under systemd.\n"
@@ -88,8 +51,45 @@ static PyObject* booted(PyObject *self, PyObject *args) {
         assert(args == NULL);
 
         r = sd_booted();
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
+
+        return PyBool_FromLong(r);
+}
+
+PyDoc_STRVAR(notify__doc__,
+             "notify(status, unset_environment=False) -> bool\n\n"
+             "Send a message to the init system about a status change.\n"
+             "Wraps sd_notify(3).");
+
+static PyObject* notify(PyObject *self, PyObject *args, PyObject *keywds) {
+        int r;
+        const char* msg;
+        int unset = false;
+
+        static const char* const kwlist[] = {
+                "status",
+                "unset_environment",
+                NULL,
+        };
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 3
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|p:notify",
+                                         (char**) kwlist, &msg, &unset))
+                return NULL;
+#else
+        PyObject *obj = NULL;
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "s|O:notify",
+                                         (char**) kwlist, &msg, &obj))
+                return NULL;
+        if (obj != NULL)
+                unset = PyObject_IsTrue(obj);
+        if (unset < 0)
+                return NULL;
+#endif
+
+        r = sd_notify(unset, msg);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -102,16 +102,19 @@ PyDoc_STRVAR(listen_fds__doc__,
              "Wraps sd_listen_fds(3)."
 );
 
-static PyObject* listen_fds(PyObject *self, PyObject *args) {
+static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
         int r;
         int unset = true;
 
+        static const char* const kwlist[] = {"unset_environment", NULL};
 #if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 3
-        if (!PyArg_ParseTuple(args, "|p:_listen_fds", &unset))
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|p:_listen_fds",
+                                         (char**) kwlist, &unset))
                 return NULL;
 #else
         PyObject *obj = NULL;
-        if (!PyArg_ParseTuple(args, "|O:_listen_fds", &obj))
+        if (!PyArg_ParseTupleAndKeywords(args, keywds, "|O:_listen_fds",
+                                         (char**) kwlist, &unset, &obj))
                 return NULL;
         if (obj != NULL)
                 unset = PyObject_IsTrue(obj);
@@ -120,8 +123,8 @@ static PyObject* listen_fds(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_listen_fds(unset);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return long_FromLong(r);
 }
@@ -148,8 +151,8 @@ static PyObject* is_fifo(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_fifo(fd, path);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -176,8 +179,8 @@ static PyObject* is_mq(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_mq(fd, path);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -200,8 +203,8 @@ static PyObject* is_socket(PyObject *self, PyObject *args) {
                 return NULL;
 
         r = sd_is_socket(fd, family, type, listening);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -221,12 +224,14 @@ static PyObject* is_socket_inet(PyObject *self, PyObject *args) {
                               &fd, &family, &type, &listening, &port))
                 return NULL;
 
-        if (port < 0 || port > INT16_MAX)
-                return set_error(-EINVAL, "port must fit into uint16_t");
+        if (port < 0 || port > INT16_MAX) {
+                set_error(-EINVAL, NULL, "port must fit into uint16_t");
+                return NULL;
+        }
 
         r = sd_is_socket_inet(fd, family, type, listening, (uint16_t) port);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, NULL, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -260,8 +265,8 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_socket_unix(fd, type, listening, path, length);
-        if (r < 0)
-                return set_error(r, NULL);
+        if (set_error(r, path, NULL))
+                return NULL;
 
         return PyBool_FromLong(r);
 }
@@ -269,7 +274,8 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 
 static PyMethodDef methods[] = {
         { "booted", booted, METH_NOARGS, booted__doc__},
-        { "_listen_fds", listen_fds, METH_VARARGS, listen_fds__doc__},
+        { "notify", (PyCFunction) notify, METH_VARARGS | METH_KEYWORDS, notify__doc__},
+        { "_listen_fds", (PyCFunction) listen_fds, METH_VARARGS | METH_KEYWORDS, listen_fds__doc__},
         { "_is_fifo", is_fifo, METH_VARARGS, is_fifo__doc__},
         { "_is_mq", is_mq, METH_VARARGS, is_mq__doc__},
         { "_is_socket", is_socket, METH_VARARGS, is_socket__doc__},

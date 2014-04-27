@@ -22,24 +22,26 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-socket.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-socket.h"
 
 #define BUS_SOCKET_INTERFACE                                            \
         " <interface name=\"org.freedesktop.systemd1.Socket\">\n"       \
         "  <property name=\"BindIPv6Only\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"Backlog\" type=\"u\" access=\"read\"/>\n"   \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPre")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecStartPost")                     \
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPre")                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecStopPost")                      \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"BindToDevice\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
@@ -65,6 +67,7 @@
         "  <property name=\"MessageQueueMessageSize\" type=\"x\" access=\"read\"/>\n" \
         "  <property name=\"Listen\" type=\"a(ss)\" access=\"read\"/>\n"    \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
+        "  <property name=\"ReusePort\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabel\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabelIPIn\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"SmackLabelIPOut\" type=\"s\" access=\"read\"/>\n" \
@@ -192,24 +195,54 @@ static const BusProperty bus_socket_properties[] = {
         { "MessageQueueMaxMessages", bus_property_append_long, "x", offsetof(Socket, mq_maxmsg)       },
         { "MessageQueueMessageSize", bus_property_append_long, "x", offsetof(Socket, mq_msgsize)      },
         { "Result",         bus_socket_append_socket_result,   "s", offsetof(Socket, result)          },
+        { "ReusePort",      bus_property_append_bool,          "b", offsetof(Socket, reuseport)       },
         { "SmackLabel",     bus_property_append_string,        "s", offsetof(Socket, smack),          true },
         { "SmackLabelIPIn", bus_property_append_string,        "s", offsetof(Socket, smack_ip_in),    true },
         { "SmackLabelIPOut",bus_property_append_string,        "s", offsetof(Socket, smack_ip_out),   true },
-        { NULL, }
+        {}
 };
 
 DBusHandlerResult bus_socket_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Socket *s = SOCKET(u);
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Socket", bus_socket_properties,       s },
-                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties, &s->exec_context },
-                { "org.freedesktop.systemd1.Socket", bus_kill_context_properties, &s->kill_context },
-                { "org.freedesktop.systemd1.Socket", bus_unit_properties,         u },
-                { NULL, }
+                { "org.freedesktop.systemd1.Unit",   bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Socket", bus_unit_cgroup_properties,    u },
+                { "org.freedesktop.systemd1.Socket", bus_socket_properties,         s },
+                { "org.freedesktop.systemd1.Socket", bus_exec_context_properties,   &s->exec_context },
+                { "org.freedesktop.systemd1.Socket", bus_kill_context_properties,   &s->kill_context },
+                { "org.freedesktop.systemd1.Socket", bus_cgroup_context_properties, &s->cgroup_context },
+                {}
         };
 
         SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
+}
+
+int bus_socket_set_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        Socket *s = SOCKET(u);
+        int r;
+
+        assert(name);
+        assert(u);
+        assert(i);
+
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int bus_socket_commit_properties(Unit *u) {
+        assert(u);
+
+        unit_realize_cgroup(u);
+        return 0;
 }

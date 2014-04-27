@@ -20,6 +20,7 @@
 # RPM macros for packages installing systemd unit files
 
 %_unitdir @systemunitdir@
+%_userunitdir @userunitdir@
 %_presetdir @systempresetdir@
 %_udevhwdbdir @udevhwdbdir@
 %_udevrulesdir @udevrulesdir@
@@ -70,4 +71,8 @@ fi \
 
 %journal_catalog_update() \
 @rootbindir@/journalctl --update-catalog >/dev/null 2>&1 || : \
+%{nil}
+
+%tmpfiles_create() \
+@rootbindir@/systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
 %{nil}

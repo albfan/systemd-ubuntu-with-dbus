@@ -19,26 +19,30 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm259801426064"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm274704570816"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file
                 describes encrypted block devices that are set up
-                during system boot.</p><p>Empty lines and lines starting with the #
+                during system boot.</p><p>Empty lines and lines starting with the "<code class="literal">#</code>"
                 character are ignored.  Each of the remaining lines
                 describes one encrypted block device, fields on the
                 line are delimited by white space.  The first two
                 fields are mandatory, the remaining two are
-                optional.</p><p>The first field contains the name of the
+                optional.</p><p>Setting up encrypted block devices using this file
+                supports three encryption modes: LUKS, TrueCrypt and plain.
+                See <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+                for more information about each mode. When no mode is specified
+                in the options field and the block device contains a LUKS
+                signature, it is opened as a LUKS device; otherwise, it is
+                assumed to be in raw dm-crypt (plain mode) format.</p><p>The first field contains the name of the
                 resulting encrypted block device; the device is set up
                 within <code class="filename">/dev/mapper/</code>.</p><p>The second field contains a path to the
-                underlying block device, or a specification of a block
-                device via <code class="literal">UUID=</code> followed by the
-                UUID.  If the block device contains a LUKS signature,
-                it is opened as a LUKS encrypted partition; otherwise
-                it is assumed to be a raw dm-crypt partition.</p><p>The third field specifies the encryption
+                underlying block device or file, or a specification of a block
+                device via "<code class="literal">UUID=</code>" followed by the
+                UUID.</p><p>The third field specifies the encryption
                 password.  If the field is not present or the password
-                is set to none, the password has to be manually
-                entered during system boot.  Otherwise the field is
-                interpreted as a path to a file containing the
-                encryption password.  For swap encryption
+                is set to "<code class="literal">none</code>" or "<code class="literal">-</code>",
+                the password has to be manually entered during system boot.
+                Otherwise, the field is interpreted as a absolute path to
+                a file containing the encryption password. For swap encryption,
                 <code class="filename">/dev/urandom</code> or the hardware
                 device <code class="filename">/dev/hw_random</code> can be used
                 as the password file; using
@@ -46,85 +50,113 @@
                 completion if the system does not have enough entropy
                 to generate a truly random encryption key.</p><p>The fourth field, if present, is a
                 comma-delimited list of options.  The following
-                options are recognized:</p><div class="variablelist"><dl class="variablelist"><dt id="cipher="><span class="term"><code class="varname">cipher=</code></span><a class="headerlink" title="Permalink to this term" href="#cipher=">¶</a></dt><dd><p>Specifies the cipher
-                                to use; see
+                options are recognized:</p><div class="variablelist"><dl class="variablelist"><dt id="discard"><span class="term"><code class="varname">discard</code></span><a class="headerlink" title="Permalink to this term" href="#discard">¶</a></dt><dd><p>Allow discard requests to be
+                                passed through the encrypted block device. This
+                                improves performance on SSD storage but has
+                                security implications.</p></dd><dt id="cipher="><span class="term"><code class="varname">cipher=</code></span><a class="headerlink" title="Permalink to this term" href="#cipher=">¶</a></dt><dd><p>Specifies the cipher to use. See
                                 <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
-                                for possible values and the default
-                                value of this option.  A cipher with
-                                unpredictable IV values, such as
-                                <code class="literal">aes-cbc-essiv:sha256</code>,
-                                is recommended. </p></dd><dt id="size="><span class="term"><code class="varname">size=</code></span><a class="headerlink" title="Permalink to this term" href="#size=">¶</a></dt><dd><p>Specifies the key size
-                                in bits; see
+                                for possible values and the default value of
+                                this option. A cipher with unpredictable IV
+                                values, such as "<code class="literal">aes-cbc-essiv:sha256</code>",
+                                is recommended.</p></dd><dt id="hash="><span class="term"><code class="varname">hash=</code></span><a class="headerlink" title="Permalink to this term" href="#hash=">¶</a></dt><dd><p>Specifies the hash to use for
+                                password hashing. See
                                 <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
-                                for possible values and the default
-                                value of this
-                                option. </p></dd><dt id="keyfile-size="><span class="term"><code class="varname">keyfile-size=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-size=">¶</a></dt><dd><p>Specifies the maximum number
-                                of bytes to read from the keyfile; see
+                                for possible values and the default value of
+                                this option.</p></dd><dt id="keyfile-offset="><span class="term"><code class="varname">keyfile-offset=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-offset=">¶</a></dt><dd><p>Specifies the number of bytes to
+                                skip at the start of the key file. See
                                 <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
-                                for possible values and the default
-                                value of this option. This option is ignored
-                                in plain encryption mode, as the keyfile-size is then given by the key size.</p></dd><dt id="keyfile-offset="><span class="term"><code class="varname">keyfile-offset=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-offset=">¶</a></dt><dd><p>Specifies the number
-                                of bytes to skip at the start of
-                                the keyfile; see
+                                for possible values and the default value of
+                                this option.</p></dd><dt id="keyfile-size="><span class="term"><code class="varname">keyfile-size=</code></span><a class="headerlink" title="Permalink to this term" href="#keyfile-size=">¶</a></dt><dd><p>Specifies the maximum number
+                                of bytes to read from the key file. See
                                 <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
-                                for possible values and the default
-                                value of this option.</p></dd><dt id="hash="><span class="term"><code class="varname">hash=</code></span><a class="headerlink" title="Permalink to this term" href="#hash=">¶</a></dt><dd><p>Specifies the hash to
-                                use for password hashing; see
-                                <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a> for possible values and
-                                the default value of this
-                                option. </p></dd><dt id="tries="><span class="term"><code class="varname">tries=</code></span><a class="headerlink" title="Permalink to this term" href="#tries=">¶</a></dt><dd><p>Specifies the maximum
-                                number of times the user is queried
-                                for a password.</p></dd><dt id="verify"><span class="term"><code class="varname">verify</code></span><a class="headerlink" title="Permalink to this term" href="#verify">¶</a></dt><dd><p> If the encryption
-                                password is read from console, it has
-                                to be entered twice (to prevent
-                                typos). </p></dd><dt id="read-only"><span class="term"><code class="varname">read-only</code>, </span><span class="term"><code class="varname">readonly</code></span><a class="headerlink" title="Permalink to this term" href="#read-only">¶</a></dt><dd><p>Set up the encrypted
-                                block device in read-only
-                                mode.</p></dd><dt id="allow-discards"><span class="term"><code class="varname">allow-discards</code></span><a class="headerlink" title="Permalink to this term" href="#allow-discards">¶</a></dt><dd><p>Allow discard requests
-                                to be passed through the encrypted
-                                block device. This improves
-                                performance on SSD storage but has
-                                security
-                                implications.</p></dd><dt id="luks"><span class="term"><code class="varname">luks</code></span><a class="headerlink" title="Permalink to this term" href="#luks">¶</a></dt><dd><p>Force LUKS mode.</p></dd><dt id="plain"><span class="term"><code class="varname">plain</code></span><a class="headerlink" title="Permalink to this term" href="#plain">¶</a></dt><dd><p>Force plain encryption
-                                mode.</p></dd><dt id="timeout="><span class="term"><code class="varname">timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#timeout=">¶</a></dt><dd><p>Specify the timeout
-                                for querying for a password. If no
-                                unit is specified seconds is used.
-                                Supported units are s, ms, us, min, h,
-                                d. A timeout of 0 waits indefinitely
-                                (which is the
-                                default).</p></dd><dt id="noauto"><span class="term"><code class="varname">noauto</code></span><a class="headerlink" title="Permalink to this term" href="#noauto">¶</a></dt><dd><p> This device will not
-                                be automatically unlocked on
-                                boot. </p></dd><dt id="nofail"><span class="term"><code class="varname">nofail</code></span><a class="headerlink" title="Permalink to this term" href="#nofail">¶</a></dt><dd><p>The system will not
-                                wait for the device to show up and be
-                                unlocked at boot, and not fail the
-                                boot if it doesn't show
-                                up.</p></dd><dt id="swap"><span class="term"><code class="varname">swap</code></span><a class="headerlink" title="Permalink to this term" href="#swap">¶</a></dt><dd><p> The encrypted block
-                                device will be used as a swap
-                                partition, and will be formatted as a
-                                swap partition after setting up the
-                                encrypted block device, with
-                                <a href="mkswap.html"><span class="citerefentry"><span class="refentrytitle">mkswap</span>(8)</span></a>.</p><p>WARNING: Using the
-                                <code class="varname">swap</code> option will
-                                destroy the contents of the named
-                                partition during every boot, so make
-                                sure the underlying block device is
-                                specified
-                                correctly. </p></dd><dt id="tmp"><span class="term"><code class="varname">tmp</code></span><a class="headerlink" title="Permalink to this term" href="#tmp">¶</a></dt><dd><p>The encrypted block
-                                device will be prepared for using it
-                                as <code class="filename">/tmp</code>
-                                partition: it will be formatted using
-                                <a href="mke2fs.html"><span class="citerefentry"><span class="refentrytitle">mke2fs</span>(8)</span></a>.</p><p>WARNING: Using the
-                                <code class="varname">tmp</code> option will
-                                destroy the contents of the named
-                                partition during every boot, so make
-                                sure the underlying block device is
-                                specified
-                                correctly. </p></dd></dl></div><p>At early boot and when the system manager
-                configuration is reloaded this file is translated into
+                                for possible values and the default value of
+                                this option. This option is ignored in plain
+                                encryption mode, as the key file size is then
+                                given by the key size.</p></dd><dt id="luks"><span class="term"><code class="varname">luks</code></span><a class="headerlink" title="Permalink to this term" href="#luks">¶</a></dt><dd><p>Force LUKS mode. When this mode
+                                is used, the following options are ignored since
+                                they are provided by the LUKS header on the
+                                device: <code class="varname">cipher=</code>,
+                                <code class="varname">hash=</code>,
+                                <code class="varname">size=</code>.</p></dd><dt id="noauto"><span class="term"><code class="varname">noauto</code></span><a class="headerlink" title="Permalink to this term" href="#noauto">¶</a></dt><dd><p>This device will not be
+                                automatically unlocked on boot.</p></dd><dt id="nofail"><span class="term"><code class="varname">nofail</code></span><a class="headerlink" title="Permalink to this term" href="#nofail">¶</a></dt><dd><p>The system will not wait for the
+                                device to show up and be unlocked at boot, and
+                                not fail the boot if it does not show up.</p></dd><dt id="plain"><span class="term"><code class="varname">plain</code></span><a class="headerlink" title="Permalink to this term" href="#plain">¶</a></dt><dd><p>Force plain encryption mode.</p></dd><dt id="read-only"><span class="term"><code class="varname">read-only</code>, </span><span class="term"><code class="varname">readonly</code></span><a class="headerlink" title="Permalink to this term" href="#read-only">¶</a></dt><dd><p>Set up the encrypted block
+                                device in read-only mode.</p></dd><dt id="size="><span class="term"><code class="varname">size=</code></span><a class="headerlink" title="Permalink to this term" href="#size=">¶</a></dt><dd><p>Specifies the key size
+                                in bits. See
+                                <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+                                for possible values and the default value of
+                                this option.</p></dd><dt id="swap"><span class="term"><code class="varname">swap</code></span><a class="headerlink" title="Permalink to this term" href="#swap">¶</a></dt><dd><p>The encrypted block device will
+                                be used as a swap device, and will be formatted
+                                accordingly after setting up the encrypted
+                                block device, with
+                                <a href="mkswap.html"><span class="citerefentry"><span class="refentrytitle">mkswap</span>(8)</span></a>.
+                                This option implies <code class="varname">plain</code>.</p><p>WARNING: Using the <code class="varname">swap</code>
+                                option will destroy the contents of the named
+                                partition during every boot, so make sure the
+                                underlying block device is specified correctly.</p></dd><dt id="tcrypt"><span class="term"><code class="varname">tcrypt</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt">¶</a></dt><dd><p>Use TrueCrypt encryption mode.
+                                When this mode is used, the following options are
+                                ignored since they are provided by the TrueCrypt
+                                header on the device or do not apply:
+                                <code class="varname">cipher=</code>,
+                                <code class="varname">hash=</code>,
+                                <code class="varname">keyfile-offset=</code>,
+                                <code class="varname">keyfile-size=</code>,
+                                <code class="varname">size=</code>.</p><p>When this mode is used, the passphrase is
+                                read from the key file given in the third field.
+                                Only the first line of this file is read,
+                                excluding the new line character.</p><p>Note that the TrueCrypt format uses both
+                                passphrase and key files to derive a password
+                                for the volume. Therefore, the passphrase and
+                                all key files need to be provided. Use
+                                <code class="varname">tcrypt-keyfile=</code> to provide
+                                the absolute path to all key files. When using
+                                an empty passphrase in combination with one or
+                                more key files, use "<code class="literal">/dev/null</code>"
+                                as the password file in the third field.</p></dd><dt id="tcrypt-hidden"><span class="term"><code class="varname">tcrypt-hidden</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-hidden">¶</a></dt><dd><p>Use the hidden TrueCrypt volume.
+                                This implies <code class="varname">tcrypt</code>.</p><p>This will map the hidden volume that is
+                                inside of the volume provided in the second
+                                field. Please note that there is no protection
+                                for the hidden volume if the outer volume is
+                                mounted instead. See
+                                <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+                                for more information on this limitation.</p></dd><dt id="tcrypt-keyfile="><span class="term"><code class="varname">tcrypt-keyfile=</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-keyfile=">¶</a></dt><dd><p>Specifies the absolute path to a
+                                key file to use for a TrueCrypt volume. This
+                                implies <code class="varname">tcrypt</code> and can be
+                                used more than once to provide several key
+                                files.</p><p>See the entry for <code class="varname">tcrypt</code>
+                                on the behavior of the passphrase and key files
+                                when using TrueCrypt encryption mode.</p></dd><dt id="tcrypt-system"><span class="term"><code class="varname">tcrypt-system</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-system">¶</a></dt><dd><p>Use TrueCrypt in system
+                                encryption mode. This implies
+                                <code class="varname">tcrypt</code>.</p><p>Please note that when using this mode, the
+                                whole device needs to be given in the second
+                                field instead of the partition. For example: if
+                                "<code class="literal">/dev/sda2</code>" is the system
+                                encrypted TrueCrypt patition, "<code class="literal">/dev/sda</code>"
+                                has to be given.</p></dd><dt id="timeout="><span class="term"><code class="varname">timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#timeout=">¶</a></dt><dd><p>Specifies the timeout for
+                                querying for a password. If no unit is
+                                specified, seconds is used. Supported units are
+                                s, ms, us, min, h, d. A timeout of 0 waits
+                                indefinitely (which is the default).</p></dd><dt id="tmp"><span class="term"><code class="varname">tmp</code></span><a class="headerlink" title="Permalink to this term" href="#tmp">¶</a></dt><dd><p>The encrypted block device will
+                                be prepared for using it as <code class="filename">/tmp</code>;
+                                it will be formatted using
+                                <a href="mke2fs.html"><span class="citerefentry"><span class="refentrytitle">mke2fs</span>(8)</span></a>.
+                                This option implies <code class="varname">plain</code>.</p><p>WARNING: Using the <code class="varname">tmp</code>
+                                option will destroy the contents of the named
+                                partition during every boot, so make sure the
+                                underlying block device is specified correctly.</p></dd><dt id="tries="><span class="term"><code class="varname">tries=</code></span><a class="headerlink" title="Permalink to this term" href="#tries=">¶</a></dt><dd><p>Specifies the maximum number of
+                                times the user is queried for a password.
+                                The default is 3. If set to 0, the user is
+                                queried for a password indefinitely.</p></dd><dt id="verify"><span class="term"><code class="varname">verify</code></span><a class="headerlink" title="Permalink to this term" href="#verify">¶</a></dt><dd><p> If the encryption password is
+                                read from console, it has to be entered twice to
+                                prevent typos.</p></dd></dl></div><p>At early boot and when the system manager
+                configuration is reloaded, this file is translated into
                 native systemd units
-                by <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm259801562096"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm259801561424"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up two encrypted block devices with
-                        LUKS: one normal one for storage, and another
-                        one for usage as swap device.</p><pre class="programlisting">luks-2505567a-9e27-4efe-a4d5-15ad146c258b UUID=2505567a-9e27-4efe-a4d5-15ad146c258b - timeout=0
-swap /dev/sda7 /dev/urandom swap</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm259801559136"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                by <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm274705151904"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm274702985200"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up four encrypted block devices. One using
+                        LUKS for normal storage, another one for usage as a swap
+                        device and two TrueCrypt volumes.</p><pre class="programlisting">luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
+swap       /dev/sda7       /dev/urandom             swap
+truecrypt  /dev/sda2       /etc/container_password  tcrypt
+hidden     /mnt/tc_hidden  /null                    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm274702530704"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-cryptsetup@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup@.service</span>(8)</span></a>,
                         <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>,

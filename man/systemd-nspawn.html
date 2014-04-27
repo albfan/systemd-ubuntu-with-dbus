@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
                          [ARGS...]
-                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm259778472480"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
+                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm274694735024"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
                 <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -46,12 +46,11 @@
                 this program is debugging and testing as well as
                 building of packages, distributions and software
                 involved with boot and systems management.</p><p>In contrast to
-                <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>
-                <span class="command"><strong>systemd-nspawn</strong></span> may be used to boot
-                full Linux-based operating systems in a
-                container.</p><p>Use a tool like
+                <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a> <span class="command"><strong>systemd-nspawn</strong></span>
+                may be used to boot full Linux-based operating systems
+                in a container.</p><p>Use a tool like
                 <a href="yum.html"><span class="citerefentry"><span class="refentrytitle">yum</span>(8)</span></a>,
-                <a href="debootstrap.html"><span class="citerefentry"><span class="refentrytitle">debootstrap</span>(8)</span></a>
+                <a href="debootstrap.html"><span class="citerefentry"><span class="refentrytitle">debootstrap</span>(8)</span></a>,
                 or
                 <a href="pacman.html"><span class="citerefentry"><span class="refentrytitle">pacman</span>(8)</span></a>
                 to set up an OS directory tree suitable as file system
@@ -74,20 +73,19 @@
                 <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface" target="_top">Container
                 Interface</a> specification.</p><p>As a safety check
                 <span class="command"><strong>systemd-nspawn</strong></span> will verify the
-                existance of <code class="filename">/etc/os-release</code> in
+                existence of <code class="filename">/etc/os-release</code> in
                 the container tree before starting the container (see
                 <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
-                contain this file out-of-the-box.</p><p>Note that the kernel auditing subsystem is
+                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm274698612992"></a><h2 id="Incompatibility with Auditing">Incompatibility with Auditing<a class="headerlink" title="Permalink to this headline" href="#Incompatibility%20with%20Auditing">¶</a></h2><p>Note that the kernel auditing subsystem is
                 currently broken when used together with
                 containers. We hence recommend turning it off entirely
-                when using <span class="command"><strong>systemd-nspawn</strong></span> by
-                booting with <code class="literal">audit=0</code> on the kernel
-                command line, or by turning it off at kernel build
-                time. If auditing is enabled in the kernel operating
-                systems booted in an nspawn container might refuse
-                log-in attempts.</p></div><div class="refsect1"><a name="idm259782111488"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
+                by booting with "<code class="literal">audit=0</code>" on the
+                kernel command line, or by turning it off at kernel
+                build time. If auditing is enabled in the kernel,
+                operating systems booted in an nspawn container might
+                refuse log-in attempts.</p></div><div class="refsect1"><a name="idm274698590992"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
                 arguments are used as arguments for the init
                 binary. Otherwise, <em class="replaceable"><code>COMMAND</code></em>
                 specifies the program to launch in the container, and
@@ -98,7 +96,7 @@
                                 text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a version string
                                 and exits.</p></dd><dt id="-D"><span class="term"><code class="option">-D</code>, </span><span class="term"><code class="option">--directory=</code></span><a class="headerlink" title="Permalink to this term" href="#-D">¶</a></dt><dd><p>Directory to use as
                                 file system root for the namespace
-                                container. If omitted the current
+                                container. If omitted, the current
                                 directory will be
                                 used.</p></dd><dt id="-b"><span class="term"><code class="option">-b</code>, </span><span class="term"><code class="option">--boot</code></span><a class="headerlink" title="Permalink to this term" href="#-b">¶</a></dt><dd><p>Automatically search
                                 for an init binary and invoke it
@@ -118,25 +116,25 @@
                                 host, and is used to initialize the
                                 container's hostname (which the
                                 container can choose to override,
-                                however). If not specified the last
+                                however). If not specified, the last
                                 component of the root directory of the
-                                container is used.</p></dd><dt id="--uuid="><span class="term"><code class="option">--uuid=</code></span><a class="headerlink" title="Permalink to this term" href="#--uuid=">¶</a></dt><dd><p>Set the specified uuid
+                                container is used.</p></dd><dt id="--slice="><span class="term"><code class="option">--slice=</code></span><a class="headerlink" title="Permalink to this term" href="#--slice=">¶</a></dt><dd><p>Make the container
+                                part of the specified slice, instead
+                                of the
+                                <code class="filename">machine.slice</code>.</p></dd><dt id="--uuid="><span class="term"><code class="option">--uuid=</code></span><a class="headerlink" title="Permalink to this term" href="#--uuid=">¶</a></dt><dd><p>Set the specified UUID
                                 for the container. The init system
                                 will initialize
                                 <code class="filename">/etc/machine-id</code>
                                 from this if this file is not set yet.
-                                </p></dd><dt id="-C"><span class="term"><code class="option">-C</code>, </span><span class="term"><code class="option">--controllers=</code></span><a class="headerlink" title="Permalink to this term" href="#-C">¶</a></dt><dd><p>Makes the container appear in
-                                other hierarchies than the name=systemd:/ one.
-                                Takes a comma-separated list of controllers.
                                 </p></dd><dt id="--private-network"><span class="term"><code class="option">--private-network</code></span><a class="headerlink" title="Permalink to this term" href="#--private-network">¶</a></dt><dd><p>Turn off networking in
                                 the container. This makes all network
                                 interfaces unavailable in the
                                 container, with the exception of the
                                 loopback device.</p></dd><dt id="--read-only"><span class="term"><code class="option">--read-only</code></span><a class="headerlink" title="Permalink to this term" href="#--read-only">¶</a></dt><dd><p>Mount the root file
-                                system read only for the
+                                system read-only for the
                                 container.</p></dd><dt id="--capability="><span class="term"><code class="option">--capability=</code></span><a class="headerlink" title="Permalink to this term" href="#--capability=">¶</a></dt><dd><p>List one or more
                                 additional capabilities to grant the
-                                container. Takes a comma separated
+                                container. Takes a comma-separated
                                 list of capability names, see
                                 <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
                                 for more information. Note that the
@@ -156,39 +154,39 @@
                                 CAP_AUDIT_WRITE,
                                 CAP_AUDIT_CONTROL.</p></dd><dt id="--link-journal="><span class="term"><code class="option">--link-journal=</code></span><a class="headerlink" title="Permalink to this term" href="#--link-journal=">¶</a></dt><dd><p>Control whether the
                                 container's journal shall be made
-                                visible to the host system. If enabled
+                                visible to the host system. If enabled,
                                 allows viewing the container's journal
                                 files from the host (but not vice
                                 versa). Takes one of
-                                <code class="literal">no</code>,
-                                <code class="literal">host</code>,
-                                <code class="literal">guest</code>,
-                                <code class="literal">auto</code>. If
-                                <code class="literal">no</code>, the journal is
-                                not linked. If <code class="literal">host</code>,
+                                "<code class="literal">no</code>",
+                                "<code class="literal">host</code>",
+                                "<code class="literal">guest</code>",
+                                "<code class="literal">auto</code>". If
+                                "<code class="literal">no</code>", the journal is
+                                not linked. If "<code class="literal">host</code>",
                                 the journal files are stored on the
                                 host file system (beneath
                                 <code class="filename">/var/log/journal/<em class="replaceable"><code>machine-id</code></em></code>)
                                 and the subdirectory is bind-mounted
                                 into the container at the same
-                                location. If <code class="literal">guest</code>,
+                                location. If "<code class="literal">guest</code>",
                                 the journal files are stored on the
                                 guest file system (beneath
                                 <code class="filename">/var/log/journal/<em class="replaceable"><code>machine-id</code></em></code>)
                                 and the subdirectory is symlinked into the host
                                 at the same location. If
-                                <code class="literal">auto</code> (the default),
+                                "<code class="literal">auto</code>" (the default),
                                 and the right subdirectory of
                                 <code class="filename">/var/log/journal</code>
                                 exists, it will be bind mounted
                                 into the container. If the
-                                subdirectory doesn't exist, no
+                                subdirectory does not exist, no
                                 linking is performed. Effectively,
                                 booting a container once with
-                                <code class="literal">guest</code> or
-                                <code class="literal">host</code> will link the
+                                "<code class="literal">guest</code>" or
+                                "<code class="literal">host</code>" will link the
                                 journal persistently if further on
-                                the default of <code class="literal">auto</code>
+                                the default of "<code class="literal">auto</code>"
                                 is used.</p></dd><dt id="-j"><span class="term"><code class="option">-j</code></span><a class="headerlink" title="Permalink to this term" href="#-j">¶</a></dt><dd><p>Equivalent to
                                 <code class="option">--link-journal=guest</code>.</p></dd><dt id="--bind="><span class="term"><code class="option">--bind=</code>, </span><span class="term"><code class="option">--bind-ro=</code></span><a class="headerlink" title="Permalink to this term" href="#--bind=">¶</a></dt><dd><p>Bind mount a file or
                                 directory from the host into the
@@ -203,15 +201,15 @@
                                 destination in the container. The
                                 <code class="option">--bind-ro=</code> option
                                 creates read-only bind
-                                mount.</p></dd></dl></div></div><div class="refsect1"><a name="idm259777421088"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                                mount.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693634016"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into
                 the directory <code class="filename">/srv/mycontainer/</code> and
                 then boots an OS in a namespace container in
-                it.</p></div><div class="refsect1"><a name="idm259777418240"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+                it.</p></div><div class="refsect1"><a name="idm274693631168"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable
                 distribution into the directory
                 <code class="filename">~/debian-tree/</code> and then spawns a
-                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm259777415520"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm274693628448"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a mimimal Arch Linux distribution into
                 the directory <code class="filename">~/arch-tree/</code> and then
                 boots an OS in a namespace container in it.</p></div><div class="refsect1"><a name="example-nsenter"></a><h2 id="Example 4">Example 4<a class="headerlink" title="Permalink to this headline" href="#Example%204">¶</a></h2><p>To enter the container, PID of one of the
@@ -222,12 +220,13 @@
                 is part of
                 <a class="ulink" href="https://github.com/karelzak/util-linux" target="_top">util-linux</a>.
                 Kernel support for entering namespaces was added in
-                Linux 3.8.</p></div><div class="refsect1"><a name="idm259777408320"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
-                container is returned.</p></div><div class="refsect1"><a name="idm259777407072"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                Linux 3.8.</p></div><div class="refsect1"><a name="idm274693621248"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
+                container is returned.</p></div><div class="refsect1"><a name="idm274693620000"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
                         <a href="unshare.html"><span class="citerefentry"><span class="refentrytitle">unshare</span>(1)</span></a>,
                         <a href="yum.html"><span class="citerefentry"><span class="refentrytitle">yum</span>(8)</span></a>,
                         <a href="debootstrap.html"><span class="citerefentry"><span class="refentrytitle">debootstrap</span>(8)</span></a>,
-                        <a href="pacman.html"><span class="citerefentry"><span class="refentrytitle">pacman</span>(8)</span></a>
+                        <a href="pacman.html"><span class="citerefentry"><span class="refentrytitle">pacman</span>(8)</span></a>,
+                        <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>
                 </p></div></div></body></html>

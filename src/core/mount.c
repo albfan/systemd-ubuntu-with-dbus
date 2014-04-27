@@ -82,6 +82,7 @@ static void mount_init(Unit *u) {
         }
 
         kill_context_init(&m->kill_context);
+        cgroup_context_init(&m->cgroup_context);
 
         /* We need to make sure that /bin/mount is always called in
          * the same process group as us, so that the autofs kernel
@@ -127,6 +128,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
+        cgroup_context_done(&m->cgroup_context);
         exec_context_done(&m->exec_context, manager_is_reloading_or_reexecuting(u->manager));
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
@@ -155,138 +157,58 @@ _pure_ static MountParameters* get_mount_parameters(Mount *m) {
 }
 
 static int mount_add_mount_links(Mount *m) {
-        Unit *other;
-        int r;
+        _cleanup_free_ char *parent = NULL;
         MountParameters *pm;
+        Unit *other;
+        Iterator i;
+        Set *s;
+        int r;
 
         assert(m);
 
+        if (!path_equal(m->where, "/")) {
+                /* Adds in links to other mount points that might lie further
+                 * up in the hierarchy */
+                r = path_get_parent(m->where, &parent);
+                if (r < 0)
+                        return r;
+
+                r = unit_require_mounts_for(UNIT(m), parent);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Adds in links to other mount points that might be needed
+         * for the source path (if this is a bind mount) to be
+         * available. */
         pm = get_mount_parameters_fragment(m);
+        if (pm && path_is_absolute(pm->what)) {
+                r = unit_require_mounts_for(UNIT(m), pm->what);
+                if (r < 0)
+                        return r;
+        }
 
-        /* Adds in links to other mount points that might lie below or
-         * above us in the hierarchy */
+        /* Adds in links to other units that use this path or paths
+         * further down in the hierarchy */
+        s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
+        SET_FOREACH(other, s, i) {
 
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_MOUNT]) {
-                Mount *n = MOUNT(other);
-                MountParameters *pn;
-
-                if (n == m)
+                if (other->load_state != UNIT_LOADED)
                         continue;
 
-                if (UNIT(n)->load_state != UNIT_LOADED)
+                if (other == UNIT(m))
                         continue;
 
-                pn = get_mount_parameters_fragment(n);
+                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true);
+                if (r < 0)
+                        return r;
 
-                if (path_startswith(m->where, n->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
-                                return r;
-
-                        if (pn)
-                                if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
-                                        return r;
-
-                } else if (path_startswith(n->where, m->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
-                                return r;
-
-                        if (pm)
-                                if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
-                                        return r;
-
-                } else if (pm && pm->what && path_startswith(pm->what, n->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, UNIT(n), true)) < 0)
-                                return r;
-
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, UNIT(n), true)) < 0)
-                                return r;
-
-                } else if (pn && pn->what && path_startswith(pn->what, m->where)) {
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_AFTER, UNIT(m), true)) < 0)
-                                return r;
-
-                        if ((r = unit_add_dependency(UNIT(n), UNIT_REQUIRES, UNIT(m), true)) < 0)
+                if (UNIT(m)->fragment_path) {
+                        /* If we have fragment configuration, then make this dependency required */
+                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true);
+                        if (r < 0)
                                 return r;
                 }
-        }
-
-        return 0;
-}
-
-static int mount_add_swap_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SWAP]) {
-                r = swap_add_one_mount_link(SWAP(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_path_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_PATH]) {
-                r = path_add_one_mount_link(PATH(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_automount_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_AUTOMOUNT]) {
-                r = automount_add_one_mount_link(AUTOMOUNT(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_socket_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(units_by_type, other, UNIT(m)->manager->units_by_type[UNIT_SOCKET]) {
-                r = socket_add_one_mount_link(SOCKET(other), m);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int mount_add_requires_mounts_links(Mount *m) {
-        Unit *other;
-        int r;
-
-        assert(m);
-
-        LIST_FOREACH(has_requires_mounts_for, other, UNIT(m)->manager->has_requires_mounts_for) {
-                r = unit_add_one_mount_link(other, m);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
@@ -336,6 +258,12 @@ static bool mount_is_bind(MountParameters *p) {
         return false;
 }
 
+static bool mount_is_auto(MountParameters *p) {
+        assert(p);
+
+        return !mount_test_option(p->options, "noauto");
+}
+
 static bool needs_quota(MountParameters *p) {
         assert(p);
 
@@ -354,6 +282,7 @@ static bool needs_quota(MountParameters *p) {
 
 static int mount_add_device_links(Mount *m) {
         MountParameters *p;
+        bool device_wants_mount = false;
         int r;
 
         assert(m);
@@ -374,7 +303,10 @@ static int mount_add_device_links(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        r = unit_add_node_link(UNIT(m), p->what, false);
+        if (mount_is_auto(p) && UNIT(m)->manager->running_as == SYSTEMD_SYSTEM)
+                device_wants_mount = true;
+
+        r = unit_add_node_link(UNIT(m), p->what, device_wants_mount);
         if (r < 0)
                 return r;
 
@@ -435,6 +367,21 @@ static int mount_add_quota_links(Mount *m) {
         return 0;
 }
 
+static bool should_umount(Mount *m) {
+        MountParameters *p;
+
+        if (path_equal(m->where, "/") ||
+            path_equal(m->where, "/usr"))
+                return false;
+
+        p = get_mount_parameters(m);
+        if (p && mount_test_option(p->options, "x-initrd.mount") &&
+            !in_initrd())
+                return false;
+
+        return true;
+}
+
 static int mount_add_default_dependencies(Mount *m) {
         const char *after, *after2, *online;
         MountParameters *p;
@@ -479,9 +426,11 @@ static int mount_add_default_dependencies(Mount *m) {
                         return r;
         }
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-        if (r < 0)
-                return r;
+        if (should_umount(m)) {
+                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -538,8 +487,9 @@ static int mount_fix_timeouts(Mount *m) {
 }
 
 static int mount_verify(Mount *m) {
+        _cleanup_free_ char *e = NULL;
         bool b;
-        char *e;
+
         assert(m);
 
         if (UNIT(m)->load_state != UNIT_LOADED)
@@ -548,12 +498,11 @@ static int mount_verify(Mount *m) {
         if (!m->from_fragment && !m->from_proc_self_mountinfo)
                 return -ENOENT;
 
-        if (!(e = unit_name_from_path(m->where, ".mount")))
+        e = unit_name_from_path(m->where, ".mount");
+        if (!e)
                 return -ENOMEM;
 
         b = unit_has_name(UNIT(m), e);
-        free(e);
-
         if (!b) {
                 log_error_unit(UNIT(m)->id,
                                "%s's Where setting doesn't match unit name. Refusing.",
@@ -617,26 +566,6 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = mount_add_socket_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_swap_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_path_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_requires_mounts_links(m);
-        if (r < 0)
-                return r;
-
-        r = mount_add_automount_links(m);
-        if (r < 0)
-                return r;
-
         r = mount_add_quota_links(m);
         if (r < 0)
                 return r;
@@ -647,7 +576,7 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        r = unit_add_default_cgroups(u);
+        r = unit_add_default_slice(u);
         if (r < 0)
                 return r;
 
@@ -820,9 +749,9 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
-                prefix, strna(p->what),
-                prefix, strna(p->fstype),
-                prefix, strna(p->options),
+                prefix, p ? strna(p->what) : "n/a",
+                prefix, p ? strna(p->fstype) : "n/a",
+                prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
                 prefix, m->directory_mode);
@@ -844,28 +773,31 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(m));
+
         r = unit_watch_timer(UNIT(m), CLOCK_MONOTONIC, true, m->timeout_usec, &m->timer_watch);
         if (r < 0)
                 goto fail;
 
-        if ((r = exec_spawn(c,
-                            NULL,
-                            &m->exec_context,
-                            NULL, 0,
-                            UNIT(m)->manager->environment,
-                            true,
-                            true,
-                            true,
-                            UNIT(m)->manager->confirm_spawn,
-                            UNIT(m)->cgroup_bondings,
-                            UNIT(m)->cgroup_attributes,
-                            NULL,
-                            UNIT(m)->id,
-                            NULL,
-                            &pid)) < 0)
+        r = exec_spawn(c,
+                       NULL,
+                       &m->exec_context,
+                       NULL, 0,
+                       UNIT(m)->manager->environment,
+                       true,
+                       true,
+                       true,
+                       UNIT(m)->manager->confirm_spawn,
+                       UNIT(m)->manager->cgroup_supported,
+                       UNIT(m)->cgroup_path,
+                       UNIT(m)->id,
+                       NULL,
+                       &pid);
+        if (r < 0)
                 goto fail;
 
-        if ((r = unit_watch_pid(UNIT(m), pid)) < 0)
+        r = unit_watch_pid(UNIT(m), pid);
+        if (r < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
 
@@ -1538,9 +1470,11 @@ static int mount_add_one(
                 if (r < 0)
                         goto fail;
 
-                r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
-                if (r < 0)
-                        goto fail;
+                if (should_umount(MOUNT(u))) {
+                        r = unit_add_dependency_by_name(u, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
+                        if (r < 0)
+                                goto fail;
+                }
 
                 unit_add_to_load_queue(u);
         } else {
@@ -1555,7 +1489,7 @@ static int mount_add_one(
                         }
                 }
 
-                if (u->load_state == UNIT_ERROR) {
+                if (u->load_state == UNIT_NOT_FOUND) {
                         u->load_state = UNIT_LOADED;
                         u->load_error = 0;
 
@@ -1616,78 +1550,55 @@ fail:
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r = 0;
         unsigned i;
-        char *device, *path, *options, *options2, *fstype, *d, *p, *o;
 
         assert(m);
 
         rewind(m->proc_self_mountinfo);
 
         for (i = 1;; i++) {
+                _cleanup_free_ char *device = NULL, *path = NULL, *options = NULL, *options2 = NULL, *fstype = NULL, *d = NULL, *p = NULL, *o = NULL;
                 int k;
 
-                device = path = options = options2 = fstype = d = p = o = NULL;
+                k = fscanf(m->proc_self_mountinfo,
+                           "%*s "       /* (1) mount id */
+                           "%*s "       /* (2) parent id */
+                           "%*s "       /* (3) major:minor */
+                           "%*s "       /* (4) root */
+                           "%ms "       /* (5) mount point */
+                           "%ms"        /* (6) mount options */
+                           "%*[^-]"     /* (7) optional fields */
+                           "- "         /* (8) separator */
+                           "%ms "       /* (9) file system type */
+                           "%ms"        /* (10) mount source */
+                           "%ms"        /* (11) mount options 2 */
+                           "%*[^\n]",   /* some rubbish at the end */
+                           &path,
+                           &options,
+                           &fstype,
+                           &device,
+                           &options2);
 
-                if ((k = fscanf(m->proc_self_mountinfo,
-                                "%*s "       /* (1) mount id */
-                                "%*s "       /* (2) parent id */
-                                "%*s "       /* (3) major:minor */
-                                "%*s "       /* (4) root */
-                                "%ms "       /* (5) mount point */
-                                "%ms"        /* (6) mount options */
-                                "%*[^-]"     /* (7) optional fields */
-                                "- "         /* (8) separator */
-                                "%ms "       /* (9) file system type */
-                                "%ms"        /* (10) mount source */
-                                "%ms"        /* (11) mount options 2 */
-                                "%*[^\n]",   /* some rubbish at the end */
-                                &path,
-                                &options,
-                                &fstype,
-                                &device,
-                                &options2)) != 5) {
+                if (k == EOF)
+                        break;
 
-                        if (k == EOF)
-                                break;
-
+                if (k != 5) {
                         log_warning("Failed to parse /proc/self/mountinfo:%u.", i);
-                        goto clean_up;
+                        continue;
                 }
 
                 o = strjoin(options, ",", options2, NULL);
-                if (!o) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!o)
+                        return log_oom();
 
-                if (!(d = cunescape(device)) ||
-                    !(p = cunescape(path))) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                d = cunescape(device);
+                p = cunescape(path);
+                if (!d || !p)
+                        return log_oom();
 
-                if ((k = mount_add_one(m, d, p, o, fstype, 0, set_flags)) < 0)
+                k = mount_add_one(m, d, p, o, fstype, 0, set_flags);
+                if (k < 0)
                         r = k;
-
-clean_up:
-                free(device);
-                free(path);
-                free(options);
-                free(options2);
-                free(fstype);
-                free(d);
-                free(p);
-                free(o);
         }
-
-finish:
-        free(device);
-        free(path);
-        free(options);
-        free(options2);
-        free(fstype);
-        free(d);
-        free(p);
-        free(o);
 
         return r;
 }
@@ -1872,8 +1783,9 @@ const UnitVTable mount_vtable = {
                 "Mount\0"
                 "Install\0",
 
+        .private_section = "Mount",
         .exec_context_offset = offsetof(Mount, exec_context),
-        .exec_section = "Mount",
+        .cgroup_context_offset = offsetof(Mount, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,
@@ -1908,6 +1820,8 @@ const UnitVTable mount_vtable = {
         .bus_interface = "org.freedesktop.systemd1.Mount",
         .bus_message_handler = bus_mount_message_handler,
         .bus_invalidating_properties =  bus_mount_invalidating_properties,
+        .bus_set_property = bus_mount_set_property,
+        .bus_commit_properties = bus_mount_commit_properties,
 
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,

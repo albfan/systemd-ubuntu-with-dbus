@@ -133,7 +133,7 @@
                         <varlistentry>
                                 <term><option>-k</option></term>
 
-                                <listitem><para>Don't halt, power-off,
+                                <listitem><para>Do not halt, power-off,
                                 reboot, just write wall
                                 message.</para></listitem>
                         </varlistentry>
@@ -141,7 +141,7 @@
                         <varlistentry>
                                 <term><option>--no-wall</option></term>
 
-                                <listitem><para>Don't send wall
+                                <listitem><para>Do not send wall
                                 message before
                                 halt, power-off, reboot.</para></listitem>
                         </varlistentry>
@@ -166,13 +166,6 @@
 
                 <para>On success 0 is returned, a non-zero failure
                 code otherwise.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Notes</title>
-
-                <para>This is a legacy command available for
-                compatibility only.</para>
         </refsect1>
 
         <refsect1>

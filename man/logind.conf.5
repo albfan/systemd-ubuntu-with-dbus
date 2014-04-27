@@ -1,0 +1,178 @@
+'\" t
+.TH "LOGIND\&.CONF" "5" "" "systemd 208" "logind.conf"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+logind.conf \- Login manager configuration file
+.SH "SYNOPSIS"
+.PP
+/etc/systemd/logind\&.conf
+.SH "DESCRIPTION"
+.PP
+This file configures various parameters of the systemd login manager,
+\fBsystemd-logind.service\fR(8)\&.
+.SH "OPTIONS"
+.PP
+All options are configured in the
+"[Login]"
+section:
+.PP
+\fINAutoVTs=\fR
+.RS 4
+Takes a positive integer\&. Configures how many virtual terminals (VTs) to allocate by default that, when switched to and are previously unused,
+"autovt"
+services are automatically spawned on\&. These services are instantiated from the template unit
+autovt@\&.service
+for the respective VT TTY name, e\&.g\&.
+autovt@tty4\&.service\&. By default,
+autovt@\&.service
+is linked to
+getty@\&.service, i\&.e\&. login prompts are started dynamically as the user switches to unused virtual terminals\&. Hence, this parameter controls how many login
+"gettys"
+are available on the VTs\&. If a VT is already used by some other subsystem (for example a graphical login), this kind of activation will not be attempted\&. Note that the VT configured in
+\fIReserveVT=\fR
+is always subject to this kind of activation, even if it is not one of VTs configured with the
+\fINAutoVTs=\fR
+directive\&. Defaults to 6\&. When set to 0, automatic spawning of
+"autovt"
+services is disabled\&.
+.RE
+.PP
+\fIReserveVT=\fR
+.RS 4
+Takes a positive integer\&. Configures the number of one virtual terminal that shall unconditionally be reserved for
+autovt@\&.service
+activation (see above)\&. The VT selected with this option will be marked busy unconditionally, so that no other subsystem will allocate it\&. This functionality is useful to ensure that regardless of how many VTs are allocated by other subsystems, one login
+"getty"
+is always available\&. Defaults to 6 (in other words, there will always be a
+"getty"
+available on Alt\-F6\&.)\&. When set to 0, VT reservation is disabled\&.
+.RE
+.PP
+\fIKillUserProcesses=\fR
+.RS 4
+Takes a boolean argument\&. Configures whether the processes of a user should be killed when she or he completely logs out (i\&.e\&. after her/his last session ended)\&. Defaults to
+"no"\&.
+.sp
+Note that setting
+\fIKillUserProcesses=1\fR
+will break tools like
+\fBscreen\fR(1)\&.
+.RE
+.PP
+\fIKillOnlyUsers=\fR, \fIKillExcludeUsers=\fR
+.RS 4
+These settings take space\-separated lists of usernames that influence the effect of
+\fIKillUserProcesses=\fR\&. If not empty, only processes of users listed in
+\fIKillOnlyUsers=\fR
+will be killed when they log out entirely\&. Processes of users listed in
+\fIKillExcludeUsers=\fR
+are excluded from being killed\&.
+\fIKillExcludeUsers=\fR
+defaults to
+"root"
+and takes precedence over
+\fIKillOnlyUsers=\fR, which defaults to the empty list\&.
+.RE
+.PP
+\fIIdleAction=\fR
+.RS 4
+Configures the action to take when the system is idle\&. Takes one of
+"ignore",
+"poweroff",
+"reboot",
+"halt",
+"kexec",
+"suspend",
+"hibernate",
+"hybrid\-sleep",
+"lock"\&. Defaults to
+"ignore"\&.
+.sp
+Note that this requires that user sessions correctly report the idle status to the system\&. The system will execute the action after all sessions report that they are idle, no idle inhibitor lock is active, and subsequently, the time configured with
+\fIIdleActionSec=\fR
+(see below) has expired\&.
+.RE
+.PP
+\fIIdleActionSec=\fR
+.RS 4
+Configures the delay after which the action configured in
+\fIIdleAction=\fR
+(see above) is taken after the system is idle\&.
+.RE
+.PP
+\fIInhibitDelayMaxSec=\fR
+.RS 4
+Specifies the maximum time a system shutdown or sleep request is delayed due to an inhibitor lock of type
+"delay"
+being active before the inhibitor is ignored and the operation executes anyway\&. Defaults to 5s\&.
+.RE
+.PP
+\fIHandlePowerKey=\fR, \fIHandleSuspendKey=\fR, \fIHandleHibernateKey=\fR, \fIHandleLidSwitch=\fR
+.RS 4
+Controls whether logind shall handle the system power and sleep keys and the lid switch to trigger actions such as system power\-off or suspend\&. Can be one of
+"ignore",
+"poweroff",
+"reboot",
+"halt",
+"kexec",
+"suspend",
+"hibernate",
+"hybrid\-sleep"
+and
+"lock"\&. If
+"ignore", logind will never handle these keys\&. If
+"lock", all running sessions will be screen\-locked; otherwise, the specified action will be taken in the respective event\&. Only input devices with the
+"power\-switch"
+udev tag will be watched for key/lid switch events\&.
+\fIHandlePowerKey=\fR
+defaults to
+"poweroff"\&.
+\fIHandleSuspendKey=\fR
+and
+\fIHandleLidSwitch=\fR
+default to
+"suspend"\&.
+\fIHandleHibernateKey=\fR
+defaults to
+"hibernate"\&.
+.RE
+.PP
+\fIPowerKeyIgnoreInhibited=\fR, \fISuspendKeyIgnoreInhibited=\fR, \fIHibernateKeyIgnoreInhibited=\fR, \fILidSwitchIgnoreInhibited=\fR
+.RS 4
+Controls whether actions triggered by the power and sleep keys and the lid switch are subject to inhibitor locks\&. These settings take boolean arguments\&. If
+"off", the inhibitor locks taken by applications in order to block the requested operation are respected\&. If
+"on", the requested operation is executed in any case\&.
+\fIPowerKeyIgnoreInhibited=\fR,
+\fISuspendKeyIgnoreInhibited=\fR
+and
+\fIHibernateKeyIgnoreInhibited=\fR
+default to
+"off"\&.
+\fILidSwitchIgnoreInhibited=\fR
+defaults to
+"yes"\&. This means that the lid switch does not respect suspend blockers by default, but the power and sleep keys do\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-logind.service\fR(8),
+\fBloginctl\fR(1),
+\fBsystemd-system.conf\fR(5)

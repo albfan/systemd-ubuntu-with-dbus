@@ -1,0 +1,87 @@
+'\" t
+.TH "SYSCTL\&.D" "5" "" "systemd 208" "sysctl.d"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sysctl.d \- Configure kernel parameters at boot
+.SH "SYNOPSIS"
+.PP
+/etc/sysctl\&.d/*\&.conf
+.PP
+/run/sysctl\&.d/*\&.conf
+.PP
+/usr/lib/sysctl\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+At boot,
+\fBsystemd-sysctl.service\fR(8)
+reads configuration files from the above directories to configure
+\fBsysctl\fR(8)
+kernel parameters\&.
+.SH "CONFIGURATION FORMAT"
+.PP
+The configuration files contain a list of variable assignments, separated by newlines\&. Empty lines and lines whose first non\-whitespace character is # or ; are ignored\&.
+.PP
+Note that both / and \&. are accepted as label separators within sysctl variable names\&.
+"kernel\&.domainname=foo"
+and
+"kernel/domainname=foo"
+hence are entirely equivalent\&.
+.PP
+Each configuration file shall be named in the style of
+\fIprogram\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/usr/lib/
+and
+/run/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&. Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in
+/etc/sysctl\&.d/
+bearing the same filename\&.
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/sysctl.d/domain-name.conf example:\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Set kernel YP domain name
+kernel\&.domainname=example\&.com
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-sysctl.service\fR(8),
+\fBsystemd-delta\fR(1),
+\fBsysctl\fR(8),
+\fBsysctl.conf\fR(5)

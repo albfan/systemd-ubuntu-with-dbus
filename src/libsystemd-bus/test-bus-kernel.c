@@ -22,6 +22,7 @@
 #include <fcntl.h>
 
 #include "util.h"
+#include "log.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -35,6 +36,8 @@ int main(int argc, char *argv[]) {
         const char *ua = NULL, *ub = NULL, *the_string = NULL;
         sd_bus *a, *b;
         int r, pipe_fds[2];
+
+        log_set_max_level(LOG_DEBUG);
 
         bus_ref = bus_kernel_create("deine-mutter", &bus_name);
         if (bus_ref == -ENOENT)
@@ -57,6 +60,22 @@ int main(int argc, char *argv[]) {
         r = sd_bus_set_address(b, address);
         assert_se(r >= 0);
 
+        assert_se(sd_bus_negotiate_attach_comm(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_exe(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cmdline(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cgroup(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_caps(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_selinux_context(a, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_audit(a, 1) >= 0);
+
+        assert_se(sd_bus_negotiate_attach_comm(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_exe(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cmdline(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_cgroup(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_caps(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_selinux_context(b, 1) >= 0);
+        assert_se(sd_bus_negotiate_attach_audit(b, 1) >= 0);
+
         r = sd_bus_start(a);
         assert_se(r >= 0);
 
@@ -73,19 +92,8 @@ int main(int argc, char *argv[]) {
 
         printf("unique b: %s\n", ub);
 
-        {
-                //FIXME:
-                struct kdbus_cmd_match cmd_match;
-
-                cmd_match.size = sizeof(cmd_match);
-                cmd_match.src_id = KDBUS_MATCH_SRC_ID_ANY;
-
-                r = ioctl(sd_bus_get_fd(a), KDBUS_CMD_MATCH_ADD, &cmd_match);
-                assert_se(r >= 0);
-
-                r = ioctl(sd_bus_get_fd(b), KDBUS_CMD_MATCH_ADD, &cmd_match);
-                assert_se(r >= 0);
-        }
+        r = sd_bus_add_match(b, "interface='waldo.com',member='Piep'", NULL, NULL);
+        assert_se(r >= 0);
 
         r = sd_bus_emit_signal(a, "/foo/bar/waldo", "waldo.com", "Piep", "sss", "I am a string", "/this/is/a/path", "and.this.a.domain.name");
         assert_se(r >= 0);

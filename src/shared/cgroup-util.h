@@ -28,6 +28,15 @@
 #include "set.h"
 #include "def.h"
 
+/* A bit mask of well known cgroup controllers */
+typedef enum CGroupControllerMask {
+        CGROUP_CPU = 1,
+        CGROUP_CPUACCT = 2,
+        CGROUP_BLKIO = 4,
+        CGROUP_MEMORY = 8,
+        CGROUP_DEVICE = 16
+} CGroupControllerMask;
+
 /*
  * General rules:
  *
@@ -44,7 +53,6 @@
  */
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
-int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f);
 int cg_read_pid(FILE *f, pid_t *_pid);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
@@ -56,6 +64,7 @@ int cg_kill_recursive_and_wait(const char *controller, const char *path, bool re
 
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self);
 int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool remove);
+int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem);
 
 int cg_split_spec(const char *spec, char **controller, char **path);
 int cg_join_spec(const char *controller, const char *path, char **spec);
@@ -68,32 +77,34 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_trim(const char *controller, const char *path, bool delete_root);
 
-int cg_rmdir(const char *controller, const char *path, bool honour_sticky);
+int cg_rmdir(const char *controller, const char *path);
 int cg_delete(const char *controller, const char *path);
 
-int cg_create(const char *controller, const char *path, const char *suffix);
+int cg_create(const char *controller, const char *path);
 int cg_attach(const char *controller, const char *path, pid_t pid);
+int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
 int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
 
+int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
+
 int cg_set_group_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
-int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid, int sticky);
+int cg_set_task_access(const char *controller, const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int cg_install_release_agent(const char *controller, const char *agent);
+int cg_uninstall_release_agent(const char *controller);
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
 int cg_is_empty_by_spec(const char *spec, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
 
 int cg_get_root_path(char **path);
-int cg_get_system_path(char **path);
-int cg_get_user_path(char **path);
-int cg_get_machine_path(const char *machine, char **path);
 
 int cg_path_get_session(const char *path, char **session);
 int cg_path_get_owner_uid(const char *path, uid_t *uid);
 int cg_path_get_unit(const char *path, char **unit);
 int cg_path_get_user_unit(const char *path, char **unit);
 int cg_path_get_machine_name(const char *path, char **machine);
+int cg_path_get_slice(const char *path, char **slice);
 
 int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup);
 
@@ -102,6 +113,7 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *uid);
 int cg_pid_get_unit(pid_t pid, char **unit);
 int cg_pid_get_user_unit(pid_t pid, char **unit);
 int cg_pid_get_machine_name(pid_t pid, char **machine);
+int cg_pid_get_slice(pid_t pid, char **slice);
 
 int cg_path_decode_unit(const char *cgroup, char **unit);
 
@@ -113,3 +125,13 @@ char *cg_escape(const char *p);
 char *cg_unescape(const char *p) _pure_;
 
 bool cg_controller_is_valid(const char *p, bool allow_named);
+
+int cg_slice_to_path(const char *unit, char **ret);
+
+int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
+int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid);
+int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids);
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to);
+int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
+
+CGroupControllerMask cg_mask_supported(void);

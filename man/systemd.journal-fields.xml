@@ -72,7 +72,7 @@
                         <varlistentry>
                                 <term><varname>MESSAGE=</varname></term>
                                 <listitem>
-                                        <para>The human readable
+                                        <para>The human-readable
                                         message string for this
                                         entry. This is supposed to be
                                         the primary text shown to the
@@ -87,22 +87,22 @@
                         <varlistentry>
                                 <term><varname>MESSAGE_ID=</varname></term>
                                 <listitem>
-                                        <para>A 128bit message
+                                        <para>A 128-bit message
                                         identifier ID for recognizing
                                         certain message types, if this
                                         is desirable. This should
-                                        contain a 128bit id formatted
-                                        as lower-case hexadecimal
+                                        contain a 128-bit ID formatted
+                                        as a lower-case hexadecimal
                                         string, without any separating
                                         dashes or suchlike. This is
-                                        recommended to be a UUID
-                                        compatible ID, but this is not
+                                        recommended to be a
+                                        UUID-compatible ID, but this is not
                                         enforced, and formatted
                                         differently. Developers can
                                         generate a new ID for this
-                                        purpose with
-                                        <command>journalctl
-                                        --new-id</command>.</para>
+                                        purpose with <command>journalctl
+                                        <option>--new-id</option></command>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -113,7 +113,7 @@
                                         0 (<literal>emerg</literal>)
                                         and 7
                                         (<literal>debug</literal>)
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string. This field is
                                         compatible with syslog's
                                         priority concept.</para>
@@ -128,7 +128,7 @@
                                         <para>The code location
                                         generating this message, if
                                         known. Contains the source
-                                        file name, the line number and
+                                        filename, the line number and
                                         the function name.</para>
                                 </listitem>
                         </varlistentry>
@@ -141,7 +141,7 @@
                                         any. Contains the numeric
                                         value of
                                         <citerefentry><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -179,7 +179,7 @@
                                         <para>The process, user and
                                         group ID of the process the
                                         journal entry originates from
-                                        formatted as decimal
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -191,6 +191,15 @@
                                 <listitem>
                                         <para>The name, the executable
                                         path and the command line of
+                                        the process the journal entry
+                                        originates from.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>_CAP_EFFECTIVE=</varname></term>
+                                <listitem>
+                                        <para>The effective <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry> of
                                         the process the journal entry
                                         originates from.</para>
                                 </listitem>
@@ -214,17 +223,20 @@
                                 <term><varname>_SYSTEMD_UNIT=</varname></term>
                                 <term><varname>_SYSTEMD_USER_UNIT=</varname></term>
                                 <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
+                                <term><varname>_SYSTEMD_SLICE=</varname></term>
 
                                 <listitem>
-                                        <para>The control group path in
-                                        the systemd hierarchy, the
+                                        <para>The control group path
+                                        in the systemd hierarchy, the
                                         systemd session ID (if any),
-                                        the systemd unit name (if any),
-                                        the systemd user session unit name (if any)
-                                        and the owner UID of the
-                                        systemd session (if any) of
-                                        the process the journal entry
-                                        originates from.</para>
+                                        the systemd unit name (if
+                                        any), the systemd user session
+                                        unit name (if any), the owner
+                                        UID of the systemd session (if
+                                        any) and the systemd slice
+                                        unit of the process the
+                                        journal entry originates
+                                        from.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -246,8 +258,8 @@
                                         any is known that is different
                                         from the reception time of the
                                         journal. This is the time in
-                                        usec since the epoch UTC
-                                        formatted as decimal
+                                        microseconds since the epoch UTC,
+                                        formatted as a decimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -258,7 +270,7 @@
                                         <para>The kernel boot ID for
                                         the boot the message was
                                         generated in, formatted as
-                                        128bit hexadecimal
+                                        a 128-bit hexadecimal
                                         string.</para>
                                 </listitem>
                         </varlistentry>
@@ -286,23 +298,75 @@
                                 <listitem>
                                         <para>How the entry was
                                         received by the journal
-                                        service. One of
-                                        <literal>driver</literal>,
-                                        <literal>syslog</literal>,
-                                        <literal>journal</literal>,
-                                        <literal>stdout</literal>,
-                                        <literal>kernel</literal> for
-                                        internally generated messages,
-                                        for those received via the
-                                        local syslog socket with the
-                                        syslog protocol, for those
-                                        received via the native
-                                        journal protocol, for the
-                                        those read from a services'
-                                        standard output or error
-                                        output, or for those read
-                                        from the kernel, respectively.
+                                        service. Valid transports are:
                                         </para>
+                                        <variablelist>
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>driver</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for
+                                                                internally
+                                                                generated
+                                                                messages
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>syslog</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                received via the
+                                                                local syslog
+                                                                socket with the
+                                                                syslog protocol
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>journal</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                received via the
+                                                                native journal
+                                                                protocol
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>stdout</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                read from a
+                                                                service's
+                                                                standard output
+                                                                or error output
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
+                                                        <term>
+                                                                <option>kernel</option>
+                                                        </term>
+                                                        <listitem>
+                                                                <para>for those
+                                                                read from the
+                                                                kernel
+                                                                </para>
+                                                        </listitem>
+                                                </varlistentry>
+                                        </variablelist>
                                 </listitem>
                         </varlistentry>
                 </variablelist>
@@ -323,15 +387,15 @@
                                         name. If the entry is
                                         associated to a block device,
                                         the major and minor of the
-                                        device node, separated by ':'
-                                        and prefixed by 'b'. Similar
+                                        device node, separated by <literal>:</literal>
+                                        and prefixed by <literal>b</literal>. Similar
                                         for character devices, but
-                                        prefixed by 'c'. For network
+                                        prefixed by <literal>c</literal>. For network
                                         devices the interface index,
-                                        prefixed by 'n'. For all other
-                                        devices '+' followed by the
+                                        prefixed by <literal>n</literal>. For all other
+                                        devices <literal>+</literal> followed by the
                                         subsystem name, followed by
-                                        ':', followed by the kernel
+                                        <literal>:</literal>, followed by the kernel
                                         device name.</para>
                                 </listitem>
                         </varlistentry>
@@ -372,10 +436,15 @@
         </refsect1>
 
         <refsect1>
-                <title>Special Journal Fields</title>
+                <title>Fields to log on behalf of a different program</title>
+
+                <para>Fields in this section are used by programs
+                to specify that they are logging on behalf of another
+                program or unit.
+                </para>
 
                 <para>Fields used by the <command>systemd-coredump</command>
-                coredump kernel helper.
+                coredump kernel helper:
                 </para>
 
                 <variablelist class='journal-directives'>
@@ -392,6 +461,61 @@
                                 </listitem>
                         </varlistentry>
                 </variablelist>
+
+                <para>Priviledged programs (currently UID 0) may
+                attach <varname>OBJECT_PID=</varname> to a
+                message. This will instruct
+                <command>systemd-journald</command> to attach
+                additional fields on behalf of the caller:</para>
+
+                <variablelist class='journal-directives'>
+                        <varlistentry>
+                                <term><varname>OBJECT_PID=<replaceable>PID</replaceable></varname></term>
+                                <listitem>
+                                        <para>PID of the program that this
+                                        message pertains to.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>OBJECT_UID=</varname></term>
+                                <term><varname>OBJECT_GID=</varname></term>
+                                <term><varname>OBJECT_COMM=</varname></term>
+                                <term><varname>OBJECT_EXE=</varname></term>
+                                <term><varname>OBJECT_CMDLINE=</varname></term>
+                                <term><varname>OBJECT_AUDIT_SESSION=</varname></term>
+                                <term><varname>OBJECT_AUDIT_LOGINUID=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_CGROUP=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_SESSION=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_OWNER_UID=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_UNIT=</varname></term>
+                                <term><varname>OBJECT_SYSTEMD_USER_UNIT=</varname></term>
+                                <listitem>
+                                        <para>These are additional fields added automatically
+                                        by <command>systemd-journald</command>.
+                                        Their meaning is the same as
+                                        <varname>_UID=</varname>,
+                                        <varname>_GID=</varname>,
+                                        <varname>_COMM=</varname>,
+                                        <varname>_EXE=</varname>,
+                                        <varname>_CMDLINE=</varname>,
+                                        <varname>_AUDIT_SESSION=</varname>,
+                                        <varname>_AUDIT_LOGINUID=</varname>,
+                                        <varname>_SYSTEMD_CGROUP=</varname>,
+                                        <varname>_SYSTEMD_SESSION=</varname>,
+                                        <varname>_SYSTEMD_UNIT=</varname>,
+                                        <varname>_SYSTEMD_USER_UNIT=</varname>, and
+                                        <varname>_SYSTEMD_OWNER_UID=</varname>
+                                        as described above, except that the
+                                        process identified by <replaceable>PID</replaceable>
+                                        is described, instead of the process
+                                        which logged the message.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+
+
         </refsect1>
 
         <refsect1>
@@ -404,8 +528,8 @@
                 url="http://www.freedesktop.org/wiki/Software/systemd/json">Journal
                 JSON Format</ulink>, the addresses of journal entries
                 are serialized into fields prefixed with double
-                underscores. Note that these aren't proper fields when
-                stored in the journal, but addressing meta data of
+                underscores. Note that these are not proper fields when
+                stored in the journal but for addressing meta data of
                 entries. They cannot be written as part of structured
                 log entries via calls such as
                 <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>. They
@@ -422,8 +546,8 @@
                                         describes the position of an
                                         entry in the journal and is
                                         portable across machines,
-                                        platforms and journal
-                                        files.</para>
+                                        platforms and journal files.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -431,16 +555,17 @@
                                 <term><varname>__REALTIME_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The wallclock time
-                                        (CLOCK_REALTIME) at the point
-                                        in time the entry was received
-                                        by the journal, in usec since
-                                        the epoch UTC formatted as
-                                        decimal string. This has
-                                        different properties from
-                                        <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>
+                                        (<constant>CLOCK_REALTIME</constant>)
+                                        at the point in time the entry
+                                        was received by the journal,
+                                        in microseconds since the epoch
+                                        UTC, formatted as a decimal
+                                        string. This has different
+                                        properties from
+                                        <literal>_SOURCE_REALTIME_TIMESTAMP=</literal>,
                                         as it is usually a bit later
-                                        but more likely to be
-                                        monotonic.</para>
+                                        but more likely to be monotonic.
+                                        </para>
                                 </listitem>
                         </varlistentry>
 
@@ -448,15 +573,15 @@
                                 <term><varname>__MONOTONIC_TIMESTAMP=</varname></term>
                                 <listitem>
                                         <para>The monotonic time
-                                        (CLOCK_MONOTONIC) at the point
-                                        in time the entry was received
-                                        by the journal in usec
-                                        formatted as decimal
+                                        (<constant>CLOCK_MONOTONIC</constant>)
+                                        at the point in time the entry
+                                        was received by the journal in
+                                        microseconds, formatted as a decimal
                                         string. To be useful as an
-                                        address for the entry this
-                                        should be combined with with
-                                        boot ID in
-                                        <literal>_BOOT_ID=</literal>.</para>
+                                        address for the entry, this
+                                        should be combined with with the
+                                        boot ID in <literal>_BOOT_ID=</literal>.
+                                        </para>
                                 </listitem>
                         </varlistentry>
                 </variablelist>

@@ -51,6 +51,7 @@
 #include "set.h"
 #include "conf-files.h"
 #include "capability.h"
+#include "specifier.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -68,6 +69,7 @@ typedef enum ItemType {
         CREATE_SYMLINK = 'L',
         CREATE_CHAR_DEVICE = 'c',
         CREATE_BLOCK_DEVICE = 'b',
+        ADJUST_MODE = 'm',
 
         /* These ones take globs */
         IGNORE_PATH = 'x',
@@ -105,7 +107,8 @@ static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 
-static const char *arg_prefix = NULL;
+static char **include_prefixes = NULL;
+static char **exclude_prefixes = NULL;
 
 static const char conf_file_dirs[] =
         "/etc/tmpfiles.d\0"
@@ -255,8 +258,8 @@ static int dir_cleanup(
                 dev_t rootdev,
                 bool mountpoint,
                 int maxdepth,
-                bool keep_this_level)
-{
+                bool keep_this_level) {
+
         struct dirent *dent;
         struct timespec times[2];
         bool deleted = false;
@@ -427,12 +430,16 @@ finish:
         return r;
 }
 
-static int item_set_perms(Item *i, const char *path) {
+static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
+        int r;
+
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
-                        log_error("chmod(%s) failed: %m", path);
-                        return -errno;
+                        if (errno != ENOENT || !ignore_enoent) {
+                                log_error("chmod(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
 
         if (i->uid_set || i->gid_set)
@@ -440,11 +447,18 @@ static int item_set_perms(Item *i, const char *path) {
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
 
-                        log_error("chown(%s) failed: %m", path);
-                        return -errno;
+                        if (errno != ENOENT || !ignore_enoent) {
+                                log_error("chown(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
 
-        return label_fix(path, false, false);
+        r = label_fix(path, false, false);
+        return r == -ENOENT && ignore_enoent ? 0 : r;
+}
+
+static int item_set_perms(Item *i, const char *path) {
+        return item_set_perms_full(i, path, false);
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -640,8 +654,16 @@ static int create_item(Item *i) {
                 if (r < 0)
                         return r;
                 break;
+
         case WRITE_FILE:
                 r = glob_item(i, write_one_file);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case ADJUST_MODE:
+                r = item_set_perms_full(i, i->path, true);
                 if (r < 0)
                         return r;
 
@@ -783,7 +805,7 @@ static int create_item(Item *i) {
 
                 r = glob_item(i, item_set_perms);
                 if (r < 0)
-                        return 0;
+                        return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
@@ -817,6 +839,7 @@ static int remove_item_instance(Item *i, const char *instance) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -862,6 +885,7 @@ static int remove_item(Item *i) {
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
         case WRITE_FILE:
+        case ADJUST_MODE:
                 break;
 
         case REMOVE_PATH:
@@ -971,6 +995,12 @@ static void item_free(Item *i) {
         free(i);
 }
 
+static inline void item_freep(Item **i) {
+        if (*i)
+                item_free(*i);
+}
+#define _cleanup_item_free_ _cleanup_(item_freep)
+
 static bool item_equal(Item *a, Item *b) {
         assert(a);
         assert(b);
@@ -1012,11 +1042,38 @@ static bool item_equal(Item *a, Item *b) {
         return true;
 }
 
+static bool should_include_path(const char *path) {
+        char **prefix;
+
+        STRV_FOREACH(prefix, exclude_prefixes) {
+                if (path_startswith(path, *prefix))
+                        return false;
+        }
+
+        STRV_FOREACH(prefix, include_prefixes) {
+                if (path_startswith(path, *prefix))
+                        return true;
+        }
+
+        /* no matches, so we should include this path only if we
+         * have no whitelist at all */
+        return strv_length(include_prefixes) == 0;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
-        _cleanup_free_ Item *i = NULL;
+
+        static const Specifier specifier_table[] = {
+                { 'm', specifier_machine_id, NULL },
+                { 'b', specifier_boot_id, NULL },
+                { 'H', specifier_host_name, NULL },
+                { 'v', specifier_kernel_release, NULL },
+                {}
+        };
+
+        _cleanup_item_free_ Item *i = NULL;
         Item *existing;
         _cleanup_free_ char
-                *mode = NULL, *user = NULL, *group = NULL, *age = NULL;
+                *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1025,14 +1082,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(line >= 1);
         assert(buffer);
 
-        i = new0(Item, 1);
-        if (!i)
-                return log_oom();
-
         r = sscanf(buffer,
                    "%c %ms %ms %ms %ms %ms %n",
                    &type,
-                   &i->path,
+                   &path,
                    &mode,
                    &user,
                    &group,
@@ -1041,6 +1094,16 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (r < 2) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
+        }
+
+        i = new0(Item, 1);
+        if (!i)
+                return log_oom();
+
+        r = specifier_printf(path, specifier_table, NULL, &i->path);
+        if (r < 0) {
+                log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+                return r;
         }
 
         if (n >= 0)  {
@@ -1065,6 +1128,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         case RECURSIVE_REMOVE_PATH:
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
+        case ADJUST_MODE:
                 break;
 
         case CREATE_SYMLINK:
@@ -1113,7 +1177,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         path_kill_slashes(i->path);
 
-        if (arg_prefix && !path_startswith(i->path, arg_prefix))
+        if (!should_include_path(i->path))
                 return 0;
 
         if (user && !streq(user, "-")) {
@@ -1198,11 +1262,12 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
-               "  -h --help             Show this help\n"
-               "     --create           Create marked files/directories\n"
-               "     --clean            Clean up marked directories\n"
-               "     --remove           Remove marked files/directories\n"
-               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
+               "  -h --help                 Show this help\n"
+               "     --create               Create marked files/directories\n"
+               "     --clean                Clean up marked directories\n"
+               "     --remove               Remove marked files/directories\n"
+               "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
+               "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
         return 0;
@@ -1214,16 +1279,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
-                ARG_PREFIX
+                ARG_PREFIX,
+                ARG_EXCLUDE_PREFIX,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "create",    no_argument,       NULL, ARG_CREATE    },
-                { "clean",     no_argument,       NULL, ARG_CLEAN     },
-                { "remove",    no_argument,       NULL, ARG_REMOVE    },
-                { "prefix",    required_argument, NULL, ARG_PREFIX    },
-                { NULL,        0,                 NULL, 0             }
+                { "help",           no_argument,         NULL, 'h'                },
+                { "create",         no_argument,         NULL, ARG_CREATE         },
+                { "clean",          no_argument,         NULL, ARG_CLEAN          },
+                { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "prefix",         required_argument,   NULL, ARG_PREFIX         },
+                { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
+                { NULL,             0,                   NULL, 0                  }
         };
 
         int c;
@@ -1252,7 +1319,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX:
-                        arg_prefix = optarg;
+                        if (strv_extend(&include_prefixes, optarg) < 0)
+                                return log_oom();
+                        break;
+
+                case ARG_EXCLUDE_PREFIX:
+                        if (strv_extend(&exclude_prefixes, optarg) < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -1273,11 +1346,12 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int read_config_file(const char *fn, bool ignore_enoent) {
-        FILE *f;
-        unsigned v = 0;
-        int r;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
         Iterator iterator;
+        unsigned v = 0;
         Item *i;
+        int r;
 
         assert(fn);
 
@@ -1290,13 +1364,9 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 return r;
         }
 
-        log_debug("apply: %s\n", fn);
-        for (;;) {
-                char line[LINE_MAX], *l;
+        FOREACH_LINE(line, f, break) {
+                char *l;
                 int k;
-
-                if (!(fgets(line, sizeof(line), f)))
-                        break;
 
                 v++;
 
@@ -1304,9 +1374,9 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (*l == '#' || *l == 0)
                         continue;
 
-                if ((k = parse_line(fn, v, l)) < 0)
-                        if (r == 0)
-                                r = k;
+                k = parse_line(fn, v, l);
+                if (k < 0 && r == 0)
+                        r = k;
         }
 
         /* we have to determine age parameter for each entry of type X */
@@ -1342,8 +1412,6 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                 if (r == 0)
                         r = -EIO;
         }
-
-        fclose(f);
 
         return r;
 }
@@ -1416,6 +1484,8 @@ finish:
 
         hashmap_free(items);
         hashmap_free(globs);
+
+        strv_free(include_prefixes);
 
         set_free_free(unix_sockets);
 

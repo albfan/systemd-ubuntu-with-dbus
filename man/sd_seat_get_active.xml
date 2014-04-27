@@ -65,7 +65,7 @@
                                 <paramdef>const char* <parameter>seat</parameter></paramdef>
                                 <paramdef>char*** <parameter>sessions</parameter></paramdef>
                                 <paramdef>uid_t** <parameter>uid</parameter></paramdef>
-                                <paramdef>unsigned* <parameter>n_uids</parameter></paramdef>
+                                <paramdef>unsigned int* <parameter>n_uids</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
@@ -93,26 +93,27 @@
                 a seat, if there is any. Returns the session
                 identifier and the user identifier of the Unix user
                 the session is belonging to. Either the session or the
-                user identifier parameter can be passed NULL, in
-                case only one of the parameters shall be queried. The
-                returned string needs to be freed with the libc
+                user identifier parameter can be passed
+                <constant>NULL</constant>, in case only one of the
+                parameters shall be queried. The returned string needs
+                to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
                 <para><function>sd_seat_get_sessions()</function> may
                 be used to determine all sessions on the specified
-                seat. Returns two arrays, one (NULL terminated) with
+                seat. Returns two arrays, one (<constant>NULL</constant> terminated) with
                 the session identifiers of the sessions and one with
                 the user identifiers of the Unix users the sessions
                 belong to. An additional parameter may be used to
                 return the number of entries in the latter array. The
                 two arrays and the latter parameter may be passed as
-                NULL in case these values need not to be
+                <constant>NULL</constant> in case these values need not to be
                 determined. The arrays and the strings referenced by
                 them need to be freed with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use. Note that instead of an empty array
-                NULL may be returned and should be considered
+                <constant>NULL</constant> may be returned and should be considered
                 equivalent to an empty array.</para>
 
                 <para><function>sd_seat_can_multi_session()</function>
@@ -130,10 +131,11 @@
                 graphics functionality, i.e. is useful as a graphics
                 display.</para>
 
-                <para>If the <literal>seat</literal> parameter of any
-                of these functions is passed as NULL the operation is
-                executed for the seat of the session of the calling
-                process, if there is any.</para>
+                <para>If the <varname>seat</varname> parameter of any
+                of these functions is passed as
+                <constant>NULL</constant>, the operation is executed
+                for the seat of the session of the calling process, if
+                there is any.</para>
         </refsect1>
 
         <refsect1>
@@ -144,7 +146,7 @@
                 returns 0 or a positive integer. On success
                 <function>sd_seat_get_sessions()</function> returns
                 the number of entries in the session identifier
-                array. If the test succeeds
+                array. If the test succeeds,
                 <function>sd_seat_can_multi_session</function>,
                 <function>sd_seat_can_tty</function> and
                 <function>sd_seat_can_graphical</function> return a
@@ -162,8 +164,7 @@
                 <function>sd_seat_can_grapical()</function> interfaces
                 are available as shared library, which can be compiled
                 and linked to with the
-                <literal>libsystemd-login</literal>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

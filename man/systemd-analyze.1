@@ -1,0 +1,192 @@
+'\" t
+.TH "SYSTEMD\-ANALYZE" "1" "" "systemd 208" "systemd-analyze"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-analyze \- Analyze system boot\-up performance
+.SH "SYNOPSIS"
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] [time]
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] blame
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] critical\-chain [\fIUNIT\fR...]
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] plot [>\ file\&.svg]
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] dot [\fIPATTERN\fR...] [>\ file\&.dot]
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] dump
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] set\-log\-level [\fILEVEL\fR]
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-analyze\fR
+may be used to determine system boot\-up performance statistics and retrieve other state and tracing information from the system and service manager\&.
+.PP
+\fBsystemd\-analyze time\fR
+prints the time spent in the kernel before userspace has been reached, the time spent in the initial RAM disk (initrd) before normal system userspace has been reached, and the time normal system userspace took to initialize\&. Note that these measurements simply measure the time passed up to the point where all system services have been spawned, but not necessarily until they fully finished initialization or the disk is idle\&.
+.PP
+\fBsystemd\-analyze blame\fR
+prints a list of all running units, ordered by the time they took to initialize\&. This information may be used to optimize boot\-up times\&. Note that the output might be misleading as the initialization of one service might be slow simply because it waits for the initialization of another service to complete\&.
+.PP
+\fBsystemd\-analyze critical\-chain [\fR\fB\fIUNIT\&.\&.\&.\fR\fR\fB]\fR
+prints a tree of the time\-critical chain of units (for each of the specified
+\fIUNIT\fRs or for the default target otherwise)\&. The time after the unit is active or started is printed after the "@" character\&. The time the unit takes to start is printed after the "+" character\&. Note that the output might be misleading as the initialization of one service might depend on socket activation and because of the parallel execution of units\&.
+.PP
+\fBsystemd\-analyze plot\fR
+prints an SVG graphic detailing which system services have been started at what time, highlighting the time they spent on initialization\&.
+.PP
+\fBsystemd\-analyze dot\fR
+generates textual dependency graph description in dot format for further processing with the GraphViz
+\fBdot\fR(1)
+tool\&. Use a command line like
+\fBsystemd\-analyze dot | dot \-Tsvg > systemd\&.svg\fR
+to generate a graphical dependency tree\&. Unless
+\fB\-\-order\fR
+or
+\fB\-\-require\fR
+is passed, the generated graph will show both ordering and requirement dependencies\&. Optional pattern globbing style specifications (e\&.g\&.
+*\&.target) may be given at the end\&. A unit dependency is included in the graph if any of these patterns match either the origin or destination node\&.
+.PP
+\fBsystemd\-analyze dump\fR
+outputs a (usually very long) human\-readable serialization of the complete server state\&. Its format is subject to change without notice and should not be parsed by applications\&.
+.PP
+\fBsystemd\-analyze set\-log\-level \fR\fB\fILEVEL\fR\fR
+changes the current log level of the
+\fBsystemd\fR
+daemon to
+\fILEVEL\fR
+(accepts the same values as
+\fB\-\-log\-level=\fR
+described in
+\fBsystemd\fR(1))\&.
+.PP
+If no command is passed,
+\fBsystemd\-analyze time\fR
+is implied\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+\fB\-\-user\fR
+.RS 4
+Shows performance data of user sessions instead of the system manager\&.
+.RE
+.PP
+\fB\-\-order\fR, \fB\-\-require\fR
+.RS 4
+When used in conjunction with the
+\fBdot\fR
+command (see above), selects which dependencies are shown in the dependency graph\&. If
+\fB\-\-order\fR
+is passed, only dependencies of type
+\fIAfter=\fR
+or
+\fIBefore=\fR
+are shown\&. If
+\fB\-\-require\fR
+is passed, only dependencies of type
+\fIRequires=\fR,
+\fIRequiresOverridable=\fR,
+\fIRequisite=\fR,
+\fIRequisiteOverridable=\fR,
+\fIWants=\fR
+and
+\fIConflicts=\fR
+are shown\&. If neither is passed, this shows dependencies of all these types\&.
+.RE
+.PP
+\fB\-\-from\-pattern=\fR, \fB\-\-to\-pattern=\fR
+.RS 4
+When used in conjunction with the
+\fBdot\fR
+command (see above), this selects which relationships are shown in the dependency graph\&. They both require
+\fBglob\fR(7)
+patterns as arguments, which are matched against left\-hand and right\-hand, respectively, nodes of a relationship\&. Each of these can be used more than once, which means a unit name must match one of the given values\&.
+.RE
+.PP
+\fB\-\-fuzz=\fR\fItimespan\fR
+.RS 4
+When used in conjunction with the
+\fBcritical\-chain\fR
+command (see above), also show units, which finished
+\fItimespan\fR
+earlier, than the latest unit in the same level\&. The unit of
+\fItimespan\fR
+is seconds unless specified with a different unit, e\&.g\&. "50ms"\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+On success 0 is returned, a non\-zero failure code otherwise\&.
+.SH "EXAMPLES"
+.PP
+This plots all dependencies of any unit whose name starts with
+"avahi\-daemon\&.":
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ systemd\-analyze dot \*(Aqavahi\-daemon\&.*\*(Aq | dot \-Tsvg > avahi\&.svg
+$ eog avahi\&.svg
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This plots the dependencies between all known target units:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+systemd\-analyze dot \-\-to\-pattern=\*(Aq*\&.target\*(Aq \-\-from\-pattern=\*(Aq*\&.target\*(Aq | dot \-Tsvg > targets\&.svg
+$ eog targets\&.svg
+.fi
+.if n \{\
+.RE
+.\}
+.SH "ENVIRONMENT"
+.PP
+\fI$SYSTEMD_PAGER\fR
+.RS 4
+Pager to use when
+\fB\-\-no\-pager\fR
+is not given; overrides
+\fI$PAGER\fR\&. Setting this to an empty string or the value
+"cat"
+is equivalent to passing
+\fB\-\-no\-pager\fR\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemctl\fR(1)

@@ -27,6 +27,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "strv.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -192,41 +193,40 @@ static void test_safe_atod(void) {
 }
 
 static void test_strappend(void) {
-       _cleanup_free_ char *t1, *t2, *t3, *t4;
+        _cleanup_free_ char *t1, *t2, *t3, *t4;
 
-       t1 = strappend(NULL, NULL);
-       assert_se(streq(t1, ""));
+        t1 = strappend(NULL, NULL);
+        assert_se(streq(t1, ""));
 
-       t2 = strappend(NULL, "suf");
-       assert_se(streq(t2, "suf"));
+        t2 = strappend(NULL, "suf");
+        assert_se(streq(t2, "suf"));
 
-       t3 = strappend("pre", NULL);
-       assert_se(streq(t3, "pre"));
+        t3 = strappend("pre", NULL);
+        assert_se(streq(t3, "pre"));
 
-       t4 = strappend("pre", "suf");
-       assert_se(streq(t4, "presuf"));
+        t4 = strappend("pre", "suf");
+        assert_se(streq(t4, "presuf"));
 }
 
 static void test_strstrip(void) {
-       char *r;
-       char input[] = "   hello, waldo.   ";
+        char *r;
+        char input[] = "   hello, waldo.   ";
 
-       r = strstrip(input);
-       assert_se(streq(r, "hello, waldo."));
-
+        r = strstrip(input);
+        assert_se(streq(r, "hello, waldo."));
 }
 
 static void test_delete_chars(void) {
-       char *r;
-       char input[] = "   hello, waldo.   abc";
+        char *r;
+        char input[] = "   hello, waldo.   abc";
 
-       r = delete_chars(input, WHITESPACE);
-       assert_se(streq(r, "hello,waldo.abc"));
+        r = delete_chars(input, WHITESPACE);
+        assert_se(streq(r, "hello,waldo.abc"));
 }
 
 static void test_in_charset(void) {
-      assert_se(in_charset("dddaaabbbcccc", "abcd"));
-      assert_se(!in_charset("dddaaabbbcccc", "abc f"));
+        assert_se(in_charset("dddaaabbbcccc", "abcd"));
+        assert_se(!in_charset("dddaaabbbcccc", "abc f"));
 }
 
 static void test_hexchar(void) {
@@ -258,6 +258,18 @@ static void test_decchar(void) {
 static void test_undecchar(void) {
         assert_se(undecchar('0') == 0);
         assert_se(undecchar('9') == 9);
+}
+
+static void test_cescape(void) {
+        _cleanup_free_ char *escaped;
+        escaped = cescape("abc\\\"\b\f\n\r\t\v\003\177\234\313");
+        assert_se(streq(escaped, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313"));
+}
+
+static void test_cunescape(void) {
+        _cleanup_free_ char *unescaped;
+        unescaped = cunescape("abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\003\\177\\234\\313");
+        assert_se(streq(unescaped, "abc\\\"\b\f\n\r\t\v\003\177\234\313"));
 }
 
 static void test_foreach_word(void) {
@@ -386,6 +398,7 @@ static void test_u64log2(void) {
 }
 
 static void test_get_process_comm(void) {
+        struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         unsigned long long b;
         pid_t e;
@@ -394,8 +407,12 @@ static void test_get_process_comm(void) {
         dev_t h;
         int r;
 
-        assert_se(get_process_comm(1, &a) >= 0);
-        log_info("pid1 comm: '%s'", a);
+        if (stat("/proc/1/comm", &st) == 0) {
+                assert_se(get_process_comm(1, &a) >= 0);
+                log_info("pid1 comm: '%s'", a);
+        } else {
+                log_warning("/proc/1/comm does not exist.");
+        }
 
         assert_se(get_starttime_of_pid(1, &b) >= 0);
         log_info("pid1 starttime: '%llu'", b);
@@ -439,6 +456,141 @@ static void test_protect_errno(void) {
         assert(errno == 12);
 }
 
+static void test_parse_bytes(void) {
+        off_t bytes;
+
+        assert_se(parse_bytes("111", &bytes) == 0);
+        assert_se(bytes == 111);
+
+        assert_se(parse_bytes(" 112 B", &bytes) == 0);
+        assert_se(bytes == 112);
+
+        assert_se(parse_bytes("3 K", &bytes) == 0);
+        assert_se(bytes == 3*1024);
+
+        assert_se(parse_bytes(" 4 M 11K", &bytes) == 0);
+        assert_se(bytes == 4*1024*1024 + 11 * 1024);
+
+        assert_se(parse_bytes("3B3G", &bytes) == 0);
+        assert_se(bytes == 3ULL*1024*1024*1024 + 3);
+
+        assert_se(parse_bytes("3B3G4T", &bytes) == 0);
+        assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
+
+        assert_se(parse_bytes("12P", &bytes) == 0);
+        assert_se(bytes == 12ULL * 1024*1024*1024*1024*1024);
+
+        assert_se(parse_bytes("3E 2P", &bytes) == 0);
+        assert_se(bytes == (3 * 1024 + 2ULL) * 1024*1024*1024*1024*1024);
+
+        assert_se(parse_bytes("12X", &bytes) == -EINVAL);
+
+        assert_se(parse_bytes("1024E", &bytes) == -ERANGE);
+        assert_se(parse_bytes("-1", &bytes) == -ERANGE);
+        assert_se(parse_bytes("-1024E", &bytes) == -ERANGE);
+
+        assert_se(parse_bytes("-1024P", &bytes) == -ERANGE);
+
+        assert_se(parse_bytes("-10B 20K", &bytes) == -ERANGE);
+}
+
+static void test_strextend(void) {
+        _cleanup_free_ char *str = strdup("0123");
+        strextend(&str, "456", "78", "9", NULL);
+        assert_se(streq(str, "0123456789"));
+}
+
+static void test_strrep(void) {
+        _cleanup_free_ char *one, *three, *zero;
+        one = strrep("waldo", 1);
+        three = strrep("waldo", 3);
+        zero = strrep("waldo", 0);
+
+        assert_se(streq(one, "waldo"));
+        assert_se(streq(three, "waldowaldowaldo"));
+        assert_se(streq(zero, ""));
+}
+
+static void test_parse_user_at_host(void) {
+        _cleanup_free_ char *both = strdup("waldo@waldoscomputer");
+        _cleanup_free_ char *onlyhost = strdup("mikescomputer");
+        char *user = NULL, *host = NULL;
+
+        parse_user_at_host(both, &user, &host);
+        assert_se(streq(user, "waldo"));
+        assert_se(streq(host, "waldoscomputer"));
+
+        user = host = NULL;
+        parse_user_at_host(onlyhost, &user, &host);
+        assert_se(user == NULL);
+        assert_se(streq(host, "mikescomputer"));
+}
+
+static void test_split_pair(void) {
+        _cleanup_free_ char *a = NULL, *b = NULL;
+
+        assert_se(split_pair("", "", &a, &b) == -EINVAL);
+        assert_se(split_pair("foo=bar", "", &a, &b) == -EINVAL);
+        assert_se(split_pair("", "=", &a, &b) == -EINVAL);
+        assert_se(split_pair("foo=bar", "=", &a, &b) >= 0);
+        assert_se(streq(a, "foo"));
+        assert_se(streq(b, "bar"));
+        free(a);
+        free(b);
+        assert_se(split_pair("==", "==", &a, &b) >= 0);
+        assert_se(streq(a, ""));
+        assert_se(streq(b, ""));
+        free(a);
+        free(b);
+
+        assert_se(split_pair("===", "==", &a, &b) >= 0);
+        assert_se(streq(a, ""));
+        assert_se(streq(b, "="));
+}
+
+static void test_fstab_node_to_udev_node(void) {
+        char *n;
+
+        n = fstab_node_to_udev_node("LABEL=applé/jack");
+        puts(n);
+        assert_se(streq(n, "/dev/disk/by-label/applé\\x2fjack"));
+        free(n);
+
+        n = fstab_node_to_udev_node("PARTLABEL=pinkié pie");
+        puts(n);
+        assert_se(streq(n, "/dev/disk/by-partlabel/pinkié\\x20pie"));
+        free(n);
+
+        n = fstab_node_to_udev_node("UUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
+        puts(n);
+        assert_se(streq(n, "/dev/disk/by-uuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
+        free(n);
+
+        n = fstab_node_to_udev_node("PARTUUID=037b9d94-148e-4ee4-8d38-67bfe15bb535");
+        puts(n);
+        assert_se(streq(n, "/dev/disk/by-partuuid/037b9d94-148e-4ee4-8d38-67bfe15bb535"));
+        free(n);
+
+
+        n = fstab_node_to_udev_node("PONIES=awesome");
+        puts(n);
+        assert_se(streq(n, "PONIES=awesome"));
+        free(n);
+
+        n = fstab_node_to_udev_node("/dev/xda1");
+        puts(n);
+        assert_se(streq(n, "/dev/xda1"));
+        free(n);
+}
+
+static void test_get_files_in_directory(void) {
+        _cleanup_strv_free_ char **l = NULL, **t = NULL;
+
+        assert_se(get_files_in_directory("/tmp", &l) >= 0);
+        assert_se(get_files_in_directory(".", &l) >= 0);
+        assert_se(get_files_in_directory(".", NULL) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_streq_ptr();
         test_first_word();
@@ -458,6 +610,8 @@ int main(int argc, char *argv[]) {
         test_unoctchar();
         test_decchar();
         test_undecchar();
+        test_cescape();
+        test_cunescape();
         test_foreach_word();
         test_foreach_word_quoted();
         test_default_term_for_tty();
@@ -467,6 +621,13 @@ int main(int argc, char *argv[]) {
         test_u64log2();
         test_get_process_comm();
         test_protect_errno();
+        test_parse_bytes();
+        test_strextend();
+        test_strrep();
+        test_parse_user_at_host();
+        test_split_pair();
+        test_fstab_node_to_udev_node();
+        test_get_files_in_directory();
 
         return 0;
 }

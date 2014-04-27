@@ -76,7 +76,7 @@
 
                 <para>If invoked with no arguments, it applies all
                 directives from all configuration files. If one or
-                more file names are passed on the command line, only
+                more filenames are passed on the command line, only
                 the directives in these files are applied. If only
                 the basename of a configuration file is specified,
                 all configuration directories as specified in <citerefentry>
@@ -94,7 +94,7 @@
 
                         <varlistentry>
                                 <term><option>--create</option></term>
-                                <listitem><para>If this option is passed all
+                                <listitem><para>If this option is passed, all
                                 files and directories marked with f,
                                 F, d, D in the configuration files are
                                 created. Files and directories marked with z,
@@ -105,7 +105,7 @@
                         <varlistentry>
                                 <term><option>--clean</option></term>
                                 <listitem><para>If this option is
-                                passed all files and directories with
+                                passed, all files and directories with
                                 an age parameter configured will be
                                 cleaned up.</para></listitem>
                         </varlistentry>
@@ -113,7 +113,7 @@
                         <varlistentry>
                                 <term><option>--remove</option></term>
                                 <listitem><para>If this option is
-                                passed all files and directories marked
+                                passed, all files and directories marked
                                 with r, R in the configuration files
                                 are removed.</para></listitem>
                         </varlistentry>
@@ -121,7 +121,15 @@
                                 <term><option>--prefix=PATH</option></term>
                                 <listitem><para>Only apply rules that
                                 apply to paths with the specified
-                                prefix.</para></listitem>
+                                prefix. This option can be specified
+                                multiple times.</para></listitem>
+                        </varlistentry>
+                        <varlistentry>
+                                <term><option>--exclude-prefix=PATH</option></term>
+                                <listitem><para>Ignore rules that
+                                apply to paths with the specified
+                                prefix. This option can be specified
+                                multiple times.</para></listitem>
                         </varlistentry>
 
 
@@ -157,7 +165,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

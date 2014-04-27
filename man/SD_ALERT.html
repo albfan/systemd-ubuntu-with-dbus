@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="sd-daemon"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, SD_DEBUG — Reference implementation of APIs for
-                new-style daemons</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd-daemon</code> </p></div></div><div class="refsect1"><a name="idm259783673520"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-daemon.c</code> and
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd-daemon"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, SD_DEBUG — Reference implementation of APIs for
+                new-style daemons</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre></div><div class="cmdsynopsis"><p><code class="command">pkg-config --cflags --libs libsystemd-daemon</code> </p></div></div><div class="refsect1"><a name="idm274682004384"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-daemon.c</code> and
                 <code class="filename">sd-daemon.h</code> provide a reference
                 implementation of various APIs for new-style daemons,
                 as implemented by the
@@ -43,7 +43,7 @@
                 conjunction with STDERR-based logging as implemented
                 by systemd. If a systemd service definition file is
                 configured with <code class="varname">StandardError=syslog</code>
-                or <code class="varname">StandardError=kmsg</code> these
+                or <code class="varname">StandardError=kmsg</code>, these
                 prefixes can be used to encode a log level in lines
                 printed. This is similar to the kernel
                 <code class="function">printk()</code>-style logging. See
@@ -53,8 +53,8 @@
                 log level system. To use these prefixes simply prefix
                 every line with one of these strings. A line that is
                 not prefixed will be logged at the default log level
-                SD_INFO.</p><div class="example"><a name="idm259782027536"></a><p class="title"><b>Example 1. Hello World</b></p><div class="example-contents"><p>A daemon may log with the log level
-                        NOTICE by issuing this call:</p><pre class="programlisting">fprintf(stderr, SD_NOTICE "Hello World!\n");</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm259782025408"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>These interfaces are provided by the reference
+                SD_INFO.</p><div class="example"><a name="idm274685891936"></a><p class="title"><b>Example 1. Hello World</b></p><div class="example-contents"><p>A daemon may log with the log level
+                        NOTICE by issuing this call:</p><pre class="programlisting">fprintf(stderr, SD_NOTICE "Hello World!\n");</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm274685889856"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>These interfaces are provided by the reference
                 implementation of APIs for new-style daemons and
                 distributed with the systemd package. The algorithms
                 they implement are simple, and can easily be
@@ -70,8 +70,7 @@
                 <code class="filename">sd-daemon.h</code> files. These
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <code class="literal">libsystemd-daemon</code>
-                <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                <code class="constant">libsystemd-daemon</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source tree,
                 either verbatim or in excerpts.</p><p>The functions directly related to new-style
@@ -79,7 +78,7 @@
                 during compilation and the reference implementation is
                 used as drop-in files. In addition, if
                 <code class="filename">sd-daemon.c</code> is compiled on
-                non-Linux systems they become NOPs.</p></div><div class="refsect1"><a name="idm259783768736"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                non-Linux systems they become NOPs.</p></div><div class="refsect1"><a name="idm274685881984"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd_listen_fds.html"><span class="citerefentry"><span class="refentrytitle">sd_listen_fds</span>(3)</span></a>,
                         <a href="sd_notify.html"><span class="citerefentry"><span class="refentrytitle">sd_notify</span>(3)</span></a>,

@@ -72,7 +72,7 @@
                         <varlistentry>
                                 <term><varname>Samples=500</varname></term>
                                 <listitem><para>Configure the amount of samples to
-                                record total before bootchart exits. Each sample will
+                                record in total before bootchart exits. Each sample will
                                 record at intervals defined by Frequency=.</para></listitem>
                         </varlistentry>
 
@@ -87,7 +87,7 @@
                         <varlistentry>
                                 <term><varname>Relative=no</varname></term>
                                 <listitem><para>Configures whether the left axis of the
-                                output graph equals time=0.0 (CLOCK_MONOTONIC start). This
+                                output graph equals time=0.0 (<constant>CLOCK_MONOTONIC</constant> start). This
                                 is useful for using bootchart at post-boot time to profile
                                 an already booted system, otherwise the graph would become
                                 extremely large. If set to yes, the horizontal axis starts
@@ -107,7 +107,7 @@
 
                         <varlistentry>
                                 <term><varname>Output=[path]</varname></term>
-                                <listitem><para>Configures the output folder for writing
+                                <listitem><para>Configures the output directory for writing
                                 the graphs. By default, bootchart writes the graphs to
                                 <filename>/run/log</filename>.</para></listitem>
                         </varlistentry>
@@ -124,7 +124,7 @@
                         <varlistentry>
                                 <term><varname>PlotMemoryUsage=no</varname></term>
                                 <listitem><para>If set to yes, enables logging and graphing
-                                of processes PSS memory consumption.</para></listitem>
+                                of processes' PSS memory consumption.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>

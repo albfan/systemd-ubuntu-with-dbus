@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm259768532416"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
-                <code class="filename">.socket</code> encodes information about
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm274692930944"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+                "<code class="literal">.socket</code>" encodes information about
                 an IPC or network socket or a file system FIFO
                 controlled and supervised by systemd, for socket-based
                 activation.</p><p>This man page lists the configuration options
@@ -38,9 +38,12 @@
                 <code class="option">ExecStopPre=</code> and
                 <code class="option">ExecStopPost=</code> commands are executed
                 in, and in
-                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                which define the way the processes are
-                terminated.</p><p>For each socket file a matching service file
+                <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
+                which define the way the processes are terminated, and
+                in
+                <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
+                which configure resource control settings for the
+                processes of the socket.</p><p>For each socket file a matching service file
                 (see
                 <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
                 for details) must exist, describing the service to
@@ -52,7 +55,7 @@
                 <code class="filename">foo.socket</code> needs a matching
                 service <code class="filename">foo.service</code> if
                 <code class="option">Accept=false</code> is set. If
-                <code class="option">Accept=true</code> is set a service template
+                <code class="option">Accept=true</code> is set, a service template
                 file <code class="filename">foo@.service</code> must exist from
                 which services are instantiated for each incoming
                 connection.</p><p>Unless <code class="varname">DefaultDependencies=</code>
@@ -79,7 +82,7 @@
                 <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>-style
                 socket passing (i.e. sockets passed in via STDIN and
                 STDOUT, using <code class="varname">StandardInput=socket</code>
-                in the service file).</p></div><div class="refsect1"><a name="idm259768715248"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
+                in the service file).</p></div><div class="refsect1"><a name="idm274692985600"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
                 which carries information about the socket or FIFO it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -90,20 +93,22 @@
                 options specific to the [Socket] section of socket
                 units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="ListenStream="><span class="term"><code class="varname">ListenStream=</code>, </span><span class="term"><code class="varname">ListenDatagram=</code>, </span><span class="term"><code class="varname">ListenSequentialPacket=</code></span><a class="headerlink" title="Permalink to this term" href="#ListenStream=">¶</a></dt><dd><p>Specifies an address
                                 to listen on for a stream
-                                (SOCK_STREAM), datagram (SOCK_DGRAM),
+                                (<code class="constant">SOCK_STREAM</code>), datagram (<code class="constant">SOCK_DGRAM</code>),
                                 or sequential packet
-                                (SOCK_SEQPACKET) socket, respectively. The address
+                                (<code class="constant">SOCK_SEQPACKET</code>) socket, respectively. The address
                                 can be written in various formats:</p><p>If the address starts with a
-                                slash (/), it is read as file system
-                                socket in the AF_UNIX socket
-                                family.</p><p>If the address starts with an
-                                at symbol (@) it is read as abstract
-                                namespace socket in the AF_UNIX
-                                family. The @ is replaced with a NUL
-                                character before binding. For details
-                                see
+                                slash ("<code class="literal">/</code>"), it is read as file system
+                                socket in the <code class="constant">AF_UNIX</code> socket
+                                family.</p><p>If the address starts with an at
+                                symbol ("<code class="literal">@</code>"), it is read as abstract
+                                namespace socket in the
+                                <code class="constant">AF_UNIX</code>
+                                family. The "<code class="literal">@</code>" is
+                                replaced with a
+                                <code class="constant">NUL</code> character
+                                before binding. For details, see
                                 <a href="unix.html"><span class="citerefentry"><span class="refentrytitle">unix</span>(7)</span></a>.</p><p>If the address string is a
-                                single number it is read as port
+                                single number, it is read as port
                                 number to listen on via
                                 IPv6. Depending on the value of
                                 <code class="varname">BindIPv6Only=</code> (see below) this
@@ -111,23 +116,23 @@
                                 available via both IPv6 and IPv4 (default) or
                                 just via IPv6.
                                 </p><p>If the address string is a
-                                string in the format v.w.x.y:z it is
+                                string in the format v.w.x.y:z, it is
                                 read as IPv4 specifier for listening
                                 on an address v.w.x.y on a port
                                 z.</p><p>If the address string is a
-                                string in the format [x]:y it is read
+                                string in the format [x]:y, it is read
                                 as IPv6 address x on a port y. Note
                                 that this might make the service
                                 available via IPv4, too, depending on
                                 the <code class="varname">BindIPv6Only=</code>
                                 setting (see below).
-                                </p><p>Note that SOCK_SEQPACKET
+                                </p><p>Note that <code class="constant">SOCK_SEQPACKET</code>
                                 (i.e. <code class="varname">ListenSequentialPacket=</code>)
-                                is only available for AF_UNIX
-                                sockets. SOCK_STREAM
+                                is only available for <code class="constant">AF_UNIX</code>
+                                sockets. <code class="constant">SOCK_STREAM</code>
                                 (i.e. <code class="varname">ListenStream=</code>)
                                 when used for IP sockets refers to TCP
-                                sockets, SOCK_DGRAM
+                                sockets, <code class="constant">SOCK_DGRAM</code>
                                 (i.e. <code class="varname">ListenDatagram=</code>)
                                 to UDP.</p><p>These options may be specified
                                 more than once in which case incoming
@@ -167,7 +172,7 @@
                                 <code class="filename">/sys</code>.</p></dd><dt id="ListenNetlink="><span class="term"><code class="varname">ListenNetlink=</code></span><a class="headerlink" title="Permalink to this term" href="#ListenNetlink=">¶</a></dt><dd><p>Specifies a Netlink
                                 family to create a socket for to
                                 listen on. This expects a short string
-                                referring to the AF_NETLINK family
+                                referring to the <code class="constant">AF_NETLINK</code> family
                                 name (such as <code class="varname">audit</code>
                                 or <code class="varname">kobject-uevent</code>)
                                 as argument, optionally suffixed by a
@@ -197,7 +202,7 @@
                                 <code class="option">ipv6-only</code>, they will
                                 be accessible via IPv6 only. If
                                 <code class="option">default</code> (which is the
-                                default, surprise!) the system wide
+                                default, surprise!), the system wide
                                 default setting is used, as controlled
                                 by
                                 <code class="filename">/proc/sys/net/ipv6/bindv6only</code>,
@@ -213,7 +218,7 @@
                                 for details. Defaults to SOMAXCONN
                                 (128).</p></dd><dt id="BindToDevice="><span class="term"><code class="varname">BindToDevice=</code></span><a class="headerlink" title="Permalink to this term" href="#BindToDevice=">¶</a></dt><dd><p>Specifies a network
                                 interface name to bind this socket
-                                to. If set traffic will only be
+                                to. If set, traffic will only be
                                 accepted from the specified network
                                 interfaces. This controls the
                                 SO_BINDTODEVICE socket option (see
@@ -247,17 +252,30 @@
                                 and only one service unit is spawned
                                 for all connections (also see
                                 above). This value is ignored for
-                                datagram sockets and FIFOs where
-                                a single service unit unconditionally
+                                datagram sockets and FIFOs where a
+                                single service unit unconditionally
                                 handles all incoming traffic. Defaults
                                 to <code class="option">false</code>. For
                                 performance reasons, it is recommended
                                 to write new daemons only in a way
                                 that is suitable for
-                                <code class="option">Accept=false</code>. This
-                                option is mostly useful to allow
-                                daemons designed for usage with
-                                <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>,
+                                <code class="option">Accept=false</code>. A
+                                daemon listening on an <code class="constant">AF_UNIX</code> socket
+                                may, but does not need to, call
+                                <a href="close.html"><span class="citerefentry"><span class="refentrytitle">close</span>(2)</span></a>
+                                on the received socket before
+                                exiting. However, it must not unlink
+                                the socket from a file system. It
+                                should not invoke
+                                <a href="shutdown.html"><span class="citerefentry"><span class="refentrytitle">shutdown</span>(2)</span></a>
+                                on sockets it got with
+                                <code class="varname">Accept=false</code>, but
+                                it may do so for sockets it got with
+                                <code class="varname">Accept=true</code> set.
+                                Setting <code class="varname">Accept=true</code>
+                                is mostly useful to allow daemons
+                                designed for usage with
+                                <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
                                 to work unmodified with systemd socket
                                 activation.</p></dd><dt id="MaxConnections="><span class="term"><code class="varname">MaxConnections=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxConnections=">¶</a></dt><dd><p>The maximum number of
                                 connections to simultaneously run
@@ -267,7 +285,7 @@
                                 are coming in, they will be refused
                                 until at least one existing connection
                                 is terminated. This setting has no
-                                effect for sockets configured with
+                                effect on sockets configured with
                                 <code class="option">Accept=false</code> or datagram
                                 sockets. Defaults to
                                 64.</p></dd><dt id="KeepAlive="><span class="term"><code class="varname">KeepAlive=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAlive=">¶</a></dt><dd><p>Takes a boolean
@@ -322,22 +340,28 @@
                                 filter packets from this socket. This
                                 sets the SO_MARK socket option. See
                                 <a href="iptables.html"><span class="citerefentry"><span class="refentrytitle">iptables</span>(8)</span></a>
+                                for details.</p></dd><dt id="ReusePort="><span class="term"><code class="varname">ReusePort=</code></span><a class="headerlink" title="Permalink to this term" href="#ReusePort=">¶</a></dt><dd><p>Takes a boolean
+                                value. If true, allows multiple <a href="bind.html"><span class="citerefentry"><span class="refentrytitle">bind</span>(2)</span></a>s
+                                to this TCP or UDP port.  This
+                                controls the SO_REUSEPORT socket
+                                option.  See
+                                <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
                                 for details.</p></dd><dt id="SmackLabel="><span class="term"><code class="varname">SmackLabel=</code>, </span><span class="term"><code class="varname">SmackLabelIPIn=</code>, </span><span class="term"><code class="varname">SmackLabelIPOut=</code></span><a class="headerlink" title="Permalink to this term" href="#SmackLabel=">¶</a></dt><dd><p>Takes a string
                                 value. Controls the extended
                                 attributes
-                                <code class="literal">security.SMACK64</code>,
-                                <code class="literal">security.SMACK64IPIN</code>
+                                "<code class="literal">security.SMACK64</code>",
+                                "<code class="literal">security.SMACK64IPIN</code>"
                                 and
-                                <code class="literal">security.SMACK64IPOUT</code>,
+                                "<code class="literal">security.SMACK64IPOUT</code>",
                                 respectively, i.e. the security label
                                 of the FIFO, or the security label for
                                 the incoming or outgoing connections
-                                of the socket, respectively.  See
+                                of the socket, respectively. See
                                 <a class="ulink" href="https://www.kernel.org/doc/Documentation/security/Smack.txt" target="_top">Smack.txt</a>
                                 for details.</p></dd><dt id="PipeSize="><span class="term"><code class="varname">PipeSize=</code></span><a class="headerlink" title="Permalink to this term" href="#PipeSize=">¶</a></dt><dd><p>Takes an integer
                                 value. Controls the pipe buffer size
                                 of FIFOs configured in this socket
-                                unit.  See
+                                unit. See
                                 <a href="fcntl.html"><span class="citerefentry"><span class="refentrytitle">fcntl</span>(2)</span></a>
                                 for details.</p></dd><dt id="MessageQueueMaxMessages=,
                                 MessageQueueMessageSize="><span class="term"><code class="varname">MessageQueueMaxMessages=</code>,
@@ -370,16 +394,16 @@
                                 socket. Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="PassCredentials="><span class="term"><code class="varname">PassCredentials=</code></span><a class="headerlink" title="Permalink to this term" href="#PassCredentials=">¶</a></dt><dd><p>Takes a boolean
                                 value. This controls the SO_PASSCRED
-                                socket option, which allows AF_UNIX sockets to
+                                socket option, which allows <code class="constant">AF_UNIX</code> sockets to
                                 receive the credentials of the sending
                                 process in an ancillary message.
                                 Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="PassSecurity="><span class="term"><code class="varname">PassSecurity=</code></span><a class="headerlink" title="Permalink to this term" href="#PassSecurity=">¶</a></dt><dd><p>Takes a boolean
                                 value. This controls the SO_PASSSEC
-                                socket option, which allows AF_UNIX
+                                socket option, which allows <code class="constant">AF_UNIX</code>
                                 sockets to receive the security
                                 context of the sending process in an
-                                ancillary message.  Defaults to
+                                ancillary message. Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="TCPCongestion="><span class="term"><code class="varname">TCPCongestion=</code></span><a class="headerlink" title="Permalink to this term" href="#TCPCongestion=">¶</a></dt><dd><p>Takes a string
                                 value. Controls the TCP congestion
                                 algorithm used by this socket. Should
@@ -392,7 +416,7 @@
                                 before or after the listening
                                 sockets/FIFOs are created and
                                 bound, respectively. The first token of the command
-                                line must be an absolute file name,
+                                line must be an absolute filename,
                                 then followed by arguments for the
                                 process. Multiple command lines may be
                                 specified following the same scheme as
@@ -416,8 +440,8 @@
                                 will be considered failed and be shut
                                 down again. All commands still running,
                                 will be terminated forcibly via
-                                SIGTERM, and after another delay of
-                                this time with SIGKILL. (See
+                                <code class="constant">SIGTERM</code>, and after another delay of
+                                this time with <code class="constant">SIGKILL</code>. (See
                                 <code class="option">KillMode=</code> in <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
@@ -433,16 +457,17 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm259763682032"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm274687879792"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
                           <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
+                          <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
                           <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
                           <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
                   </p><p>
-                          For more extensive descriptions see the "Systemd for Developers" series:
+                          For more extensive descriptions see the "systemd for Developers" series:
                           <a class="ulink" href="http://0pointer.de/blog/projects/socket-activation.html" target="_top">Socket Activation</a>,
                           <a class="ulink" href="http://0pointer.de/blog/projects/socket-activation2.html" target="_top">Socket Activation, part II</a>,
                           <a class="ulink" href="http://0pointer.de/blog/projects/inetd.html" target="_top">Converting inetd Services</a>,

@@ -109,7 +109,7 @@ static int open_journal(RequestMeta *m) {
         if (m->journal)
                 return 0;
 
-        return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM_ONLY);
+        return sd_journal_open(&m->journal, SD_JOURNAL_LOCAL_ONLY|SD_JOURNAL_SYSTEM);
 }
 
 static int respond_oom_internal(struct MHD_Connection *connection) {
@@ -248,7 +248,7 @@ static ssize_t request_reader_entries(
                         }
                 }
 
-                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH);
+                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH, NULL);
                 if (r < 0) {
                         log_error("Failed to serialize item: %s", strerror(-r));
                         return MHD_CONTENT_READER_END_WITH_ERROR;
@@ -834,17 +834,17 @@ static int request_handler_machine(
                      "\"hostname\" : \"%s\","
                      "\"os_pretty_name\" : \"%s\","
                      "\"virtualization\" : \"%s\","
-                     "\"usage\" : \"%llu\","
-                     "\"cutoff_from_realtime\" : \"%llu\","
-                     "\"cutoff_to_realtime\" : \"%llu\" }\n",
+                     "\"usage\" : \"%"PRIu64"\","
+                     "\"cutoff_from_realtime\" : \"%"PRIu64"\","
+                     "\"cutoff_to_realtime\" : \"%"PRIu64"\" }\n",
                      SD_ID128_FORMAT_VAL(mid),
                      SD_ID128_FORMAT_VAL(bid),
                      hostname_cleanup(hostname, false),
                      os_name ? os_name : "Linux",
                      v ? v : "bare",
-                     (unsigned long long) usage,
-                     (unsigned long long) cutoff_from,
-                     (unsigned long long) cutoff_to);
+                     usage,
+                     cutoff_from,
+                     cutoff_to);
 
         if (r < 0)
                 return respond_oom(connection);

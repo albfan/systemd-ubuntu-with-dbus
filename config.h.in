@@ -96,8 +96,14 @@
 /* Have tcpwrap? */
 #undef HAVE_LIBWRAP
 
+/* Define to 1 if you have the <linux/btrfs.h> header file. */
+#undef HAVE_LINUX_BTRFS_H
+
 /* Logind support available */
 #undef HAVE_LOGIND
+
+/* Machined support available */
+#undef HAVE_MACHINED
 
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
@@ -145,6 +151,9 @@
 /* Define if SELinux is available */
 #undef HAVE_SELINUX
 
+/* Define if SMACK is available */
+#undef HAVE_SMACK
+
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
 
@@ -186,6 +195,9 @@
 
 /* Define to 1 if you have the <sys/acl.h> header file. */
 #undef HAVE_SYS_ACL_H
+
+/* Define to 1 if you have the <sys/auxv.h> header file. */
+#undef HAVE_SYS_AUXV_H
 
 /* Define to 1 if you have the <sys/capability.h> header file. */
 #undef HAVE_SYS_CAPABILITY_H

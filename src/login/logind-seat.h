@@ -38,6 +38,7 @@ struct Seat {
         LIST_HEAD(Device, devices);
 
         Session *active;
+        Session *pending_switch;
         LIST_HEAD(Session, sessions);
 
         bool in_gc_queue:1;
@@ -59,10 +60,13 @@ int seat_read_active_vt(Seat *s);
 int seat_preallocate_vts(Seat *s);
 
 int seat_attach_session(Seat *s, Session *session);
+void seat_complete_switch(Seat *s);
 
-bool seat_is_vtconsole(Seat *s);
+bool seat_has_vts(Seat *s);
+bool seat_is_seat0(Seat *s);
 bool seat_can_multi_session(Seat *s);
 bool seat_can_tty(Seat *s);
+bool seat_has_master_device(Seat *s);
 bool seat_can_graphical(Seat *s);
 
 int seat_get_idle_hint(Seat *s, dual_timestamp *t);

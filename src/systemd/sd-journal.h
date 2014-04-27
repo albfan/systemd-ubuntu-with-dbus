@@ -86,7 +86,9 @@ typedef struct sd_journal sd_journal;
 enum {
         SD_JOURNAL_LOCAL_ONLY = 1,
         SD_JOURNAL_RUNTIME_ONLY = 2,
-        SD_JOURNAL_SYSTEM_ONLY = 4
+        SD_JOURNAL_SYSTEM = 4,
+        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM, /* deprecated */
+        SD_JOURNAL_CURRENT_USER = 8,
 };
 
 /* Wakeup event types */
@@ -98,6 +100,7 @@ enum {
 
 int sd_journal_open(sd_journal **ret, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
+int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);

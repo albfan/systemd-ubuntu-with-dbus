@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.timer</filename> encodes information about
+                <literal>.timer</literal> encodes information about
                 a timer controlled and supervised by systemd, for
                 timer-based activation.</para>
 
@@ -128,7 +128,7 @@
                                 combined of the same and of different
                                 types. For example, by combining
                                 <varname>OnBootSec=</varname> and
-                                <varname>OnUnitActiveSec=</varname> it is
+                                <varname>OnUnitActiveSec=</varname>, it is
                                 possible to define a timer that
                                 elapses in regular intervals and
                                 activates a specific service each
@@ -160,7 +160,7 @@
                                 monotonic clock stops too.</para>
 
                                 <para>If the empty string is assigned
-                                to any of these options the list of
+                                to any of these options, the list of
                                 timers is reset, and all prior
                                 assignments will have no
                                 effect.</para></listitem>
@@ -187,7 +187,7 @@
                                 <listitem><para>The unit to activate
                                 when this timer elapses. The argument is a
                                 unit name, whose suffix is not
-                                <filename>.timer</filename>. If not
+                                <literal>.timer</literal>. If not
                                 specified, this value defaults to a
                                 service that has the same name as the
                                 timer unit, except for the

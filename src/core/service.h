@@ -54,6 +54,7 @@ typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
         SERVICE_RESTART_ON_FAILURE,
+        SERVICE_RESTART_ON_WATCHDOG,
         SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
         _SERVICE_RESTART_MAX,
@@ -135,6 +136,7 @@ struct Service {
 
         ExecContext exec_context;
         KillContext kill_context;
+        CGroupContext cgroup_context;
 
         ServiceState state, deserialized_state;
 

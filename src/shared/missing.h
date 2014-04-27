@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <linux/oom.h>
+#include <linux/input.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -138,7 +139,8 @@ static inline int fanotify_init(unsigned int flags, unsigned int event_f_flags) 
 #ifndef HAVE_FANOTIFY_MARK
 static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t mask,
                                 int dfd, const char *pathname) {
-#if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32 || defined __powerpc__ && !defined __powerpc64__
+#if defined _MIPS_SIM && _MIPS_SIM == _MIPS_SIM_ABI32 || defined __powerpc__ && !defined __powerpc64__ \
+    || defined __arm__ && !defined __aarch64__
         union {
                 uint64_t _64;
                 uint32_t _32[2];
@@ -161,13 +163,53 @@ static inline int fanotify_mark(int fanotify_fd, unsigned int flags, uint64_t ma
 #define BTRFS_PATH_NAME_MAX 4087
 #endif
 
+#ifndef BTRFS_DEVICE_PATH_NAME_MAX
+#define BTRFS_DEVICE_PATH_NAME_MAX 1024
+#endif
+
+#ifndef BTRFS_FSID_SIZE
+#define BTRFS_FSID_SIZE 16
+#endif
+
+#ifndef BTRFS_UUID_SIZE
+#define BTRFS_UUID_SIZE 16
+#endif
+
+#ifndef HAVE_LINUX_BTRFS_H
 struct btrfs_ioctl_vol_args {
         int64_t fd;
         char name[BTRFS_PATH_NAME_MAX + 1];
 };
 
+struct btrfs_ioctl_dev_info_args {
+        uint64_t devid;                         /* in/out */
+        uint8_t uuid[BTRFS_UUID_SIZE];          /* in/out */
+        uint64_t bytes_used;                    /* out */
+        uint64_t total_bytes;                   /* out */
+        uint64_t unused[379];                   /* pad to 4k */
+        char path[BTRFS_DEVICE_PATH_NAME_MAX];  /* out */
+};
+
+struct btrfs_ioctl_fs_info_args {
+        uint64_t max_id;                        /* out */
+        uint64_t num_devices;                   /* out */
+        uint8_t fsid[BTRFS_FSID_SIZE];          /* out */
+        uint64_t reserved[124];                 /* pad to 1k */
+};
+#endif
+
 #ifndef BTRFS_IOC_DEFRAG
 #define BTRFS_IOC_DEFRAG _IOW(BTRFS_IOCTL_MAGIC, 2, struct btrfs_ioctl_vol_args)
+#endif
+
+#ifndef BTRFS_IOC_DEV_INFO
+#define BTRFS_IOC_DEV_INFO _IOWR(BTRFS_IOCTL_MAGIC, 30, \
+                                 struct btrfs_ioctl_dev_info_args)
+#endif
+
+#ifndef BTRFS_IOC_FS_INFO
+#define BTRFS_IOC_FS_INFO _IOR(BTRFS_IOCTL_MAGIC, 31, \
+                               struct btrfs_ioctl_fs_info_args)
 #endif
 
 #ifndef BTRFS_SUPER_MAGIC
@@ -264,4 +306,20 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 
 #ifndef TFD_TIMER_CANCEL_ON_SET
 #define TFD_TIMER_CANCEL_ON_SET (1 << 1)
+#endif
+
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT 15
+#endif
+
+#ifndef EVIOCREVOKE
+#define EVIOCREVOKE _IOW('E', 0x91, int)
+#endif
+
+#ifndef DRM_IOCTL_SET_MASTER
+#define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
+#endif
+
+#ifndef DRM_IOCTL_DROP_MASTER
+#define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
 #endif

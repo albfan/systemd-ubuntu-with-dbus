@@ -22,7 +22,7 @@ Before=getty.target
 IgnoreOnIsolate=yes
 
 [Service]
-ExecStart=-/sbin/agetty -s %I 115200,38400,9600 vt102
+ExecStart=-/sbin/agetty --keep-baud %I 115200,38400,9600
 Type=idle
 Restart=always
 RestartSec=0
@@ -32,7 +32,4 @@ TTYReset=yes
 TTYVHangup=yes
 KillMode=process
 IgnoreSIGPIPE=no
-
-# Some login implementations ignore SIGTERM, so we send SIGHUP
-# instead, to ensure that login terminates cleanly.
-KillSignal=SIGHUP
+SendSIGHUP=yes

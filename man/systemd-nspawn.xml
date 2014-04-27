@@ -97,14 +97,13 @@
                 involved with boot and systems management.</para>
 
                 <para>In contrast to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                <command>systemd-nspawn</command> may be used to boot
-                full Linux-based operating systems in a
-                container.</para>
+                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+                may be used to boot full Linux-based operating systems
+                in a container.</para>
 
                 <para>Use a tool like
                 <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 or
                 <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
@@ -136,22 +135,25 @@
 
                 <para>As a safety check
                 <command>systemd-nspawn</command> will verify the
-                existance of <filename>/etc/os-release</filename> in
+                existence of <filename>/etc/os-release</filename> in
                 the container tree before starting the container (see
                 <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
                 contain this file out-of-the-box.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Incompatibility with Auditing</title>
 
                 <para>Note that the kernel auditing subsystem is
                 currently broken when used together with
                 containers. We hence recommend turning it off entirely
-                when using <command>systemd-nspawn</command> by
-                booting with <literal>audit=0</literal> on the kernel
-                command line, or by turning it off at kernel build
-                time. If auditing is enabled in the kernel operating
-                systems booted in an nspawn container might refuse
-                log-in attempts.</para>
+                by booting with <literal>audit=0</literal> on the
+                kernel command line, or by turning it off at kernel
+                build time. If auditing is enabled in the kernel,
+                operating systems booted in an nspawn container might
+                refuse log-in attempts.</para>
         </refsect1>
 
         <refsect1>
@@ -190,7 +192,7 @@
 
                                 <listitem><para>Directory to use as
                                 file system root for the namespace
-                                container. If omitted the current
+                                container. If omitted, the current
                                 directory will be
                                 used.</para></listitem>
                         </varlistentry>
@@ -231,29 +233,29 @@
                                 host, and is used to initialize the
                                 container's hostname (which the
                                 container can choose to override,
-                                however). If not specified the last
+                                however). If not specified, the last
                                 component of the root directory of the
                                 container is used.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--slice=</option></term>
+
+                                <listitem><para>Make the container
+                                part of the specified slice, instead
+                                of the
+                                <filename>machine.slice</filename>.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>--uuid=</option></term>
 
-                                <listitem><para>Set the specified uuid
+                                <listitem><para>Set the specified UUID
                                 for the container. The init system
                                 will initialize
                                 <filename>/etc/machine-id</filename>
                                 from this if this file is not set yet.
-                                </para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-C</option></term>
-                                <term><option>--controllers=</option></term>
-
-                                <listitem><para>Makes the container appear in
-                                other hierarchies than the name=systemd:/ one.
-                                Takes a comma-separated list of controllers.
                                 </para></listitem>
                         </varlistentry>
 
@@ -271,7 +273,7 @@
                                 <term><option>--read-only</option></term>
 
                                 <listitem><para>Mount the root file
-                                system read only for the
+                                system read-only for the
                                 container.</para></listitem>
                         </varlistentry>
 
@@ -280,7 +282,7 @@
 
                                 <listitem><para>List one or more
                                 additional capabilities to grant the
-                                container. Takes a comma separated
+                                container. Takes a comma-separated
                                 list of capability names, see
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information. Note that the
@@ -306,7 +308,7 @@
 
                                 <listitem><para>Control whether the
                                 container's journal shall be made
-                                visible to the host system. If enabled
+                                visible to the host system. If enabled,
                                 allows viewing the container's journal
                                 files from the host (but not vice
                                 versa). Takes one of
@@ -332,7 +334,7 @@
                                 <filename>/var/log/journal</filename>
                                 exists, it will be bind mounted
                                 into the container. If the
-                                subdirectory doesn't exist, no
+                                subdirectory does not exist, no
                                 linking is performed. Effectively,
                                 booting a container once with
                                 <literal>guest</literal> or
@@ -440,7 +442,8 @@
                         <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

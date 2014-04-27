@@ -102,7 +102,8 @@ char **path_split_and_make_absolute(const char *p) {
         char **l;
         assert(p);
 
-        if (!(l = strv_split(p, ":")))
+        l = strv_split(p, ":");
+        if (!l)
                 return NULL;
 
         if (!path_strv_make_absolute_cwd(l)) {
@@ -126,7 +127,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
 }
 
 char *path_make_absolute_cwd(const char *p) {
-        char *cwd, *r;
+        _cleanup_free_ char *cwd = NULL;
 
         assert(p);
 
@@ -140,10 +141,7 @@ char *path_make_absolute_cwd(const char *p) {
         if (!cwd)
                 return NULL;
 
-        r = path_make_absolute(p, cwd);
-        free(cwd);
-
-        return r;
+        return path_make_absolute(p, cwd);
 }
 
 char **path_strv_make_absolute_cwd(char **l) {
@@ -156,7 +154,8 @@ char **path_strv_make_absolute_cwd(char **l) {
         STRV_FOREACH(s, l) {
                 char *t;
 
-                if (!(t = path_make_absolute_cwd(*s)))
+                t = path_make_absolute_cwd(*s);
+                if (!t)
                         return NULL;
 
                 free(*s);
@@ -425,4 +424,52 @@ int path_is_os_tree(const char *path) {
         r = access(p, F_OK);
 
         return r < 0 ? 0 : 1;
+}
+
+int find_binary(const char *name, char **filename) {
+        assert(name);
+        if (strchr(name, '/')) {
+                char *p;
+
+                if (path_is_absolute(name))
+                        p = strdup(name);
+                else
+                        p = path_make_absolute_cwd(name);
+                if (!p)
+                        return -ENOMEM;
+
+                *filename = p;
+                return 0;
+        } else {
+                const char *path;
+                char *state, *w;
+                size_t l;
+
+                /**
+                 * Plain getenv, not secure_getenv, because we want
+                 * to actually allow the user to pick the binary.
+                 */
+                path = getenv("PATH");
+                if (!path)
+                        path = DEFAULT_PATH;
+
+                FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
+                        char *p;
+
+                        if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
+                                return -ENOMEM;
+
+                        if (access(p, X_OK) < 0) {
+                                free(p);
+                                continue;
+                        }
+
+                        path_kill_slashes(p);
+                        *filename = p;
+
+                        return 0;
+                }
+
+                return -ENOENT;
+        }
 }

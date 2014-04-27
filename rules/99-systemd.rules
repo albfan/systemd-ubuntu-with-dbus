@@ -49,7 +49,11 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:
 
 # Apply sysctl variables to network devices (and only to those) as they appear.
 
-SUBSYSTEM=="net", KERNEL!="lo", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
+ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
+
+# Pull in backlight save/restore for all firmware backlight devices
+
+ACTION=="add", SUBSYSTEM=="backlight", ATTR{type}=="firmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
 
 # Asynchronously mount file systems implemented by these modules as
 # soon as they are loaded.

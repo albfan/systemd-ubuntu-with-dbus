@@ -104,42 +104,17 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>DefaultControllers=cpu</varname></term>
-
-                                <listitem><para>Configures in which
-                                control group hierarchies to create
-                                per-service cgroups automatically, in
-                                addition to the
-                                <literal>name=systemd</literal> named
-                                hierarchy. Defaults to
-                                <literal>cpu</literal>. Takes a space
-                                separated list of controller
-                                names. Pass the empty string to ensure
-                                that systemd does not touch any
-                                hierarchies but its own.</para>
-
-                                <para>Note that the default value of
-                                'cpu' will make realtime scheduling
-                                unavailable to system services. See
-                                <ulink
-                                url="http://www.freedesktop.org/wiki/Software/systemd/MyServiceCantGetRealtime">My
-                                Service Can't Get Realtime!</ulink>
-                                for more
-                                information.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><varname>JoinControllers=cpu,cpuacct,cpuset net_cls,netprio</varname></term>
+                                <term><varname>JoinControllers=cpu,cpuacct net_cls,netprio</varname></term>
 
                                 <listitem><para>Configures controllers
                                 that shall be mounted in a single
-                                hierarchy. By default systemd will
+                                hierarchy. By default, systemd will
                                 mount all controllers which are
                                 enabled in the kernel in individual
                                 hierarchies, with the exception of
                                 those listed in this setting. Takes a
-                                space separated list of comma
-                                separated controller names, in order
+                                space-separated list of comma-separated
+                                controller names, in order
                                 to allow multiple joined
                                 hierarchies. Defaults to
                                 'cpu,cpuacct'. Pass an empty string to
@@ -150,11 +125,11 @@
                                 <para>Note that this option is only
                                 applied once, at very early boot. If
                                 you use an initial RAM disk (initrd)
-                                that uses systemd it might hence be
+                                that uses systemd, it might hence be
                                 necessary to rebuild the initrd if
                                 this option is changed, and make sure
                                 the new configuration file is included
-                                in it. Otherwise the initrd might
+                                in it. Otherwise, the initrd might
                                 mount the controller hierarchies in a
                                 different configuration than intended,
                                 and the main system cannot remount
@@ -175,7 +150,7 @@
                                 <literal>d</literal>,
                                 <literal>w</literal>). If
                                 <varname>RuntimeWatchdogSec=</varname>
-                                is set to a non-zero value the
+                                is set to a non-zero value, the
                                 watchdog hardware
                                 (<filename>/dev/watchdog</filename>)
                                 will be programmed to automatically
@@ -214,14 +189,13 @@
                                 capability bounding set for PID 1 and
                                 its children. See
                                 <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                                for details. Takes a whitespace
-                                separated list of capability names as
-                                read by
+                                for details. Takes a whitespace-separated
+                                list of capability names as read by
                                 <citerefentry><refentrytitle>cap_from_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
-                                is prefixed with ~ all but the listed
+                                is prefixed with ~, all but the listed
                                 capabilities will be included, the
                                 effect of the assignment
                                 inverted. Note that this option also
@@ -260,6 +234,28 @@
                                 unit is specified. The usual time
                                 units are understood
                                 too.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DefaultEnvironment=</varname></term>
+
+                                <listitem><para>Sets manager
+                                environment variables passed to all
+                                executed processes. Takes a
+                                space-separated list of variable
+                                assignments. See
+                                <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                for details about environment
+                                variables.</para>
+
+                                <para>Example:
+
+                                <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
+
+                                Sets three variables
+                                <literal>VAR1</literal>,
+                                <literal>VAR2</literal>,
+                                <literal>VAR3</literal>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -302,7 +298,8 @@
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

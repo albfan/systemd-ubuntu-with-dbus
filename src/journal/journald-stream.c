@@ -90,7 +90,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         priority = s->priority;
 
         if (s->level_prefix)
-                syslog_parse_priority((char**) &p, &priority);
+                syslog_parse_priority((char**) &p, &priority, false);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -127,7 +127,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         }
 #endif
 
-        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority);
+        server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority, 0);
 
         free(message);
         free(syslog_priority);
@@ -440,7 +440,7 @@ int server_open_stdout_socket(Server *s) {
                 chmod(sa.un.sun_path, 0666);
 
                 if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error("liste() failed: %m");
+                        log_error("listen() failed: %m");
                         return -errno;
                 }
         } else

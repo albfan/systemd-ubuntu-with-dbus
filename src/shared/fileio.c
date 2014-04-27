@@ -23,7 +23,8 @@
 #include "fileio.h"
 #include "util.h"
 #include "strv.h"
-
+#include "utf8.h"
+#include "ctype.h"
 
 int write_string_to_file(FILE *f, const char *line) {
         errno = 0;
@@ -178,13 +179,15 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
 static int parse_env_file_internal(
                 const char *fname,
                 const char *newline,
-                int (*push) (const char *key, char *value, void *userdata),
+                int (*push) (const char *filename, unsigned line,
+                             const char *key, char *value, void *userdata),
                 void *userdata) {
 
         _cleanup_free_ char *contents = NULL, *key = NULL;
         size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
         char *p, *value = NULL;
         int r;
+        unsigned line = 1;
 
         enum {
                 PRE_KEY,
@@ -231,6 +234,7 @@ static int parse_env_file_internal(
                 case KEY:
                         if (strchr(newline, c)) {
                                 state = PRE_KEY;
+                                line ++;
                                 n_key = 0;
                         } else if (c == '=') {
                                 state = PRE_VALUE;
@@ -254,6 +258,7 @@ static int parse_env_file_internal(
                 case PRE_VALUE:
                         if (strchr(newline, c)) {
                                 state = PRE_KEY;
+                                line ++;
                                 key[n_key] = 0;
 
                                 if (value)
@@ -263,7 +268,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != (size_t) -1)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(key, value, userdata);
+                                r = push(fname, line, key, value, userdata);
                                 if (r < 0)
                                         goto fail;
 
@@ -293,6 +298,7 @@ static int parse_env_file_internal(
                 case VALUE:
                         if (strchr(newline, c)) {
                                 state = PRE_KEY;
+                                line ++;
 
                                 key[n_key] = 0;
 
@@ -307,7 +313,7 @@ static int parse_env_file_internal(
                                 if (last_key_whitespace != (size_t) -1)
                                         key[last_key_whitespace] = 0;
 
-                                r = push(key, value, userdata);
+                                r = push(fname, line, key, value, userdata);
                                 if (r < 0)
                                         goto fail;
 
@@ -409,8 +415,10 @@ static int parse_env_file_internal(
                 case COMMENT:
                         if (c == '\\')
                                 state = COMMENT_ESCAPE;
-                        else if (strchr(newline, c))
+                        else if (strchr(newline, c)) {
                                 state = PRE_KEY;
+                                line ++;
+                        }
                         break;
 
                 case COMMENT_ESCAPE:
@@ -440,7 +448,7 @@ static int parse_env_file_internal(
                 if (last_key_whitespace != (size_t) -1)
                         key[last_key_whitespace] = 0;
 
-                r = push(key, value, userdata);
+                r = push(fname, line, key, value, userdata);
                 if (r < 0)
                         goto fail;
         }
@@ -452,27 +460,36 @@ fail:
         return r;
 }
 
-static int parse_env_file_push(const char *key, char *value, void *userdata) {
-        const char *k;
-        va_list* ap = (va_list*) userdata;
-        va_list aq;
+static int parse_env_file_push(const char *filename, unsigned line,
+                               const char *key, char *value, void *userdata) {
+        assert(utf8_is_valid(key));
 
-        va_copy(aq, *ap);
+        if (value && !utf8_is_valid(value))
+                /* FIXME: filter UTF-8 */
+                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
+                          filename, line, key, value);
+        else {
+                const char *k;
+                va_list* ap = (va_list*) userdata;
+                va_list aq;
 
-        while ((k = va_arg(aq, const char *))) {
-                char **v;
+                va_copy(aq, *ap);
 
-                v = va_arg(aq, char **);
+                while ((k = va_arg(aq, const char *))) {
+                        char **v;
 
-                if (streq(key, k)) {
-                        va_end(aq);
-                        free(*v);
-                        *v = value;
-                        return 1;
+                        v = va_arg(aq, char **);
+
+                        if (streq(key, k)) {
+                                va_end(aq);
+                                free(*v);
+                                *v = value;
+                                return 1;
+                        }
                 }
-        }
 
-        va_end(aq);
+                va_end(aq);
+        }
 
         free(value);
         return 0;
@@ -495,19 +512,28 @@ int parse_env_file(
         return r;
 }
 
-static int load_env_file_push(const char *key, char *value, void *userdata) {
-        char ***m = userdata;
-        char *p;
-        int r;
+static int load_env_file_push(const char *filename, unsigned line,
+                              const char *key, char *value, void *userdata) {
+        assert(utf8_is_valid(key));
 
-        p = strjoin(key, "=", strempty(value), NULL);
-        if (!p)
-                return -ENOMEM;
+        if (value && !utf8_is_valid(value))
+                /* FIXME: filter UTF-8 */
+                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
+                          filename, line, key, value);
+        else {
+                char ***m = userdata;
+                char *p;
+                int r;
 
-        r = strv_push(m, p);
-        if (r < 0) {
-                free(p);
-                return r;
+                p = strjoin(key, "=", strempty(value), NULL);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_push(m, p);
+                if (r < 0) {
+                        free(p);
+                        return r;
+                }
         }
 
         free(value);
@@ -593,4 +619,80 @@ int write_env_file(const char *fname, char **l) {
                 unlink(p);
 
         return r;
+}
+
+int executable_is_script(const char *path, char **interpreter) {
+        int r;
+        char _cleanup_free_ *line = NULL;
+        int len;
+        char *ans;
+
+        assert(path);
+
+        r = read_one_line_file(path, &line);
+        if (r < 0)
+                return r;
+
+        if (!startswith(line, "#!"))
+                return 0;
+
+        ans = strstrip(line + 2);
+        len = strcspn(ans, " \t");
+
+        if (len == 0)
+                return 0;
+
+        ans = strndup(ans, len);
+        if (!ans)
+                return -ENOMEM;
+
+        *interpreter = ans;
+        return 1;
+}
+
+/**
+ * Retrieve one field from a file like /proc/self/status.  pattern
+ * should start with '\n' and end with a ':'. Whitespace and zeros
+ * after the ':' will be skipped. field must be freed afterwards.
+ */
+int get_status_field(const char *filename, const char *pattern, char **field) {
+        _cleanup_free_ char *status = NULL;
+        char *t;
+        size_t len;
+        int r;
+
+        assert(filename);
+        assert(field);
+
+        r = read_full_file(filename, &status, NULL);
+        if (r < 0)
+                return r;
+
+        t = strstr(status, pattern);
+        if (!t)
+                return -ENOENT;
+
+        t += strlen(pattern);
+        if (*t) {
+                t += strspn(t, " \t");
+
+                /* Also skip zeros, because when this is used for
+                 * capabilities, we don't want the zeros. This way the
+                 * same capability set always maps to the same string,
+                 * irrespective of the total capability set size. For
+                 * other numbers it shouldn't matter. */
+                t += strspn(t, "0");
+                /* Back off one char if there's nothing but whitespace
+                   and zeros */
+                if (!*t || isspace(*t))
+                        t --;
+        }
+
+        len = strcspn(t, WHITESPACE);
+
+        *field = strndup(t, len);
+        if (!*field)
+                return -ENOMEM;
+
+        return 0;
 }

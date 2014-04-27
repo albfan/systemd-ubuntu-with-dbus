@@ -44,6 +44,10 @@
 #include <sys/inotify.h>
 #include <math.h>
 
+#ifdef HAVE_LINUX_BTRFS_H
+#include <linux/btrfs.h>
+#endif
+
 #ifdef HAVE_FANOTIFY_INIT
 #include <sys/fanotify.h>
 #endif
@@ -506,7 +510,7 @@ done:
         on_ssd = fs_on_ssd(root) > 0;
         log_debug("On SSD: %s", yes_no(on_ssd));
 
-        on_btrfs = statfs(root, &sfs) >= 0 && F_TYPE_CMP(sfs.f_type, BTRFS_SUPER_MAGIC);
+        on_btrfs = statfs(root, &sfs) >= 0 && F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC);
         log_debug("On btrfs: %s", yes_no(on_btrfs));
 
         if (asprintf(&pack_fn_new, "%s/.readahead.new", root) < 0) {

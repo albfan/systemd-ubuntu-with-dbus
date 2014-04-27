@@ -39,6 +39,7 @@
 
 #include "missing.h"
 #include "log.h"
+#include "fileio.h"
 #include "umount.h"
 #include "util.h"
 #include "mkdir.h"
@@ -130,11 +131,26 @@ static int pivot_to_new_root(void) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_free_ char *line = NULL;
         int cmd, r;
         unsigned retries;
         bool need_umount = true, need_swapoff = true, need_loop_detach = true, need_dm_detach = true;
         bool in_container, use_watchdog = false;
         char *arguments[3];
+
+        /* suppress shutdown status output if 'quiet' is used  */
+        r = read_one_line_file("/proc/cmdline", &line);
+        if (r >= 0) {
+                char *w, *state;
+                size_t l;
+
+                FOREACH_WORD_QUOTED(w, l, line, state) {
+                        if (l == 5 && memcmp(w, "quiet", 5) == 0) {
+                                log_set_max_level(LOG_WARNING);
+                                break;
+                        }
+                }
+        }
 
         log_parse_environment();
         log_set_target(LOG_TARGET_CONSOLE); /* syslog will die if not gone yet */
@@ -302,7 +318,7 @@ int main(int argc, char *argv[]) {
                                 log_warning("kexec failed. Falling back to normal reboot.");
                         } else {
                                 /* Child */
-                                const char *args[3] = { "/sbin/kexec", "-e", NULL };
+                                const char *args[3] = { KEXEC, "-e", NULL };
                                 execv(args[0], (char * const *) args);
                                 return EXIT_FAILURE;
                         }

@@ -67,7 +67,7 @@
                 <title>Configuration Format</title>
 
                 <para>Each configuration file shall be named in the
-                style of <filename>&lt;program&gt;.conf</filename>.
+                style of <filename>&lt;package&gt;.conf</filename>.
                 Files in <filename>/etc/</filename> override files
                 with the same name in <filename>/usr/lib/</filename>
                 and <filename>/run/</filename>.  Files in
@@ -79,17 +79,18 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                alphabetical order, regardless in which of the
-                directories they reside, to guarantee that a specific
-                configuration file takes precedence over another file
-                with an alphabetically later name.</para>
+                lexicographic order, regardless in which of the
+                directories they reside. If multiple files specify the
+                same path, the entry in the file with the lexicographically
+                earliest name will be applied, all all other conflicting
+                entries logged as errors.</para>
 
                 <para>If the administrator wants to disable a
-                configuration file supplied by the vendor the
+                configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
                 <filename>/dev/null</filename> in
                 <filename>/etc/tmpfiles.d/</filename> bearing the
-                same file name.</para>
+                same filename.</para>
 
                 <para>The configuration format is one line per path
                 containing action, path, mode, ownership, age and argument
@@ -99,12 +100,16 @@
 d    /run/user   0755 root root 10d -
 L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
+
                 <refsect2>
                         <title>Type</title>
+
+                        <para>The following line types are understood:</para>
+
                         <variablelist>
                                 <varlistentry>
                                         <term><varname>f</varname></term>
-                                        <listitem><para>Create a file if it doesn't exist yet (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
+                                        <listitem><para>Create a file if it does not exist yet (optionally writing a short string into it, if the argument parameter is passed)</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -122,7 +127,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>d</varname></term>
-                                        <listitem><para>Create a directory if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a directory if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -132,22 +137,33 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                                 <varlistentry>
                                         <term><varname>p</varname></term>
-                                        <listitem><para>Create a named pipe (FIFO) if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a named pipe (FIFO) if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>L</varname></term>
-                                        <listitem><para>Create a symlink if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a symlink if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>c</varname></term>
-                                        <listitem><para>Create a character device node if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a character device node if it does not exist yet</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
                                         <term><varname>b</varname></term>
-                                        <listitem><para>Create a block device node if it doesn't exist yet</para></listitem>
+                                        <listitem><para>Create a block device node if it does not exist yet</para></listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                        <term><varname>m</varname></term>
+                                        <listitem><para>If the
+                                        specified file path exists
+                                        adjust its access mode, group
+                                        and user to the specified
+                                        values and reset the SELinux
+                                        label. If it doesn't exist do
+                                        nothing.</para></listitem>
                                 </varlistentry>
 
                                 <varlistentry>
@@ -233,14 +249,65 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                 </refsect2>
 
                 <refsect2>
+                        <title>Path</title>
+
+                        <para>The file system path specification supports simple specifier
+                        expansion. The following expansions are
+                        understood:</para>
+
+                        <table>
+                                <title>Specifiers available</title>
+                                <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+                                        <colspec colname="spec" />
+                                        <colspec colname="mean" />
+                                        <colspec colname="detail" />
+                                        <thead>
+                                                <row>
+                                                        <entry>Specifier</entry>
+                                                        <entry>Meaning</entry>
+                                                        <entry>Details</entry>
+                                                </row>
+                                        </thead>
+                                        <tbody>
+                                                <row>
+                                                        <entry><literal>%m</literal></entry>
+                                                        <entry>Machine ID</entry>
+                                                        <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+                                                </row>
+                                                <row>
+                                                        <entry><literal>%b</literal></entry>
+                                                        <entry>Boot ID</entry>
+                                                        <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+                                                </row>
+                                                <row>
+                                                        <entry><literal>%H</literal></entry>
+                                                        <entry>Host name</entry>
+                                                        <entry>The hostname of the running system.</entry>
+                                                </row>
+                                                <row>
+                                                        <entry><literal>%v</literal></entry>
+                                                        <entry>Kernel release</entry>
+                                                        <entry>Identical to <command>uname -r</command> output.</entry>
+                                                </row>
+                                                <row>
+                                                        <entry><literal>%%</literal></entry>
+                                                        <entry>Escaped %</entry>
+                                                        <entry>Single percent sign.</entry>
+                                                </row>
+                                        </tbody>
+                                </tgroup>
+                        </table>
+                </refsect2>
+
+                <refsect2>
                         <title>Mode</title>
 
                         <para>The file access mode to use when
                         creating this file or directory. If omitted or
-                        when set to - the default is used: 0755 for
+                        when set to -, the default is used: 0755 for
                         directories, 0644 for all other file
-                        objects. For z, Z lines if omitted or when set
-                        to - the file access mode will not be
+                        objects. For z, Z lines, if omitted or when set
+                        to -, the file access mode will not be
                         modified. This parameter is ignored for x, r,
                         R, L lines.</para>
                 </refsect2>
@@ -251,8 +318,8 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <para>The user and group to use for this file
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
-                        omitted or when set to - the default 0 (root)
-                        is used. For z, Z lines when omitted or when set to -
+                        omitted or when set to -, the default 0 (root)
+                        is used. For z, Z lines, when omitted or when set to -,
                         the file ownership will not be modified.
                         These parameters are ignored for x, r, R, L lines.</para>
                 </refsect2>
@@ -262,7 +329,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         <para>The date field, when set, is used to
                         decide what files to delete when cleaning. If
                         a file or directory is older than the current
-                        time minus the age field it is deleted. The
+                        time minus the age field, it is deleted. The
                         field format is a series of integers each
                         followed by one of the following
                         postfixes for the respective time units:</para>
@@ -279,7 +346,7 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                                 <term><varname>us</varname></term></varlistentry>
                         </variablelist>
 
-                        <para>If multiple integers and units are specified the time
+                        <para>If multiple integers and units are specified, the time
                         values are summed up. If an integer is given without a unit,
                         s is assumed.
                         </para>
@@ -288,11 +355,11 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
                         unconditionally.</para>
 
                         <para>The age field only applies to lines starting with
-                        d, D and x. If omitted or set to - no automatic clean-up
+                        d, D and x. If omitted or set to -, no automatic clean-up
                         is done.</para>
 
                         <para>If the age field starts with a tilde
-                        character (~) the clean-up is only applied to
+                        character (~), the clean-up is only applied to
                         files and directories one level inside the
                         directory specified, but not the files and
                         directories immediately inside it.</para>
@@ -321,6 +388,13 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
 
                         <programlisting>d /var/run/screens  1777 root root 10d
 d /var/run/uscreens 0755 root root 10d12h</programlisting>
+                </example>
+                <example>
+                        <title>/etc/tmpfiles.d/abrt.conf example</title>
+                        <para><command>abrt</command> needs a directory created at boot with specific mode and ownership and its content should be preserved.</para>
+
+                        <programlisting>d /var/tmp/abrt 0755 abrt abrt
+x /var/tmp/abrt/*</programlisting>
                 </example>
         </refsect1>
 

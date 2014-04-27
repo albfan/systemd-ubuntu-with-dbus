@@ -136,7 +136,7 @@
                                 <term><option>--unit=</option></term>
 
                                 <listitem><para>Set default unit to
-                                activate on startup. If not specified
+                                activate on startup. If not specified,
                                 defaults to
                                 <filename>default.target</filename>.</para></listitem>
                         </varlistentry>
@@ -233,7 +233,7 @@
 
                                 <listitem><para>Highlight important
                                 log messages. Argument is a boolean
-                                value. If the argument is omitted it
+                                value. If the argument is omitted, it
                                 defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
@@ -285,25 +285,27 @@
                 <title>Concepts</title>
 
                 <para>systemd provides a dependency system between
-                various entities called "units". Units encapsulate
-                various objects that are relevant for system boot-up
-                and maintenance. The majority of units are configured
-                in unit configuration files, whose syntax and basic
-                set of options is described in
+                various entities called "units" of 12 different
+                types. Units encapsulate various objects that are
+                relevant for system boot-up and maintenance. The
+                majority of units are configured in unit configuration
+                files, whose syntax and basic set of options is
+                described in
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 however some are created automatically from other
-                configuration or dynamically from system state. Units
-                may be 'active' (meaning started, bound, plugged in,
-                ...  depending on the unit type, see below), or
-                'inactive' (meaning stopped, unbound, unplugged, ...),
-                as well as in the process of being activated or
-                deactivated, i.e. between the two states (these states
-                are called 'activating', 'deactivating'). A special
-                'failed' state is available as well which is very
-                similar to 'inactive' and is entered when the service
-                failed in some way (process returned error code on
-                exit, or crashed, or an operation timed out). If this
-                state is entered the cause will be logged, for later
+                configuration, dynamically from system state or
+                programmatically at runtime. Units may be "active"
+                (meaning started, bound, plugged in, ..., depending on
+                the unit type, see below), or "inactive" (meaning
+                stopped, unbound, unplugged, ...), as well as in the
+                process of being activated or deactivated,
+                i.e. between the two states (these states are called
+                "activating", "deactivating"). A special "failed"
+                state is available as well, which is very similar to
+                "inactive" and is entered when the service failed in
+                some way (process returned error code on exit, or
+                crashed, or an operation timed out). If this state is
+                entered, the cause will be logged, for later
                 reference. Note that the various unit types may have a
                 number of additional substates, which are mapped to
                 the five generalized unit states described
@@ -312,7 +314,7 @@
                 <para>The following unit types are available:</para>
 
                 <orderedlist>
-                        <listitem><para>Service units, which control
+                        <listitem><para>Service units, which start and control
                         daemons and the processes they consist of. For
                         details see
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
@@ -369,6 +371,18 @@
                         objects change or are modified. See
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
+                        <listitem><para>Slice units may be used to
+                        group units which manage system processes
+                        (such as service and scope units) in a
+                        hierarchical tree for resource management
+                        purposes. See
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
+                        <listitem><para>Scope units are similar to
+                        service units, but manage foreign processes
+                        instead of starting them as well. See
+                        <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+
                 </orderedlist>
 
                 <para>Units are named as their configuration
@@ -415,7 +429,7 @@
                 <filename>multi-user.target</filename> (for limited
                 console-only boots for use in embedded or server
                 environments, or similar; a subset of
-                graphical.target). However it is at the discretion of
+                graphical.target). However, it is at the discretion of
                 the administrator to configure it as an alias to any
                 other target unit. See
                 <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -425,7 +439,7 @@
                 individual Linux control groups named after the unit
                 which they belong to in the private systemd
                 hierarchy. (see <ulink
-                url="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>
+                url="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt">cgroups.txt</ulink>
                 for more information about control groups, or short
                 "cgroups"). systemd uses this to effectively keep
                 track of processes. Control group information is
@@ -473,7 +487,7 @@
 
                 <para>Systemd contains native implementations of
                 various tasks that need to be executed as part of the
-                boot process. For example, it sets the host name or
+                boot process. For example, it sets the hostname or
                 configures the loopback network device. It also sets
                 up and mounts various API file systems, such as
                 <filename>/sys</filename> or
@@ -611,7 +625,7 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term>SIGTERM</term>
+                                <term><constant>SIGTERM</constant></term>
 
                                 <listitem><para>Upon receiving this
                                 signal the systemd system manager
@@ -631,7 +645,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGINT</term>
+                                <term><constant>SIGINT</constant></term>
 
                                 <listitem><para>Upon receiving this
                                 signal the systemd system manager will
@@ -643,11 +657,11 @@
 
                                 <para>systemd user managers
                                 treat this signal the same way as
-                                SIGTERM.</para></listitem>
+                                <constant>SIGTERM</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGWINCH</term>
+                                <term><constant>SIGWINCH</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd system manager
@@ -663,7 +677,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGPWR</term>
+                                <term><constant>SIGPWR</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager
@@ -675,7 +689,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGUSR1</term>
+                                <term><constant>SIGUSR1</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager will try
@@ -684,7 +698,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGUSR2</term>
+                                <term><constant>SIGUSR2</constant></term>
 
                                 <listitem><para>When this signal is
                                 received the systemd manager will log
@@ -695,7 +709,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGHUP</term>
+                                <term><constant>SIGHUP</constant></term>
 
                                 <listitem><para>Reloads the complete
                                 daemon configuration. This is mostly
@@ -704,7 +718,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+0</term>
+                                <term><constant>SIGRTMIN+0</constant></term>
 
                                 <listitem><para>Enters default mode, starts the
                                 <filename>default.target</filename>
@@ -714,7 +728,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+1</term>
+                                <term><constant>SIGRTMIN+1</constant></term>
 
                                 <listitem><para>Enters rescue mode,
                                 starts the
@@ -725,7 +739,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+2</term>
+                                <term><constant>SIGRTMIN+2</constant></term>
 
                                 <listitem><para>Enters emergency mode,
                                 starts the
@@ -736,7 +750,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+3</term>
+                                <term><constant>SIGRTMIN+3</constant></term>
 
                                 <listitem><para>Halts the machine,
                                 starts the
@@ -747,7 +761,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+4</term>
+                                <term><constant>SIGRTMIN+4</constant></term>
 
                                 <listitem><para>Powers off the machine,
                                 starts the
@@ -758,7 +772,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+5</term>
+                                <term><constant>SIGRTMIN+5</constant></term>
 
                                 <listitem><para>Reboots the machine,
                                 starts the
@@ -769,7 +783,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+6</term>
+                                <term><constant>SIGRTMIN+6</constant></term>
 
                                 <listitem><para>Reboots the machine via kexec,
                                 starts the
@@ -780,31 +794,31 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+13</term>
+                                <term><constant>SIGRTMIN+13</constant></term>
 
                                 <listitem><para>Immediately halts the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+14</term>
+                                <term><constant>SIGRTMIN+14</constant></term>
 
                                 <listitem><para>Immediately powers off the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+15</term>
+                                <term><constant>SIGRTMIN+15</constant></term>
 
                                 <listitem><para>Immediately reboots the machine.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+16</term>
+                                <term><constant>SIGRTMIN+16</constant></term>
 
                                 <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+20</term>
+                                <term><constant>SIGRTMIN+20</constant></term>
 
                                 <listitem><para>Enables display of
                                 status messages on the console, as
@@ -815,7 +829,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+21</term>
+                                <term><constant>SIGRTMIN+21</constant></term>
 
                                 <listitem><para>Disables display of
                                 status messages on the console, as
@@ -826,23 +840,23 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+22</term>
-                                <term>SIGRTMIN+23</term>
+                                <term><constant>SIGRTMIN+22</constant></term>
+                                <term><constant>SIGRTMIN+23</constant></term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>debug</literal>
                                 (or <literal>info</literal> on
-                                <literal>SIGRTMIN+23</literal>), as
+                                <constant>SIGRTMIN+23</constant>), as
                                 controlled via
                                 <varname>systemd.log_level=debug</varname>
                                 (or <varname>systemd.log_level=info</varname>
-                                on <literal>SIGRTMIN+23</literal>) on
+                                on <constant>SIGRTMIN+23</constant>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+24</term>
+                                <term><constant>SIGRTMIN+24</constant></term>
 
                                 <listitem><para>Immediately exits the
                                 manager (only available for --user
@@ -850,28 +864,28 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term>SIGRTMIN+26</term>
-                                <term>SIGRTMIN+27</term>
-                                <term>SIGRTMIN+28</term>
-                                <term>SIGRTMIN+29</term>
+                                <term><constant>SIGRTMIN+26</constant></term>
+                                <term><constant>SIGRTMIN+27</constant></term>
+                                <term><constant>SIGRTMIN+28</constant></term>
+                                <term><constant>SIGRTMIN+29</constant></term>
 
                                 <listitem><para>Sets the log level to
                                 <literal>journal-or-kmsg</literal>
                                 (or <literal>console</literal> on
-                                <literal>SIGRTMIN+27</literal>,
+                                <constant>SIGRTMIN+27</constant>,
                                 <literal>kmsg</literal> on
-                                <literal>SIGRTMIN+28</literal>,
+                                <constant>SIGRTMIN+28</constant>,
                                 or <literal>syslog-or-kmsg</literal>
-                                on <literal>SIGRTMIN+29</literal>), as
+                                on <constant>SIGRTMIN+29</constant>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
                                 (or <varname>systemd.log_target=console</varname>
-                                on <literal>SIGRTMIN+27</literal>,
+                                on <constant>SIGRTMIN+27</constant>,
                                 <varname>systemd.log_target=kmsg</varname>
-                                on <literal>SIGRTMIN+28</literal>,
+                                on <constant>SIGRTMIN+28</constant>,
                                 or
                                 <varname>systemd.log_target=syslog-or-kmsg</varname>
-                                on <literal>SIGRTMIN+29</literal>) on
+                                on <constant>SIGRTMIN+29</constant>) on
                                 the kernel command
                                 line.</para></listitem>
                         </varlistentry>
@@ -1008,7 +1022,7 @@
                                 option prefixed with
                                 <literal>rd.</literal> is honored
                                 only in the initial RAM disk (initrd),
-                                while the one that isn't prefixed only
+                                while the one that is not prefixed only
                                 in the main system.</para></listitem>
                         </varlistentry>
 
@@ -1016,9 +1030,9 @@
                                 <term><varname>systemd.dump_core=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 systemd dumps core when it
-                                crashes. Otherwise no core dump is
+                                crashes. Otherwise, no core dump is
                                 created. Defaults to
                                 <option>true</option>.</para></listitem>
                         </varlistentry>
@@ -1027,9 +1041,9 @@
                                 <term><varname>systemd.crash_shell=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 systemd spawns a shell when it
-                                crashes. Otherwise no shell is
+                                crashes. Otherwise, no shell is
                                 spawned. Defaults to
                                 <option>false</option>, for security
                                 reasons, as the shell is not protected
@@ -1044,14 +1058,14 @@
                                 argument. If positive systemd
                                 activates the specified virtual
                                 terminal when it crashes. Defaults to
-                                <literal>-1</literal>.</para></listitem>
+                                <constant>-1</constant>.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>systemd.confirm_spawn=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 asks for confirmation when spawning
                                 processes. Defaults to
                                 <option>false</option>.</para></listitem>
@@ -1061,7 +1075,7 @@
                                 <term><varname>systemd.show_status=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 shows terse service status updates on
                                 the console during bootup. Defaults to
                                 <option>true</option>, unless
@@ -1099,30 +1113,38 @@
                                 <term><varname>systemd.setenv=</varname></term>
 
                                 <listitem><para>Takes a string
-                                argument in the form
-                                VARIABLE=VALUE. May be used to set
-                                environment variables for the init
-                                process and all its children at boot
-                                time. May be used more than once to
-                                set multiple variables. If the equal
-                                sign and variable are missing it unsets
-                                an environment variable which might be
-                                passed in from the initial ram
-                                disk.</para></listitem>
+                                argument in the form VARIABLE=VALUE.
+                                May be used to set default environment
+                                variables to add to forked child processes.
+                                May be used more than once to set multiple
+                                variables.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>quiet</varname></term>
 
-                                <listitem><para>If passed turns off
+                                <listitem><para>Turn off
                                 status output at boot, much like
                                 <varname>systemd.show_status=false</varname>
                                 would. Note that this option is also
                                 read by the kernel itself and disables
-                                kernel log output to the
-                                kernel. Passing this option hence
-                                turns off the usual output from both
-                                the system manager and the
+                                kernel log output. Passing this option
+                                hence turns off the usual output from
+                                both the system manager and the kernel.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>debug</varname></term>
+
+                                <listitem><para>Turn on debugging
+                                output. This is equivalent to
+                                <varname>systemd.log_level=debug</varname>.
+                                Note that this option is also read by
+                                the kernel itself and enables kernel
+                                debug output.  Passing this option
+                                hence turns on the debug output from
+                                both the system manager and the
                                 kernel.</para></listitem>
                         </varlistentry>
 
@@ -1210,7 +1232,7 @@
 
                                 <listitem><para>Daemon status
                                 notification socket. This is an
-                                AF_UNIX datagram socket and is used to
+                                <constant>AF_UNIX</constant> datagram socket and is used to
                                 implement the daemon notification
                                 logic as implemented by
                                 <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
@@ -1223,7 +1245,7 @@
                                 <listitem><para>Used internally by the
                                 <citerefentry><refentrytitle>shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                                 tool to implement delayed
-                                shutdowns. This is an AF_UNIX datagram
+                                shutdowns. This is an <constant>AF_UNIX</constant> datagram
                                 socket.</para></listitem>
                         </varlistentry>
 
@@ -1234,7 +1256,7 @@
                                 communication channel between
                                 <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 and the systemd process. This is an
-                                AF_UNIX stream socket. This interface
+                                <constant>AF_UNIX</constant> stream socket. This interface
                                 is private to systemd and should not
                                 be used in external
                                 projects.</para></listitem>
@@ -1258,6 +1280,7 @@
         <refsect1>
                 <title>See Also</title>
                 <para>
+                        The <ulink url="http://www.freedesktop.org/wiki/Software/systemd/">systemd Homepage</ulink>,
                         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

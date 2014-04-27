@@ -35,8 +35,9 @@
 #include "load-fragment.h"
 #include "strv.h"
 #include "fileio.h"
+#include "test-helper.h"
 
-static void test_unit_file_get_set(void) {
+static int test_unit_file_get_set(void) {
         int r;
         Hashmap *h;
         Iterator i;
@@ -46,13 +47,17 @@ static void test_unit_file_get_set(void) {
         assert(h);
 
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
-        log_info("unit_file_get_list: %s", strerror(-r));
-        assert(r >= 0);
+        log_full(r == 0 ? LOG_INFO : LOG_ERR,
+                 "unit_file_get_list: %s", strerror(-r));
+        if (r < 0)
+                return EXIT_FAILURE;
 
         HASHMAP_FOREACH(p, h, i)
                 printf("%s = %s\n", p->path, unit_file_state_to_string(p->state));
 
         unit_file_list_free(h);
+
+        return 0;
 }
 
 static void check_execcommand(ExecCommand *c,
@@ -297,17 +302,18 @@ static void test_install_printf(void) {
 
         _cleanup_free_ char *mid, *bid, *host;
 
-        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
-        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se((host = gethostname_malloc()));
 
 #define expect(src, pattern, result)                                    \
         do {                                                            \
-                _cleanup_free_ char *t = install_full_printf(&src, pattern); \
+                _cleanup_free_ char *t = NULL;                          \
                 _cleanup_free_ char                                     \
                         *d1 = strdup(i.name),                           \
                         *d2 = strdup(i.path),                           \
                         *d3 = strdup(i.user);                           \
+                assert_se(install_full_printf(&src, pattern, &t) >= 0 || !result); \
                 memzero(i.name, strlen(i.name));                        \
                 memzero(i.path, strlen(i.path));                        \
                 memzero(i.user, strlen(i.user));                        \
@@ -351,17 +357,18 @@ static void test_install_printf(void) {
 #pragma GCC diagnostic pop
 
 int main(int argc, char *argv[]) {
+        int r;
 
         log_parse_environment();
         log_open();
 
-        test_unit_file_get_set();
+        r = test_unit_file_get_set();
         test_config_parse_exec();
         test_load_env_file_1();
         test_load_env_file_2();
         test_load_env_file_3();
         test_load_env_file_4();
-        test_install_printf();
+        TEST_REQ_RUNNING_SYSTEMD(test_install_printf());
 
-        return 0;
+        return r;
 }

@@ -34,8 +34,8 @@ int main(int argc, char *argv[]) {
 
         /* prepare the test */
         assert_se(set_unit_path(TEST_DIR) >= 0);
-        r = manager_new(SYSTEMD_USER, &m);
-        if (r == -EPERM) {
+        r = manager_new(SYSTEMD_USER, false, &m);
+        if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
@@ -87,6 +87,8 @@ int main(int argc, char *argv[]) {
         ser = SERVICE(rr_sched);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
+
+        manager_free(m);
 
         return EXIT_SUCCESS;
 }

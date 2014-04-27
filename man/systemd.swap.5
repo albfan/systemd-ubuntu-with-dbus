@@ -1,0 +1,129 @@
+'\" t
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 208" "systemd.swap"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd.swap \- Swap unit configuration
+.SH "SYNOPSIS"
+.PP
+\fIswap\fR\&.swap
+.SH "DESCRIPTION"
+.PP
+A unit configuration file whose name ends in
+"\&.swap"
+encodes information about a swap device or file for memory paging controlled and supervised by systemd\&.
+.PP
+This man page lists the configuration options specific to this unit type\&. See
+\fBsystemd.unit\fR(5)
+for the common options of all unit configuration files\&. The common configuration items are configured in the generic [Unit] and [Install] sections\&. The swap specific configuration options are configured in the [Swap] section\&.
+.PP
+Additional options are listed in
+\fBsystemd.exec\fR(5), which define the execution environment the
+\fBswapon\fR(8)
+binary is executed in, and in
+\fBsystemd.kill\fR(5), which define the way the processes are terminated, and in
+\fBsystemd.resource-control\fR(5), which configure resource control settings for the processes of the service\&.
+.PP
+Swap units must be named after the devices or files they control\&. Example: the swap device
+/dev/sda5
+must be configured in a unit file
+dev\-sda5\&.swap\&. For details about the escaping logic used to convert a file system path to a unit name see
+\fBsystemd.unit\fR(5)\&.
+.PP
+All swap units automatically get the appropriate dependencies on the devices or on the mount points of the files they are activated from\&.
+.PP
+Swap units with
+\fIDefaultDependencies=\fR
+enabled implicitly acquire a conflicting dependency to
+umount\&.target
+so that they are deactivated at shutdown\&.
+.SH "FSTAB"
+.PP
+Swap units may either be configured via unit files, or via
+/etc/fstab
+(see
+\fBfstab\fR(5)
+for details)\&. Swaps listed in
+/etc/fstab
+will be converted into native units dynamically at boot and when the configuration of the system manager is reloaded\&. See
+\fBsystemd-fstab-generator\fR(8)
+for details about the conversion\&.
+.PP
+If a swap device or file is configured in both
+/etc/fstab
+and a unit file, the configuration in the latter takes precedence\&.
+.PP
+Unless the
+\fBnoauto\fR
+option is set for them all swap units configured in
+/etc/fstab
+are also added as requirements to
+swap\&.target, so that they are waited for and activated during boot\&.
+.SH "OPTIONS"
+.PP
+Swap files must include a [Swap] section, which carries information about the swap device it supervises\&. A number of options that may be used in this section are shared with other unit types\&. These options are documented in
+\fBsystemd.exec\fR(5)
+and
+\fBsystemd.kill\fR(5)\&. The options specific to the [Swap] section of swap units are the following:
+.PP
+\fIWhat=\fR
+.RS 4
+Takes an absolute path of a device node or file to use for paging\&. See
+\fBswapon\fR(8)
+for details\&. If this refers to a device node, a dependency on the respective device unit is automatically created\&. (See
+\fBsystemd.device\fR(5)
+for more information\&.) If this refers to a file, a dependency on the respective mount unit is automatically created\&. (See
+\fBsystemd.mount\fR(5)
+for more information\&.) This option is mandatory\&.
+.RE
+.PP
+\fIPriority=\fR
+.RS 4
+Swap priority to use when activating the swap device or file\&. This takes an integer\&. This setting is optional\&.
+.RE
+.PP
+\fITimeoutSec=\fR
+.RS 4
+Configures the time to wait for the swapon command to finish\&. If a command does not exit within the configured time, the swap will be considered failed and be shut down again\&. All commands still running will be terminated forcibly via
+\fBSIGTERM\fR, and after another delay of this time with
+\fBSIGKILL\fR\&. (See
+\fBKillMode=\fR
+in
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to 90s\&.
+.RE
+.PP
+Check
+\fBsystemd.exec\fR(5)
+and
+\fBsystemd.kill\fR(5)
+for more settings\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemctl\fR(8),
+\fBsystemd.unit\fR(5),
+\fBsystemd.exec\fR(5),
+\fBsystemd.kill\fR(5),
+\fBsystemd.resource-control\fR(5),
+\fBsystemd.device\fR(5),
+\fBsystemd.mount\fR(5),
+\fBswapon\fR(8),
+\fBsystemd-fstab-generator\fR(8),
+\fBsystemd.directives\fR(7)

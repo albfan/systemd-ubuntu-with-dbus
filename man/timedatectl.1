@@ -1,0 +1,202 @@
+'\" t
+.TH "TIMEDATECTL" "1" "" "systemd 208" "timedatectl"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+timedatectl \- Control the system time and date
+.SH "SYNOPSIS"
+.HP \w'\fBtimedatectl\ \fR\fB[OPTIONS...]\fR\fB\ \fR\fB{COMMAND}\fR\ 'u
+\fBtimedatectl \fR\fB[OPTIONS...]\fR\fB \fR\fB{COMMAND}\fR
+.SH "DESCRIPTION"
+.PP
+\fBtimedatectl\fR
+may be used to query and change the system clock and its settings\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Prints a short version string and exits\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.PP
+\fB\-\-no\-ask\-password\fR
+.RS 4
+Do not query the user for authentication for privileged operations\&.
+.RE
+.PP
+\fB\-P\fR, \fB\-\-privileged\fR
+.RS 4
+Acquire privileges via PolicyKit before executing the operation\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to a remote system\&.
+.RE
+.PP
+\fB\-\-adjust\-system\-clock\fR
+.RS 4
+If
+\fBset\-local\-rtc\fR
+is invoked and this option is passed, the system clock is synchronized from the RTC again, taking the new setting into account\&. Otherwise, the RTC is synchronized from the system clock\&.
+.RE
+.PP
+The following commands are understood:
+.PP
+\fBstatus\fR
+.RS 4
+Show current settings of the system clock and RTC\&.
+.RE
+.PP
+\fBset\-time [TIME]\fR
+.RS 4
+Set the system clock to the specified time\&. This will also update the RTC time accordingly\&. The time may be specified in the format "2012\-10\-30 18:17:16"\&.
+.RE
+.PP
+\fBset\-timezone [TIMEZONE]\fR
+.RS 4
+Set the system time zone to the specified value\&. Available timezones can be listed with
+\fBlist\-timezones\fR\&. If the RTC is configured to be in the local time, this will also update the RTC time\&. This call will alter the
+/etc/localtime
+symlink\&. See
+\fBlocaltime\fR(5)
+for more information\&.
+.RE
+.PP
+\fBlist\-timezones\fR
+.RS 4
+List available time zones, one per line\&. Entries from the list can be set as the system timezone with
+\fBset\-timezone\fR\&.
+.RE
+.PP
+\fBset\-local\-rtc [BOOL]\fR
+.RS 4
+Takes a boolean argument\&. If
+"0", the system is configured to maintain the RTC in universal time\&. If
+"1", it will maintain the RTC in local time instead\&. Note that maintaining the RTC in the local timezone is not fully supported and will create various problems with time zone changes and daylight saving adjustments\&. If at all possible, keep the RTC in UTC mode\&. Note that invoking this will also synchronize the RTC from the system clock, unless
+\fB\-\-adjust\-system\-clock\fR
+is passed (see above)\&. This command will change the 3rd line of
+/etc/adjtime, as documented in
+\fBhwclock\fR(8)\&.
+.RE
+.PP
+\fBset\-ntp [BOOL]\fR
+.RS 4
+Takes a boolean argument\&. Controls whether NTP based network time synchronization is enabled (if available)\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+On success 0 is returned, a non\-zero failure code otherwise\&.
+.SH "ENVIRONMENT"
+.PP
+\fI$SYSTEMD_PAGER\fR
+.RS 4
+Pager to use when
+\fB\-\-no\-pager\fR
+is not given; overrides
+\fI$PAGER\fR\&. Setting this to an empty string or the value
+"cat"
+is equivalent to passing
+\fB\-\-no\-pager\fR\&.
+.RE
+.SH "EXAMPLES"
+.PP
+Show current settings:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ timedatectl
+      Local time: Fri, 2012\-11\-02 09:26:46 CET
+  Universal time: Fri, 2012\-11\-02 08:26:46 UTC
+        RTC time: Fri, 2012\-11\-02 08:26:45
+        Timezone: Europe/Warsaw
+      UTC offset: +0100
+     NTP enabled: no
+NTP synchronized: no
+ RTC in local TZ: no
+      DST active: no
+ Last DST change: CEST → CET, DST became inactive
+                  Sun, 2012\-10\-28 02:59:59 CEST
+                  Sun, 2012\-10\-28 02:00:00 CET
+ Next DST change: CET → CEST, DST will become active
+                  the clock will jump one hour forward
+                  Sun, 2013\-03\-31 01:59:59 CET
+                  Sun, 2013\-03\-31 03:00:00 CEST
+                
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Enable an NTP daemon (chronyd):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ timedatectl set\-ntp true
+==== AUTHENTICATING FOR org\&.freedesktop\&.timedate1\&.set\-ntp ===
+Authentication is required to control whether network time synchronization shall be enabled\&.
+Authenticating as: user
+Password: ********
+==== AUTHENTICATION COMPLETE ===
+                
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ systemctl status chronyd\&.service
+chronyd\&.service \- NTP client/server
+          Loaded: loaded (/usr/lib/systemd/system/chronyd\&.service; enabled)
+          Active: active (running) since Fri, 2012\-11\-02 09:36:25 CET; 5s ago
+\&.\&.\&.
+                
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBhwclock\fR(8),
+\fBdate\fR(1),
+\fBlocaltime\fR(5),
+\fBsystemctl\fR(1),
+\fBsystemd-timedated.service\fR(8)

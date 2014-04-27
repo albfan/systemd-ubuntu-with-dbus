@@ -102,6 +102,7 @@ struct Socket {
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
+        CGroupContext cgroup_context;
 
         /* For Accept=no sockets refers to the one service we'll
         activate. For Accept=yes sockets is either NULL, or filled
@@ -143,6 +144,7 @@ struct Socket {
         size_t pipe_size;
         char *bind_to_device;
         char *tcp_congestion;
+        bool reuseport;
         long mq_maxmsg;
         long mq_msgsize;
 
@@ -153,13 +155,6 @@ struct Socket {
 
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
-
-/* Called from the service when it shut down */
-void socket_notify_service_dead(Socket *s, bool failed_permanent);
-
-/* Called from the mount code figure out if a mount is a dependency of
- * any of the sockets of this socket */
-int socket_add_one_mount_link(Socket *s, Mount *m);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);

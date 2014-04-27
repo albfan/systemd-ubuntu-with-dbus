@@ -94,16 +94,16 @@
                                 <option>none</option>.</para>
 
                                 <para>If set to
-                                <option>control-group</option> all
+                                <option>control-group</option>, all
                                 remaining processes in the control
                                 group of this unit will be terminated
                                 on unit stop (for services: after the
                                 stop command is executed, as
                                 configured with
                                 <varname>ExecStop=</varname>). If set
-                                to <option>process</option> only the
+                                to <option>process</option>, only the
                                 main process itself is killed. If set
-                                to <option>none</option> no process is
+                                to <option>none</option>, no process is
                                 killed. In this case only the stop
                                 command will be executed on unit
                                 stop, but no process be killed
@@ -115,16 +115,21 @@
                                 <option>control-group</option>.</para>
 
                                 <para>Processes will first be
-                                terminated via SIGTERM (unless the
-                                signal to send is changed via
-                                <varname>KillSignal=</varname>). If
-                                then after a delay (configured via the
-                                <varname>TimeoutSec=</varname> option)
+                                terminated via
+                                <constant>SIGTERM</constant> (unless
+                                the signal to send is changed via
+                                <varname>KillSignal=</varname>). Optionally,
+                                this is immediately followed by a
+                                <constant>SIGHUP</constant> (if
+                                enabled with
+                                <varname>SendSIGHUP=</varname>). If
+                                then, after a delay (configured via the
+                                <varname>TimeoutStopSec=</varname> option),
                                 processes still remain, the
                                 termination request is repeated with
-                                the SIGKILL signal (unless this is
-                                disabled via the
-                                <varname>SendSIGKILL=</varname>
+                                the <constant>SIGKILL</constant>
+                                signal (unless this is disabled via
+                                the <varname>SendSIGKILL=</varname>
                                 option). See
                                 <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                                 for more
@@ -135,20 +140,35 @@
                                 <term><varname>KillSignal=</varname></term>
                                 <listitem><para>Specifies which signal
                                 to use when killing a
-                                service. Defaults to SIGTERM.
+                                service. Defaults to <constant>SIGTERM</constant>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>SendSIGHUP=</varname></term>
+                                <listitem><para>Specifies whether to
+                                send <constant>SIGHUP</constant> to
+                                remaining processes immediately after
+                                sending the signal configured with
+                                <varname>KillSignal=</varname>. This
+                                is useful to indicate to shells and
+                                shell-like programs that their
+                                connection has been severed. Takes a
+                                boolean value. Defaults to "no".
                                 </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>SendSIGKILL=</varname></term>
                                 <listitem><para>Specifies whether to
-                                send SIGKILL to remaining processes
+                                send <constant>SIGKILL</constant> to remaining processes
                                 after a timeout, if the normal
                                 shutdown procedure left processes of
                                 the service around. Takes a boolean
                                 value. Defaults to "yes".
                                 </para></listitem>
                         </varlistentry>
+
                 </variablelist>
         </refsect1>
 

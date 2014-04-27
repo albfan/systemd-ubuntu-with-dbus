@@ -88,6 +88,7 @@ struct Swap {
         ExecCommand exec_command[_SWAP_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
+        CGroupContext cgroup_context;
 
         SwapState state, deserialized_state;
 
@@ -105,8 +106,6 @@ struct Swap {
 };
 
 extern const UnitVTable swap_vtable;
-
-int swap_add_one_mount_link(Swap *s, Mount *m);
 
 int swap_dispatch_reload(Manager *m);
 int swap_fd_event(Manager *m, int events);

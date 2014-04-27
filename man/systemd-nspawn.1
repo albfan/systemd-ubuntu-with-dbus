@@ -1,0 +1,284 @@
+'\" t
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 208" "systemd-nspawn"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-nspawn \- Spawn a namespace container for debugging, testing and building
+.SH "SYNOPSIS"
+.HP \w'\fBsystemd\-nspawn\fR\ 'u
+\fBsystemd\-nspawn\fR [OPTIONS...] [\fICOMMAND\fR\ [ARGS...]]
+.HP \w'\fBsystemd\-nspawn\fR\ 'u
+\fBsystemd\-nspawn\fR \-b [OPTIONS...] [ARGS...]
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-nspawn\fR
+may be used to run a command or OS in a light\-weight namespace container\&. In many ways it is similar to
+\fBchroot\fR(1), but more powerful since it fully virtualizes the file system hierarchy, as well as the process tree, the various IPC subsystems and the host and domain name\&.
+.PP
+\fBsystemd\-nspawn\fR
+limits access to various kernel interfaces in the container to read\-only, such as
+/sys,
+/proc/sys
+or
+/sys/fs/selinux\&. Network interfaces and the system clock may not be changed from within the container\&. Device nodes may not be created\&. The host system cannot be rebooted and kernel modules may not be loaded from within the container\&.
+.PP
+Note that even though these security precautions are taken
+\fBsystemd\-nspawn\fR
+is not suitable for secure container setups\&. Many of the security features may be circumvented and are hence primarily useful to avoid accidental changes to the host system from the container\&. The intended use of this program is debugging and testing as well as building of packages, distributions and software involved with boot and systems management\&.
+.PP
+In contrast to
+\fBchroot\fR(1)\ \&\fBsystemd\-nspawn\fR
+may be used to boot full Linux\-based operating systems in a container\&.
+.PP
+Use a tool like
+\fByum\fR(8),
+\fBdebootstrap\fR(8), or
+\fBpacman\fR(8)
+to set up an OS directory tree suitable as file system hierarchy for
+\fBsystemd\-nspawn\fR
+containers\&.
+.PP
+Note that
+\fBsystemd\-nspawn\fR
+will mount file systems private to the container to
+/dev,
+/run
+and similar\&. These will not be visible outside of the container, and their contents will be lost when the container exits\&.
+.PP
+Note that running two
+\fBsystemd\-nspawn\fR
+containers from the same directory tree will not make processes in them see each other\&. The PID namespace separation of the two containers is complete and the containers will share very few runtime objects except for the underlying file system\&. It is however possible to enter an existing container, see
+Example 4
+below\&.
+.PP
+\fBsystemd\-nspawn\fR
+implements the
+\m[blue]\fBContainer Interface\fR\m[]\&\s-2\u[1]\d\s+2
+specification\&.
+.PP
+As a safety check
+\fBsystemd\-nspawn\fR
+will verify the existence of
+/etc/os\-release
+in the container tree before starting the container (see
+\fBos-release\fR(5))\&. It might be necessary to add this file to the container tree manually if the OS of the container is too old to contain this file out\-of\-the\-box\&.
+.SH "INCOMPATIBILITY WITH AUDITING"
+.PP
+Note that the kernel auditing subsystem is currently broken when used together with containers\&. We hence recommend turning it off entirely by booting with
+"audit=0"
+on the kernel command line, or by turning it off at kernel build time\&. If auditing is enabled in the kernel, operating systems booted in an nspawn container might refuse log\-in attempts\&.
+.SH "OPTIONS"
+.PP
+If option
+\fB\-b\fR
+is specified, the arguments are used as arguments for the init binary\&. Otherwise,
+\fICOMMAND\fR
+specifies the program to launch in the container, and the remaining arguments are used as arguments for this program\&. If
+\fB\-b\fR
+is not used and no arguments are specifed, a shell is launched in the container\&.
+.PP
+The following options are understood:
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Prints a version string and exits\&.
+.RE
+.PP
+\fB\-D\fR, \fB\-\-directory=\fR
+.RS 4
+Directory to use as file system root for the namespace container\&. If omitted, the current directory will be used\&.
+.RE
+.PP
+\fB\-b\fR, \fB\-\-boot\fR
+.RS 4
+Automatically search for an init binary and invoke it instead of a shell or a user supplied program\&. If this option is used, arguments specified on the command line are used as arguments for the init binary\&.
+.RE
+.PP
+\fB\-u\fR, \fB\-\-user=\fR
+.RS 4
+Run the command under specified user, create home directory and cd into it\&. As rest of systemd\-nspawn, this is not the security feature and limits against accidental changes only\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Sets the machine name for this container\&. This name may be used to identify this container on the host, and is used to initialize the container\*(Aqs hostname (which the container can choose to override, however)\&. If not specified, the last component of the root directory of the container is used\&.
+.RE
+.PP
+\fB\-\-slice=\fR
+.RS 4
+Make the container part of the specified slice, instead of the
+machine\&.slice\&.
+.RE
+.PP
+\fB\-\-uuid=\fR
+.RS 4
+Set the specified UUID for the container\&. The init system will initialize
+/etc/machine\-id
+from this if this file is not set yet\&.
+.RE
+.PP
+\fB\-\-private\-network\fR
+.RS 4
+Turn off networking in the container\&. This makes all network interfaces unavailable in the container, with the exception of the loopback device\&.
+.RE
+.PP
+\fB\-\-read\-only\fR
+.RS 4
+Mount the root file system read\-only for the container\&.
+.RE
+.PP
+\fB\-\-capability=\fR
+.RS 4
+List one or more additional capabilities to grant the container\&. Takes a comma\-separated list of capability names, see
+\fBcapabilities\fR(7)
+for more information\&. Note that the following capabilities will be granted in any way: CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH, CAP_FOWNER, CAP_FSETID, CAP_IPC_OWNER, CAP_KILL, CAP_LEASE, CAP_LINUX_IMMUTABLE, CAP_NET_BIND_SERVICE, CAP_NET_BROADCAST, CAP_NET_RAW, CAP_SETGID, CAP_SETFCAP, CAP_SETPCAP, CAP_SETUID, CAP_SYS_ADMIN, CAP_SYS_CHROOT, CAP_SYS_NICE, CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG, CAP_SYS_RESOURCE, CAP_SYS_BOOT, CAP_AUDIT_WRITE, CAP_AUDIT_CONTROL\&.
+.RE
+.PP
+\fB\-\-link\-journal=\fR
+.RS 4
+Control whether the container\*(Aqs journal shall be made visible to the host system\&. If enabled, allows viewing the container\*(Aqs journal files from the host (but not vice versa)\&. Takes one of
+"no",
+"host",
+"guest",
+"auto"\&. If
+"no", the journal is not linked\&. If
+"host", the journal files are stored on the host file system (beneath
+/var/log/journal/\fImachine\-id\fR) and the subdirectory is bind\-mounted into the container at the same location\&. If
+"guest", the journal files are stored on the guest file system (beneath
+/var/log/journal/\fImachine\-id\fR) and the subdirectory is symlinked into the host at the same location\&. If
+"auto"
+(the default), and the right subdirectory of
+/var/log/journal
+exists, it will be bind mounted into the container\&. If the subdirectory does not exist, no linking is performed\&. Effectively, booting a container once with
+"guest"
+or
+"host"
+will link the journal persistently if further on the default of
+"auto"
+is used\&.
+.RE
+.PP
+\fB\-j\fR
+.RS 4
+Equivalent to
+\fB\-\-link\-journal=guest\fR\&.
+.RE
+.PP
+\fB\-\-bind=\fR, \fB\-\-bind\-ro=\fR
+.RS 4
+Bind mount a file or directory from the host into the container\&. Either takes a path argument \-\- in which case the specified path will be mounted from the host to the same path in the container \-\-, or a colon\-separated pair of paths \-\- in which case the first specified path is the source in the host, and the second path is the destination in the container\&. The
+\fB\-\-bind\-ro=\fR
+option creates read\-only bind mount\&.
+.RE
+.SH "EXAMPLE 1"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# yum \-y \-\-releasever=19 \-\-nogpg \-\-installroot=/srv/mycontainer \-\-disablerepo=\*(Aq*\*(Aq \-\-enablerepo=fedora install systemd passwd yum fedora\-release vim\-minimal
+# systemd\-nspawn \-bD /srv/mycontainer
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This installs a minimal Fedora distribution into the directory
+/srv/mycontainer/
+and then boots an OS in a namespace container in it\&.
+.SH "EXAMPLE 2"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# debootstrap \-\-arch=amd64 unstable ~/debian\-tree/
+# systemd\-nspawn \-D ~/debian\-tree/
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This installs a minimal Debian unstable distribution into the directory
+~/debian\-tree/
+and then spawns a shell in a namespace container in it\&.
+.SH "EXAMPLE 3"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# pacstrap \-c \-d ~/arch\-tree/ base
+# systemd\-nspawn \-bD ~/arch\-tree/
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This installs a mimimal Arch Linux distribution into the directory
+~/arch\-tree/
+and then boots an OS in a namespace container in it\&.
+.SH "EXAMPLE 4"
+.PP
+To enter the container, PID of one of the processes sharing the new namespaces must be used\&.
+\fBsystemd\-nspawn\fR
+prints the PID (as viewed from the outside) of the launched process, and it can be used to enter the container\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# nsenter \-m \-u \-i \-n \-p \-t $PID
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBnsenter\fR(1)
+is part of
+\m[blue]\fButil\-linux\fR\m[]\&\s-2\u[2]\d\s+2\&. Kernel support for entering namespaces was added in Linux 3\&.8\&.
+.SH "EXIT STATUS"
+.PP
+The exit code of the program executed in the container is returned\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBchroot\fR(1),
+\fBunshare\fR(1),
+\fByum\fR(8),
+\fBdebootstrap\fR(8),
+\fBpacman\fR(8),
+\fBsystemd.slice\fR(5)
+.SH "NOTES"
+.IP " 1." 4
+Container Interface
+.RS 4
+\%http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface
+.RE
+.IP " 2." 4
+util-linux
+.RS 4
+\%https://github.com/karelzak/util-linux
+.RE

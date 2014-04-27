@@ -29,6 +29,8 @@
 
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(const char **id) {
+        _cleanup_free_ char *cpuinfo_contents = NULL;
+        int r;
 
 #if defined(__i386__) || defined(__x86_64__)
 
@@ -67,7 +69,6 @@ int detect_vm(const char **id) {
         const char *j, *k;
         bool hypervisor;
         _cleanup_free_ char *hvtype = NULL;
-        int r;
 
         /* Try high-level hypervisor sysfs file first:
          *
@@ -164,6 +165,16 @@ int detect_vm(const char **id) {
         }
 
 #endif
+
+        /* Detect User-Mode Linux by reading /proc/cpuinfo */
+        r = read_full_file("/proc/cpuinfo", &cpuinfo_contents, NULL);
+        if (r < 0)
+                return r;
+        if (strstr(cpuinfo_contents, "\nvendor_id\t: User Mode Linux\n")) {
+                *id = "uml";
+                return 1;
+        }
+
         return 0;
 }
 
