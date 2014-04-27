@@ -33,14 +33,19 @@ CONFFLAGS_deb = \
 
 CONFFLAGS_udeb = \
 	--disable-selinux \
+	--disable-smack \
+	--disable-ima \
 	--disable-introspection \
 	--disable-gtk-doc \
 	--disable-binfmt \
 	--disable-readahead \
 	--disable-bootchart \
 	--disable-quotacheck \
+	--disable-tmpfiles \
 	--disable-randomseed \
+	--disable-backlight \
 	--disable-logind \
+	--disable-machined \
 	--disable-hostnamed \
 	--disable-timedated \
 	--disable-localed \

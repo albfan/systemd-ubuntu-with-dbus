@@ -12,6 +12,7 @@ systemd (208-1) UNRELEASED; urgency=medium
     support.
   * Make kmod-static-nodes.service check for the kmod binary since we don't
     want a hard dependency on kmod e.g. for container installations.
+  * Disable various features which aren't required for the udeb build.
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
