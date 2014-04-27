@@ -1,8 +1,12 @@
 systemd (204-11) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Explain patch management in debian/README.source.
   * Replace "Always probe cpu support drivers" patch with cherry-picked
     upstream fix which is more general.
+
+  [ Michael Biebl ]
+  * Make no-patch-numbers the default for gbp-pq.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 12:51:55 +0200
 
