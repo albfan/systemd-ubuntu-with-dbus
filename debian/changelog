@@ -1,4 +1,4 @@
-systemd (204-10) UNRELEASED; urgency=medium
+systemd (204-10) unstable; urgency=medium
 
   * In the udeb's udev.startup, make sure that /dev/pts exists.
   * systemd-logind-launch: Set the #files ulimit, for unprivileged LXC
@@ -13,7 +13,7 @@ systemd (204-10) UNRELEASED; urgency=medium
     removing, cherry-picking, and merging patches. From now on, always use
     "gbp-pq export --no-patch-numbers" to update them.
 
- -- Martin Pitt <mpitt@debian.org>  Sat, 26 Apr 2014 22:28:07 +0200
+ -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 11:53:52 +0200
 
 systemd (204-9) unstable; urgency=medium
 
