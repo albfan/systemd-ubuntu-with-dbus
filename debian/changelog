@@ -15,6 +15,7 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Disable various features which aren't required for the udeb build.
   * Move new sd_pid_get_slice and sd_session_get_vt man pages into
     libsystemd-login-dev.
+  * Make no-patch-numbers the default for gbp-pq.
 
  -- Michael Biebl <biebl@debian.org>  Sun, 27 Apr 2014 12:59:24 +0200
 
