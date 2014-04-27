@@ -9,6 +9,9 @@ systemd (204-10) UNRELEASED; urgency=medium
   * On Dell PowerEdge systems, the iDRAC7 and later support a USB Virtual NIC
     for management. Name this interface "idrac" to avoid confusion with "real"
     network interfaces.
+  * Drop numerical prefixes from patches, to avoid future diff noise when
+    removing, cherry-picking, and merging patches. From now on, always use
+    "gbp-pq export --no-patch-numbers" to update them.
 
  -- Martin Pitt <mpitt@debian.org>  Sat, 26 Apr 2014 22:28:07 +0200
 
