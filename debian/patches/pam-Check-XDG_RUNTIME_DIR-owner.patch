@@ -27,7 +27,7 @@ Bug-Ubuntu: https://launchpad.net/bugs/1197395
  1 file changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/src/login/pam-module.c b/src/login/pam-module.c
-index 2c90ce3..4dc96fd 100644
+index 49296b5..b5862a8 100644
 --- a/src/login/pam-module.c
 +++ b/src/login/pam-module.c
 @@ -194,6 +194,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
@@ -38,7 +38,7 @@ index 2c90ce3..4dc96fd 100644
  
          assert(handle);
  
-@@ -405,11 +406,25 @@ _public_ PAM_EXTERN int pam_sm_open_session(
+@@ -408,11 +409,25 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                  goto finish;
          }
  

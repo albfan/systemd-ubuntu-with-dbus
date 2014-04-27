@@ -20,6 +20,10 @@ systemd (208-1) UNRELEASED; urgency=medium
   * Adjust systemd-user pam config file for Debian.
     This pam config file is used by libpam-systemd/systemd-logind when
     launching systemd user instances.
+  * Drop patches to make logind D-Bus activatable. The cgroup handling has
+    been reworked in v205 and logind no longer creates cgroup hierarchies on
+    its own. That means that the standalone logind is no longer functional
+    without support from systemd (or an equivalent cgroup manager).
 
   [ Martin Pitt ]
   * Explain patch management in debian/README.source.

@@ -11,9 +11,7 @@ timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
 fstab-generator-don-t-rely-on-usr-being-mounted-in-t.patch
 man-fix-reference-in-systemd-inhibit-1.patch
 fix-remaining-reference-to-systemd-logind.conf.patch
-Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch
-Launch-logind-via-a-shell-wrapper.patch
-Start-logind-on-demand-via-libpam-systemd.patch
+Make-hostnamed-localed-timedated-D-Bus-activatable.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
