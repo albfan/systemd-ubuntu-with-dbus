@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.device</filename> encodes information about
+                <literal>.device</literal> encodes information about
                 a device unit as exposed in the
                 sysfs/<citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 device tree.</para>
@@ -107,7 +107,7 @@
                                 available. Note that this and the
                                 other tags are not taken into account
                                 unless the device is tagged with the
-                                "<literal>systemd</literal>" string in
+                                <literal>systemd</literal> string in
                                 the udev database, because otherwise
                                 the device is not exposed as systemd
                                 unit.</para></listitem>
@@ -124,11 +124,11 @@
 
                         <varlistentry>
                                 <term><varname>SYSTEMD_READY=</varname></term>
-                                <listitem><para>If set to 0 systemd
+                                <listitem><para>If set to 0, systemd
                                 will consider this device unplugged
                                 even if it shows up in the udev
                                 tree. If this property is unset or set
-                                to 1 the device will be considered
+                                to 1, the device will be considered
                                 plugged the moment it shows up in the
                                 udev tree. This property has no
                                 influence on the behavior when a

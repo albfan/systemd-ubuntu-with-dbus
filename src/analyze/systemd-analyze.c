@@ -38,6 +38,7 @@
 #include "unit-name.h"
 #include "special.h"
 #include "hashmap.h"
+#include "pager.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y 20.0
@@ -67,8 +68,8 @@ static enum dot {
 } arg_dot = DEP_ALL;
 static char** arg_dot_from_patterns = NULL;
 static char** arg_dot_to_patterns = NULL;
-
-usec_t arg_fuzz = 0;
+static usec_t arg_fuzz = 0;
+static bool arg_no_pager = false;
 
 struct boot_times {
         usec_t firmware_time;
@@ -78,7 +79,12 @@ struct boot_times {
         usec_t initrd_time;
         usec_t userspace_time;
         usec_t finish_time;
+        usec_t generators_start_time;
+        usec_t generators_finish_time;
+        usec_t unitsload_start_time;
+        usec_t unitsload_finish_time;
 };
+
 struct unit_times {
         char *name;
         usec_t ixt;
@@ -87,6 +93,14 @@ struct unit_times {
         usec_t aet;
         usec_t time;
 };
+
+static void pager_open_if_enabled(void) {
+
+        if (arg_no_pager)
+                return;
+
+        pager_open(false);
+}
 
 static int bus_get_uint64_property(DBusConnection *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
@@ -303,7 +317,27 @@ static int acquire_boot_times(DBusConnection *bus, struct boot_times **bt) {
                                     "/org/freedesktop/systemd1",
                                     "org.freedesktop.systemd1.Manager",
                                     "FinishTimestampMonotonic",
-                                    &times.finish_time) < 0)
+                                    &times.finish_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "GeneratorsStartTimestampMonotonic",
+                                    &times.generators_start_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "GeneratorsFinishTimestampMonotonic",
+                                    &times.generators_finish_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "UnitsLoadStartTimestampMonotonic",
+                                    &times.unitsload_start_time) < 0 ||
+            bus_get_uint64_property(bus,
+                                    "/org/freedesktop/systemd1",
+                                    "org.freedesktop.systemd1.Manager",
+                                    "UnitsLoadFinishTimestampMonotonic",
+                                    &times.unitsload_finish_time) < 0)
                 return -EIO;
 
         if (times.finish_time <= 0) {
@@ -459,7 +493,8 @@ static int analyze_plot(DBusConnection *bus) {
 
         svg("<svg width=\"%.0fpx\" height=\"%.0fpx\" version=\"1.1\" "
             "xmlns=\"http://www.w3.org/2000/svg\">\n\n",
-                        80.0 + width, 150.0 + (m * SCALE_Y));
+                        80.0 + width, 150.0 + (m * SCALE_Y) +
+                        5 * SCALE_Y /* legend */);
 
         /* write some basic info as a comment, including some help */
         svg("<!-- This file is a systemd-analyze SVG file. It is best rendered in a   -->\n"
@@ -480,23 +515,23 @@ static int analyze_plot(DBusConnection *bus) {
             "      rect.firmware     { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.loader       { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
             "      rect.userspace    { fill: rgb(150,150,150); fill-opacity: 0.7; }\n"
+            "      rect.generators   { fill: rgb(102,204,255); fill-opacity: 0.7; }\n"
+            "      rect.unitsload    { fill: rgb( 82,184,255); fill-opacity: 0.7; }\n"
             "      rect.box   { fill: rgb(240,240,240); stroke: rgb(192,192,192); }\n"
             "      line       { stroke: rgb(64,64,64); stroke-width: 1; }\n"
             "//    line.sec1  { }\n"
             "      line.sec5  { stroke-width: 2; }\n"
             "      line.sec01 { stroke: rgb(224,224,224); stroke-width: 1; }\n"
-            "      text       { font-family: Verdana, Helvetica; font-size: 10; }\n"
-            "      text.left  { font-family: Verdana, Helvetica; font-size: 10; text-anchor: start; }\n"
-            "      text.right { font-family: Verdana, Helvetica; font-size: 10; text-anchor: end; }\n"
-            "      text.sec   { font-size: 8; }\n"
+            "      text       { font-family: Verdana, Helvetica; font-size: 14px; }\n"
+            "      text.left  { font-family: Verdana, Helvetica; font-size: 14px; text-anchor: start; }\n"
+            "      text.right { font-family: Verdana, Helvetica; font-size: 14px; text-anchor: end; }\n"
+            "      text.sec   { font-size: 10px; }\n"
             "    ]]>\n   </style>\n</defs>\n\n");
 
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
         svg("<text x=\"20\" y=\"30\">%s %s (%s %s) %s</text>",
             isempty(osname) ? "Linux" : osname,
             name.nodename, name.release, name.version, name.machine);
-        svg("<text x=\"20\" y=\"%.0f\">Legend: Red = Activating; Pink = Active; Dark Pink = Deactivating</text>",
-                        120.0 + (m *SCALE_Y));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -boot->firmware_time, boot->finish_time);
@@ -521,8 +556,10 @@ static int analyze_plot(DBusConnection *bus) {
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
-        svg_bar("userspace", boot->userspace_time, boot->finish_time, y);
-        svg_text("left", boot->userspace_time, y, "userspace");
+        svg_bar("active", boot->userspace_time, boot->finish_time, y);
+        svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
+        svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
+        svg_text("left", boot->userspace_time, y, "systemd");
         y++;
 
         for (u = times; u < times + n; u++) {
@@ -544,6 +581,25 @@ static int analyze_plot(DBusConnection *bus) {
                         svg_text(b, u->ixt, y, "%s", u->name);
                 y++;
         }
+
+        /* Legend */
+        y++;
+        svg_bar("activating", 0, 300000, y);
+        svg_text("right", 400000, y, "Activating");
+        y++;
+        svg_bar("active", 0, 300000, y);
+        svg_text("right", 400000, y, "Active");
+        y++;
+        svg_bar("deactivating", 0, 300000, y);
+        svg_text("right", 400000, y, "Deactivating");
+        y++;
+        svg_bar("generators", 0, 300000, y);
+        svg_text("right", 400000, y, "Generators");
+        y++;
+        svg_bar("unitsload", 0, 300000, y);
+        svg_text("right", 400000, y, "Loading unit files");
+        y++;
+
         svg("</g>\n\n");
 
         svg("</svg>");
@@ -552,7 +608,6 @@ static int analyze_plot(DBusConnection *bus) {
 
         return 0;
 }
-
 
 static int list_dependencies_print(const char *name, unsigned int level, unsigned int branches,
                                    bool last, struct unit_times *times, struct boot_times *boot) {
@@ -779,7 +834,7 @@ static int list_dependencies_one(DBusConnection *bus, const char *name, unsigned
         return 0;
 }
 
-static int list_dependencies(DBusConnection *bus) {
+static int list_dependencies(DBusConnection *bus, const char *name) {
         _cleanup_strv_free_ char **units = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
         struct unit_times *times;
@@ -794,7 +849,7 @@ static int list_dependencies(DBusConnection *bus) {
 
         assert(bus);
 
-        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        path = unit_dbus_path_from_name(name);
         if (path == NULL)
                 return -EINVAL;
 
@@ -843,10 +898,10 @@ static int list_dependencies(DBusConnection *bus) {
                         printf("%s\n", id);
         }
 
-        return list_dependencies_one(bus, SPECIAL_DEFAULT_TARGET, 0, &units, 0);
+        return list_dependencies_one(bus, name, 0, &units, 0);
 }
 
-static int analyze_critical_chain(DBusConnection *bus) {
+static int analyze_critical_chain(DBusConnection *bus, char *names[]) {
         struct unit_times *times;
         int n, r;
         unsigned int i;
@@ -867,10 +922,17 @@ static int analyze_critical_chain(DBusConnection *bus) {
         }
         unit_times_hashmap = h;
 
+        pager_open_if_enabled();
+
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
 
-        list_dependencies(bus);
+        if (!strv_isempty(names)) {
+                char **name;
+                STRV_FOREACH(name, names)
+                        list_dependencies(bus, *name);
+        } else
+                list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
 
         hashmap_free(h);
         free_unit_times(times, (unsigned) n);
@@ -887,6 +949,8 @@ static int analyze_blame(DBusConnection *bus) {
                 return n;
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_time);
+
+        pager_open_if_enabled();
 
         for (i = 0; i < (unsigned) n; i++) {
                 char ts[FORMAT_TIMESPAN_MAX];
@@ -1112,8 +1176,97 @@ static int dot(DBusConnection *bus, char* patterns[]) {
         return 0;
 }
 
-static void analyze_help(void)
-{
+static int dump(DBusConnection *bus, char **args) {
+        _cleanup_free_ DBusMessage *reply = NULL;
+        DBusError error;
+        int r;
+        const char *text;
+
+        dbus_error_init(&error);
+
+        if (!strv_isempty(args)) {
+                log_error("Too many arguments.");
+                return -E2BIG;
+        }
+
+        pager_open_if_enabled();
+
+        r = bus_method_call_with_reply(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Dump",
+                        &reply,
+                        NULL,
+                        DBUS_TYPE_INVALID);
+        if (r < 0)
+                return r;
+
+        if (!dbus_message_get_args(reply, &error,
+                                   DBUS_TYPE_STRING, &text,
+                                   DBUS_TYPE_INVALID)) {
+                log_error("Failed to parse reply: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+                return  -EIO;
+        }
+
+        fputs(text, stdout);
+        return 0;
+}
+
+static int set_log_level(DBusConnection *bus, char **args) {
+        _cleanup_dbus_error_free_ DBusError error;
+        _cleanup_dbus_message_unref_ DBusMessage *m = NULL, *reply = NULL;
+        DBusMessageIter iter, sub;
+        const char* property = "LogLevel";
+        const char* interface = "org.freedesktop.systemd1.Manager";
+        const char* value;
+
+        assert(bus);
+        assert(args);
+
+        if (strv_length(args) != 1) {
+                log_error("This command expects one argument only.");
+                return -E2BIG;
+        }
+
+        value = args[0];
+        dbus_error_init(&error);
+
+        m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                         "/org/freedesktop/systemd1",
+                                         "org.freedesktop.DBus.Properties",
+                                         "Set");
+        if (!m)
+                return log_oom();
+
+        dbus_message_iter_init_append(m, &iter);
+
+        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface) ||
+            !dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &property) ||
+            !dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &sub))
+                return log_oom();
+
+        if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &value))
+                return log_oom();
+
+        if (!dbus_message_iter_close_container(&iter, &sub))
+                return log_oom();
+
+        reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error);
+        if (!reply) {
+                log_error("Failed to issue method call: %s", bus_error_message(&error));
+                return -EIO;
+        }
+
+        return 0;
+}
+
+static void analyze_help(void) {
+
+        pager_open_if_enabled();
+
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Process systemd profiling information\n\n"
                "  -h --help           Show this help\n"
@@ -1128,13 +1281,16 @@ static void analyze_help(void)
                "     --fuzz=TIMESPAN  When printing the tree of the critical chain, print also\n"
                "                      services, which finished TIMESPAN earlier, than the\n"
                "                      latest in the branch. The unit of TIMESPAN is seconds\n"
-               "                      unless specified with a different unit, i.e. 50ms\n\n"
+               "                      unless specified with a different unit, i.e. 50ms\n"
+               "     --no-pager       Do not pipe output into a pager\n\n"
                "Commands:\n"
                "  time                Print time spent in the kernel before reaching userspace\n"
                "  blame               Print list of running units ordered by time to init\n"
                "  critical-chain      Print a tree of the time critical chain of units\n"
                "  plot                Output SVG graphic showing service initialization\n"
-               "  dot                 Dump dependency graph (in dot(1) format)\n\n",
+               "  dot                 Output dependency graph in dot(1) format\n"
+               "  set-log-level LEVEL Set logging threshold for systemd\n"
+               "  dump                Output state serialization of service manager\n",
                program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1142,8 +1298,7 @@ static void analyze_help(void)
          * shell-completion/systemd-zsh-completion.zsh too. */
 }
 
-static int parse_argv(int argc, char *argv[])
-{
+static int parse_argv(int argc, char *argv[]) {
         int r;
 
         enum {
@@ -1154,20 +1309,22 @@ static int parse_argv(int argc, char *argv[])
                 ARG_SYSTEM,
                 ARG_DOT_FROM_PATTERN,
                 ARG_DOT_TO_PATTERN,
-                ARG_FUZZ
+                ARG_FUZZ,
+                ARG_NO_PAGER
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "order",     no_argument,       NULL, ARG_ORDER     },
-                { "require",   no_argument,       NULL, ARG_REQUIRE   },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "system",    no_argument,       NULL, ARG_SYSTEM    },
-                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN},
-                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN  },
-                { "fuzz",      required_argument, NULL, ARG_FUZZ  },
-                { NULL,        0,                 NULL, 0             }
+                { "help",         no_argument,       NULL, 'h'                  },
+                { "version",      no_argument,       NULL, ARG_VERSION          },
+                { "order",        no_argument,       NULL, ARG_ORDER            },
+                { "require",      no_argument,       NULL, ARG_REQUIRE          },
+                { "user",         no_argument,       NULL, ARG_USER             },
+                { "system",       no_argument,       NULL, ARG_SYSTEM           },
+                { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",         required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER         },
+                { NULL,           0,                 NULL, 0                    }
         };
 
         assert(argc >= 0);
@@ -1218,6 +1375,10 @@ static int parse_argv(int argc, char *argv[])
                                 return r;
                         break;
 
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
+                        break;
+
                 case -1:
                         return 1;
 
@@ -1240,31 +1401,39 @@ int main(int argc, char *argv[]) {
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
-        else if (r <= 0)
-                return EXIT_SUCCESS;
+        if (r <= 0)
+                goto finish;
 
         bus = dbus_bus_get(arg_scope == UNIT_FILE_SYSTEM ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION, NULL);
-        if (!bus)
-                return EXIT_FAILURE;
+        if (!bus) {
+                r = -EIO;
+                goto finish;
+        }
 
         if (!argv[optind] || streq(argv[optind], "time"))
                 r = analyze_time(bus);
         else if (streq(argv[optind], "blame"))
                 r = analyze_blame(bus);
         else if (streq(argv[optind], "critical-chain"))
-                r = analyze_critical_chain(bus);
+                r = analyze_critical_chain(bus, argv+optind+1);
         else if (streq(argv[optind], "plot"))
                 r = analyze_plot(bus);
         else if (streq(argv[optind], "dot"))
                 r = dot(bus, argv+optind+1);
+        else if (streq(argv[optind], "dump"))
+                r = dump(bus, argv+optind+1);
+        else if (streq(argv[optind], "set-log-level"))
+                r = set_log_level(bus, argv+optind+1);
         else
                 log_error("Unknown operation '%s'.", argv[optind]);
 
+        dbus_connection_unref(bus);
+
+finish:
+        pager_close();
+
         strv_free(arg_dot_from_patterns);
         strv_free(arg_dot_to_patterns);
-        dbus_connection_unref(bus);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

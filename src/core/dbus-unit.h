@@ -61,6 +61,10 @@
         "   <arg name=\"signal\" type=\"i\" direction=\"in\"/>\n"       \
         "  </method>\n"                                                 \
         "  <method name=\"ResetFailed\"/>\n"                            \
+        "  <method name=\"SetProperties\">\n"                           \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
         "  <property name=\"Names\" type=\"as\" access=\"read\"/>\n"    \
         "  <property name=\"Following\" type=\"s\" access=\"read\"/>\n" \
@@ -121,34 +125,14 @@
         "  <property name=\"ConditionTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"ConditionResult\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"Conditions\" type=\"a(sbbsi)\" access=\"read\"/>\n" \
         "  <property name=\"LoadError\" type=\"(ss)\" access=\"read\"/>\n" \
+        "  <property name=\"Transient\" type=\"b\" access=\"read\"/>\n" \
         " </interface>\n"
 
 #define BUS_UNIT_CGROUP_INTERFACE                                       \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroups\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupAttributes\" type=\"a(sss)\" access=\"read\"/>\n" \
-        "  <method name=\"SetControlGroup\">\n"                         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroup\">\n"                       \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetControlGroupAttribute\">\n"                \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetControlGroupAttribute\">\n"                \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetControlGroupAttribute\">\n"              \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"
+        "  <property name=\"Slice\" type=\"s\" access=\"read\"/>\n"     \
+        "  <property name=\"ControlGroup\" type=\"s\" access=\"read\"/>\n"
 
 #define BUS_UNIT_INTERFACES_LIST                \
         BUS_GENERIC_INTERFACES_LIST             \
@@ -160,19 +144,9 @@ extern const BusProperty bus_unit_cgroup_properties[];
 void bus_unit_send_change_signal(Unit *u);
 void bus_unit_send_removed_signal(Unit *u);
 
-DBusHandlerResult bus_unit_queue_job(
-                DBusConnection *connection,
-                DBusMessage *message,
-                Unit *u,
-                JobType type,
-                JobMode mode,
-                bool reload_if_possible);
+DBusHandlerResult bus_unit_queue_job(DBusConnection *connection, DBusMessage *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible);
 
-int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result);
-int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter);
-int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter);
+int bus_unit_set_properties(Unit *u, DBusMessageIter *i, UnitSetPropertiesMode mode, bool commit, DBusError *error);
 
 extern const DBusObjectPathVTable bus_unit_vtable;
 

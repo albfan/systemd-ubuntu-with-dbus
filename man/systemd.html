@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd, init — systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd [OPTIONS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">init [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm259794898000"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>systemd is a system and service manager for
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd, init — systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd [OPTIONS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">init [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm274698355472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>systemd is a system and service manager for
                 Linux operating systems. When run as first process on
                 boot (as PID 1), it acts as init system that brings
                 up and maintains userspace services.</p><p>For compatibility with SysV, if systemd is called
@@ -34,7 +34,7 @@
                 <code class="filename">system.conf</code>, otherwise
                 <code class="filename">user.conf</code>. See
                 <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>
-                for more information.</p></div><div class="refsect1"><a name="idm259794889520"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
+                for more information.</p></div><div class="refsect1"><a name="idm274698220992"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
                                 text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a systemd version
                                 identifier and exits.</p></dd><dt id="--test"><span class="term"><code class="option">--test</code></span><a class="headerlink" title="Permalink to this term" href="#--test">¶</a></dt><dd><p>Determine startup
                                 sequence, dump it and exit. This is an
@@ -53,7 +53,7 @@
                                 specified. If omitted, the
                                 introspection data for all interfaces
                                 is dumped.</p></dd><dt id="--unit="><span class="term"><code class="option">--unit=</code></span><a class="headerlink" title="Permalink to this term" href="#--unit=">¶</a></dt><dd><p>Set default unit to
-                                activate on startup. If not specified
+                                activate on startup. If not specified,
                                 defaults to
                                 <code class="filename">default.target</code>.</p></dd><dt id="--system"><span class="term"><code class="option">--system</code>, </span><span class="term"><code class="option">--user</code></span><a class="headerlink" title="Permalink to this term" href="#--system">¶</a></dt><dd><p>For <code class="option">--system</code>,
                                 tell systemd to run a
@@ -109,7 +109,7 @@
                                 <code class="option">info</code>,
                                 <code class="option">debug</code>.</p></dd><dt id="--log-color="><span class="term"><code class="option">--log-color=</code></span><a class="headerlink" title="Permalink to this term" href="#--log-color=">¶</a></dt><dd><p>Highlight important
                                 log messages. Argument is a boolean
-                                value. If the argument is omitted it
+                                value. If the argument is omitted, it
                                 defaults to
                                 <code class="option">true</code>.</p></dd><dt id="--log-location="><span class="term"><code class="option">--log-location=</code></span><a class="headerlink" title="Permalink to this term" href="#--log-location=">¶</a></dt><dd><p>Include code location
                                 in log messages. This is mostly
@@ -141,30 +141,32 @@
                                 and
                                 <code class="option">--default-standard-error=</code>
                                 to
-                                <code class="option">inherit</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm259793821904"></a><h2 id="Concepts">Concepts<a class="headerlink" title="Permalink to this headline" href="#Concepts">¶</a></h2><p>systemd provides a dependency system between
-                various entities called "units". Units encapsulate
-                various objects that are relevant for system boot-up
-                and maintenance. The majority of units are configured
-                in unit configuration files, whose syntax and basic
-                set of options is described in
+                                <code class="option">inherit</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693401328"></a><h2 id="Concepts">Concepts<a class="headerlink" title="Permalink to this headline" href="#Concepts">¶</a></h2><p>systemd provides a dependency system between
+                various entities called "units" of 12 different
+                types. Units encapsulate various objects that are
+                relevant for system boot-up and maintenance. The
+                majority of units are configured in unit configuration
+                files, whose syntax and basic set of options is
+                described in
                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                 however some are created automatically from other
-                configuration or dynamically from system state. Units
-                may be 'active' (meaning started, bound, plugged in,
-                ...  depending on the unit type, see below), or
-                'inactive' (meaning stopped, unbound, unplugged, ...),
-                as well as in the process of being activated or
-                deactivated, i.e. between the two states (these states
-                are called 'activating', 'deactivating'). A special
-                'failed' state is available as well which is very
-                similar to 'inactive' and is entered when the service
-                failed in some way (process returned error code on
-                exit, or crashed, or an operation timed out). If this
-                state is entered the cause will be logged, for later
+                configuration, dynamically from system state or
+                programmatically at runtime. Units may be "active"
+                (meaning started, bound, plugged in, ..., depending on
+                the unit type, see below), or "inactive" (meaning
+                stopped, unbound, unplugged, ...), as well as in the
+                process of being activated or deactivated,
+                i.e. between the two states (these states are called
+                "activating", "deactivating"). A special "failed"
+                state is available as well, which is very similar to
+                "inactive" and is entered when the service failed in
+                some way (process returned error code on exit, or
+                crashed, or an operation timed out). If this state is
+                entered, the cause will be logged, for later
                 reference. Note that the various unit types may have a
                 number of additional substates, which are mapped to
                 the five generalized unit states described
-                here.</p><p>The following unit types are available:</p><div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem"><p>Service units, which control
+                here.</p><p>The following unit types are available:</p><div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem"><p>Service units, which start and control
                         daemons and the processes they consist of. For
                         details see
                         <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>.</p></li><li class="listitem"><p>Socket units, which
@@ -201,7 +203,15 @@
                         system. They are described in <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>.</p></li><li class="listitem"><p>Path units may be used
                         to activate other services when file system
                         objects change or are modified. See
-                        <a href="systemd.path.html"><span class="citerefentry"><span class="refentrytitle">systemd.path</span>(5)</span></a>.</p></li></ol></div><p>Units are named as their configuration
+                        <a href="systemd.path.html"><span class="citerefentry"><span class="refentrytitle">systemd.path</span>(5)</span></a>.</p></li><li class="listitem"><p>Slice units may be used to
+                        group units which manage system processes
+                        (such as service and scope units) in a
+                        hierarchical tree for resource management
+                        purposes. See
+                        <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>.</p></li><li class="listitem"><p>Scope units are similar to
+                        service units, but manage foreign processes
+                        instead of starting them as well. See
+                        <a href="systemd.scope.html"><span class="citerefentry"><span class="refentrytitle">systemd.scope</span>(5)</span></a>.</p></li></ol></div><p>Units are named as their configuration
                 files. Some units have special semantics. A detailed
                 list is available in
                 <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>.</p><p>systemd knows various kinds of dependencies,
@@ -239,14 +249,14 @@
                 <code class="filename">multi-user.target</code> (for limited
                 console-only boots for use in embedded or server
                 environments, or similar; a subset of
-                graphical.target). However it is at the discretion of
+                graphical.target). However, it is at the discretion of
                 the administrator to configure it as an alias to any
                 other target unit. See
                 <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>
                 for details about these target units.</p><p>Processes systemd spawns are placed in
                 individual Linux control groups named after the unit
                 which they belong to in the private systemd
-                hierarchy. (see <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt" target="_top">cgroups.txt</a>
+                hierarchy. (see <a class="ulink" href="https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt" target="_top">cgroups.txt</a>
                 for more information about control groups, or short
                 "cgroups"). systemd uses this to effectively keep
                 track of processes. Control group information is
@@ -288,7 +298,7 @@
                 sense, fixing it if possible, and only failing if it
                 really cannot work.</p><p>Systemd contains native implementations of
                 various tasks that need to be executed as part of the
-                boot process. For example, it sets the host name or
+                boot process. For example, it sets the hostname or
                 configures the loopback network device. It also sets
                 up and mounts various API file systems, such as
                 <code class="filename">/sys</code> or
@@ -304,7 +314,7 @@
                 or initrd environment should implement the
                 <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface" target="_top">Container
                 Interface</a> or <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface" target="_top">initrd
-                Interface</a> specifications, respectively.</p></div><div class="refsect1"><a name="idm259793773696"></a><h2 id="Directories">Directories<a class="headerlink" title="Permalink to this headline" href="#Directories">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="System unit directories"><span class="term">System unit directories</span><a class="headerlink" title="Permalink to this term" href="#System%20unit%20directories">¶</a></dt><dd><p>The systemd system
+                Interface</a> specifications, respectively.</p></div><div class="refsect1"><a name="idm274693349824"></a><h2 id="Directories">Directories<a class="headerlink" title="Permalink to this headline" href="#Directories">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="System unit directories"><span class="term">System unit directories</span><a class="headerlink" title="Permalink to this term" href="#System%20unit%20directories">¶</a></dt><dd><p>The systemd system
                                 manager reads unit configuration from
                                 various directories. Packages that
                                 want to install unit files shall place
@@ -368,7 +378,7 @@
                                 unit with a native unit configuration
                                 file cannot be started by activating it
                                 in the SysV runlevel link
-                                farm.</p></dd></dl></div></div><div class="refsect1"><a name="idm259793751904"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGTERM"><span class="term">SIGTERM</span><a class="headerlink" title="Permalink to this term" href="#SIGTERM">¶</a></dt><dd><p>Upon receiving this
+                                farm.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693328032"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGTERM"><span class="term"><code class="constant">SIGTERM</code></span><a class="headerlink" title="Permalink to this term" href="#SIGTERM">¶</a></dt><dd><p>Upon receiving this
                                 signal the systemd system manager
                                 serializes its state, reexecutes
                                 itself and deserializes the saved
@@ -380,7 +390,7 @@
                                 when this signal is received. This is
                                 mostly equivalent to
                                 <span class="command"><strong>systemctl --user start
-                                exit.target</strong></span>.</p></dd><dt id="SIGINT"><span class="term">SIGINT</span><a class="headerlink" title="Permalink to this term" href="#SIGINT">¶</a></dt><dd><p>Upon receiving this
+                                exit.target</strong></span>.</p></dd><dt id="SIGINT"><span class="term"><code class="constant">SIGINT</code></span><a class="headerlink" title="Permalink to this term" href="#SIGINT">¶</a></dt><dd><p>Upon receiving this
                                 signal the systemd system manager will
                                 start the
                                 <code class="filename">ctrl-alt-del.target</code> unit. This
@@ -388,7 +398,7 @@
                                 <span class="command"><strong>systemctl start
                                 ctl-alt-del.target</strong></span>.</p><p>systemd user managers
                                 treat this signal the same way as
-                                SIGTERM.</p></dd><dt id="SIGWINCH"><span class="term">SIGWINCH</span><a class="headerlink" title="Permalink to this term" href="#SIGWINCH">¶</a></dt><dd><p>When this signal is
+                                <code class="constant">SIGTERM</code>.</p></dd><dt id="SIGWINCH"><span class="term"><code class="constant">SIGWINCH</code></span><a class="headerlink" title="Permalink to this term" href="#SIGWINCH">¶</a></dt><dd><p>When this signal is
                                 received the systemd system manager
                                 will start the
                                 <code class="filename">kbrequest.target</code>
@@ -396,97 +406,97 @@
                                 <span class="command"><strong>systemctl start
                                 kbrequest.target</strong></span>.</p><p>This signal is ignored by
                                 systemd user
-                                managers.</p></dd><dt id="SIGPWR"><span class="term">SIGPWR</span><a class="headerlink" title="Permalink to this term" href="#SIGPWR">¶</a></dt><dd><p>When this signal is
+                                managers.</p></dd><dt id="SIGPWR"><span class="term"><code class="constant">SIGPWR</code></span><a class="headerlink" title="Permalink to this term" href="#SIGPWR">¶</a></dt><dd><p>When this signal is
                                 received the systemd manager
                                 will start the
                                 <code class="filename">sigpwr.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                sigpwr.target</strong></span>.</p></dd><dt id="SIGUSR1"><span class="term">SIGUSR1</span><a class="headerlink" title="Permalink to this term" href="#SIGUSR1">¶</a></dt><dd><p>When this signal is
+                                sigpwr.target</strong></span>.</p></dd><dt id="SIGUSR1"><span class="term"><code class="constant">SIGUSR1</code></span><a class="headerlink" title="Permalink to this term" href="#SIGUSR1">¶</a></dt><dd><p>When this signal is
                                 received the systemd manager will try
                                 to reconnect to the D-Bus
-                                bus.</p></dd><dt id="SIGUSR2"><span class="term">SIGUSR2</span><a class="headerlink" title="Permalink to this term" href="#SIGUSR2">¶</a></dt><dd><p>When this signal is
+                                bus.</p></dd><dt id="SIGUSR2"><span class="term"><code class="constant">SIGUSR2</code></span><a class="headerlink" title="Permalink to this term" href="#SIGUSR2">¶</a></dt><dd><p>When this signal is
                                 received the systemd manager will log
                                 its complete state in human readable
                                 form. The data logged is the same as
                                 printed by <span class="command"><strong>systemctl
-                                dump</strong></span>.</p></dd><dt id="SIGHUP"><span class="term">SIGHUP</span><a class="headerlink" title="Permalink to this term" href="#SIGHUP">¶</a></dt><dd><p>Reloads the complete
+                                dump</strong></span>.</p></dd><dt id="SIGHUP"><span class="term"><code class="constant">SIGHUP</code></span><a class="headerlink" title="Permalink to this term" href="#SIGHUP">¶</a></dt><dd><p>Reloads the complete
                                 daemon configuration. This is mostly
                                 equivalent to <span class="command"><strong>systemctl
-                                daemon-reload</strong></span>.</p></dd><dt id="SIGRTMIN+0"><span class="term">SIGRTMIN+0</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+0">¶</a></dt><dd><p>Enters default mode, starts the
+                                daemon-reload</strong></span>.</p></dd><dt id="SIGRTMIN+0"><span class="term"><code class="constant">SIGRTMIN+0</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+0">¶</a></dt><dd><p>Enters default mode, starts the
                                 <code class="filename">default.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                default.target</strong></span>.</p></dd><dt id="SIGRTMIN+1"><span class="term">SIGRTMIN+1</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+1">¶</a></dt><dd><p>Enters rescue mode,
+                                default.target</strong></span>.</p></dd><dt id="SIGRTMIN+1"><span class="term"><code class="constant">SIGRTMIN+1</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+1">¶</a></dt><dd><p>Enters rescue mode,
                                 starts the
                                 <code class="filename">rescue.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl isolate
-                                rescue.target</strong></span>.</p></dd><dt id="SIGRTMIN+2"><span class="term">SIGRTMIN+2</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+2">¶</a></dt><dd><p>Enters emergency mode,
+                                rescue.target</strong></span>.</p></dd><dt id="SIGRTMIN+2"><span class="term"><code class="constant">SIGRTMIN+2</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+2">¶</a></dt><dd><p>Enters emergency mode,
                                 starts the
                                 <code class="filename">emergency.service</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl isolate
-                                emergency.service</strong></span>.</p></dd><dt id="SIGRTMIN+3"><span class="term">SIGRTMIN+3</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+3">¶</a></dt><dd><p>Halts the machine,
+                                emergency.service</strong></span>.</p></dd><dt id="SIGRTMIN+3"><span class="term"><code class="constant">SIGRTMIN+3</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+3">¶</a></dt><dd><p>Halts the machine,
                                 starts the
                                 <code class="filename">halt.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                halt.target</strong></span>.</p></dd><dt id="SIGRTMIN+4"><span class="term">SIGRTMIN+4</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+4">¶</a></dt><dd><p>Powers off the machine,
+                                halt.target</strong></span>.</p></dd><dt id="SIGRTMIN+4"><span class="term"><code class="constant">SIGRTMIN+4</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+4">¶</a></dt><dd><p>Powers off the machine,
                                 starts the
                                 <code class="filename">poweroff.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                poweroff.target</strong></span>.</p></dd><dt id="SIGRTMIN+5"><span class="term">SIGRTMIN+5</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+5">¶</a></dt><dd><p>Reboots the machine,
+                                poweroff.target</strong></span>.</p></dd><dt id="SIGRTMIN+5"><span class="term"><code class="constant">SIGRTMIN+5</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+5">¶</a></dt><dd><p>Reboots the machine,
                                 starts the
                                 <code class="filename">reboot.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                reboot.target</strong></span>.</p></dd><dt id="SIGRTMIN+6"><span class="term">SIGRTMIN+6</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+6">¶</a></dt><dd><p>Reboots the machine via kexec,
+                                reboot.target</strong></span>.</p></dd><dt id="SIGRTMIN+6"><span class="term"><code class="constant">SIGRTMIN+6</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+6">¶</a></dt><dd><p>Reboots the machine via kexec,
                                 starts the
                                 <code class="filename">kexec.target</code>
                                 unit. This is mostly equivalent to
                                 <span class="command"><strong>systemctl start
-                                kexec.target</strong></span>.</p></dd><dt id="SIGRTMIN+13"><span class="term">SIGRTMIN+13</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+13">¶</a></dt><dd><p>Immediately halts the machine.</p></dd><dt id="SIGRTMIN+14"><span class="term">SIGRTMIN+14</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+14">¶</a></dt><dd><p>Immediately powers off the machine.</p></dd><dt id="SIGRTMIN+15"><span class="term">SIGRTMIN+15</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+15">¶</a></dt><dd><p>Immediately reboots the machine.</p></dd><dt id="SIGRTMIN+16"><span class="term">SIGRTMIN+16</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+16">¶</a></dt><dd><p>Immediately reboots the machine with kexec.</p></dd><dt id="SIGRTMIN+20"><span class="term">SIGRTMIN+20</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+20">¶</a></dt><dd><p>Enables display of
+                                kexec.target</strong></span>.</p></dd><dt id="SIGRTMIN+13"><span class="term"><code class="constant">SIGRTMIN+13</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+13">¶</a></dt><dd><p>Immediately halts the machine.</p></dd><dt id="SIGRTMIN+14"><span class="term"><code class="constant">SIGRTMIN+14</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+14">¶</a></dt><dd><p>Immediately powers off the machine.</p></dd><dt id="SIGRTMIN+15"><span class="term"><code class="constant">SIGRTMIN+15</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+15">¶</a></dt><dd><p>Immediately reboots the machine.</p></dd><dt id="SIGRTMIN+16"><span class="term"><code class="constant">SIGRTMIN+16</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+16">¶</a></dt><dd><p>Immediately reboots the machine with kexec.</p></dd><dt id="SIGRTMIN+20"><span class="term"><code class="constant">SIGRTMIN+20</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+20">¶</a></dt><dd><p>Enables display of
                                 status messages on the console, as
                                 controlled via
                                 <code class="varname">systemd.show_status=1</code>
                                 on the kernel command
-                                line.</p></dd><dt id="SIGRTMIN+21"><span class="term">SIGRTMIN+21</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+21">¶</a></dt><dd><p>Disables display of
+                                line.</p></dd><dt id="SIGRTMIN+21"><span class="term"><code class="constant">SIGRTMIN+21</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+21">¶</a></dt><dd><p>Disables display of
                                 status messages on the console, as
                                 controlled via
                                 <code class="varname">systemd.show_status=0</code>
                                 on the kernel command
-                                line.</p></dd><dt id="SIGRTMIN+22"><span class="term">SIGRTMIN+22, </span><span class="term">SIGRTMIN+23</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+22">¶</a></dt><dd><p>Sets the log level to
-                                <code class="literal">debug</code>
-                                (or <code class="literal">info</code> on
-                                <code class="literal">SIGRTMIN+23</code>), as
+                                line.</p></dd><dt id="SIGRTMIN+22"><span class="term"><code class="constant">SIGRTMIN+22</code>, </span><span class="term"><code class="constant">SIGRTMIN+23</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+22">¶</a></dt><dd><p>Sets the log level to
+                                "<code class="literal">debug</code>"
+                                (or "<code class="literal">info</code>" on
+                                <code class="constant">SIGRTMIN+23</code>), as
                                 controlled via
                                 <code class="varname">systemd.log_level=debug</code>
                                 (or <code class="varname">systemd.log_level=info</code>
-                                on <code class="literal">SIGRTMIN+23</code>) on
+                                on <code class="constant">SIGRTMIN+23</code>) on
                                 the kernel command
-                                line.</p></dd><dt id="SIGRTMIN+24"><span class="term">SIGRTMIN+24</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+24">¶</a></dt><dd><p>Immediately exits the
+                                line.</p></dd><dt id="SIGRTMIN+24"><span class="term"><code class="constant">SIGRTMIN+24</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+24">¶</a></dt><dd><p>Immediately exits the
                                 manager (only available for --user
-                                instances).</p></dd><dt id="SIGRTMIN+26"><span class="term">SIGRTMIN+26, </span><span class="term">SIGRTMIN+27, </span><span class="term">SIGRTMIN+28, </span><span class="term">SIGRTMIN+29</span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+26">¶</a></dt><dd><p>Sets the log level to
-                                <code class="literal">journal-or-kmsg</code>
-                                (or <code class="literal">console</code> on
-                                <code class="literal">SIGRTMIN+27</code>,
-                                <code class="literal">kmsg</code> on
-                                <code class="literal">SIGRTMIN+28</code>,
-                                or <code class="literal">syslog-or-kmsg</code>
-                                on <code class="literal">SIGRTMIN+29</code>), as
+                                instances).</p></dd><dt id="SIGRTMIN+26"><span class="term"><code class="constant">SIGRTMIN+26</code>, </span><span class="term"><code class="constant">SIGRTMIN+27</code>, </span><span class="term"><code class="constant">SIGRTMIN+28</code>, </span><span class="term"><code class="constant">SIGRTMIN+29</code></span><a class="headerlink" title="Permalink to this term" href="#SIGRTMIN+26">¶</a></dt><dd><p>Sets the log level to
+                                "<code class="literal">journal-or-kmsg</code>"
+                                (or "<code class="literal">console</code>" on
+                                <code class="constant">SIGRTMIN+27</code>,
+                                "<code class="literal">kmsg</code>" on
+                                <code class="constant">SIGRTMIN+28</code>,
+                                or "<code class="literal">syslog-or-kmsg</code>"
+                                on <code class="constant">SIGRTMIN+29</code>), as
                                 controlled via
                                 <code class="varname">systemd.log_target=journal-or-kmsg</code>
                                 (or <code class="varname">systemd.log_target=console</code>
-                                on <code class="literal">SIGRTMIN+27</code>,
+                                on <code class="constant">SIGRTMIN+27</code>,
                                 <code class="varname">systemd.log_target=kmsg</code>
-                                on <code class="literal">SIGRTMIN+28</code>,
+                                on <code class="constant">SIGRTMIN+28</code>,
                                 or
                                 <code class="varname">systemd.log_target=syslog-or-kmsg</code>
-                                on <code class="literal">SIGRTMIN+29</code>) on
+                                on <code class="constant">SIGRTMIN+29</code>) on
                                 the kernel command
-                                line.</p></dd></dl></div></div><div class="refsect1"><a name="idm259793685152"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_LOG_LEVEL"><span class="term"><code class="varname">$SYSTEMD_LOG_LEVEL</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_LEVEL">¶</a></dt><dd><p>systemd reads the
+                                line.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693259360"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_LOG_LEVEL"><span class="term"><code class="varname">$SYSTEMD_LOG_LEVEL</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_LEVEL">¶</a></dt><dd><p>systemd reads the
                                 log level from this environment
                                 variable. This can be overridden with
                                 <code class="option">--log-level=</code>.</p></dd><dt id="$SYSTEMD_LOG_TARGET"><span class="term"><code class="varname">$SYSTEMD_LOG_TARGET</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_TARGET">¶</a></dt><dd><p>systemd reads the
@@ -518,9 +528,9 @@
                                 start-up completion notification. See
                                 <a href="sd_notify.html"><span class="citerefentry"><span class="refentrytitle">sd_notify</span>(3)</span></a>
                                 for more information.
-                                </p></dd></dl></div></div><div class="refsect1"><a name="idm259793661728"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>When run as system instance systemd parses a
+                                </p></dd></dl></div></div><div class="refsect1"><a name="idm274693235936"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>When run as system instance systemd parses a
                 number of kernel command line
-                arguments<a href="#ftn.idm259793660704" class="footnote" name="idm259793660704"><sup class="footnote">[1]</sup></a>:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.unit="><span class="term"><code class="varname">systemd.unit=</code>, </span><span class="term"><code class="varname">rd.systemd.unit=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.unit=">¶</a></dt><dd><p>Overrides the unit to
+                arguments<a href="#ftn.idm274693234912" class="footnote" name="idm274693234912"><sup class="footnote">[1]</sup></a>:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.unit="><span class="term"><code class="varname">systemd.unit=</code>, </span><span class="term"><code class="varname">rd.systemd.unit=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.unit=">¶</a></dt><dd><p>Overrides the unit to
                                 activate on boot. Defaults to
                                 <code class="filename">default.target</code>. This
                                 may be used to temporarily boot into a
@@ -530,18 +540,18 @@
                                 <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>
                                 for details about these units. The
                                 option prefixed with
-                                <code class="literal">rd.</code> is honored
+                                "<code class="literal">rd.</code>" is honored
                                 only in the initial RAM disk (initrd),
-                                while the one that isn't prefixed only
+                                while the one that is not prefixed only
                                 in the main system.</p></dd><dt id="systemd.dump_core="><span class="term"><code class="varname">systemd.dump_core=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.dump_core=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If <code class="option">true</code>
+                                argument. If <code class="option">true</code>,
                                 systemd dumps core when it
-                                crashes. Otherwise no core dump is
+                                crashes. Otherwise, no core dump is
                                 created. Defaults to
                                 <code class="option">true</code>.</p></dd><dt id="systemd.crash_shell="><span class="term"><code class="varname">systemd.crash_shell=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.crash_shell=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If <code class="option">true</code>
+                                argument. If <code class="option">true</code>,
                                 systemd spawns a shell when it
-                                crashes. Otherwise no shell is
+                                crashes. Otherwise, no shell is
                                 spawned. Defaults to
                                 <code class="option">false</code>, for security
                                 reasons, as the shell is not protected
@@ -550,12 +560,12 @@
                                 argument. If positive systemd
                                 activates the specified virtual
                                 terminal when it crashes. Defaults to
-                                <code class="literal">-1</code>.</p></dd><dt id="systemd.confirm_spawn="><span class="term"><code class="varname">systemd.confirm_spawn=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.confirm_spawn=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If <code class="option">true</code>
+                                <code class="constant">-1</code>.</p></dd><dt id="systemd.confirm_spawn="><span class="term"><code class="varname">systemd.confirm_spawn=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.confirm_spawn=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If <code class="option">true</code>,
                                 asks for confirmation when spawning
                                 processes. Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="systemd.show_status="><span class="term"><code class="varname">systemd.show_status=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.show_status=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If <code class="option">true</code>
+                                argument. If <code class="option">true</code>,
                                 shows terse service status updates on
                                 the console during bootup. Defaults to
                                 <code class="option">true</code>, unless
@@ -572,24 +582,26 @@
                                 and <code class="option">--default-standard-error=</code>
                                 command line arguments described
                                 above, respectively.</p></dd><dt id="systemd.setenv="><span class="term"><code class="varname">systemd.setenv=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.setenv=">¶</a></dt><dd><p>Takes a string
-                                argument in the form
-                                VARIABLE=VALUE. May be used to set
-                                environment variables for the init
-                                process and all its children at boot
-                                time. May be used more than once to
-                                set multiple variables. If the equal
-                                sign and variable are missing it unsets
-                                an environment variable which might be
-                                passed in from the initial ram
-                                disk.</p></dd><dt id="quiet"><span class="term"><code class="varname">quiet</code></span><a class="headerlink" title="Permalink to this term" href="#quiet">¶</a></dt><dd><p>If passed turns off
+                                argument in the form VARIABLE=VALUE.
+                                May be used to set default environment
+                                variables to add to forked child processes.
+                                May be used more than once to set multiple
+                                variables.</p></dd><dt id="quiet"><span class="term"><code class="varname">quiet</code></span><a class="headerlink" title="Permalink to this term" href="#quiet">¶</a></dt><dd><p>Turn off
                                 status output at boot, much like
                                 <code class="varname">systemd.show_status=false</code>
                                 would. Note that this option is also
                                 read by the kernel itself and disables
-                                kernel log output to the
-                                kernel. Passing this option hence
-                                turns off the usual output from both
-                                the system manager and the
+                                kernel log output. Passing this option
+                                hence turns off the usual output from
+                                both the system manager and the kernel.
+                                </p></dd><dt id="debug"><span class="term"><code class="varname">debug</code></span><a class="headerlink" title="Permalink to this term" href="#debug">¶</a></dt><dd><p>Turn on debugging
+                                output. This is equivalent to
+                                <code class="varname">systemd.log_level=debug</code>.
+                                Note that this option is also read by
+                                the kernel itself and enables kernel
+                                debug output.  Passing this option
+                                hence turns on the debug output from
+                                both the system manager and the
                                 kernel.</p></dd><dt id="emergency"><span class="term"><code class="varname">emergency</code></span><a class="headerlink" title="Permalink to this term" href="#emergency">¶</a></dt><dd><p>Boot into emergency
                                 mode. This is equivalent to
                                 <code class="varname">systemd.unit=emergency.target</code>
@@ -618,20 +630,20 @@
                                 </p></dd></dl></div><p>For other kernel command line parameters
                 understood by components of the core OS, please refer
                 to
-                <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm259793596048"></a><h2 id="Sockets and FIFOs">Sockets and FIFOs<a class="headerlink" title="Permalink to this headline" href="#Sockets%20and%20FIFOs">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/run/systemd/notify"><span class="term"><code class="filename">/run/systemd/notify</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/notify">¶</a></dt><dd><p>Daemon status
+                <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm274693177056"></a><h2 id="Sockets and FIFOs">Sockets and FIFOs<a class="headerlink" title="Permalink to this headline" href="#Sockets%20and%20FIFOs">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/run/systemd/notify"><span class="term"><code class="filename">/run/systemd/notify</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/notify">¶</a></dt><dd><p>Daemon status
                                 notification socket. This is an
-                                AF_UNIX datagram socket and is used to
+                                <code class="constant">AF_UNIX</code> datagram socket and is used to
                                 implement the daemon notification
                                 logic as implemented by
                                 <a href="sd_notify.html"><span class="citerefentry"><span class="refentrytitle">sd_notify</span>(3)</span></a>.</p></dd><dt id="/run/systemd/shutdownd"><span class="term"><code class="filename">/run/systemd/shutdownd</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/shutdownd">¶</a></dt><dd><p>Used internally by the
                                 <a href="shutdown.html"><span class="citerefentry"><span class="refentrytitle">shutdown</span>(8)</span></a>
                                 tool to implement delayed
-                                shutdowns. This is an AF_UNIX datagram
+                                shutdowns. This is an <code class="constant">AF_UNIX</code> datagram
                                 socket.</p></dd><dt id="/run/systemd/private"><span class="term"><code class="filename">/run/systemd/private</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/private">¶</a></dt><dd><p>Used internally as
                                 communication channel between
                                 <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>
                                 and the systemd process. This is an
-                                AF_UNIX stream socket. This interface
+                                <code class="constant">AF_UNIX</code> stream socket. This interface
                                 is private to systemd and should not
                                 be used in external
                                 projects.</p></dd><dt id="/dev/initctl"><span class="term"><code class="filename">/dev/initctl</code></span><a class="headerlink" title="Permalink to this term" href="#/dev/initctl">¶</a></dt><dd><p>Limited compatibility
@@ -641,7 +653,8 @@
                                 unit. This is a named pipe in the file
                                 system. This interface is obsolete and
                                 should not be used in new
-                                applications.</p></dd></dl></div></div><div class="refsect1"><a name="idm259793583968"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                applications.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693163872"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        The <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/" target="_top">systemd Homepage</a>,
                         <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
                         <a href="locale.conf.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
@@ -655,7 +668,7 @@
                         <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>,
                         <a href="bootup.html"><span class="citerefentry"><span class="refentrytitle">bootup</span>(7)</span></a>,
                         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
-                </p></div><div class="footnotes"><br><hr style="width:100; text-align:left;margin-left: 0"><div id="ftn.idm259793660704" class="footnote"><p><a href="#idm259793660704" class="para"><sup class="para">[1] </sup></a>If run inside a Linux
+                </p></div><div class="footnotes"><br><hr style="width:100; text-align:left;margin-left: 0"><div id="ftn.idm274693234912" class="footnote"><p><a href="#idm274693234912" class="para"><sup class="para">[1] </sup></a>If run inside a Linux
                 container these arguments may be passed as command
                 line arguments to systemd itself, next to any of the
                 command line options listed in the Options section

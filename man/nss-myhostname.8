@@ -1,0 +1,113 @@
+'\" t
+.TH "NSS\-MYHOSTNAME" "8" "" "systemd 208" "nss-myhostname"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+nss-myhostname \- Provide hostname resolution for the locally configured system hostname\&.
+.SH "SYNOPSIS"
+.PP
+nss\-myhostname\&.la
+.SH "DESCRIPTION"
+.PP
+\fBnss\-myhostname\fR
+is a plugin for the GNU Name Service Switch (NSS) functionality of the GNU C Library (\fBglibc\fR) providing hostname resolution for the locally configured system hostname as returned by
+\fBgethostname\fR(2)\&. Various software relies on an always\-resolvable local hostname\&. When using dynamic hostnames, this is usually achieved by patching
+/etc/hosts
+at the same time as changing the host name\&. This however is not ideal since it requires a writable
+/etc
+file system and is fragile because the file might be edited by the administrator at the same time\&.
+\fBnss\-myhostname\fR
+simply returns all locally configured public IP addresses, or, if none are configured, the IPv4 address 127\&.0\&.0\&.2 (which is on the local loopback) and the IPv6 address ::1 (which is the local host) for whatever system hostname is configured locally\&. Patching
+/etc/hosts
+is thus no longer necessary\&.
+.PP
+To activate the NSS modules,
+\fBmyhostname\fR
+has to be added to the line starting with "\fIhosts:\fR" in
+/etc/nsswitch\&.conf
+.PP
+It is recommended to put
+\fBmyhostname\fR
+last in the
+nsswitch\&.conf
+line to make sure that this mapping is only used as fallback, and any DNS or
+/etc/hosts
+based mapping takes precedence\&.
+.SH "EXAMPLE"
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# /etc/nsswitch\&.conf
+
+passwd:         compat
+group:          compat
+shadow:         compat
+
+hosts:          files dns \fImyhostname\fR
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis
+                
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+To test, use
+\fBglibc\fR\*(Aqs
+\fBgetent\fR
+tool:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ getent ahosts `hostname`
+::1             STREAM omega
+::1             DGRAM
+::1             RAW
+127\&.0\&.0\&.2       STREAM
+127\&.0\&.0\&.2       DGRAM
+127\&.0\&.0\&.2       RAW
+                
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+In this case the local hostname is
+\fIomega\fR\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-logind.service\fR(8),
+\fBlogind.conf\fR(5),
+\fBloginctl\fR(1),
+\fBpam.conf\fR(5),
+\fBpam.d\fR(5),
+\fBpam\fR(8),
+\fBpam_loginuid\fR(8)

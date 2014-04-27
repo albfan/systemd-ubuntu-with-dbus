@@ -23,6 +23,7 @@
 
 #include "util.h"
 #include "cgroup-util.h"
+#include "test-helper.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
@@ -32,12 +33,15 @@ static void check_p_d_u(const char *path, int code, const char *result) {
 }
 
 static void test_path_decode_unit(void) {
-        check_p_d_u("getty@.service/getty@tty2.service", 0, "getty@tty2.service");
-        check_p_d_u("getty@.service/getty@tty2.service/xxx", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/", 0, "getty@tty2.service");
+        check_p_d_u("getty@tty2.service/xxx", 0, "getty@tty2.service");
         check_p_d_u("getty@.service/", -EINVAL, NULL);
         check_p_d_u("getty@.service", -EINVAL, NULL);
         check_p_d_u("getty.service", 0, "getty.service");
         check_p_d_u("getty", -EINVAL, NULL);
+        check_p_d_u("getty/waldo", -EINVAL, NULL);
+        check_p_d_u("_cpu.service", 0, "cpu.service");
 }
 
 static void check_p_g_u(const char *path, int code, const char *result) {
@@ -47,6 +51,18 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         assert_se(streq_ptr(unit, result));
 }
 
+static void test_path_get_unit(void) {
+        check_p_g_u("/system.slice/foobar.service/sdfdsaf", 0, "foobar.service");
+        check_p_g_u("/system.slice/getty@tty5.service", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty5.service/", 0, "getty@tty5.service");
+        check_p_g_u("/system.slice/getty@tty6.service/tty5", 0, "getty@tty6.service");
+        check_p_g_u("sadfdsafsda", -EINVAL, NULL);
+        check_p_g_u("/system.slice/getty####@tty6.service/xxx", -EINVAL, NULL);
+        check_p_g_u("/system.slice/system-waldo.slice/foobar.service/sdfdsaf", 0, "foobar.service");
+        check_p_g_u("/system.slice/system-waldo.slice/_cpu.service/sdfdsaf", 0, "cpu.service");
+}
+
 static void check_p_g_u_u(const char *path, int code, const char *result) {
         _cleanup_free_ char *unit = NULL;
 
@@ -54,39 +70,65 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         assert_se(streq_ptr(unit, result));
 }
 
-static void test_path_get_unit(void) {
-        check_p_g_u("/system/foobar.service/sdfdsaf", 0, "foobar.service");
-        check_p_g_u("/system/getty@.service/getty@tty5.service", 0, "getty@tty5.service");
-        check_p_g_u("/system/getty@.service/getty@tty5.service/aaa/bbb", 0, "getty@tty5.service");
-        check_p_g_u("/system/getty@.service/getty@tty5.service/", 0, "getty@tty5.service");
-        check_p_g_u("/system/getty@tty6.service/tty5", 0, "getty@tty6.service");
-        check_p_g_u("sadfdsafsda", -ENOENT, NULL);
-        check_p_g_u("/system/getty####@tty6.service/tty5", -EINVAL, NULL);
+static void test_path_get_user_unit(void) {
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo.slice/foobar.service", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1002.slice/session-2.scope/foobar.service/waldo", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar.service/waldo/uuuux", 0, "foobar.service");
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/waldo/waldo/uuuux", -EINVAL, NULL);
+        check_p_g_u_u("/user.slice/user-1000.slice/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/session-2.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/xyz.slice/xyz-waldo.slice/session-77.scope/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+        check_p_g_u_u("/meh.service", -ENOENT, NULL);
+        check_p_g_u_u("/session-3.scope/_cpu.service", 0, "cpu.service");
 }
 
-static void test_path_get_user_unit(void) {
-        check_p_g_u_u("/user/lennart/2/systemd-21548/foobar.service", 0, "foobar.service");
-        check_p_g_u_u("/user/lennart/2/systemd-21548/foobar.service/waldo", 0, "foobar.service");
-        check_p_g_u_u("/user/lennart/2/systemd-21548/foobar.service/waldo/uuuux", 0, "foobar.service");
-        check_p_g_u_u("/user/lennart/2/systemd-21548/waldo/waldo/uuuux", -EINVAL, NULL);
-        check_p_g_u_u("/user/lennart/2/foobar.service", -ENOENT, NULL);
-        check_p_g_u_u("/user/lennart/2/systemd-21548/foobar@.service/foobar@pie.service/pa/po", 0, "foobar@pie.service");
+static void check_p_g_s(const char *path, int code, const char *result) {
+        _cleanup_free_ char *s = NULL;
+
+        assert_se(cg_path_get_session(path, &s) == code);
+        assert_se(streq_ptr(s, result));
+}
+
+static void test_path_get_session(void) {
+        check_p_g_s("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, "2");
+        check_p_g_s("/session-3.scope", 0, "3");
+        check_p_g_s("", -ENOENT, 0);
+}
+
+static void check_p_g_o_u(const char *path, int code, uid_t result) {
+        uid_t uid = 0;
+
+        assert_se(cg_path_get_owner_uid(path, &uid) == code);
+        assert_se(uid == result);
+}
+
+static void test_path_get_owner_uid(void) {
+        check_p_g_o_u("/user.slice/user-1000.slice/session-2.scope/foobar.service", 0, 1000);
+        check_p_g_o_u("/user.slice/user-1006.slice", 0, 1006);
+        check_p_g_o_u("", -ENOENT, 0);
+}
+
+static void check_p_g_m_n(const char *path, int code, const char *result) {
+        _cleanup_free_ char *m = NULL;
+
+        assert_se(cg_path_get_machine_name(path, &m) == code);
+        assert_se(streq_ptr(m, result));
+}
+
+static void test_path_get_machine_name(void) {
+        check_p_g_m_n("/user.slice/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope", 0, "foobar");
+        check_p_g_m_n("/user.slice/user-kuux.slice/machine-foobar.scope/asjhdkj", 0, "foobar");
+        check_p_g_m_n("", -ENOENT, NULL);
 }
 
 static void test_get_paths(void) {
-        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL;
+        _cleanup_free_ char *a = NULL;
 
         assert_se(cg_get_root_path(&a) >= 0);
         log_info("Root = %s", a);
-
-        assert_se(cg_get_system_path(&b) >= 0);
-        log_info("System = %s", b);
-
-        assert_se(cg_get_user_path(&c) >= 0);
-        log_info("User = %s", c);
-
-        assert_se(cg_get_machine_path("harley", &d) >= 0);
-        log_info("Machine = %s", d);
 }
 
 static void test_proc(void) {
@@ -98,7 +140,7 @@ static void test_proc(void) {
         assert_se(d);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL;
+                _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *prefix = NULL, *slice = NULL;
                 pid_t pid;
                 uid_t uid = (uid_t) -1;
 
@@ -120,8 +162,9 @@ static void test_proc(void) {
                 cg_pid_get_unit(pid, &unit);
                 cg_pid_get_user_unit(pid, &user_unit);
                 cg_pid_get_machine_name(pid, &machine);
+                cg_pid_get_slice(pid, &slice);
 
-                printf("%lu\t%s\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\n",
+                printf("%lu\t%s\t%s\t%s\t%lu\t%s\t%s\t%s\t%s\t%s\n",
                        (unsigned long) pid,
                        path,
                        prefix,
@@ -130,7 +173,8 @@ static void test_proc(void) {
                        session,
                        unit,
                        user_unit,
-                       machine);
+                       machine,
+                       slice);
         }
 }
 
@@ -170,14 +214,37 @@ static void test_controller_is_valid(void) {
         assert_se(!cg_controller_is_valid("tatü", false));
 }
 
+static void test_slice_to_path_one(const char *unit, const char *path, int error) {
+        _cleanup_free_ char *ret = NULL;
+
+        assert_se(cg_slice_to_path(unit, &ret) == error);
+        assert_se(streq_ptr(ret, path));
+}
+
+static void test_slice_to_path(void) {
+
+        test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
+        test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
+        test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
+        test_slice_to_path_one("-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo.slice", NULL, -EINVAL);
+        test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
+        test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+}
+
 int main(void) {
         test_path_decode_unit();
         test_path_get_unit();
         test_path_get_user_unit();
-        test_get_paths();
+        test_path_get_session();
+        test_path_get_owner_uid();
+        test_path_get_machine_name();
+        TEST_REQ_RUNNING_SYSTEMD(test_get_paths());
         test_proc();
-        test_escape();
+        TEST_REQ_RUNNING_SYSTEMD(test_escape());
         test_controller_is_valid();
+        test_slice_to_path();
 
         return 0;
 }

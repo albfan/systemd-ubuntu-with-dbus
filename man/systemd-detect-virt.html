@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd-detect-virt"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-detect-virt — Detect execution in a virtualized environment</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-detect-virt [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm259798803792"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-detect-virt</strong></span> detects
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-detect-virt"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-detect-virt — Detect execution in a virtualized environment</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-detect-virt [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm274688049920"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-detect-virt</strong></span> detects
                 execution in a virtualized environment. It identifies
                 the virtualization technology and can distinguish full
                 VM virtualization from container
@@ -31,14 +31,15 @@
                 <code class="varname">microsoft</code>,
                 <code class="varname">oracle</code>, <code class="varname">xen</code>,
                 <code class="varname">bochs</code>, <code class="varname">chroot</code>,
+                <code class="varname">uml</code>,
                 <code class="varname">openvz</code>, <code class="varname">lxc</code>,
                 <code class="varname">lxc-libvirt</code>,
-                <code class="varname">systemd-nspawn</code>.</p><p>If multiple virtualization solutions are used
+                <code class="varname">systemd-nspawn</code>.</p><p>If multiple virtualization solutions are used,
                 only the "innermost" is detected and identified. That
                 means if both VM virtualization and container
-                virtualization are used in conjunction only the latter
+                virtualization are used in conjunction, only the latter
                 will be identified (unless <code class="option">--vm</code> is
-                passed).</p></div><div class="refsect1"><a name="idm259798722624"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
+                passed).</p></div><div class="refsect1"><a name="idm274688040176"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
                                 text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a short version
                                 string and exits.</p></dd><dt id="-c"><span class="term"><code class="option">-c</code>, </span><span class="term"><code class="option">--container</code></span><a class="headerlink" title="Permalink to this term" href="#-c">¶</a></dt><dd><p>Only detects container
                                 virtualization (i.e. shared kernel
@@ -46,7 +47,7 @@
                                 virtualization (i.e. full hardware
                                 virtualization).</p></dd><dt id="-q"><span class="term"><code class="option">-q</code>, </span><span class="term"><code class="option">--quiet</code></span><a class="headerlink" title="Permalink to this term" href="#-q">¶</a></dt><dd><p>Suppress output of the
                                 virtualization technology
-                                identifier.</p></dd></dl></div></div><div class="refsect1"><a name="idm259798859232"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>If a virtualization technology is detected 0 is
-                returned, a non-zero code otherwise.</p></div><div class="refsect1"><a name="idm259798857936"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                identifier.</p></dd></dl></div></div><div class="refsect1"><a name="idm274691929808"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>If a virtualization technology is detected, 0 is
+                returned, a non-zero code otherwise.</p></div><div class="refsect1"><a name="idm274691928512"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
                 </p></div></div></body></html>

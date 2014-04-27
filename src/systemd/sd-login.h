@@ -72,8 +72,11 @@ int sd_pid_get_unit(pid_t pid, char **unit);
 int sd_pid_get_user_unit(pid_t pid, char **unit);
 
 /* Get machine name from PID, for processes assigned to VM or
- * container. This will return an error for non-service processes. */
+ * container. This will return an error for non-machine processes. */
 int sd_pid_get_machine_name(pid_t pid, char **name);
+
+/* Get slice name from PID. */
+int sd_pid_get_slice(pid_t pid, char **name);
 
 /* Get state from uid. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char**state);
@@ -120,6 +123,9 @@ int sd_session_get_display(const char *session, char **display);
 
 /* Determine the TTY of this session. */
 int sd_session_get_tty(const char *session, char **display);
+
+/* Determine the VT number of this session. */
+int sd_session_get_vt(const char *session, unsigned *vtnr);
 
 /* Return active session and user of seat */
 int sd_seat_get_active(const char *seat, char **session, uid_t *uid);

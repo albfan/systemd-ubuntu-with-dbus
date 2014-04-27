@@ -99,7 +99,7 @@
                 conjunction with STDERR-based logging as implemented
                 by systemd. If a systemd service definition file is
                 configured with <varname>StandardError=syslog</varname>
-                or <varname>StandardError=kmsg</varname> these
+                or <varname>StandardError=kmsg</varname>, these
                 prefixes can be used to encode a log level in lines
                 printed. This is similar to the kernel
                 <function>printk()</function>-style logging. See
@@ -146,8 +146,7 @@
                 <filename>sd-daemon.h</filename> files. These
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-daemon</literal>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file. Alternatively, applications consuming these APIs
                 may copy the implementation into their source tree,
                 either verbatim or in excerpts.</para>

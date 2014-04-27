@@ -23,22 +23,24 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-swap.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-swap.h"
 
 #define BUS_SWAP_INTERFACE                                              \
         " <interface name=\"org.freedesktop.systemd1.Swap\">\n"         \
         "  <property name=\"What\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Priority\" type=\"i\" access=\"read\"/>\n"  \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecActivate")                      \
         BUS_EXEC_COMMAND_INTERFACE("ExecDeactivate")                    \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
         " </interface>\n"
@@ -93,6 +95,7 @@ static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_swap_append_swap_result, swap_result,
 static const BusProperty bus_swap_properties[] = {
         { "What",       bus_property_append_string, "s", offsetof(Swap, what),  true },
         { "Priority",   bus_swap_append_priority,   "i", 0 },
+        { "TimeoutUSec",bus_property_append_usec,   "t", offsetof(Swap, timeout_usec)},
         BUS_EXEC_COMMAND_PROPERTY("ExecActivate",   offsetof(Swap, exec_command[SWAP_EXEC_ACTIVATE]),   false),
         BUS_EXEC_COMMAND_PROPERTY("ExecDeactivate", offsetof(Swap, exec_command[SWAP_EXEC_DEACTIVATE]), false),
         { "ControlPID", bus_property_append_pid,    "u", offsetof(Swap, control_pid) },
@@ -103,15 +106,44 @@ static const BusProperty bus_swap_properties[] = {
 DBusHandlerResult bus_swap_message_handler(Unit *u, DBusConnection *c, DBusMessage *message) {
         Swap *s = SWAP(u);
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit", bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Swap", bus_swap_properties,         s },
-                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties, &s->exec_context },
-                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties, &s->kill_context },
-                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,  u },
+                { "org.freedesktop.systemd1.Unit", bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Swap", bus_unit_cgroup_properties,    u },
+                { "org.freedesktop.systemd1.Swap", bus_swap_properties,           s },
+                { "org.freedesktop.systemd1.Swap", bus_exec_context_properties,   &s->exec_context },
+                { "org.freedesktop.systemd1.Swap", bus_kill_context_properties,   &s->kill_context },
+                { "org.freedesktop.systemd1.Swap", bus_cgroup_context_properties, &s->cgroup_context },
                 { NULL, }
         };
 
         SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps);
+}
+
+int bus_swap_set_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        Swap *s = SWAP(u);
+        int r;
+
+        assert(name);
+        assert(u);
+        assert(i);
+
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, i, mode, error);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int bus_swap_commit_properties(Unit *u) {
+        assert(u);
+
+        unit_realize_cgroup(u);
+        return 0;
 }

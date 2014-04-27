@@ -43,6 +43,12 @@ bool bus_connection_has_subscriber(Manager *m, DBusConnection *c);
 int bus_fdset_add_all(Manager *m, FDSet *fds);
 
 void bus_broadcast_finished(Manager *m, usec_t firmware_usec, usec_t loader_usec, usec_t kernel_usec, usec_t initrd_usec, usec_t userspace_usec, usec_t total_usec);
+void bus_broadcast_reloading(Manager *m, bool active);
+
+Set *bus_acquire_subscribed(Manager *m, DBusConnection *c);
+
+void bus_serialize(Manager *m, FILE *f);
+int bus_deserialize_item(Manager *m, const char *line);
 
 #define BUS_CONNECTION_SUBSCRIBED(m, c) dbus_connection_get_data((c), (m)->subscribed_data_slot)
 #define BUS_PENDING_CALL_NAME(m, p) dbus_pending_call_get_data((p), (m)->name_data_slot)

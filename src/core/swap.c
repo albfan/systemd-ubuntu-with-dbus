@@ -92,6 +92,7 @@ static void swap_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
         kill_context_init(&s->kill_context);
+        cgroup_context_init(&s->cgroup_context);
 
         s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
 
@@ -129,45 +130,11 @@ static void swap_done(Unit *u) {
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
+        cgroup_context_done(&s->cgroup_context);
+
         swap_unwatch_control_pid(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
-}
-
-int swap_add_one_mount_link(Swap *s, Mount *m) {
-         int r;
-
-        assert(s);
-        assert(m);
-
-        if (UNIT(s)->load_state != UNIT_LOADED ||
-            UNIT(m)->load_state != UNIT_LOADED)
-                return 0;
-
-        if (is_device_path(s->what))
-                return 0;
-
-        if (!path_startswith(s->what, m->where))
-                return 0;
-
-        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, UNIT(m), true);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int swap_add_mount_links(Swap *s) {
-        Unit *other;
-        int r;
-
-        assert(s);
-
-        LIST_FOREACH(units_by_type, other, UNIT(s)->manager->units_by_type[UNIT_MOUNT])
-                if ((r = swap_add_one_mount_link(s, MOUNT(other))) < 0)
-                        return r;
-
-        return 0;
 }
 
 static int swap_add_device_links(Swap *s) {
@@ -184,8 +151,7 @@ static int swap_add_device_links(Swap *s) {
                 return 0;
 
         if (is_device_path(s->what))
-                return unit_add_node_link(UNIT(s), s->what,
-                                          !p->noauto && p->nofail &&
+                return unit_add_node_link(UNIT(s), s->what, !p->noauto &&
                                           UNIT(s)->manager->running_as == SYSTEMD_SYSTEM);
         else
                 /* File based swap devices need to be ordered after
@@ -195,6 +161,7 @@ static int swap_add_device_links(Swap *s) {
 }
 
 static int swap_add_default_dependencies(Swap *s) {
+        bool nofail = false, noauto = false;
         int r;
 
         assert(s);
@@ -208,6 +175,24 @@ static int swap_add_default_dependencies(Swap *s) {
         r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, NULL, true);
         if (r < 0)
                 return r;
+
+        if (s->from_fragment) {
+                SwapParameters *p = &s->parameters_fragment;
+
+                nofail = p->nofail;
+                noauto = p->noauto;
+        }
+
+        if (!noauto) {
+                if (nofail)
+                        r = unit_add_dependency_by_name_inverse(UNIT(s),
+                                UNIT_WANTS, SPECIAL_SWAP_TARGET, NULL, true);
+                else
+                        r = unit_add_two_dependencies_by_name_inverse(UNIT(s),
+                                UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SWAP_TARGET, NULL, true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -279,15 +264,15 @@ static int swap_load(Unit *u) {
                         if ((r = unit_set_description(u, s->what)) < 0)
                                 return r;
 
+                r = unit_require_mounts_for(UNIT(s), s->what);
+                if (r < 0)
+                        return r;
+
                 r = swap_add_device_links(s);
                 if (r < 0)
                         return r;
 
-                r = swap_add_mount_links(s);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_default_cgroups(u);
+                r = unit_add_default_slice(u);
                 if (r < 0)
                         return r;
 
@@ -589,6 +574,8 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
+        unit_realize_cgroup(UNIT(s));
+
         r = unit_watch_timer(UNIT(s), CLOCK_MONOTONIC, true, s->timeout_usec, &s->timer_watch);
         if (r < 0)
                 goto fail;
@@ -602,9 +589,8 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        true,
                        true,
                        UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->cgroup_bondings,
-                       UNIT(s)->cgroup_attributes,
-                       NULL,
+                       UNIT(s)->manager->cgroup_supported,
+                       UNIT(s)->cgroup_path,
                        UNIT(s)->id,
                        NULL,
                        &pid);
@@ -1052,7 +1038,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
         (void) fscanf(m->proc_swaps, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                char *dev = NULL, *d;
+                _cleanup_free_ char *dev = NULL, *d = NULL;
                 int prio = 0, k;
 
                 k = fscanf(m->proc_swaps,
@@ -1067,19 +1053,14 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                                 break;
 
                         log_warning("Failed to parse /proc/swaps:%u", i);
-                        free(dev);
                         continue;
                 }
 
                 d = cunescape(dev);
-                free(dev);
-
                 if (!d)
                         return -ENOMEM;
 
                 k = swap_process_new_swap(m, d, prio, set_flags);
-                free(d);
-
                 if (k < 0)
                         r = k;
         }
@@ -1323,8 +1304,9 @@ const UnitVTable swap_vtable = {
                 "Swap\0"
                 "Install\0",
 
+        .private_section = "Swap",
         .exec_context_offset = offsetof(Swap, exec_context),
-        .exec_section = "Swap",
+        .cgroup_context_offset = offsetof(Swap, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,
@@ -1358,6 +1340,8 @@ const UnitVTable swap_vtable = {
         .bus_interface = "org.freedesktop.systemd1.Swap",
         .bus_message_handler = bus_swap_message_handler,
         .bus_invalidating_properties =  bus_swap_invalidating_properties,
+        .bus_set_property = bus_swap_set_property,
+        .bus_commit_properties = bus_swap_commit_properties,
 
         .following = swap_following,
         .following_set = swap_following_set,

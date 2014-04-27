@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm259776390544"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm274685097296"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file
                 contains machine meta data.</p><p>The basic file format of
                 <code class="filename">machine-info</code> is a
                 newline-separated list of environment-like
@@ -35,44 +35,44 @@
                 information as well, however only as fallback.</p><p>You may use
                 <a href="hostnamectl.html"><span class="citerefentry"><span class="refentrytitle">hostnamectl</span>(1)</span></a>
                 to change the settings of this file from the command
-                line.</p></div><div class="refsect1"><a name="idm259776384208"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine meta data parameters may
+                line.</p></div><div class="refsect1"><a name="idm274685090960"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine meta data parameters may
                 be set using
                 <code class="filename">/etc/machine-info</code>:</p><div class="variablelist"><dl class="variablelist"><dt id="PRETTY_HOSTNAME="><span class="term"><code class="varname">PRETTY_HOSTNAME=</code></span><a class="headerlink" title="Permalink to this term" href="#PRETTY_HOSTNAME=">¶</a></dt><dd><p>A pretty
-                                human-readable UTF8 machine identifier
+                                human-readable UTF-8 machine identifier
                                 string. This should contain a name
-                                like <code class="literal">Lennart's
-                                Laptop</code> which is useful to
+                                like "<code class="literal">Lennart's
+                                Laptop</code>" which is useful to
                                 present to the user and does not
                                 suffer by the syntax limitations of
-                                internet domain names. If possible the
-                                internet host name as configured in
+                                internet domain names. If possible, the
+                                internet hostname as configured in
                                 <code class="filename">/etc/hostname</code>
                                 should be kept similar to this
                                 one. Example: if this value is
-                                <code class="literal">Lennart's Computer</code>
-                                an Internet host name of
-                                <code class="literal">lennarts-computer</code>
+                                "<code class="literal">Lennart's Computer</code>"
+                                an Internet hostname of
+                                "<code class="literal">lennarts-computer</code>"
                                 might be a good choice. If this
-                                parameter is not set an application
+                                parameter is not set, an application
                                 should fall back to the Internet host
                                 name for presentation
                                 purposes.</p></dd><dt id="ICON_NAME="><span class="term"><code class="varname">ICON_NAME=</code></span><a class="headerlink" title="Permalink to this term" href="#ICON_NAME=">¶</a></dt><dd><p>An icon identifying
                                 this machine according to the <a class="ulink" href="http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html" target="_top">XDG
                                 Icon Naming Specification</a>. If
-                                this parameter is not set an
+                                this parameter is not set, an
                                 application should fall back to
-                                <code class="literal">computer</code> or a
+                                "<code class="literal">computer</code>" or a
                                 similar icon name.</p></dd><dt id="CHASSIS="><span class="term"><code class="varname">CHASSIS=</code></span><a class="headerlink" title="Permalink to this term" href="#CHASSIS=">¶</a></dt><dd><p>The chassis
                                 type. Currently, the following chassis
                                 types are defined:
-                                <code class="literal">desktop</code>,
-                                <code class="literal">laptop</code>,
-                                <code class="literal">server</code>,
-                                <code class="literal">tablet</code>,
-                                <code class="literal">handset</code>, as well as
+                                "<code class="literal">desktop</code>",
+                                "<code class="literal">laptop</code>",
+                                "<code class="literal">server</code>",
+                                "<code class="literal">tablet</code>",
+                                "<code class="literal">handset</code>", as well as
                                 the special chassis types
-                                <code class="literal">vm</code> and
-                                <code class="literal">container</code> for
+                                "<code class="literal">vm</code>" and
+                                "<code class="literal">container</code>" for
                                 virtualized systems that lack an
                                 immediate physical chassis. Note that
                                 many systems allow detection of the
@@ -84,9 +84,9 @@
                                 override misdetected configuration or
                                 to manually configure the chassis type
                                 where automatic detection is not
-                                available.</p></dd></dl></div></div><div class="refsect1"><a name="idm259780319744"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
+                                available.</p></dd></dl></div></div><div class="refsect1"><a name="idm274688973632"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
 ICON_NAME=computer-tablet
-CHASSIS=tablet</pre></div><div class="refsect1"><a name="idm259780318288"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+CHASSIS=tablet</pre></div><div class="refsect1"><a name="idm274688972176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>,
                           <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

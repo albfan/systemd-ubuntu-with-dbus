@@ -20,14 +20,14 @@ After=rc-local.service
 Before=getty.target
 IgnoreOnIsolate=yes
 
-# On systems without virtual consoles, don't start any getty. (Note
+# On systems without virtual consoles, don't start any getty. Note
 # that serial gettys are covered by serial-getty@.service, not this
-# unit
+# unit.
 ConditionPathExists=/dev/tty0
 
 [Service]
 # the VT is cleared by TTYVTDisallocate
-ExecStart=-/sbin/agetty --noclear %I 38400 linux
+ExecStart=-/sbin/agetty --noclear %I
 Type=idle
 Restart=always
 RestartSec=0
@@ -38,14 +38,11 @@ TTYVHangup=yes
 TTYVTDisallocate=yes
 KillMode=process
 IgnoreSIGPIPE=no
+SendSIGHUP=yes
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.
 Environment=LANG= LANGUAGE= LC_CTYPE= LC_NUMERIC= LC_TIME= LC_COLLATE= LC_MONETARY= LC_MESSAGES= LC_PAPER= LC_NAME= LC_ADDRESS= LC_TELEPHONE= LC_MEASUREMENT= LC_IDENTIFICATION=
 
-# Some login implementations ignore SIGTERM, so we send SIGHUP
-# instead, to ensure that login terminates cleanly.
-KillSignal=SIGHUP
-
 [Install]
-Alias=getty.target.wants/getty@tty1.service
+WantedBy=getty.target

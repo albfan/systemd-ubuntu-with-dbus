@@ -1,0 +1,107 @@
+'\" t
+.TH "SYSTEMD\&.KILL" "5" "" "systemd 208" "systemd.kill"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd.kill \- Kill environment configuration
+.SH "SYNOPSIS"
+.PP
+\fIservice\fR\&.service,
+\fIsocket\fR\&.socket,
+\fImount\fR\&.mount,
+\fIswap\fR\&.swap
+.SH "DESCRIPTION"
+.PP
+Unit configuration files for services, sockets, mount points and swap devices share a subset of configuration options which define the process killing parameters of spawned processes\&.
+.PP
+This man page lists the configuration options shared by these four unit types\&. See
+\fBsystemd.unit\fR(5)
+for the common options of all unit configuration files, and
+\fBsystemd.service\fR(5),
+\fBsystemd.socket\fR(5),
+\fBsystemd.swap\fR(5)
+and
+\fBsystemd.mount\fR(5)
+for more information on the specific unit configuration files\&. The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] section, depending on the unit type\&.
+.SH "OPTIONS"
+.PP
+\fIKillMode=\fR
+.RS 4
+Specifies how processes of this service shall be killed\&. One of
+\fBcontrol\-group\fR,
+\fBprocess\fR,
+\fBnone\fR\&.
+.sp
+If set to
+\fBcontrol\-group\fR, all remaining processes in the control group of this unit will be terminated on unit stop (for services: after the stop command is executed, as configured with
+\fIExecStop=\fR)\&. If set to
+\fBprocess\fR, only the main process itself is killed\&. If set to
+\fBnone\fR, no process is killed\&. In this case only the stop command will be executed on unit stop, but no process be killed otherwise\&. Processes remaining alive after stop are left in their control group and the control group continues to exist after stop unless it is empty\&. Defaults to
+\fBcontrol\-group\fR\&.
+.sp
+Processes will first be terminated via
+\fBSIGTERM\fR
+(unless the signal to send is changed via
+\fIKillSignal=\fR)\&. Optionally, this is immediately followed by a
+\fBSIGHUP\fR
+(if enabled with
+\fISendSIGHUP=\fR)\&. If then, after a delay (configured via the
+\fITimeoutStopSec=\fR
+option), processes still remain, the termination request is repeated with the
+\fBSIGKILL\fR
+signal (unless this is disabled via the
+\fISendSIGKILL=\fR
+option)\&. See
+\fBkill\fR(2)
+for more information\&.
+.RE
+.PP
+\fIKillSignal=\fR
+.RS 4
+Specifies which signal to use when killing a service\&. Defaults to
+\fBSIGTERM\fR\&.
+.RE
+.PP
+\fISendSIGHUP=\fR
+.RS 4
+Specifies whether to send
+\fBSIGHUP\fR
+to remaining processes immediately after sending the signal configured with
+\fIKillSignal=\fR\&. This is useful to indicate to shells and shell\-like programs that their connection has been severed\&. Takes a boolean value\&. Defaults to "no"\&.
+.RE
+.PP
+\fISendSIGKILL=\fR
+.RS 4
+Specifies whether to send
+\fBSIGKILL\fR
+to remaining processes after a timeout, if the normal shutdown procedure left processes of the service around\&. Takes a boolean value\&. Defaults to "yes"\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemctl\fR(8),
+\fBjournalctl\fR(8),
+\fBsystemd.unit\fR(5),
+\fBsystemd.service\fR(5),
+\fBsystemd.socket\fR(5),
+\fBsystemd.swap\fR(5),
+\fBsystemd.mount\fR(5),
+\fBsystemd.exec\fR(5),
+\fBsystemd.directives\fR(7)

@@ -21,6 +21,7 @@ import sys
 import collections
 import re
 from xml_helper import *
+from copy import deepcopy
 
 TEMPLATE = '''\
 <refentry id="systemd.directives" conditional="HAVE_PYTHON">
@@ -138,6 +139,14 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>Constants</title>
+
+                <para>Various constant used and/or defined by systemd.</para>
+
+                <variablelist id='constants' />
+        </refsect1>
+
+        <refsect1>
                 <title>Miscellaneous options and directives</title>
 
                 <para>Other configuration elements which don't fit in
@@ -221,24 +230,35 @@ def _extract_directives(directive_groups, formatting, page):
                 storfile[text].append((pagename, section))
                 formatting[text] = name
 
+    storfile = directive_groups['constants']
+    for name in t.iterfind('.//constant'):
+        if name.attrib.get('noindex'):
+            continue
+        name.tail = ''
+        if name.text.startswith('('): # a cast, strip it
+            name.text = name.text.partition(' ')[2]
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
+
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
         term = tree.SubElement(entry, 'term')
-        term.append(formatting[varname])
+        display = deepcopy(formatting[varname])
+        term.append(display)
 
         para = tree.SubElement(tree.SubElement(entry, 'listitem'), 'para')
 
         b = None
         for manpage, manvolume in sorted(set(manpages)):
-                if b is not None:
-                        b.tail = ', '
-                b = tree.SubElement(para, 'citerefentry')
-                c = tree.SubElement(b, 'refentrytitle')
-                c.text = manpage
-                d = tree.SubElement(b, 'manvolnum')
-                d.text = manvolume
+            if b is not None:
+                b.tail = ', '
+            b = tree.SubElement(para, 'citerefentry')
+            c = tree.SubElement(b, 'refentrytitle')
+            c.text = manpage
+            d = tree.SubElement(b, 'manvolnum')
+            d.text = manvolume
         entry.tail = '\n\n'
 
 def _make_colophon(template, groups):
@@ -264,7 +284,7 @@ def _make_page(template, directive_groups, formatting):
     }
     """
     for name, directives in directive_groups.items():
-            _make_section(template, name, directives, formatting)
+        _make_section(template, name, directives, formatting)
 
     _make_colophon(template, directive_groups.values())
 

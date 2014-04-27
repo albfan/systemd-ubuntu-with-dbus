@@ -55,7 +55,6 @@
 #include "sd-messages.h"
 #include "ioprio.h"
 #include "securebits.h"
-#include "cgroup.h"
 #include "namespace.h"
 #include "tcpwrap.h"
 #include "exit-status.h"
@@ -67,8 +66,11 @@
 #include "syscall-list.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "unit.h"
+#include "async.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
+#define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
@@ -758,24 +760,30 @@ static int setup_pam(
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
 
-        if ((pam_code = pam_start(name, user, &conv, &handle)) != PAM_SUCCESS) {
+        pam_code = pam_start(name, user, &conv, &handle);
+        if (pam_code != PAM_SUCCESS) {
                 handle = NULL;
                 goto fail;
         }
 
-        if (tty)
-                if ((pam_code = pam_set_item(handle, PAM_TTY, tty)) != PAM_SUCCESS)
+        if (tty) {
+                pam_code = pam_set_item(handle, PAM_TTY, tty);
+                if (pam_code != PAM_SUCCESS)
                         goto fail;
+        }
 
-        if ((pam_code = pam_acct_mgmt(handle, PAM_SILENT)) != PAM_SUCCESS)
+        pam_code = pam_acct_mgmt(handle, PAM_SILENT);
+        if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        if ((pam_code = pam_open_session(handle, PAM_SILENT)) != PAM_SUCCESS)
+        pam_code = pam_open_session(handle, PAM_SILENT);
+        if (pam_code != PAM_SUCCESS)
                 goto fail;
 
         close_session = true;
 
-        if ((!(e = pam_getenvlist(handle)))) {
+        e = pam_getenvlist(handle);
+        if (!e) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
         }
@@ -789,7 +797,8 @@ static int setup_pam(
 
         parent_pid = getpid();
 
-        if ((pam_pid = fork()) < 0)
+        pam_pid = fork();
+        if (pam_pid < 0)
                 goto fail;
 
         if (pam_pid == 0) {
@@ -840,9 +849,11 @@ static int setup_pam(
                 }
 
                 /* If our parent died we'll end the session */
-                if (getppid() != parent_pid)
-                        if ((pam_code = pam_close_session(handle, PAM_DATA_SILENT)) != PAM_SUCCESS)
+                if (getppid() != parent_pid) {
+                        pam_code = pam_close_session(handle, PAM_DATA_SILENT);
+                        if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
+                }
 
                 r = 0;
 
@@ -977,6 +988,35 @@ static int apply_seccomp(uint32_t *syscall_filter) {
         return 0;
 }
 
+static void do_idle_pipe_dance(int idle_pipe[4]) {
+        assert(idle_pipe);
+
+        if (idle_pipe[1] >= 0)
+                close_nointr_nofail(idle_pipe[1]);
+        if (idle_pipe[2] >= 0)
+                close_nointr_nofail(idle_pipe[2]);
+
+        if (idle_pipe[0] >= 0) {
+                int r;
+
+                r = fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
+
+                if (idle_pipe[3] >= 0 && r == 0 /* timeout */) {
+                        /* Signal systemd that we are bored and want to continue. */
+                        write(idle_pipe[3], "x", 1);
+
+                        /* Wait for systemd to react to the signal above. */
+                        fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
+                }
+
+                close_nointr_nofail(idle_pipe[0]);
+
+        }
+
+        if (idle_pipe[3] >= 0)
+                close_nointr_nofail(idle_pipe[3]);
+}
+
 int exec_spawn(ExecCommand *command,
                char **argv,
                ExecContext *context,
@@ -986,18 +1026,17 @@ int exec_spawn(ExecCommand *command,
                bool apply_chroot,
                bool apply_tty_stdin,
                bool confirm_spawn,
-               CGroupBonding *cgroup_bondings,
-               CGroupAttribute *cgroup_attributes,
-               const char *cgroup_suffix,
+               CGroupControllerMask cgroup_supported,
+               const char *cgroup_path,
                const char *unit_id,
-               int idle_pipe[2],
+               int idle_pipe[4],
                pid_t *ret) {
 
+        _cleanup_strv_free_ char **files_env = NULL;
+        int socket_fd;
+        char *line;
         pid_t pid;
         int r;
-        char *line;
-        int socket_fd;
-        _cleanup_strv_free_ char **files_env = NULL;
 
         assert(command);
         assert(context);
@@ -1042,17 +1081,6 @@ int exec_spawn(ExecCommand *command,
                         NULL);
         free(line);
 
-        r = cgroup_bonding_realize_list(cgroup_bondings);
-        if (r < 0)
-                return r;
-
-        /* We must initialize the attributes in the parent, before we
-        fork, because we really need them initialized before making
-        the process a member of the group (which we do in both the
-        child and the parent), and we cannot really apply them twice
-        (due to 'append' style attributes) */
-        cgroup_attribute_apply_list(cgroup_attributes, cgroup_bondings);
-
         if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
                 r = setup_tmpdirs(&context->tmp_dir, &context->var_tmp_dir);
                 if (r < 0)
@@ -1072,7 +1100,6 @@ int exec_spawn(ExecCommand *command,
                 _cleanup_strv_free_ char **our_env = NULL, **pam_env = NULL,
                         **final_env = NULL, **final_argv = NULL;
                 unsigned n_env = 0;
-                bool set_access = false;
 
                 /* child */
 
@@ -1096,14 +1123,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (idle_pipe) {
-                        if (idle_pipe[1] >= 0)
-                                close_nointr_nofail(idle_pipe[1]);
-                        if (idle_pipe[0] >= 0) {
-                                fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT_USEC);
-                                close_nointr_nofail(idle_pipe[0]);
-                        }
-                }
+                if (idle_pipe)
+                        do_idle_pipe_dance(idle_pipe);
 
                 /* Close sockets very early to make sure we don't
                  * block init reexecution because it cannot bind its
@@ -1185,8 +1206,8 @@ int exec_spawn(ExecCommand *command,
                         goto fail_child;
                 }
 
-                if (cgroup_bondings) {
-                        err = cgroup_bonding_install_list(cgroup_bondings, 0, cgroup_suffix);
+                if (cgroup_path) {
+                        err = cg_attach_everywhere(cgroup_supported, cgroup_path, 0);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
@@ -1269,37 +1290,24 @@ int exec_spawn(ExecCommand *command,
                                         goto fail_child;
                                 }
                         }
-
-                        if (cgroup_bondings && context->control_group_modify) {
-                                err = cgroup_bonding_set_group_access_list(cgroup_bondings, 0755, uid, gid);
-                                if (err >= 0)
-                                        err = cgroup_bonding_set_task_access_list(
-                                                        cgroup_bondings,
-                                                        0644,
-                                                        uid,
-                                                        gid,
-                                                        context->control_group_persistent);
-                                if (err < 0) {
-                                        r = EXIT_CGROUP;
-                                        goto fail_child;
-                                }
-
-                                set_access = true;
-                        }
                 }
 
-                if (cgroup_bondings && !set_access && context->control_group_persistent >= 0)  {
-                        err = cgroup_bonding_set_task_access_list(
-                                        cgroup_bondings,
-                                        (mode_t) -1,
-                                        (uid_t) -1,
-                                        (uid_t) -1,
-                                        context->control_group_persistent);
+#ifdef HAVE_PAM
+                if (cgroup_path && context->user && context->pam_name) {
+                        err = cg_set_task_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0644, uid, gid);
+                        if (err < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail_child;
+                        }
+
+
+                        err = cg_set_group_access(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, 0755, uid, gid);
                         if (err < 0) {
                                 r = EXIT_CGROUP;
                                 goto fail_child;
                         }
                 }
+#endif
 
                 if (apply_permissions) {
                         err = enforce_groups(context, username, gid);
@@ -1562,7 +1570,8 @@ int exec_spawn(ExecCommand *command,
          * outside of the cgroup) and in the parent (so that we can be
          * sure that when we kill the cgroup the process will be
          * killed too). */
-        cgroup_bonding_install_list(cgroup_bondings, pid, cgroup_suffix);
+        if (cgroup_path)
+                cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 
@@ -1578,9 +1587,30 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_policy = SCHED_OTHER;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
         c->syslog_level_prefix = true;
-        c->control_group_persistent = -1;
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = (nsec_t) -1;
+}
+
+static void *remove_tmpdir_thread(void *p) {
+        int r;
+        _cleanup_free_ char *dirp = p;
+        char *dir;
+
+        assert(dirp);
+
+        r = rm_rf_dangerous(dirp, false, true, false);
+        dir = dirname(dirp);
+        if (r < 0)
+                log_warning("Failed to remove content of temporary directory %s: %s",
+                            dir, strerror(-r));
+        else {
+                r = rmdir(dir);
+                if (r < 0)
+                        log_warning("Failed to remove temporary directory %s: %s",
+                                    dir, strerror(-r));
+        }
+
+        return NULL;
 }
 
 void exec_context_tmp_dirs_done(ExecContext *c) {
@@ -1590,22 +1620,8 @@ void exec_context_tmp_dirs_done(ExecContext *c) {
         char **dirp;
 
         for(dirp = dirs; *dirp; dirp++) {
-                char *dir;
-                int r;
-
-                r = rm_rf_dangerous(*dirp, false, true, false);
-                dir = dirname(*dirp);
-                if (r < 0)
-                        log_warning("Failed to remove content of temporary directory %s: %s",
-                                    dir, strerror(-r));
-                else {
-                        r = rmdir(dir);
-                        if (r < 0)
-                                log_warning("Failed to remove  temporary directory %s: %s",
-                                            dir, strerror(-r));
-                }
-
-                free(*dirp);
+                log_debug("Spawning thread to nuke %s", *dirp);
+                asynchronous_job(remove_tmpdir_thread, *dirp);
         }
 
         c->tmp_dir = c->var_tmp_dir = NULL;
@@ -1770,10 +1786,10 @@ int exec_context_load_environment(const ExecContext *c, char ***l) {
 
                                 strv_free(r);
                                 return k;
-                         }
+                        }
                         /* Log invalid environment variables with filename */
-			if (p)
-	                        p = strv_env_clean_log(p, pglob.gl_pathv[n]);
+                        if (p)
+                                p = strv_env_clean_log(p, pglob.gl_pathv[n]);
 
                         if (r == NULL)
                                 r = p;
@@ -1837,14 +1853,13 @@ static void strv_fprintf(FILE *f, char **l) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-        char ** e;
+        char **e;
         unsigned i;
 
         assert(c);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%sUMask: %04o\n"
@@ -1852,8 +1867,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sRootDirectory: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
-                "%sControlGroupModify: %s\n"
-                "%sControlGroupPersistent: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sIgnoreSIGPIPE: %s\n",
                 prefix, c->umask,
@@ -1861,8 +1874,6 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix, c->root_directory ? c->root_directory : "/",
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
-                prefix, yes_no(c->control_group_modify),
-                prefix, yes_no(c->control_group_persistent),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->ignore_sigpipe));
 

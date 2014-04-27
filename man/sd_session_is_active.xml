@@ -52,6 +52,7 @@
                 <refname>sd_session_get_class</refname>
                 <refname>sd_session_get_display</refname>
                 <refname>sd_session_get_tty</refname>
+                <refname>sd_session_get_vt</refname>
                 <refpurpose>Determine state of a specific session</refpurpose>
         </refnamediv>
 
@@ -110,6 +111,12 @@
                                 <funcdef>int <function>sd_session_get_tty</function></funcdef>
                                 <paramdef>const char* <parameter>session</parameter></paramdef>
                                 <paramdef>char** <parameter>tty</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
+                                <funcdef>int <function>sd_session_get_vt</function></funcdef>
+                                <paramdef>const char* <parameter>session</parameter></paramdef>
+                                <paramdef>unsigned int* <parameter>vt</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -202,16 +209,23 @@
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use.</para>
 
-                <para>If the <literal>session</literal> parameter of
-                any of these functions is passed as NULL the operation
-                is executed for the session the calling process is a
-                member of, if there is any.</para>
+                <para><function>sd_session_get_vt()</function>
+                may be used to determine the VT number of the
+                session identified by the specified session
+                identifier. This function will return an error if
+                the seat does not support VTs.</para>
+
+                <para>If the <varname>session</varname> parameter of
+                any of these functions is passed as
+                <constant>NULL</constant>, the operation is executed
+                for the session the calling process is a member of, if
+                there is any.</para>
         </refsect1>
 
         <refsect1>
                 <title>Return Value</title>
 
-                <para>If the test succeeds
+                <para>If the test succeeds,
                 <function>sd_session_is_active()</function> returns a
                 positive integer, if it fails 0.  On success
                 <function>sd_session_get_state()</function>,
@@ -240,8 +254,7 @@
                 <function>sd_session_get_tty()</function>
                 interfaces are available as shared library, which can
                 be compiled and linked to with the
-                <literal>libsystemd-login</literal>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

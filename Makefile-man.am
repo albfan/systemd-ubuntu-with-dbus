@@ -52,9 +52,11 @@ MANPAGES += \
 	man/systemd-cgtop.1 \
 	man/systemd-delta.1 \
 	man/systemd-detect-virt.1 \
+	man/systemd-efi-boot-generator.8 \
 	man/systemd-fsck@.service.8 \
 	man/systemd-fstab-generator.8 \
 	man/systemd-getty-generator.8 \
+	man/systemd-gpt-auto-generator.8 \
 	man/systemd-halt.service.8 \
 	man/systemd-inhibit.1 \
 	man/systemd-initctl.service.8 \
@@ -63,6 +65,7 @@ MANPAGES += \
 	man/systemd-notify.1 \
 	man/systemd-nspawn.1 \
 	man/systemd-remount-fs.service.8 \
+	man/systemd-run.1 \
 	man/systemd-shutdownd.service.8 \
 	man/systemd-sleep.conf.5 \
 	man/systemd-suspend.service.8 \
@@ -72,7 +75,7 @@ MANPAGES += \
 	man/systemd-tmpfiles.8 \
 	man/systemd-tty-ask-password-agent.1 \
 	man/systemd-udevd.service.8 \
-	man/systemd-update-utmp-runlevel.service.8 \
+	man/systemd-update-utmp.service.8 \
 	man/systemd.1 \
 	man/systemd.automount.5 \
 	man/systemd.device.5 \
@@ -82,7 +85,10 @@ MANPAGES += \
 	man/systemd.mount.5 \
 	man/systemd.path.5 \
 	man/systemd.preset.5 \
+	man/systemd.resource-control.5 \
+	man/systemd.scope.5 \
 	man/systemd.service.5 \
+	man/systemd.slice.5 \
 	man/systemd.snapshot.5 \
 	man/systemd.socket.5 \
 	man/systemd.special.7 \
@@ -107,6 +113,7 @@ MANPAGES_ALIAS += \
 	man/SD_ID128_MAKE.3 \
 	man/SD_INFO.3 \
 	man/SD_JOURNAL_APPEND.3 \
+	man/SD_JOURNAL_CURRENT_USER.3 \
 	man/SD_JOURNAL_FOREACH.3 \
 	man/SD_JOURNAL_FOREACH_BACKWARDS.3 \
 	man/SD_JOURNAL_FOREACH_DATA.3 \
@@ -116,7 +123,7 @@ MANPAGES_ALIAS += \
 	man/SD_JOURNAL_NOP.3 \
 	man/SD_JOURNAL_RUNTIME_ONLY.3 \
 	man/SD_JOURNAL_SUPPRESS_LOCATION.3 \
-	man/SD_JOURNAL_SYSTEM_ONLY.3 \
+	man/SD_JOURNAL_SYSTEM.3 \
 	man/SD_LISTEN_FDS_START.3 \
 	man/SD_NOTICE.3 \
 	man/SD_WARNING.3 \
@@ -146,6 +153,7 @@ MANPAGES_ALIAS += \
 	man/sd_journal_get_timeout.3 \
 	man/sd_journal_next_skip.3 \
 	man/sd_journal_open_directory.3 \
+	man/sd_journal_open_files.3 \
 	man/sd_journal_perror.3 \
 	man/sd_journal_previous.3 \
 	man/sd_journal_previous_skip.3 \
@@ -191,7 +199,7 @@ MANPAGES_ALIAS += \
 	man/systemd-udevd-control.socket.8 \
 	man/systemd-udevd-kernel.socket.8 \
 	man/systemd-udevd.8 \
-	man/systemd-update-utmp-shutdown.service.8 \
+	man/systemd-update-utmp-runlevel.service.8 \
 	man/systemd-update-utmp.8 \
 	man/systemd-user.conf.5
 man/SD_ALERT.3: man/sd-daemon.3
@@ -205,6 +213,7 @@ man/SD_ID128_FORMAT_VAL.3: man/sd-id128.3
 man/SD_ID128_MAKE.3: man/sd-id128.3
 man/SD_INFO.3: man/sd-daemon.3
 man/SD_JOURNAL_APPEND.3: man/sd_journal_get_fd.3
+man/SD_JOURNAL_CURRENT_USER.3: man/sd_journal_open.3
 man/SD_JOURNAL_FOREACH.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_BACKWARDS.3: man/sd_journal_next.3
 man/SD_JOURNAL_FOREACH_DATA.3: man/sd_journal_get_data.3
@@ -214,7 +223,7 @@ man/SD_JOURNAL_LOCAL_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_NOP.3: man/sd_journal_get_fd.3
 man/SD_JOURNAL_RUNTIME_ONLY.3: man/sd_journal_open.3
 man/SD_JOURNAL_SUPPRESS_LOCATION.3: man/sd_journal_print.3
-man/SD_JOURNAL_SYSTEM_ONLY.3: man/sd_journal_open.3
+man/SD_JOURNAL_SYSTEM.3: man/sd_journal_open.3
 man/SD_LISTEN_FDS_START.3: man/sd_listen_fds.3
 man/SD_NOTICE.3: man/sd-daemon.3
 man/SD_WARNING.3: man/sd-daemon.3
@@ -244,6 +253,7 @@ man/sd_journal_get_monotonic_usec.3: man/sd_journal_get_realtime_usec.3
 man/sd_journal_get_timeout.3: man/sd_journal_get_fd.3
 man/sd_journal_next_skip.3: man/sd_journal_next.3
 man/sd_journal_open_directory.3: man/sd_journal_open.3
+man/sd_journal_open_files.3: man/sd_journal_open.3
 man/sd_journal_perror.3: man/sd_journal_print.3
 man/sd_journal_previous.3: man/sd_journal_next.3
 man/sd_journal_previous_skip.3: man/sd_journal_next.3
@@ -289,8 +299,8 @@ man/systemd-tmpfiles-setup.service.8: man/systemd-tmpfiles.8
 man/systemd-udevd-control.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd-kernel.socket.8: man/systemd-udevd.service.8
 man/systemd-udevd.8: man/systemd-udevd.service.8
-man/systemd-update-utmp-shutdown.service.8: man/systemd-update-utmp-runlevel.service.8
-man/systemd-update-utmp.8: man/systemd-update-utmp-runlevel.service.8
+man/systemd-update-utmp-runlevel.service.8: man/systemd-update-utmp.service.8
+man/systemd-update-utmp.8: man/systemd-update-utmp.service.8
 man/systemd-user.conf.5: man/systemd-system.conf.5
 man/SD_ALERT.html: man/sd-daemon.html
 	$(html-alias)
@@ -325,6 +335,9 @@ man/SD_INFO.html: man/sd-daemon.html
 man/SD_JOURNAL_APPEND.html: man/sd_journal_get_fd.html
 	$(html-alias)
 
+man/SD_JOURNAL_CURRENT_USER.html: man/sd_journal_open.html
+	$(html-alias)
+
 man/SD_JOURNAL_FOREACH.html: man/sd_journal_next.html
 	$(html-alias)
 
@@ -352,7 +365,7 @@ man/SD_JOURNAL_RUNTIME_ONLY.html: man/sd_journal_open.html
 man/SD_JOURNAL_SUPPRESS_LOCATION.html: man/sd_journal_print.html
 	$(html-alias)
 
-man/SD_JOURNAL_SYSTEM_ONLY.html: man/sd_journal_open.html
+man/SD_JOURNAL_SYSTEM.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/SD_LISTEN_FDS_START.html: man/sd_listen_fds.html
@@ -440,6 +453,9 @@ man/sd_journal_next_skip.html: man/sd_journal_next.html
 	$(html-alias)
 
 man/sd_journal_open_directory.html: man/sd_journal_open.html
+	$(html-alias)
+
+man/sd_journal_open_files.html: man/sd_journal_open.html
 	$(html-alias)
 
 man/sd_journal_perror.html: man/sd_journal_print.html
@@ -577,15 +593,26 @@ man/systemd-udevd-kernel.socket.html: man/systemd-udevd.service.html
 man/systemd-udevd.html: man/systemd-udevd.service.html
 	$(html-alias)
 
-man/systemd-update-utmp-shutdown.service.html: man/systemd-update-utmp-runlevel.service.html
+man/systemd-update-utmp-runlevel.service.html: man/systemd-update-utmp.service.html
 	$(html-alias)
 
-man/systemd-update-utmp.html: man/systemd-update-utmp-runlevel.service.html
+man/systemd-update-utmp.html: man/systemd-update-utmp.service.html
 	$(html-alias)
 
 man/systemd-user.conf.html: man/systemd-system.conf.html
 	$(html-alias)
 
+
+if ENABLE_BACKLIGHT
+MANPAGES += \
+	man/systemd-backlight@.service.8
+MANPAGES_ALIAS += \
+	man/systemd-backlight.8
+man/systemd-backlight.8: man/systemd-backlight@.service.8
+man/systemd-backlight.html: man/systemd-backlight@.service.html
+	$(html-alias)
+
+endif
 
 if ENABLE_BINFMT
 MANPAGES += \
@@ -644,12 +671,25 @@ endif
 
 if ENABLE_LOGIND
 MANPAGES += \
+	man/loginctl.1 \
 	man/logind.conf.5 \
 	man/systemd-logind.service.8
 MANPAGES_ALIAS += \
 	man/systemd-logind.8
 man/systemd-logind.8: man/systemd-logind.service.8
 man/systemd-logind.html: man/systemd-logind.service.html
+	$(html-alias)
+
+endif
+
+if ENABLE_MACHINED
+MANPAGES += \
+	man/machinectl.1 \
+	man/systemd-machined.service.8
+MANPAGES_ALIAS += \
+	man/systemd-machined.8
+man/systemd-machined.8: man/systemd-machined.service.8
+man/systemd-machined.html: man/systemd-machined.service.html
 	$(html-alias)
 
 endif
@@ -667,16 +707,11 @@ endif
 
 if ENABLE_RANDOMSEED
 MANPAGES += \
-	man/systemd-random-seed-load.service.8
+	man/systemd-random-seed.service.8
 MANPAGES_ALIAS += \
-	man/systemd-random-seed-save.service.8 \
 	man/systemd-random-seed.8
-man/systemd-random-seed-save.service.8: man/systemd-random-seed-load.service.8
-man/systemd-random-seed.8: man/systemd-random-seed-load.service.8
-man/systemd-random-seed-save.service.html: man/systemd-random-seed-load.service.html
-	$(html-alias)
-
-man/systemd-random-seed.html: man/systemd-random-seed-load.service.html
+man/systemd-random-seed.8: man/systemd-random-seed.service.8
+man/systemd-random-seed.html: man/systemd-random-seed.service.html
 	$(html-alias)
 
 endif
@@ -785,7 +820,6 @@ endif
 
 if HAVE_PAM
 MANPAGES += \
-	man/loginctl.1 \
 	man/pam_systemd.8 \
 	man/sd-login.3 \
 	man/sd_get_seats.3 \
@@ -807,6 +841,7 @@ MANPAGES_ALIAS += \
 	man/sd_login_monitor_unref.3 \
 	man/sd_pid_get_machine_name.3 \
 	man/sd_pid_get_owner_uid.3 \
+	man/sd_pid_get_slice.3 \
 	man/sd_pid_get_unit.3 \
 	man/sd_pid_get_user_unit.3 \
 	man/sd_seat_can_multi_session.3 \
@@ -819,6 +854,7 @@ MANPAGES_ALIAS += \
 	man/sd_session_get_tty.3 \
 	man/sd_session_get_type.3 \
 	man/sd_session_get_uid.3 \
+	man/sd_session_get_vt.3 \
 	man/sd_uid_get_seats.3 \
 	man/sd_uid_get_sessions.3 \
 	man/sd_uid_is_on_seat.3 \
@@ -834,6 +870,7 @@ man/sd_login_monitor_get_timeout.3: man/sd_login_monitor_new.3
 man/sd_login_monitor_unref.3: man/sd_login_monitor_new.3
 man/sd_pid_get_machine_name.3: man/sd_pid_get_session.3
 man/sd_pid_get_owner_uid.3: man/sd_pid_get_session.3
+man/sd_pid_get_slice.3: man/sd_pid_get_session.3
 man/sd_pid_get_unit.3: man/sd_pid_get_session.3
 man/sd_pid_get_user_unit.3: man/sd_pid_get_session.3
 man/sd_seat_can_multi_session.3: man/sd_seat_get_active.3
@@ -846,6 +883,7 @@ man/sd_session_get_state.3: man/sd_session_is_active.3
 man/sd_session_get_tty.3: man/sd_session_is_active.3
 man/sd_session_get_type.3: man/sd_session_is_active.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
+man/sd_session_get_vt.3: man/sd_session_is_active.3
 man/sd_uid_get_seats.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
@@ -883,6 +921,9 @@ man/sd_pid_get_machine_name.html: man/sd_pid_get_session.html
 man/sd_pid_get_owner_uid.html: man/sd_pid_get_session.html
 	$(html-alias)
 
+man/sd_pid_get_slice.html: man/sd_pid_get_session.html
+	$(html-alias)
+
 man/sd_pid_get_unit.html: man/sd_pid_get_session.html
 	$(html-alias)
 
@@ -917,6 +958,9 @@ man/sd_session_get_type.html: man/sd_session_is_active.html
 	$(html-alias)
 
 man/sd_session_get_uid.html: man/sd_session_is_active.html
+	$(html-alias)
+
+man/sd_session_get_vt.html: man/sd_session_is_active.html
 	$(html-alias)
 
 man/sd_uid_get_seats.html: man/sd_uid_get_state.html

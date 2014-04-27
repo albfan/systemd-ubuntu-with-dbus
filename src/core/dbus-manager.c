@@ -103,32 +103,6 @@
         "  <method name=\"ResetFailedUnit\">\n"                         \
         "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroup\">\n"                     \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroup\">\n"                   \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"group\" type=\"s\" direction=\"in\"/>\n"        \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetUnitControlGroupAttribute\">\n"            \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"out\"/>\n"     \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetUnitControlGroupAttribute\">\n"            \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"values\" type=\"as\" direction=\"in\"/>\n"      \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"\n/>"         \
-        "  </method>\n"                                                 \
-        "  <method name=\"UnsetUnitControlGroupAttributes\">\n"         \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"attribute\" type=\"s\" direction=\"in\"/>\n"    \
-        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
-        "  </method>\n"                                                 \
         "  <method name=\"GetJob\">\n"                                  \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>\n"           \
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
@@ -178,8 +152,8 @@
         "   <arg name=\"unset\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"set\" type=\"as\" direction=\"in\"/>\n"         \
         "  </method>\n"                                                 \
-        "  <method name=\"ListUnitFiles\">\n"                            \
-        "   <arg name=\"files\" type=\"a(ss)\" direction=\"out\"/>\n" \
+        "  <method name=\"ListUnitFiles\">\n"                           \
+        "   <arg name=\"files\" type=\"a(ss)\" direction=\"out\"/>\n"   \
         "  </method>\n"                                                 \
         "  <method name=\"GetUnitFileState\">\n"                        \
         "   <arg name=\"file\" type=\"s\" direction=\"in\"/>\n"         \
@@ -227,6 +201,25 @@
         "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
         "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
         "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetDefaultTarget\">\n"                        \
+        "   <arg name=\"files\" type=\"as\" direction=\"in\"/>\n"       \
+        "   <arg name=\"changes\" type=\"a(sss)\" direction=\"out\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"GetDefaultTarget\">\n"                        \
+        "   <arg name=\"name\" type=\"s\" direction=\"out\"/>\n"        \
+        "  </method>\n"                                                 \
+        "  <method name=\"SetUnitProperties\">\n"                       \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"runtime\" type=\"b\" direction=\"in\"/>\n"      \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "  </method>\n"                                                 \
+        "  <method name=\"StartTransientUnit\">\n"                      \
+        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>\n"         \
+        "   <arg name=\"properties\" type=\"a(sv)\" direction=\"in\"/>\n" \
+        "   <arg name=\"aux\" type=\"a(sa(sv))\" direction=\"in\"/>\n"  \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>\n"         \
         "  </method>\n"
 
 #define BUS_MANAGER_INTERFACE_SIGNALS                                   \
@@ -257,7 +250,10 @@
         "   <arg name=\"userspace\" type=\"t\"/>\n"                     \
         "   <arg name=\"total\" type=\"t\"/>\n"                         \
         "  </signal>"                                                   \
-        "  <signal name=\"UnitFilesChanged\"/>\n"
+        "  <signal name=\"UnitFilesChanged\"/>\n"                       \
+        "  <signal name=\"Reloading\">\n"                               \
+        "   <arg name=\"active\" type=\"b\"/>\n"                        \
+        "  </signal>"
 
 #define BUS_MANAGER_INTERFACE_PROPERTIES_GENERAL                        \
         "  <property name=\"Version\" type=\"s\" access=\"read\"/>\n"   \
@@ -275,6 +271,14 @@
         "  <property name=\"UserspaceTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"FinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"GeneratorsFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UnitsLoadStartTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UnitsLoadStartTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UnitsLoadFinishTimestamp\" type=\"t\" access=\"read\"/>\n" \
+        "  <property name=\"UnitsLoadFinishTimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>\n"  \
         "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>\n" \
         "  <property name=\"NNames\" type=\"u\" access=\"read\"/>\n"    \
@@ -286,8 +290,6 @@
         "  <property name=\"ConfirmSpawn\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"ShowStatus\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"UnitPath\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ControlGroupHierarchy\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultControllers\" type=\"as\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardOutput\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"DefaultStandardError\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RuntimeWatchdogUSec\" type=\"t\" access=\"readwrite\"/>\n" \
@@ -384,7 +386,7 @@ static int bus_manager_set_log_target(DBusMessageIter *i, const char *property, 
 }
 
 static int bus_manager_append_log_level(DBusMessageIter *i, const char *property, void *data) {
-        char *t;
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(i);
@@ -397,7 +399,6 @@ static int bus_manager_append_log_level(DBusMessageIter *i, const char *property
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 r = -ENOMEM;
 
-        free(t);
         return r;
 }
 
@@ -580,6 +581,14 @@ static const BusProperty bus_manager_properties[] = {
         { "UserspaceTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, userspace_timestamp.monotonic) },
         { "FinishTimestamp",             bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.realtime)     },
         { "FinishTimestampMonotonic",    bus_property_append_uint64,     "t",  offsetof(Manager, finish_timestamp.monotonic)    },
+        { "GeneratorsStartTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.realtime)   },
+        { "GeneratorsStartTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, generators_start_timestamp.monotonic)  },
+        { "GeneratorsFinishTimestamp",          bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.realtime)  },
+        { "GeneratorsFinishTimestampMonotonic", bus_property_append_uint64,     "t",  offsetof(Manager, generators_finish_timestamp.monotonic) },
+        { "UnitsLoadStartTimestamp",            bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_start_timestamp.realtime)    },
+        { "UnitsLoadStartTimestampMonotonic",   bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_start_timestamp.monotonic)   },
+        { "UnitsLoadFinishTimestamp",           bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_finish_timestamp.realtime)   },
+        { "UnitsLoadFinishTimestampMonotonic",  bus_property_append_uint64,     "t",  offsetof(Manager, unitsload_finish_timestamp.monotonic)  },
         { "LogLevel",                    bus_manager_append_log_level,   "s",  0,                                               false, bus_manager_set_log_level },
         { "LogTarget",                   bus_manager_append_log_target,  "s",  0,                                               false, bus_manager_set_log_target },
         { "NNames",                      bus_manager_append_n_names,     "u",  0                                                },
@@ -591,8 +600,6 @@ static const BusProperty bus_manager_properties[] = {
         { "ConfirmSpawn",                bus_property_append_bool,       "b",  offsetof(Manager, confirm_spawn)                 },
         { "ShowStatus",                  bus_property_append_bool,       "b",  offsetof(Manager, show_status)                   },
         { "UnitPath",                    bus_property_append_strv,       "as", offsetof(Manager, lookup_paths.unit_path),       true },
-        { "ControlGroupHierarchy",       bus_property_append_string,     "s",  offsetof(Manager, cgroup_hierarchy),             true },
-        { "DefaultControllers",          bus_property_append_strv,       "as", offsetof(Manager, default_controllers),          true },
         { "DefaultStandardOutput",       bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_output)            },
         { "DefaultStandardError",        bus_manager_append_exec_output, "s",  offsetof(Manager, default_std_error)             },
         { "RuntimeWatchdogUSec",         bus_property_append_usec,       "t",  offsetof(Manager, runtime_watchdog),             false, bus_manager_set_runtime_watchdog_usec },
@@ -662,7 +669,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                                     DBUS_TYPE_INVALID))
                         return bus_send_error_reply(connection, message, &error, -EINVAL);
 
-                u = cgroup_unit_by_pid(m, (pid_t) pid);
+                u = manager_get_unit_by_pid(m, (pid_t) pid);
                 if (!u) {
                         dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "No unit for PID %lu is loaded.", (unsigned long) pid);
                         return bus_send_error_reply(connection, message, &error, -ENOENT);
@@ -875,151 +882,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 if (!reply)
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroup")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                r = bus_unit_cgroup_set(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroup")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                r = bus_unit_cgroup_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                r = bus_unit_cgroup_attribute_set(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "UnsetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                r = bus_unit_cgroup_attribute_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetUnitControlGroupAttribute")) {
-                const char *name;
-                Unit *u;
-                DBusMessageIter iter;
-                _cleanup_strv_free_ char **list = NULL;
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                u = manager_get_unit(m, name);
-                if (!u) {
-                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
-                        return bus_send_error_reply(connection, message, &error, -ENOENT);
-                }
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                r = bus_unit_cgroup_attribute_get(u, &iter, &list);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-                if (bus_append_strv_iter(&iter, list) < 0)
-                        goto oom;
-
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ListUnits")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
@@ -1170,17 +1032,9 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 SELINUX_ACCESS_CHECK(connection, message, "status");
 
-                s = BUS_CONNECTION_SUBSCRIBED(m, connection);
-                if (!s) {
-                        s = set_new(string_hash_func, string_compare_func);
-                        if (!s)
-                                goto oom;
-
-                        if (!dbus_connection_set_data(connection, m->subscribed_data_slot, s, NULL)) {
-                                set_free(s);
-                                goto oom;
-                        }
-                }
+                s = bus_acquire_subscribed(m, connection);
+                if (!s)
+                        goto oom;
 
                 client = strdup(bus_message_get_sender_with_fallback(message));
                 if (!client)
@@ -1309,7 +1163,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
-                char *introspection = NULL;
+                _cleanup_free_ char *introspection = NULL;
                 FILE *f;
                 Iterator i;
                 Unit *u;
@@ -1335,7 +1189,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                 fputs(INTROSPECTION_BEGIN, f);
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         if (k != u->id)
                                 continue;
@@ -1343,12 +1197,10 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         p = bus_path_escape(k);
                         if (!p) {
                                 fclose(f);
-                                free(introspection);
                                 goto oom;
                         }
 
                         fprintf(f, "<node name=\"unit/%s\"/>", p);
-                        free(p);
                 }
 
                 HASHMAP_FOREACH(j, m->jobs, i)
@@ -1358,7 +1210,6 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (ferror(f)) {
                         fclose(f);
-                        free(introspection);
                         goto oom;
                 }
 
@@ -1368,12 +1219,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         goto oom;
 
                 if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &introspection, DBUS_TYPE_INVALID)) {
-                        free(introspection);
                         goto oom;
                 }
-
-                free(introspection);
-
         } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "Reload")) {
 
                 SELINUX_ACCESS_CHECK(connection, message, "reload");
@@ -1728,7 +1575,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "ReenableUnitFiles") ||
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "LinkUnitFiles") ||
                    dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "PresetUnitFiles") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles")) {
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "MaskUnitFiles") ||
+                   dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetDefaultTarget")) {
 
                 char **l = NULL;
                 DBusMessageIter iter;
@@ -1771,6 +1619,8 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
                         carries_install_info = r;
                 } else if (streq(member, "MaskUnitFiles"))
                         r = unit_file_mask(scope, runtime, NULL, l, force, &changes, &n_changes);
+                else if (streq(member, "SetDefaultTarget"))
+                        r = unit_file_set_default(scope, NULL, l[0], &changes, &n_changes);
                 else
                         assert_not_reached("Uh? Wrong method");
 
@@ -1837,6 +1687,111 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection *connection,
 
                 if (!reply)
                         goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "GetDefaultTarget")) {
+                UnitFileScope scope = m->running_as == SYSTEMD_SYSTEM ? UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+                _cleanup_free_ char *default_target = NULL;
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+                r = unit_file_get_default(scope, NULL, &default_target);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &default_target, DBUS_TYPE_INVALID)) {
+                        goto oom;
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "SetUnitProperties")) {
+                DBusMessageIter iter;
+                dbus_bool_t runtime;
+                const char *name;
+                Unit *u;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                u = manager_get_unit(m, name);
+                if (!u) {
+                        dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+                        return bus_send_error_reply(connection, message, &error, -ENOENT);
+                }
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Manager", "StartTransientUnit")) {
+                const char *name, *smode;
+                DBusMessageIter iter;
+                JobMode mode;
+                UnitType t;
+                Unit *u;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    bus_iter_get_basic_and_next(&iter, DBUS_TYPE_STRING, &smode, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+
+                t = unit_name_to_type(name);
+                if (t < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                if (!unit_vtable[t]->can_transient) {
+                        dbus_set_error(&error, DBUS_ERROR_INVALID_ARGS, "Unit type %s does not support transient units.", unit_type_to_string(t));
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                mode = job_mode_from_string(smode);
+                if (mode < 0) {
+                        dbus_set_error(&error, BUS_ERROR_INVALID_JOB_MODE, "Job mode %s is invalid.", smode);
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+                }
+
+                r = manager_load_unit(m, name, NULL, NULL, &u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
+
+                if (u->load_state != UNIT_NOT_FOUND || set_size(u->dependencies[UNIT_REFERENCED_BY]) > 0) {
+                        dbus_set_error(&error, BUS_ERROR_UNIT_EXISTS, "Unit %s already exists.", name);
+                        return bus_send_error_reply(connection, message, &error, -EEXIST);
+                }
+
+                /* OK, the unit failed to load and is unreferenced,
+                 * now let's fill in the transient data instead */
+                r = unit_make_transient(u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                /* Set our properties */
+                r = bus_unit_set_properties(u, &iter, UNIT_RUNTIME, false, &error);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                /* And load this stub fully */
+                r = unit_load(u);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, &error, r);
+
+                manager_dispatch_load_queue(m);
+
+                /* Finally, start it */
+                return bus_unit_queue_job(connection, message, u, JOB_START, mode, false);
 
         } else {
                 const BusBoundProperties bps[] = {

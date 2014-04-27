@@ -55,7 +55,7 @@
 #include "util.h"
 #include "mkdir.h"
 #include "ratelimit.h"
-#include "cgroup.h"
+#include "locale-setup.h"
 #include "mount-setup.h"
 #include "unit-name.h"
 #include "dbus-unit.h"
@@ -70,10 +70,8 @@
 #include "cgroup-util.h"
 #include "path-util.h"
 #include "audit-fd.h"
+#include "boot-timestamps.h"
 #include "env-util.h"
-
-/* As soon as 16 units are in our GC queue, make sure to run a gc sweep */
-#define GC_QUEUE_ENTRIES_MAX 16
 
 /* As soon as 5s passed since a unit was added to our GC queue, make sure to run a gc sweep */
 #define GC_QUEUE_USEC_MAX (10*USEC_PER_SEC)
@@ -276,6 +274,54 @@ static void manager_print_jobs_in_progress(Manager *m) {
         m->jobs_in_progress_iteration++;
 }
 
+static int manager_watch_idle_pipe(Manager *m) {
+        struct epoll_event ev = {
+                .events = EPOLLIN,
+                .data.ptr = &m->idle_pipe_watch,
+        };
+        int r;
+
+        if (m->idle_pipe_watch.type != WATCH_INVALID)
+                return 0;
+
+        if (m->idle_pipe[2] < 0)
+                return 0;
+
+        m->idle_pipe_watch.type = WATCH_IDLE_PIPE;
+        m->idle_pipe_watch.fd = m->idle_pipe[2];
+        if (m->idle_pipe_watch.fd < 0) {
+                log_error("Failed to create timerfd: %m");
+                r = -errno;
+                goto err;
+        }
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->idle_pipe_watch.fd, &ev) < 0) {
+                log_error("Failed to add idle_pipe fd to epoll: %m");
+                r = -errno;
+                goto err;
+        }
+
+        log_debug("Set up idle_pipe watch.");
+
+        return 0;
+
+err:
+        if (m->idle_pipe_watch.fd >= 0)
+                close_nointr_nofail(m->idle_pipe_watch.fd);
+        watch_init(&m->idle_pipe_watch);
+        return r;
+}
+
+static void manager_unwatch_idle_pipe(Manager *m) {
+        if (m->idle_pipe_watch.type != WATCH_IDLE_PIPE)
+                return;
+
+        assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->idle_pipe_watch.fd, NULL) >= 0);
+        watch_init(&m->idle_pipe_watch);
+
+        log_debug("Closed idle_pipe watch.");
+}
+
 static int manager_setup_time_change(Manager *m) {
         struct epoll_event ev = {
                 .events = EPOLLIN,
@@ -409,25 +455,34 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static void manager_strip_environment(Manager *m) {
+static int manager_default_environment(Manager *m) {
         assert(m);
 
-        /* Remove variables from the inherited set that are part of
-         * the container interface:
-         * http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface */
-        strv_remove_prefix(m->environment, "container=");
-        strv_remove_prefix(m->environment, "container_");
+        if (m->running_as == SYSTEMD_SYSTEM) {
+                /* The system manager always starts with a clean
+                 * environment for its children. It does not import
+                 * the kernel or the parents exported variables.
+                 *
+                 * The initial passed environ is untouched to keep
+                 * /proc/self/environ valid; it is used for tagging
+                 * the init process inside containers. */
+                m->environment = strv_new("PATH=" DEFAULT_PATH,
+                                          NULL);
 
-        /* Remove variables from the inherited set that are part of
-         * the initrd interface:
-         * http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface */
-        strv_remove_prefix(m->environment, "RD_");
+                /* Import locale variables LC_*= from configuration */
+                locale_setup(&m->environment);
+        } else
+                /* The user manager passes its own environment
+                 * along to its children. */
+                m->environment = strv_copy(environ);
 
-        /* Drop invalid entries */
-        strv_env_clean(m->environment);
+        if (!m->environment)
+                return -ENOMEM;
+
+        return 0;
 }
 
-int manager_new(SystemdRunningAs running_as, Manager **_m) {
+int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
 
@@ -439,11 +494,16 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (!m)
                 return -ENOMEM;
 
+#ifdef ENABLE_EFI
+        if (detect_container(NULL) <= 0)
+                boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
+#endif
+
         m->running_as = running_as;
         m->name_data_slot = m->conn_data_slot = m->subscribed_data_slot = -1;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->pin_cgroupfs_fd = -1;
-        m->idle_pipe[0] = m->idle_pipe[1] = -1;
+        m->idle_pipe[0] = m->idle_pipe[1] = m->idle_pipe[2] = m->idle_pipe[3] = -1;
 
         watch_init(&m->signal_watch);
         watch_init(&m->mount_watch);
@@ -455,17 +515,9 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         m->epoll_fd = m->dev_autofs_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
-        m->environment = strv_copy(environ);
-        if (!m->environment)
+        r = manager_default_environment(m);
+        if (r < 0)
                 goto fail;
-
-        manager_strip_environment(m);
-
-        if (running_as == SYSTEMD_SYSTEM) {
-                m->default_controllers = strv_new("cpu", NULL);
-                if (!m->default_controllers)
-                        goto fail;
-        }
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -476,10 +528,12 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
         if (!(m->watch_pids = hashmap_new(trivial_hash_func, trivial_compare_func)))
                 goto fail;
 
-        if (!(m->cgroup_bondings = hashmap_new(string_hash_func, string_compare_func)))
+        m->cgroup_unit = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->cgroup_unit)
                 goto fail;
 
-        if (!(m->watch_bus = hashmap_new(string_hash_func, string_compare_func)))
+        m->watch_bus = hashmap_new(string_hash_func, string_compare_func);
+        if (!m->watch_bus)
                 goto fail;
 
         m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
@@ -503,9 +557,13 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 goto fail;
 
         /* Try to connect to the busses, if possible. */
-        r = bus_init(m, running_as != SYSTEMD_SYSTEM);
-        if (r < 0)
-                goto fail;
+        if ((running_as == SYSTEMD_USER && getenv("DBUS_SESSION_BUS_ADDRESS")) ||
+            running_as == SYSTEMD_SYSTEM) {
+                r = bus_init(m, reexecuting || running_as != SYSTEMD_SYSTEM);
+                if (r < 0)
+                        goto fail;
+        } else
+                log_debug("Skipping DBus session bus connection attempt - no DBUS_SESSION_BUS_ADDRESS set...");
 
         m->taint_usr = dir_is_empty("/usr") > 0;
 
@@ -600,12 +658,7 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
 
         assert(m);
 
-        if ((m->n_in_gc_queue < GC_QUEUE_ENTRIES_MAX) &&
-            (m->gc_queue_timestamp <= 0 ||
-             (m->gc_queue_timestamp + GC_QUEUE_USEC_MAX) > now(CLOCK_MONOTONIC)))
-                return 0;
-
-        log_debug("Running GC...");
+        /* log_debug("Running GC..."); */
 
         m->gc_marker += _GC_OFFSET_MAX;
         if (m->gc_marker + _GC_OFFSET_MAX <= _GC_OFFSET_MAX)
@@ -632,7 +685,6 @@ static unsigned manager_dispatch_gc_queue(Manager *m) {
         }
 
         m->n_in_gc_queue = 0;
-        m->gc_queue_timestamp = 0;
 
         return n;
 }
@@ -659,6 +711,11 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         m->n_on_console = 0;
         m->n_running_jobs = 0;
+}
+
+static void close_idle_pipe(Manager *m) {
+        close_pipe(m->idle_pipe);
+        close_pipe(m->idle_pipe + 2);
 }
 
 void manager_free(Manager *m) {
@@ -702,18 +759,19 @@ void manager_free(Manager *m) {
         lookup_paths_free(&m->lookup_paths);
         strv_free(m->environment);
 
-        strv_free(m->default_controllers);
-
-        hashmap_free(m->cgroup_bondings);
+        hashmap_free(m->cgroup_unit);
         set_free_free(m->unit_path_cache);
 
-        close_pipe(m->idle_pipe);
+        close_idle_pipe(m);
 
         free(m->switch_root);
         free(m->switch_root_init);
 
         for (i = 0; i < RLIMIT_NLIMITS; i++)
                 free(m->rlimit[i]);
+
+        assert(hashmap_isempty(m->units_requiring_mounts_for));
+        hashmap_free(m->units_requiring_mounts_for);
 
         free(m);
 }
@@ -727,9 +785,11 @@ int manager_enumerate(Manager *m) {
         /* Let's ask every type to load all units from disk/kernel
          * that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
-                if (unit_vtable[c]->enumerate)
-                        if ((q = unit_vtable[c]->enumerate(m)) < 0)
+                if (unit_vtable[c]->enumerate) {
+                        q = unit_vtable[c]->enumerate(m);
+                        if (q < 0)
                                 r = q;
+                }
 
         manager_dispatch_load_queue(m);
         return r;
@@ -820,7 +880,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         assert(m);
 
+        dual_timestamp_get(&m->generators_start_timestamp);
         manager_run_generators(m);
+        dual_timestamp_get(&m->generators_finish_timestamp);
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
@@ -839,7 +901,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->n_reloading ++;
 
         /* First, enumerate what we can from all config files */
+        dual_timestamp_get(&m->unitsload_start_timestamp);
         r = manager_enumerate(m);
+        dual_timestamp_get(&m->unitsload_finish_timestamp);
 
         /* Second, deserialize if there is something to deserialize */
         if (serialization) {
@@ -866,6 +930,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (serialization) {
                 assert(m->n_reloading > 0);
                 m->n_reloading --;
+
+                /* Let's wait for the UnitNew/JobNew messages being
+                 * sent, before we notify that the reload is
+                 * finished */
+                m->send_reloading_done = true;
         }
 
         return r;
@@ -987,7 +1056,13 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
+int manager_load_unit_prepare(
+                Manager *m,
+                const char *name,
+                const char *path,
+                DBusError *e,
+                Unit **_ret) {
+
         Unit *ret;
         UnitType t;
         int r;
@@ -1031,7 +1106,8 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
                 }
         }
 
-        if ((r = unit_add_name(ret, name)) < 0) {
+        r = unit_add_name(ret, name);
+        if (r < 0) {
                 unit_free(ret);
                 return r;
         }
@@ -1046,7 +1122,13 @@ int manager_load_unit_prepare(Manager *m, const char *name, const char *path, DB
         return 0;
 }
 
-int manager_load_unit(Manager *m, const char *name, const char *path, DBusError *e, Unit **_ret) {
+int manager_load_unit(
+                Manager *m,
+                const char *name,
+                const char *path,
+                DBusError *e,
+                Unit **_ret) {
+
         int r;
 
         assert(m);
@@ -1122,6 +1204,9 @@ unsigned manager_dispatch_run_queue(Manager *m) {
         if (m->n_running_jobs > 0)
                 manager_watch_jobs_in_progress(m);
 
+        if (m->n_on_console > 0)
+                manager_watch_idle_pipe(m);
+
         return n;
 }
 
@@ -1152,6 +1237,13 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
         }
 
         m->dispatching_dbus_queue = false;
+
+        if (m->send_reloading_done) {
+                m->send_reloading_done = false;
+
+                bus_broadcast_reloading(m, false);
+        }
+
         return n;
 }
 
@@ -1205,7 +1297,7 @@ static int manager_process_notify_fd(Manager *m) {
 
                 u = hashmap_get(m->watch_pids, LONG_TO_PTR(ucred->pid));
                 if (!u) {
-                        u = cgroup_unit_by_pid(m, ucred->pid);
+                        u = manager_get_unit_by_pid(m, ucred->pid);
                         if (!u) {
                                 log_warning("Cannot find unit for notify message of PID %lu.", (unsigned long) ucred->pid);
                                 continue;
@@ -1270,7 +1362,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 /* And now figure out the unit this belongs to */
                 u = hashmap_get(m->watch_pids, LONG_TO_PTR(si.si_pid));
                 if (!u)
-                        u = cgroup_unit_by_pid(m, si.si_pid);
+                        u = manager_get_unit_by_pid(m, si.si_pid);
 
                 /* And now, we actually reap the zombie. */
                 if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
@@ -1372,7 +1464,7 @@ static int manager_process_signal_fd(Manager *m) {
 
                 case SIGINT:
                         if (m->running_as == SYSTEMD_SYSTEM) {
-                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE);
+                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
                                 break;
                         }
 
@@ -1668,6 +1760,14 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 break;
         }
 
+        case WATCH_IDLE_PIPE: {
+                m->no_console_output = true;
+
+                manager_unwatch_idle_pipe(m);
+                close_idle_pipe(m);
+                break;
+        }
+
         default:
                 log_error("event type=%i", w->type);
                 assert_not_reached("Unknown epoll event type.");
@@ -1714,16 +1814,19 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_run_queue(m) > 0)
-                        continue;
-
-                if (bus_dispatch(m) > 0)
+                if (manager_dispatch_gc_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_cleanup_queue(m) > 0)
                         continue;
 
-                if (manager_dispatch_gc_queue(m) > 0)
+                if (manager_dispatch_cgroup_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_run_queue(m) > 0)
+                        continue;
+
+                if (bus_dispatch(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
@@ -1761,7 +1864,7 @@ int manager_loop(Manager *m) {
 }
 
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, DBusError *e, Unit **_u) {
-        char *n;
+        _cleanup_free_ char *n = NULL;
         Unit *u;
         int r;
 
@@ -1769,16 +1872,11 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, DBusError *e, Un
         assert(s);
         assert(_u);
 
-        if (!startswith(s, "/org/freedesktop/systemd1/unit/"))
-                return -EINVAL;
-
-        n = bus_path_unescape(s+31);
-        if (!n)
-                return -ENOMEM;
+        r = unit_name_from_dbus_path(s, &n);
+        if (r < 0)
+                return r;
 
         r = manager_load_unit(m, n, NULL, e, &u);
-        free(n);
-
         if (r < 0)
                 return r;
 
@@ -2033,6 +2131,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 }
         }
 
+        bus_serialize(m, f);
+
         fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
@@ -2046,7 +2146,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 fputs(u->id, f);
                 fputc('\n', f);
 
-                if ((r = unit_serialize(u, f, fds, !switching_root)) < 0) {
+                r = unit_serialize(u, f, fds, !switching_root);
+                if (r < 0) {
                         m->n_reloading --;
                         return r;
                 }
@@ -2151,7 +2252,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
 
                         strv_free(m->environment);
                         m->environment = e;
-                } else
+                } else if (bus_deserialize_item(m, l) == 0)
                         log_debug("Unknown serialization item '%s'", l);
         }
 
@@ -2226,6 +2327,7 @@ int manager_reload(Manager *m) {
                 return r;
 
         m->n_reloading ++;
+        bus_broadcast_reloading(m, true);
 
         fds = fdset_new();
         if (!fds) {
@@ -2284,6 +2386,8 @@ int manager_reload(Manager *m) {
 
         assert(m->n_reloading > 0);
         m->n_reloading--;
+
+        m->send_reloading_done = true;
 
 finish:
         if (f)
@@ -2357,7 +2461,8 @@ void manager_check_finished(Manager *m) {
         }
 
         /* Notify Type=idle units that we are done now */
-        close_pipe(m->idle_pipe);
+        manager_unwatch_idle_pipe(m);
+        close_idle_pipe(m);
 
         /* Turn off confirm spawn now */
         m->confirm_spawn = false;
@@ -2559,19 +2664,16 @@ void manager_undo_generators(Manager *m) {
         remove_generator_dir(m, &m->generator_unit_path_late);
 }
 
-int manager_set_default_controllers(Manager *m, char **controllers) {
-        char **l;
-
+int manager_environment_add(Manager *m, char **environment) {
+        char **e = NULL;
         assert(m);
 
-        l = strv_copy(controllers);
-        if (!l)
+        e = strv_env_merge(2, m->environment, environment);
+        if (!e)
                 return -ENOMEM;
 
-        strv_free(m->default_controllers);
-        m->default_controllers = l;
-
-        cg_shorten_controllers(m->default_controllers);
+        strv_free(m->environment);
+        m->environment = e;
 
         return 0;
 }
@@ -2638,6 +2740,9 @@ static bool manager_get_show_status(Manager *m) {
         if (m->running_as != SYSTEMD_SYSTEM)
                 return false;
 
+        if (m->no_console_output)
+                return false;
+
         if (m->show_status)
                 return true;
 
@@ -2664,6 +2769,41 @@ void manager_status_printf(Manager *m, bool ephemeral, const char *status, const
         va_start(ap, format);
         status_vprintf(status, true, ephemeral, format, ap);
         va_end(ap);
+}
+
+int manager_get_unit_by_path(Manager *m, const char *path, const char *suffix, Unit **_found) {
+        _cleanup_free_ char *p = NULL;
+        Unit *found;
+
+        assert(m);
+        assert(path);
+        assert(suffix);
+        assert(_found);
+
+        p = unit_name_from_path(path, suffix);
+        if (!p)
+                return -ENOMEM;
+
+        found = manager_get_unit(m, p);
+        if (!found) {
+                *_found = NULL;
+                return 0;
+        }
+
+        *_found = found;
+        return 1;
+}
+
+Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
+        char p[strlen(path)+1];
+
+        assert(m);
+        assert(path);
+
+        strcpy(p, path);
+        path_kill_slashes(p);
+
+        return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }
 
 void watch_init(Watch *w) {

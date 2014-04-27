@@ -113,3 +113,9 @@
 #define SPECIAL_RUNLEVEL3_TARGET "runlevel3.target"
 #define SPECIAL_RUNLEVEL4_TARGET "runlevel4.target"
 #define SPECIAL_RUNLEVEL5_TARGET "runlevel5.target"
+
+/* Where we add all our system units, users and machines by default */
+#define SPECIAL_SYSTEM_SLICE "system.slice"
+#define SPECIAL_USER_SLICE "user.slice"
+#define SPECIAL_MACHINE_SLICE "machine.slice"
+#define SPECIAL_ROOT_SLICE "-.slice"

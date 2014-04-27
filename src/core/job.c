@@ -35,7 +35,7 @@
 #include "log.h"
 #include "dbus-job.h"
 #include "special.h"
-#include "sync.h"
+#include "async.h"
 #include "virt.h"
 
 JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
@@ -1088,10 +1088,13 @@ void job_shutdown_magic(Job *j) {
          * asynchronous sync() would cause their exit to be
          * delayed. */
 
-        if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
+        if (j->type != JOB_START)
                 return;
 
-        if (j->type != JOB_START)
+        if (j->unit->manager->running_as != SYSTEMD_SYSTEM)
+                return;
+
+        if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
                 return;
 
         if (detect_container(NULL) > 0)

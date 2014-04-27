@@ -26,6 +26,8 @@
 #include <netdb.h>
 #include <sys/poll.h>
 #include <byteswap.h>
+#include <sys/mman.h>
+#include <pthread.h>
 
 #include "util.h"
 #include "macro.h"
@@ -43,6 +45,18 @@
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec);
 
+static void bus_close_fds(sd_bus *b) {
+        assert(b);
+
+        if (b->input_fd >= 0)
+                close_nointr_nofail(b->input_fd);
+
+        if (b->output_fd >= 0 && b->output_fd != b->input_fd)
+                close_nointr_nofail(b->output_fd);
+
+        b->input_fd = b->output_fd = -1;
+}
+
 static void bus_free(sd_bus *b) {
         struct filter_callback *f;
         struct object_callback *c;
@@ -50,7 +64,10 @@ static void bus_free(sd_bus *b) {
 
         assert(b);
 
-        sd_bus_close(b);
+        bus_close_fds(b);
+
+        if (b->kdbus_buffer)
+                munmap(b->kdbus_buffer, KDBUS_POOL_SIZE);
 
         free(b->rbuffer);
         free(b->unique_name);
@@ -86,8 +103,11 @@ static void bus_free(sd_bus *b) {
         }
 
         hashmap_free(b->object_callbacks);
-
         bus_match_free(&b->match_callbacks);
+
+        bus_kernel_flush_memfd(b);
+
+        assert_se(pthread_mutex_destroy(&b->memfd_cache_mutex) == 0);
 
         free(b);
 }
@@ -102,10 +122,13 @@ int sd_bus_new(sd_bus **ret) {
         if (!r)
                 return -ENOMEM;
 
-        r->n_ref = 1;
+        r->n_ref = REFCNT_INIT;
         r->input_fd = r->output_fd = -1;
         r->message_version = 1;
-        r->negotiate_fds = true;
+        r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
+        r->original_pid = getpid();
+
+        assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
 
         /* We guarantee that wqueue always has space for at least one
          * entry */
@@ -128,6 +151,8 @@ int sd_bus_set_address(sd_bus *bus, const char *address) {
                 return -EPERM;
         if (!address)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         a = strdup(address);
         if (!a)
@@ -148,6 +173,8 @@ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
                 return -EINVAL;
         if (output_fd < 0)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         bus->input_fd = input_fd;
         bus->output_fd = output_fd;
@@ -165,6 +192,8 @@ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
                 return -EINVAL;
         if (strv_isempty(argv))
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         p = strdup(path);
         if (!p)
@@ -190,18 +219,106 @@ int sd_bus_set_bus_client(sd_bus *bus, int b) {
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         bus->bus_client = !!b;
         return 0;
 }
 
-int sd_bus_set_negotiate_fds(sd_bus *bus, int b) {
+int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         if (!bus)
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
-        bus->negotiate_fds = !!b;
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ACCEPT_FD, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_comm(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_COMM, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_exe(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_EXE, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_cmdline(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CMDLINE, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_cgroup(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CGROUP, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_caps(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_CAPS, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_selinux_context(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_SECLABEL, b);
+        return 0;
+}
+
+int sd_bus_negotiate_attach_audit(sd_bus *bus, int b) {
+        if (!bus)
+                return -EINVAL;
+        if (bus->state != BUS_UNSET)
+                return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        SET_FLAG(bus->hello_flags, KDBUS_HELLO_ATTACH_AUDIT, b);
         return 0;
 }
 
@@ -212,6 +329,8 @@ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         bus->is_server = !!b;
         bus->server_id = server_id;
@@ -223,22 +342,24 @@ int sd_bus_set_anonymous(sd_bus *bus, int b) {
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         bus->anonymous_auth = !!b;
         return 0;
 }
 
-static int hello_callback(sd_bus *bus, int error, sd_bus_message *reply, void *userdata) {
+static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata) {
         const char *s;
         int r;
 
         assert(bus);
         assert(bus->state == BUS_HELLO);
-
-        if (error != 0)
-                return -error;
-
         assert(reply);
+
+        r = bus_message_to_errno(reply);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(reply, "s", &s);
         if (r < 0)
@@ -811,6 +932,8 @@ int sd_bus_start(sd_bus *bus) {
                 return -EINVAL;
         if (bus->state != BUS_UNSET)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         bus->state = BUS_OPENING;
 
@@ -920,22 +1043,29 @@ fail:
 void sd_bus_close(sd_bus *bus) {
         if (!bus)
                 return;
+        if (bus->state == BUS_CLOSED)
+                return;
+        if (bus_pid_changed(bus))
+                return;
 
-        if (bus->input_fd >= 0)
-                close_nointr_nofail(bus->input_fd);
-        if (bus->output_fd >= 0 && bus->output_fd != bus->input_fd)
-                close_nointr_nofail(bus->output_fd);
+        bus->state = BUS_CLOSED;
 
-        bus->input_fd = bus->output_fd = -1;
+        if (!bus->is_kernel)
+                bus_close_fds(bus);
+
+        /* We'll leave the fd open in case this is a kernel bus, since
+         * there might still be memblocks around that reference this
+         * bus, and they might need to invoke the
+         * KDBUS_CMD_MSG_RELEASE ioctl on the fd when they are
+         * freed. */
 }
 
 sd_bus *sd_bus_ref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
-        assert(bus->n_ref > 0);
+        assert_se(REFCNT_INC(bus->n_ref) >= 2);
 
-        bus->n_ref++;
         return bus;
 }
 
@@ -943,10 +1073,7 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
 
-        assert(bus->n_ref > 0);
-        bus->n_ref--;
-
-        if (bus->n_ref <= 0)
+        if (REFCNT_DEC(bus->n_ref) <= 0)
                 bus_free(bus);
 
         return NULL;
@@ -955,8 +1082,10 @@ sd_bus *sd_bus_unref(sd_bus *bus) {
 int sd_bus_is_open(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
-        return bus->state != BUS_UNSET && bus->input_fd >= 0;
+        return BUS_IS_OPEN(bus->state);
 }
 
 int sd_bus_can_send(sd_bus *bus, char type) {
@@ -964,11 +1093,13 @@ int sd_bus_can_send(sd_bus *bus, char type) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->output_fd < 0)
+        if (bus->state == BUS_UNSET)
                 return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (type == SD_BUS_TYPE_UNIX_FD) {
-                if (!bus->negotiate_fds)
+                if (!(bus->hello_flags & KDBUS_HELLO_ACCEPT_FD))
                         return 0;
 
                 r = bus_ensure_running(bus);
@@ -988,6 +1119,8 @@ int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *server_id) {
                 return -EINVAL;
         if (!server_id)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -1014,9 +1147,6 @@ static int dispatch_wqueue(sd_bus *bus) {
 
         assert(bus);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
-
-        if (bus->output_fd < 0)
-                return -ENOTCONN;
 
         while (bus->wqueue_size > 0) {
 
@@ -1062,9 +1192,6 @@ static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         assert(m);
         assert(bus->state == BUS_RUNNING || bus->state == BUS_HELLO);
 
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
-
         if (bus->rqueue_size > 0) {
                 /* Dispatch a queued message */
 
@@ -1100,12 +1227,12 @@ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *serial) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->output_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (m->n_fds > 0) {
                 r = sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD);
@@ -1213,9 +1340,7 @@ int sd_bus_send_with_reply(
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-        if (bus->output_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1225,6 +1350,8 @@ int sd_bus_send_with_reply(
                 return -EINVAL;
         if (m->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
         if (r < 0)
@@ -1280,6 +1407,8 @@ int sd_bus_send_with_reply_cancel(sd_bus *bus, uint64_t serial) {
                 return -EINVAL;
         if (serial == 0)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         c = hashmap_remove(bus->reply_callbacks, &serial);
         if (!c)
@@ -1297,11 +1426,8 @@ int bus_ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        if (bus->input_fd < 0)
+        if (bus->state == BUS_UNSET || bus->state == BUS_CLOSED)
                 return -ENOTCONN;
-        if (bus->state == BUS_UNSET)
-                return -ENOTCONN;
-
         if (bus->state == BUS_RUNNING)
                 return 1;
 
@@ -1334,9 +1460,7 @@ int sd_bus_send_with_reply_and_block(
 
         if (!bus)
                 return -EINVAL;
-        if (bus->output_fd < 0)
-                return -ENOTCONN;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (!m)
                 return -EINVAL;
@@ -1346,6 +1470,8 @@ int sd_bus_send_with_reply_and_block(
                 return -EINVAL;
         if (bus_error_is_dirty(error))
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -1452,10 +1578,12 @@ int sd_bus_send_with_reply_and_block(
 int sd_bus_get_fd(sd_bus *bus) {
         if (!bus)
                 return -EINVAL;
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
         if (bus->input_fd != bus->output_fd)
                 return -EPERM;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         return bus->input_fd;
 }
@@ -1465,10 +1593,10 @@ int sd_bus_get_events(sd_bus *bus) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->state == BUS_OPENING)
                 flags |= POLLOUT;
@@ -1496,10 +1624,10 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                 return -EINVAL;
         if (!timeout_usec)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->state == BUS_AUTHENTICATING) {
                 *timeout_usec = bus->auth_timeout;
@@ -1522,6 +1650,7 @@ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
 }
 
 static int process_timeout(sd_bus *bus) {
+        _cleanup_bus_message_unref_ sd_bus_message* m = NULL;
         struct reply_callback *c;
         usec_t n;
         int r;
@@ -1536,10 +1665,18 @@ static int process_timeout(sd_bus *bus) {
         if (c->timeout > n)
                 return 0;
 
+        r = bus_message_new_synthetic_error(
+                        bus,
+                        c->serial,
+                        &SD_BUS_ERROR_MAKE("org.freedesktop.DBus.Error.Timeout", "Timed out"),
+                        &m);
+        if (r < 0)
+                return r;
+
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
         hashmap_remove(bus->reply_callbacks, &c->serial);
 
-        r = c->callback(bus, ETIMEDOUT, NULL, c->userdata);
+        r = c->callback(bus, m, c->userdata);
         free(c);
 
         return r < 0 ? r : 1;
@@ -1589,7 +1726,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        r = c->callback(bus, 0, m, c->userdata);
+        r = c->callback(bus, m, c->userdata);
         free(c);
 
         return r;
@@ -1620,7 +1757,7 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = l->callback(bus, 0, m, l->userdata);
+                        r = l->callback(bus, m, l->userdata);
                         if (r != 0)
                                 return r;
 
@@ -1640,7 +1777,7 @@ static int process_match(sd_bus *bus, sd_bus_message *m) {
         do {
                 bus->match_callbacks_modified = false;
 
-                r = bus_match_run(bus, &bus->match_callbacks, 0, m);
+                r = bus_match_run(bus, &bus->match_callbacks, m);
                 if (r != 0)
                         return r;
 
@@ -1733,7 +1870,7 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                         if (r < 0)
                                 return r;
 
-                        r = c->callback(bus, 0, m, c->userdata);
+                        r = c->callback(bus, m, c->userdata);
                         if (r != 0)
                                 return r;
 
@@ -1763,7 +1900,7 @@ static int process_object(sd_bus *bus, sd_bus_message *m) {
                                 if (r < 0)
                                         return r;
 
-                                r = c->callback(bus, 0, m, c->userdata);
+                                r = c->callback(bus, m, c->userdata);
                                 if (r != 0)
                                         return r;
 
@@ -1986,8 +2123,8 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         /* We don't allow recursively invoking sd_bus_process(). */
         if (bus->processing)
@@ -1996,6 +2133,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
         switch (bus->state) {
 
         case BUS_UNSET:
+        case BUS_CLOSED:
                 return -ENOTCONN;
 
         case BUS_OPENING:
@@ -2036,7 +2174,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
 
         assert(bus);
 
-        if (bus->input_fd < 0)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
         e = sd_bus_get_events(bus);
@@ -2082,10 +2220,11 @@ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-        if (bus->input_fd < 0)
-                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
         if (bus->rqueue_size > 0)
                 return 0;
 
@@ -2097,10 +2236,10 @@ int sd_bus_flush(sd_bus *bus) {
 
         if (!bus)
                 return -EINVAL;
-        if (bus->state == BUS_UNSET)
+        if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-        if (bus->output_fd < 0)
-                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -2130,6 +2269,8 @@ int sd_bus_add_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *user
                 return -EINVAL;
         if (!callback)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         f = new0(struct filter_callback, 1);
         if (!f)
@@ -2149,6 +2290,8 @@ int sd_bus_remove_filter(sd_bus *bus, sd_bus_message_handler_t callback, void *u
                 return -EINVAL;
         if (!callback)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         LIST_FOREACH(callbacks, f, bus->filter_callbacks) {
                 if (f->callback == callback && f->userdata == userdata) {
@@ -2178,6 +2321,8 @@ static int bus_add_object(
                 return -EINVAL;
         if (!callback)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = hashmap_ensure_allocated(&bus->object_callbacks, string_hash_func, string_compare_func);
         if (r < 0)
@@ -2223,6 +2368,8 @@ static int bus_remove_object(
                 return -EINVAL;
         if (!callback)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         c = hashmap_get(bus->object_callbacks, path);
         if (!c)
@@ -2257,51 +2404,68 @@ int sd_bus_remove_fallback(sd_bus *bus, const char *prefix, sd_bus_message_handl
 }
 
 int sd_bus_add_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
+        uint64_t cookie = 0;
         int r = 0;
 
         if (!bus)
                 return -EINVAL;
         if (!match)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
+
+        r = bus_match_parse(match, &components, &n_components);
+        if (r < 0)
+                goto finish;
 
         if (bus->bus_client) {
-                r = bus_add_match_internal(bus, match);
+                cookie = ++bus->match_cookie;
+
+                r = bus_add_match_internal(bus, match, components, n_components, cookie);
                 if (r < 0)
-                        return r;
+                        goto finish;
         }
 
-        if (callback) {
-                bus->match_callbacks_modified = true;
-                r = bus_match_add(&bus->match_callbacks, match, callback, userdata, NULL);
-                if (r < 0) {
-
-                        if (bus->bus_client)
-                                bus_remove_match_internal(bus, match);
-                }
+        bus->match_callbacks_modified = true;
+        r = bus_match_add(&bus->match_callbacks, components, n_components, callback, userdata, cookie, NULL);
+        if (r < 0) {
+                if (bus->bus_client)
+                        bus_remove_match_internal(bus, match, cookie);
         }
 
+finish:
+        bus_match_parse_free(components, n_components);
         return r;
 }
 
 int sd_bus_remove_match(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata) {
+        struct bus_match_component *components = NULL;
+        unsigned n_components = 0;
         int r = 0, q = 0;
+        uint64_t cookie = 0;
 
         if (!bus)
                 return -EINVAL;
         if (!match)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
-        if (bus->bus_client)
-                r = bus_remove_match_internal(bus, match);
-
-        if (callback) {
-                bus->match_callbacks_modified = true;
-                q = bus_match_remove(&bus->match_callbacks, match, callback, userdata);
-        }
-
+        r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
                 return r;
-        return q;
+
+        bus->match_callbacks_modified = true;
+        r = bus_match_remove(&bus->match_callbacks, components, n_components, callback, userdata, &cookie);
+
+        if (bus->bus_client)
+                q = bus_remove_match_internal(bus, match, cookie);
+
+        bus_match_parse_free(components, n_components);
+
+        return r < 0 ? r : q;
 }
 
 int sd_bus_emit_signal(
@@ -2317,6 +2481,10 @@ int sd_bus_emit_signal(
 
         if (!bus)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_message_new_signal(bus, path, interface, member, &m);
         if (r < 0)
@@ -2346,7 +2514,12 @@ int sd_bus_call_method(
         int r;
 
         if (!bus)
+
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_message_new_method_call(bus, destination, path, interface, member, &m);
         if (r < 0)
@@ -2378,6 +2551,10 @@ int sd_bus_reply_method_return(
                 return -EPERM;
         if (call->header->type != SD_BUS_MESSAGE_TYPE_METHOD_CALL)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -2413,6 +2590,10 @@ int sd_bus_reply_method_error(
                 return -EINVAL;
         if (!sd_bus_error_is_set(e))
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (call->header->flags & SD_BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -2422,4 +2603,13 @@ int sd_bus_reply_method_error(
                 return r;
 
         return sd_bus_send(bus, m, NULL);
+}
+
+bool bus_pid_changed(sd_bus *bus) {
+        assert(bus);
+
+        /* We don't support people creating a bus connection and
+         * keeping it around over a fork(). Let's complain. */
+
+        return bus->original_pid != getpid();
 }

@@ -199,7 +199,6 @@ static bool value_node_same(
 int bus_match_run(
                 sd_bus *bus,
                 struct bus_match_node *node,
-                int ret,
                 sd_bus_message *m) {
 
 
@@ -230,7 +229,7 @@ int bus_match_run(
                  * we won't call any. The children of the root node
                  * are compares or leaves, they will automatically
                  * call their siblings. */
-                return bus_match_run(bus, node->child, ret, m);
+                return bus_match_run(bus, node->child, m);
 
         case BUS_MATCH_VALUE:
 
@@ -240,7 +239,7 @@ int bus_match_run(
                  * automatically call their siblings */
 
                 assert(node->child);
-                return bus_match_run(bus, node->child, ret, m);
+                return bus_match_run(bus, node->child, m);
 
         case BUS_MATCH_LEAF:
 
@@ -256,12 +255,13 @@ int bus_match_run(
                         return r;
 
                 /* Run the callback. And then invoke siblings. */
-                assert(node->leaf.callback);
-                r = node->leaf.callback(bus, ret, m, node->leaf.userdata);
-                if (r != 0)
-                        return r;
+                if (node->leaf.callback) {
+                        r = node->leaf.callback(bus, m, node->leaf.userdata);
+                        if (r != 0)
+                                return r;
+                }
 
-                return bus_match_run(bus, node->next, ret, m);
+                return bus_match_run(bus, node->next, m);
 
         case BUS_MATCH_MESSAGE_TYPE:
                 test_u8 = m->header->type;
@@ -318,7 +318,7 @@ int bus_match_run(
                         found = NULL;
 
                 if (found) {
-                        r = bus_match_run(bus, found, ret, m);
+                        r = bus_match_run(bus, found, m);
                         if (r != 0)
                                 return r;
                 }
@@ -331,7 +331,7 @@ int bus_match_run(
                         if (!value_node_test(c, node->type, test_u8, test_str))
                                 continue;
 
-                        r = bus_match_run(bus, c, ret, m);
+                        r = bus_match_run(bus, c, m);
                         if (r != 0)
                                 return r;
                 }
@@ -341,7 +341,7 @@ int bus_match_run(
                 return 0;
 
         /* And now, let's invoke our siblings */
-        return bus_match_run(bus, node->next, ret, m);
+        return bus_match_run(bus, node->next, m);
 }
 
 static int bus_match_add_compare_value(
@@ -500,6 +500,7 @@ static int bus_match_add_leaf(
                 struct bus_match_node *where,
                 sd_bus_message_handler_t callback,
                 void *userdata,
+                uint64_t cookie,
                 struct bus_match_node **ret) {
 
         struct bus_match_node *n;
@@ -519,6 +520,7 @@ static int bus_match_add_leaf(
                 n->next->prev = n;
         n->leaf.callback = callback;
         n->leaf.userdata = userdata;
+        n->leaf.cookie = cookie;
 
         where->child = n;
 
@@ -553,22 +555,22 @@ static int bus_match_find_leaf(
 enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n) {
         assert(k);
 
-        if (n == 4 && memcmp(k, "type", 4) == 0)
+        if (n == 4 && startswith(k, "type"))
                 return BUS_MATCH_MESSAGE_TYPE;
-        if (n == 6 && memcmp(k, "sender", 6) == 0)
+        if (n == 6 && startswith(k, "sender"))
                 return BUS_MATCH_SENDER;
-        if (n == 11 && memcmp(k, "destination", 11) == 0)
+        if (n == 11 && startswith(k, "destination"))
                 return BUS_MATCH_DESTINATION;
-        if (n == 9 && memcmp(k, "interface", 9) == 0)
+        if (n == 9 && startswith(k, "interface"))
                 return BUS_MATCH_INTERFACE;
-        if (n == 6 && memcmp(k, "member", 6) == 0)
+        if (n == 6 && startswith(k, "member"))
                 return BUS_MATCH_MEMBER;
-        if (n == 4 && memcmp(k, "path", 4) == 0)
+        if (n == 4 && startswith(k, "path"))
                 return BUS_MATCH_PATH;
-        if (n == 14 && memcmp(k, "path_namespace", 14) == 0)
+        if (n == 14 && startswith(k, "path_namespace"))
                 return BUS_MATCH_PATH_NAMESPACE;
 
-        if (n == 4 && memcmp(k, "arg", 3) == 0) {
+        if (n == 4 && startswith(k, "arg")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -578,7 +580,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG + j;
         }
 
-        if (n == 5 && memcmp(k, "arg", 3) == 0) {
+        if (n == 5 && startswith(k, "arg")) {
                 int a, b;
                 enum bus_match_node_type t;
 
@@ -594,7 +596,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return t;
         }
 
-        if (n == 8 && memcmp(k, "arg", 3) == 0 && memcmp(k + 4, "path", 4) == 0) {
+        if (n == 8 && startswith(k, "arg") && startswith(k + 4, "path")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -604,7 +606,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG_PATH + j;
         }
 
-        if (n == 9 && memcmp(k, "arg", 3) == 0 && memcmp(k + 5, "path", 4) == 0) {
+        if (n == 9 && startswith(k, "arg") && startswith(k + 5, "path")) {
                 enum bus_match_node_type t;
                 int a, b;
 
@@ -620,7 +622,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return t;
         }
 
-        if (n == 13 && memcmp(k, "arg", 3) == 0 && memcmp(k + 4, "namespace", 9) == 0) {
+        if (n == 13 && startswith(k, "arg") && startswith(k + 4, "namespace")) {
                 int j;
 
                 j = undecchar(k[3]);
@@ -630,7 +632,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
                 return BUS_MATCH_ARG_NAMESPACE + j;
         }
 
-        if (n == 14 && memcmp(k, "arg", 3) == 0 && memcmp(k + 5, "namespace", 9) == 0) {
+        if (n == 14 && startswith(k, "arg") && startswith(k + 5, "namespace")) {
                 enum bus_match_node_type t;
                 int a, b;
 
@@ -649,14 +651,8 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         return -EINVAL;
 }
 
-struct match_component {
-        enum bus_match_node_type type;
-        uint8_t value_u8;
-        char *value_str;
-};
-
 static int match_component_compare(const void *a, const void *b) {
-        const struct match_component *x = a, *y = b;
+        const struct bus_match_component *x = a, *y = b;
 
         if (x->type < y->type)
                 return -1;
@@ -666,7 +662,7 @@ static int match_component_compare(const void *a, const void *b) {
         return 0;
 }
 
-static void free_components(struct match_component *components, unsigned n_components) {
+void bus_match_parse_free(struct bus_match_component *components, unsigned n_components) {
         unsigned i;
 
         for (i = 0; i < n_components; i++)
@@ -675,13 +671,13 @@ static void free_components(struct match_component *components, unsigned n_compo
         free(components);
 }
 
-static int parse_match(
+int bus_match_parse(
                 const char *match,
-                struct match_component **_components,
+                struct bus_match_component **_components,
                 unsigned *_n_components) {
 
         const char *p = match;
-        struct match_component *components = NULL;
+        struct bus_match_component *components = NULL;
         size_t components_allocated = 0;
         unsigned n_components = 0, i;
         _cleanup_free_ char *value = NULL;
@@ -772,7 +768,7 @@ static int parse_match(
         }
 
         /* Order the whole thing, so that we always generate the same tree */
-        qsort(components, n_components, sizeof(struct match_component), match_component_compare);
+        qsort(components, n_components, sizeof(struct bus_match_component), match_component_compare);
 
         /* Check for duplicates */
         for (i = 0; i+1 < n_components; i++)
@@ -787,29 +783,24 @@ static int parse_match(
         return 0;
 
 fail:
-        free_components(components, n_components);
+        bus_match_parse_free(components, n_components);
         return r;
 }
 
 int bus_match_add(
                 struct bus_match_node *root,
-                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
                 sd_bus_message_handler_t callback,
                 void *userdata,
+                uint64_t cookie,
                 struct bus_match_node **ret) {
 
-        struct match_component *components = NULL;
-        unsigned n_components = 0, i;
+        unsigned i;
         struct bus_match_node *n;
         int r;
 
         assert(root);
-        assert(match);
-        assert(callback);
-
-        r = parse_match(match, &components, &n_components);
-        if (r < 0)
-                return r;
 
         n = root;
         for (i = 0; i < n_components; i++) {
@@ -817,38 +808,32 @@ int bus_match_add(
                                 n, components[i].type,
                                 components[i].value_u8, components[i].value_str, &n);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        r = bus_match_add_leaf(n, callback, userdata, &n);
+        r = bus_match_add_leaf(n, callback, userdata, cookie, &n);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (ret)
                 *ret = n;
 
-finish:
-        free_components(components, n_components);
-        return r;
+        return 0;
 }
 
 int bus_match_remove(
                 struct bus_match_node *root,
-                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
                 sd_bus_message_handler_t callback,
-                void *userdata) {
+                void *userdata,
+                uint64_t *cookie) {
 
-        struct match_component *components = NULL;
-        unsigned n_components = 0, i;
+        unsigned i;
         struct bus_match_node *n, **gc;
         int r;
 
         assert(root);
-        assert(match);
-
-        r = parse_match(match, &components, &n_components);
-        if (r < 0)
-                return r;
 
         gc = newa(struct bus_match_node*, n_components);
 
@@ -859,14 +844,17 @@ int bus_match_remove(
                                 components[i].value_u8, components[i].value_str,
                                 &n);
                 if (r <= 0)
-                        goto finish;
+                        return r;
 
                 gc[i] = n;
         }
 
         r = bus_match_find_leaf(n, callback, userdata, &n);
         if (r <= 0)
-                goto finish;
+                return r;
+
+        if (cookie)
+                *cookie = n->leaf.cookie;
 
         /* Free the leaf */
         bus_match_node_free(n);
@@ -882,8 +870,6 @@ int bus_match_remove(
                         break;
         }
 
-finish:
-        free_components(components, n_components);
         return r;
 }
 

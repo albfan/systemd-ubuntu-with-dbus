@@ -100,7 +100,11 @@
                 <filename>system-update.target</filename>,
                 <filename>time-sync.target</filename>,
                 <filename>timers.target</filename>,
-                <filename>umount.target</filename></para>
+                <filename>umount.target</filename>,
+                <filename>-.slice</filename>,
+                <filename>system.slice</filename>,
+                <filename>user.slice</filename>,
+                <filename>machine.slice</filename></para>
         </refsynopsisdiv>
 
         <refsect1>
@@ -314,7 +318,7 @@
                                         dependencies of type
                                         <varname>Before=</varname> to
                                         <filename>sysroot-usr.mount</filename>
-                                        and all mount points fround in
+                                        and all mount points found in
                                         <filename>/etc/fstab</filename>
                                         that have the
                                         <option>auto</option> and
@@ -381,7 +385,7 @@
                                         this unit during
                                         installation. This is best
                                         configured via
-                                        <varname>WantedBy=multi-uer.target</varname>
+                                        <varname>WantedBy=multi-user.target</varname>
                                         in the unit's
                                         <literal>[Install]</literal>
                                         section.</para>
@@ -444,7 +448,7 @@
                                         after it. Note that networking
                                         daemons that simply provide
                                         functionality to other hosts
-                                        generally don't need to pull
+                                        generally do not need to pull
                                         this in.</para>
                                         </listitem>
                         </varlistentry>
@@ -935,7 +939,7 @@
                                         <varname>Wants=</varname> type
                                         dependency. If the unit wants
                                         to be pulled in by the first
-                                        remote mount showing up it
+                                        remote mount showing up, it
                                         should use
                                         <filename>network-online.target</filename>
                                         (see above).</para>
@@ -1007,8 +1011,8 @@
                                         terminate the user service
                                         manager should start this
                                         unit. If systemd receives
-                                        SIGTERM or SIGINT when running
-                                        as user service daemon it will
+                                        <constant>SIGTERM</constant> or <constant>SIGINT</constant> when running
+                                        as user service daemon, it will
                                         start this unit.</para>
 
                                         <para>Normally, this pulls in
@@ -1023,6 +1027,63 @@
         </refsect1>
 
         <refsect1>
+                <title>Special Slice Units</title>
+
+                <para>There are four <literal>.slice</literal> units
+                which form the basis of the hierarchy for assignment
+                of resources for services, users, and virtual machines
+                or containers.</para>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>-.slice</filename></term>
+                                <listitem>
+                                        <para>The root slice is the
+                                        root of the hierarchy. It
+                                        usually does not contain units
+                                        directly, but may be used to
+                                        set defaults for the whole
+                                        tree.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>system.slice</filename></term>
+                                <listitem>
+                                        <para>By default, all services
+                                        services started by
+                                        <command>systemd</command> are
+                                        found in this slice.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>user.slice</filename></term>
+                                <listitem>
+                                        <para>By default, all user
+                                        processes and services started
+                                        on behalf of the user,
+                                        including the per-user systemd
+                                        instance are found in this
+                                        slice.</para>
+                                </listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>machine.slice</filename></term>
+                                <listitem>
+                                        <para>By defalt, all virtual
+                                        machines and containers
+                                        registered with
+                                        <command>systemd-machined</command>
+                                        are found in this slice.
+                                        </para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -1030,6 +1091,7 @@
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                   </para>

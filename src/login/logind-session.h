@@ -22,17 +22,21 @@
 ***/
 
 typedef struct Session Session;
+typedef enum KillWho KillWho;
 
 #include "list.h"
 #include "util.h"
 #include "logind.h"
 #include "logind-seat.h"
+#include "logind-session-device.h"
 #include "logind-user.h"
+#include "login-shared.h"
 
 typedef enum SessionState {
+        SESSION_OPENING,  /* Session scope is being created */
         SESSION_ONLINE,   /* Logged in */
         SESSION_ACTIVE,   /* Logged in and in the fg */
-        SESSION_CLOSING,  /* Logged out, but processes still remain */
+        SESSION_CLOSING,  /* Logged out, but scope is still there */
         _SESSION_STATE_MAX,
         _SESSION_STATE_INVALID = -1
 } SessionState;
@@ -54,12 +58,12 @@ typedef enum SessionType {
         _SESSION_TYPE_INVALID = -1
 } SessionType;
 
-typedef enum KillWho {
+enum KillWho {
         KILL_LEADER,
         KILL_ALL,
         _KILL_WHO_MAX,
         _KILL_WHO_INVALID = -1
-} KillWho;
+};
 
 struct Session {
         Manager *manager;
@@ -80,8 +84,10 @@ struct Session {
         bool remote;
         char *remote_user;
         char *remote_host;
-
         char *service;
+
+        char *scope;
+        char *scope_job;
 
         int vtnr;
         Seat *seat;
@@ -92,15 +98,17 @@ struct Session {
         int fifo_fd;
         char *fifo_path;
 
-        char *cgroup_path;
-        char **controllers, **reset_controllers;
-
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
 
-        bool kill_processes;
         bool in_gc_queue:1;
         bool started:1;
+        bool closing:1;
+
+        DBusMessage *create_message;
+
+        char *controller;
+        Hashmap *devices;
 
         LIST_FIELDS(Session, sessions_by_user);
         LIST_FIELDS(Session, sessions_by_seat);
@@ -108,8 +116,9 @@ struct Session {
         LIST_FIELDS(Session, gc_queue);
 };
 
-Session *session_new(Manager *m, User *u, const char *id);
+Session *session_new(Manager *m, const char *id);
 void session_free(Session *s);
+void session_set_user(Session *s, User *u);
 int session_check_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
@@ -120,6 +129,7 @@ int session_create_fifo(Session *s);
 void session_remove_fifo(Session *s);
 int session_start(Session *s);
 int session_stop(Session *s);
+int session_finalize(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);
@@ -135,6 +145,8 @@ int session_send_changed(Session *s, const char *properties);
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
+int session_send_create_reply(Session *s, DBusError *error);
+
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
 
@@ -146,3 +158,7 @@ SessionClass session_class_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+bool session_is_controller(Session *s, const char *sender);
+int session_set_controller(Session *s, const char *sender, bool force);
+void session_drop_controller(Session *s);

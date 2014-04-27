@@ -60,19 +60,19 @@
 
                 <para><command>systemd-cgls</command> recursively
                 shows the contents of the selected Linux control group
-                hierarchy in a tree. If arguments are specified shows
+                hierarchy in a tree. If arguments are specified, shows
                 all member processes of the specified control groups
                 plus all their subgroups and their members. The
                 control groups may either be specified by their full
                 file paths or are assumed in the systemd control group
                 hierarchy. If no argument is specified and the current
                 working directory is beneath the control group mount
-                point <filename>/sys/fs/cgroup</filename> shows the contents
+                point <filename>/sys/fs/cgroup</filename>, shows the contents
                 of the control group the working directory refers
-                to. Otherwise the full systemd control group hierarchy
+                to. Otherwise, the full systemd control group hierarchy
                 is shown.</para>
 
-                <para>By default empty control groups are not
+                <para>By default, empty control groups are not
                 shown.</para>
         </refsect1>
 
@@ -107,16 +107,17 @@
                         <varlistentry>
                                 <term><option>--all</option></term>
 
-                                <listitem><para>Don't hide empty
+                                <listitem><para>Do not hide empty
                                 control groups in the
                                 output.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-l</option></term>
                                 <term><option>--full</option></term>
 
-                                <listitem><para>Do not ellipsize cgroup
-                                members.</para>
+                                <listitem><para>Do not ellipsize
+                                process tree members.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -131,7 +132,7 @@
                                 <term><option>-m <replaceable>MACHINE</replaceable></option></term>
                                 <term><option>--machine=<replaceable>MACHINE</replaceable></option></term>
 
-                                <listitem><para>Limit cgroups shown to
+                                <listitem><para>Limit control groups shown to
                                 the part corresponding to the
                                 container <replaceable>MACHINE</replaceable>.
                                 </para></listitem>

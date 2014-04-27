@@ -28,7 +28,6 @@
 #include "dbus.h"
 #include "log.h"
 #include "strv.h"
-#include "cgroup.h"
 #include "mkdir.h"
 #include "missing.h"
 #include "dbus-unit.h"
@@ -453,7 +452,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection *connection, D
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
-                        cgroup_notify_empty(m, cgroup);
+                        manager_notify_cgroup_empty(m, cgroup);
         }
 
         dbus_error_free(&error);
@@ -489,7 +488,7 @@ static DBusHandlerResult private_bus_message_filter(DBusConnection *connection, 
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse Released message: %s", bus_error_message(&error));
                 else
-                        cgroup_notify_empty(m, cgroup);
+                        manager_notify_cgroup_empty(m, cgroup);
 
                 /* Forward the message to the system bus, so that user
                  * instances are notified as well */
@@ -1136,19 +1135,19 @@ int bus_init(Manager *m, bool try_bus_connect) {
 
         if (set_ensure_allocated(&m->bus_connections, trivial_hash_func, trivial_compare_func) < 0 ||
             set_ensure_allocated(&m->bus_connections_for_dispatch, trivial_hash_func, trivial_compare_func) < 0)
-                goto oom;
+                return log_oom();
 
         if (m->name_data_slot < 0)
                 if (!dbus_pending_call_allocate_data_slot(&m->name_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (m->conn_data_slot < 0)
                 if (!dbus_pending_call_allocate_data_slot(&m->conn_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (m->subscribed_data_slot < 0)
                 if (!dbus_connection_allocate_data_slot(&m->subscribed_data_slot))
-                        goto oom;
+                        return log_oom();
 
         if (try_bus_connect) {
                 if ((r = bus_init_system(m)) < 0 ||
@@ -1156,16 +1155,14 @@ int bus_init(Manager *m, bool try_bus_connect) {
                         return r;
         }
 
-        if ((r = bus_init_private(m)) < 0)
+        r = bus_init_private(m);
+        if (r < 0)
                 return r;
 
         return 0;
-oom:
-        return log_oom();
 }
 
 static void shutdown_connection(Manager *m, DBusConnection *c) {
-        Set *s;
         Job *j;
         Iterator i;
 
@@ -1181,15 +1178,7 @@ static void shutdown_connection(Manager *m, DBusConnection *c) {
 
         set_remove(m->bus_connections, c);
         set_remove(m->bus_connections_for_dispatch, c);
-
-        if ((s = BUS_CONNECTION_SUBSCRIBED(m, c))) {
-                char *t;
-
-                while ((t = set_steal_first(s)))
-                        free(t);
-
-                set_free(s);
-        }
+        set_free_free(BUS_CONNECTION_SUBSCRIBED(m, c));
 
         if (m->queued_message_connection == c) {
                 m->queued_message_connection = NULL;
@@ -1260,10 +1249,10 @@ void bus_done(Manager *m) {
         set_free(m->bus_connections_for_dispatch);
 
         if (m->name_data_slot >= 0)
-               dbus_pending_call_free_data_slot(&m->name_data_slot);
+                dbus_pending_call_free_data_slot(&m->name_data_slot);
 
         if (m->conn_data_slot >= 0)
-               dbus_pending_call_free_data_slot(&m->conn_data_slot);
+                dbus_pending_call_free_data_slot(&m->conn_data_slot);
 
         if (m->subscribed_data_slot >= 0)
                 dbus_connection_free_data_slot(&m->subscribed_data_slot);
@@ -1390,6 +1379,12 @@ bool bus_has_subscriber(Manager *m) {
 
         assert(m);
 
+        /* If we are reloading then we might not have deserialized the
+           subscribers yet, hence let's assume that there are some */
+
+        if (m->n_reloading > 0)
+                return true;
+
         SET_FOREACH(c, m->bus_connections_for_dispatch, i)
                 if (bus_connection_has_subscriber(m, c))
                         return true;
@@ -1456,7 +1451,7 @@ void bus_broadcast_finished(
                 usec_t userspace_usec,
                 usec_t total_usec) {
 
-        DBusMessage *message;
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
 
         assert(m);
 
@@ -1476,16 +1471,106 @@ void bus_broadcast_finished(
                                       DBUS_TYPE_UINT64, &total_usec,
                                       DBUS_TYPE_INVALID)) {
                 log_oom();
-                goto finish;
+                return;
         }
 
 
         if (bus_broadcast(m, message) < 0) {
                 log_oom();
-                goto finish;
+                return;
+        }
+}
+
+void bus_broadcast_reloading(Manager *m, bool active) {
+
+        _cleanup_dbus_message_unref_ DBusMessage *message = NULL;
+        dbus_bool_t b = active;
+
+        assert(m);
+
+        message = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "Reloading");
+        if (!message) {
+                log_oom();
+                return;
         }
 
-finish:
-        if (message)
-                dbus_message_unref(message);
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+        if (!dbus_message_append_args(message,
+                                      DBUS_TYPE_BOOLEAN, &b,
+                                      DBUS_TYPE_INVALID)) {
+                log_oom();
+                return;
+        }
+
+
+        if (bus_broadcast(m, message) < 0) {
+                log_oom();
+                return;
+        }
+}
+
+Set *bus_acquire_subscribed(Manager *m, DBusConnection *c) {
+        Set *s;
+
+        assert(m);
+        assert(c);
+
+        s = BUS_CONNECTION_SUBSCRIBED(m, c);
+        if (s)
+                return s;
+
+        s = set_new(string_hash_func, string_compare_func);
+        if (!s)
+                return NULL;
+
+        if (!dbus_connection_set_data(c, m->subscribed_data_slot, s, NULL)) {
+                set_free(s);
+                return NULL;
+        }
+
+        return s;
+}
+
+void bus_serialize(Manager *m, FILE *f) {
+        char *client;
+        Iterator i;
+        Set *s;
+
+        assert(m);
+        assert(f);
+
+        if (!m->api_bus)
+                return;
+
+        s = BUS_CONNECTION_SUBSCRIBED(m, m->api_bus);
+        SET_FOREACH(client, s, i)
+                fprintf(f, "subscribed=%s\n", client);
+}
+
+int bus_deserialize_item(Manager *m, const char *line) {
+        const char *e;
+        char *b;
+        Set *s;
+
+        assert(m);
+        assert(line);
+
+        if (!m->api_bus)
+                return 0;
+
+        e = startswith(line, "subscribed=");
+        if (!e)
+                return 0;
+
+        s = bus_acquire_subscribed(m, m->api_bus);
+        if (!s)
+                return -ENOMEM;
+
+        b = strdup(e);
+        if (!b)
+                return -ENOMEM;
+
+        set_consume(s, b);
+
+        return 1;
 }

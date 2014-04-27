@@ -24,15 +24,18 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include "hashmap.h"
 #include "prioq.h"
 #include "list.h"
 #include "util.h"
+#include "refcnt.h"
 
 #include "sd-bus.h"
 #include "bus-error.h"
 #include "bus-match.h"
+#include "bus-kernel.h"
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -66,8 +69,13 @@ enum bus_state {
         BUS_OPENING,
         BUS_AUTHENTICATING,
         BUS_HELLO,
-        BUS_RUNNING
+        BUS_RUNNING,
+        BUS_CLOSED
 };
+
+static inline bool BUS_IS_OPEN(enum bus_state state) {
+        return state > BUS_UNSET && state < BUS_CLOSED;
+}
 
 enum bus_auth {
         _BUS_AUTH_INVALID,
@@ -76,13 +84,21 @@ enum bus_auth {
 };
 
 struct sd_bus {
-        unsigned n_ref;
+        /* We use atomic ref counting here since sd_bus_message
+           objects retain references to their originating sd_bus but
+           we want to allow them to be processed in a different
+           thread. We won't provide full thread safety, but only the
+           bare minimum that makes it possible to use sd_bus and
+           sd_bus_message objects independently and on different
+           threads as long as each object is used only once at the
+           same time. */
+        RefCount n_ref;
+
         enum bus_state state;
         int input_fd, output_fd;
         int message_version;
 
         bool is_kernel:1;
-        bool negotiate_fds:1;
         bool can_fds:1;
         bool bus_client:1;
         bool ucred_valid:1;
@@ -94,6 +110,8 @@ struct sd_bus {
         bool match_callbacks_modified:1;
         bool filter_callbacks_modified:1;
         bool object_callbacks_modified:1;
+
+        int use_memfd;
 
         void *rbuffer;
         size_t rbuffer_size;
@@ -150,6 +168,24 @@ struct sd_bus {
 
         uint64_t hello_serial;
         unsigned iteration_counter;
+
+        void *kdbus_buffer;
+
+        /* We do locking around the memfd cache, since we want to
+         * allow people to process a sd_bus_message in a different
+         * thread then it was generated on and free it there. Since
+         * adding something to the memfd cache might happen when a
+         * message is released, we hence need to protect this bit with
+         * a mutex. */
+        pthread_mutex_t memfd_cache_mutex;
+        struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
+        unsigned n_memfd_cache;
+
+        pid_t original_pid;
+
+        uint64_t hello_flags;
+
+        uint64_t match_cookie;
 };
 
 static inline void bus_unrefp(sd_bus **b) {
@@ -196,3 +232,5 @@ const char *bus_message_type_to_string(uint8_t u);
 int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
+
+bool bus_pid_changed(sd_bus *bus);

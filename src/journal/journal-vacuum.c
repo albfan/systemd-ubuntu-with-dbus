@@ -128,6 +128,25 @@ static void patch_realtime(
 #endif
 }
 
+static int journal_file_empty(int dir_fd, const char *name) {
+        int r;
+        le64_t n_entries;
+        _cleanup_close_ int fd;
+
+        fd = openat(dir_fd, name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0)
+                return -errno;
+
+        if (lseek(fd, offsetof(Header, n_entries), SEEK_SET) < 0)
+                return -errno;
+
+        r = read(fd, &n_entries, sizeof(n_entries));
+        if (r != sizeof(n_entries))
+                return r == 0 ? -EINVAL : -errno;
+
+        return le64toh(n_entries) == 0;
+}
+
 int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
@@ -135,11 +154,12 @@ int journal_directory_vacuum(
                 usec_t max_retention_usec,
                 usec_t *oldest_usec) {
 
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         int r = 0;
         struct vacuum_info *list = NULL;
-        unsigned n_list = 0, n_allocated = 0, i;
-        uint64_t sum = 0;
+        unsigned n_list = 0, i;
+        size_t n_allocated = 0;
+        uint64_t sum = 0, freed = 0;
         usec_t retention_limit = 0;
 
         assert(directory);
@@ -246,21 +266,24 @@ int journal_directory_vacuum(
                         /* We do not vacuum active files or unknown files! */
                         continue;
 
-                patch_realtime(directory, de->d_name, &st, &realtime);
+                if (journal_file_empty(dirfd(d), p)) {
+                        /* Always vacuum empty non-online files. */
 
-                if (n_list >= n_allocated) {
-                        struct vacuum_info *j;
+                        uint64_t size = 512UL * (uint64_t) st.st_blocks;
 
-                        n_allocated = MAX(n_allocated * 2U, 8U);
-                        j = realloc(list, n_allocated * sizeof(struct vacuum_info));
-                        if (!j) {
-                                free(p);
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (unlinkat(dirfd(d), p, 0) >= 0) {
+                                log_info("Deleted empty journal %s/%s (%"PRIu64" bytes).",
+                                         directory, p, size);
+                                freed += size;
+                        } else if (errno != ENOENT)
+                                log_warning("Failed to delete %s/%s: %m", directory, p);
 
-                        list = j;
+                        continue;
                 }
+
+                patch_realtime(directory, p, &st, &realtime);
+
+                GREEDY_REALLOC(list, n_allocated, n_list + 1);
 
                 list[n_list].filename = p;
                 list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
@@ -291,7 +314,9 @@ int journal_directory_vacuum(
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
-                        log_debug("Deleted archived journal %s/%s.", directory, list[i].filename);
+                        log_debug("Deleted archived journal %s/%s (%"PRIu64" bytes).",
+                                  directory, list[i].filename, list[i].usage);
+                        freed += list[i].usage;
 
                         if (list[i].usage < sum)
                                 sum -= list[i].usage;
@@ -308,11 +333,9 @@ int journal_directory_vacuum(
 finish:
         for (i = 0; i < n_list; i++)
                 free(list[i].filename);
-
         free(list);
 
-        if (d)
-                closedir(d);
+        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
 
         return r;
 }

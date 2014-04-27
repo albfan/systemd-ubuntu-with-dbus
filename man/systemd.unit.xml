@@ -60,7 +60,9 @@
                 <filename><replaceable>target</replaceable>.target</filename>,
                 <filename><replaceable>path</replaceable>.path</filename>,
                 <filename><replaceable>timer</replaceable>.timer</filename>,
-                <filename><replaceable>snapshot</replaceable>.snapshot</filename></para>
+                <filename><replaceable>snapshot</replaceable>.snapshot</filename>,
+                <filename><replaceable>slice</replaceable>.slice</filename>,
+                <filename><replaceable>scope</replaceable>.scope</filename></para>
 
                 <para><literallayout><filename>/etc/systemd/system/*</filename>
 <filename>/run/systemd/system/*</filename>
@@ -68,7 +70,8 @@
 <filename>...</filename>
                 </literallayout></para>
 
-                <para><literallayout><filename>/etc/systemd/user/*</filename>
+                <para><literallayout><filename>$HOME/.config/systemd/user/*</filename>
+<filename>/etc/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>...</filename>
@@ -81,12 +84,15 @@
                 <para>A unit configuration file encodes information
                 about a service, a socket, a device, a mount point, an
                 automount point, a swap file or partition, a start-up
-                target, a file system path, or a timer controlled and
-                supervised by
-                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>. The
-                syntax is inspired by <ulink
+                target, a watched file system path, a timer controlled
+                and supervised by
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                a temporary system state snapshot, a resource
+                management slice or a group of externally created
+                processes. The syntax is inspired by <ulink
                 url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-                Desktop Entry Specification</ulink> <filename>.desktop</filename> files, which are in turn
+                Desktop Entry Specification</ulink>
+                <filename>.desktop</filename> files, which are in turn
                 inspired by Microsoft Windows
                 <filename>.ini</filename> files.</para>
 
@@ -110,6 +116,8 @@
                 <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
                 </para>
 
                 <para>Unit files are loaded from a set of paths
@@ -118,9 +126,9 @@
 
                 <para>Unit files may contain additional options on top
                 of those listed here. If systemd encounters an unknown
-                option it will write a warning log message but
+                option, it will write a warning log message but
                 continue loading the unit. If an option is prefixed
-                with <option>X-</option> it is ignored completely by
+                with <option>X-</option>, it is ignored completely by
                 systemd. Applications may use this to include
                 additional information in the unit files.</para>
 
@@ -128,7 +136,7 @@
                 written in various formats. For positive settings the
                 strings <option>1</option>, <option>yes</option>,
                 <option>true</option> and <option>on</option> are
-                equivalent. For negative settings the strings
+                equivalent. For negative settings, the strings
                 <option>0</option>, <option>no</option>,
                 <option>false</option> and <option>off</option> are
                 equivalent.</para>
@@ -152,14 +160,14 @@
                 space character. This may be used to wrap long lines.</para>
 
                 <para>Along with a unit file
-                <filename>foo.service</filename> the directory
+                <filename>foo.service</filename>, the directory
                 <filename>foo.service.wants/</filename> may exist. All
                 unit files symlinked from such a directory are
                 implicitly added as dependencies of type
                 <varname>Wanted=</varname> to the unit. This is useful
                 to hook units into the start-up of other units,
                 without having to modify their unit files. For details
-                about the semantics of <varname>Wanted=</varname> see
+                about the semantics of <varname>Wanted=</varname>, see
                 below. The preferred way to create symlinks in the
                 <filename>.wants/</filename> directory of a unit file
                 is with the <command>enable</command> command of the
@@ -171,9 +179,9 @@
                 <filename>.requires/</filename> in this case.</para>
 
                 <para>Along with a unit file
-                <filename>foo.service</filename> a directory
+                <filename>foo.service</filename>, a directory
                 <filename>foo.service.d/</filename> may exist. All
-                files with the suffix <filename>.conf</filename> from
+                files with the suffix <literal>.conf</literal> from
                 this directory will be parsed after the file itself is
                 parsed. This is useful to alter or add configuration
                 settings to a unit, without having to modify their
@@ -182,7 +190,7 @@
                 directive.</para>
 
                 <para>If a line starts with <option>.include</option>
-                followed by a file name, the specified file will be
+                followed by a filename, the specified file will be
                 parsed at this point. Make sure that the file that is
                 included has the appropriate section headers before
                 any directives.</para>
@@ -195,12 +203,12 @@
                 in a both simpler and more flexible system.</para>
 
                 <para>Some unit names reflect paths existing in the
-                file system name space. Example: a device unit
+                file system namespace. Example: a device unit
                 <filename>dev-sda.device</filename> refers to a device
                 with the device node <filename noindex='true'>/dev/sda</filename> in
-                the file system namespace. If this applies a special
+                the file system namespace. If this applies, a special
                 way to escape the path name is used, so that the
-                result is usable as part of a file name. Basically,
+                result is usable as part of a filename. Basically,
                 given a path, "/" is replaced by "-", and all
                 unprintable characters and the "-" are replaced by
                 C-style "\x20" escapes. The root directory "/" is
@@ -211,12 +219,12 @@
                 <para>Optionally, units may be instantiated from a
                 template file at runtime. This allows creation of
                 multiple units from a single configuration file. If
-                systemd looks for a unit configuration file it will
+                systemd looks for a unit configuration file, it will
                 first search for the literal unit name in the
                 filesystem. If that yields no success and the unit
-                name contains an @ character, systemd will look for a
+                name contains an <literal>@</literal> character, systemd will look for a
                 unit template that shares the same name but with the
-                instance string (i.e. the part between the @ character
+                instance string (i.e. the part between the <literal>@</literal> character
                 and the suffix) removed. Example: if a service
                 <filename>getty@tty3.service</filename> is requested
                 and no file by that name is found, systemd will look
@@ -230,7 +238,7 @@
                 configuration options. See below for details.</para>
 
                 <para>If a unit file is empty (i.e. has the file size
-                0) or is symlinked to <filename>/dev/null</filename>
+                0) or is symlinked to <filename>/dev/null</filename>,
                 its configuration will not be loaded and it appears
                 with a load state of <literal>masked</literal>, and
                 cannot be activated. Use this as an effective way to
@@ -249,10 +257,9 @@
 
                 <para>Unit files are loaded from a set of paths
                 determined during compilation, described in the two
-                tables below. Unit files found in directories higher
-                in the hierarchy override files with the same name
-                lower in the hierarchy, thus allowing overrides.
-                </para>
+                tables below. Unit files found in directories listed
+                earlier override files with the same name in
+                directories lower in the list.</para>
 
                 <para>When systemd is running in user mode
                 (<option>--user</option>) and the variable
@@ -277,32 +284,16 @@
                     </thead>
                     <tbody>
                       <row>
-                        <entry><filename>/run/systemd/generator.early</filename></entry>
-                        <entry>Generated units (early)</entry>
-                      </row>
-                      <row>
                         <entry><filename>/etc/systemd/system</filename></entry>
                         <entry>Local configuration</entry>
                       </row>
                       <row>
-                        <entry><filename>/run/systemd/systemd</filename></entry>
-                        <entry>Volatile units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/run/systemd/generator</filename></entry>
-                        <entry>Generated units (middle)</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/local/lib/systemd/system</filename></entry>
-                        <entry>Units for local packages</entry>
+                        <entry><filename>/run/systemd/system</filename></entry>
+                        <entry>Runtime units</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/systemd/system</filename></entry>
-                        <entry>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/run/systemd/generator.late</filename></entry>
-                        <entry>Generated units (late)</entry>
+                        <entry>Units of installed packages</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -310,7 +301,7 @@
 
                 <table>
                   <title>
-                    Load path when running in session mode (<option>--user</option>).
+                    Load path when running in user mode (<option>--user</option>).
                   </title>
 
                   <tgroup cols='2'>
@@ -324,8 +315,8 @@
                     </thead>
                     <tbody>
                       <row>
-                        <entry><filename>/tmp/systemd-generator.early.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (early)</entry>
+                        <entry><filename>$HOME/.config/systemd/user</filename></entry>
+                        <entry>User configuration</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
@@ -333,23 +324,11 @@
                       </row>
                       <row>
                         <entry><filename>/run/systemd/user</filename></entry>
-                        <entry>Volatile units</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/tmp/systemd-generator.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (middle)</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/usr/local/lib/systemd/user</filename></entry>
-                        <entry>Units for local packages</entry>
+                        <entry>Runtime units</entry>
                       </row>
                       <row>
                         <entry><filename>/usr/lib/systemd/user</filename></entry>
-                        <entry>Units for installed packages</entry>
-                      </row>
-                      <row>
-                        <entry><filename>/tmp/systemd-generator.late.<replaceable>XXXXXX</replaceable></filename></entry>
-                        <entry>Generated units (late)</entry>
+                        <entry>Units of installed packages</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -358,7 +337,10 @@
                 <para>Additional units might be loaded into systemd
                 ("linked") from directories not on the unit load
                 path. See the <command>link</command> command for
-                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+                <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Also,
+                some units are dynamically created via generators
+                <ulink
+                url="http://www.freedesktop.org/wiki/Software/systemd/Generators/">Generators</ulink>.
                 </para>
         </refsect1>
 
@@ -377,12 +359,20 @@
                                 describing the unit. This is intended
                                 for use in UIs to show descriptive
                                 information along with the unit
-                                name.</para></listitem>
+                                name. The description should contain a name
+                                that means something to the end user.
+                                <literal>Apache2 Web Server</literal> is a good
+                                example. Bad examples are
+                                <literal>high-performance light-weight HTTP
+                                server</literal> (too generic) or
+                                <literal>Apache2</literal> (too specific and
+                                meaningless for people who do not know
+                                Apache).</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>Documentation=</varname></term>
-                                <listitem><para>A space separated list
+                                <listitem><para>A space-separated list
                                 of URIs referencing documentation for
                                 this unit or its
                                 configuration. Accepted are only URIs
@@ -393,7 +383,7 @@
                                 <literal>info:</literal>,
                                 <literal>man:</literal>. For more
                                 information about the syntax of these
-                                URIs see
+                                URIs, see
                                 <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
                                 URIs should be listed in order of
                                 relevance, starting with the most
@@ -405,7 +395,7 @@
                                 option may be specified more than once
                                 in which case the specified list of
                                 URIs is merged. If the empty string is
-                                assigned to this option the list is
+                                assigned to this option, the list is
                                 reset and all prior assignments will
                                 have no effect.</para></listitem>
                         </varlistentry>
@@ -471,7 +461,7 @@
                                 the start-up was pulled in indirectly
                                 by some dependency or automatic
                                 start-up of units that is not
-                                requested by the user this dependency
+                                requested by the user, this dependency
                                 must be fulfilled and otherwise the
                                 transaction fails. Hence, this option
                                 may be used to configure dependencies
@@ -634,7 +624,7 @@
                                 type <varname>After=</varname> or
                                 <varname>Before=</varname>. If two
                                 units have no ordering dependencies
-                                between them they are shut down
+                                between them, they are shut down
                                 or started up simultaneously, and
                                 no ordering takes
                                 place. </para></listitem>
@@ -646,7 +636,7 @@
                                 <listitem><para>Lists one or more
                                 units that are activated when this
                                 unit enters the
-                                '<literal>failed</literal>'
+                                <literal>failed</literal>
                                 state.</para></listitem>
                         </varlistentry>
 
@@ -669,8 +659,8 @@
                         <varlistentry>
                                 <term><varname>RequiresMountsFor=</varname></term>
 
-                                <listitem><para>Takes a space
-                                separated list of absolute paths. Automatically
+                                <listitem><para>Takes a space-separated
+                                list of absolute paths. Automatically
                                 adds dependencies of type
                                 <varname>Requires=</varname> and
                                 <varname>After=</varname> for all
@@ -682,12 +672,12 @@
                                 <term><varname>OnFailureIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option> the
+                                argument. If <option>true</option>, the
                                 unit listed in
                                 <varname>OnFailure=</varname> will be
                                 enqueued in isolation mode, i.e. all
                                 units that are not its dependency will
-                                be stopped. If this is set only a
+                                be stopped. If this is set, only a
                                 single unit may be listed in
                                 <varname>OnFailure=</varname>. Defaults
                                 to
@@ -698,7 +688,7 @@
                                 <term><varname>IgnoreOnIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will not be stopped when
                                 isolating another unit. Defaults to
                                 <option>false</option>.</para></listitem>
@@ -708,7 +698,7 @@
                                 <term><varname>IgnoreOnSnapshot=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will not be included in
                                 snapshots. Defaults to
                                 <option>true</option> for device and
@@ -720,7 +710,7 @@
                                 <term><varname>StopWhenUnneeded=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit will be stopped when it is
                                 no longer used. Note that in order to
                                 minimize the work to be executed,
@@ -739,10 +729,10 @@
                                 <term><varname>RefuseManualStop=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit can only be activated
                                 or deactivated indirectly. In
-                                this case explicit start-up
+                                this case, explicit start-up
                                 or termination requested by the
                                 user is denied, however if it is
                                 started or stopped as a
@@ -762,10 +752,10 @@
                                 <term><varname>AllowIsolate=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 this unit may be used with the
                                 <command>systemctl isolate</command>
-                                command. Otherwise this will be
+                                command. Otherwise, this will be
                                 refused. It probably is a good idea to
                                 leave this disabled except for target
                                 units that shall be used similar to
@@ -779,7 +769,7 @@
                                 <term><varname>DefaultDependencies=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                argument. If <option>true</option>
+                                argument. If <option>true</option>,
                                 (the default), a few default
                                 dependencies will implicitly be
                                 created for the unit. The actual
@@ -797,7 +787,7 @@
                                 highly recommended to leave this
                                 option enabled for the majority of
                                 common units. If set to
-                                <option>false</option> this option
+                                <option>false</option>, this option
                                 does not disable all implicit
                                 dependencies, just non-essential
                                 ones.</para></listitem>
@@ -809,10 +799,10 @@
                                 <listitem><para>When clients are
                                 waiting for a job of this unit to
                                 complete, time out after the specified
-                                time. If this time limit is reached
+                                time. If this time limit is reached,
                                 the job will be cancelled, the unit
                                 however will not change state or even
-                                enter the '<literal>failed</literal>'
+                                enter the <literal>failed</literal>
                                 mode. This value defaults to 0 (job
                                 timeouts disabled), except for device
                                 units. NB: this timeout is independent
@@ -851,7 +841,7 @@
 
                                 <listitem><para>Before starting a unit
                                 verify that the specified condition is
-                                true. If it is not true the starting
+                                true. If it is not true, the starting
                                 of the unit will be skipped, however
                                 all ordering dependencies of it are
                                 still respected. A failing condition
@@ -866,12 +856,12 @@
                                 a file existence condition is
                                 checked before a unit is started. If
                                 the specified absolute path name does
-                                not exist the condition will
+                                not exist, the condition will
                                 fail. If the absolute path name passed
                                 to
                                 <varname>ConditionPathExists=</varname>
                                 is prefixed with an exclamation mark
-                                ('!'), the test is negated, and the unit
+                                (<literal>!</literal>), the test is negated, and the unit
                                 is only started if the path does not
                                 exist.</para>
 
@@ -940,7 +930,7 @@
                                 exclamation mark unset). The argument
                                 must either be a single word, or an
                                 assignment (i.e. two words, separated
-                                '='). In the former
+                                <literal>=</literal>). In the former
                                 case the kernel command line is
                                 searched for the word appearing as is,
                                 or as left hand side of an
@@ -969,13 +959,14 @@
                                 <varname>xen</varname>,
                                 <varname>bochs</varname>,
                                 <varname>chroot</varname>,
+                                <varname>uml</varname>,
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>lxc-libvirt</varname>,
                                 <varname>systemd-nspawn</varname> to
                                 test against a specific
                                 implementation. If multiple
-                                virtualization technologies are nested
+                                virtualization technologies are nested,
                                 only the innermost is considered. The
                                 test may be negated by prepending an
                                 exclamation mark.</para>
@@ -983,9 +974,10 @@
                                 <para><varname>ConditionSecurity=</varname>
                                 may be used to check whether the given
                                 security module is enabled on the
-                                system.  Currently the only recognized
+                                system. Currently the recognized values
                                 values are <varname>selinux</varname>,
-                                <varname>apparmor</varname>, and
+                                <varname>apparmor</varname>,
+                                <varname>ima</varname> and
                                 <varname>smack</varname>.
                                 The test may be negated by prepending
                                 an exclamation
@@ -1006,11 +998,11 @@
 
                                 <para><varname>ConditionHost=</varname>
                                 may be used to match against the
-                                host name or machine ID of the
-                                host. This either takes a host name
+                                hostname or machine ID of the
+                                host. This either takes a hostname
                                 string (optionally with shell style
                                 globs) which is tested against the
-                                locally set host name as returned by
+                                locally set hostname as returned by
                                 <citerefentry><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
                                 or a machine ID formatted as string
                                 (see
@@ -1024,12 +1016,12 @@
                                 battery powered at the time of
                                 activation of the unit. This takes a
                                 boolean argument. If set to
-                                <varname>true</varname> the condition
+                                <varname>true</varname>, the condition
                                 will hold only if at least one AC
                                 connector of the system is connected
                                 to a power source, or if no AC
                                 connectors are known. Conversely, if
-                                set to <varname>false</varname> the
+                                set to <varname>false</varname>, the
                                 condition will hold only if there is
                                 at least one AC connector known and
                                 all AC connectors are disconnected
@@ -1040,30 +1032,30 @@
                                 be used to add a constant condition
                                 check value to the unit. It takes a
                                 boolean argument. If set to
-                                <varname>false</varname> the condition
+                                <varname>false</varname>, the condition
                                 will always fail, otherwise
                                 succeed.</para>
 
                                 <para>If multiple conditions are
-                                specified the unit will be executed if
+                                specified, the unit will be executed if
                                 all of them apply (i.e. a logical AND
                                 is applied). Condition checks can be
                                 prefixed with a pipe symbol (|) in
                                 which case a condition becomes a
                                 triggering condition. If at least one
                                 triggering condition is defined for a
-                                unit then the unit will be executed if
+                                unit, then the unit will be executed if
                                 at least one of the triggering
                                 conditions apply and all of the
                                 non-triggering conditions. If you
                                 prefix an argument with the pipe
-                                symbol and an exclamation mark the
+                                symbol and an exclamation mark, the
                                 pipe symbol must be passed first, the
                                 exclamation second. Except for
                                 <varname>ConditionPathIsSymbolicLink=</varname>,
                                 all path checks follow symlinks. If
                                 any of these options is assigned the
-                                empty string the list of conditions is
+                                empty string, the list of conditions is
                                 reset completely, all previous
                                 condition settings (of any kind) will
                                 have no effect.</para></listitem>
@@ -1107,26 +1099,53 @@
                                 time,
                                 <command>systemctl enable</command>
                                 will create symlinks from these names
-                                to the unit file name.</para></listitem>
+                                to the unit filename.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
                                 <term><varname>WantedBy=</varname></term>
                                 <term><varname>RequiredBy=</varname></term>
 
-                                <listitem><para>Installs a symlink in
-                                the <filename>.wants/</filename>
-                                or <filename>.requires/</filename>
-                                subdirectory for a unit, respectively. This has the
-                                effect that when the listed unit name
-                                is activated the unit listing it is
-                                activated
-                                too. <command>WantedBy=foo.service</command>
+                                <listitem><para>A symbolic link is
+                                created in the
+                                <filename>.wants/</filename> or
+                                <filename>.requires/</filename> directory
+                                of the listed unit when this unit is
+                                activated by <command>systemctl
+                                enable</command>.  This has the effect
+                                that a dependency of type
+                                <varname>Wants=</varname> or
+                                <varname>Requires=</varname> is added
+                                from the listed unit to the current
+                                unit. The primary result is that the
+                                current unit will be started when the
+                                listed unit is started. See the
+                                description of
+                                <varname>Wants=</varname> and
+                                <varname>Requires=</varname> in the
+                                [Unit] section for details.</para>
+
+                                <para><command>WantedBy=foo.service</command>
                                 in a service
                                 <filename>bar.service</filename> is
                                 mostly equivalent to
                                 <command>Alias=foo.service.wants/bar.service</command>
-                                in the same file.</para></listitem>
+                                in the same file. In case of template
+                                units, <command>systemctl enable</command>
+                                must be called with an instance name, and
+                                this instance will be added to the
+                                <filename>.wants/</filename> or
+                                <filename>.requires/</filename> list
+                                of the listed unit.
+                                E.g. <command>WantedBy=getty.target</command>
+                                in a service
+                                <filename>getty@.service</filename>
+                                will result in <command>systemctl
+                                enable getty@tty2.service</command>
+                                creating a
+                                <filename>getty.target.wants/getty@tty2.service</filename>
+                                link to <filename>getty@.service</filename>.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1146,7 +1165,7 @@
                 </variablelist>
 
                 <para>The following specifiers are interpreted in the
-                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b.
+                Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v.
                 For their meaning see the next section.
                 </para>
         </refsect1>
@@ -1197,7 +1216,7 @@
                       <row>
                         <entry><literal>%i</literal></entry>
                         <entry>Instance name</entry>
-                        <entry>For instantiated units: this is the string between the @ character and the suffix.</entry>
+                        <entry>For instantiated units: this is the string between the <literal>@</literal> character and the suffix.</entry>
                       </row>
                       <row>
                         <entry><literal>%I</literal></entry>
@@ -1206,7 +1225,7 @@
                       </row>
                       <row>
                         <entry><literal>%f</literal></entry>
-                        <entry>Unescaped file name</entry>
+                        <entry>Unescaped filename</entry>
                         <entry>This is either the unescaped instance name (if applicable) with <filename>/</filename> prepended (if applicable), or the prefix name similarly prepended with <filename>/</filename>.</entry>
                       </row>
                       <row>
@@ -1222,7 +1241,10 @@
                       <row>
                         <entry><literal>%R</literal></entry>
                         <entry>Parent directory of the control group path where units are placed.</entry>
-                        <entry>For system instances this usually resolves to <filename>/</filename>, except in containers, where this resolves to the container's root directory. This specifier is particularly useful in the <varname>ControlGroup=</varname> setting (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</entry>
+                        <entry>For system instances this usually
+                        resolves to <filename>/</filename>, except in
+                        containers, where this resolves to the
+                        container's root directory.</entry>
                       </row>
                       <row>
                         <entry><literal>%t</literal></entry>
@@ -1262,7 +1284,12 @@
                       <row>
                         <entry><literal>%H</literal></entry>
                         <entry>Host name</entry>
-                        <entry>The host name of the running system.</entry>
+                        <entry>The hostname of the running system.</entry>
+                      </row>
+                      <row>
+                        <entry><literal>%v</literal></entry>
+                        <entry>Kernel release</entry>
+                        <entry>Identical to <command>uname -r</command> output.</entry>
                       </row>
                       <row>
                         <entry><literal>%%</literal></entry>
@@ -1290,9 +1317,12 @@
                         <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.snapshot</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

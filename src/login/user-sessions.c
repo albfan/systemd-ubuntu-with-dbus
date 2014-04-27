@@ -25,7 +25,6 @@
 
 #include "log.h"
 #include "util.h"
-#include "cgroup-util.h"
 #include "fileio.h"
 
 int main(int argc, char*argv[]) {
@@ -67,28 +66,11 @@ int main(int argc, char*argv[]) {
                         goto finish;
 
         } else if (streq(argv[1], "stop")) {
-                int r, q;
-                char *cgroup_user_tree = NULL;
+                int r;
 
                 r = write_string_file_atomic("/run/nologin", "System is going down.");
                 if (r < 0)
                         log_error("Failed to create /run/nologin: %s", strerror(-r));
-
-                q = cg_get_user_path(&cgroup_user_tree);
-                if (q < 0) {
-                        log_error("Failed to determine use path: %s", strerror(-q));
-                        goto finish;
-                }
-
-                q = cg_kill_recursive_and_wait(SYSTEMD_CGROUP_CONTROLLER, cgroup_user_tree, true);
-                free(cgroup_user_tree);
-                if (q < 0) {
-                        log_error("Failed to kill sessions: %s", strerror(-q));
-                        goto finish;
-                }
-
-                if (r < 0)
-                        goto finish;
 
         } else {
                 log_error("Unknown verb %s.", argv[1]);

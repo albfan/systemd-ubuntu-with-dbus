@@ -41,7 +41,7 @@
 #define COREDUMP_MIN_START (3*1024*1024)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
-#define COREDUMP_MAX (768*1024*1024)
+#define COREDUMP_MAX (767*1024*1024)
 
 enum {
         ARG_PID = 1,
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
         coredump_data = malloc(coredump_bufsize);
         if (!coredump_data) {
                 r = log_oom();
-                goto finish;
+                goto finalize;
         }
 
         memcpy(coredump_data, "COREDUMP=", 9);
@@ -258,9 +258,15 @@ int main(int argc, char* argv[]) {
                         break;
 
                 coredump_size += n;
+
+                if(coredump_size > COREDUMP_MAX) {
+                        log_error("Coredump too large, ignoring");
+                        goto finalize;
+                }
+
                 if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
                         r = log_oom();
-                        goto finish;
+                        goto finalize;
                 }
         }
 
@@ -268,6 +274,7 @@ int main(int argc, char* argv[]) {
         iovec[j].iov_len = coredump_size;
         j++;
 
+finalize:
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
                 log_error("Failed to send coredump: %s", strerror(-r));

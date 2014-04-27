@@ -1,0 +1,99 @@
+'\" t
+.TH "SYSTEMD\-TMPFILES" "8" "" "systemd 208" "systemd-tmpfiles"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-tmpfiles, systemd-tmpfiles-setup.service, systemd-tmpfiles-setup-dev.service, systemd-tmpfiles-clean.service, systemd-tmpfiles-clean.timer \- Creates, deletes and cleans up volatile and temporary files and directories
+.SH "SYNOPSIS"
+.HP \w'\fBsystemd\-tmpfiles\ \fR\fB[OPTIONS...]\fR\fB\ \fR\fB[CONFIGURATION\ FILE...]\fR\ 'u
+\fBsystemd\-tmpfiles \fR\fB[OPTIONS...]\fR\fB \fR\fB[CONFIGURATION\ FILE...]\fR
+.PP
+systemd\-tmpfiles\-setup\&.service
+.PP
+systemd\-tmpfiles\-setup\-dev\&.service
+.PP
+systemd\-tmpfiles\-clean\&.service
+.PP
+systemd\-tmpfiles\-clean\&.timer
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-tmpfiles\fR
+creates, deletes and cleans up volatile and temporary files and directories, based on the configuration file format and location specified in
+\fBtmpfiles.d\fR(5)\&.
+.PP
+If invoked with no arguments, it applies all directives from all configuration files\&. If one or more filenames are passed on the command line, only the directives in these files are applied\&. If only the basename of a configuration file is specified, all configuration directories as specified in
+\fBtmpfiles.d\fR(5)
+are searched for a matching file\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-\-create\fR
+.RS 4
+If this option is passed, all files and directories marked with f, F, d, D in the configuration files are created\&. Files and directories marked with z, Z have their ownership, access mode and security labels set\&.
+.RE
+.PP
+\fB\-\-clean\fR
+.RS 4
+If this option is passed, all files and directories with an age parameter configured will be cleaned up\&.
+.RE
+.PP
+\fB\-\-remove\fR
+.RS 4
+If this option is passed, all files and directories marked with r, R in the configuration files are removed\&.
+.RE
+.PP
+\fB\-\-prefix=PATH\fR
+.RS 4
+Only apply rules that apply to paths with the specified prefix\&. This option can be specified multiple times\&.
+.RE
+.PP
+\fB\-\-exclude\-prefix=PATH\fR
+.RS 4
+Ignore rules that apply to paths with the specified prefix\&. This option can be specified multiple times\&.
+.RE
+.PP
+\fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+It is possible to combine
+\fB\-\-create\fR,
+\fB\-\-clean\fR, and
+\fB\-\-remove\fR
+in one invocation\&. For example, during boot the following command line is executed to ensure that all temporary and volatile directories are removed and created according to the configuration file:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+systemd\-tmpfiles \-\-remove \-\-create
+.fi
+.if n \{\
+.RE
+.\}
+.SH "EXIT STATUS"
+.PP
+On success 0 is returned, a non\-zero failure code otherwise\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBtmpfiles.d\fR(5)

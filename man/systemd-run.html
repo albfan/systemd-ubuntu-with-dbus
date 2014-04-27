@@ -1,0 +1,82 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd-run</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-run"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-run — Run programs in transient scope or service units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-run</code>  [OPTIONS...]  <em class="replaceable"><code>COMMAND</code></em>
+       [ARGS...]
+       </p></div></div><div class="refsect1"><a name="idm274675234000"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-run</strong></span> may be used create and start
+    a transient <code class="filename">.service</code> or a
+    <code class="filename">.scope</code> unit and run the specified
+    <em class="replaceable"><code>COMMAND</code></em> in it.</p><p>If a command is run as transient service unit, it will be
+    started and managed by the service manager like any other service,
+    and thus show up in the output of <span class="command"><strong>systemctl
+    list-units</strong></span> like any other unit. It will run in a clean
+    and detached execution environment. <span class="command"><strong>systemd-run</strong></span>
+    will start the service asynchronously in the background and
+    immediately return.</p><p>If a command is run as transient scope unit, it will be
+    started directly by <span class="command"><strong>systemd-run</strong></span> and thus
+    inherit the execution environment of the caller. It is however
+    managed by the service manager similar to normal services, and
+    will also show up in the output of <span class="command"><strong>systemctl
+    list-units</strong></span>. Execution in this case is synchronous, and
+    execution will return only when the command finishes.</p></div><div class="refsect1"><a name="idm274675226208"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
+        text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a short version
+        string and exits.</p></dd><dt id="--user"><span class="term"><code class="option">--user</code></span><a class="headerlink" title="Permalink to this term" href="#--user">¶</a></dt><dd><p>Talk to the service manager of the calling user,
+          rather than the service manager of the system.</p></dd><dt id="--scope"><span class="term"><code class="option">--scope</code></span><a class="headerlink" title="Permalink to this term" href="#--scope">¶</a></dt><dd><p>Create a transient <code class="filename">.scope</code> unit instead of
+          the default transient <code class="filename">.service</code> unit.
+          </p></dd><dt id="--unit="><span class="term"><code class="option">--unit=</code></span><a class="headerlink" title="Permalink to this term" href="#--unit=">¶</a></dt><dd><p>Use this unit name instead of an automatically
+        generated one.</p></dd><dt id="--description="><span class="term"><code class="option">--description=</code></span><a class="headerlink" title="Permalink to this term" href="#--description=">¶</a></dt><dd><p>Provide description for the unit. If not
+        specified, the command itself will be used as a description.
+        See <code class="varname">Description=</code> in
+        <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.
+        </p></dd><dt id="--slice="><span class="term"><code class="option">--slice=</code></span><a class="headerlink" title="Permalink to this term" href="#--slice=">¶</a></dt><dd><p>Make the new <code class="filename">.service</code> or
+        <code class="filename">.scope</code> unit part of the specified slice,
+        instead of the <code class="filename">system.slice</code>.</p></dd><dt id="--remain-after-exit"><span class="term"><code class="option">--remain-after-exit</code></span><a class="headerlink" title="Permalink to this term" href="#--remain-after-exit">¶</a></dt><dd><p>After the service's process has terminated, keep
+        the service around until it is explicitly stopped. This is
+        useful to collect runtime information about the service after
+        it finished running. Also see
+        <code class="varname">RemainAfterExit=</code> in
+        <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>.
+        </p></dd><dt id="--send-sighup"><span class="term"><code class="option">--send-sighup</code></span><a class="headerlink" title="Permalink to this term" href="#--send-sighup">¶</a></dt><dd><p>When terminating the scope unit, send a SIGHUP
+        immediately after SIGTERM. This is useful to indicate to
+        shells and shell-like processes that the connection has been
+        severed. Also see <code class="varname">SendSIGHUP=</code> in
+        <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>.
+        </p></dd></dl></div><p>All command-line arguments after the first non-option
+    argument become part of the commandline of the launched
+    process. If a command is run as service unit, its first argument
+    needs to be an absolute binary path.</p></div><div class="refsect1"><a name="idm274679095552"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+    code otherwise.</p></div><div class="refsect1"><a name="idm274679094368"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><p>The following command will log the environment variables
+    provided by systemd to services:</p><pre class="programlisting"># systemd-run env
+Running as unit run-19945.service.
+# journalctl -u run-19945.service
+Sep 08 07:37:21 bupkis systemd[1]: Starting /usr/bin/env...
+Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
+Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
+Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64
+    </pre></div><div class="refsect1"><a name="idm274679091968"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+      <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
+      <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
+      <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
+      <a href="systemd.scope.html"><span class="citerefentry"><span class="refentrytitle">systemd.scope</span>(5)</span></a>,
+      <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>.
+    </p></div></div></body></html>

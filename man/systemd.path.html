@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.path"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.path — Path unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>path</code></em>.path</code></p></div><div class="refsect1"><a name="idm259771296656"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
-                <code class="filename">.path</code> encodes information about
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.path"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.path — Path unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>path</code></em>.path</code></p></div><div class="refsect1"><a name="idm274698401152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+                "<code class="literal">.path</code>" encodes information about
                 a path monitored by systemd, for
                 path-based activation.</p><p>This man page lists the configuration options
                 specific to this unit type. See
@@ -51,7 +51,7 @@
                 that path units are terminated cleanly prior to system
                 shutdown. Only path units involved with early boot or
                 late system shutdown should disable this option.
-                </p></div><div class="refsect1"><a name="idm259771285680"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Path files must include a [Path] section,
+                </p></div><div class="refsect1"><a name="idm274698268256"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Path files must include a [Path] section,
                 which carries information about the path(s) it
                 monitors. The options specific to the [Path] section
                 of path units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="PathExists="><span class="term"><code class="varname">PathExists=</code>, </span><span class="term"><code class="varname">PathExistsGlob=</code>, </span><span class="term"><code class="varname">PathChanged=</code>, </span><span class="term"><code class="varname">PathModified=</code>, </span><span class="term"><code class="varname">DirectoryNotEmpty=</code></span><a class="headerlink" title="Permalink to this term" href="#PathExists=">¶</a></dt><dd><p>Defines paths to
@@ -59,7 +59,7 @@
                                 <code class="varname">PathExists=</code> may be
                                 used to watch the mere existence of a
                                 file or directory. If the file
-                                specified exists the configured unit
+                                specified exists, the configured unit
                                 is
                                 activated. <code class="varname">PathExistsGlob=</code>
                                 works similar, but checks for the
@@ -86,7 +86,7 @@
                                 combined, of the same and of different
                                 types, to watch multiple paths. If the
                                 empty string is assigned to any of
-                                these options the list of paths to
+                                these options, the list of paths to
                                 watch is reset, and any prior
                                 assignments of these options will not
                                 have any effect.</p><p>If a path already exists
@@ -111,7 +111,7 @@
                                 when any of the configured paths
                                 changes. The argument is a unit name,
                                 whose suffix is not
-                                <code class="filename">.path</code>. If not
+                                "<code class="literal">.path</code>". If not
                                 specified, this value defaults to a
                                 service that has the same name as the
                                 path unit, except for the suffix. (See
@@ -120,18 +120,18 @@
                                 unit name of the path unit are named
                                 identical, except for the
                                 suffix.</p></dd><dt id="MakeDirectory="><span class="term"><code class="varname">MakeDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#MakeDirectory=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true the directories to
+                                argument. If true, the directories to
                                 watch are created before
                                 watching. This option is ignored for
                                 <code class="varname">PathExists=</code>
                                 settings. Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="DirectoryMode="><span class="term"><code class="varname">DirectoryMode=</code></span><a class="headerlink" title="Permalink to this term" href="#DirectoryMode=">¶</a></dt><dd><p>If
                                 <code class="varname">MakeDirectory=</code> is
-                                enabled use the mode specified here to
+                                enabled, use the mode specified here to
                                 create the directories in
                                 question. Takes an access mode in
                                 octal notation. Defaults to
-                                <code class="option">0755</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm259775291632"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                <code class="option">0755</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm274698521232"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

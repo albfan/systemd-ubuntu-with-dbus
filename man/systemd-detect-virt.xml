@@ -70,14 +70,15 @@
                 <varname>microsoft</varname>,
                 <varname>oracle</varname>, <varname>xen</varname>,
                 <varname>bochs</varname>, <varname>chroot</varname>,
+                <varname>uml</varname>,
                 <varname>openvz</varname>, <varname>lxc</varname>,
                 <varname>lxc-libvirt</varname>,
                 <varname>systemd-nspawn</varname>.</para>
 
-                <para>If multiple virtualization solutions are used
+                <para>If multiple virtualization solutions are used,
                 only the "innermost" is detected and identified. That
                 means if both VM virtualization and container
-                virtualization are used in conjunction only the latter
+                virtualization are used in conjunction, only the latter
                 will be identified (unless <option>--vm</option> is
                 passed).</para>
         </refsect1>
@@ -137,7 +138,7 @@
         <refsect1>
                 <title>Exit status</title>
 
-                <para>If a virtualization technology is detected 0 is
+                <para>If a virtualization technology is detected, 0 is
                 returned, a non-zero code otherwise.</para>
         </refsect1>
 

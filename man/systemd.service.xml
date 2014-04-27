@@ -73,9 +73,12 @@
                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the execution environment the commands
                 are executed in, and in
-                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                 which define the way the processes of the service are
-                terminated.</para>
+                terminated, and in
+                <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                which configure resource control settings for the
+                processes of the service.</para>
 
                 <para>Unless <varname>DefaultDependencies=</varname>
                 is set to <option>false</option>, service units will
@@ -137,13 +140,13 @@
                                 <para>If set to
                                 <option>simple</option> (the default
                                 value if <varname>BusName=</varname>
-                                is not specified) it is expected that
+                                is not specified), it is expected that
                                 the process configured with
                                 <varname>ExecStart=</varname> is the
                                 main process of the service. In this
                                 mode, if the process offers
                                 functionality to other processes on
-                                the system its communication channels
+                                the system, its communication channels
                                 should be installed before the daemon
                                 is started up (e.g. sockets set up by
                                 systemd, via socket activation), as
@@ -151,14 +154,14 @@
                                 starting follow-up units.</para>
 
                                 <para>If set to
-                                <option>forking</option> it is
+                                <option>forking</option>, it is
                                 expected that the process configured
                                 with <varname>ExecStart=</varname>
                                 will call <function>fork()</function>
                                 as part of its start-up. The parent process is
                                 expected to exit when start-up is
                                 complete and all communication
-                                channels set up. The child continues
+                                channels are set up. The child continues
                                 to run as the main daemon
                                 process. This is the behavior of
                                 traditional UNIX daemons. If this
@@ -207,14 +210,18 @@
                                 starting up. systemd will proceed
                                 starting follow-up units after this
                                 notification message has been sent. If
-                                this option is used
+                                this option is used,
                                 <varname>NotifyAccess=</varname> (see
                                 below) should be set to open access to
                                 the notification socket provided by
                                 systemd. If
                                 <varname>NotifyAccess=</varname> is
                                 not set, it will be implicitly set to
-                                <option>main</option>.</para>
+                                <option>main</option>. Note that
+                                currently
+                                <varname>Type=</varname><option>notify</option>
+                                will not work if used in combination with
+                                <varname>PrivateNetwork=</varname><option>yes</option>.</para>
 
                                 <para>Behavior of
                                 <option>idle</option> is very similar
@@ -255,7 +262,7 @@
                                 guessing algorithm might come to
                                 incorrect conclusions if a daemon
                                 consists of more than one process. If
-                                the main PID cannot be determined
+                                the main PID cannot be determined,
                                 failure detection and automatic
                                 restarting of a service will not work
                                 reliably. Defaults to
@@ -319,8 +326,8 @@
                                 suitable for XDG
                                 <filename>.desktop</filename> files.
                                 Lone semicolons may be escaped as
-                                '<literal>\;</literal>'. If the empty
-                                string is assigned to this option the
+                                <literal>\;</literal>. If the empty
+                                string is assigned to this option, the
                                 list of commands to start is reset,
                                 prior assignments of this option will
                                 have no effect.</para>
@@ -330,7 +337,7 @@
                                 one by one sequentially in the order
                                 they appear in the unit file. If one
                                 of the commands fails (and is not
-                                prefixed with '<literal>-</literal>'),
+                                prefixed with <literal>-</literal>),
                                 other lines are not executed and the
                                 unit is considered failed.</para>
 
@@ -341,7 +348,7 @@
                                 main process of the daemon.</para>
 
                                 <para>The command line accepts
-                                '<literal>%</literal>' specifiers as
+                                <literal>%</literal> specifiers as
                                 described in
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
                                 that the first argument of the command
@@ -362,7 +369,8 @@
                                 case it will be replaced by the value
                                 of the environment variable split up
                                 at whitespace, resulting in zero or
-                                more arguments. Note that the first
+                                more arguments. To pass literal dollar sign
+                                use <literal>$$</literal>. Note that the first
                                 argument (i.e. the program to execute)
                                 may not be a variable, since it must
                                 be a literal and absolute path
@@ -370,25 +378,25 @@
 
                                 <para>Optionally, if the absolute file
                                 name is prefixed with
-                                '<literal>@</literal>', the second token
+                                <literal>@</literal>, the second token
                                 will be passed as
                                 <literal>argv[0]</literal> to the
                                 executed process, followed by the
                                 further arguments specified. If the
-                                absolute file name is prefixed with
-                                '<literal>-</literal>' an exit code of
+                                absolute filename is prefixed with
+                                <literal>-</literal>, an exit code of
                                 the command normally considered a
                                 failure (i.e. non-zero exit status or
                                 abnormal exit due to signal) is ignored
                                 and considered success. If both
-                                '<literal>-</literal>' and
-                                '<literal>@</literal>' are used they
+                                <literal>-</literal> and
+                                <literal>@</literal> are used, they
                                 can appear in either order.</para>
 
                                 <para>Note that this setting does not
                                 directly support shell command
                                 lines. If shell command lines are to
-                                be used they need to be passed
+                                be used, they need to be passed
                                 explicitly to a shell implementation
                                 of some kind. Example:</para>
                                 <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
@@ -417,7 +425,7 @@
                                 after the other, serially.</para>
 
                                 <para>If any of those commands (not
-                                prefixed with '<literal>-</literal>')
+                                prefixed with <literal>-</literal>)
                                 fail, the rest are not executed and
                                 the unit is considered failed.</para>
                                 </listitem>
@@ -464,7 +472,7 @@
                                 <varname>KillMode=</varname> setting
                                 (see
                                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
-                                this option is not specified the
+                                this option is not specified, the
                                 process is terminated right-away when
                                 service stop is requested. Specifier
                                 and environment variable substitution
@@ -480,7 +488,7 @@
                                 was stopped. This includes cases where
                                 the commands configured in
                                 <varname>ExecStop=</varname> were used,
-                                where the service doesn't have any
+                                where the service does not have any
                                 <varname>ExecStop=</varname> defined, or
                                 where the service exited unexpectedly. This
                                 argument takes multiple command lines,
@@ -529,9 +537,9 @@
                                 wait for stop. If a service is asked
                                 to stop but does not terminate in the
                                 specified time, it will be terminated
-                                forcibly via SIGTERM, and after
+                                forcibly via <constant>SIGTERM</constant>, and after
                                 another delay of this time with
-                                SIGKILL (See
+                                <constant>SIGKILL</constant> (See
                                 <varname>KillMode=</varname>
                                 in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
                                 Takes a unit-less value in seconds, or a
@@ -560,11 +568,11 @@
                                 regularly with "WATCHDOG=1" (i.e. the
                                 "keep-alive ping"). If the time
                                 between two such calls is larger than
-                                the configured time then the service
+                                the configured time, then the service
                                 is placed in a failure state. By
                                 setting <varname>Restart=</varname> to
                                 <option>on-failure</option> or
-                                <option>always</option> the service
+                                <option>always</option>, the service
                                 will be automatically restarted. The
                                 time configured here will be passed to
                                 the executed service process in the
@@ -573,7 +581,7 @@
                                 daemons to automatically enable the
                                 keep-alive pinging logic if watchdog
                                 support is enabled for the service. If
-                                this option is used
+                                this option is used,
                                 <varname>NotifyAccess=</varname> (see
                                 below) should be set to open access to
                                 the notification socket provided by
@@ -611,19 +619,20 @@
                                 <option>no</option>,
                                 <option>on-success</option>,
                                 <option>on-failure</option>,
+                                <option>on-watchdog</option>,
                                 <option>on-abort</option>, or
                                 <option>always</option>. If set to
-                                <option>no</option> (the default) the
+                                <option>no</option> (the default), the
                                 service will not be restarted. If set to
-                                <option>on-success</option> it will be
+                                <option>on-success</option>, it will be
                                 restarted only when the service process
                                 exits cleanly.
                                 In this context, a clean exit means
                                 an exit code of 0, or one of the signals
-                                SIGHUP, SIGINT, SIGTERM, or SIGPIPE, and
+                                <constant>SIGHUP</constant>, <constant>SIGINT</constant>, <constant>SIGTERM</constant>, or <constant>SIGPIPE</constant>, and
                                 additionally, exit statuses and signals
                                 specified in <varname>SuccessExitStatus=</varname>.
-                                If set to <option>on-failure</option>
+                                If set to <option>on-failure</option>,
                                 the service will be restarted when the
                                 process exits with an nonzero exit code,
                                 is terminated by a signal (including on
@@ -631,13 +640,17 @@
                                 service reload) times out, and when the
                                 configured watchdog timeout is triggered.
                                 If set to
-                                <option>on-abort</option> the service
+                                <option>on-abort</option>, the service
                                 will be restarted only if the service
                                 process exits due to an uncaught
                                 signal not specified as a clean exit
                                 status.
                                 If set to
-                                <option>always</option> the service
+                                <option>on-watchdog</option>, the service
+                                will be restarted only if the watchdog
+                                timeout for the service expires.
+                                If set to
+                                <option>always</option>, the service
                                 will be restarted regardless whether
                                 it exited cleanly or not, got
                                 terminated abnormally by a signal or
@@ -657,20 +670,20 @@
                                 by the main service process will be
                                 considered successful termination, in
                                 addition to the normal successful exit
-                                code 0 and the signals SIGHUP, SIGINT,
-                                SIGTERM and SIGPIPE. Exit status
+                                code 0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+                                <constant>SIGTERM</constant> and <constant>SIGPIPE</constant>. Exit status
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. Example:
-                                "<literal>SuccessExitStatus=1 2 8
-                                SIGKILL</literal>", ensures that exit
+                                <literal>SuccessExitStatus=1 2 8
+                                <constant>SIGKILL</constant></literal>, ensures that exit
                                 codes 1, 2, 8 and the termination
-                                signal SIGKILL are considered clean
+                                signal <constant>SIGKILL</constant> are considered clean
                                 service terminations. This option may
                                 appear more than once in which case
                                 the list of successful exit statuses
                                 is merged. If the empty string is
-                                assigned to this option the list is
+                                assigned to this option, the list is
                                 reset, all prior assignments of this
                                 option will have no
                                 effect.</para></listitem>
@@ -692,15 +705,15 @@
                                 that by default no exit status is
                                 excluded from the configured restart
                                 logic. Example:
-                                "<literal>RestartPreventExitStatus=1 6
-                                SIGABRT</literal>", ensures that exit
+                                <literal>RestartPreventExitStatus=1 6
+                                SIGABRT</literal>, ensures that exit
                                 codes 1 and 6 and the termination
                                 signal SIGABRT will not result in
                                 automatic service restarting. This
                                 option may appear more than once in
                                 which case the list of restart preventing
                                 statuses is merged. If the empty
-                                string is assigned to this option the
+                                string is assigned to this option, the
                                 list is reset, all prior assignments
                                 of this option will have no
                                 effect.</para></listitem>
@@ -778,13 +791,13 @@
                                 <option>none</option> (the default),
                                 <option>main</option> or
                                 <option>all</option>. If
-                                <option>none</option> no daemon status
+                                <option>none</option>, no daemon status
                                 updates are accepted from the service
                                 processes, all status update messages
-                                are ignored. If <option>main</option>
+                                are ignored. If <option>main</option>,
                                 only service updates sent from the
                                 main process of the service are
-                                accepted. If <option>all</option> all
+                                accepted. If <option>all</option>, all
                                 services updates from all members of
                                 the service's control group are
                                 accepted. This option should be set to
@@ -793,8 +806,8 @@
                                 <varname>Type=notify</varname> or
                                 <varname>WatchdogSec=</varname> (see
                                 above). If those options are used but
-                                <varname>NotifyAccess=</varname> not
-                                configured it will be implicitly set
+                                <varname>NotifyAccess=</varname> is not
+                                configured, it will be implicitly set
                                 to
                                 <option>main</option>.</para></listitem>
                         </varlistentry>
@@ -820,7 +833,7 @@
                                 in other words: the
                                 <varname>Service=</varname> setting of
                                 <filename>.socket</filename> units
-                                doesn't have to match the inverse of
+                                does not have to match the inverse of
                                 the <varname>Sockets=</varname>
                                 setting of the
                                 <filename>.service</filename> it
@@ -829,7 +842,7 @@
                                 <para>This option may appear more than
                                 once, in which case the list of socket
                                 units is merged. If the empty string
-                                is assigned to this option the list of
+                                is assigned to this option, the list of
                                 sockets is reset, all prior uses of
                                 this setting will have no
                                 effect.</para></listitem>
@@ -840,12 +853,12 @@
                                 <term><varname>StartLimitBurst=</varname></term>
 
                                 <listitem><para>Configure service
-                                start rate limiting. By default
+                                start rate limiting. By default,
                                 services which are started more often
                                 than 5 times within 10s are not
                                 permitted to start any more times
                                 until the 10s interval ends. With
-                                these two options this rate limiting
+                                these two options, this rate limiting
                                 may be modified. Use
                                 <varname>StartLimitInterval=</varname>
                                 to configure the checking interval
@@ -994,6 +1007,7 @@
                           <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                   </para>

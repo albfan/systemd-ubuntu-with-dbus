@@ -344,7 +344,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         assert(!j->transaction_prev);
 
         /* Does a recursive sweep through the ordering graph, looking
-         * for a cycle. If we find cycle we try to break it. */
+         * for a cycle. If we find a cycle we try to break it. */
 
         /* Have we seen this before? */
         if (j->generation == generation) {
@@ -371,7 +371,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                         /* logging for j not k here here to provide consistent narrative */
                         log_info_unit(j->unit->id,
-                                      "Walked on cycle path to %s/%s",
+                                      "Found dependency on %s/%s",
                                       k->unit->id, job_type_to_string(k->type));
 
                         if (!delete &&
@@ -733,8 +733,11 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
                  * feature for cosmetics, not actually useful for
                  * anything beyond that. */
 
-                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0)
+                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0 &&
+                    m->idle_pipe[2] < 0 && m->idle_pipe[3] < 0) {
                         pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
+                        pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
+                }
         }
 
         return 0;
@@ -851,6 +854,7 @@ int transaction_add_job_and_dependencies(
 
         if (unit->load_state != UNIT_LOADED &&
             unit->load_state != UNIT_ERROR &&
+            unit->load_state != UNIT_NOT_FOUND &&
             unit->load_state != UNIT_MASKED) {
                 dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
                 return -EINVAL;
@@ -863,6 +867,14 @@ int transaction_add_job_and_dependencies(
                                unit->id,
                                strerror(-unit->load_error),
                                unit->id);
+                return -EINVAL;
+        }
+
+        if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND) {
+                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                               "Unit %s failed to load: %s.",
+                               unit->id,
+                               strerror(-unit->load_error));
                 return -EINVAL;
         }
 

@@ -31,10 +31,12 @@ AUTHOR:
 LICENSE:
         LGPLv2.1+ for all code
         - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
-        - except src/udev/ which is (currently still) GPLv2+
+        - except src/shared/MurmurHash3.c which is Public Domain
+        - except src/journal/lookup3.c which is Public Domain
+        - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 2.6.39
+        Linux kernel >= 3.0
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it's OK to disable all controllers)
           CONFIG_INOTIFY_USER
@@ -62,6 +64,10 @@ REQUIREMENTS:
         Mount and bind mount handling might require it:
           CONFIG_FHANDLE
 
+        Support for some SCSI devices serial number retrieval, to
+        create additional symlinks in /dev/disk/ and /dev/tape:
+          CONFIG_BLK_DEV_BSG
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
@@ -79,10 +85,17 @@ REQUIREMENTS:
           CONFIG_EFI_VARS
           CONFIG_EFI_PARTITION
 
+        Note that kernel auditing is broken when used with systemd's
+        container code. When using systemd in conjunction with
+        containers please make sure to either turn off auditing at
+        runtime using the kernel command line option "audit=0", or
+        turn it off at kernel compile time using:
+          CONFIG_AUDIT=n
+
         dbus >= 1.4.0
         libcap
         libblkid >= 2.20 (from util-linux) (optional)
-        libkmod >= 5 (optional)
+        libkmod >= 14 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
         libaudit (optional)

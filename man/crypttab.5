@@ -1,0 +1,246 @@
+'\" t
+.TH "CRYPTTAB" "5" "" "systemd 208" "crypttab"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+crypttab \- Configuration for encrypted block devices
+.SH "SYNOPSIS"
+.PP
+/etc/crypttab
+.SH "DESCRIPTION"
+.PP
+The
+/etc/crypttab
+file describes encrypted block devices that are set up during system boot\&.
+.PP
+Empty lines and lines starting with the
+"#"
+character are ignored\&. Each of the remaining lines describes one encrypted block device, fields on the line are delimited by white space\&. The first two fields are mandatory, the remaining two are optional\&.
+.PP
+Setting up encrypted block devices using this file supports three encryption modes: LUKS, TrueCrypt and plain\&. See
+\fBcryptsetup\fR(8)
+for more information about each mode\&. When no mode is specified in the options field and the block device contains a LUKS signature, it is opened as a LUKS device; otherwise, it is assumed to be in raw dm\-crypt (plain mode) format\&.
+.PP
+The first field contains the name of the resulting encrypted block device; the device is set up within
+/dev/mapper/\&.
+.PP
+The second field contains a path to the underlying block device or file, or a specification of a block device via
+"UUID="
+followed by the UUID\&.
+.PP
+The third field specifies the encryption password\&. If the field is not present or the password is set to
+"none"
+or
+"\-", the password has to be manually entered during system boot\&. Otherwise, the field is interpreted as a absolute path to a file containing the encryption password\&. For swap encryption,
+/dev/urandom
+or the hardware device
+/dev/hw_random
+can be used as the password file; using
+/dev/random
+may prevent boot completion if the system does not have enough entropy to generate a truly random encryption key\&.
+.PP
+The fourth field, if present, is a comma\-delimited list of options\&. The following options are recognized:
+.PP
+\fIdiscard\fR
+.RS 4
+Allow discard requests to be passed through the encrypted block device\&. This improves performance on SSD storage but has security implications\&.
+.RE
+.PP
+\fIcipher=\fR
+.RS 4
+Specifies the cipher to use\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&. A cipher with unpredictable IV values, such as
+"aes\-cbc\-essiv:sha256", is recommended\&.
+.RE
+.PP
+\fIhash=\fR
+.RS 4
+Specifies the hash to use for password hashing\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&.
+.RE
+.PP
+\fIkeyfile\-offset=\fR
+.RS 4
+Specifies the number of bytes to skip at the start of the key file\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&.
+.RE
+.PP
+\fIkeyfile\-size=\fR
+.RS 4
+Specifies the maximum number of bytes to read from the key file\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&. This option is ignored in plain encryption mode, as the key file size is then given by the key size\&.
+.RE
+.PP
+\fIluks\fR
+.RS 4
+Force LUKS mode\&. When this mode is used, the following options are ignored since they are provided by the LUKS header on the device:
+\fIcipher=\fR,
+\fIhash=\fR,
+\fIsize=\fR\&.
+.RE
+.PP
+\fInoauto\fR
+.RS 4
+This device will not be automatically unlocked on boot\&.
+.RE
+.PP
+\fInofail\fR
+.RS 4
+The system will not wait for the device to show up and be unlocked at boot, and not fail the boot if it does not show up\&.
+.RE
+.PP
+\fIplain\fR
+.RS 4
+Force plain encryption mode\&.
+.RE
+.PP
+\fIread\-only\fR, \fIreadonly\fR
+.RS 4
+Set up the encrypted block device in read\-only mode\&.
+.RE
+.PP
+\fIsize=\fR
+.RS 4
+Specifies the key size in bits\&. See
+\fBcryptsetup\fR(8)
+for possible values and the default value of this option\&.
+.RE
+.PP
+\fIswap\fR
+.RS 4
+The encrypted block device will be used as a swap device, and will be formatted accordingly after setting up the encrypted block device, with
+\fBmkswap\fR(8)\&. This option implies
+\fIplain\fR\&.
+.sp
+WARNING: Using the
+\fIswap\fR
+option will destroy the contents of the named partition during every boot, so make sure the underlying block device is specified correctly\&.
+.RE
+.PP
+\fItcrypt\fR
+.RS 4
+Use TrueCrypt encryption mode\&. When this mode is used, the following options are ignored since they are provided by the TrueCrypt header on the device or do not apply:
+\fIcipher=\fR,
+\fIhash=\fR,
+\fIkeyfile\-offset=\fR,
+\fIkeyfile\-size=\fR,
+\fIsize=\fR\&.
+.sp
+When this mode is used, the passphrase is read from the key file given in the third field\&. Only the first line of this file is read, excluding the new line character\&.
+.sp
+Note that the TrueCrypt format uses both passphrase and key files to derive a password for the volume\&. Therefore, the passphrase and all key files need to be provided\&. Use
+\fItcrypt\-keyfile=\fR
+to provide the absolute path to all key files\&. When using an empty passphrase in combination with one or more key files, use
+"/dev/null"
+as the password file in the third field\&.
+.RE
+.PP
+\fItcrypt\-hidden\fR
+.RS 4
+Use the hidden TrueCrypt volume\&. This implies
+\fItcrypt\fR\&.
+.sp
+This will map the hidden volume that is inside of the volume provided in the second field\&. Please note that there is no protection for the hidden volume if the outer volume is mounted instead\&. See
+\fBcryptsetup\fR(8)
+for more information on this limitation\&.
+.RE
+.PP
+\fItcrypt\-keyfile=\fR
+.RS 4
+Specifies the absolute path to a key file to use for a TrueCrypt volume\&. This implies
+\fItcrypt\fR
+and can be used more than once to provide several key files\&.
+.sp
+See the entry for
+\fItcrypt\fR
+on the behavior of the passphrase and key files when using TrueCrypt encryption mode\&.
+.RE
+.PP
+\fItcrypt\-system\fR
+.RS 4
+Use TrueCrypt in system encryption mode\&. This implies
+\fItcrypt\fR\&.
+.sp
+Please note that when using this mode, the whole device needs to be given in the second field instead of the partition\&. For example: if
+"/dev/sda2"
+is the system encrypted TrueCrypt patition,
+"/dev/sda"
+has to be given\&.
+.RE
+.PP
+\fItimeout=\fR
+.RS 4
+Specifies the timeout for querying for a password\&. If no unit is specified, seconds is used\&. Supported units are s, ms, us, min, h, d\&. A timeout of 0 waits indefinitely (which is the default)\&.
+.RE
+.PP
+\fItmp\fR
+.RS 4
+The encrypted block device will be prepared for using it as
+/tmp; it will be formatted using
+\fBmke2fs\fR(8)\&. This option implies
+\fIplain\fR\&.
+.sp
+WARNING: Using the
+\fItmp\fR
+option will destroy the contents of the named partition during every boot, so make sure the underlying block device is specified correctly\&.
+.RE
+.PP
+\fItries=\fR
+.RS 4
+Specifies the maximum number of times the user is queried for a password\&. The default is 3\&. If set to 0, the user is queried for a password indefinitely\&.
+.RE
+.PP
+\fIverify\fR
+.RS 4
+If the encryption password is read from console, it has to be entered twice to prevent typos\&.
+.RE
+.PP
+At early boot and when the system manager configuration is reloaded, this file is translated into native systemd units by
+\fBsystemd-cryptsetup-generator\fR(8)\&.
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/crypttab example\fR
+.PP
+Set up four encrypted block devices\&. One using LUKS for normal storage, another one for usage as a swap device and two TrueCrypt volumes\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+luks       UUID=2505567a\-9e27\-4efe\-a4d5\-15ad146c258b
+swap       /dev/sda7       /dev/urandom             swap
+truecrypt  /dev/sda2       /etc/container_password  tcrypt
+hidden     /mnt/tc_hidden  /null                    tcrypt\-hidden,tcrypt\-keyfile=/etc/keyfile
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-cryptsetup@.service\fR(8),
+\fBsystemd-cryptsetup-generator\fR(8),
+\fBcryptsetup\fR(8),
+\fBmkswap\fR(8),
+\fBmke2fs\fR(8)

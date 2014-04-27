@@ -55,19 +55,44 @@
 
         <refsynopsisdiv>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> time</command>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg>time</arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> blame </command>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">blame</arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> critical-chain </command>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">critical-chain</arg>
+                        <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> plot <arg choice="opt">&gt; file.svg</arg></command>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">plot</arg>
+                        <arg choice="opt">&gt; file.svg</arg>
                 </cmdsynopsis>
                 <cmdsynopsis>
-                        <command>systemd-analyze <arg choice="opt" rep="repeat">OPTIONS</arg> dot <arg choice="opt">pattern...</arg> </command>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">dot</arg>
+                        <arg choice="opt" rep="repeat"><replaceable>PATTERN</replaceable></arg>
+                        <arg choice="opt">&gt; file.dot</arg>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">dump</arg>
+                </cmdsynopsis>
+                <cmdsynopsis>
+                        <command>systemd-analyze</command>
+                        <arg choice="opt" rep="repeat">OPTIONS</arg>
+                        <arg choice="plain">set-log-level</arg>
+                        <arg choice="opt"><replaceable>LEVEL</replaceable></arg>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -75,14 +100,15 @@
                 <title>Description</title>
 
                 <para><command>systemd-analyze</command> may be used
-                to determine system boot-up performance of the current
-                boot.</para>
+                to determine system boot-up performance statistics and
+                retrieve other state and tracing information from the
+                system and service manager.</para>
 
                 <para><command>systemd-analyze time</command>
                 prints the time spent in the kernel before
                 userspace has been reached, the time spent in the
                 initial RAM disk (initrd) before normal system
-                userspace has been reached and the time normal system
+                userspace has been reached, and the time normal system
                 userspace took to initialize. Note that these
                 measurements simply measure the time passed up to the
                 point where all system services have been spawned, but
@@ -97,8 +123,10 @@
                 be slow simply because it waits for the initialization
                 of another service to complete.</para>
 
-                <para><command>systemd-analyze critical-chain</command>
-                prints a tree of the time critical chain of units.
+                <para><command>systemd-analyze critical-chain [<replaceable>UNIT...</replaceable>]</command>
+                prints a tree of the time-critical chain of units
+                (for each of the specified <replaceable>UNIT</replaceable>s
+                or for the default target otherwise).
                 The time after the unit is active or started is printed
                 after the "@" character. The time the unit takes to
                 start is printed after the "+" character.
@@ -112,7 +140,7 @@
                 been started at what time, highlighting the time they
                 spent on initialization.</para>
 
-                <para><command>systemd-analyze dot</command> Generate
+                <para><command>systemd-analyze dot</command> generates
                 textual dependency graph description in dot format for
                 further processing with the GraphViz
                 <citerefentry><refentrytitle>dot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -120,7 +148,7 @@
                 dot | dot -Tsvg > systemd.svg</command> to generate a
                 graphical dependency tree. Unless
                 <option>--order</option> or <option>--require</option>
-                is passed the generated graph will show both ordering
+                is passed, the generated graph will show both ordering
                 and requirement dependencies. Optional pattern
                 globbing style specifications
                 (e.g. <filename>*.target</filename>) may be given at
@@ -128,7 +156,21 @@
                 any of these patterns match either the origin or
                 destination node.</para>
 
-                <para>If no command is passed <command>systemd-analyze
+                <para><command>systemd-analyze dump</command> outputs
+                a (usually very long) human-readable serialization of
+                the complete server state. Its format is subject to
+                change without notice and should not be parsed by
+                applications.</para>
+
+                <para><command>systemd-analyze set-log-level
+                <replaceable>LEVEL</replaceable></command> changes the
+                current log level of the <command>systemd</command>
+                daemon to <replaceable>LEVEL</replaceable> (accepts
+                the same values as <option>--log-level=</option>
+                described in
+                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
+
+                <para>If no command is passed, <command>systemd-analyze
                 time</command> is implied.</para>
 
         </refsect1>
@@ -164,19 +206,19 @@
                                 <command>dot</command> command (see
                                 above), selects which dependencies are
                                 shown in the dependency graph. If
-                                <option>--order</option> is passed
+                                <option>--order</option> is passed,
                                 only dependencies of type
                                 <varname>After=</varname> or
                                 <varname>Before=</varname> are
                                 shown. If <option>--require</option>
-                                is passed only dependencies of type
+                                is passed, only dependencies of type
                                 <varname>Requires=</varname>,
                                 <varname>RequiresOverridable=</varname>,
                                 <varname>Requisite=</varname>,
                                 <varname>RequisiteOverridable=</varname>,
                                 <varname>Wants=</varname> and
                                 <varname>Conflicts=</varname> are
-                                shown. If neither is passed, shows
+                                shown. If neither is passed, this shows
                                 dependencies of all these
                                 types.</para></listitem>
                         </varlistentry>
@@ -188,16 +230,16 @@
                                 <listitem><para>When used in
                                 conjunction with the
                                 <command>dot</command> command (see
-                                above), selects which relationships
+                                above), this selects which relationships
                                 are shown in the dependency graph.
                                 They both require
                                 <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 patterns as arguments, which are
-                                matched against lefthand and
-                                righthand, respectively, nodes of a
+                                matched against left-hand and
+                                right-hand, respectively, nodes of a
                                 relationship. Each of these can be
-                                used more than once which means a
-                                unit name must match one of given
+                                used more than once, which means a
+                                unit name must match one of the given
                                 values.</para></listitem>
                         </varlistentry>
 
@@ -211,7 +253,15 @@
                                 latest unit in the same level. The unit of
                                 <replaceable>timespan</replaceable> is seconds
                                 unless specified with a different unit,
-                                i.e. "50ms".</para></listitem>
+                                e.g. "50ms".</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>--no-pager</option></term>
+
+                                <listitem>
+                                        <para>Do not pipe output into a pager.</para>
+                                </listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -228,17 +278,35 @@
                 <title>Examples</title>
 
                 <para>This plots all dependencies of any unit whose
-                name starts with "<literal>avahi-daemon.</literal>":</para>
+                name starts with <literal>avahi-daemon.</literal>:</para>
 
                 <programlisting>$ systemd-analyze dot 'avahi-daemon.*' | dot -Tsvg > avahi.svg
 $ eog avahi.svg</programlisting>
 
                 <para>This plots the dependencies between all known target units:</para>
 
-                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-patter='*.target' | dot -Tsvg > targets.svg
+                <programlisting>systemd-analyze dot --to-pattern='*.target' --from-pattern='*.target' | dot -Tsvg > targets.svg
 $ eog targets.svg</programlisting>
 
 
+        </refsect1>
+
+        <refsect1>
+                <title>Environment</title>
+
+                <variablelist class='environment-variables'>
+                        <varlistentry>
+                                <term><varname>$SYSTEMD_PAGER</varname></term>
+
+                                <listitem>
+                                        <para>Pager to use when <option>--no-pager</option> is not
+                                        given; overrides <varname>$PAGER</varname>.  Setting this to
+                                        an empty string or the value <literal>cat</literal> is
+                                        equivalent to passing
+                                        <option>--no-pager</option>.</para>
+                                </listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>

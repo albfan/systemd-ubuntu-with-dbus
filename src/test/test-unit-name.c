@@ -34,6 +34,7 @@
 #include "specifier.h"
 #include "util.h"
 #include "macro.h"
+#include "test-helper.h"
 
 static void test_replacements(void) {
 #define expect(pattern, repl, expected)                            \
@@ -116,15 +117,15 @@ static int test_unit_printf(void) {
         _cleanup_free_ char *mid, *bid, *host, *root_uid;
         struct passwd *root;
 
-        assert_se((mid = specifier_machine_id('m', NULL, NULL)));
-        assert_se((bid = specifier_boot_id('b', NULL, NULL)));
+        assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
+        assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
         assert_se((host = gethostname_malloc()));
 
         assert_se((root = getpwnam("root")));
         assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
 
-        r = manager_new(SYSTEMD_USER, &m);
-        if (r == -EPERM) {
+        r = manager_new(SYSTEMD_USER, false, &m);
+        if (r == -EPERM || r == -EACCES) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
@@ -133,8 +134,8 @@ static int test_unit_printf(void) {
 #define expect(unit, pattern, expected)                                 \
         {                                                               \
                 char *e;                                                \
-                _cleanup_free_ char *t =                                \
-                        unit_full_printf(unit, pattern);                \
+                _cleanup_free_ char *t;                                 \
+                assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
                 printf("result: %s\nexpect: %s\n", t, expected);        \
                 if ((e = endswith(expected, "*")))                      \
                         assert(strncmp(t, e, e-expected));              \
@@ -190,10 +191,14 @@ static int test_unit_printf(void) {
         expect(u2, "%H", host);
         expect(u2, "%t", "/run/user/*");
 
+        manager_free(m);
+
         return 0;
 }
 
 int main(int argc, char* argv[]) {
+        int rc = 0;
         test_replacements();
-        return test_unit_printf();
+        TEST_REQ_RUNNING_SYSTEMD(rc = test_unit_printf());
+        return rc;
 }

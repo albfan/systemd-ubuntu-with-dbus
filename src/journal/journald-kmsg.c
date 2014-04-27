@@ -151,7 +151,8 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 /* Did we lose any? */
                 if (serial > *s->kernel_seqnum)
-                        server_driver_message(s, SD_MESSAGE_JOURNAL_MISSED, "Missed %llu kernel messages", (unsigned long long) serial - *s->kernel_seqnum - 1);
+                        server_driver_message(s, SD_MESSAGE_JOURNAL_MISSED, "Missed %"PRIu64" kernel messages",
+                                              serial - *s->kernel_seqnum - 1);
 
                 /* Make sure we never read this one again. Note that
                  * we always store the next message serial we expect
@@ -303,7 +304,7 @@ static void dev_kmsg_record(Server *s, char *p, size_t l) {
         if (message)
                 IOVEC_SET_STRING(iovec[n++], message);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority);
+        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL, NULL, NULL, 0, NULL, priority, 0);
 
 finish:
         for (j = 0; j < z; j++)

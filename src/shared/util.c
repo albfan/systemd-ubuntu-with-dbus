@@ -73,6 +73,7 @@
 #include "hashmap.h"
 #include "env-util.h"
 #include "fileio.h"
+#include "device-nodes.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -126,40 +127,6 @@ char* endswith(const char *s, const char *postfix) {
                 return NULL;
 
         return (char*) s + sl - pl;
-}
-
-char* startswith(const char *s, const char *prefix) {
-        const char *a, *b;
-
-        assert(s);
-        assert(prefix);
-
-        a = s, b = prefix;
-        for (;;) {
-                if (*b == 0)
-                        return (char*) a;
-                if (*a != *b)
-                        return NULL;
-
-                a++, b++;
-        }
-}
-
-char* startswith_no_case(const char *s, const char *prefix) {
-        const char *a, *b;
-
-        assert(s);
-        assert(prefix);
-
-        a = s, b = prefix;
-        for (;;) {
-                if (*b == 0)
-                        return (char*) a;
-                if (tolower(*a) != tolower(*b))
-                        return NULL;
-
-                a++, b++;
-        }
 }
 
 bool first_word(const char *s, const char *word) {
@@ -367,7 +334,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 
 int safe_atod(const char *s, double *ret_d) {
         char *x = NULL;
-        double d;
+        double d = 0;
 
         assert(s);
         assert(ret_d);
@@ -726,9 +693,24 @@ int is_kernel_thread(pid_t pid) {
         return 0;
 }
 
+int get_process_capeff(pid_t pid, char **capeff) {
+        const char *p;
+
+        assert(capeff);
+        assert(pid >= 0);
+
+        if (pid == 0)
+                p = "/proc/self/status";
+        else
+                p = procfs_file_alloca(pid, "status");
+
+        return get_status_field(p, "\nCapEff:", capeff);
+}
 
 int get_process_exe(pid_t pid, char **name) {
         const char *p;
+        char *d;
+        int r;
 
         assert(pid >= 0);
         assert(name);
@@ -738,7 +720,15 @@ int get_process_exe(pid_t pid, char **name) {
         else
                 p = procfs_file_alloca(pid, "exe");
 
-        return readlink_malloc(p, name);
+        r = readlink_malloc(p, name);
+        if (r < 0)
+                return r;
+
+        d = endswith(*name, " (deleted)");
+        if (d)
+                *d = '\0';
+
+        return 0;
 }
 
 static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
@@ -850,18 +840,18 @@ int readlink_malloc(const char *p, char **r) {
 }
 
 int readlink_and_make_absolute(const char *p, char **r) {
-        char *target, *k;
+        _cleanup_free_ char *target = NULL;
+        char *k;
         int j;
 
         assert(p);
         assert(r);
 
-        if ((j = readlink_malloc(p, &target)) < 0)
+        j = readlink_malloc(p, &target);
+        if (j < 0)
                 return j;
 
         k = file_in_same_dir(p, target);
-        free(target);
-
         if (!k)
                 return -ENOMEM;
 
@@ -1600,6 +1590,7 @@ bool fstype_is_network(const char *fstype) {
                 "cifs\0"
                 "smbfs\0"
                 "ncpfs\0"
+                "ncp\0"
                 "nfs\0"
                 "nfs4\0"
                 "gfs\0"
@@ -1830,8 +1821,10 @@ int open_terminal(const char *name, int mode) {
          * https://bugs.launchpad.net/ubuntu/+source/linux/+bug/554172/comments/245
          */
 
+        assert(!(mode & O_CREAT));
+
         for (;;) {
-                fd = open(name, mode);
+                fd = open(name, mode, 0);
                 if (fd >= 0)
                         break;
 
@@ -2193,8 +2186,10 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                                         return n > 0 ? n : -errno;
                                 }
 
-                                if (pollfd.revents != POLLIN)
-                                        return n > 0 ? n : -EIO;
+                                /* We knowingly ignore the revents value here,
+                                 * and expect that any error/EOF is reported
+                                 * via read()/write()
+                                 */
 
                                 continue;
                         }
@@ -2241,8 +2236,10 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                                         return n > 0 ? n : -errno;
                                 }
 
-                                if (pollfd.revents != POLLOUT)
-                                        return n > 0 ? n : -EIO;
+                                /* We knowingly ignore the revents value here,
+                                 * and expect that any error/EOF is reported
+                                 * via read()/write()
+                                 */
 
                                 continue;
                         }
@@ -2261,7 +2258,7 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 int parse_bytes(const char *t, off_t *bytes) {
         static const struct {
                 const char *suffix;
-                off_t factor;
+                unsigned long long factor;
         } table[] = {
                 { "B", 1 },
                 { "K", 1024ULL },
@@ -2274,7 +2271,7 @@ int parse_bytes(const char *t, off_t *bytes) {
         };
 
         const char *p;
-        off_t r = 0;
+        unsigned long long r = 0;
 
         assert(t);
         assert(bytes);
@@ -2301,7 +2298,17 @@ int parse_bytes(const char *t, off_t *bytes) {
 
                 for (i = 0; i < ELEMENTSOF(table); i++)
                         if (startswith(e, table[i].suffix)) {
-                                r += (off_t) l * table[i].factor;
+                                unsigned long long tmp;
+                                if ((unsigned long long) l > ULLONG_MAX / table[i].factor)
+                                        return -ERANGE;
+                                tmp = l * table[i].factor;
+                                if (tmp > ULLONG_MAX - r)
+                                        return -ERANGE;
+
+                                r += tmp;
+                                if ((unsigned long long) (off_t) r != r)
+                                        return -ERANGE;
+
                                 p = e + strlen(table[i].suffix);
                                 break;
                         }
@@ -2309,7 +2316,7 @@ int parse_bytes(const char *t, off_t *bytes) {
                 if (i >= ELEMENTSOF(table))
                         return -EINVAL;
 
-        } while (*p != 0);
+        } while (*p);
 
         *bytes = r;
 
@@ -2412,6 +2419,25 @@ unsigned long long random_ull(void) {
                 goto fallback;
 
         return ull;
+
+fallback:
+        return random() * RAND_MAX + random();
+}
+
+unsigned random_u(void) {
+        _cleanup_close_ int fd;
+        unsigned u;
+        ssize_t r;
+
+        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                goto fallback;
+
+        r = loop_read(fd, &u, sizeof(u), true);
+        if (r != sizeof(u))
+                goto fallback;
+
+        return u;
 
 fallback:
         return random() * RAND_MAX + random();
@@ -2773,8 +2799,8 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 _pure_ static int is_temporary_fs(struct statfs *s) {
         assert(s);
         return
-                F_TYPE_CMP(s->f_type, TMPFS_MAGIC) ||
-                F_TYPE_CMP(s->f_type, RAMFS_MAGIC);
+                F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
+                F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
 }
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
@@ -3275,7 +3301,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         r = new0(char, new_length+1);
         if (!r)
-                return r;
+                return NULL;
 
         x = (new_length * percent) / 100;
 
@@ -3465,7 +3491,9 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         int nfd;
         DIR *d;
 
-        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        assert(!(flags & O_CREAT));
+
+        nfd = openat(fd, name, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags, 0);
         if (nfd < 0)
                 return NULL;
 
@@ -3491,26 +3519,23 @@ int signal_from_string_try_harder(const char *s) {
 }
 
 static char *tag_to_udev_node(const char *tagvalue, const char *by) {
-        char *dn, *t, *u;
-        int r;
-
-        /* FIXME: to follow udev's logic 100% we need to leave valid
-         * UTF8 chars unescaped */
+        _cleanup_free_ char *t = NULL, *u = NULL;
+        char *dn;
+        size_t enc_len;
 
         u = unquote(tagvalue, "\"\'");
         if (u == NULL)
                 return NULL;
 
-        t = xescape(u, "/ ");
-        free(u);
-
+        enc_len = strlen(u) * 4;
+        t = new(char, enc_len);
         if (t == NULL)
                 return NULL;
 
-        r = asprintf(&dn, "/dev/disk/by-%s/%s", by, t);
-        free(t);
+        if (encode_devnode_name(u, t, enc_len) < 0)
+                return NULL;
 
-        if (r < 0)
+        if (asprintf(&dn, "/dev/disk/by-%s/%s", by, t) < 0)
                 return NULL;
 
         return dn;
@@ -4343,7 +4368,7 @@ int in_group(const char *name) {
 
 int glob_exists(const char *path) {
         _cleanup_globfree_ glob_t g = {};
-        int r, k;
+        int k;
 
         assert(path);
 
@@ -4351,15 +4376,37 @@ int glob_exists(const char *path) {
         k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
 
         if (k == GLOB_NOMATCH)
-                r = 0;
+                return 0;
         else if (k == GLOB_NOSPACE)
-                r = -ENOMEM;
+                return -ENOMEM;
         else if (k == 0)
-                r = !strv_isempty(g.gl_pathv);
+                return !strv_isempty(g.gl_pathv);
         else
-                r = errno ? -errno : -EIO;
+                return errno ? -errno : -EIO;
+}
 
-        return r;
+int glob_extend(char ***strv, const char *path) {
+        _cleanup_globfree_ glob_t g = {};
+        int k;
+        char **p;
+
+        errno = 0;
+        k = glob(optarg, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+
+        if (k == GLOB_NOMATCH)
+                return -ENOENT;
+        else if (k == GLOB_NOSPACE)
+                return -ENOMEM;
+        else if (k != 0 || strv_isempty(g.gl_pathv))
+                return errno ? -errno : -EIO;
+
+        STRV_FOREACH(p, g.gl_pathv) {
+                k = strv_extend(strv, *p);
+                if (k < 0)
+                        break;
+        }
+
+        return k;
 }
 
 int dirent_ensure_type(DIR *d, struct dirent *de) {
@@ -4388,38 +4435,31 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
 }
 
 int in_search_path(const char *path, char **search) {
-        char **i, *parent;
+        char **i;
+        _cleanup_free_ char *parent = NULL;
         int r;
 
         r = path_get_parent(path, &parent);
         if (r < 0)
                 return r;
 
-        r = 0;
+        STRV_FOREACH(i, search)
+                if (path_equal(parent, *i))
+                        return 1;
 
-        STRV_FOREACH(i, search) {
-                if (path_equal(parent, *i)) {
-                        r = 1;
-                        break;
-                }
-        }
-
-        free(parent);
-
-        return r;
+        return 0;
 }
 
 int get_files_in_directory(const char *path, char ***list) {
-        DIR *d;
-        int r = 0;
-        unsigned n = 0;
-        char **l = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        size_t bufsize = 0, n = 0;
+        _cleanup_strv_free_ char **l = NULL;
 
         assert(path);
 
         /* Returns all files in a directory in *list, and the number
          * of files as return value. If list is NULL returns only the
-         * number */
+         * number. */
 
         d = opendir(path);
         if (!d)
@@ -4431,11 +4471,9 @@ int get_files_in_directory(const char *path, char ***list) {
                 int k;
 
                 k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
-                        goto finish;
-                }
-
+                assert(k >= 0);
+                if (k > 0)
+                        return -k;
                 if (!de)
                         break;
 
@@ -4445,43 +4483,25 @@ int get_files_in_directory(const char *path, char ***list) {
                         continue;
 
                 if (list) {
-                        if ((unsigned) r >= n) {
-                                char **t;
+                        /* one extra slot is needed for the terminating NULL */
+                        if (!GREEDY_REALLOC(l, bufsize, n + 2))
+                                return -ENOMEM;
 
-                                n = MAX(16, 2*r);
-                                t = realloc(l, sizeof(char*) * n);
-                                if (!t) {
-                                        r = -ENOMEM;
-                                        goto finish;
-                                }
+                        l[n] = strdup(de->d_name);
+                        if (!l[n])
+                                return -ENOMEM;
 
-                                l = t;
-                        }
-
-                        assert((unsigned) r < n);
-
-                        l[r] = strdup(de->d_name);
-                        if (!l[r]) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
-
-                        l[++r] = NULL;
+                        l[++n] = NULL;
                 } else
-                        r++;
+                        n++;
         }
 
-finish:
-        if (d)
-                closedir(d);
+        if (list) {
+                *list = l;
+                l = NULL; /* avoid freeing */
+        }
 
-        if (r >= 0) {
-                if (list)
-                        *list = l;
-        } else
-                strv_free(l);
-
-        return r;
+        return n;
 }
 
 char *strjoin(const char *x, ...) {
@@ -5264,13 +5284,17 @@ bool string_is_safe(const char *p) {
         return true;
 }
 
+/**
+ * Check if a string contains control characters.
+ * Spaces and tabs are not considered control characters.
+ */
 bool string_has_cc(const char *p) {
         const char *t;
 
         assert(p);
 
         for (t = p; *t; t++)
-                if (*t > 0 && *t < ' ')
+                if (*t > 0 && *t < ' ' && *t != '\t')
                         return true;
 
         return false;
@@ -5343,20 +5367,24 @@ bool is_locale_utf8(void) {
                 goto out;
         }
 
-        /* For LC_CTYPE=="C" return true,
-         * because CTYPE is effectly unset and
-         * everything defaults to UTF-8 nowadays. */
-
+        /* For LC_CTYPE=="C" return true, because CTYPE is effectly
+         * unset and everything can do to UTF-8 nowadays. */
         set = setlocale(LC_CTYPE, NULL);
         if (!set) {
                 cached_answer = true;
                 goto out;
         }
 
-        cached_answer = streq(set, "C");
+        /* Check result, but ignore the result if C was set
+         * explicitly. */
+        cached_answer =
+                streq(set, "C") &&
+                !getenv("LC_ALL") &&
+                !getenv("LC_CTYPE") &&
+                !getenv("LANG");
 
 out:
-        return (bool)cached_answer;
+        return (bool) cached_answer;
 }
 
 const char *draw_special_char(DrawSpecialChar ch) {
@@ -5671,7 +5699,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
 
 int create_tmp_dir(char template[], char** dir_name) {
         int r = 0;
-        char *d, *dt;
+        char *d = NULL, *dt;
 
         assert(dir_name);
 
@@ -5846,4 +5874,49 @@ bool id128_is_valid(const char *s) {
                 return false;
 
         return true;
+}
+
+void parse_user_at_host(char *arg, char **user, char **host) {
+        assert(arg);
+        assert(user);
+        assert(host);
+
+        *host = strchr(arg, '@');
+        if (*host == NULL)
+                *host = arg;
+        else {
+                *host[0]++ = '\0';
+                *user = arg;
+        }
+}
+
+int split_pair(const char *s, const char *sep, char **l, char **r) {
+        char *x, *a, *b;
+
+        assert(s);
+        assert(sep);
+        assert(l);
+        assert(r);
+
+        if (isempty(sep))
+                return -EINVAL;
+
+        x = strstr(s, sep);
+        if (!x)
+                return -EINVAL;
+
+        a = strndup(s, x - s);
+        if (!a)
+                return -ENOMEM;
+
+        b = strdup(x + strlen(sep));
+        if (!b) {
+                free(a);
+                return -ENOMEM;
+        }
+
+        *l = a;
+        *r = b;
+
+        return 0;
 }

@@ -1,0 +1,111 @@
+'\" t
+.TH "SYSTEMD\-DELTA" "1" "" "systemd 208" "systemd-delta"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-delta \- Find overridden configuration files
+.SH "SYNOPSIS"
+.HP \w'\fBsystemd\-delta\ \fR\fB[OPTIONS...]\fR\fB\ \fR\fB[SUFFIX...]\fR\ 'u
+\fBsystemd\-delta \fR\fB[OPTIONS...]\fR\fB \fR\fB[SUFFIX...]\fR
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-delta\fR
+may be used to identify and compare configuration files in
+/etc
+that override default counterparts in
+/usr\&. The command line argument can be one or more name of a subdirectories of
+/etc
+or
+/usr/lib
+to compare, such as
+tmpfiles\&.d,
+sysctl\&.d
+or
+systemd/system\&.
+.PP
+When no argument is specified a number of well\-known subdirectories are searched for overridden files\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Prints a short help text and exits\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Prints a short version string and exits\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.PP
+\fB\-t\fR, \fB\-\-type=\fR
+.RS 4
+When listing the differences, only list those that are asked for\&. The list itself is a comma\-separated list of desired difference types\&.
+.sp
+Recognized types are:
+.PP
+\fImasked\fR
+.RS 4
+Show masked files
+.RE
+.PP
+\fIequivalent\fR
+.RS 4
+Show overridden files that while overridden, do not differ in content\&.
+.RE
+.PP
+\fIredirected\fR
+.RS 4
+Show files that are redirected to another\&.
+.RE
+.PP
+\fIoverridden\fR
+.RS 4
+Show overridden, and changed files\&.
+.RE
+.PP
+\fIextended\fR
+.RS 4
+Show *\&.conf files in drop\-in directories for units\&.
+.RE
+.PP
+\fIunchanged\fR
+.RS 4
+Show unmodified files too\&.
+.RE
+.sp
+.RE
+.PP
+\fB\-\-diff=\fR
+.RS 4
+When showing modified files, when a file is overridden show a diff as well\&. This option takes a boolean argument\&. If omitted, it defaults to
+\fBtrue\fR\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+On success 0 is returned, a non\-zero failure code otherwise\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1)

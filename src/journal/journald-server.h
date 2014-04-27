@@ -97,9 +97,6 @@ typedef struct Server {
         usec_t max_file_usec;
         usec_t oldest_file_usec;
 
-        gid_t file_gid;
-        bool file_gid_valid;
-
         LIST_HEAD(StdoutStream, stdout_streams);
         unsigned n_stdout_streams;
 
@@ -125,11 +122,12 @@ typedef struct Server {
         bool sync_scheduled;
 } Server;
 
-#define N_IOVEC_META_FIELDS 17
+#define N_IOVEC_META_FIELDS 20
 #define N_IOVEC_KERNEL_FIELDS 64
 #define N_IOVEC_UDEV_FIELDS 32
+#define N_IOVEC_OBJECT_FIELDS 11
 
-void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority);
+void server_dispatch_message(Server *s, struct iovec *iovec, unsigned n, unsigned m, struct ucred *ucred, struct timeval *tv, const char *label, size_t label_len, const char *unit_id, int priority, pid_t object_pid);
 void server_driver_message(Server *s, sd_id128_t message_id, const char *format, ...) _printf_attr_(3,4);
 
 /* gperf lookup function */
@@ -152,7 +150,7 @@ void server_done(Server *s);
 void server_sync(Server *s);
 void server_vacuum(Server *s);
 void server_rotate(Server *s);
-int server_schedule_sync(Server *s);
+int server_schedule_sync(Server *s, int priority);
 int server_flush_to_var(Server *s);
 int process_event(Server *s, struct epoll_event *ev);
 void server_maybe_append_tags(Server *s);

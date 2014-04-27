@@ -73,24 +73,24 @@
                 </para>
 
                 <para>Log data collected by the journal is primarily
-                text based but can also include binary data where
+                text-based but can also include binary data where
                 necessary. All objects stored in the journal can be up
                 to 2^64-1 bytes in size.</para>
 
-                <para>By default the journal stores log data in
+                <para>By default, the journal stores log data in
                 <filename>/run/log/journal/</filename>. Since
-                <filename>/run/</filename> is volatile log data is
-                lost at reboot. To make the data persistent it
+                <filename>/run/</filename> is volatile, log data is
+                lost at reboot. To make the data persistent, it
                 is sufficient to create
                 <filename>/var/log/journal/</filename> where
                 <filename>systemd-journald</filename> will then store
                 the data.</para>
 
                 <para><filename>systemd-journald</filename> will
-                forward all received log messages to the AF_UNIX
-                SOCK_DGRAM socket
-                <filename>/run/systemd/journal/syslog</filename> (if it exists) which
-                may be used by UNIX syslog daemons to process the data
+                forward all received log messages to the <constant>AF_UNIX</constant>
+                <constant>SOCK_DGRAM</constant> socket
+                <filename>/run/systemd/journal/syslog</filename>, if it exists, which
+                may be used by Unix syslog daemons to process the data
                 further.</para>
 
                 <para>See
@@ -161,15 +161,15 @@
         <refsect1>
                 <title>Access Control</title>
 
-                <para>Journal files are by default owned and readable
+                <para>Journal files are, by default, owned and readable
                 by the <literal>systemd-journal</literal> system group
-                (but not writable). Adding a user to this group thus
+                but are not writable. Adding a user to this group thus
                 enables her/him to read the journal files.</para>
 
                 <para>By default, each logged in user will get her/his
                 own set of journal files in
                 <filename>/var/log/journal/</filename>. These files
-                will not be owned by the user however, in order to
+                will not be owned by the user, however, in order to
                 avoid that the user can write to them
                 directly. Instead, file system ACLs are used to ensure
                 the user gets read access only.</para>
@@ -192,6 +192,52 @@
         </refsect1>
 
         <refsect1>
+                <title>Files</title>
+
+                <variablelist>
+                        <varlistentry>
+                                <term><filename>/etc/systemd/journald.conf</filename></term>
+
+                                <listitem><para>Configure
+                                <command>systemd-journald</command>
+                                behaviour. See
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><filename>/run/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
+                                <term><filename>/run/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
+                                <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal</filename></term>
+                                <term><filename>/var/log/journal/<replaceable>machine-id</replaceable>/*.journal~</filename></term>
+
+                                <listitem><para><command>systemd-journald</command>
+                                writes entries to files in
+                                <filename>/run/log/journal/<replaceable>machine-id</replaceable>/</filename>
+                                or
+                                <filename>/var/log/journal/<replaceable>machine-id</replaceable>/</filename>
+                                with the <literal>.journal</literal>
+                                suffix. If the daemon is stopped
+                                uncleanly, or if the files are found
+                                to be corrupted, they are renamed
+                                using the <literal>.journal~</literal>
+                                suffix, and
+                                <command>systemd-journald</command>
+                                starts writing to a new
+                                file. <filename>/run</filename> is
+                                used when
+                                <filename>/var/log/journal</filename>
+                                is not available, or when
+                                <option>Storage=volatile</option> is
+                                set in the
+                                <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                configuration file.
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
+        </refsect1>
+
+        <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -199,7 +245,8 @@
                         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <command>pydoc systemd.journal</command>.
                 </para>
         </refsect1>
 

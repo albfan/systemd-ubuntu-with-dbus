@@ -22,11 +22,12 @@
 #include <errno.h>
 
 #include "dbus-unit.h"
-#include "dbus-mount.h"
-#include "dbus-kill.h"
 #include "dbus-execute.h"
+#include "dbus-kill.h"
+#include "dbus-cgroup.h"
 #include "dbus-common.h"
 #include "selinux-access.h"
+#include "dbus-mount.h"
 
 #define BUS_MOUNT_INTERFACE                                             \
         " <interface name=\"org.freedesktop.systemd1.Mount\">\n"        \
@@ -35,12 +36,13 @@
         "  <property name=\"Options\" type=\"s\" access=\"read\"/>\n"   \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"TimeoutUSec\" type=\"t\" access=\"read\"/>\n" \
+        BUS_UNIT_CGROUP_INTERFACE                                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecMount")                         \
         BUS_EXEC_COMMAND_INTERFACE("ExecUnmount")                       \
         BUS_EXEC_COMMAND_INTERFACE("ExecRemount")                       \
         BUS_EXEC_CONTEXT_INTERFACE                                      \
         BUS_KILL_CONTEXT_INTERFACE                                      \
-        BUS_UNIT_CGROUP_INTERFACE                                       \
+        BUS_CGROUP_CONTEXT_INTERFACE                                    \
         "  <property name=\"ControlPID\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"DirectoryMode\" type=\"u\" access=\"read\"/>\n" \
         "  <property name=\"Result\" type=\"s\" access=\"read\"/>\n"    \
@@ -156,15 +158,44 @@ DBusHandlerResult bus_mount_message_handler(Unit *u, DBusConnection *c, DBusMess
         Mount *m = MOUNT(u);
 
         const BusBoundProperties bps[] = {
-                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,         u },
-                { "org.freedesktop.systemd1.Mount", bus_mount_properties,        m },
-                { "org.freedesktop.systemd1.Mount", bus_exec_context_properties, &m->exec_context },
-                { "org.freedesktop.systemd1.Mount", bus_kill_context_properties, &m->kill_context },
-                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,  u },
+                { "org.freedesktop.systemd1.Unit",  bus_unit_properties,           u },
+                { "org.freedesktop.systemd1.Mount", bus_unit_cgroup_properties,    u },
+                { "org.freedesktop.systemd1.Mount", bus_mount_properties,          m },
+                { "org.freedesktop.systemd1.Mount", bus_exec_context_properties,   &m->exec_context },
+                { "org.freedesktop.systemd1.Mount", bus_kill_context_properties,   &m->kill_context },
+                { "org.freedesktop.systemd1.Mount", bus_cgroup_context_properties, &m->cgroup_context },
                 { NULL, }
         };
 
         SELINUX_UNIT_ACCESS_CHECK(u, c, message, "status");
 
         return bus_default_message_handler(c, message, INTROSPECTION, INTERFACES_LIST, bps );
+}
+
+int bus_mount_set_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
+        Mount *m = MOUNT(u);
+        int r;
+
+        assert(name);
+        assert(u);
+        assert(i);
+
+        r = bus_cgroup_set_property(u, &m->cgroup_context, name, i, mode, error);
+        if (r != 0)
+                return r;
+
+        return 0;
+}
+
+int bus_mount_commit_properties(Unit *u) {
+        assert(u);
+
+        unit_realize_cgroup(u);
+        return 0;
 }

@@ -1,0 +1,111 @@
+'\" t
+.TH "SD_LISTEN_FDS" "3" "" "systemd 208" "sd_listen_fds"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sd_listen_fds, SD_LISTEN_FDS_START \- Check for file descriptors passed by the system manager
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <systemd/sd\-daemon\&.h>
+.fi
+.ft
+.sp
+.ft B
+.nf
+#define SD_LISTEN_FDS_START 3
+.fi
+.ft
+.HP \w'int\ sd_listen_fds('u
+.BI "int sd_listen_fds(int\ " "unset_environment" ");"
+.SH "DESCRIPTION"
+.PP
+\fBsd_listen_fds()\fR
+shall be called by a daemon to check for file descriptors passed by the init system as part of the socket\-based activation logic\&.
+.PP
+If the
+\fIunset_environment\fR
+parameter is non\-zero,
+\fBsd_listen_fds()\fR
+will unset the
+\fI$LISTEN_FDS\fR/\fI$LISTEN_PID\fR
+environment variables before returning (regardless whether the function call itself succeeded or not)\&. Further calls to
+\fBsd_listen_fds()\fR
+will then fail, but the variables are no longer inherited by child processes\&.
+.PP
+If a daemon receives more than one file descriptor, they will be passed in the same order as configured in the systemd socket definition file\&. Nonetheless, it is recommended to verify the correct socket types before using them\&. To simplify this checking, the functions
+\fBsd_is_fifo\fR(3),
+\fBsd_is_socket\fR(3),
+\fBsd_is_socket_inet\fR(3),
+\fBsd_is_socket_unix\fR(3)
+are provided\&. In order to maximize flexibility, it is recommended to make these checks as loose as possible without allowing incorrect setups\&. i\&.e\&. often, the actual port number a socket is bound to matters little for the service to work, hence it should not be verified\&. On the other hand, whether a socket is a datagram or stream socket matters a lot for the most common program logics and should be checked\&.
+.PP
+This function call will set the FD_CLOEXEC flag for all passed file descriptors to avoid further inheritance to children of the calling process\&.
+.SH "RETURN VALUE"
+.PP
+On failure, this call returns a negative errno\-style error code\&. If
+\fI$LISTEN_FDS\fR/\fI$LISTEN_PID\fR
+was not set or was not correctly set for this daemon and hence no file descriptors were received, 0 is returned\&. Otherwise, the number of file descriptors passed is returned\&. The application may find them starting with file descriptor SD_LISTEN_FDS_START, i\&.e\&. file descriptor 3\&.
+.SH "NOTES"
+.PP
+This function is provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithm it implements is simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&.
+.PP
+Internally, this function checks whether the
+\fI$LISTEN_PID\fR
+environment variable equals the daemon PID\&. If not, it returns immediately\&. Otherwise, it parses the number passed in the
+\fI$LISTEN_FDS\fR
+environment variable, then sets the FD_CLOEXEC flag for the parsed number of file descriptors starting from SD_LISTEN_FDS_START\&. Finally, it returns the parsed number\&.
+.PP
+For details about the algorithm check the liberally licensed reference implementation sources:
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
+and
+\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
+.PP
+\fBsd_listen_fds()\fR
+is implemented in the reference implementation\*(Aqs
+sd\-daemon\&.c
+and
+sd\-daemon\&.h
+files\&. These interfaces are available as shared library, which can be compiled and linked to with the
+\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
+file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree\&. For more details about the reference implementation see
+\fBsd-daemon\fR(3)\&.
+.PP
+If the reference implementation is used as drop\-in files and \-DDISABLE_SYSTEMD is set during compilation, this function will always return 0 and otherwise become a NOP\&.
+.SH "ENVIRONMENT"
+.PP
+\fI$LISTEN_PID\fR, \fI$LISTEN_FDS\fR
+.RS 4
+Set by the init system for supervised processes that use socket\-based activation\&. This environment variable specifies the data
+\fBsd_listen_fds()\fR
+parses\&. See above for details\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsd-daemon\fR(3),
+\fBsd_is_fifo\fR(3),
+\fBsd_is_socket\fR(3),
+\fBsd_is_socket_inet\fR(3),
+\fBsd_is_socket_unix\fR(3),
+\fBdaemon\fR(7),
+\fBsystemd.service\fR(5),
+\fBsystemd.socket\fR(5)

@@ -1,0 +1,36 @@
+'\" t
+.TH "SYSTEMD\-BACKLIGHT@\&.SERVICE" "8" "" "systemd 208" "systemd-backlight@.service"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-backlight@.service, systemd-backlight \- Load and save the display backlight brightness at boot and shutdown
+.SH "SYNOPSIS"
+.PP
+systemd\-backlight@\&.service
+.PP
+/usr/lib/systemd/systemd\-backlight
+.SH "DESCRIPTION"
+.PP
+systemd\-backlight@\&.service
+is a service that restores the display backlight brightness at early\-boot and saves it at shutdown\&. On disk, the backlight brightness is stored in
+/var/lib/backlight/\&. Note that by default, only firmware backlight devices are saved/restored\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1)

@@ -32,6 +32,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-control.h"
+#include "bus-bloom.h"
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
@@ -40,6 +41,8 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
                 return -EINVAL;
         if (!unique)
                 return -EINVAL;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -60,6 +63,10 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 return -EINVAL;
         if (!bus->bus_client)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -68,7 +75,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 l = strlen(name);
                 n = alloca0(offsetof(struct kdbus_cmd_name, name) + l + 1);
                 n->size = offsetof(struct kdbus_cmd_name, name) + l + 1;
-                n->name_flags = flags;
+                n->flags = flags;
                 memcpy(n->name, name, l+1);
 
 #ifdef HAVE_VALGRIND_MEMCHECK_H
@@ -79,7 +86,7 @@ int sd_bus_request_name(sd_bus *bus, const char *name, int flags) {
                 if (r < 0)
                         return -errno;
 
-                return n->name_flags;
+                return n->flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
@@ -114,6 +121,10 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 return -EINVAL;
         if (!bus->bus_client)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (bus->is_kernel) {
                 struct kdbus_cmd_name *n;
@@ -131,7 +142,7 @@ int sd_bus_release_name(sd_bus *bus, const char *name) {
                 if (r < 0)
                         return -errno;
 
-                return n->name_flags;
+                return n->flags;
         } else {
                 r = sd_bus_call_method(
                                 bus,
@@ -163,6 +174,10 @@ int sd_bus_list_names(sd_bus *bus, char ***l) {
                 return -EINVAL;
         if (!l)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -213,6 +228,10 @@ int sd_bus_get_owner(sd_bus *bus, const char *name, char **owner) {
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -255,6 +274,10 @@ int sd_bus_get_owner_uid(sd_bus *bus, const char *name, uid_t *uid) {
                 return -EINVAL;
         if (!uid)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -288,6 +311,10 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
                 return -EINVAL;
         if (!pid)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         r = sd_bus_call_method(
                         bus,
@@ -313,36 +340,201 @@ int sd_bus_get_owner_pid(sd_bus *bus, const char *name, pid_t *pid) {
         return 0;
 }
 
-int bus_add_match_internal(sd_bus *bus, const char *match) {
+int bus_add_match_internal(
+                sd_bus *bus,
+                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components,
+                uint64_t cookie) {
+
+        int r;
+
         assert(bus);
         assert(match);
 
-        return sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "AddMatch",
-                        NULL,
-                        NULL,
-                        "s",
-                        match);
+        if (bus->is_kernel) {
+                struct kdbus_cmd_match *m;
+                struct kdbus_item *item;
+                uint64_t bloom[BLOOM_SIZE/8];
+                size_t sz;
+                const char *sender = NULL;
+                size_t sender_length = 0;
+                uint64_t src_id = KDBUS_MATCH_SRC_ID_ANY;
+                bool using_bloom = false;
+                unsigned i;
+
+                zero(bloom);
+
+                sz = offsetof(struct kdbus_cmd_match, items);
+
+                for (i = 0; i < n_components; i++) {
+                        struct bus_match_component *c = &components[i];
+
+                        switch (c->type) {
+
+                        case BUS_MATCH_SENDER:
+                                r = bus_kernel_parse_unique_name(c->value_str, &src_id);
+                                if (r < 0)
+                                        return r;
+
+                                if (r > 0) {
+                                        sender = c->value_str;
+                                        sender_length = strlen(sender);
+                                        sz += ALIGN8(offsetof(struct kdbus_item, str) + sender_length + 1);
+                                }
+
+                                break;
+
+                        case BUS_MATCH_MESSAGE_TYPE:
+                                bloom_add_pair(bloom, "message-type", bus_message_type_to_string(c->value_u8));
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_INTERFACE:
+                                bloom_add_pair(bloom, "interface", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_MEMBER:
+                                bloom_add_pair(bloom, "member", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_PATH:
+                                bloom_add_pair(bloom, "path", c->value_str);
+                                using_bloom = true;
+                                break;
+
+                        case BUS_MATCH_PATH_NAMESPACE:
+                                if (!streq(c->value_str, "/")) {
+                                        bloom_add_pair(bloom, "path-slash-prefix", c->value_str);
+                                        using_bloom = true;
+                                }
+                                break;
+
+                        case BUS_MATCH_ARG...BUS_MATCH_ARG_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + 1];
+
+                                snprintf(buf, sizeof(buf), "arg%u", c->type - BUS_MATCH_ARG);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_ARG_PATH...BUS_MATCH_ARG_PATH_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + sizeof("-slash-prefix")];
+
+                                snprintf(buf, sizeof(buf), "arg%u-slash-prefix", c->type - BUS_MATCH_ARG_PATH);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_ARG_NAMESPACE...BUS_MATCH_ARG_NAMESPACE_LAST: {
+                                char buf[sizeof("arg")-1 + 2 + sizeof("-dot-prefix")];
+
+                                snprintf(buf, sizeof(buf), "arg%u-dot-prefix", c->type - BUS_MATCH_ARG_NAMESPACE);
+                                bloom_add_pair(bloom, buf, c->value_str);
+                                using_bloom = true;
+                                break;
+                        }
+
+                        case BUS_MATCH_DESTINATION:
+                                /* The bloom filter does not include
+                                   the destination, since it is only
+                                   available for broadcast messages
+                                   which do not carry a destination
+                                   since they are undirected. */
+                                break;
+
+                        case BUS_MATCH_ROOT:
+                        case BUS_MATCH_VALUE:
+                        case BUS_MATCH_LEAF:
+                        case _BUS_MATCH_NODE_TYPE_MAX:
+                        case _BUS_MATCH_NODE_TYPE_INVALID:
+                                assert_not_reached("Invalid match type?");
+                        }
+                }
+
+                if (using_bloom)
+                        sz += ALIGN8(offsetof(struct kdbus_item, data64) + BLOOM_SIZE);
+
+                m = alloca0(sz);
+                m->size = sz;
+                m->cookie = cookie;
+                m->src_id = src_id;
+
+                item = m->items;
+
+                if (using_bloom) {
+                        item->size = offsetof(struct kdbus_item, data64) + BLOOM_SIZE;
+                        item->type = KDBUS_MATCH_BLOOM;
+                        memcpy(item->data64, bloom, BLOOM_SIZE);
+
+                        item = KDBUS_ITEM_NEXT(item);
+                }
+
+                if (sender) {
+                        item->size = offsetof(struct kdbus_item, str) + sender_length + 1;
+                        item->type = KDBUS_MATCH_SRC_NAME;
+                        memcpy(item->str, sender, sender_length + 1);
+                }
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_ADD, m);
+                if (r < 0)
+                        return -errno;
+
+        } else {
+                return sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "AddMatch",
+                                NULL,
+                                NULL,
+                                "s",
+                                match);
+        }
+
+        return 0;
 }
 
-int bus_remove_match_internal(sd_bus *bus, const char *match) {
+int bus_remove_match_internal(
+                sd_bus *bus,
+                const char *match,
+                uint64_t cookie) {
+
+        int r;
+
         assert(bus);
         assert(match);
 
-        return sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.DBus",
-                        "/",
-                        "org.freedesktop.DBus",
-                        "RemoveMatch",
-                        NULL,
-                        NULL,
-                        "s",
-                        match);
+        if (bus->is_kernel) {
+                struct kdbus_cmd_match m;
+
+                zero(m);
+                m.size = offsetof(struct kdbus_cmd_match, items);
+                m.cookie = cookie;
+
+                r = ioctl(bus->input_fd, KDBUS_CMD_MATCH_REMOVE, &m);
+                if (r < 0)
+                        return -errno;
+
+        } else {
+                return sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.DBus",
+                                "/",
+                                "org.freedesktop.DBus",
+                                "RemoveMatch",
+                                NULL,
+                                NULL,
+                                "s",
+                                match);
+        }
+
+        return 0;
 }
 
 int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
@@ -354,6 +546,10 @@ int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machi
                 return -EINVAL;
         if (!name)
                 return -EINVAL;
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+        if (bus_pid_changed(bus))
+                return -ECHILD;
 
         if (streq_ptr(name, bus->unique_name))
                 return sd_id128_get_machine(machine);

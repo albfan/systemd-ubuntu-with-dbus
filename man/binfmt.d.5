@@ -1,0 +1,88 @@
+'\" t
+.TH "BINFMT\&.D" "5" "" "systemd 208" "binfmt.d"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+binfmt.d \- Configure additional binary formats for executables at boot
+.SH "SYNOPSIS"
+.PP
+/etc/binfmt\&.d/*\&.conf
+.PP
+/run/binfmt\&.d/*\&.conf
+.PP
+/usr/lib/binfmt\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+At boot,
+\fBsystemd-binfmt.service\fR(8)
+reads configuration files from the above directories to register in the kernel additional binary formats for executables\&.
+.SH "CONFIGURATION FORMAT"
+.PP
+Each file contains a list of binfmt_misc kernel binary format rules\&. Consult
+\m[blue]\fBbinfmt_misc\&.txt\fR\m[]\&\s-2\u[1]\d\s+2
+for more information on registration of additional binary formats and how to write rules\&.
+.PP
+Empty lines and lines beginning with ; and # are ignored\&. Note that this means you may not use ; and # as delimiter in binary format rules\&.
+.PP
+Each configuration file shall be named in the style of
+\fIprogram\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/usr/lib/
+and
+/run/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&. Packages should install their configuration files in
+/usr/lib/, files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed from vendor packages\&. All files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same binary type name, the entry in the file with the lexicographically latest name will be applied\&.
+.PP
+If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
+/dev/null
+in
+/etc/binfmt\&.d/
+bearing the same filename\&.
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/binfmt.d/wine.conf example:\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Start WINE on Windows executables
+:DOSWin:M::MZ::/usr/bin/wine:
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-binfmt.service\fR(8),
+\fBsystemd-delta\fR(1),
+\fBwine\fR(8)
+.SH "NOTES"
+.IP " 1." 4
+binfmt_misc.txt
+.RS 4
+\%https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+.RE

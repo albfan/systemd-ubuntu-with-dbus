@@ -19,11 +19,11 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
                 <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
                 <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm259787182016"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
-                mount points and swap devices share a subset of
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm274706676192"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
+                mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</p><p>This man page lists the configuration options
                 shared by these four unit types. See
@@ -32,17 +32,17 @@
                 files, and
                 <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
                 <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>,
-                <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>
+                <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>,
                 and
                 <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>
                 for more information on the specific unit
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
-                type.</p></div><div class="refsect1"><a name="idm259787175536"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
+                type.</p></div><div class="refsect1"><a name="idm274706543616"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
-                                not set defaults to the root directory
+                                not set, defaults to the root directory
                                 when systemd is running as a system
                                 instance and the respective user's
                                 home directory if run as
@@ -51,7 +51,7 @@
                                 directory for executed processes, with
                                 the
                                 <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(2)</span></a>
-                                system call. If this is used it must
+                                system call. If this is used, it must
                                 be ensured that the process and all
                                 its auxiliary files are available in
                                 the <code class="function">chroot()</code>
@@ -62,7 +62,7 @@
                                 set, the default group of the user is
                                 chosen.</p></dd><dt id="SupplementaryGroups="><span class="term"><code class="varname">SupplementaryGroups=</code></span><a class="headerlink" title="Permalink to this term" href="#SupplementaryGroups=">¶</a></dt><dd><p>Sets the supplementary
                                 Unix groups the processes are executed
-                                as. This takes a space separated list
+                                as. This takes a space-separated list
                                 of group names or IDs. This option may
                                 be specified more than once in which
                                 case all listed groups are set as
@@ -87,7 +87,7 @@
                                 between -1000 (to disable OOM killing
                                 for this process) and 1000 (to make
                                 killing of this process under memory
-                                pressure very likely). See <a class="ulink" href="http://www.kernel.org/doc/Documentation/filesystems/proc.txt" target="_top">proc.txt</a>
+                                pressure very likely). See <a class="ulink" href="https://www.kernel.org/doc/Documentation/filesystems/proc.txt" target="_top">proc.txt</a>
                                 for details.</p></dd><dt id="IOSchedulingClass="><span class="term"><code class="varname">IOSchedulingClass=</code></span><a class="headerlink" title="Permalink to this term" href="#IOSchedulingClass=">¶</a></dt><dd><p>Sets the IO scheduling
                                 class for executed processes. Takes an
                                 integer between 0 and 3 or one of the
@@ -124,7 +124,7 @@
                                 See <a href="sched_setscheduler.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
                                 for details.
                                 </p></dd><dt id="CPUSchedulingResetOnFork="><span class="term"><code class="varname">CPUSchedulingResetOnFork=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUSchedulingResetOnFork=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true elevated CPU
+                                argument. If true, elevated CPU
                                 scheduling priorities and policies
                                 will be reset when the executed
                                 processes fork, and can hence not leak
@@ -137,7 +137,7 @@
                                 be specified more than once in which
                                 case the specificed CPU affinity masks
                                 are merged. If the empty string is
-                                assigned the mask is reset, all
+                                assigned, the mask is reset, all
                                 assignments prior to this will have no
                                 effect. See
                                 <a href="sched_setaffinity.html"><span class="citerefentry"><span class="refentrytitle">sched_setaffinity</span>(2)</span></a>
@@ -153,21 +153,22 @@
                                 option may be specified more than once
                                 in which case all listed variables
                                 will be set. If the same variable is
-                                set twice the later setting will
+                                set twice, the later setting will
                                 override the earlier setting. If the
                                 empty string is assigned to this
-                                option the list of environment
+                                option, the list of environment
                                 variables is reset, all prior
                                 assignments have no effect.
                                 Variable expansion is not performed
-                                inside the strings, and $ has no special
-                                meaning.
+                                inside the strings, however, specifier
+                                expansion is possible. The $ character has
+                                no special meaning.
                                 If you need to assign a value containing spaces
                                 to a variable, use double quotes (")
                                 for the assignment.</p><p>Example:
                                 </p><pre class="programlisting">Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</pre><p>
-                                gives three variables <code class="literal">VAR1</code>,
-                                <code class="literal">VAR2</code>, <code class="literal">VAR3</code>.
+                                gives three variables "<code class="literal">VAR1</code>",
+                                "<code class="literal">VAR2</code>", "<code class="literal">VAR3</code>".
                                 </p><p>
                                 See
                                 <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
@@ -175,7 +176,7 @@
                                 <code class="varname">Environment=</code> but
                                 reads the environment variables from a
                                 text file. The text file should
-                                contain new-line separated variable
+                                contain new-line-separated variable
                                 assignments. Empty lines and lines
                                 starting with ; or # will be ignored,
                                 which may be used for commenting. A line
@@ -185,24 +186,25 @@
                                 and trailing whitespace from the values
                                 of assignments, unless you use
                                 double quotes (").</p><p>The argument passed should be an
-                                absolute file name or wildcard
+                                absolute filename or wildcard
                                 expression, optionally prefixed with
-                                "-", which indicates that if the file
-                                does not exist it won't be read and no
-                                error or warning message is logged.
-                                This option may be specified more than
-                                once in which case all specified files
-                                are read. If the empty string is
-                                assigned to this option the list of
-                                file to read is reset, all prior
-                                assignments have no effect.</p><p>The files listed with this
+                                "<code class="literal">-</code>", which indicates
+                                that if the file does not exist, it
+                                will not be read and no error or warning
+                                message is logged.  This option may be
+                                specified more than once in which case
+                                all specified files are read. If the
+                                empty string is assigned to this
+                                option, the list of file to read is
+                                reset, all prior assignments have no
+                                effect.</p><p>The files listed with this
                                 directive will be read shortly before
                                 the process is executed. Settings from
                                 these files override settings made
                                 with
                                 <code class="varname">Environment=</code>. If
                                 the same variable is set twice from
-                                these files the files will be read in
+                                these files, the files will be read in
                                 the order they are specified and the
                                 later setting will override the
                                 earlier setting.</p></dd><dt id="StandardInput="><span class="term"><code class="varname">StandardInput=</code></span><a class="headerlink" title="Permalink to this term" href="#StandardInput=">¶</a></dt><dd><p>Controls where file
@@ -213,19 +215,19 @@
                                 <code class="option">tty-force</code>,
                                 <code class="option">tty-fail</code> or
                                 <code class="option">socket</code>. If
-                                <code class="option">null</code> is selected
+                                <code class="option">null</code> is selected,
                                 standard input will be connected to
                                 <code class="filename">/dev/null</code>,
                                 i.e. all read attempts by the process
                                 will result in immediate EOF. If
-                                <code class="option">tty</code> is selected
+                                <code class="option">tty</code> is selected,
                                 standard input is connected to a TTY
                                 (as configured by
                                 <code class="varname">TTYPath=</code>, see
                                 below) and the executed process
                                 becomes the controlling process of the
                                 terminal. If the terminal is already
-                                being controlled by another process the
+                                being controlled by another process, the
                                 executed process waits until the current
                                 controlling process releases the
                                 terminal.
@@ -247,7 +249,7 @@
                                 file (see
                                 <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>
                                 for details) specifies a single socket
-                                only. If this option is set standard
+                                only. If this option is set, standard
                                 input will be connected to the socket
                                 the service was activated from, which
                                 is primarily useful for compatibility
@@ -268,19 +270,19 @@
                                 <code class="option">kmsg+console</code>,
                                 <code class="option">journal+console</code> or
                                 <code class="option">socket</code>. If set to
-                                <code class="option">inherit</code> the file
+                                <code class="option">inherit</code>, the file
                                 descriptor of standard input is
                                 duplicated for standard output. If set
-                                to <code class="option">null</code> standard
+                                to <code class="option">null</code>, standard
                                 output will be connected to
                                 <code class="filename">/dev/null</code>,
                                 i.e. everything written to it will be
-                                lost. If set to <code class="option">tty</code>
+                                lost. If set to <code class="option">tty</code>,
                                 standard output will be connected to a
                                 tty (as configured via
                                 <code class="varname">TTYPath=</code>, see
                                 below). If the TTY is used for output
-                                only the executed process will not
+                                only, the executed process will not
                                 become the controlling process of the
                                 terminal, and will not fail or wait
                                 for other processes to release the
@@ -338,23 +340,23 @@
                                 device specified with
                                 <code class="varname">TTYPath=</code> before and
                                 after execution. Defaults to
-                                <code class="literal">no</code>.</p></dd><dt id="TTYVHangup="><span class="term"><code class="varname">TTYVHangup=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYVHangup=">¶</a></dt><dd><p>Disconnect all clients
+                                "<code class="literal">no</code>".</p></dd><dt id="TTYVHangup="><span class="term"><code class="varname">TTYVHangup=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYVHangup=">¶</a></dt><dd><p>Disconnect all clients
                                 which have opened the terminal device
                                 specified with
                                 <code class="varname">TTYPath=</code>
                                 before and after execution. Defaults
                                 to
-                                <code class="literal">no</code>.</p></dd><dt id="TTYVTDisallocate="><span class="term"><code class="varname">TTYVTDisallocate=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYVTDisallocate=">¶</a></dt><dd><p>If the terminal
+                                "<code class="literal">no</code>".</p></dd><dt id="TTYVTDisallocate="><span class="term"><code class="varname">TTYVTDisallocate=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYVTDisallocate=">¶</a></dt><dd><p>If the terminal
                                 device specified with
                                 <code class="varname">TTYPath=</code> is a
-                                virtual console terminal try to
+                                virtual console terminal, try to
                                 deallocate the TTY before and after
                                 execution. This ensures that the
                                 screen and scrollback buffer is
                                 cleared. Defaults to
-                                <code class="literal">no</code>.</p></dd><dt id="SyslogIdentifier="><span class="term"><code class="varname">SyslogIdentifier=</code></span><a class="headerlink" title="Permalink to this term" href="#SyslogIdentifier=">¶</a></dt><dd><p>Sets the process name
+                                "<code class="literal">no</code>".</p></dd><dt id="SyslogIdentifier="><span class="term"><code class="varname">SyslogIdentifier=</code></span><a class="headerlink" title="Permalink to this term" href="#SyslogIdentifier=">¶</a></dt><dd><p>Sets the process name
                                 to prefix log lines sent to syslog or
-                                the kernel log buffer with. If not set
+                                the kernel log buffer with. If not set,
                                 defaults to the process name of the
                                 executed process. This option is only
                                 useful when
@@ -455,17 +457,17 @@
                                 <code class="varname">infinity</code> to
                                 configure no limit on a specific
                                 resource.</p></dd><dt id="PAMName="><span class="term"><code class="varname">PAMName=</code></span><a class="headerlink" title="Permalink to this term" href="#PAMName=">¶</a></dt><dd><p>Sets the PAM service
-                                name to set up a session as. If set
+                                name to set up a session as. If set,
                                 the executed process will be
                                 registered as a PAM session under the
                                 specified service name. This is only
                                 useful in conjunction with the
                                 <code class="varname">User=</code> setting. If
-                                not set no PAM session will be opened
+                                not set, no PAM session will be opened
                                 for the executed processes. See
                                 <a href="pam.html"><span class="citerefentry"><span class="refentrytitle">pam</span>(8)</span></a>
                                 for details.</p></dd><dt id="TCPWrapName="><span class="term"><code class="varname">TCPWrapName=</code></span><a class="headerlink" title="Permalink to this term" href="#TCPWrapName=">¶</a></dt><dd><p>If this is a
-                                socket-activated service this sets the
+                                socket-activated service, this sets the
                                 tcpwrap service name to check the
                                 permission for the current connection
                                 with. This is only useful in
@@ -475,7 +477,7 @@
                                 socket types (e.g. datagram/UDP) and
                                 on processes unrelated to socket-based
                                 activation. If the tcpwrap
-                                verification fails daemon start-up
+                                verification fails, daemon start-up
                                 will fail and the connection is
                                 terminated. See
                                 <a href="tcpd.html"><span class="citerefentry"><span class="refentrytitle">tcpd</span>(8)</span></a>
@@ -489,17 +491,16 @@
                                 capability bounding set for the
                                 executed process. See
                                 <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
-                                for details. Takes a whitespace
-                                separated list of capability names as
-                                read by
+                                for details. Takes a whitespace-separated
+                                list of capability names as read by
                                 <a href="cap_from_name.html"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>,
-                                e.g. <code class="literal">CAP_SYS_ADMIN
-                                CAP_DAC_OVERRIDE
-                                CAP_SYS_PTRACE</code>.
+                                e.g. <code class="constant">CAP_SYS_ADMIN</code>,
+                                <code class="constant">CAP_DAC_OVERRIDE</code>,
+                                <code class="constant">CAP_SYS_PTRACE</code>.
                                 Capabilities listed will be included
                                 in the bounding set, all others are
                                 removed. If the list of capabilities
-                                is prefixed with <code class="literal">~</code>
+                                is prefixed with "<code class="literal">~</code>",
                                 all but the listed capabilities will
                                 be included, the effect of the
                                 assignment inverted. Note that this
@@ -508,7 +509,7 @@
                                 permitted and inheritable capability
                                 sets, on top of what
                                 <code class="varname">Capabilities=</code>
-                                does. If this option is not used the
+                                does. If this option is not used, the
                                 capability bounding set is not
                                 modified on process execution, hence
                                 no limits on the capabilities of the
@@ -516,11 +517,11 @@
                                 appear more than once in which case
                                 the bounding sets are merged. If the
                                 empty string is assigned to this
-                                option the bounding set is reset to
+                                option, the bounding set is reset to
                                 the empty capability set, and all
                                 prior settings have no effect. If set
-                                to <code class="literal">~</code> (without any
-                                further argument) the bounding set is
+                                to "<code class="literal">~</code>" (without any
+                                further argument), the bounding set is
                                 reset to the full set of available
                                 capabilities, also undoing any
                                 previous settings.</p></dd><dt id="SecureBits="><span class="term"><code class="varname">SecureBits=</code></span><a class="headerlink" title="Permalink to this term" href="#SecureBits=">¶</a></dt><dd><p>Controls the secure
@@ -536,7 +537,7 @@
                                 option may appear more than once in
                                 which case the secure bits are
                                 ORed. If the empty string is assigned
-                                to this option the bits are reset to
+                                to this option, the bits are reset to
                                 0.</p></dd><dt id="Capabilities="><span class="term"><code class="varname">Capabilities=</code></span><a class="headerlink" title="Permalink to this term" href="#Capabilities=">¶</a></dt><dd><p>Controls the
                                 <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
                                 set for the executed process. Take a
@@ -550,214 +551,11 @@
                                 that
                                 <code class="varname">CapabilityBoundingSet=</code>
                                 is probably the much more useful
-                                setting.</p></dd><dt id="ControlGroup="><span class="term"><code class="varname">ControlGroup=</code></span><a class="headerlink" title="Permalink to this term" href="#ControlGroup=">¶</a></dt><dd><p>Controls the control
-                                groups the executed processes shall be
-                                made members of. Takes a
-                                space-separated list of cgroup
-                                identifiers. A cgroup identifier is
-                                formatted like
-                                <code class="filename">cpu:/foo/bar</code>,
-                                where "cpu" indicates the kernel
-                                control group controller used, and
-                                <code class="filename">/foo/bar</code> is the
-                                control group path. The controller
-                                name and ":" may be omitted in which
-                                case the named systemd control group
-                                hierarchy is implied. Alternatively,
-                                the path and ":" may be omitted, in
-                                which case the default control group
-                                path for this unit is implied.</p><p>This option may be used to place
-                                executed processes in arbitrary groups
-                                in arbitrary hierarchies -- which may
-                                then be externally configured with
-                                additional execution limits. By
-                                default systemd will place all
-                                executed processes in separate
-                                per-unit control groups (named after
-                                the unit) in the systemd named
-                                hierarchy. This option is primarily
-                                intended to place executed processes
-                                in specific paths in specific kernel
-                                controller hierarchies. It is not
-                                recommended to manipulate the service
-                                control group path in the private
-                                systemd named hierarchy
-                                (i.e. <code class="literal">name=systemd</code>),
-                                and doing this might result in
-                                undefined behaviour. For details about
-                                control groups see <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt" target="_top">cgroups.txt</a>.</p><p>This option may appear more than
-                                once, in which case the list of
-                                control group assignments is
-                                merged. If the same hierarchy gets two
-                                different paths assigned only the
-                                later setting will take effect. If the
-                                empty string is assigned to this
-                                option the list of control group
-                                assignments is reset, all previous
-                                assignments will have no
-                                effect.</p><p>Note that the list of control
-                                group assignments of a unit is
-                                extended implicitly based on the
-                                settings of
-                                <code class="varname">DefaultControllers=</code>
-                                of
-                                <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
-                                but a unit's
-                                <code class="varname">ControlGroup=</code>
-                                setting for a specific controller
-                                takes precedence.</p></dd><dt id="ControlGroupModify="><span class="term"><code class="varname">ControlGroupModify=</code></span><a class="headerlink" title="Permalink to this term" href="#ControlGroupModify=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true, the control groups
-                                created for this unit will be owned by
-                                the user specified with
-                                <code class="varname">User=</code> (and the
-                                appropriate group), and he/she can create
-                                subgroups as well as add processes to
-                                the group.</p></dd><dt id="ControlGroupPersistent="><span class="term"><code class="varname">ControlGroupPersistent=</code></span><a class="headerlink" title="Permalink to this term" href="#ControlGroupPersistent=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true, the control groups
-                                created for this unit will be marked
-                                to be persistent, i.e. systemd will
-                                not remove them when stopping the
-                                unit. The default is false, meaning
-                                that the control groups will be
-                                removed when the unit is stopped. For
-                                details about the semantics of this
-                                logic see <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups" target="_top">PaxControlGroups</a>.</p></dd><dt id="ControlGroupAttribute="><span class="term"><code class="varname">ControlGroupAttribute=</code></span><a class="headerlink" title="Permalink to this term" href="#ControlGroupAttribute=">¶</a></dt><dd><p>Set a specific control
-                                group attribute for executed
-                                processes, and (if needed) add the
-                                executed processes to a cgroup in the
-                                hierarchy of the controller the
-                                attribute belongs to. Takes two
-                                space-separated arguments: the
-                                attribute name (syntax is
-                                <code class="literal">cpu.shares</code> where
-                                <code class="literal">cpu</code> refers to a
-                                specific controller and
-                                <code class="literal">shares</code> to the
-                                attribute name), and the attribute
-                                value. Example:
-                                <code class="literal">ControlGroupAttribute=cpu.shares
-                                512</code>. If this option is used
-                                for an attribute that belongs to a
-                                kernel controller hierarchy the unit
-                                is not already configured to be added
-                                to (for example via the
-                                <code class="literal">ControlGroup=</code>
-                                option) then the unit will be added to
-                                the controller and the default unit
-                                cgroup path is implied. Thus, using
-                                <code class="varname">ControlGroupAttribute=</code>
-                                is in most cases sufficient to make
-                                use of control group enforcements,
-                                explicit
-                                <code class="varname">ControlGroup=</code> are
-                                only necessary in case the implied
-                                default control group path for a
-                                service is not desirable. For details
-                                about control group attributes see
-                                <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/cgroups.txt" target="_top">cgroups.txt</a>. This
-                                option may appear more than once, in
-                                order to set multiple control group
-                                attributes. If this option is used
-                                multiple times for the same cgroup
-                                attribute only the later setting takes
-                                effect. If the empty string is
-                                assigned to this option the list of
-                                attributes is reset, all previous
-                                cgroup attribute settings have no
-                                effect, including those done with
-                                <code class="varname">CPUShares=</code>,
-                                <code class="varname">MemoryLimit=</code>,
-                                <code class="varname">MemorySoftLimit</code>,
-                                <code class="varname">DeviceAllow=</code>,
-                                <code class="varname">DeviceDeny=</code>,
-                                <code class="varname">BlockIOWeight=</code>,
-                                <code class="varname">BlockIOReadBandwidth=</code>,
-                                <code class="varname">BlockIOWriteBandwidth=</code>.
-                                </p></dd><dt id="CPUShares="><span class="term"><code class="varname">CPUShares=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUShares=">¶</a></dt><dd><p>Assign the specified
-                                overall CPU time shares to the
-                                processes executed. Takes an integer
-                                value. This controls the
-                                <code class="literal">cpu.shares</code> control
-                                group attribute, which defaults to
-                                1024. For details about this control
-                                group attribute see <a class="ulink" href="http://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt" target="_top">sched-design-CFS.txt</a>.</p></dd><dt id="MemoryLimit="><span class="term"><code class="varname">MemoryLimit=</code>, </span><span class="term"><code class="varname">MemorySoftLimit=</code></span><a class="headerlink" title="Permalink to this term" href="#MemoryLimit=">¶</a></dt><dd><p>Limit the overall memory usage
-                                of the executed processes to a certain
-                                size. Takes a memory size in bytes. If
-                                the value is suffixed with K, M, G or
-                                T the specified memory size is parsed
-                                as Kilobytes, Megabytes, Gigabytes,
-                                or Terabytes (to the base
-                                1024), respectively. This controls the
-                                <code class="literal">memory.limit_in_bytes</code>
-                                and
-                                <code class="literal">memory.soft_limit_in_bytes</code>
-                                control group attributes. For details
-                                about these control group attributes
-                                see <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/memory.txt" target="_top">memory.txt</a>.</p></dd><dt id="DeviceAllow="><span class="term"><code class="varname">DeviceAllow=</code>, </span><span class="term"><code class="varname">DeviceDeny=</code></span><a class="headerlink" title="Permalink to this term" href="#DeviceAllow=">¶</a></dt><dd><p>Control access to
-                                specific device nodes by the executed processes. Takes two
-                                space separated strings: a device node
-                                path (such as
-                                <code class="filename">/dev/null</code>)
-                                followed by a combination of r, w, m
-                                to control reading, writing, or
-                                creating of the specific device node
-                                by the unit, respectively. This controls the
-                                <code class="literal">devices.allow</code>
-                                and
-                                <code class="literal">devices.deny</code>
-                                control group attributes. For details
-                                about these control group attributes
-                                see <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/devices.txt" target="_top">devices.txt</a>.</p></dd><dt id="BlockIOWeight="><span class="term"><code class="varname">BlockIOWeight=</code></span><a class="headerlink" title="Permalink to this term" href="#BlockIOWeight=">¶</a></dt><dd><p>Set the default or
-                                per-device overall block IO weight
-                                value for the executed
-                                processes. Takes either a single
-                                weight value (between 10 and 1000) to
-                                set the default block IO weight, or a
-                                space separated pair of a file path
-                                and a weight value to specify the
-                                device specific weight value (Example:
-                                "/dev/sda 500"). The file path may be
-                                specified as path to a block device
-                                node or as any other file in which
-                                case the backing block device of the
-                                file system of the file is
-                                determined. This controls the
-                                <code class="literal">blkio.weight</code> and
-                                <code class="literal">blkio.weight_device</code>
-                                control group attributes, which
-                                default to 1000. Use this option
-                                multiple times to set weights for
-                                multiple devices. For details about
-                                these control group attributes see
-                                <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt" target="_top">blkio-controller.txt</a>.</p></dd><dt id="BlockIOReadBandwidth="><span class="term"><code class="varname">BlockIOReadBandwidth=</code>, </span><span class="term"><code class="varname">BlockIOWriteBandwidth=</code></span><a class="headerlink" title="Permalink to this term" href="#BlockIOReadBandwidth=">¶</a></dt><dd><p>Set the per-device
-                                overall block IO bandwidth limit for
-                                the executed processes. Takes a space
-                                separated pair of a file path and a
-                                bandwidth value (in bytes per second)
-                                to specify the device specific
-                                bandwidth. The file path may be
-                                specified as path to a block device
-                                node or as any other file in which
-                                case the backing block device of the
-                                file system of the file is determined.
-                                If the bandwidth is suffixed with K, M,
-                                G, or T the specified bandwidth is
-                                parsed as Kilobytes, Megabytes,
-                                Gigabytes, or Terabytes, respectively (Example:
-                                "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0
-                                5M"). This controls the
-                                <code class="literal">blkio.read_bps_device</code>
-                                and
-                                <code class="literal">blkio.write_bps_device</code>
-                                control group attributes. Use this
-                                option multiple times to set bandwidth
-                                limits for multiple devices. For
-                                details about these control group
-                                attributes see <a class="ulink" href="http://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt" target="_top">blkio-controller.txt</a>.</p></dd><dt id="ReadWriteDirectories="><span class="term"><code class="varname">ReadWriteDirectories=</code>, </span><span class="term"><code class="varname">ReadOnlyDirectories=</code>, </span><span class="term"><code class="varname">InaccessibleDirectories=</code></span><a class="headerlink" title="Permalink to this term" href="#ReadWriteDirectories=">¶</a></dt><dd><p>Sets up a new
-                                file-system name space for executed
+                                setting.</p></dd><dt id="ReadWriteDirectories="><span class="term"><code class="varname">ReadWriteDirectories=</code>, </span><span class="term"><code class="varname">ReadOnlyDirectories=</code>, </span><span class="term"><code class="varname">InaccessibleDirectories=</code></span><a class="headerlink" title="Permalink to this term" href="#ReadWriteDirectories=">¶</a></dt><dd><p>Sets up a new
+                                file system namespace for executed
                                 processes. These options may be used
                                 to limit access a process might have
-                                to the main file-system
+                                to the main file system
                                 hierarchy. Each setting takes a
                                 space-separated list of absolute
                                 directory paths. Directories listed in
@@ -783,10 +581,17 @@
                                 directories listed will have limited
                                 access from within the namespace. If
                                 the empty string is assigned to this
-                                option the specific list is reset, and
+                                option, the specific list is reset, and
                                 all prior assignments have no
-                                effect.</p></dd><dt id="PrivateTmp="><span class="term"><code class="varname">PrivateTmp=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateTmp=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true sets up a new file
+                                effect.</p><p>Paths in
+                                <code class="varname">ReadOnlyDirectories=</code>
+                                and
+                                <code class="varname">InaccessibleDirectories=</code>
+                                may be prefixed with
+                                "<code class="literal">-</code>", in which case
+                                they will be ignored when they do not
+                                exist.</p></dd><dt id="PrivateTmp="><span class="term"><code class="varname">PrivateTmp=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateTmp=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If true, sets up a new file
                                 system namespace for the executed
                                 processes and mounts private
                                 <code class="filename">/tmp</code> and
@@ -803,11 +608,11 @@
                                 by service will be removed after service
                                 is stopped. Defaults to
                                 false.</p></dd><dt id="PrivateNetwork="><span class="term"><code class="varname">PrivateNetwork=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateNetwork=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true sets up a new
+                                argument. If true, sets up a new
                                 network namespace for the executed
                                 processes and configures only the
                                 loopback network device
-                                <code class="literal">lo</code> inside it. No
+                                "<code class="literal">lo</code>" inside it. No
                                 other network devices will be
                                 available to the executed process.
                                 This is useful to securely turn off
@@ -833,19 +638,19 @@
                                 entries must be created and cleared
                                 before and after execution. If the
                                 configured string is longer than four
-                                characters it is truncated and the
+                                characters, it is truncated and the
                                 terminal four characters are
                                 used. This setting interprets %I style
                                 string replacements. This setting is
                                 unset by default, i.e. no utmp/wtmp
                                 entries are created or cleaned up for
                                 this service.</p></dd><dt id="IgnoreSIGPIPE="><span class="term"><code class="varname">IgnoreSIGPIPE=</code></span><a class="headerlink" title="Permalink to this term" href="#IgnoreSIGPIPE=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true causes SIGPIPE to be
+                                argument. If true, causes <code class="constant">SIGPIPE</code> to be
                                 ignored in the executed
-                                process. Defaults to true, since
-                                SIGPIPE generally is useful only in
+                                process. Defaults to true because
+                                <code class="constant">SIGPIPE</code> generally is useful only in
                                 shell pipelines.</p></dd><dt id="NoNewPrivileges="><span class="term"><code class="varname">NoNewPrivileges=</code></span><a class="headerlink" title="Permalink to this term" href="#NoNewPrivileges=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true ensures that the
+                                argument. If true, ensures that the
                                 service process and all its children
                                 can never gain new privileges. This
                                 option is more powerful than the respective
@@ -854,19 +659,20 @@
                                 kind. This is the simplest, most
                                 effective way to ensure that a process
                                 and its children can never elevate
-                                privileges again.</p></dd><dt id="SystemCallFilter="><span class="term"><code class="varname">SystemCallFilter=</code></span><a class="headerlink" title="Permalink to this term" href="#SystemCallFilter=">¶</a></dt><dd><p>Takes a space
-                                separated list of system call
-                                names. If this setting is used all
+                                privileges again.</p></dd><dt id="SystemCallFilter="><span class="term"><code class="varname">SystemCallFilter=</code></span><a class="headerlink" title="Permalink to this term" href="#SystemCallFilter=">¶</a></dt><dd><p>Takes a space-separated
+                                list of system call
+                                names. If this setting is used, all
                                 system calls executed by the unit
                                 process except for the listed ones
                                 will result in immediate process
-                                termination with the SIGSYS signal
+                                termination with the
+                                <code class="constant">SIGSYS</code> signal
                                 (whitelisting). If the first character
-                                of the list is <code class="literal">~</code>
+                                of the list is "<code class="literal">~</code>",
                                 the effect is inverted: only the
                                 listed system calls will result in
                                 immediate process termination
-                                (blacklisting). If this option is used
+                                (blacklisting). If this option is used,
                                 <code class="varname">NoNewPrivileges=yes</code>
                                 is implied. This feature makes use of
                                 the Secure Computing Mode 2 interfaces
@@ -878,14 +684,70 @@
                                 <code class="function">sigreturn</code>,
                                 <code class="function">exit_group</code>,
                                 <code class="function">exit</code> system calls
-                                are implicitly whitelisted and don't
+                                are implicitly whitelisted and do not
                                 need to be listed explicitly. This
                                 option may be specified more than once
                                 in which case the filter masks are
                                 merged. If the empty string is
-                                assigned the filter is reset, all
+                                assigned, the filter is reset, all
                                 prior assignments will have no
-                                effect.</p></dd></dl></div></div><div class="refsect1"><a name="idm259785902736"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                effect.</p></dd></dl></div></div><div class="refsect1"><a name="idm274701565696"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
+                a clean environment in which select variables
+                listed below are set. System processes started by systemd
+                do not inherit variables from PID 1, but processes
+                started by user systemd instances inherit all
+                environment variables from the user systemd instance.
+                </p><div class="variablelist"><dl class="variablelist"><dt id="$PATH"><span class="term"><code class="varname">$PATH</code></span><a class="headerlink" title="Permalink to this term" href="#%24PATH">¶</a></dt><dd><p>Colon-separated list
+                                of directiories to use when launching
+                                executables. Systemd uses a fixed
+                                value of
+                                <code class="filename">/usr/local/sbin</code>:<code class="filename">/usr/local/bin</code>:<code class="filename">/usr/sbin</code>:<code class="filename">/usr/bin</code>:<code class="filename">/sbin</code>:<code class="filename">/bin</code>.
+                                </p></dd><dt id="$LANG"><span class="term"><code class="varname">$LANG</code></span><a class="headerlink" title="Permalink to this term" href="#%24LANG">¶</a></dt><dd><p>Locale. Can be set in
+                                <a href="locale.conf.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>
+                                or on the kernel command line (see
+                                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
+                                and
+                                <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>).
+                                </p></dd><dt id="$USER"><span class="term"><code class="varname">$USER</code>, </span><span class="term"><code class="varname">$HOME</code></span><a class="headerlink" title="Permalink to this term" href="#%24USER">¶</a></dt><dd><p>User name and home
+                                directory.  Set for the units which
+                                have <code class="varname">User=</code> set,
+                                which includes user
+                                <span class="command"><strong>systemd</strong></span> instances.
+                                See
+                                <a href="passwd.html"><span class="citerefentry"><span class="refentrytitle">passwd</span>(5)</span></a>.
+                                </p></dd><dt id="$XDG_RUNTIME_DIR"><span class="term"><code class="varname">$XDG_RUNTIME_DIR</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_RUNTIME_DIR">¶</a></dt><dd><p>The directory for volatile
+                                state. Set for the user <span class="command"><strong>systemd</strong></span>
+                                instance, and also in user sessions.
+                                See
+                                <a href="pam_systemd.html"><span class="citerefentry"><span class="refentrytitle">pam_systemd</span>(8)</span></a>.
+                                </p></dd><dt id="$XDG_SESSION_ID"><span class="term"><code class="varname">$XDG_SESSION_ID</code>, </span><span class="term"><code class="varname">$XDG_SEAT</code>, </span><span class="term"><code class="varname">$XDG_VTNR</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_SESSION_ID">¶</a></dt><dd><p>The identifier of the
+                                session, and the seat name, and
+                                virtual terminal of the session. Set
+                                by
+                                <a href="pam_systemd.html"><span class="citerefentry"><span class="refentrytitle">pam_systemd</span>(8)</span></a>
+                                for login sessions.
+                                <code class="varname">$XDG_SEAT</code> and
+                                <code class="varname">$XDG_VTNR</code> will be
+                                only set when attached to a seat and a
+                                tty.</p></dd><dt id="$MANAGERPID"><span class="term"><code class="varname">$MANAGERPID</code></span><a class="headerlink" title="Permalink to this term" href="#%24MANAGERPID">¶</a></dt><dd><p>The PID of the user
+                                <span class="command"><strong>systemd</strong></span> instance,
+                                set for processes spawned by it.
+                                </p></dd><dt id="$LISTEN_FDS"><span class="term"><code class="varname">$LISTEN_FDS</code>, </span><span class="term"><code class="varname">$LISTEN_PID</code></span><a class="headerlink" title="Permalink to this term" href="#%24LISTEN_FDS">¶</a></dt><dd><p>Information about file
+                                descriptors passed to a service for
+                                socket activation.  See
+                                <a href="sd_listen_fds.html"><span class="citerefentry"><span class="refentrytitle">sd_listen_fds</span>(3)</span></a>.
+                                </p></dd></dl></div><p>Additional variables may be configured by the
+                following means: for processes spawned in specific
+                units, use the <code class="varname">Environment=</code> and
+                <code class="varname">EnvironmentFile=</code> options above; to
+                specify variables globally, use
+                <code class="varname">DefaultEnvironment=</code> (see
+                <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>)
+                or the kernel option
+                <code class="varname">systemd.setenv=</code> (see
+                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>). Additional
+                variables may also be set through PAM,
+                c.f. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm274701532960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,
@@ -895,5 +757,7 @@
                           <a href="systemd.swap.html"><span class="citerefentry"><span class="refentrytitle">systemd.swap</span>(5)</span></a>,
                           <a href="systemd.mount.html"><span class="citerefentry"><span class="refentrytitle">systemd.mount</span>(5)</span></a>,
                           <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
-                          <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
+                          <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
+                          <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>,
+                          <a href="exec.html"><span class="citerefentry"><span class="refentrytitle">exec</span>(3)</span></a>
                   </p></div></div></body></html>

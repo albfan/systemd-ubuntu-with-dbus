@@ -29,11 +29,9 @@
 #define BUS_KILL_CONTEXT_INTERFACE                                      \
         "  <property name=\"KillMode\" type=\"s\" access=\"read\"/>\n"  \
         "  <property name=\"KillSignal\" type=\"i\" access=\"read\"/>\n" \
-        "  <property name=\"SendSIGKILL\" type=\"b\" access=\"read\"/>\n"
-
-#define BUS_KILL_COMMAND_INTERFACE(name)                                \
-        "  <property name=\"" name "\" type=\"a(sasbttuii)\" access=\"read\"/>\n"
+        "  <property name=\"SendSIGKILL\" type=\"b\" access=\"read\"/>\n" \
+        "  <property name=\"SendSIGHUP\" type=\"b\" access=\"read\"/>\n"
 
 extern const BusProperty bus_kill_context_properties[];
 
-int bus_kill_append_mode(DBusMessageIter *i, const char *property, void *data);
+int bus_kill_context_set_transient_property(Unit *u, KillContext *c, const char *name, DBusMessageIter *i, UnitSetPropertiesMode mode, DBusError *error);

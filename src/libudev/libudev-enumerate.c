@@ -270,8 +270,9 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                 return NULL;
         if (!udev_enumerate->devices_uptodate) {
                 unsigned int i;
+                int move_later = -1;
                 unsigned int max;
-                struct syspath *prev = NULL, *move_later = NULL;
+                struct syspath *prev = NULL;
                 size_t move_later_prefix = 0;
 
                 udev_list_cleanup(&udev_enumerate->devices_list);
@@ -299,27 +300,29 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         /* skip to be delayed devices, and move the to
                          * the point where the prefix changes. We can
                          * only move one item at a time. */
-                        if (!move_later) {
+                        if (move_later == -1) {
                                 move_later_prefix = devices_delay_later(udev_enumerate->udev, entry->syspath);
 
                                 if (move_later_prefix > 0) {
-                                        move_later = entry;
+                                        move_later = i;
                                         continue;
                                 }
                         }
 
-                        if (move_later &&
-                             !strneq(entry->syspath, move_later->syspath, move_later_prefix)) {
+                        if ((move_later >= 0) &&
+                             !strneq(entry->syspath, udev_enumerate->devices[move_later].syspath, move_later_prefix)) {
 
-                                udev_list_entry_add(&udev_enumerate->devices_list, move_later->syspath, NULL);
-                                move_later = NULL;
+                                udev_list_entry_add(&udev_enumerate->devices_list,
+                                                    udev_enumerate->devices[move_later].syspath, NULL);
+                                move_later = -1;
                         }
 
                         udev_list_entry_add(&udev_enumerate->devices_list, entry->syspath, NULL);
                 }
 
-                if (move_later)
-                        udev_list_entry_add(&udev_enumerate->devices_list, move_later->syspath, NULL);
+                if (move_later >= 0)
+                        udev_list_entry_add(&udev_enumerate->devices_list,
+                                            udev_enumerate->devices[move_later].syspath, NULL);
 
                 /* add and cleanup delayed devices from end of list */
                 for (i = max; i < udev_enumerate->devices_cur; i++) {
@@ -718,10 +721,14 @@ static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *s
 {
         struct udev_list_entry *list_entry;
 
+        if (!subsystem)
+                return false;
+
         udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_nomatch_list)) {
                 if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
                         return false;
         }
+
         if (udev_list_get_entry(&udev_enumerate->subsystem_match_list) != NULL) {
                 udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_match_list)) {
                         if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
@@ -729,6 +736,7 @@ static bool match_subsystem(struct udev_enumerate *udev_enumerate, const char *s
                 }
                 return false;
         }
+
         return true;
 }
 
@@ -826,23 +834,27 @@ nomatch:
 static int parent_add_child(struct udev_enumerate *enumerate, const char *path)
 {
         struct udev_device *dev;
+        int r = 0;
 
         dev = udev_device_new_from_syspath(enumerate->udev, path);
         if (dev == NULL)
                 return -ENODEV;
 
         if (!match_subsystem(enumerate, udev_device_get_subsystem(dev)))
-                return 0;
+                goto nomatch;
         if (!match_sysname(enumerate, udev_device_get_sysname(dev)))
-                return 0;
+                goto nomatch;
         if (!match_property(enumerate, dev))
-                return 0;
+                goto nomatch;
         if (!match_sysattr(enumerate, dev))
-                return 0;
+                goto nomatch;
 
         syspath_add(enumerate, udev_device_get_syspath(dev));
+        r = 1;
+
+nomatch:
         udev_device_unref(dev);
-        return 1;
+        return r;
 }
 
 static int parent_crawl_children(struct udev_enumerate *enumerate, const char *path, int maxdepth)

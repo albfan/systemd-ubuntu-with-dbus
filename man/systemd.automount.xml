@@ -55,7 +55,7 @@
                 <title>Description</title>
 
                 <para>A unit configuration file whose name ends in
-                <filename>.automount</filename> encodes information
+                <literal>.automount</literal> encodes information
                 about a file system automount point controlled and
                 supervised by systemd.</para>
 
@@ -93,7 +93,7 @@
                 file systems.</para>
 
                 <para>If an automount point is beneath another mount
-                point in the file system hierarchy a dependency
+                point in the file system hierarchy, a dependency
                 between both units is created automatically.</para>
         </refsect1>
 
@@ -110,7 +110,7 @@
                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>If an automount point is configured in both
-                <filename>/etc/fstab</filename> and a unit file the
+                <filename>/etc/fstab</filename> and a unit file, the
                 configuration in the latter takes precedence.</para>
         </refsect1>
 
@@ -129,11 +129,11 @@
                                 <term><varname>Where=</varname></term>
                                 <listitem><para>Takes an absolute path
                                 of a directory of the automount
-                                point. If the automount point is not
-                                existing at time that the automount
-                                point is installed it is created. This
+                                point. If the automount point does not
+                                exist at time that the automount
+                                point is installed, it is created. This
                                 string must be reflected in the unit
-                                file name. (See above.) This option is
+                                filename. (See above.) This option is
                                 mandatory.</para></listitem>
                         </varlistentry>
 

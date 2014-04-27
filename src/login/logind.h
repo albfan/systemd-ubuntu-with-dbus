@@ -51,15 +51,17 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
+        Hashmap *busnames;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
 
         struct udev *udev;
-        struct udev_monitor *udev_seat_monitor, *udev_vcsa_monitor, *udev_button_monitor;
+        struct udev_monitor *udev_seat_monitor, *udev_device_monitor, *udev_vcsa_monitor, *udev_button_monitor;
 
         int udev_seat_fd;
+        int udev_device_fd;
         int udev_vcsa_fd;
         int udev_button_fd;
 
@@ -72,20 +74,16 @@ struct Manager {
         unsigned reserve_vt;
         int reserve_vt_fd;
 
-        Seat *vtconsole;
-
-        char *cgroup_path;
-        char **controllers, **reset_controllers;
+        Seat *seat0;
 
         char **kill_only_users, **kill_exclude_users;
-
         bool kill_user_processes;
 
         unsigned long session_counter;
         unsigned long inhibit_counter;
 
-        Hashmap *session_cgroups;
-        Hashmap *user_cgroups;
+        Hashmap *session_units;
+        Hashmap *user_units;
 
         Hashmap *session_fds;
         Hashmap *inhibitor_fds;
@@ -125,6 +123,7 @@ struct Manager {
 
 enum {
         FD_SEAT_UDEV,
+        FD_DEVICE_UDEV,
         FD_VCSA_UDEV,
         FD_BUTTON_UDEV,
         FD_CONSOLE,
@@ -136,10 +135,10 @@ enum {
 Manager *manager_new(void);
 void manager_free(Manager *m);
 
-int manager_add_device(Manager *m, const char *sysfs, Device **_device);
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
 int manager_add_button(Manager *m, const char *name, Button **_button);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
-int manager_add_session(Manager *m, User *u, const char *id, Session **_session);
+int manager_add_session(Manager *m, const char *id, Session **_session);
 int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user);
 int manager_add_user_by_name(Manager *m, const char *name, User **_user);
 int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
@@ -165,14 +164,13 @@ int manager_startup(Manager *m);
 int manager_run(Manager *m);
 int manager_spawn_autovt(Manager *m, int vtnr);
 
-void manager_cgroup_notify_empty(Manager *m, const char *cgroup);
-
 void manager_gc(Manager *m, bool drop_not_started);
+
+bool manager_shall_kill(Manager *m, const char *user);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
-int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user);
-int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session);
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
 int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
@@ -185,5 +183,14 @@ int manager_send_changed(Manager *manager, const char *properties);
 
 int manager_dispatch_delayed(Manager *manager);
 
+int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *kill_mode, DBusError *error, char **job);
+int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job);
+int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
+int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
+int manager_unit_is_active(Manager *manager, const char *unit);
+
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, unsigned length);
+
+int manager_watch_busname(Manager *manager, const char *name);
+void manager_drop_busname(Manager *manager, const char *name);

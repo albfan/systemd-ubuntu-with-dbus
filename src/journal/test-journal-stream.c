@@ -75,10 +75,14 @@ int main(int argc, char *argv[]) {
         JournalFile *one, *two, *three;
         char t[] = "/tmp/journal-stream-XXXXXX";
         unsigned i;
-        _cleanup_journal_close_ sd_journal*j = NULL;
+        _cleanup_journal_close_ sd_journal *j = NULL;
         char *z;
         const void *data;
         size_t l;
+
+        /* journal_file_open requires a valid machine id */
+        if (access("/etc/machine-id", F_OK) != 0)
+                return EXIT_TEST_SKIP;
 
         log_set_max_level(LOG_DEBUG);
 

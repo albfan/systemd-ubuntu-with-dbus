@@ -20,13 +20,11 @@
 ***/
 
 #include <errno.h>
-#include <pwd.h>
 #include <libudev.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/epoll.h>
-#include <sys/ioctl.h>
 #include <linux/vt.h>
 #include <sys/timerfd.h>
 
@@ -74,35 +72,30 @@ Manager *manager_new(void) {
         m->users = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitors = hashmap_new(string_hash_func, string_compare_func);
         m->buttons = hashmap_new(string_hash_func, string_compare_func);
+        m->busnames = hashmap_new(string_hash_func, string_compare_func);
 
-        m->user_cgroups = hashmap_new(string_hash_func, string_compare_func);
-        m->session_cgroups = hashmap_new(string_hash_func, string_compare_func);
+        m->user_units = hashmap_new(string_hash_func, string_compare_func);
+        m->session_units = hashmap_new(string_hash_func, string_compare_func);
 
         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
 
-        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons ||
-            !m->user_cgroups || !m->session_cgroups ||
+        if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
+            !m->user_units || !m->session_units ||
             !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
                 manager_free(m);
                 return NULL;
         }
 
-        m->reset_controllers = strv_new("cpu", NULL);
         m->kill_exclude_users = strv_new("root", NULL);
-        if (!m->reset_controllers || !m->kill_exclude_users) {
+        if (!m->kill_exclude_users) {
                 manager_free(m);
                 return NULL;
         }
 
         m->udev = udev_new();
         if (!m->udev) {
-                manager_free(m);
-                return NULL;
-        }
-
-        if (cg_get_user_path(&m->cgroup_path) < 0) {
                 manager_free(m);
                 return NULL;
         }
@@ -117,6 +110,7 @@ void manager_free(Manager *m) {
         Seat *s;
         Inhibitor *i;
         Button *b;
+        char *n;
 
         assert(m);
 
@@ -138,15 +132,19 @@ void manager_free(Manager *m) {
         while ((b = hashmap_first(m->buttons)))
                 button_free(b);
 
+        while ((n = hashmap_first(m->busnames)))
+                free(hashmap_remove(m->busnames, n));
+
         hashmap_free(m->devices);
         hashmap_free(m->seats);
         hashmap_free(m->sessions);
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->busnames);
 
-        hashmap_free(m->user_cgroups);
-        hashmap_free(m->session_cgroups);
+        hashmap_free(m->user_units);
+        hashmap_free(m->session_units);
 
         hashmap_free(m->session_fds);
         hashmap_free(m->inhibitor_fds);
@@ -157,6 +155,8 @@ void manager_free(Manager *m) {
 
         if (m->udev_seat_monitor)
                 udev_monitor_unref(m->udev_seat_monitor);
+        if (m->udev_device_monitor)
+                udev_monitor_unref(m->udev_device_monitor);
         if (m->udev_vcsa_monitor)
                 udev_monitor_unref(m->udev_vcsa_monitor);
         if (m->udev_button_monitor)
@@ -183,267 +183,11 @@ void manager_free(Manager *m) {
         if (m->idle_action_fd >= 0)
                 close_nointr_nofail(m->idle_action_fd);
 
-        strv_free(m->controllers);
-        strv_free(m->reset_controllers);
         strv_free(m->kill_only_users);
         strv_free(m->kill_exclude_users);
 
         free(m->action_job);
-
-        free(m->cgroup_path);
         free(m);
-}
-
-int manager_add_device(Manager *m, const char *sysfs, Device **_device) {
-        Device *d;
-
-        assert(m);
-        assert(sysfs);
-
-        d = hashmap_get(m->devices, sysfs);
-        if (d) {
-                if (_device)
-                        *_device = d;
-
-                return 0;
-        }
-
-        d = device_new(m, sysfs);
-        if (!d)
-                return -ENOMEM;
-
-        if (_device)
-                *_device = d;
-
-        return 0;
-}
-
-int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
-        Seat *s;
-
-        assert(m);
-        assert(id);
-
-        s = hashmap_get(m->seats, id);
-        if (s) {
-                if (_seat)
-                        *_seat = s;
-
-                return 0;
-        }
-
-        s = seat_new(m, id);
-        if (!s)
-                return -ENOMEM;
-
-        if (_seat)
-                *_seat = s;
-
-        return 0;
-}
-
-int manager_add_session(Manager *m, User *u, const char *id, Session **_session) {
-        Session *s;
-
-        assert(m);
-        assert(id);
-
-        s = hashmap_get(m->sessions, id);
-        if (s) {
-                if (_session)
-                        *_session = s;
-
-                return 0;
-        }
-
-        s = session_new(m, u, id);
-        if (!s)
-                return -ENOMEM;
-
-        if (_session)
-                *_session = s;
-
-        return 0;
-}
-
-int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, User **_user) {
-        User *u;
-
-        assert(m);
-        assert(name);
-
-        u = hashmap_get(m->users, ULONG_TO_PTR((unsigned long) uid));
-        if (u) {
-                if (_user)
-                        *_user = u;
-
-                return 0;
-        }
-
-        u = user_new(m, uid, gid, name);
-        if (!u)
-                return -ENOMEM;
-
-        if (_user)
-                *_user = u;
-
-        return 0;
-}
-
-int manager_add_user_by_name(Manager *m, const char *name, User **_user) {
-        uid_t uid;
-        gid_t gid;
-        int r;
-
-        assert(m);
-        assert(name);
-
-        r = get_user_creds(&name, &uid, &gid, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        return manager_add_user(m, uid, gid, name, _user);
-}
-
-int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user) {
-        struct passwd *p;
-
-        assert(m);
-
-        errno = 0;
-        p = getpwuid(uid);
-        if (!p)
-                return errno ? -errno : -ENOENT;
-
-        return manager_add_user(m, uid, p->pw_gid, p->pw_name, _user);
-}
-
-int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor) {
-        Inhibitor *i;
-
-        assert(m);
-        assert(id);
-
-        i = hashmap_get(m->inhibitors, id);
-        if (i) {
-                if (_inhibitor)
-                        *_inhibitor = i;
-
-                return 0;
-        }
-
-        i = inhibitor_new(m, id);
-        if (!i)
-                return -ENOMEM;
-
-        if (_inhibitor)
-                *_inhibitor = i;
-
-        return 0;
-}
-
-int manager_add_button(Manager *m, const char *name, Button **_button) {
-        Button *b;
-
-        assert(m);
-        assert(name);
-
-        b = hashmap_get(m->buttons, name);
-        if (b) {
-                if (_button)
-                        *_button = b;
-
-                return 0;
-        }
-
-        b = button_new(m, name);
-        if (!b)
-                return -ENOMEM;
-
-        if (_button)
-                *_button = b;
-
-        return 0;
-}
-
-int manager_process_seat_device(Manager *m, struct udev_device *d) {
-        Device *device;
-        int r;
-
-        assert(m);
-
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
-
-                device = hashmap_get(m->devices, udev_device_get_syspath(d));
-                if (!device)
-                        return 0;
-
-                seat_add_to_gc_queue(device->seat);
-                device_free(device);
-
-        } else {
-                const char *sn;
-                Seat *seat;
-
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
-                        sn = "seat0";
-
-                if (!seat_name_is_valid(sn)) {
-                        log_warning("Device with invalid seat name %s found, ignoring.", sn);
-                        return 0;
-                }
-
-                r = manager_add_device(m, udev_device_get_syspath(d), &device);
-                if (r < 0)
-                        return r;
-
-                r = manager_add_seat(m, sn, &seat);
-                if (r < 0) {
-                        if (!device->seat)
-                                device_free(device);
-
-                        return r;
-                }
-
-                device_attach(device, seat);
-                seat_start(seat);
-        }
-
-        return 0;
-}
-
-int manager_process_button_device(Manager *m, struct udev_device *d) {
-        Button *b;
-
-        int r;
-
-        assert(m);
-
-        if (streq_ptr(udev_device_get_action(d), "remove")) {
-
-                b = hashmap_get(m->buttons, udev_device_get_sysname(d));
-                if (!b)
-                        return 0;
-
-                button_free(b);
-
-        } else {
-                const char *sn;
-
-                r = manager_add_button(m, udev_device_get_sysname(d), &b);
-                if (r < 0)
-                        return r;
-
-                sn = udev_device_get_property_value(d, "ID_SEAT");
-                if (isempty(sn))
-                        sn = "seat0";
-
-                button_set_seat(b, sn);
-                button_open(b);
-        }
-
-        return 0;
 }
 
 int manager_enumerate_devices(Manager *m) {
@@ -554,7 +298,7 @@ finish:
 }
 
 int manager_enumerate_seats(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
@@ -573,7 +317,7 @@ int manager_enumerate_seats(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 Seat *s;
                 int k;
 
@@ -591,65 +335,15 @@ int manager_enumerate_seats(Manager *m) {
                         r = k;
         }
 
-        closedir(d);
-
-        return r;
-}
-
-static int manager_enumerate_users_from_cgroup(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
-        int r = 0, k;
-        char *name;
-
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
-                log_error("Failed to open %s: %s", m->cgroup_path, strerror(-r));
-                return r;
-        }
-
-        while ((k = cg_read_subgroup(d, &name)) > 0) {
-                User *user;
-                char *e;
-
-                e = endswith(name, ".user");
-                if (e) {
-                        *e = 0;
-
-                        k = manager_add_user_by_name(m, name, &user);
-                        if (k < 0) {
-                                free(name);
-                                r = k;
-                                continue;
-                        }
-
-                        user_add_to_gc_queue(user);
-
-                        if (!user->cgroup_path) {
-                                user->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
-                                if (!user->cgroup_path) {
-                                        k = log_oom();
-                                        free(name);
-                                        break;
-                                }
-                        }
-                }
-
-                free(name);
-        }
-
-        if (k < 0)
-                r = k;
-
         return r;
 }
 
 static int manager_enumerate_linger_users(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
+
+        assert(m);
 
         d = opendir("/var/lib/systemd/linger");
         if (!d) {
@@ -660,7 +354,7 @@ static int manager_enumerate_linger_users(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 int k;
 
                 if (!dirent_is_file(de))
@@ -673,27 +367,20 @@ static int manager_enumerate_linger_users(Manager *m) {
                 }
         }
 
-        closedir(d);
-
         return r;
 }
 
 int manager_enumerate_users(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r, k;
 
         assert(m);
 
-        /* First, enumerate user cgroups */
-        r = manager_enumerate_users_from_cgroup(m);
+        /* Add lingering users */
+        r = manager_enumerate_linger_users(m);
 
-        /* Second, add lingering users on top */
-        k = manager_enumerate_linger_users(m);
-        if (k < 0)
-                r = k;
-
-        /* Third, read in user data stored on disk */
+        /* Read in user data stored on disk */
         d = opendir("/run/systemd/users");
         if (!d) {
                 if (errno == ENOENT)
@@ -703,88 +390,23 @@ int manager_enumerate_users(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
-                uid_t uid;
+        FOREACH_DIRENT(de, d, return -errno) {
                 User *u;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                k = parse_uid(de->d_name, &uid);
+                k = manager_add_user_by_name(m, de->d_name, &u);
                 if (k < 0) {
-                        log_error("Failed to parse file name %s: %s", de->d_name, strerror(-k));
+                        log_error("Failed to add user by file name %s: %s", de->d_name, strerror(-k));
+
+                        r = k;
                         continue;
                 }
 
-                u = hashmap_get(m->users, ULONG_TO_PTR(uid));
-                if (!u) {
-                        unlinkat(dirfd(d), de->d_name, 0);
-                        continue;
-                }
+                user_add_to_gc_queue(u);
 
                 k = user_load(u);
-                if (k < 0)
-                        r = k;
-        }
-
-        closedir(d);
-
-        return r;
-}
-
-static int manager_enumerate_sessions_from_cgroup(Manager *m) {
-        User *u;
-        Iterator i;
-        int r = 0;
-
-        HASHMAP_FOREACH(u, m->users, i) {
-                _cleanup_closedir_ DIR *d = NULL;
-                char *name;
-                int k;
-
-                if (!u->cgroup_path)
-                        continue;
-
-                k = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &d);
-                if (k < 0) {
-                        if (k == -ENOENT)
-                                continue;
-
-                        log_error("Failed to open %s: %s", u->cgroup_path, strerror(-k));
-                        r = k;
-                        continue;
-                }
-
-                while ((k = cg_read_subgroup(d, &name)) > 0) {
-                        Session *session;
-                        char *e;
-
-                        e = endswith(name, ".session");
-                        if (e) {
-                                *e = 0;
-
-                                k = manager_add_session(m, u, name, &session);
-                                if (k < 0) {
-                                        free(name);
-                                        r = k;
-                                        continue;
-                                }
-
-                                session_add_to_gc_queue(session);
-
-                                if (!session->cgroup_path) {
-                                        session->cgroup_path = strjoin(m->cgroup_path, "/", name, NULL);
-                                        if (!session->cgroup_path) {
-                                                k = log_oom();
-                                                free(name);
-                                                break;
-                                        }
-                                }
-                        }
-
-                        free(name);
-                }
-
                 if (k < 0)
                         r = k;
         }
@@ -793,16 +415,13 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
 }
 
 int manager_enumerate_sessions(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
         assert(m);
 
-        /* First enumerate session cgroups */
-        r = manager_enumerate_sessions_from_cgroup(m);
-
-        /* Second, read in session data stored on disk */
+        /* Read in session data stored on disk */
         d = opendir("/run/systemd/sessions");
         if (!d) {
                 if (errno == ENOENT)
@@ -812,31 +431,39 @@ int manager_enumerate_sessions(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 struct Session *s;
                 int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                s = hashmap_get(m->sessions, de->d_name);
-                if (!s) {
-                        unlinkat(dirfd(d), de->d_name, 0);
+                if (!session_id_valid(de->d_name)) {
+                        log_warning("Invalid session file name '%s', ignoring.", de->d_name);
+                        r = -EINVAL;
                         continue;
                 }
+
+                k = manager_add_session(m, de->d_name, &s);
+                if (k < 0) {
+                        log_error("Failed to add session by file name %s: %s", de->d_name, strerror(-k));
+
+                        r = k;
+                        continue;
+                }
+
+                session_add_to_gc_queue(s);
 
                 k = session_load(s);
                 if (k < 0)
                         r = k;
         }
 
-        closedir(d);
-
         return r;
 }
 
 int manager_enumerate_inhibitors(Manager *m) {
-        DIR *d;
+        _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
 
@@ -851,7 +478,7 @@ int manager_enumerate_inhibitors(Manager *m) {
                 return -errno;
         }
 
-        while ((de = readdir(d))) {
+        FOREACH_DIRENT(de, d, return -errno) {
                 int k;
                 Inhibitor *i;
 
@@ -870,8 +497,6 @@ int manager_enumerate_inhibitors(Manager *m) {
                         r = k;
         }
 
-        closedir(d);
-
         return r;
 }
 
@@ -882,6 +507,22 @@ int manager_dispatch_seat_udev(Manager *m) {
         assert(m);
 
         d = udev_monitor_receive_device(m->udev_seat_monitor);
+        if (!d)
+                return -ENOMEM;
+
+        r = manager_process_seat_device(m, d);
+        udev_device_unref(d);
+
+        return r;
+}
+
+static int manager_dispatch_device_udev(Manager *m) {
+        struct udev_device *d;
+        int r;
+
+        assert(m);
+
+        d = udev_monitor_receive_device(m->udev_device_monitor);
         if (!d)
                 return -ENOMEM;
 
@@ -908,7 +549,7 @@ int manager_dispatch_vcsa_udev(Manager *m) {
          * VTs, to make sure our auto VTs never go away. */
 
         if (name && startswith(name, "vcsa") && streq_ptr(udev_device_get_action(d), "remove"))
-                r = seat_preallocate_vts(m->vtconsole);
+                r = seat_preallocate_vts(m->seat0);
 
         udev_device_unref(d);
 
@@ -933,85 +574,11 @@ int manager_dispatch_button_udev(Manager *m) {
 
 int manager_dispatch_console(Manager *m) {
         assert(m);
+        assert(m->seat0);
 
-        if (m->vtconsole)
-                seat_read_active_vt(m->vtconsole);
+        seat_read_active_vt(m->seat0);
 
         return 0;
-}
-
-static int vt_is_busy(int vtnr) {
-        struct vt_stat vt_stat;
-        int r = 0, fd;
-
-        assert(vtnr >= 1);
-
-        /* We explicitly open /dev/tty1 here instead of /dev/tty0. If
-         * we'd open the latter we'd open the foreground tty which
-         * hence would be unconditionally busy. By opening /dev/tty1
-         * we avoid this. Since tty1 is special and needs to be an
-         * explicitly loaded getty or DM this is safe. */
-
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (ioctl(fd, VT_GETSTATE, &vt_stat) < 0)
-                r = -errno;
-        else
-                r = !!(vt_stat.v_state & (1 << vtnr));
-
-        close_nointr_nofail(fd);
-
-        return r;
-}
-
-int manager_spawn_autovt(Manager *m, int vtnr) {
-        int r;
-        char *name = NULL;
-        const char *mode = "fail";
-
-        assert(m);
-        assert(vtnr >= 1);
-
-        if ((unsigned) vtnr > m->n_autovts &&
-            (unsigned) vtnr != m->reserve_vt)
-                return 0;
-
-        if ((unsigned) vtnr != m->reserve_vt) {
-                /* If this is the reserved TTY, we'll start the getty
-                 * on it in any case, but otherwise only if it is not
-                 * busy. */
-
-                r = vt_is_busy(vtnr);
-                if (r < 0)
-                        return r;
-                else if (r > 0)
-                        return -EBUSY;
-        }
-
-        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
-                log_error("Could not allocate service name.");
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        r = bus_method_call_with_reply (
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &name,
-                        DBUS_TYPE_STRING, &mode,
-                        DBUS_TYPE_INVALID);
-
-finish:
-        free(name);
-
-        return r;
 }
 
 static int manager_reserve_vt(Manager *m) {
@@ -1035,107 +602,6 @@ static int manager_reserve_vt(Manager *m) {
         }
 
         return 0;
-}
-
-int manager_get_session_by_cgroup(Manager *m, const char *cgroup, Session **session) {
-        Session *s;
-        char *p;
-
-        assert(m);
-        assert(cgroup);
-        assert(session);
-
-        s = hashmap_get(m->session_cgroups, cgroup);
-        if (s) {
-                *session = s;
-                return 1;
-        }
-
-        p = strdupa(cgroup);
-
-        for (;;) {
-                char *e;
-
-                e = strrchr(p, '/');
-                if (!e || e == p) {
-                        *session = NULL;
-                        return 0;
-                }
-
-                *e = 0;
-
-                s = hashmap_get(m->session_cgroups, p);
-                if (s) {
-                        *session = s;
-                        return 1;
-                }
-        }
-}
-
-int manager_get_user_by_cgroup(Manager *m, const char *cgroup, User **user) {
-        User *u;
-        char *p;
-
-        assert(m);
-        assert(cgroup);
-        assert(user);
-
-        u = hashmap_get(m->user_cgroups, cgroup);
-        if (u) {
-                *user = u;
-                return 1;
-        }
-
-        p = strdupa(cgroup);
-        if (!p)
-                return log_oom();
-
-        for (;;) {
-                char *e;
-
-                e = strrchr(p, '/');
-                if (!e || e == p) {
-                        *user = NULL;
-                        return 0;
-                }
-
-                *e = 0;
-
-                u = hashmap_get(m->user_cgroups, p);
-                if (u) {
-                        *user = u;
-                        return 1;
-                }
-        }
-}
-
-int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(m);
-        assert(pid >= 1);
-        assert(session);
-
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &p);
-        if (r < 0)
-                return r;
-
-        return manager_get_session_by_cgroup(m, p, session);
-}
-
-void manager_cgroup_notify_empty(Manager *m, const char *cgroup) {
-        Session *s;
-        User *u;
-        int r;
-
-        r = manager_get_session_by_cgroup(m, cgroup, &s);
-        if (r > 0)
-                session_add_to_gc_queue(s);
-
-        r = manager_get_user_by_cgroup(m, cgroup, &u);
-        if (r > 0)
-                user_add_to_gc_queue(u);
 }
 
 static void manager_dispatch_other(Manager *m, int fd) {
@@ -1204,15 +670,75 @@ static int manager_connect_bus(Manager *m) {
 
         dbus_bus_add_match(m->bus,
                            "type='signal',"
-                           "interface='org.freedesktop.systemd1.Agent',"
-                           "member='Released',"
-                           "path='/org/freedesktop/systemd1/agent'",
+                           "sender='"DBUS_SERVICE_DBUS"',"
+                           "interface='"DBUS_INTERFACE_DBUS"',"
+                           "member='NameOwnerChanged',"
+                           "path='"DBUS_PATH_DBUS"'",
                            &error);
-
         if (dbus_error_is_set(&error)) {
-                log_error("Failed to register match: %s", bus_error_message(&error));
-                r = -EIO;
-                goto fail;
+                log_error("Failed to add match for NameOwnerChanged: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='JobRemoved',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for JobRemoved: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='UnitRemoved',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for UnitRemoved: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.DBus.Properties',"
+                           "member='PropertiesChanged'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for PropertiesChanged: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='org.freedesktop.systemd1',"
+                           "interface='org.freedesktop.systemd1.Manager',"
+                           "member='Reloading',"
+                           "path='/org/freedesktop/systemd1'",
+                           &error);
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to add match for Reloading: %s", bus_error_message(&error));
+                dbus_error_free(&error);
+        }
+
+        r = bus_method_call_with_reply(
+                        m->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Subscribe",
+                        NULL,
+                        &error,
+                        DBUS_TYPE_INVALID);
+        if (r < 0) {
+                log_error("Failed to enable subscription: %s", bus_error(&error, r));
+                dbus_error_free(&error);
         }
 
         r = dbus_bus_request_name(m->bus, "org.freedesktop.login1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
@@ -1289,6 +815,7 @@ static int manager_connect_udev(Manager *m) {
 
         assert(m);
         assert(!m->udev_seat_monitor);
+        assert(!m->udev_device_monitor);
         assert(!m->udev_vcsa_monitor);
         assert(!m->udev_button_monitor);
 
@@ -1307,6 +834,33 @@ static int manager_connect_udev(Manager *m) {
         m->udev_seat_fd = udev_monitor_get_fd(m->udev_seat_monitor);
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_seat_fd, &ev) < 0)
+                return -errno;
+
+        m->udev_device_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
+        if (!m->udev_device_monitor)
+                return -ENOMEM;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "input", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "graphics", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_filter_add_match_subsystem_devtype(m->udev_device_monitor, "drm", NULL);
+        if (r < 0)
+                return r;
+
+        r = udev_monitor_enable_receiving(m->udev_device_monitor);
+        if (r < 0)
+                return r;
+
+        m->udev_device_fd = udev_monitor_get_fd(m->udev_device_monitor);
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.u32 = FD_DEVICE_UDEV;
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_device_fd, &ev) < 0)
                 return -errno;
 
         /* Don't watch keys if nobody cares */
@@ -1390,6 +944,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (session_check_gc(session, drop_not_started) == 0) {
                         session_stop(session);
+                        session_finalize(session);
                         session_free(session);
                 }
         }
@@ -1400,48 +955,10 @@ void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (user_check_gc(user, drop_not_started) == 0) {
                         user_stop(user);
+                        user_finalize(user);
                         user_free(user);
                 }
         }
-}
-
-int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
-        Session *s;
-        bool idle_hint;
-        dual_timestamp ts = { 0, 0 };
-        Iterator i;
-
-        assert(m);
-
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0);
-
-        HASHMAP_FOREACH(s, m->sessions, i) {
-                dual_timestamp k;
-                int ih;
-
-                ih = session_get_idle_hint(s, &k);
-                if (ih < 0)
-                        return ih;
-
-                if (!ih) {
-                        if (!idle_hint) {
-                                if (k.monotonic < ts.monotonic)
-                                        ts = k;
-                        } else {
-                                idle_hint = false;
-                                ts = k;
-                        }
-                } else if (idle_hint) {
-
-                        if (k.monotonic > ts.monotonic)
-                                ts = k;
-                }
-        }
-
-        if (t)
-                *t = ts;
-
-        return idle_hint;
 }
 
 int manager_dispatch_idle_action(Manager *m) {
@@ -1526,9 +1043,6 @@ int manager_startup(Manager *m) {
         assert(m);
         assert(m->epoll_fd <= 0);
 
-        cg_shorten_controllers(m->reset_controllers);
-        cg_shorten_controllers(m->controllers);
-
         m->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (m->epoll_fd < 0)
                 return -errno;
@@ -1549,17 +1063,34 @@ int manager_startup(Manager *m) {
                 return r;
 
         /* Instantiate magic seat 0 */
-        r = manager_add_seat(m, "seat0", &m->vtconsole);
+        r = manager_add_seat(m, "seat0", &m->seat0);
         if (r < 0)
                 return r;
 
         /* Deserialize state */
-        manager_enumerate_devices(m);
-        manager_enumerate_seats(m);
-        manager_enumerate_users(m);
-        manager_enumerate_sessions(m);
-        manager_enumerate_inhibitors(m);
-        manager_enumerate_buttons(m);
+        r = manager_enumerate_devices(m);
+        if (r < 0)
+                log_warning("Device enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_seats(m);
+        if (r < 0)
+                log_warning("Seat enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_users(m);
+        if (r < 0)
+                log_warning("User enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_sessions(m);
+        if (r < 0)
+                log_warning("Session enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_inhibitors(m);
+        if (r < 0)
+                log_warning("Inhibitor enumeration failed: %s", strerror(-r));
+
+        r = manager_enumerate_buttons(m);
+        if (r < 0)
+                log_warning("Button enumeration failed: %s", strerror(-r));
 
         /* Remove stale objects before we start them */
         manager_gc(m, false);
@@ -1651,6 +1182,10 @@ int manager_run(Manager *m) {
 
                 case FD_SEAT_UDEV:
                         manager_dispatch_seat_udev(m);
+                        break;
+
+                case FD_DEVICE_UDEV:
+                        manager_dispatch_device_udev(m);
                         break;
 
                 case FD_VCSA_UDEV:

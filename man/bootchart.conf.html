@@ -19,16 +19,16 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 204</span><hr><div class="refentry"><a name="bootchart.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootchart.conf — Boot performance analysis graphing tool configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/bootchart.conf</code></p></div><div class="refsect1"><a name="idm259797249936"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-bootchart will read the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="bootchart.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>bootchart.conf — Boot performance analysis graphing tool configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/bootchart.conf</code></p></div><div class="refsect1"><a name="idm274677131392"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-bootchart will read the
                 configuration file <code class="filename">bootchart.conf</code>.
                 This configuration file determines logging parameters and
-                graph output.</p></div><div class="refsect1"><a name="idm259797247936"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="Samples=500"><span class="term"><code class="varname">Samples=500</code></span><a class="headerlink" title="Permalink to this term" href="#Samples=500">¶</a></dt><dd><p>Configure the amount of samples to
-                                record total before bootchart exits. Each sample will
+                graph output.</p></div><div class="refsect1"><a name="idm274677129392"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="Samples=500"><span class="term"><code class="varname">Samples=500</code></span><a class="headerlink" title="Permalink to this term" href="#Samples=500">¶</a></dt><dd><p>Configure the amount of samples to
+                                record in total before bootchart exits. Each sample will
                                 record at intervals defined by Frequency=.</p></dd><dt id="Frequency=25"><span class="term"><code class="varname">Frequency=25</code></span><a class="headerlink" title="Permalink to this term" href="#Frequency=25">¶</a></dt><dd><p>Configure the sample log frequency.
                                 This can be a fractional number, but must be larger than
                                 0.0. Most systems can cope with values under 25-50 without
                                 impacting boot time severely.</p></dd><dt id="Relative=no"><span class="term"><code class="varname">Relative=no</code></span><a class="headerlink" title="Permalink to this term" href="#Relative=no">¶</a></dt><dd><p>Configures whether the left axis of the
-                                output graph equals time=0.0 (CLOCK_MONOTONIC start). This
+                                output graph equals time=0.0 (<code class="constant">CLOCK_MONOTONIC</code> start). This
                                 is useful for using bootchart at post-boot time to profile
                                 an already booted system, otherwise the graph would become
                                 extremely large. If set to yes, the horizontal axis starts
@@ -38,17 +38,17 @@
                                 to the boot. Processes that are too short-lived (only
                                 seen in one sample) or that do not consume any significant
                                 CPU time (less than 0.001sec) will not be displayed in
-                                the output graph.</p></dd><dt id="Output=[path]"><span class="term"><code class="varname">Output=[path]</code></span><a class="headerlink" title="Permalink to this term" href="#Output=%5Bpath%5D">¶</a></dt><dd><p>Configures the output folder for writing
+                                the output graph.</p></dd><dt id="Output=[path]"><span class="term"><code class="varname">Output=[path]</code></span><a class="headerlink" title="Permalink to this term" href="#Output=%5Bpath%5D">¶</a></dt><dd><p>Configures the output directory for writing
                                 the graphs. By default, bootchart writes the graphs to
                                 <code class="filename">/run/log</code>.</p></dd><dt id="Init=[path]"><span class="term"><code class="varname">Init=[path]</code></span><a class="headerlink" title="Permalink to this term" href="#Init=%5Bpath%5D">¶</a></dt><dd><p>Configures bootchart to run a non-standard
                                 binary instead of <code class="filename">/sbin/init</code>. This
                                 option is only relevant if bootchart was invoked from the
                                 kernel command line with
                                 init=/usr/lib/systemd/systemd-bootchart.</p></dd><dt id="PlotMemoryUsage=no"><span class="term"><code class="varname">PlotMemoryUsage=no</code></span><a class="headerlink" title="Permalink to this term" href="#PlotMemoryUsage=no">¶</a></dt><dd><p>If set to yes, enables logging and graphing
-                                of processes PSS memory consumption.</p></dd><dt id="PlotEntropyGraph=no"><span class="term"><code class="varname">PlotEntropyGraph=no</code></span><a class="headerlink" title="Permalink to this term" href="#PlotEntropyGraph=no">¶</a></dt><dd><p>If set to yes, enables logging and graphing
+                                of processes' PSS memory consumption.</p></dd><dt id="PlotEntropyGraph=no"><span class="term"><code class="varname">PlotEntropyGraph=no</code></span><a class="headerlink" title="Permalink to this term" href="#PlotEntropyGraph=no">¶</a></dt><dd><p>If set to yes, enables logging and graphing
                                 of the kernel random entropy pool size.</p></dd><dt id="ScaleX=100"><span class="term"><code class="varname">ScaleX=100</code></span><a class="headerlink" title="Permalink to this term" href="#ScaleX=100">¶</a></dt><dd><p>Horizontal scaling factor for all variable
                                 graph components.</p></dd><dt id="ScaleY=20"><span class="term"><code class="varname">ScaleY=20</code></span><a class="headerlink" title="Permalink to this term" href="#ScaleY=20">¶</a></dt><dd><p>Vertical scaling factor for all variable
-                                graph components.</p></dd></dl></div></div><div class="refsect1"><a name="idm259801179456"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                graph components.</p></dd></dl></div></div><div class="refsect1"><a name="idm274677185504"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd-bootchart.html"><span class="citerefentry"><span class="refentrytitle">systemd-bootchart</span>(1)</span></a>,
                           <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
                   </p></div></div></body></html>

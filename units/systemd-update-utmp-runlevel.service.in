@@ -7,12 +7,14 @@
 
 [Unit]
 Description=Update UTMP about System Runlevel Changes
-Documentation=man:systemd-update-utmp-runlevel.service(8) man:utmp(5)
+Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
 DefaultDependencies=no
 RequiresMountsFor=/var/log/wtmp
-After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
+Conflicts=shutdown.target
+Requisite=systemd-update-utmp.service
+After=systemd-update-utmp.service
 After=runlevel1.target runlevel2.target runlevel3.target runlevel4.target runlevel5.target
-Before=final.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot

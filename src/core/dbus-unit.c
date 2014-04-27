@@ -81,6 +81,22 @@ static int bus_unit_append_following(DBusMessageIter *i, const char *property, v
         return 0;
 }
 
+static int bus_unit_append_slice(DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *d;
+
+        assert(i);
+        assert(property);
+        assert(u);
+
+        d = strempty(unit_slice_name(u));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &d))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int bus_unit_append_dependencies(DBusMessageIter *i, const char *property, void *data) {
         Unit *u;
         Iterator j;
@@ -279,90 +295,6 @@ static int bus_unit_append_job(DBusMessageIter *i, const char *property, void *d
         return 0;
 }
 
-static int bus_unit_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        char *t;
-        CGroupBonding *cgb;
-        bool success;
-
-        assert(i);
-        assert(property);
-        assert(u);
-
-        cgb = unit_get_default_cgroup(u);
-        if (cgb) {
-                t = cgroup_bonding_to_string(cgb);
-                if (!t)
-                        return -ENOMEM;
-        } else
-                t = (char*) "";
-
-        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-
-        if (cgb)
-                free(t);
-
-        return success ? 0 : -ENOMEM;
-}
-
-static int bus_unit_append_cgroups(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        CGroupBonding *cgb;
-        DBusMessageIter sub;
-
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "s", &sub))
-                return -ENOMEM;
-
-        LIST_FOREACH(by_unit, cgb, u->cgroup_bondings) {
-                _cleanup_free_ char *t = NULL;
-                bool success;
-
-                t = cgroup_bonding_to_string(cgb);
-                if (!t)
-                        return -ENOMEM;
-
-                success = dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &t);
-                if (!success)
-                        return -ENOMEM;
-        }
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
-}
-
-static int bus_unit_append_cgroup_attrs(DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        CGroupAttribute *a;
-        DBusMessageIter sub, sub2;
-
-        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sss)", &sub))
-                return -ENOMEM;
-
-        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                _cleanup_free_ char *v = NULL;
-                bool success;
-
-                if (a->semantics && a->semantics->map_write)
-                        a->semantics->map_write(a->semantics, a->value, &v);
-
-                success =
-                        dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->controller) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &a->name) &&
-                        dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, v ? &v : &a->value) &&
-                        dbus_message_iter_close_container(&sub, &sub2);
-                if (!success)
-                        return -ENOMEM;
-        }
-
-        if (!dbus_message_iter_close_container(i, &sub))
-                return -ENOMEM;
-
-        return 0;
-}
-
 static int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
         dbus_bool_t b;
@@ -374,6 +306,58 @@ static int bus_unit_append_need_daemon_reload(DBusMessageIter *i, const char *pr
         b = unit_need_daemon_reload(u);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_property_append_condition(DBusMessageIter *i, const char *property, void *data) {
+        Condition **cp = data;
+        Condition *c;
+        const char *name, *param;
+        dbus_bool_t trigger, negate;
+        dbus_int32_t state;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(property);
+        assert(cp);
+
+        c = *cp;
+        assert(c);
+
+        name = condition_type_to_string(c->type);
+        param = c->parameter;
+        trigger = c->trigger;
+        negate = c->negate;
+        state = c->state;
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &name) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &trigger) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_BOOLEAN, &negate) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &param) ||
+            !dbus_message_iter_append_basic(&sub, DBUS_TYPE_INT32, &state) ||
+            !dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_property_append_condition_list(DBusMessageIter *i, const char *property, void *data) {
+        Condition **first = data, *c;
+        DBusMessageIter sub;
+
+        assert(i);
+        assert(data);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_ARRAY, "(sbbsi)", &sub))
+                return -ENOMEM;
+
+        LIST_FOREACH(conditions, c, *first)
+                bus_property_append_condition(&sub, property, &c);
+
+        if (!dbus_message_iter_close_container(i, &sub))
                 return -ENOMEM;
 
         return 0;
@@ -471,86 +455,21 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusConnection *conn
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
                         goto oom;
-
-        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroup")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "SetProperties")) {
                 DBusMessageIter iter;
+                dbus_bool_t runtime;
+
+                if (!dbus_message_iter_init(message, &iter))
+                        goto oom;
+
+                if (bus_iter_get_basic_and_next(&iter, DBUS_TYPE_BOOLEAN, &runtime, true) < 0)
+                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
 
                 SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
 
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_unit_cgroup_set(u, &iter);
+                r = bus_unit_set_properties(u, &iter, runtime ? UNIT_RUNTIME : UNIT_PERSISTENT, true, &error);
                 if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroup")) {
-                DBusMessageIter iter;
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_unit_cgroup_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-        } else if (streq_ptr(dbus_message_get_member(message), "GetControlGroupAttribute")) {
-                DBusMessageIter iter;
-                _cleanup_strv_free_ char **list = NULL;
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "status");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_unit_cgroup_attribute_get(u, &iter, &list);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-                dbus_message_iter_init_append(reply, &iter);
-                if (bus_append_strv_iter(&iter, list) < 0)
-                        goto oom;
-
-        } else if (streq_ptr(dbus_message_get_member(message), "SetControlGroupAttribute")) {
-                DBusMessageIter iter;
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "start");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_unit_cgroup_attribute_set(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
-
-                reply = dbus_message_new_method_return(message);
-                if (!reply)
-                        goto oom;
-
-        } else if (streq_ptr(dbus_message_get_member(message), "UnsetControlGroupAttribute")) {
-                DBusMessageIter iter;
-
-                SELINUX_UNIT_ACCESS_CHECK(u, connection, message, "stop");
-
-                if (!dbus_message_iter_init(message, &iter))
-                        goto oom;
-
-                r = bus_unit_cgroup_attribute_unset(u, &iter);
-                if (r < 0)
-                        return bus_send_error_reply(connection, message, NULL, r);
+                        return bus_send_error_reply(connection, message, &error, r);
 
                 reply = dbus_message_new_method_return(message);
                 if (!reply)
@@ -701,8 +620,9 @@ const DBusObjectPathVTable bus_unit_vtable = {
 };
 
 void bus_unit_send_change_signal(Unit *u) {
-        _cleanup_free_ char *p = NULL;
         _cleanup_dbus_message_unref_ DBusMessage *m = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(u);
 
@@ -720,8 +640,10 @@ void bus_unit_send_change_signal(Unit *u) {
         }
 
         p = unit_dbus_path(u);
-        if (!p)
-                goto oom;
+        if (!p) {
+                log_oom();
+                return;
+        }
 
         if (u->sent_dbus_new_signal) {
                 /* Send a properties changed signal. First for the
@@ -734,19 +656,26 @@ void bus_unit_send_change_signal(Unit *u) {
                         m = bus_properties_changed_new(p,
                                                        UNIT_VTABLE(u)->bus_interface,
                                                        UNIT_VTABLE(u)->bus_invalidating_properties);
-                        if (!m)
-                                goto oom;
+                        if (!m) {
+                                log_oom();
+                                return;
+                        }
 
-                        if (bus_broadcast(u->manager, m) < 0)
-                                goto oom;
+                        r = bus_broadcast(u->manager, m);
+                        if (r < 0) {
+                                log_error("Failed to broadcast change message: %s", strerror(-r));
+                                return;
+                        }
 
                         dbus_message_unref(m);
                 }
 
                 m = bus_properties_changed_new(p, "org.freedesktop.systemd1.Unit",
                                                INVALIDATING_PROPERTIES);
-                if (!m)
-                        goto oom;
+                if (!m) {
+                        log_oom();
+                        return;
+                }
 
         } else {
                 /* Send a new signal */
@@ -754,25 +683,27 @@ void bus_unit_send_change_signal(Unit *u) {
                 m = dbus_message_new_signal("/org/freedesktop/systemd1",
                                             "org.freedesktop.systemd1.Manager",
                                             "UnitNew");
-                if (!m)
-                        goto oom;
+                if (!m) {
+                        log_oom();
+                        return;
+                }
 
                 if (!dbus_message_append_args(m,
                                               DBUS_TYPE_STRING, &u->id,
                                               DBUS_TYPE_OBJECT_PATH, &p,
-                                              DBUS_TYPE_INVALID))
-                        goto oom;
+                                              DBUS_TYPE_INVALID)) {
+                        log_oom();
+                        return;
+                }
         }
 
-        if (bus_broadcast(u->manager, m) < 0)
-                goto oom;
+        r = bus_broadcast(u->manager, m);
+        if (r < 0) {
+                log_error("Failed to broadcast UnitNew/PropertiesChanged message.");
+                return;
+        }
 
         u->sent_dbus_new_signal = true;
-
-        return;
-
-oom:
-        log_oom();
 }
 
 void bus_unit_send_removed_signal(Unit *u) {
@@ -849,7 +780,7 @@ DBusHandlerResult bus_unit_queue_job(
                                   (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
                                   type == JOB_STOP ? "stop" : "reload");
 
-        if (type == JOB_STOP && u->load_state == UNIT_ERROR && unit_active_state(u) == UNIT_INACTIVE) {
+        if (type == JOB_STOP && (u->load_state == UNIT_NOT_FOUND || u->load_state == UNIT_ERROR) && unit_active_state(u) == UNIT_INACTIVE) {
                 dbus_set_error(&error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
                 return bus_send_error_reply(connection, message, &error, -EPERM);
         }
@@ -897,428 +828,273 @@ oom:
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
-static int parse_mode(DBusMessageIter *iter, bool *runtime, bool next) {
-        const char *mode;
+static int bus_unit_set_transient_property(
+                Unit *u,
+                const char *name,
+                DBusMessageIter *i,
+                UnitSetPropertiesMode mode,
+                DBusError *error) {
+
         int r;
-
-        assert(iter);
-        assert(runtime);
-
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &mode, next);
-        if (r < 0)
-                return r;
-
-        if (streq(mode, "runtime"))
-                *runtime = true;
-        else if (streq(mode, "persistent"))
-                *runtime = false;
-        else
-                return -EINVAL;
-
-        return 0;
-}
-
-int bus_unit_cgroup_set(Unit *u, DBusMessageIter *iter) {
-        _cleanup_free_ char *controller = NULL, *old_path = NULL, *new_path = NULL, *contents = NULL;
-        const char *name;
-        CGroupBonding *b;
-        bool runtime;
-        int r;
-
-        assert(u);
-        assert(iter);
-
-        if (!unit_get_exec_context(u))
-                return -EINVAL;
-
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
-        if (r < 0)
-                return r;
-
-        r = parse_mode(iter, &runtime, false);
-        if (r < 0)
-                return r;
-
-        r = cg_split_spec(name, &controller, &new_path);
-        if (r < 0)
-                return r;
-
-        if (!new_path) {
-                new_path = unit_default_cgroup_path(u);
-                if (!new_path)
-                        return -ENOMEM;
-        }
-
-        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                return -EINVAL;
-
-        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-        if (b) {
-                if (streq(b->path, new_path))
-                        return 0;
-
-                if (b->essential)
-                        return -EINVAL;
-
-                old_path = strdup(b->path);
-                if (!old_path)
-                        return -ENOMEM;
-        }
-
-        r = unit_add_cgroup_from_text(u, name, true, &b);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                CGroupAttribute *a;
-
-                /* Try to move things to the new place, and clean up the old place */
-                cgroup_bonding_realize(b);
-                cgroup_bonding_migrate(b, u->cgroup_bondings);
-
-                if (old_path)
-                        cg_trim(controller, old_path, true);
-
-                /* Apply the attributes to the new group */
-                LIST_FOREACH(by_unit, a, u->cgroup_attributes)
-                        if (streq(a->controller, controller))
-                                cgroup_attribute_apply(a, b);
-        }
-
-        contents = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
-                           "ControlGroup=", name, "\n", NULL);
-        if (!contents)
-                return -ENOMEM;
-
-        return unit_write_drop_in(u, runtime, controller, contents);
-}
-
-int bus_unit_cgroup_unset(Unit *u, DBusMessageIter *iter) {
-        _cleanup_free_ char *controller = NULL, *path = NULL, *target = NULL;
-        const char *name;
-        CGroupAttribute *a, *n;
-        CGroupBonding *b;
-        bool runtime;
-        int r;
-
-        assert(u);
-        assert(iter);
-
-        if (!unit_get_exec_context(u))
-                return -EINVAL;
-
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
-        if (r < 0)
-                return r;
-
-        r = parse_mode(iter, &runtime, false);
-        if (r < 0)
-                return r;
-
-        r = cg_split_spec(name, &controller, &path);
-        if (r < 0)
-                return r;
-
-        if (!controller || streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                return -EINVAL;
-
-        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-        if (!b)
-                return -ENOENT;
-
-        if (path && !path_equal(path, b->path))
-                return -ENOENT;
-
-        if (b->essential)
-                return -EINVAL;
-
-        unit_remove_drop_in(u, runtime, controller);
-
-        /* Try to migrate the old group away */
-        if (cg_pid_get_path(controller, 0, &target) >= 0)
-                cgroup_bonding_migrate_to(u->cgroup_bondings, target, false);
-
-        cgroup_bonding_free(b, true);
-
-        /* Drop all attributes of this controller */
-        LIST_FOREACH_SAFE(by_unit, a, n, u->cgroup_attributes) {
-                if (!streq(a->controller, controller))
-                        continue;
-
-                unit_remove_drop_in(u, runtime, a->name);
-                cgroup_attribute_free(a);
-        }
-
-        return 0;
-}
-
-int bus_unit_cgroup_attribute_get(Unit *u, DBusMessageIter *iter, char ***_result) {
-        _cleanup_free_ char *controller = NULL;
-        CGroupAttribute *a;
-        CGroupBonding *b;
-        const char *name;
-        char **l = NULL;
-        int r;
-
-        assert(u);
-        assert(iter);
-        assert(_result);
-
-        if (!unit_get_exec_context(u))
-                return -EINVAL;
-
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, false);
-        if (r < 0)
-                return r;
-
-        r = cg_controller_from_attr(name, &controller);
-        if (r < 0)
-                return r;
-
-        /* First attempt, read the value from the kernel */
-        b = cgroup_bonding_find_list(u->cgroup_bondings, controller);
-        if (b) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
-
-                r = cg_get_path(b->controller, b->path, name, &p);
-                if (r < 0)
-                        return r;
-
-                r = read_full_file(p, &v, NULL);
-                if (r >= 0) {
-                        /* Split on new lines */
-                        l = strv_split_newlines(v);
-                        if (!l)
-                                return -ENOMEM;
-
-                        *_result = l;
-                        return 0;
-
-                }
-        }
-
-        /* If that didn't work, read our cached value */
-        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-
-                if (!cgroup_attribute_matches(a, controller, name))
-                        continue;
-
-                r = strv_extend(&l, a->value);
-                if (r < 0) {
-                        strv_free(l);
-                        return r;
-                }
-        }
-
-        if (!l)
-                return -ENOENT;
-
-        *_result = l;
-        return 0;
-}
-
-static int update_attribute_drop_in(Unit *u, bool runtime, const char *name) {
-        _cleanup_free_ char *buf = NULL;
-        CGroupAttribute *a;
 
         assert(u);
         assert(name);
+        assert(i);
 
-        LIST_FOREACH(by_unit, a, u->cgroup_attributes) {
-                if (!cgroup_attribute_matches(a, NULL, name))
-                        continue;
-
-                if (!buf) {
-                        buf = strjoin("[", UNIT_VTABLE(u)->exec_section, "]\n"
-                                      "ControlGroupAttribute=", a->name, " ", a->value, "\n", NULL);
-
-                        if (!buf)
-                                return -ENOMEM;
-                } else {
-                        char *b;
-
-                        b = strjoin(buf,
-                                    "ControlGroupAttribute=", a->name, " ", a->value, "\n", NULL);
-
-                        if (!b)
-                                return -ENOMEM;
-
-                        free(buf);
-                        buf = b;
-                }
-        }
-
-        if (buf)
-                return unit_write_drop_in(u, runtime, name, buf);
-        else
-                return unit_remove_drop_in(u, runtime, name);
-}
-
-int bus_unit_cgroup_attribute_set(Unit *u, DBusMessageIter *iter) {
-        _cleanup_strv_free_ char **l = NULL;
-        int r;
-        bool runtime = false;
-        char **value;
-        const char *name;
-
-        assert(u);
-        assert(iter);
-
-        if (!unit_get_exec_context(u))
-                return -EINVAL;
-
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
-        if (r < 0)
-                return r;
-
-        r = bus_parse_strv_iter(iter, &l);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_next(iter))
-                return -EINVAL;
-
-        r = parse_mode(iter, &runtime, false);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(value, l) {
-                _cleanup_free_ char *v = NULL;
-                CGroupAttribute *a;
-                const CGroupSemantics *s;
-
-                r = cgroup_semantics_find(NULL, name, *value, &v, &s);
-                if (r < 0)
-                        return r;
-
-                if (s && !s->multiple && l[1])
+        if (streq(name, "Description")) {
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
                         return -EINVAL;
 
-                r = unit_add_cgroup_attribute(u, s, NULL, name, v ? v : *value, &a);
-                if (r < 0)
-                        return r;
+                if (mode != UNIT_CHECK) {
+                        const char *description;
 
-                if (r > 0) {
-                        CGroupBonding *b;
+                        dbus_message_iter_get_basic(i, &description);
 
-                        b = cgroup_bonding_find_list(u->cgroup_bondings, a->controller);
-                        if (!b) {
-                                /* Doesn't exist yet? Then let's add it */
-                                r = unit_add_cgroup_from_text(u, a->controller, false, &b);
+                        r = unit_set_description(u, description);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_drop_in_format(u, mode, name, "[Unit]\nDescription=%s\n", description);
+                }
+
+                return 1;
+
+        } else if (streq(name, "Slice") && unit_get_cgroup_context(u)) {
+                const char *s;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_get_basic(i, &s);
+
+                if (isempty(s)) {
+                        if (mode != UNIT_CHECK) {
+                                unit_ref_unset(&u->slice);
+                                unit_remove_drop_in(u, mode, name);
+                        }
+                } else {
+                        Unit *slice;
+
+                        r = manager_load_unit(u->manager, s, NULL, error, &slice);
+                        if (r < 0)
+                                return r;
+
+                        if (slice->type != UNIT_SLICE)
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                unit_ref_set(&u->slice, slice);
+                                unit_write_drop_in_private_format(u, mode, name, "Slice=%s\n", s);
+                        }
+                }
+
+                return 1;
+
+        } else if (streq(name, "Requires") ||
+                   streq(name, "RequiresOverridable") ||
+                   streq(name, "Requisite") ||
+                   streq(name, "RequisiteOverridable") ||
+                   streq(name, "Wants") ||
+                   streq(name, "BindsTo") ||
+                   streq(name, "Conflicts") ||
+                   streq(name, "Before") ||
+                   streq(name, "After") ||
+                   streq(name, "OnFailure") ||
+                   streq(name, "PropagatesReloadTo") ||
+                   streq(name, "ReloadPropagatedFrom") ||
+                   streq(name, "PartOf")) {
+
+                UnitDependency d;
+                DBusMessageIter sub;
+
+                d = unit_dependency_from_string(name);
+                if (d < 0)
+                        return -EINVAL;
+
+                if (dbus_message_iter_get_arg_type(i) != DBUS_TYPE_ARRAY ||
+                    dbus_message_iter_get_element_type(i) != DBUS_TYPE_STRING)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(i, &sub);
+                while (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_STRING) {
+                        const char *other;
+
+                        dbus_message_iter_get_basic(&sub, &other);
+
+                        if (!unit_name_is_valid(other, false))
+                                return -EINVAL;
+
+                        if (mode != UNIT_CHECK) {
+                                _cleanup_free_ char *label = NULL;
+
+                                r = unit_add_dependency_by_name(u, d, other, NULL, true);
                                 if (r < 0)
                                         return r;
 
-                                if (r > 0) {
-                                        cgroup_bonding_realize(b);
-                                        cgroup_bonding_migrate(b, u->cgroup_bondings);
-                                }
+                                label = strjoin(name, "-", other, NULL);
+                                if (!label)
+                                        return -ENOMEM;
+
+                                unit_write_drop_in_format(u, mode, label, "[Unit]\n%s=%s\n", name, other);
                         }
 
-                        /* Make it count */
-                        cgroup_attribute_apply(a, u->cgroup_bondings);
+                        dbus_message_iter_next(&sub);
                 }
 
+                return 1;
         }
-
-        r = update_attribute_drop_in(u, runtime, name);
-        if (r < 0)
-                return r;
 
         return 0;
 }
 
-int bus_unit_cgroup_attribute_unset(Unit *u, DBusMessageIter *iter) {
-        const char *name;
-        bool runtime;
+int bus_unit_set_properties(
+                Unit *u,
+                DBusMessageIter *iter,
+                UnitSetPropertiesMode mode,
+                bool commit,
+                DBusError *error) {
+
+        bool for_real = false;
+        DBusMessageIter sub;
+        unsigned n = 0;
         int r;
 
         assert(u);
         assert(iter);
 
-        if (!unit_get_exec_context(u))
+        if (u->transient)
+                mode &= UNIT_RUNTIME;
+
+        /* We iterate through the array twice. First run we just check
+         * if all passed data is valid, second run actually applies
+         * it. This is to implement transaction-like behaviour without
+         * actually providing full transactions. */
+
+        if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY ||
+            dbus_message_iter_get_element_type(iter) != DBUS_TYPE_STRUCT)
                 return -EINVAL;
 
-        r = bus_iter_get_basic_and_next(iter, DBUS_TYPE_STRING, &name, true);
-        if (r < 0)
-                return r;
+        dbus_message_iter_recurse(iter, &sub);
+        for (;;) {
+                DBusMessageIter sub2, sub3;
+                const char *name;
 
-        r = parse_mode(iter, &runtime, false);
-        if (r < 0)
-                return r;
+                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_INVALID) {
 
-        cgroup_attribute_free_some(u->cgroup_attributes, NULL, name);
-        update_attribute_drop_in(u, runtime, name);
+                        if (for_real || mode == UNIT_CHECK)
+                                break;
 
-        return 0;
+                        /* Reached EOF. Let's try again, and this time for realz... */
+                        dbus_message_iter_recurse(iter, &sub);
+                        for_real = true;
+                        continue;
+                }
+
+                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT)
+                        return -EINVAL;
+
+                dbus_message_iter_recurse(&sub, &sub2);
+
+                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0 ||
+                    dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)
+                        return -EINVAL;
+
+                if (!UNIT_VTABLE(u)->bus_set_property) {
+                        dbus_set_error(error, DBUS_ERROR_PROPERTY_READ_ONLY, "Objects of this type do not support setting properties.");
+                        return -ENOENT;
+                }
+
+                dbus_message_iter_recurse(&sub2, &sub3);
+                r = UNIT_VTABLE(u)->bus_set_property(u, name, &sub3, for_real ? mode : UNIT_CHECK, error);
+                if (r == 0 && u->transient && u->load_state == UNIT_STUB)
+                        r = bus_unit_set_transient_property(u, name, &sub3, for_real ? mode : UNIT_CHECK, error);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        dbus_set_error(error, DBUS_ERROR_PROPERTY_READ_ONLY, "Cannot set property %s, or unknown property.", name);
+                        return -ENOENT;
+                }
+
+                dbus_message_iter_next(&sub);
+
+                n += for_real;
+        }
+
+        if (commit && n > 0 && UNIT_VTABLE(u)->bus_commit_properties)
+                UNIT_VTABLE(u)->bus_commit_properties(u);
+
+        return n;
 }
 
 const BusProperty bus_unit_properties[] = {
-        { "Id",                   bus_property_append_string,         "s", offsetof(Unit, id),                                         true },
-        { "Names",                bus_unit_append_names,             "as", 0 },
-        { "Following",            bus_unit_append_following,          "s", 0 },
-        { "Requires",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
-        { "RequiresOverridable",  bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
-        { "Requisite",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
-        { "RequisiteOverridable", bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUISITE_OVERRIDABLE]),   true },
-        { "Wants",                bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_WANTS]),                   true },
-        { "BindsTo",              bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BINDS_TO]),                true },
-        { "PartOf",               bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PART_OF]),                 true },
-        { "RequiredBy",           bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY]),             true },
-        { "RequiredByOverridable",bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY_OVERRIDABLE]), true },
-        { "WantedBy",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_WANTED_BY]),               true },
-        { "BoundBy",              bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BOUND_BY]),                true },
-        { "ConsistsOf",           bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONSISTS_OF]),             true },
-        { "Conflicts",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONFLICTS]),               true },
-        { "ConflictedBy",         bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]),           true },
-        { "Before",               bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_BEFORE]),                  true },
-        { "After",                bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_AFTER]),                   true },
-        { "OnFailure",            bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_ON_FAILURE]),              true },
-        { "Triggers",             bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_TRIGGERS]),                true },
-        { "TriggeredBy",          bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]),            true },
-        { "PropagatesReloadTo",   bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]),    true },
-        { "ReloadPropagatedFrom", bus_unit_append_dependencies,      "as", offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]),  true },
-        { "RequiresMountsFor",    bus_property_append_strv,          "as", offsetof(Unit, requires_mounts_for),                        true },
-        { "Documentation",        bus_property_append_strv,          "as", offsetof(Unit, documentation),                              true },
-        { "Description",          bus_unit_append_description,        "s", 0 },
-        { "LoadState",            bus_unit_append_load_state,         "s", offsetof(Unit, load_state)                         },
-        { "ActiveState",          bus_unit_append_active_state,       "s", 0 },
-        { "SubState",             bus_unit_append_sub_state,          "s", 0 },
-        { "FragmentPath",         bus_property_append_string,         "s", offsetof(Unit, fragment_path),                              true },
-        { "SourcePath",           bus_property_append_string,         "s", offsetof(Unit, source_path),                                true },
-        { "DropInPaths",          bus_property_append_strv,          "as", offsetof(Unit, dropin_paths),                               true },
-        { "UnitFileState",        bus_unit_append_file_state,         "s", 0 },
-        { "InactiveExitTimestamp",bus_property_append_usec,           "t", offsetof(Unit, inactive_exit_timestamp.realtime)   },
-        { "InactiveExitTimestampMonotonic", bus_property_append_usec, "t", offsetof(Unit, inactive_exit_timestamp.monotonic)  },
-        { "ActiveEnterTimestamp", bus_property_append_usec,           "t", offsetof(Unit, active_enter_timestamp.realtime)    },
-        { "ActiveEnterTimestampMonotonic", bus_property_append_usec,  "t", offsetof(Unit, active_enter_timestamp.monotonic)   },
-        { "ActiveExitTimestamp",  bus_property_append_usec,           "t", offsetof(Unit, active_exit_timestamp.realtime)     },
-        { "ActiveExitTimestampMonotonic",  bus_property_append_usec,  "t", offsetof(Unit, active_exit_timestamp.monotonic)    },
-        { "InactiveEnterTimestamp", bus_property_append_usec,         "t", offsetof(Unit, inactive_enter_timestamp.realtime)  },
-        { "InactiveEnterTimestampMonotonic",bus_property_append_usec, "t", offsetof(Unit, inactive_enter_timestamp.monotonic) },
-        { "CanStart",             bus_unit_append_can_start,          "b", 0 },
-        { "CanStop",              bus_unit_append_can_stop,           "b", 0 },
-        { "CanReload",            bus_unit_append_can_reload,         "b", 0 },
-        { "CanIsolate",           bus_unit_append_can_isolate,        "b", 0 },
-        { "Job",                  bus_unit_append_job,             "(uo)", 0 },
-        { "StopWhenUnneeded",     bus_property_append_bool,           "b", offsetof(Unit, stop_when_unneeded)                 },
-        { "RefuseManualStart",    bus_property_append_bool,           "b", offsetof(Unit, refuse_manual_start)                },
-        { "RefuseManualStop",     bus_property_append_bool,           "b", offsetof(Unit, refuse_manual_stop)                 },
-        { "AllowIsolate",         bus_property_append_bool,           "b", offsetof(Unit, allow_isolate)                      },
-        { "DefaultDependencies",  bus_property_append_bool,           "b", offsetof(Unit, default_dependencies)               },
-        { "OnFailureIsolate",     bus_property_append_bool,           "b", offsetof(Unit, on_failure_isolate)                 },
-        { "IgnoreOnIsolate",      bus_property_append_bool,           "b", offsetof(Unit, ignore_on_isolate)                  },
-        { "IgnoreOnSnapshot",     bus_property_append_bool,           "b", offsetof(Unit, ignore_on_snapshot)                 },
-        { "NeedDaemonReload",     bus_unit_append_need_daemon_reload, "b", 0 },
-        { "JobTimeoutUSec",       bus_property_append_usec,           "t", offsetof(Unit, job_timeout)                        },
-        { "ConditionTimestamp",   bus_property_append_usec,           "t", offsetof(Unit, condition_timestamp.realtime)       },
-        { "ConditionTimestampMonotonic", bus_property_append_usec,    "t", offsetof(Unit, condition_timestamp.monotonic)      },
-        { "ConditionResult",      bus_property_append_bool,           "b", offsetof(Unit, condition_result)                   },
-        { "LoadError",            bus_unit_append_load_error,      "(ss)", 0 },
-        { NULL, }
+        { "Id",                              bus_property_append_string,                "s", offsetof(Unit, id),                                         true },
+        { "Names",                           bus_unit_append_names,                    "as", 0                                                                },
+        { "Following",                       bus_unit_append_following,                 "s", 0                                                                },
+        { "Requires",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRES]),                true },
+        { "RequiresOverridable",             bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRES_OVERRIDABLE]),    true },
+        { "Requisite",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUISITE]),               true },
+        { "RequisiteOverridable",            bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUISITE_OVERRIDABLE]),   true },
+        { "Wants",                           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_WANTS]),                   true },
+        { "BindsTo",                         bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BINDS_TO]),                true },
+        { "PartOf",                          bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_PART_OF]),                 true },
+        { "RequiredBy",                      bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY]),             true },
+        { "RequiredByOverridable",           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_REQUIRED_BY_OVERRIDABLE]), true },
+        { "WantedBy",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_WANTED_BY]),               true },
+        { "BoundBy",                         bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BOUND_BY]),                true },
+        { "ConsistsOf",                      bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONSISTS_OF]),             true },
+        { "Conflicts",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONFLICTS]),               true },
+        { "ConflictedBy",                    bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_CONFLICTED_BY]),           true },
+        { "Before",                          bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_BEFORE]),                  true },
+        { "After",                           bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_AFTER]),                   true },
+        { "OnFailure",                       bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_ON_FAILURE]),              true },
+        { "Triggers",                        bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_TRIGGERS]),                true },
+        { "TriggeredBy",                     bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_TRIGGERED_BY]),            true },
+        { "PropagatesReloadTo",              bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_PROPAGATES_RELOAD_TO]),    true },
+        { "ReloadPropagatedFrom",            bus_unit_append_dependencies,             "as", offsetof(Unit, dependencies[UNIT_RELOAD_PROPAGATED_FROM]),  true },
+        { "RequiresMountsFor",               bus_property_append_strv,                 "as", offsetof(Unit, requires_mounts_for),                        true },
+        { "Documentation",                   bus_property_append_strv,                 "as", offsetof(Unit, documentation),                              true },
+        { "Description",                     bus_unit_append_description,               "s", 0                                                                },
+        { "LoadState",                       bus_unit_append_load_state,                "s", offsetof(Unit, load_state)                                       },
+        { "ActiveState",                     bus_unit_append_active_state,              "s", 0                                                                },
+        { "SubState",                        bus_unit_append_sub_state,                 "s", 0                                                                },
+        { "FragmentPath",                    bus_property_append_string,                "s", offsetof(Unit, fragment_path),                              true },
+        { "SourcePath",                      bus_property_append_string,                "s", offsetof(Unit, source_path),                                true },
+        { "DropInPaths",                     bus_property_append_strv,                 "as", offsetof(Unit, dropin_paths),                               true },
+        { "UnitFileState",                   bus_unit_append_file_state,                "s", 0                                                                },
+        { "InactiveExitTimestamp",           bus_property_append_usec,                  "t", offsetof(Unit, inactive_exit_timestamp.realtime)                 },
+        { "InactiveExitTimestampMonotonic",  bus_property_append_usec,                  "t", offsetof(Unit, inactive_exit_timestamp.monotonic)                },
+        { "ActiveEnterTimestamp",            bus_property_append_usec,                  "t", offsetof(Unit, active_enter_timestamp.realtime)                  },
+        { "ActiveEnterTimestampMonotonic",   bus_property_append_usec,                  "t", offsetof(Unit, active_enter_timestamp.monotonic)                 },
+        { "ActiveExitTimestamp",             bus_property_append_usec,                  "t", offsetof(Unit, active_exit_timestamp.realtime)                   },
+        { "ActiveExitTimestampMonotonic",    bus_property_append_usec,                  "t", offsetof(Unit, active_exit_timestamp.monotonic)                  },
+        { "InactiveEnterTimestamp",          bus_property_append_usec,                  "t", offsetof(Unit, inactive_enter_timestamp.realtime)                },
+        { "InactiveEnterTimestampMonotonic", bus_property_append_usec,                  "t", offsetof(Unit, inactive_enter_timestamp.monotonic)               },
+        { "CanStart",                        bus_unit_append_can_start,                 "b", 0                                                                },
+        { "CanStop",                         bus_unit_append_can_stop,                  "b", 0                                                                },
+        { "CanReload",                       bus_unit_append_can_reload,                "b", 0                                                                },
+        { "CanIsolate",                      bus_unit_append_can_isolate,               "b", 0                                                                },
+        { "Job",                             bus_unit_append_job,                    "(uo)", 0                                                                },
+        { "StopWhenUnneeded",                bus_property_append_bool,                  "b", offsetof(Unit, stop_when_unneeded)                               },
+        { "RefuseManualStart",               bus_property_append_bool,                  "b", offsetof(Unit, refuse_manual_start)                              },
+        { "RefuseManualStop",                bus_property_append_bool,                  "b", offsetof(Unit, refuse_manual_stop)                               },
+        { "AllowIsolate",                    bus_property_append_bool,                  "b", offsetof(Unit, allow_isolate)                                    },
+        { "DefaultDependencies",             bus_property_append_bool,                  "b", offsetof(Unit, default_dependencies)                             },
+        { "OnFailureIsolate",                bus_property_append_bool,                  "b", offsetof(Unit, on_failure_isolate)                               },
+        { "IgnoreOnIsolate",                 bus_property_append_bool,                  "b", offsetof(Unit, ignore_on_isolate)                                },
+        { "IgnoreOnSnapshot",                bus_property_append_bool,                  "b", offsetof(Unit, ignore_on_snapshot)                               },
+        { "NeedDaemonReload",                bus_unit_append_need_daemon_reload,        "b", 0                                                                },
+        { "JobTimeoutUSec",                  bus_property_append_usec,                  "t", offsetof(Unit, job_timeout)                                      },
+        { "ConditionTimestamp",              bus_property_append_usec,                  "t", offsetof(Unit, condition_timestamp.realtime)                     },
+        { "ConditionTimestampMonotonic",     bus_property_append_usec,                  "t", offsetof(Unit, condition_timestamp.monotonic)                    },
+        { "ConditionResult",                 bus_property_append_bool,                  "b", offsetof(Unit, condition_result)                                 },
+        { "Conditions",                      bus_property_append_condition_list, "a(sbbsi)", offsetof(Unit, conditions)                                       },
+        { "LoadError",                       bus_unit_append_load_error,             "(ss)", 0                                                                },
+        { "Transient",                       bus_property_append_bool,                  "b", offsetof(Unit, transient)                                        },
+        {}
 };
 
 const BusProperty bus_unit_cgroup_properties[] = {
-        { "DefaultControlGroup",    bus_unit_append_default_cgroup,     "s", 0 },
-        { "ControlGroups",          bus_unit_append_cgroups,           "as", 0 },
-        { "ControlGroupAttributes", bus_unit_append_cgroup_attrs,  "a(sss)", 0 },
-        { NULL, }
+        { "Slice",                bus_unit_append_slice,              "s", 0 },
+        { "ControlGroup",         bus_property_append_string,         "s", offsetof(Unit, cgroup_path),                                true },
+        {}
 };

@@ -141,6 +141,13 @@
                                                 </varlistentry>
 
                                                 <varlistentry>
+                                                        <term><varname>extended</varname></term>
+
+                                                        <listitem><para>Show *.conf files in drop-in
+                                                        directories for units.</para></listitem>
+                                                </varlistentry>
+
+                                                <varlistentry>
                                                         <term><varname>unchanged</varname></term>
 
                                                         <listitem><para>Show unmodified
@@ -156,7 +163,7 @@
                                 <listitem><para>When showing modified
                                 files, when a file is overridden show a
                                 diff as well. This option takes a
-                                boolean argument. If omitted it defaults
+                                boolean argument. If omitted, it defaults
                                 to <option>true</option>.</para></listitem>
                         </varlistentry>
 

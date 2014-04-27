@@ -54,8 +54,8 @@
         <refsect1>
                 <title>Description</title>
 
-                <para>This files configures various parameters of the
-                systemd journal service
+                <para>This file configures various parameters of the
+                systemd journal service,
                 <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         </refsect1>
@@ -77,13 +77,13 @@
                                 <literal>persistent</literal>,
                                 <literal>auto</literal> and
                                 <literal>none</literal>. If
-                                <literal>volatile</literal> journal
+                                <literal>volatile</literal>, journal
                                 log data will be stored only in
                                 memory, i.e. below the
                                 <filename>/run/log/journal</filename>
                                 hierarchy (which is created if
                                 needed). If
-                                <literal>persistent</literal> data will
+                                <literal>persistent</literal>, data will
                                 be stored preferably on disk,
                                 i.e. below the
                                 <filename>/var/log/journal</filename>
@@ -112,7 +112,7 @@
                                 <term><varname>Compress=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                value. If enabled (the default) data
+                                value. If enabled (the default), data
                                 objects that shall be stored in the
                                 journal and are larger than a certain
                                 threshold are compressed with the XZ
@@ -125,14 +125,20 @@
                                 <term><varname>Seal=</varname></term>
 
                                 <listitem><para>Takes a boolean
-                                value. If enabled (the default) and a
+                                value. If enabled (the default), and a
                                 sealing key is available (as created
                                 by
                                 <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
                                 <option>--setup-keys</option>
-                                command), forward secure sealing (FSS) for
-                                all persistent journal files is
-                                enabled.</para></listitem>
+                                command), forward secure sealing (FSS)
+                                for all persistent journal files is
+                                enabled. FSS is based on <ulink
+                                url="https://eprint.iacr.org/2013/397">Seekable
+                                Sequential Key Generators</ulink> by
+                                G. A. Marson and B. Poettering and
+                                may be used to protect journal files
+                                from unnoticed
+                                alteration.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -143,23 +149,23 @@
                                 of <literal>login</literal>,
                                 <literal>uid</literal> and
                                 <literal>none</literal>. If
-                                <literal>login</literal> each logged
-                                in user will get his own journal
+                                <literal>login</literal>, each logged-in
+                                user will get his own journal
                                 files, but systemd user IDs will log
                                 into the system journal. If
-                                <literal>uid</literal> any user ID
+                                <literal>uid</literal>, any user ID
                                 will get his own journal files
                                 regardless whether it belongs to a
                                 system service or refers to a real
                                 logged in user. If
-                                <literal>none</literal> journal files
-                                are not split up per-user and all
-                                messages are stored in the single
+                                <literal>none</literal>, journal files
+                                are not split up by user and all
+                                messages are instead stored in the single
                                 system journal. Note that splitting
-                                up journal files per-user is only
-                                available of journals are stored
+                                up journal files by user is only
+                                available for journals stored
                                 persistently. If journals are stored
-                                on volatile storage (see above) only a
+                                on volatile storage (see above), only a
                                 single journal file for all user IDs
                                 is kept. Defaults to
                                 <literal>login</literal>.</para></listitem>
@@ -171,14 +177,14 @@
 
                                 <listitem><para>Configures the rate
                                 limiting that is applied to all
-                                messages generated on the system. If
+                                messages generated on the system. If,
                                 in the time interval defined by
-                                <varname>RateLimitInterval=</varname>
+                                <varname>RateLimitInterval=</varname>,
                                 more messages than specified in
                                 <varname>RateLimitBurst=</varname> are
-                                logged by a service all further
+                                logged by a service, all further
                                 messages within the interval are
-                                dropped, until the interval is over. A
+                                dropped until the interval is over. A
                                 message about the number of dropped
                                 messages is generated. This rate
                                 limiting is applied per-service, so
@@ -221,17 +227,27 @@
                                 <filename>/run/log/journal</filename>. The
                                 former is used only when
                                 <filename>/var</filename> is mounted,
-                                writable and the directory
+                                writable, and the directory
                                 <filename>/var/log/journal</filename>
-                                exists. Otherwise only the latter
+                                exists. Otherwise, only the latter
                                 applies. Note that this means that
                                 during early boot and if the
                                 administrator disabled persistent
-                                logging only the latter options apply,
+                                logging, only the latter options apply,
                                 while the former apply if persistent
                                 logging is enabled and the system is
                                 fully booted
-                                up. <varname>SystemMaxUse=</varname>
+                                up. <command>journalctl</command> and
+                                <command>systemd-journald</command>
+                                ignore all files with names not ending
+                                with <literal>.journal</literal> or
+                                <literal>.journal~</literal>, so only
+                                such files, located in the appropriate
+                                directories, are taken into account
+                                when calculating current disk usage.
+                                </para>
+
+                                <para><varname>SystemMaxUse=</varname>
                                 and <varname>RuntimeMaxUse=</varname>
                                 control how much disk space the
                                 journal may use up at
@@ -240,15 +256,14 @@
                                 system. <varname>SystemKeepFree=</varname>
                                 and
                                 <varname>RuntimeKeepFree=</varname>
-                                control how much disk space the
-                                journal shall always leave free for
-                                other uses if less than the disk space
-                                configured in
-                                <varname>SystemMaxUse=</varname> and
-                                <varname>RuntimeMaxUse=</varname> is
-                                available. Defaults to 15% of the size
-                                of the respective file
-                                system. <varname>SystemMaxFileSize=</varname>
+                                control how much disk space
+                                systemd-journald shall always leave
+                                free for other uses. Defaults to 15%
+                                of the size of the respective file
+                                system. systemd-journald will respect
+                                both limits, i.e. use the smaller of
+                                the two values.
+                                <varname>SystemMaxFileSize=</varname>
                                 and
                                 <varname>RuntimeMaxFileSize=</varname>
                                 control how large individual journal
@@ -263,12 +278,13 @@
                                 that usually seven rotated journal
                                 files are kept as history. Specify
                                 values in bytes or use K, M, G, T, P,
-                                E as units for the specified
-                                sizes. Note that size limits are
-                                enforced synchronously to journal
-                                files as they are extended, and need
-                                no explicit rotation step triggered by
-                                time.</para></listitem>
+                                E as units for the specified sizes
+                                (equal to 1024, 1024²,... bytes).
+                                Note that size limits are enforced
+                                synchronously when journal files are
+                                extended, and no explicit rotation
+                                step triggered by time is
+                                needed.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -276,23 +292,26 @@
 
                                 <listitem><para>The maximum time to
                                 store entries in a single journal
-                                file, before rotating to the next
-                                one. Normally time-based rotation
+                                file before rotating to the next
+                                one. Normally, time-based rotation
                                 should not be required as size-based
                                 rotation with options such as
                                 <varname>SystemMaxFileSize=</varname>
                                 should be sufficient to ensure that
-                                journal files don't grow without
+                                journal files do not grow without
                                 bounds. However, to ensure that not
                                 too much data is lost at once when old
-                                journal files are deleted it might
+                                journal files are deleted, it might
                                 make sense to change this value from
                                 the default of one month. Set to 0 to
                                 turn off this feature. This setting
                                 takes time values which may be
-                                suffixed with the units year, month,
-                                week, day, h, m to override the
-                                default time unit of
+                                suffixed with the units
+                                <literal>year</literal>,
+                                <literal>month</literal>,
+                                <literal>week</literal>, <literal>day</literal>,
+                                <literal>h</literal> or <literal>m</literal>
+                                to override the default time unit of
                                 seconds.</para></listitem>
                         </varlistentry>
 
@@ -304,31 +323,42 @@
                                 controls whether journal files
                                 containing entries older then the
                                 specified time span are
-                                deleted. Normally time-based deletion
+                                deleted. Normally, time-based deletion
                                 of old journal files should not be
                                 required as size-based deletion with
                                 options such as
                                 <varname>SystemMaxUse=</varname>
                                 should be sufficient to ensure that
-                                journal files don't grow without
+                                journal files do not grow without
                                 bounds. However, to enforce data
-                                retention policies it might make sense
+                                retention policies, it might make sense
                                 to change this value from the
                                 default of 0 (which turns off this
                                 feature). This setting also takes
                                 time values which may be suffixed with
-                                the units year, month, week, day, h, m
+                                the units <literal>year</literal>,
+                                <literal>month</literal>,
+                                <literal>week</literal>, <literal>day</literal>,
+                                <literal>h</literal> or <literal> m</literal>
                                 to override the default time unit of
-                                seconds. </para></listitem>
+                                seconds.</para></listitem>
                         </varlistentry>
 
 
                         <varlistentry>
                                 <term><varname>SyncIntervalSec=</varname></term>
 
-                                <listitem><para>The timeout before syncing journal
-                                data to disk. After syncing journal files have
-                                OFFLINE state. Default timeout is 5 minutes.
+                                <listitem><para>The timeout before
+                                synchronizing journal files to
+                                disk. After syncing, journal files are
+                                placed in the OFFLINE state. Note that
+                                syncing is unconditionally done
+                                immediately after a log message of
+                                priority CRIT, ALERT or EMERG has been
+                                logged. This setting hence applies
+                                only to messages of the levels ERR,
+                                WARNING, NOTICE, INFO, DEBUG. The
+                                default timeout is 5 minutes.
                                 </para></listitem>
                         </varlistentry>
 
@@ -345,8 +375,8 @@
                                 system console. These options take
                                 boolean arguments. If forwarding to
                                 syslog is enabled but no syslog daemon
-                                is running the respective option has
-                                no effect. By default only forwarding
+                                is running, the respective option has
+                                no effect. By default, only forwarding
                                 to syslog is enabled. These settings
                                 may be overridden at boot time with
                                 the kernel command line options

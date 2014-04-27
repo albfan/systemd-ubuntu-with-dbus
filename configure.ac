@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [204],
+        [208],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -43,6 +43,9 @@ AS_IF([test "x$host_cpu" = "xmips" || test "x$host_cpu" = "xmipsel" ||
 
 LT_PREREQ(2.2)
 LT_INIT([disable-static])
+
+AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not supported by systemd])])
+AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by systemd])])
 
 # i18n stuff for the PolicyKit policy files
 IT_PROG_INTLTOOL([0.40.0])
@@ -71,10 +74,15 @@ AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
 
 AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
 
+AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
+
+AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec])
+
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
-GTK_DOC_CHECK([1.18],[--flavour no-tmpl])
-], [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])])
+GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],
+         [AM_CONDITIONAL([ENABLE_GTK_DOC], [false])
+          enable_gtk_doc=no])
 
 AS_IF([test "x$enable_gtk_doc" = "xyes" -a "x$XSLTPROC" = x], [
         AC_MSG_ERROR([*** GTK doc requested but xsltproc not found])
@@ -92,6 +100,20 @@ AC_CHECK_TOOL(GPERF, gperf)
 if test -z "$GPERF" ; then
         AC_MSG_ERROR([*** gperf not found])
 fi
+
+# ------------------------------------------------------------------------------
+address_sanitizer_cflags=
+address_sanitizer_cppflags=
+address_sanitizer_ldflags=
+AC_ARG_ENABLE(address-sanitizer, AS_HELP_STRING([--enable-address-sanitizer], [enable -fsanitize=address]))
+AS_IF([test "x$enable_address_sanitizer" = "xyes"], [
+            CC_CHECK_FLAG_APPEND([with_as_cflags], [CFLAGS], [-fsanitize=address])
+            AS_IF([test -z "$with_as_cflags"],
+                  [AC_MSG_ERROR([*** -fsanitize=address is not supported])])
+            address_sanitizer_cflags="$with_as_cflags -fno-omit-frame-pointer -DVALGRIND=1"
+            address_sanitizer_cppflags="-DVALGRIND=1"
+            address_sanitizer_ldflags="-Wc,-fsanitize=address"
+      ])
 
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
@@ -127,20 +149,20 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
+        -fdiagnostics-color \
         -fno-strict-aliasing \
         -fvisibility=hidden \
         -ffunction-sections \
         -fdata-sections \
         -fstack-protector \
         --param=ssp-buffer-size=4])
-AC_SUBST([OUR_CFLAGS], $with_cflags)
+AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
 
-AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*], [
-        CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
-               -Wp,-D_FORTIFY_SOURCE=2])], [
-        python_extra_cflags=-Wp,-U_FORTIFY_SOURCE
-        AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
-AC_SUBST([OUR_CPPFLAGS], $with_cppflags)
+AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+               -Wp,-D_FORTIFY_SOURCE=2])],
+        [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
+AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $address_sanitizer_cppflags")
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
@@ -148,13 +170,11 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now])
-AC_SUBST([OUR_LDFLAGS], $with_ldflags)
+AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
 
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
 have_python=no
-have_python_devel=no
-
 AC_ARG_WITH([python],
         [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
 
@@ -169,31 +189,43 @@ AS_IF([test "x$PYTHON_BINARY" = "x"],
              [PYTHON_BINARY=/usr/bin/python])])
 AC_ARG_VAR(PYTHON_BINARY, [Python binary used to launch installed scripts])
 
-AS_IF([test "x$with_python" != "xno"], [
-        AC_PATH_PROG(PYTHON_CONFIG, python${PYTHON_VERSION}-config)
-        AS_IF([test -n "$PYTHON_CONFIG"], [
-              have_python_devel=yes
-              PYTHON_CFLAGS="$($PYTHON_CONFIG --cflags) $python_extra_cflags"
-              PYTHON_LIBS="$($PYTHON_CONFIG --ldflags)"
-              AC_SUBST(PYTHON_CFLAGS)
-              AC_SUBST(PYTHON_LIBS)
-              AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
-        ])
+AS_IF([test "x$have_python" != "xyes" -a "x$enable_python_devel" = "xyes"],
+      [AC_MSG_ERROR([*** python-devel support requires --with-python])])
+
+have_python_devel=no
+AC_ARG_ENABLE(python_devel, AS_HELP_STRING([--disable-python-devel], [Do not build python modules]))
+AS_IF([test "x$have_python" = "xyes" -a "x$enable_python_devel" != "xno"], [
+      PKG_CHECK_MODULES([PYTHON_DEVEL], [python-${PYTHON_VERSION}],
+            [have_python_devel=yes],
+            [PKG_CHECK_MODULES([PYTHON_DEVEL], [python],
+                  [have_python_devel=yes],
+                  [have_python_devel=no])])
+      AS_IF([test "x$have_python_devel" = xno -a "x$enable_python_devel" = xyes],
+            [AC_MSG_ERROR([*** python-devel support requested but libraries not found])])
+      AC_PATH_PROGS(SPHINX_BUILD, sphinx-build-${PYTHON_VERSION} sphinx-build)
 ])
 AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 
 # ------------------------------------------------------------------------------
 
-AC_SEARCH_LIBS([mq_open], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
+AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
+AC_CHECK_HEADERS([linux/btrfs.h], [], [])
+
+# unconditionally pull-in librt with old glibc versions
+AC_SEARCH_LIBS([clock_gettime], [rt], [], [])
 
 save_LIBS="$LIBS"
 LIBS=
 AC_SEARCH_LIBS([cap_init], [cap], [], [AC_MSG_ERROR([*** POSIX caps library not found])])
-AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 CAP_LIBS="$LIBS"
-LIBS="$save_LIBS"
 AC_SUBST(CAP_LIBS)
+
+LIBS=
+AC_SEARCH_LIBS([mq_open], [rt], [], [AC_MSG_ERROR([*** POSIX RT library not found])])
+RT_LIBS="$LIBS"
+AC_SUBST(RT_LIBS)
+LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
@@ -207,14 +239,42 @@ m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-conf
 
 PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
 
+
+# ------------------------------------------------------------------------------
+have_coverage=no
+AC_ARG_ENABLE(coverage, AS_HELP_STRING([--enable-coverage], [enable test coverage]))
+if test "x$enable_coverage" = "xyes" ; then
+        AC_CHECK_PROG(lcov_found, [lcov], [yes], [no])
+        if test "x$lcov_found" = xno ; then
+                AC_MSG_ERROR([*** lcov support requested but the program was not found])
+        else
+                lcov_version_major="`lcov --version | cut -d ' ' -f 4 | cut -d '.' -f 1`"
+                lcov_version_minor="`lcov --version | cut -d ' ' -f 4 | cut -d '.' -f 2`"
+                if test "$lcov_version_major" -eq 1 -a "$lcov_version_minor" -lt 10; then
+                        AC_MSG_ERROR([*** lcov version is too old. 1.10 required])
+                else
+                        have_coverage=yes
+                        CC_CHECK_FLAGS_APPEND([with_coverage_cflags], [CFLAGS], [\
+                        -fprofile-arcs \
+                        -ftest-coverage])
+                        AC_SUBST([OUR_CFLAGS], "$with_cflags $with_coverage_cflags")
+                fi
+        fi
+fi
+AM_CONDITIONAL(ENABLE_COVERAGE, [test "$have_coverage" = "yes"])
+
 # ------------------------------------------------------------------------------
 have_kmod=no
 AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules support]))
 if test "x$enable_kmod" != "xno"; then
-        PKG_CHECK_MODULES(KMOD, [ libkmod >= 5 ],
-                [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available]) have_kmod=yes], have_kmod=no)
+        PKG_CHECK_EXISTS([ libkmod ], have_kmod=yes, have_kmod=no)
+        if test "x$have_kmod" = "xyes"; then
+                PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
+                        [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available])],
+                        AC_MSG_ERROR([*** kmod version >= 14 not found]))
+        fi
         if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
-                AC_MSG_ERROR([*** kmod support requested but libraries not found])
+                AC_MSG_ERROR([*** kmod support requested, but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_KMOD, [test "$have_kmod" = "yes"])
@@ -444,6 +504,31 @@ AC_SUBST(XATTR_LIBS)
 AM_CONDITIONAL([HAVE_XATTR], [test "x$have_xattr" != xno])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE([smack], AS_HELP_STRING([--disable-smack],[Disable optional SMACK support]),
+                [case "${enableval}" in
+                        yes) have_smack=yes ;;
+                        no) have_smack=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-smack) ;;
+                esac],
+                [have_smack=auto])
+
+if test "x${have_xattr}" = xno; then
+        if test "x${have_smack}" = xyes; then
+                AC_MSG_ERROR(SMACK requires xattr support)
+        else
+                have_smack=no
+        fi
+else
+        if test "x${have_smack}" = xauto; then
+                have_smack=yes
+        fi
+fi
+
+if test "x${have_smack}" = xyes ; then
+        AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
+fi
+
+# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gcrypt],
         AS_HELP_STRING([--disable-gcrypt],[Disable optional GCRYPT support]),
                 [case "${enableval}" in
@@ -517,7 +602,7 @@ AC_SUBST(AUDIT_LIBS)
 have_libcryptsetup=no
 AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
 if test "x$enable_libcryptsetup" != "xno"; then
-        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup >= 1.4.2 ],
+        PKG_CHECK_MODULES(LIBCRYPTSETUP, [ libcryptsetup >= 1.6.0 ],
                 [AC_DEFINE(HAVE_LIBCRYPTSETUP, 1, [Define if libcryptsetup is available]) have_libcryptsetup=yes], have_libcryptsetup=no)
         if test "x$have_libcryptsetup" = xno -a "x$enable_libcryptsetup" = xyes; then
                 AC_MSG_ERROR([*** libcryptsetup support requested but libraries not found])
@@ -590,12 +675,28 @@ fi
 AM_CONDITIONAL(ENABLE_QUOTACHECK, [test "$have_quotacheck" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_tmpfiles=no
+AC_ARG_ENABLE(tmpfiles, AS_HELP_STRING([--disable-tmpfiles], [disable tmpfiles support]))
+if test "x$enable_tmpfiles" != "xno"; then
+        have_tmpfiles=yes
+fi
+AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_randomseed=no
 AC_ARG_ENABLE(randomseed, AS_HELP_STRING([--disable-randomseed], [disable randomseed tools]))
 if test "x$enable_randomseed" != "xno"; then
         have_randomseed=yes
 fi
 AM_CONDITIONAL(ENABLE_RANDOMSEED, [test "$have_randomseed" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_backlight=no
+AC_ARG_ENABLE(backlight, AS_HELP_STRING([--disable-backlight], [disable backlight tools]))
+if test "x$enable_backlight" != "xno"; then
+        have_backlight=yes
+fi
+AM_CONDITIONAL(ENABLE_BACKLIGHT, [test "$have_backlight" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_logind=no
@@ -605,6 +706,15 @@ if test "x$enable_logind" != "xno"; then
 fi
 AM_CONDITIONAL(ENABLE_LOGIND, [test "$have_logind" = "yes"])
 AS_IF([test "$have_logind" = "yes"], [ AC_DEFINE(HAVE_LOGIND, [1], [Logind support available]) ])
+
+# ------------------------------------------------------------------------------
+have_machined=no
+AC_ARG_ENABLE(machined, AS_HELP_STRING([--disable-machined], [disable machine daemon]))
+if test "x$enable_machined" != "xno"; then
+        have_machined=yes
+fi
+AM_CONDITIONAL(ENABLE_MACHINED, [test "$have_machined" = "yes"])
+AS_IF([test "$have_machined" = "yes"], [ AC_DEFINE(HAVE_MACHINED, [1], [Machined support available]) ])
 
 # ------------------------------------------------------------------------------
 have_hostnamed=no
@@ -698,7 +808,7 @@ AC_ARG_WITH(telinit,
         AS_HELP_STRING([--with-telinit=PATH],
                 [Path to telinit]),
         [TELINIT="$withval"],
-        [TELINIT="/lib/upstart/telinit"])
+        [TELINIT="/lib/sysvinit/telinit"])
 
 AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
 
@@ -711,7 +821,7 @@ have_myhostname=no
 AC_ARG_ENABLE(myhostname, AS_HELP_STRING([--disable-myhostname], [disable nss-myhostname support]))
 if test "x$enable_myhostname" != "xno"; then
         AC_HEADER_STDC
-        AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h unistd.h nss.h sys/ioctl.h])
+        AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h sys/time.h unistd.h nss.h sys/ioctl.h sys/auxv.h])
 
         AC_C_CONST
         AC_TYPE_SIZE_T
@@ -751,21 +861,6 @@ AC_ARG_ENABLE([gudev],
 AS_IF([test "x$enable_gudev" = "xyes"], [ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.22.0 gobject-2.0 >= 2.22.0 gio-2.0]) ])
 AM_CONDITIONAL([ENABLE_GUDEV], [test "x$enable_gudev" = "xyes"])
 AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if glib is available]) ])
-
-# ------------------------------------------------------------------------------
-AC_ARG_ENABLE([keymap],
-       AS_HELP_STRING([--disable-keymap], [disable keymap fixup support @<:@default=enabled@:>@]),
-       [], [enable_keymap=yes])
-AS_IF([test "x$enable_keymap" = "xyes"], [
-       AC_PATH_PROG([GPERF], [gperf])
-       if test -z "$GPERF"; then
-              AC_MSG_ERROR([gperf is needed])
-       fi
-
-       AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
-       AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
-])
-AM_CONDITIONAL([ENABLE_KEYMAP], [test "x$enable_keymap" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_manpages=no
@@ -848,6 +943,10 @@ AC_ARG_WITH([bashcompletiondir],
                 with_bashcompletiondir=${datadir}/bash-completion/completions
         ])])
 
+AC_ARG_WITH([zshcompletiondir],
+        AS_HELP_STRING([--with-zshcompletiondir=DIR], [Zsh completions directory]),
+        [], [with_zshcompletiondir=${datadir}/zsh/site-functions])
+
 AC_ARG_WITH([rootprefix],
         AS_HELP_STRING([--with-rootprefix=DIR], [rootfs directory prefix for config files and kernel modules]),
         [], [with_rootprefix=${ac_default_prefix}])
@@ -861,6 +960,11 @@ AC_ARG_WITH([pamlibdir],
         AS_HELP_STRING([--with-pamlibdir=DIR], [Directory for PAM modules]),
         [],
         [with_pamlibdir=${with_rootlibdir}/security])
+
+AC_ARG_WITH([pamconfdir],
+        AS_HELP_STRING([--with-pamconfdir=DIR], [Directory for PAM configuration]),
+        [],
+        [with_pamconfdir=${sysconfdir}/pam.d])
 
 AC_ARG_ENABLE([split-usr],
         AS_HELP_STRING([--enable-split-usr], [Assume that /bin, /sbin aren\'t symlinks into /usr]),
@@ -892,7 +996,9 @@ AC_SUBST([dbussessionservicedir], [$with_dbussessionservicedir])
 AC_SUBST([dbussystemservicedir], [$with_dbussystemservicedir])
 AC_SUBST([dbusinterfacedir], [$with_dbusinterfacedir])
 AC_SUBST([bashcompletiondir], [$with_bashcompletiondir])
+AC_SUBST([zshcompletiondir], [$with_zshcompletiondir])
 AC_SUBST([pamlibdir], [$with_pamlibdir])
+AC_SUBST([pamconfdir], [$with_pamconfdir])
 AC_SUBST([rootprefix], [$with_rootprefix])
 AC_SUBST([rootlibdir], [$with_rootlibdir])
 
@@ -914,6 +1020,7 @@ AC_MSG_RESULT([
         AUDIT:                   ${have_audit}
         IMA:                     ${have_ima}
         SELinux:                 ${have_selinux}
+        SMACK:                   ${have_smack}
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
         XATTR:                   ${have_xattr}
@@ -926,8 +1033,11 @@ AC_MSG_RESULT([
         readahead:               ${have_readahead}
         bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
+        tmpfiles:                ${have_tmpfiles}
         randomseed:              ${have_randomseed}
+        backlight:               ${have_backlight}
         logind:                  ${have_logind}
+        machined:                ${have_machined}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
@@ -939,11 +1049,11 @@ AC_MSG_RESULT([
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
-        keymap:                  ${enable_keymap}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
         gtk-doc:                 ${enable_gtk_doc}
+        test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
 
@@ -959,13 +1069,16 @@ AC_MSG_RESULT([
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
         Build Python:            ${PYTHON}
         Installation Python:     ${PYTHON_BINARY}
+        sphinx binary:           ${SPHINX_BUILD}
         firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
+        PAM configuration dir:   ${with_pamconfdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
         D-Bus session dir:       ${with_dbussessionservicedir}
         D-Bus system dir:        ${with_dbussystemservicedir}
         D-Bus interfaces dir:    ${with_dbusinterfacedir}
         Bash completions dir:    ${with_bashcompletiondir}
+        Zsh completions dir:     ${with_zshcompletiondir}
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
@@ -973,6 +1086,6 @@ AC_MSG_RESULT([
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}
         LDFLAGS:                 ${OUR_LDFLAGS} ${LDFLAGS}
-        PYTHON_CFLAGS:           ${PYTHON_CFLAGS}
-        PYTHON_LIBS:             ${PYTHON_LIBS}
+        PYTHON_CFLAGS:           ${PYTHON_DEVEL_CFLAGS}
+        PYTHON_LIBS:             ${PYTHON_DEVEL_LIBS}
 ])

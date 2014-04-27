@@ -72,7 +72,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 struct udev_rules *udev_rules_unref(struct udev_rules *rules);
 bool udev_rules_check_timestamp(struct udev_rules *rules);
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event, const sigset_t *sigmask);
-void udev_rules_apply_static_dev_perms(struct udev_rules *rules);
+int udev_rules_apply_static_dev_perms(struct udev_rules *rules);
 
 /* udev-event.c */
 struct udev_event *udev_event_new(struct udev_device *dev);
@@ -145,6 +145,7 @@ enum udev_builtin_cmd {
 #endif
         UDEV_BUILTIN_HWDB,
         UDEV_BUILTIN_INPUT_ID,
+        UDEV_BUILTIN_KEYBOARD,
 #ifdef HAVE_KMOD
         UDEV_BUILTIN_KMOD,
 #endif
@@ -174,6 +175,7 @@ extern const struct udev_builtin udev_builtin_firmware;
 #endif
 extern const struct udev_builtin udev_builtin_hwdb;
 extern const struct udev_builtin udev_builtin_input_id;
+extern const struct udev_builtin udev_builtin_keyboard;
 #ifdef HAVE_KMOD
 extern const struct udev_builtin udev_builtin_kmod;
 #endif
@@ -190,7 +192,8 @@ int udev_builtin_run(struct udev_device *dev, enum udev_builtin_cmd cmd, const c
 void udev_builtin_list(struct udev *udev);
 bool udev_builtin_validate(struct udev *udev);
 int udev_builtin_add_property(struct udev_device *dev, bool test, const char *key, const char *val);
-int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *modalias, bool test);
+int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const char *modalias,
+                             const char *filter, bool test);
 
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,

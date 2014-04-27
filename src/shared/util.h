@@ -106,9 +106,19 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
+static inline const char *startswith(const char *s, const char *prefix) {
+        if (strncmp(s, prefix, strlen(prefix)) == 0)
+                return s + strlen(prefix);
+        return NULL;
+}
+
+static inline const char *startswith_no_case(const char *s, const char *prefix) {
+        if (strncasecmp(s, prefix, strlen(prefix)) == 0)
+                return s + strlen(prefix);
+        return NULL;
+}
+
 char *endswith(const char *s, const char *postfix) _pure_;
-char *startswith(const char *s, const char *prefix) _pure_;
-char *startswith_no_case(const char *s, const char *prefix) _pure_;
 
 bool first_word(const char *s, const char *word) _pure_;
 
@@ -210,6 +220,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 int get_process_exe(pid_t pid, char **name);
 int get_process_uid(pid_t pid, uid_t *uid);
 int get_process_gid(pid_t pid, gid_t *gid);
+int get_process_capeff(pid_t pid, char **capeff);
 
 char hexchar(int x) _const_;
 int unhexchar(char c) _const_;
@@ -242,6 +253,7 @@ int make_null_stdio(void);
 int make_console_stdio(void);
 
 unsigned long long random_ull(void);
+unsigned random_u(void);
 
 /* For basic lookup tables with strictly enumerated entries */
 #define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
@@ -373,6 +385,22 @@ void columns_lines_cache_reset(int _unused_ signum);
 
 bool on_tty(void);
 
+static inline const char *ansi_highlight(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_ON : "";
+}
+
+static inline const char *ansi_highlight_red(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_RED_ON : "";
+}
+
+static inline const char *ansi_highlight_green(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_GREEN_ON : "";
+}
+
+static inline const char *ansi_highlight_off(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
+}
+
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, size_t length, unsigned percent);
@@ -439,6 +467,7 @@ char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
 
 int glob_exists(const char *path);
+int glob_extend(char ***strv, const char *path);
 
 int dirent_ensure_type(DIR *d, struct dirent *de);
 
@@ -732,3 +761,6 @@ static inline void _reset_locale_(struct _locale_struct_ *s) {
              _saved_locale_.quit = true)
 
 bool id128_is_valid(const char *s) _pure_;
+void parse_user_at_host(char *arg, char **user, char **host);
+
+int split_pair(const char *s, const char *sep, char **l, char **r);

@@ -45,11 +45,13 @@
         <refnamediv>
                 <refname>sd_journal_open</refname>
                 <refname>sd_journal_open_directory</refname>
+                <refname>sd_journal_open_files</refname>
                 <refname>sd_journal_close</refname>
                 <refname>sd_journal</refname>
                 <refname>SD_JOURNAL_LOCAL_ONLY</refname>
                 <refname>SD_JOURNAL_RUNTIME_ONLY</refname>
-                <refname>SD_JOURNAL_SYSTEM_ONLY</refname>
+                <refname>SD_JOURNAL_SYSTEM</refname>
+                <refname>SD_JOURNAL_CURRENT_USER</refname>
                 <refpurpose>Open the system journal for reading</refpurpose>
         </refnamediv>
 
@@ -71,6 +73,13 @@
                         </funcprototype>
 
                         <funcprototype>
+                                <funcdef>int <function>sd_journal_open_files</function></funcdef>
+                                <paramdef>sd_journal** <parameter>ret</parameter></paramdef>
+                                <paramdef>const char** <parameter>paths</parameter></paramdef>
+                                <paramdef>int <parameter>flags</parameter></paramdef>
+                        </funcprototype>
+
+                        <funcprototype>
                                 <funcdef>void <function>sd_journal_close</function></funcdef>
                                 <paramdef>sd_journal* <parameter>j</parameter></paramdef>
                         </funcprototype>
@@ -84,19 +93,23 @@
                 the log journal for reading. It will find all journal
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
-                a <literal>sd_journal</literal> pointer, which on
-                success will contain journal context object afterwards. The
+                a <varname>sd_journal</varname> pointer, which on
+                success will contain a journal context object. The
                 second argument is a flags field, which may consist of
                 the following flags ORed together:
-                <literal>SD_JOURNAL_LOCAL_ONLY</literal> makes sure
+                <constant>SD_JOURNAL_LOCAL_ONLY</constant> makes sure
                 only journal files generated on the local machine will
-                be opened. <literal>SD_JOURNAL_RUNTIME_ONLY</literal>
+                be opened. <constant>SD_JOURNAL_RUNTIME_ONLY</constant>
                 makes sure only volatile journal files will be opened,
                 excluding those which are stored on persistent
-                storage. <literal>SD_JOURNAL_SYSTEM_ONLY</literal>
-                will ensure that only journal files of system services
-                and the kernel (in opposition to user session processes) will
-                be opened.</para>
+                storage. <constant>SD_JOURNAL_SYSTEM</constant>
+                will cause journal files of system services and the
+                kernel (in opposition to user session processes) to
+                be opened. <constant>SD_JOURNAL_CURRENT_USER</constant>
+                will cause journal files of the current user to be
+                opened. If neither <constant>SD_JOURNAL_SYSTEM</constant>
+                nor <constant>SD_JOURNAL_CURRENT_USER</constant> are
+                specified, all journal file types will be opened.</para>
 
                 <para><function>sd_journal_open_directory()</function>
                 is similar to <function>sd_journal_open()</function>
@@ -106,6 +119,25 @@
                 flags argument, but it must be passed as 0 as no flags
                 are currently understood for this call.</para>
 
+                <para><function>sd_journal_open_files()</function>
+                is similar to <function>sd_journal_open()</function>
+                but takes a <constant>NULL</constant>-terminated list
+                of file paths to open. All files will be opened and
+                interleaved automatically. This call also takes a
+                flags argument, but it must be passed as 0 as no flags
+                are currently understood for this call. Please note
+                that in the case of a live journal, this function is only
+                useful for debugging, because individual journal files
+                can be rotated at any moment, and the opening of
+                specific files is inherently racy.</para>
+
+                <para><varname>sd_journal</varname> objects cannot be
+                used in the child after a fork. Functions which take a
+                journal object as an argument
+                (<function>sd_journal_next()</function> and others)
+                will return <constant>-ECHILD</constant> after a fork.
+                </para>
+
                 <para><function>sd_journal_close()</function> will
                 close the journal context allocated with
                 <function>sd_journal_open()</function> or
@@ -114,12 +146,12 @@
 
                 <para>When opening the journal only journal files
                 accessible to the calling user will be opened. If
-                journal files are not accessible to the caller this
+                journal files are not accessible to the caller, this
                 will be silently ignored.</para>
 
                 <para>See
                 <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                for an example how to iterate through the journal
+                for an example of how to iterate through the journal
                 after opening it with
                 <function>sd_journal_open()</function>.</para>
 
@@ -150,8 +182,9 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>The <function>sd_journal_open()</function> and
-                <function>sd_journal_open_directory()</function> calls
+                <para>The <function>sd_journal_open()</function>,
+                <function>sd_journal_open_directory()</function>, and
+                <function>sd_journal_open_files()</function> calls
                 return 0 on success or a negative errno-style error
                 code. <function>sd_journal_close()</function> returns
                 nothing.</para>
@@ -163,11 +196,31 @@
                 <para>The <function>sd_journal_open()</function>,
                 <function>sd_journal_open_directory()</function> and
                 <function>sd_journal_close()</function> interfaces are
-                available as shared library, which can be compiled and
+                available as a shared library, which can be compiled and
                 linked to with the
-                <literal>libsystemd-journal</literal>
-                <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>History</title>
+
+                <para><function>sd_journal_open()</function>,
+                <function>sd_journal_close()</function>,
+                <constant>SD_JOURNAL_LOCAL_ONLY</constant>,
+                <constant>SD_JOURNAL_RUNTIME_ONLY</constant>,
+                <constant>SD_JOURNAL_SYSTEM_ONLY</constant> were added
+                in systemd-38.</para>
+
+                <para><function>sd_journal_open_directory()</function>
+                was added in systemd-187.</para>
+
+                <para><constant>SD_JOURNAL_SYSTEM</constant>,
+                <constant>SD_JOURNAL_CURRENT_USER</constant>,
+                and <function>sd_journal_open_files()</function>
+                were added in systemd-205.
+                <constant>SD_JOURNAL_SYSTEM_ONLY</constant>
+                was deprecated.</para>
         </refsect1>
 
         <refsect1>

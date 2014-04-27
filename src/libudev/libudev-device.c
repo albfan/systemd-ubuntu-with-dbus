@@ -42,7 +42,7 @@
  *
  * Representation of kernel sys devices. Devices are uniquely identified
  * by their syspath, every device has exactly one path in the kernel sys
- * filesystem. Devices usually belong to a kernel subsystem, and and have
+ * filesystem. Devices usually belong to a kernel subsystem, and have
  * a unique name inside that subsystem.
  */
 
@@ -780,7 +780,7 @@ _public_ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
-_public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, char *id)
+_public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, const char *id)
 {
         char type;
         int maj, min;

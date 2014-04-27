@@ -30,6 +30,7 @@
 #include "pyutil.h"
 #include "macro.h"
 #include "util.h"
+#include "strv.h"
 #include "build.h"
 
 typedef struct {
@@ -37,20 +38,6 @@ typedef struct {
     sd_journal *j;
 } Reader;
 static PyTypeObject ReaderType;
-
-static int set_error(int r, const char* path, const char* invalid_message) {
-    if (r >= 0)
-        return r;
-    if (r == -EINVAL && invalid_message)
-        PyErr_SetString(PyExc_ValueError, invalid_message);
-    else if (r == -ENOMEM)
-        PyErr_SetString(PyExc_MemoryError, "Not enough memory");
-    else {
-        errno = -r;
-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-    }
-    return -1;
-}
 
 
 PyDoc_STRVAR(module__doc__,
@@ -77,6 +64,70 @@ static PyStructSequence_Desc Monotonic_desc = {
 };
 #endif
 
+/**
+ * Convert a Python sequence object into a strv (char**), and
+ * None into a NULL pointer.
+ */
+static int strv_converter(PyObject* obj, void *_result) {
+        char ***result = _result;
+        Py_ssize_t i, len;
+
+        assert(result);
+
+        if (!obj)
+            return 0;
+
+        if (obj == Py_None) {
+            *result = NULL;
+            return 1;
+        }
+
+        if (!PySequence_Check(obj))
+            return 0;
+
+        len = PySequence_Length(obj);
+        *result = new0(char*, len + 1);
+        if (!*result) {
+            set_error(-ENOMEM, NULL, NULL);
+            return 0;
+        }
+
+        for (i = 0; i < len; i++) {
+            PyObject *item;
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
+            int r;
+            PyObject *bytes;
+#endif
+            char *s, *s2;
+
+            item = PySequence_ITEM(obj, i);
+#if PY_MAJOR_VERSION >=3 && PY_MINOR_VERSION >= 1
+            r = PyUnicode_FSConverter(item, &bytes);
+            if (r == 0)
+                goto cleanup;
+
+            s = PyBytes_AsString(bytes);
+#else
+            s = PyString_AsString(item);
+#endif
+            if (!s)
+                goto cleanup;
+
+            s2 = strdup(s);
+            if (!s2)
+                log_oom();
+
+            (*result)[i] = s2;
+        }
+
+        return 1;
+
+cleanup:
+        strv_free(*result);
+        *result = NULL;
+
+        return 0;
+}
 
 static void Reader_dealloc(Reader* self)
 {
@@ -85,40 +136,45 @@ static void Reader_dealloc(Reader* self)
 }
 
 PyDoc_STRVAR(Reader__doc__,
-             "_Reader([flags | path]) -> ...\n\n"
+             "_Reader([flags | path | files]) -> ...\n\n"
              "_Reader allows filtering and retrieval of Journal entries.\n"
              "Note: this is a low-level interface, and probably not what you\n"
              "want, use systemd.journal.Reader instead.\n\n"
              "Argument `flags` sets open flags of the journal, which can be one\n"
              "of, or ORed combination of constants: LOCAL_ONLY (default) opens\n"
              "journal on local machine only; RUNTIME_ONLY opens only\n"
-             "volatile journal files; and SYSTEM_ONLY opens only\n"
-             "journal files of system services and the kernel.\n\n"
-             "Argument `path` is the directory of journal files. Note that\n"
-             "`flags` and `path` are exclusive.\n\n"
+             "volatile journal files; and SYSTEM opens journal files of\n"
+             "system services and the kernel, and CURRENT_USER opens files\n"
+             "of the current user.\n\n"
+             "Argument `path` is the directory of journal files.\n"
+             "Argument `files` is a list of files. Note that\n"
+             "`flags`, `path`, and `files` are exclusive.\n\n"
              "_Reader implements the context manager protocol: the journal\n"
              "will be closed when exiting the block.");
 static int Reader_init(Reader *self, PyObject *args, PyObject *keywds)
 {
     int flags = 0, r;
     char *path = NULL;
+    char **files = NULL;
 
-    static const char* const kwlist[] = {"flags", "path", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|iz", (char**) kwlist,
-                                     &flags, &path))
+    static const char* const kwlist[] = {"flags", "path", "files", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "|izO&:__init__", (char**) kwlist,
+                                     &flags, &path, strv_converter, &files))
         return -1;
+
+    if (!!flags + !!path + !!files > 1) {
+        PyErr_SetString(PyExc_ValueError, "cannot use more than one of flags, path, and files");
+        return -1;
+    }
 
     if (!flags)
         flags = SD_JOURNAL_LOCAL_ONLY;
-    else
-        if (path) {
-            PyErr_SetString(PyExc_ValueError, "cannot use both flags and path");
-            return -1;
-        }
 
     Py_BEGIN_ALLOW_THREADS
     if (path)
         r = sd_journal_open_directory(&self->j, path, 0);
+    else if (files)
+        r = sd_journal_open_files(&self->j, (const char**) files, 0);
     else
         r = sd_journal_open(&self->j, flags);
     Py_END_ALLOW_THREADS
@@ -177,7 +233,7 @@ PyDoc_STRVAR(Reader_get_timeout__doc__,
              "Returns a timeout value for usage in poll(), the time since the\n"
              "epoch of clock_gettime(2) in microseconds, or None if no timeout\n"
              "is necessary.\n\n"
-             "The return value must be converted to a relative timeout in \n"
+             "The return value must be converted to a relative timeout in\n"
              "milliseconds if it is to be used as an argument for poll().\n"
              "See man:sd_journal_get_timeout(3) for further discussion.");
 static PyObject* Reader_get_timeout(Reader *self, PyObject *args)
@@ -275,11 +331,7 @@ PyDoc_STRVAR(Reader___exit____doc__,
              "Closes the journal.\n");
 static PyObject* Reader___exit__(Reader *self, PyObject *args)
 {
-    assert(self);
-
-    sd_journal_close(self->j);
-    self->j = NULL;
-    Py_RETURN_NONE;
+    return Reader_close(self, args);
 }
 
 
@@ -869,9 +921,9 @@ static PyObject* Reader_get_catalog(Reader *self, PyObject *args)
 
         r = sd_journal_get_data(self->j, "MESSAGE_ID", &mid, &mid_len);
         if (r == 0) {
-            const int l = sizeof("MESSAGE_ID");
+            const size_t l = sizeof("MESSAGE_ID");
             assert(mid_len > l);
-            PyErr_Format(PyExc_KeyError, "%.*s", (int) mid_len - l,
+            PyErr_Format(PyExc_KeyError, "%.*s", (int) (mid_len - l),
                          (const char*) mid + l);
         } else if (r == -ENOENT)
             PyErr_SetString(PyExc_IndexError, "no MESSAGE_ID field");
@@ -1007,48 +1059,20 @@ static PyMethodDef Reader_methods[] = {
 
 static PyTypeObject ReaderType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "_reader._Reader",                        /*tp_name*/
-    sizeof(Reader),                           /*tp_basicsize*/
-    0,                                        /*tp_itemsize*/
-    (destructor)Reader_dealloc,               /*tp_dealloc*/
-    0,                                        /*tp_print*/
-    0,                                        /*tp_getattr*/
-    0,                                        /*tp_setattr*/
-    0,                                        /*tp_compare*/
-    0,                                        /*tp_repr*/
-    0,                                        /*tp_as_number*/
-    0,                                        /*tp_as_sequence*/
-    0,                                        /*tp_as_mapping*/
-    0,                                        /*tp_hash */
-    0,                                        /*tp_call*/
-    0,                                        /*tp_str*/
-    0,                                        /*tp_getattro*/
-    0,                                        /*tp_setattro*/
-    0,                                        /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    Reader__doc__,                            /* tp_doc */
-    0,                                        /* tp_traverse */
-    0,                                        /* tp_clear */
-    0,                                        /* tp_richcompare */
-    0,                                        /* tp_weaklistoffset */
-    0,                                        /* tp_iter */
-    0,                                        /* tp_iternext */
-    Reader_methods,                           /* tp_methods */
-    0,                                        /* tp_members */
-    Reader_getsetters,                        /* tp_getset */
-    0,                                        /* tp_base */
-    0,                                        /* tp_dict */
-    0,                                        /* tp_descr_get */
-    0,                                        /* tp_descr_set */
-    0,                                        /* tp_dictoffset */
-    (initproc) Reader_init,                   /* tp_init */
-    0,                                        /* tp_alloc */
-    PyType_GenericNew,                        /* tp_new */
+    .tp_name = "_reader._Reader",
+    .tp_basicsize = sizeof(Reader),
+    .tp_dealloc = (destructor) Reader_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc = Reader__doc__,
+    .tp_methods = Reader_methods,
+    .tp_getset = Reader_getsetters,
+    .tp_init = (initproc) Reader_init,
+    .tp_new = PyType_GenericNew,
 };
 
 static PyMethodDef methods[] = {
         { "_get_catalog", get_catalog, METH_VARARGS, get_catalog__doc__},
-        { NULL, NULL, 0, NULL }        /* Sentinel */
+        {} /* Sentinel */
 };
 
 #if PY_MAJOR_VERSION >= 3
@@ -1058,7 +1082,6 @@ static PyModuleDef module = {
     module__doc__,
     -1,
     methods,
-    NULL, NULL, NULL, NULL
 };
 #endif
 
@@ -1115,7 +1138,9 @@ init_reader(void)
         PyModule_AddIntConstant(m, "INVALIDATE", SD_JOURNAL_INVALIDATE) ||
         PyModule_AddIntConstant(m, "LOCAL_ONLY", SD_JOURNAL_LOCAL_ONLY) ||
         PyModule_AddIntConstant(m, "RUNTIME_ONLY", SD_JOURNAL_RUNTIME_ONLY) ||
+        PyModule_AddIntConstant(m, "SYSTEM", SD_JOURNAL_SYSTEM) ||
         PyModule_AddIntConstant(m, "SYSTEM_ONLY", SD_JOURNAL_SYSTEM_ONLY) ||
+        PyModule_AddIntConstant(m, "CURRENT_USER", SD_JOURNAL_CURRENT_USER) ||
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION)) {
 #if PY_MAJOR_VERSION >= 3
         Py_DECREF(m);

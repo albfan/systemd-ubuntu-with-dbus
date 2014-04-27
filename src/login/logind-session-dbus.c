@@ -24,6 +24,7 @@
 
 #include "logind.h"
 #include "logind-session.h"
+#include "logind-session-device.h"
 #include "dbus-common.h"
 #include "util.h"
 
@@ -40,6 +41,34 @@
         "   <arg name=\"who\" type=\"s\"/>\n"                           \
         "   <arg name=\"signal\" type=\"s\"/>\n"                        \
         "  </method>\n"                                                 \
+        "  <method name=\"TakeControl\"/>\n"                            \
+        "   <arg name=\"force\" type=\"b\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReleaseControl\"/>\n"                         \
+        "  <method name=\"TakeDevice\">\n"                              \
+        "   <arg name=\"major\" type=\"u\" direction=\"in\"/>\n"        \
+        "   <arg name=\"minor\" type=\"u\" direction=\"in\"/>\n"        \
+        "   <arg name=\"fd\" type=\"h\" direction=\"out\"/>\n"          \
+        "   <arg name=\"paused\" type=\"b\" direction=\"out\"/>\n"      \
+        "  </method>\n"                                                 \
+        "  <method name=\"ReleaseDevice\">\n"                           \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <method name=\"PauseDeviceComplete\">\n"                     \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "  </method>\n"                                                 \
+        "  <signal name=\"PauseDevice\">\n"                             \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "   <arg name=\"type\" type=\"s\"/>\n"                          \
+        "  </signal>\n"                                                 \
+        "  <signal name=\"ResumeDevice\">\n"                            \
+        "   <arg name=\"major\" type=\"u\"/>\n"                         \
+        "   <arg name=\"minor\" type=\"u\"/>\n"                         \
+        "   <arg name=\"fd\" type=\"h\"/>\n"                            \
+        "  </signal>\n"                                                 \
         "  <signal name=\"Lock\"/>\n"                                   \
         "  <signal name=\"Unlock\"/>\n"                                 \
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>\n"        \
@@ -47,7 +76,6 @@
         "  <property name=\"Name\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Timestamp\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"TimestampMonotonic\" type=\"t\" access=\"read\"/>\n" \
-        "  <property name=\"DefaultControlGroup\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"VTNr\" type=\"u\" access=\"read\"/>\n"      \
         "  <property name=\"Seat\" type=\"(so)\" access=\"read\"/>\n"   \
         "  <property name=\"TTY\" type=\"s\" access=\"read\"/>\n"       \
@@ -56,15 +84,13 @@
         "  <property name=\"RemoteHost\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"RemoteUser\" type=\"s\" access=\"read\"/>\n" \
         "  <property name=\"Service\" type=\"s\" access=\"read\"/>\n"   \
+        "  <property name=\"Scope\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Leader\" type=\"u\" access=\"read\"/>\n"    \
         "  <property name=\"Audit\" type=\"u\" access=\"read\"/>\n"     \
         "  <property name=\"Type\" type=\"s\" access=\"read\"/>\n"      \
         "  <property name=\"Class\" type=\"s\" access=\"read\"/>\n"     \
         "  <property name=\"Active\" type=\"b\" access=\"read\"/>\n"    \
         "  <property name=\"State\" type=\"s\" access=\"read\"/>\n"     \
-        "  <property name=\"Controllers\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"ResetControllers\" type=\"as\" access=\"read\"/>\n" \
-        "  <property name=\"KillProcesses\" type=\"b\" access=\"read\"/>\n" \
         "  <property name=\"IdleHint\" type=\"b\" access=\"read\"/>\n"  \
         "  <property name=\"IdleSinceHint\" type=\"t\" access=\"read\"/>\n" \
         "  <property name=\"IdleSinceHintMonotonic\" type=\"t\" access=\"read\"/>\n" \
@@ -195,24 +221,6 @@ static int bus_session_append_idle_hint_since(DBusMessageIter *i, const char *pr
         return 0;
 }
 
-static int bus_session_append_default_cgroup(DBusMessageIter *i, const char *property, void *data) {
-        Session *s = data;
-        _cleanup_free_ char *t = NULL;
-        int r;
-        bool success;
-
-        assert(i);
-        assert(property);
-        assert(s);
-
-        r = cg_join_spec(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_path, &t);
-        if (r < 0)
-                return r;
-
-        success = dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t);
-        return success ? 0 : -ENOMEM;
-}
-
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_type, session_type, SessionType);
 static DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_session_append_class, session_class, SessionClass);
 
@@ -233,8 +241,8 @@ static int bus_session_append_state(DBusMessageIter *i, const char *property, vo
 }
 
 static int get_session_for_path(Manager *m, const char *path, Session **_s) {
+        _cleanup_free_ char *id = NULL;
         Session *s;
-        char *id;
 
         assert(m);
         assert(path);
@@ -248,8 +256,6 @@ static int get_session_for_path(Manager *m, const char *path, Session **_s) {
                 return -ENOMEM;
 
         s = hashmap_get(m->sessions, id);
-        free(id);
-
         if (!s)
                 return -ENOENT;
 
@@ -261,7 +267,6 @@ static const BusProperty bus_login_session_properties[] = {
         { "Id",                     bus_property_append_string,         "s", offsetof(Session, id),                 true },
         { "Timestamp",              bus_property_append_usec,           "t", offsetof(Session, timestamp.realtime)  },
         { "TimestampMonotonic",     bus_property_append_usec,           "t", offsetof(Session, timestamp.monotonic) },
-        { "DefaultControlGroup",    bus_session_append_default_cgroup,  "s", 0,                                     },
         { "VTNr",                   bus_property_append_uint32,         "u", offsetof(Session, vtnr)                },
         { "Seat",                   bus_session_append_seat,         "(so)", 0 },
         { "TTY",                    bus_property_append_string,         "s", offsetof(Session, tty),                true },
@@ -270,15 +275,13 @@ static const BusProperty bus_login_session_properties[] = {
         { "RemoteUser",             bus_property_append_string,         "s", offsetof(Session, remote_user),        true },
         { "RemoteHost",             bus_property_append_string,         "s", offsetof(Session, remote_host),        true },
         { "Service",                bus_property_append_string,         "s", offsetof(Session, service),            true },
+        { "Scope",                  bus_property_append_string,         "s", offsetof(Session, scope),              true },
         { "Leader",                 bus_property_append_pid,            "u", offsetof(Session, leader)              },
         { "Audit",                  bus_property_append_uint32,         "u", offsetof(Session, audit_id)            },
         { "Type",                   bus_session_append_type,            "s", offsetof(Session, type)                },
         { "Class",                  bus_session_append_class,           "s", offsetof(Session, class)               },
         { "Active",                 bus_session_append_active,          "b", 0 },
         { "State",                  bus_session_append_state,           "s", 0 },
-        { "Controllers",            bus_property_append_strv,          "as", offsetof(Session, controllers),        true },
-        { "ResetControllers",       bus_property_append_strv,          "as", offsetof(Session, reset_controllers),  true },
-        { "KillProcesses",          bus_property_append_bool,           "b", offsetof(Session, kill_processes)      },
         { "IdleHint",               bus_session_append_idle_hint,       "b", 0 },
         { "IdleSinceHint",          bus_session_append_idle_hint_since, "t", 0 },
         { "IdleSinceHintMonotonic", bus_session_append_idle_hint_since, "t", 0 },
@@ -392,6 +395,147 @@ static DBusHandlerResult session_message_dispatch(
                 if (!reply)
                         goto oom;
 
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "TakeControl")) {
+                dbus_bool_t force;
+                unsigned long ul;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_BOOLEAN, &force,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                ul = dbus_bus_get_unix_user(connection, dbus_message_get_sender(message), &error);
+                if (ul == (unsigned long) -1)
+                        return bus_send_error_reply(connection, message, &error, -EIO);
+
+                if (ul != 0 && (force || ul != s->user->uid))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                r = session_set_controller(s, bus_message_get_sender_with_fallback(message), force);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "ReleaseControl")) {
+                const char *sender = bus_message_get_sender_with_fallback(message);
+
+                if (!session_is_controller(s, sender))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                session_drop_controller(s);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "TakeDevice")) {
+                SessionDevice *sd;
+                bool b;
+                dbus_bool_t paused;
+                uint32_t major, minor;
+                dev_t dev;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                dev = makedev(major, minor);
+                sd = hashmap_get(s->devices, &dev);
+                if (sd) {
+                        /* We don't allow retrieving a device multiple times.
+                         * The related ReleaseDevice call is not ref-counted.
+                         * The caller should use dup() if it requires more than
+                         * one fd (it would be functionally equivalent). */
+                        return bus_send_error_reply(connection, message, &error, -EBUSY);
+                }
+
+                r = session_device_new(s, dev, &sd);
+                if (r < 0)
+                        return bus_send_error_reply(connection, message, NULL, r);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply) {
+                        session_device_free(sd);
+                        goto oom;
+                }
+
+                paused = !sd->active;
+                b = dbus_message_append_args(
+                                reply,
+                                DBUS_TYPE_UNIX_FD, &sd->fd,
+                                DBUS_TYPE_BOOLEAN, &paused,
+                                DBUS_TYPE_INVALID);
+                if (!b) {
+                        session_device_free(sd);
+                        return bus_send_error_reply(connection, message, NULL, -ENOMEM);
+                }
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "ReleaseDevice")) {
+                SessionDevice *sd;
+                uint32_t major, minor;
+                dev_t dev;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                dev = makedev(major, minor);
+                sd = hashmap_get(s->devices, &dev);
+                if (!sd)
+                        return bus_send_error_reply(connection, message, NULL, -ENODEV);
+
+                session_device_free(sd);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.login1.Session", "PauseDeviceComplete")) {
+                SessionDevice *sd;
+                uint32_t major, minor;
+                dev_t dev;
+
+                if (!session_is_controller(s, bus_message_get_sender_with_fallback(message)))
+                        return bus_send_error_reply(connection, message, NULL, -EPERM);
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_UINT32, &major,
+                                    DBUS_TYPE_UINT32, &minor,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+
+                dev = makedev(major, minor);
+                sd = hashmap_get(s->devices, &dev);
+                if (!sd)
+                        return bus_send_error_reply(connection, message, NULL, -ENODEV);
+
+                session_device_complete_pause(sd);
+
+                reply = dbus_message_new_method_return(message);
+                if (!reply)
+                        goto oom;
+
         } else {
                 const BusBoundProperties bps[] = {
                         { "org.freedesktop.login1.Session", bus_login_session_properties,      s       },
@@ -448,7 +592,7 @@ const DBusObjectPathVTable bus_session_vtable = {
 };
 
 char *session_bus_path(Session *s) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert(s);
 
@@ -551,4 +695,82 @@ int session_send_lock_all(Manager *m, bool lock) {
         }
 
         return r;
+}
+
+int session_send_create_reply(Session *s, DBusError *error) {
+        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+
+        assert(s);
+
+        if (!s->create_message)
+                return 0;
+
+        /* This is called after the session scope was successfully
+         * created, and finishes where bus_manager_create_session()
+         * left off. */
+
+        if (error) {
+                DBusError buffer;
+
+                dbus_error_init(&buffer);
+
+                if (!dbus_error_is_set(error)) {
+                        dbus_set_error_const(&buffer, DBUS_ERROR_INVALID_ARGS, "Invalid Arguments");
+                        error = &buffer;
+                }
+
+                reply = dbus_message_new_error(s->create_message, error->name, error->message);
+                dbus_error_free(&buffer);
+
+                if (!reply)
+                        return log_oom();
+        } else {
+                _cleanup_close_ int fifo_fd = -1;
+                _cleanup_free_ char *path = NULL;
+                const char *cseat;
+                uint32_t vtnr;
+                dbus_bool_t exists;
+
+                fifo_fd = session_create_fifo(s);
+                if (fifo_fd < 0) {
+                        log_error("Failed to create fifo: %s", strerror(-fifo_fd));
+                        return fifo_fd;
+                }
+
+                path = session_bus_path(s);
+                if (!path)
+                        return log_oom();
+
+                reply = dbus_message_new_method_return(s->create_message);
+                if (!reply)
+                        return log_oom();
+
+                cseat = s->seat ? s->seat->id : "";
+                vtnr = s->vtnr;
+                exists = false;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_STRING, &s->id,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_STRING, &s->user->runtime_path,
+                                    DBUS_TYPE_UNIX_FD, &fifo_fd,
+                                    DBUS_TYPE_STRING, &cseat,
+                                    DBUS_TYPE_UINT32, &vtnr,
+                                    DBUS_TYPE_BOOLEAN, &exists,
+                                    DBUS_TYPE_INVALID))
+                        return log_oom();
+        }
+
+        /* Update the state file before we notify the client about the
+         * result */
+        session_save(s);
+
+        if (!dbus_connection_send(s->manager->bus, reply, NULL))
+                return log_oom();
+
+        dbus_message_unref(s->create_message);
+        s->create_message = NULL;
+
+        return 0;
 }
