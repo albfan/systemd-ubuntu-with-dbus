@@ -213,6 +213,17 @@ systemd (204-8) unstable; urgency=low
 
  -- Michael Biebl <biebl@debian.org>  Wed, 19 Mar 2014 18:57:35 +0100
 
+systemd (204-7tanglu1) staging; urgency=medium
+
+  * Merge with Debian unstable, remaining changes:
+    - Explicitly depend on newer libaudit
+    - Make systemd and systemd-sysv required packages
+    - Enable persistent journald logging
+  * Map SysV runlevel S to basic.target, not sysinit.target.
+    - Debian specific change, upstream does not map runlevel S to any target.
+
+ -- Jon Severinsson <jon@severinsson.net>  Fri, 14 Feb 2014 10:00:00 +0100
+
 systemd (204-7) unstable; urgency=low
 
   * fix systemctl enable/disable/… error message “Failed to issue method call:
@@ -228,6 +239,20 @@ systemd (204-7) unstable; urgency=low
     fix reference in systemd-inhibit(1) (07b4b9b) (Closes: #738316)
 
  -- Michael Stapelberg <stapelberg@debian.org>  Tue, 11 Feb 2014 23:34:42 +0100
+
+systemd (204-6tanglu2) staging; urgency=low
+
+  * Enable persistent journald logging
+
+ -- Matthias Klumpp <mak@debian.org>  Sun, 12 Jan 2014 18:14:26 +0100
+
+systemd (204-6tanglu1) staging; urgency=low
+
+  * Merge with Debian unstable, remaining changes:
+    - Explicitly depend on newer libaudit
+    - Make systemd and systemd-sysv required packages
+
+ -- Matthias Klumpp <mak@debian.org>  Tue, 07 Jan 2014 12:08:34 +0100
 
 systemd (204-6) unstable; urgency=low
 
@@ -264,6 +289,14 @@ systemd (204-6) unstable; urgency=low
 
  -- Michael Stapelberg <stapelberg@debian.org>  Tue, 31 Dec 2013 14:39:44 +0100
 
+systemd (204-5tanglu1) staging; urgency=low
+
+  * Merge with Debian unstable, remaining changes:
+    - Explicitly depend on newer libaudit
+    - Make systemd and sysv-compat required packages
+
+ -- Matthias Klumpp <mak@debian.org>  Sun, 01 Dec 2013 20:26:34 +0100
+
 systemd (204-5) unstable; urgency=high
 
   * Cherry-pick 72fd713 from upstream which fixes insecure calling of polkit
@@ -271,6 +304,15 @@ systemd (204-5) unstable; urgency=high
     Closes: #723713
 
  -- Michael Biebl <biebl@debian.org>  Mon, 23 Sep 2013 11:59:53 +0200
+
+systemd (204-4tanglu1) staging; urgency=low
+
+  * Merge with debian unstable, remaining changes:
+    - mount /dev as devtmpfs, not tmpfs
+    - Explicitly depend on newer libaudit
+    - systemd is a required component
+
+ -- Matthias Klumpp <mak@debian.org>  Tue, 17 Sep 2013 21:40:16 -0700
 
 systemd (204-4) unstable; urgency=low
 
@@ -327,6 +369,15 @@ systemd (204-3) unstable; urgency=low
   * Recognize discard option in /etc/crypttab.  Closes: #719167
 
  -- Michael Biebl <biebl@debian.org>  Thu, 12 Sep 2013 00:13:11 +0200
+
+systemd (204-2tanglu1) aequorea; urgency=low
+
+  * Merge with debian experimental, remaining changes:
+    - mount /dev as devtmpfs, not tmpfs
+    - Adjust maintscript version-numbers to Tanglu packaging
+    - systemd is a required component
+
+ -- Philip Muškovac <yofel@kubuntu.org>  Sat, 27 Jul 2013 14:12:08 +0200
 
 systemd (204-2) experimental; urgency=low
 
@@ -447,6 +498,45 @@ systemd (44-12) unstable; urgency=low
     package called systemd-ui.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 20 Jun 2013 01:32:16 +0200
+
+systemd (204-0tanglu2) aequorea; urgency=low
+
+  * Adjust maintscript version-numbers to Tanglu packaging
+  * Remove obsolete udev-mtab init-script
+    - Thanks to Michael Biebl for the hint!
+
+ -- Matthias Klumpp <mak@debian.org>  Fri, 19 Jul 2013 18:54:49 +0200
+
+systemd (204-0tanglu1) aequorea; urgency=low
+
+  * New upstream release
+
+ -- Matthias Klumpp <mak@debian.org>  Fri, 28 Jun 2013 22:48:52 +0200
+
+systemd (201-0tanglu4) aequorea; urgency=low
+
+  * Make sure debian-fixup.service runs after systemd-remount-fs.service,
+     which has been renamed.
+
+ -- Matthias Klumpp <mak@debian.org>  Thu, 23 May 2013 22:28:45 +0200
+
+systemd (201-0tanglu3) aequorea; urgency=low
+
+  * debian/extra/udev.startup: Mount /dev as devtmpfs instead of tmpfs
+
+ -- Philip MuÃ…Â¡kovac <yofel@kubuntu.org>  Tue, 21 May 2013 01:47:17 +0200
+
+systemd (201-0tanglu2) aequorea; urgency=low
+
+  * Make systemd a required component
+
+ -- Matthias Klumpp <mak@debian.org>  Sat, 27 Apr 2013 22:55:46 +0200
+
+systemd (201-0tanglu1) aequorea; urgency=low
+
+  * Build for Tanglu, adjusting dependencies
+
+ -- Matthias Klumpp <mak@debian.org>  Tue, 23 Apr 2013 20:16:45 +0200
 
 systemd (44-11) unstable; urgency=low
 
