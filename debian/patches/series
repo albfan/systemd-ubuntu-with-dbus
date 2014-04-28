@@ -42,3 +42,4 @@ more-cd-aliases.patch
 Always-probe-cpu-support-drivers.patch
 Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
+Map-SysV-runlevel-S-to-basic-target.patch

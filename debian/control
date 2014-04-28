@@ -43,7 +43,7 @@ Build-Depends: debhelper (>= 9),
 Package: systemd
 Architecture: linux-any
 Section: admin
-Priority: optional
+Priority: required
 Recommends: libpam-systemd
 Suggests: systemd-ui
 Pre-Depends: ${misc:Pre-Depends}
@@ -72,7 +72,7 @@ Description: system and service manager
 Package: systemd-sysv
 Architecture: linux-any
 Section: admin
-Priority: extra
+Priority: required
 Conflicts: sysvinit (<< 2.88dsf-44~),
            upstart,
            runit-run
