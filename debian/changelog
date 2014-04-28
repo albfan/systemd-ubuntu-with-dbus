@@ -1,3 +1,12 @@
+systemd (208-1tanglu1) staging; urgency=medium
+
+  * Merge with Debian experimental, remaining changes:
+    - Make systemd and systemd-sysv required packages
+    - Enable persistent journald logging
+    - Map SysV runlevel S to basic.target, not sysinit.target.
+
+ -- Jon Severinsson <jon@severinsson.net>  Mon, 28 Apr 2014 15:00:00 +0200
+
 systemd (208-1) experimental; urgency=medium
 
   [ Michael Biebl ]
