@@ -1,0 +1,22 @@
+From: Jon Severinsson <jon@severinsson.net>
+Date: Wed, 2 Apr 2014 15:00:00 +0200
+Subject: Map SysV runlevel S to basic.target, not sysinit.target.
+
+Debian specific change, upstream does not map runlevel S to any target.
+---
+ src/core/service.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index dda34a7..268f687 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -69,7 +69,7 @@ static const struct {
+         { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
+ 
+         /* Debian style rcS.d */
+-        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
++        { "rcS.d",  SPECIAL_BASIC_TARGET,   RUNLEVEL_SYSINIT },
+ 
+         /* Standard SysV runlevels for shutdown */
+         { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
