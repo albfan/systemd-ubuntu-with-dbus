@@ -98,16 +98,15 @@ fi
 # initial update of the Message Catalogs database
 _update_catalog
 
-# We don’t ship /var/log/journal currently, so only run the following fix for
-# systems where the administrator has explicitly enabled persistent logging by
-# creating /var/log/journal.
-if [ -d /var/log/journal ]; then
-        # Grant read access to /var/log/journal for members of the adm group
-        # via a filesystem ACL. This makes them able to read the journal.
-        # Failure is ignored since there might be file systems mounted without
-        # ACL support.
-        setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
-fi
+# Install systemd journal directory with appropriate permissions
+# to enable persistent logging.
+install -d -g systemd-journal /var/log/journal
+
+# Grant read access to /var/log/journal for members of the adm group
+# via a filesystem ACL. This makes them able to read the journal.
+# Failure is ignored since there might be file systems mounted without
+# ACL support.
+setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
 
 setcap cap_dac_override,cap_sys_ptrace=ep /usr/bin/systemd-detect-virt || true
 
