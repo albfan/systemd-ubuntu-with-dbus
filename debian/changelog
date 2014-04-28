@@ -1,6 +1,7 @@
 systemd (204-14tanglu0.1) UNRELEASED; urgency=medium
 
   * Merge from Debian, remaining changes:
+    - Make systemd and systemd-sysv required packages.
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 06 Jul 2014 18:00:00 +0200
 
