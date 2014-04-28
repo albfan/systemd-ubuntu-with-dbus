@@ -22,7 +22,7 @@ which represents each quilt patch as git commit. You create this with
 Then you are in the patch-queue branch and can git log, commit, cherry-pick
 upstream commits, rebase, etc. there. After you are done, run
 
-  gbp-pq export --no-patch-numbers
+  gbp-pq export
 
 which will put you back into master and update debian/patches/ (including
 series). You need to git add etc. new patches, add a changelog and other
@@ -58,7 +58,9 @@ do:
 
 Now resolve all the conflicts, skip obsolete patches, etc. When you are done, run
 
-  gbp-pq export --no-patch-numbers
+  gbp-pq export
+
+Note that our debian/gbp.conf disables patch numbers.
 
 Cherry-picking upstream patches
 -------------------------------
