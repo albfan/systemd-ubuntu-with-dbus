@@ -1,0 +1,38 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Sat, 20 Jul 2013 14:29:12 +0200
+Subject: rules: drivers - always call kmod,
+ even when a driver is bound to the device
+
+On Sat, Jul 20, 2013 at 12:56 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> After a recent change present in 3.11-rc1 there is a driver, called processor,
+> that can be bound to the CPU devices whose sysfs directories are located under
+> /sys/devices/system/cpu/.  A side effect of this is that, after the driver has
+> been bound to those devices, the kernel adds DRIVER=processor to ENV for CPU
+> uevents and they don't match the default rule for autoloading modules matching
+> MODALIAS:
+>
+> DRIVER!="?*", ENV{MODALIAS}=="?*", IMPORT{builtin}="kmod load $env{MODALIAS}"
+>
+> any more.  However, there are some modules whose module aliases match specific
+> CPU features through the modalias string and those modules should be loaded
+> automatically if a compatible CPU is present.  Yet, with the processor driver
+> bound to the CPU devices the above rule is not sufficient for that, so we need
+> a new default udev rule allowing those modules to be autoloaded even if the
+> CPU devices have drivers.
+---
+ rules/80-drivers.rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
+index 01760ef..127da7e 100644
+--- a/rules/80-drivers.rules
++++ b/rules/80-drivers.rules
+@@ -2,7 +2,7 @@
+ 
+ ACTION=="remove", GOTO="drivers_end"
+ 
+-DRIVER!="?*", ENV{MODALIAS}=="?*", RUN{builtin}="kmod load $env{MODALIAS}"
++ENV{MODALIAS}=="?*", RUN{builtin}="kmod load $env{MODALIAS}"
+ SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN{builtin}="kmod load tifm_sd"
+ SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN{builtin}="kmod load tifm_ms"
+ SUBSYSTEM=="memstick", RUN{builtin}="kmod load ms_block mspro_block"
