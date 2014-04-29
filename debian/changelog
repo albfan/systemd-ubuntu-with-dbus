@@ -5,6 +5,25 @@ systemd (204-10ubuntu2) UNRELEASED; urgency=medium
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 28 Apr 2014 13:19:06 +0200
 
+systemd (204-11) UNRELEASED; urgency=medium
+
+  [ Martin Pitt ]
+  * Explain patch management in debian/README.source. (Closes: #739113)
+  * Replace "Always probe cpu support drivers" patch with cherry-picked
+    upstream fix which is more general.
+  * Advertise hibernation only if there's enough free swap. Patches backported
+    from current upstream. (LP: #1313522)
+  * Fix typo in sg loading rule to make it actually work.
+
+  [ Michael Biebl ]
+  * Make no-patch-numbers the default for gbp-pq.
+
+  [ Michael Stapelberg ]
+  * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
+    (Closes: #747741)
+
+ -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 12:51:55 +0200
+
 systemd (204-10ubuntu1) utopic; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
@@ -44,25 +63,6 @@ systemd (204-10ubuntu1) utopic; urgency=medium
     - Remove obsolete systemd-logind upstart job.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 27 Apr 2014 13:21:11 +0200
-
-systemd (204-11) UNRELEASED; urgency=medium
-
-  [ Martin Pitt ]
-  * Explain patch management in debian/README.source. (Closes: #739113)
-  * Replace "Always probe cpu support drivers" patch with cherry-picked
-    upstream fix which is more general.
-  * Advertise hibernation only if there's enough free swap. Patches backported
-    from current upstream. (LP: #1313522)
-  * Fix typo in sg loading rule to make it actually work.
-
-  [ Michael Biebl ]
-  * Make no-patch-numbers the default for gbp-pq.
-
-  [ Michael Stapelberg ]
-  * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
-    (Closes: #747741)
-
- -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 12:51:55 +0200
 
 systemd (204-10) unstable; urgency=medium
 
