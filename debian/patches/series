@@ -54,3 +54,4 @@ insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 rules-drivers-always-call-kmod-even-when-a-driver-is.patch
+Advertise-hibernation-only-if-there-s-enough-free-sw.patch

@@ -1,0 +1,289 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 13 Sep 2013 19:41:52 -0400
+Subject: Advertise hibernation only if there's enough free swap
+
+Cherry-pick various upstream patches starting from 69ab80881 and 442e00839
+to check whether there is swap available for hibernation.
+
+Bug-Ubuntu: https://launchpad.net/bugs/1313522
+---
+ src/shared/fileio.c       |  34 +++++++++++++
+ src/shared/fileio.h       |   2 +
+ src/shared/sleep-config.c | 126 +++++++++++++++++++++++++++++++++++++++-------
+ src/shared/util.c         |   1 -
+ src/test/test-fileio.c    |  24 +++++++++
+ src/test/test-sleep.c     |  16 +++---
+ 6 files changed, 175 insertions(+), 28 deletions(-)
+
+diff --git a/src/shared/fileio.c b/src/shared/fileio.c
+index ad068bf..9af284d 100644
+--- a/src/shared/fileio.c
++++ b/src/shared/fileio.c
+@@ -594,3 +594,37 @@ int write_env_file(const char *fname, char **l) {
+ 
+         return r;
+ }
++
++/**
++ * Retrieve one field from a file like /proc/self/status.
++ * pattern should start with '\n' and end with ':'. Whitespace
++ * after ':' will be skipped. field must be freed afterwards.
++ */
++int get_status_field(const char *filename, const char *pattern, char **field) {
++        _cleanup_free_ char *status = NULL;
++        char *t;
++        size_t len;
++        int r;
++
++        assert(filename);
++        assert(field);
++
++        r = read_full_file(filename, &status, NULL);
++        if (r < 0)
++                return r;
++
++        t = strstr(status, pattern);
++        if (!t)
++                return -ENOENT;
++
++        t += strlen(pattern);
++        t += strspn(t, WHITESPACE);
++
++        len = strcspn(t, WHITESPACE);
++
++        *field = strndup(t, len);
++        if (!*field)
++                return -ENOMEM;
++
++        return 0;
++}
+diff --git a/src/shared/fileio.h b/src/shared/fileio.h
+index 0ca6878..d8079ab 100644
+--- a/src/shared/fileio.h
++++ b/src/shared/fileio.h
+@@ -35,3 +35,5 @@ int read_full_file(const char *fn, char **contents, size_t *size);
+ int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
+ int load_env_file(const char *fname, const char *separator, char ***l);
+ int write_env_file(const char *fname, char **l);
++
++int get_status_field(const char *filename, const char *pattern, char **field);
+diff --git a/src/shared/sleep-config.c b/src/shared/sleep-config.c
+index cd3238b..cf1cd40 100644
+--- a/src/shared/sleep-config.c
++++ b/src/shared/sleep-config.c
+@@ -28,11 +28,14 @@
+ #include "strv.h"
+ #include "util.h"
+ 
+-int parse_sleep_config(const char *verb, char ***modes, char ***states) {
++#define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
++
++int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
+         _cleanup_strv_free_ char
+                 **suspend_mode = NULL, **suspend_state = NULL,
+                 **hibernate_mode = NULL, **hibernate_state = NULL,
+                 **hybrid_mode = NULL, **hybrid_state = NULL;
++        char **modes, **states;
+ 
+         const ConfigTableItem items[] = {
+                 { "Sleep",   "SuspendMode",      config_parse_strv,  0, &suspend_mode  },
+@@ -59,47 +62,46 @@ int parse_sleep_config(const char *verb, char ***modes, char ***states) {
+ 
+         if (streq(verb, "suspend")) {
+                 /* empty by default */
+-                *modes = suspend_mode;
++                USE(modes, suspend_mode);
+ 
+                 if (suspend_state)
+-                        *states = suspend_state;
++                        USE(states, suspend_state);
+                 else
+-                        *states = strv_split_nulstr("mem\0standby\0freeze\0");
++                        states = strv_new("mem", "standby", "freeze", NULL);
+ 
+-                suspend_mode = suspend_state = NULL;
+         } else if (streq(verb, "hibernate")) {
+                 if (hibernate_mode)
+-                        *modes = hibernate_mode;
++                        USE(modes, hibernate_mode);
+                 else
+-                        *modes = strv_split_nulstr("platform\0shutdown\0");
++                        modes = strv_new("platform", "shutdown", NULL);
+ 
+                 if (hibernate_state)
+-                        *states = hibernate_state;
++                        USE(states, hibernate_state);
+                 else
+-                        *states = strv_split_nulstr("disk\0");
++                        states = strv_new("disk", NULL);
+ 
+-                hibernate_mode = hibernate_state = NULL;
+         } else if (streq(verb, "hybrid-sleep")) {
+                 if (hybrid_mode)
+-                        *modes = hybrid_mode;
++                        USE(modes, hybrid_mode);
+                 else
+-                        *modes = strv_split_nulstr("suspend\0platform\0shutdown\0");
++                        modes = strv_new("suspend", "platform", "shutdown", NULL);
+ 
+                 if (hybrid_state)
+-                        *states = hybrid_state;
++                        USE(states, hybrid_state);
+                 else
+-                        *states = strv_split_nulstr("disk\0");
++                        states = strv_new("disk", NULL);
+ 
+-                hybrid_mode = hybrid_state = NULL;
+         } else
+                 assert_not_reached("what verb");
+ 
+-        if (!modes || !states) {
+-                strv_free(*modes);
+-                strv_free(*states);
++        if ((!modes && !streq(verb, "suspend")) || !states) {
++                strv_free(modes);
++                strv_free(states);
+                 return log_oom();
+         }
+ 
++        *_modes = modes;
++        *_states = states;
+         return 0;
+ }
+ 
+@@ -163,6 +165,89 @@ int can_sleep_disk(char **types) {
+         return false;
+ }
+ 
++#define HIBERNATION_SWAP_THRESHOLD 0.98
++
++static int hibernation_partition_size(size_t *size, size_t *used) {
++        _cleanup_fclose_ FILE *f;
++        int i;
++
++        assert(size);
++        assert(used);
++
++        f = fopen("/proc/swaps", "re");
++        if (!f) {
++                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
++                         "Failed to retrieve open /proc/swaps: %m");
++                assert(errno > 0);
++                return -errno;
++        }
++
++        (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
++
++        for (i = 1;; i++) {
++                _cleanup_free_ char *dev = NULL, *type = NULL;
++                size_t size_field, used_field;
++                int k;
++
++                k = fscanf(f,
++                           "%ms "   /* device/file */
++                           "%ms "   /* type of swap */
++                           "%zd "   /* swap size */
++                           "%zd "   /* used */
++                           "%*i\n", /* priority */
++                           &dev, &type, &size_field, &used_field);
++                if (k != 4) {
++                        if (k == EOF)
++                                break;
++
++                        log_warning("Failed to parse /proc/swaps:%u", i);
++                        continue;
++                }
++
++                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
++                        log_warning("Ignoring deleted swapfile '%s'.", dev);
++                        continue;
++                }
++
++                *size = size_field;
++                *used = used_field;
++                return 0;
++        }
++
++        log_debug("No swap partitions were found.");
++        return -ENOSYS;
++}
++
++static bool enough_memory_for_hibernation(void) {
++        _cleanup_free_ char *active = NULL;
++        unsigned long long act = 0;
++        size_t size = 0, used = 0;
++        int r;
++
++        r = hibernation_partition_size(&size, &used);
++        if (r < 0)
++                return false;
++
++        r = get_status_field("/proc/meminfo", "\nActive(anon):", &active);
++        if (r < 0) {
++                log_error("Failed to retrieve Active(anon) from /proc/meminfo: %s", strerror(-r));
++                return false;
++        }
++
++        r = safe_atollu(active, &act);
++        if (r < 0) {
++                log_error("Failed to parse Active(anon) from /proc/meminfo: %s: %s",
++                          active, strerror(-r));
++                return false;
++        }
++
++        r = act <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
++        log_debug("Hibernation is %spossible, Active(anon)=%llu kB, size=%zu kB, used=%zu kB, threshold=%.2g%%",
++                  r ? "" : "im", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
++
++        return r;
++}
++
+ int can_sleep(const char *verb) {
+         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
+         int r;
+@@ -175,5 +260,8 @@ int can_sleep(const char *verb) {
+         if (r < 0)
+                 return false;
+ 
+-        return can_sleep_state(states) && can_sleep_disk(modes);
++        if (!can_sleep_state(states) || !can_sleep_disk(modes))
++                return false;
++
++        return streq(verb, "suspend") || enough_memory_for_hibernation();
+ }
+diff --git a/src/test/test-fileio.c b/src/test/test-fileio.c
+index d56f7cc..8049efa 100644
+--- a/src/test/test-fileio.c
++++ b/src/test/test-fileio.c
+@@ -139,7 +139,31 @@ static void test_parse_env_file(void) {
+         unlink("/tmp/test-fileio");
+ }
+ 
++static void test_status_field(void) {
++        _cleanup_free_ char *t = NULL, *p = NULL, *s = NULL;
++        unsigned long long total, buffers;
++        int r;
++
++        assert_se(get_status_field("/proc/self/status", "\nThreads:", &t) == 0);
++        puts(t);
++        assert_se(streq(t, "1"));
++
++        r = get_status_field("/proc/meminfo", "MemTotal:", &p);
++        if (r == -ENOENT)
++                return;
++        assert(r == 0);
++        puts(p);
++        assert_se(safe_atollu(p, &total) == 0);
++
++        assert_se(get_status_field("/proc/meminfo", "\nBuffers:", &s) == 0);
++        puts(s);
++        assert_se(safe_atollu(s, &buffers) == 0);
++
++        assert(buffers < total);
++}
++
+ int main(int argc, char *argv[]) {
+         test_parse_env_file();
++        test_status_field();
+         return 0;
+ }

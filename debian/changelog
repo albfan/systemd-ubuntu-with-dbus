@@ -4,6 +4,8 @@ systemd (204-11) UNRELEASED; urgency=medium
   * Explain patch management in debian/README.source. (Closes: #739113)
   * Replace "Always probe cpu support drivers" patch with cherry-picked
     upstream fix which is more general.
+  * Advertise hibernation only if there's enough free swap. Patches backported
+    from current upstream. (LP: #1313522)
 
   [ Michael Biebl ]
   * Make no-patch-numbers the default for gbp-pq.
