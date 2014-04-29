@@ -1,7 +1,7 @@
 systemd (204-11) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
-  * Explain patch management in debian/README.source.
+  * Explain patch management in debian/README.source. (Closes: #739113)
   * Replace "Always probe cpu support drivers" patch with cherry-picked
     upstream fix which is more general.
 
