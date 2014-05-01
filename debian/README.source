@@ -2,12 +2,13 @@ Building from source
 --------------------
 Install “git-buildpackage” and run the following steps:
 
-gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
-cd systemd
-git-buildpackage
+  gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
+  cd systemd
+  git-buildpackage
 
 We recommend you use pbuilder to make sure you build in a clean environment:
-git-buildpackage --git-pbuilder
+
+  git-buildpackage --git-pbuilder
 
 Patch handling
 --------------
@@ -68,8 +69,8 @@ You can add the systemd upstream branch as an additional remote to the Debian
 packaging branch. Call it "fdo" or "systemd" or similar to avoid confusing it
 with the already existing "upstream" branch from git-buildpackage:
 
-git remote add fdo git://anongit.freedesktop.org/systemd/systemd
-git fetch fdo -n
+  git remote add fdo git://anongit.freedesktop.org/systemd/systemd
+  git fetch fdo -n
 
 Now you can look at the upstream log and cherry-pick patches into the
 patch-queue branch:
