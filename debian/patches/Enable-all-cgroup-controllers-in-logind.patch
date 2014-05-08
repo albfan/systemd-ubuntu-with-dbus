@@ -21,7 +21,7 @@ Forwarded: not-needed
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/src/login/logind.conf b/src/login/logind.conf
-index 0861d73..a87278b 100644
+index 0861d73..dc257da 100644
 --- a/src/login/logind.conf
 +++ b/src/login/logind.conf
 @@ -13,8 +13,8 @@
@@ -30,7 +30,7 @@ index 0861d73..a87278b 100644
  #KillExcludeUsers=root
 -#Controllers=
 -#ResetControllers=cpu
-+Controllers=blkio cpu cpuacct cpuset devices freezer hugetlb memory perf_event
++Controllers=blkio cpu cpuacct cpuset devices freezer hugetlb memory perf_event net_cls
 +ResetControllers=
  #InhibitDelayMaxSec=5
  #HandlePowerKey=poweroff
