@@ -30,7 +30,7 @@ index 0861d73..dc257da 100644
  #KillExcludeUsers=root
 -#Controllers=
 -#ResetControllers=cpu
-+Controllers=blkio cpu cpuacct cpuset devices freezer hugetlb memory perf_event net_cls
++Controllers=blkio cpu cpuacct cpuset devices freezer hugetlb memory perf_event net_cls net_prio
 +ResetControllers=
  #InhibitDelayMaxSec=5
  #HandlePowerKey=poweroff

@@ -2,8 +2,8 @@ systemd (204-10ubuntu2) UNRELEASED; urgency=medium
 
   * Drop Fix-a-race-condition-at-boot-with-serio-devices.patch, superseded by
     cherry-picked more generic upstream fix.
-  * logind.conf: Enable net_cls too, for compatibility with future kernels.
-    (LP: #1317179)
+  * logind.conf: Enable net_cls and netprio too, for compatibility with future
+    kernels. (LP: #1317179)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 28 Apr 2014 13:19:06 +0200
 
