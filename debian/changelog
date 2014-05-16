@@ -11,6 +11,10 @@ systemd (204-11) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Make no-patch-numbers the default for gbp-pq.
 
+  [ Michael Stapelberg ]
+  * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
+    (Closes: #747741)
+
  -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 12:51:55 +0200
 
 systemd (204-10) unstable; urgency=medium

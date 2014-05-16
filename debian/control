@@ -68,6 +68,9 @@ Description: system and service manager
  It also provides process supervision using cgroups and the ability to
  not only depend on other init script being started, but also
  availability of a given mount point or dbus service.
+ .
+ Installing the systemd package will not switch your init system unless you
+ boot with init=/bin/systemd or install systemd-sysv in addition.
 
 Package: systemd-sysv
 Architecture: linux-any
@@ -92,7 +95,8 @@ Description: system and service manager - SysV links
  availability of a given mount point or dbus service.
  .
  This package provides the manual pages and links needed for systemd
- to replace sysvinit.
+ to replace sysvinit. Installing systemd-sysv will overwrite /sbin/init with a
+ link to systemd.
 
 Package: libpam-systemd
 Architecture: linux-any
