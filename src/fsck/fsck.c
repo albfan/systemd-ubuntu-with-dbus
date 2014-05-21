@@ -27,115 +27,75 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
-#include <libudev.h>
-#include <dbus/dbus.h>
+#include "sd-bus.h"
+#include "libudev.h"
 
 #include "util.h"
-#include "dbus-common.h"
 #include "special.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "bus-errors.h"
-#include "virt.h"
 #include "fileio.h"
+#include "udev-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
 static bool arg_show_progress = false;
 
 static void start_target(const char *target) {
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
-        const char *mode = "replace", *basic_target = "basic.target";
-        DBusConnection *bus = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         assert(target);
 
-        dbus_error_init(&error);
-
-        if (bus_connect(DBUS_BUS_SYSTEM, &bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
-                goto finish;
+        r = bus_open_system_systemd(&bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
+                return;
         }
 
-        log_info("Running request %s/start/%s", target, mode);
-
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnitReplace"))) {
-                log_error("Could not allocate message.");
-                goto finish;
-        }
+        log_info("Running request %s/start/replace", target);
 
         /* Start these units only if we can replace base.target with it */
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnitReplace",
+                               &error,
+                               NULL,
+                               "sss", "basic.target", target, "replace");
 
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &basic_target,
-                                      DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(bus, m, -1, &error))) {
-
-                /* Don't print a warning if we aren't called during
-                 * startup */
-                if (!dbus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
-                        log_error("Failed to start unit: %s", bus_error_message(&error));
-
-                goto finish;
-        }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        dbus_error_free(&error);
+        /* Don't print a warning if we aren't called during startup */
+        if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
+                log_error("Failed to start unit: %s", bus_error_message(&error, -r));
 }
 
-static int parse_proc_cmdline(void) {
-        char *line, *w, *state;
-        int r;
-        size_t l;
+static int parse_proc_cmdline_item(const char *key, const char *value) {
 
-        if (detect_container(NULL) > 0)
-                return 0;
+        if (streq(key, "fsck.mode") && value) {
 
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-                return 0;
-        }
-
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-
-                if (strneq(w, "fsck.mode=auto", l))
+                if (streq(value, "auto"))
                         arg_force = arg_skip = false;
-                else if (strneq(w, "fsck.mode=force", l))
+                else if (streq(value, "force"))
                         arg_force = true;
-                else if (strneq(w, "fsck.mode=skip", l))
+                else if (streq(value, "skip"))
                         arg_skip = true;
-                else if (startswith(w, "fsck"))
-                        log_warning("Invalid fsck parameter. Ignoring.");
+                else
+                        log_warning("Invalid fsck.mode= parameter. Ignoring.");
+        } else if (startswith(key, "fsck."))
+                log_warning("Invalid fsck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
-                else if (strneq(w, "fastboot", l)) {
-                        log_error("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
-                        arg_skip = true;
-                } else if (strneq(w, "forcefsck", l)) {
-                        log_error("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
-                        arg_force = true;
-                }
-#endif
+        else if (streq(key, "fastboot") && !value) {
+                log_warning("Please pass 'fsck.mode=skip' rather than 'fastboot' on the kernel command line.");
+                arg_skip = true;
+        } else if (streq(key, "forcefsck") && !value) {
+                log_warning("Please pass 'fsck.mode=force' rather than 'forcefsck' on the kernel command line.");
+                arg_force = true;
         }
+#endif
 
-        free(line);
         return 0;
 }
 
@@ -175,27 +135,25 @@ static double percent(int pass, unsigned long cur, unsigned long max) {
 }
 
 static int process_progress(int fd) {
-        FILE *f, *console;
+        _cleanup_fclose_ FILE *console = NULL, *f = NULL;
         usec_t last = 0;
         bool locked = false;
         int clear = 0;
 
         f = fdopen(fd, "r");
         if (!f) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
-        console = fopen("/dev/console", "w");
-        if (!console) {
-                fclose(f);
+        console = fopen("/dev/console", "we");
+        if (!console)
                 return -ENOMEM;
-        }
 
         while (!feof(f)) {
                 int pass, m;
                 unsigned long cur, max;
-                char *device;
+                _cleanup_free_ char *device = NULL;
                 double p;
                 usec_t t;
 
@@ -204,28 +162,22 @@ static int process_progress(int fd) {
 
                 /* Only show one progress counter at max */
                 if (!locked) {
-                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0) {
-                                free(device);
+                        if (flock(fileno(console), LOCK_EX|LOCK_NB) < 0)
                                 continue;
-                        }
 
                         locked = true;
                 }
 
                 /* Only update once every 50ms */
                 t = now(CLOCK_MONOTONIC);
-                if (last + 50 * USEC_PER_MSEC > t)  {
-                        free(device);
+                if (last + 50 * USEC_PER_MSEC > t)
                         continue;
-                }
 
                 last = t;
 
                 p = percent(pass, cur, max);
                 fprintf(console, "\r%s: fsck %3.1f%% complete...\r%n", device, p, &m);
                 fflush(console);
-
-                free(device);
 
                 if (m > clear)
                         clear = m;
@@ -241,8 +193,6 @@ static int process_progress(int fd) {
                 fflush(console);
         }
 
-        fclose(f);
-        fclose(console);
         return 0;
 }
 
@@ -251,12 +201,13 @@ int main(int argc, char *argv[]) {
         int i = 0, r = EXIT_FAILURE, q;
         pid_t pid;
         siginfo_t status;
-        struct udev *udev = NULL;
-        struct udev_device *udev_device = NULL;
-        const char *device;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
+        const char *device, *type;
         bool root_directory;
         int progress_pipe[2] = { -1, -1 };
         char dash_c[2+10+1];
+        struct stat st;
 
         if (argc > 2) {
                 log_error("This program expects one or no arguments.");
@@ -269,60 +220,86 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        parse_proc_cmdline();
+        parse_proc_cmdline(parse_proc_cmdline_item);
         test_files();
 
         if (!arg_force && arg_skip)
                 return 0;
 
+        udev = udev_new();
+        if (!udev) {
+                log_oom();
+                return EXIT_FAILURE;
+        }
+
         if (argc > 1) {
                 device = argv[1];
                 root_directory = false;
+
+                if (stat(device, &st) < 0) {
+                        log_error("Failed to stat '%s': %m", device);
+                        return EXIT_FAILURE;
+                }
+
+                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+                if (!udev_device) {
+                        log_error("Failed to detect device %s", device);
+                        return EXIT_FAILURE;
+                }
         } else {
-                struct stat st;
                 struct timespec times[2];
 
                 /* Find root device */
 
                 if (stat("/", &st) < 0) {
                         log_error("Failed to stat() the root directory: %m");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 /* Virtual root devices don't need an fsck */
                 if (major(st.st_dev) == 0)
-                        return 0;
+                        return EXIT_SUCCESS;
 
                 /* check if we are already writable */
                 times[0] = st.st_atim;
                 times[1] = st.st_mtim;
                 if (utimensat(AT_FDCWD, "/", times, 0) == 0) {
                         log_info("Root directory is writable, skipping check.");
-                        return 0;
+                        return EXIT_SUCCESS;
                 }
 
-                if (!(udev = udev_new())) {
-                        log_oom();
-                        goto finish;
-                }
-
-                if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev))) {
+                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+                if (!udev_device) {
                         log_error("Failed to detect root device.");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
-                if (!(device = udev_device_get_devnode(udev_device))) {
+                device = udev_device_get_devnode(udev_device);
+                if (!device) {
                         log_error("Failed to detect device node of root directory.");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
                 root_directory = true;
         }
 
+        type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
+        if (type) {
+                const char *checker = strappenda("/sbin/fsck.", type);
+                r = access(checker, X_OK);
+                if (r < 0) {
+                        if (errno == ENOENT) {
+                                log_info("%s doesn't exist, not checking file system.", checker);
+                                return EXIT_SUCCESS;
+                        } else
+                                log_warning("%s cannot be used: %m", checker);
+                }
+        }
+
         if (arg_show_progress)
                 if (pipe(progress_pipe) < 0) {
                         log_error("pipe(): %m");
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
         cmdline[i++] = "/sbin/fsck";
@@ -352,15 +329,12 @@ int main(int argc, char *argv[]) {
         } else if (pid == 0) {
                 /* Child */
                 if (progress_pipe[0] >= 0)
-                        close_nointr_nofail(progress_pipe[0]);
+                        safe_close(progress_pipe[0]);
                 execv(cmdline[0], (char**) cmdline);
                 _exit(8); /* Operational error */
         }
 
-        if (progress_pipe[1] >= 0) {
-                close_nointr_nofail(progress_pipe[1]);
-                progress_pipe[1] = -1;
-        }
+        progress_pipe[1] = safe_close(progress_pipe[1]);
 
         if (progress_pipe[0] >= 0) {
                 process_progress(progress_pipe[0]);
@@ -400,13 +374,7 @@ int main(int argc, char *argv[]) {
                 touch("/run/systemd/quotacheck");
 
 finish:
-        if (udev_device)
-                udev_device_unref(udev_device);
-
-        if (udev)
-                udev_unref(udev);
-
-        close_pipe(progress_pipe);
+        safe_close_pair(progress_pipe);
 
         return r;
 }

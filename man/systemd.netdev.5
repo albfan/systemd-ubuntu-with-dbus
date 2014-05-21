@@ -1,0 +1,175 @@
+'\" t
+.TH "SYSTEMD\&.NETDEV" "5" "" "systemd 212" "systemd.network"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd.netdev \- Virtual Network Device configuration
+.SH "SYNOPSIS"
+.PP
+\fInetdev\fR\&.netdev
+.SH "DESCRIPTION"
+.PP
+Network setup is performed by
+\fBsystemd-networkd\fR(8)\&.
+.PP
+Virtual Network Device files must have the extension
+\&.netdev; other extensions are ignored\&. Virtual network devices are created as soon as networkd is started\&.
+.PP
+The
+\&.netdev
+files are read from the files located in the system network directory
+/usr/lib/systemd/network, the volatile runtime network directory
+/run/systemd/network
+and the local administration network directory
+/etc/systemd/network\&. All configuration files are collectively sorted and processed in lexical order, regardless of the directories in which they live\&. However, files with identical filenames replace each other\&. Files in
+/etc
+have the highest priority, files in
+/run
+take precedence over files with the same name in
+/usr/lib\&. This can be used to override a system\-supplied configuration file with a local file if needed; a symlink in
+/etc
+with the same name as a configuration file in
+/usr/lib, pointing to
+/dev/null, disables the configuration file entirely\&.
+.PP
+A virtual network device is only created if the
+"[Match]"
+section matches the current environment, or if the section is empty\&. The following keys are accepted:
+.PP
+\fIHost=\fR
+.RS 4
+Matches against the hostname or machine ID of the host\&. See
+"ConditionHost="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIVirtualization=\fR
+.RS 4
+Checks whether the system is executed in a virtualized environment and optionally test whether it is a specific implementation\&. See
+"ConditionVirtualization="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIKernelCommandLine=\fR
+.RS 4
+Checks whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. See
+"ConditionKernelCommandLine="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIArchitecture=\fR
+.RS 4
+Checks whether the system is running on a specific architecture\&. See
+"ConditionArchitecture="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+The
+"[NetDev]"
+section accepts the following keys:
+.PP
+\fIName=\fR
+.RS 4
+The interface name used when creating the netdev\&. This option is compulsory\&.
+.RE
+.PP
+\fIKind=\fR
+.RS 4
+The netdev kind\&. Currently,
+"bridge",
+"bond",
+"vlan"
+and
+"macvlan"
+are supported\&. This option is compulsory\&.
+.RE
+.PP
+The
+"[VLAN]"
+section only applies for netdevs of kind
+"vlan", and accepts the following key:
+.PP
+\fIId=\fR
+.RS 4
+The VLAN ID to use\&. An integer in the range 0\(en4094\&. This option is compulsory\&.
+.RE
+.PP
+The
+"[MACVLAN]"
+section only applies for netdevs of kind
+"macvlan", and accepts the following key:
+.PP
+\fIMode=\fR
+.RS 4
+The MACVLAN mode to use\&. The supported options are
+"private",
+"vepa",
+"bridge"
+and
+"passthru"\&.
+.RE
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/systemd/network/bridge.netdev\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[NetDev]
+Name=bridge0
+Kind=bridge
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&2.\ \&/etc/systemd/network/vlan1.netdev\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Virtualization=no
+
+[NetDev]
+Name=vlan1
+Kind=vlan
+
+[VLAN]
+Id=1
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-networkd\fR(8),
+\fBsystemd.network\fR(5)

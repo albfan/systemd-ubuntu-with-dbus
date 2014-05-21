@@ -41,7 +41,6 @@
 #include <stdarg.h>
 #include <sys/inotify.h>
 #include <sys/poll.h>
-#include <libgen.h>
 #include <ctype.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>
@@ -59,7 +58,13 @@
 #include <limits.h>
 #include <langinfo.h>
 #include <locale.h>
+#include <sys/personality.h>
 #include <libgen.h>
+#undef basename
+
+#ifdef HAVE_SYS_AUXV_H
+#include <sys/auxv.h>
+#endif
 
 #include "macro.h"
 #include "util.h"
@@ -74,6 +79,11 @@
 #include "env-util.h"
 #include "fileio.h"
 #include "device-nodes.h"
+#include "utf8.h"
+#include "gunicode.h"
+#include "virt.h"
+#include "def.h"
+#include "missing.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -82,7 +92,7 @@ static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
 size_t page_size(void) {
-        static __thread size_t pgsz = 0;
+        static thread_local size_t pgsz = 0;
         long r;
 
         if (_likely_(pgsz > 0))
@@ -173,13 +183,22 @@ int close_nointr(int fd) {
                 return -errno;
 }
 
-void close_nointr_nofail(int fd) {
-        PROTECT_ERRNO;
+int safe_close(int fd) {
 
-        /* like close_nointr() but cannot fail, and guarantees errno
-         * is unchanged */
+        /*
+         * Like close_nointr() but cannot fail. Guarantees errno is
+         * unchanged. Is a NOP with negative fds passed, and returns
+         * -1, so that it can be used in this syntax:
+         *
+         * fd = safe_close(fd);
+         */
 
-        assert_se(close_nointr(fd) == 0);
+        if (fd >= 0) {
+                PROTECT_ERRNO;
+                assert_se(close_nointr(fd) == 0);
+        }
+
+        return -1;
 }
 
 void close_many(const int fds[], unsigned n_fd) {
@@ -188,7 +207,7 @@ void close_many(const int fds[], unsigned n_fd) {
         assert(fds || n_fd <= 0);
 
         for (i = 0; i < n_fd; i++)
-                close_nointr_nofail(fds[i]);
+                safe_close(fds[i]);
 }
 
 int unlink_noerrno(const char *path) {
@@ -351,8 +370,23 @@ int safe_atod(const char *s, double *ret_d) {
         return 0;
 }
 
+static size_t strcspn_escaped(const char *s, const char *reject) {
+        bool escaped = false;
+        size_t n;
+
+        for (n=0; s[n]; n++) {
+                if (escaped)
+                        escaped = false;
+                else if (s[n] == '\\')
+                        escaped = true;
+                else if (strchr(reject, s[n]))
+                        return n;
+        }
+        return n;
+}
+
 /* Split a string into words. */
-char *split(const char *c, size_t *l, const char *separator, char **state) {
+char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state) {
         char *current;
 
         current = *state ? *state : (char*) c;
@@ -361,64 +395,19 @@ char *split(const char *c, size_t *l, const char *separator, char **state) {
                 return NULL;
 
         current += strspn(current, separator);
-        *l = strcspn(current, separator);
-        *state = current+*l;
-
-        return (char*) current;
-}
-
-/* Split a string into words, but consider strings enclosed in '' and
- * "" as words even if they include spaces. */
-char *split_quoted(const char *c, size_t *l, char **state) {
-        char *current, *e;
-        bool escaped = false;
-
-        current = *state ? *state : (char*) c;
-
-        if (!*current || *c == 0)
+        if (!*current)
                 return NULL;
 
-        current += strspn(current, WHITESPACE);
-
-        if (*current == '\'') {
-                current ++;
-
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (*e == '\'')
-                                break;
-                }
-
-                *l = e-current;
-                *state = *e == 0 ? e : e+1;
-        } else if (*current == '\"') {
-                current ++;
-
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (*e == '\"')
-                                break;
-                }
-
-                *l = e-current;
-                *state = *e == 0 ? e : e+1;
+        if (quoted && strchr("\'\"", *current)) {
+                char quotechar = *(current++);
+                *l = strcspn_escaped(current, (char[]){quotechar, '\0'});
+                *state = current+*l+1;
+        } else if (quoted) {
+                *l = strcspn_escaped(current, separator);
+                *state = current+*l;
         } else {
-                for (e = current; *e; e++) {
-                        if (escaped)
-                                escaped = false;
-                        else if (*e == '\\')
-                                escaped = true;
-                        else if (strchr(WHITESPACE, *e))
-                                break;
-                }
-                *l = e-current;
-                *state = e;
+                *l = strcspn(current, separator);
+                *state = current+*l;
         }
 
         return (char*) current;
@@ -426,8 +415,7 @@ char *split_quoted(const char *c, size_t *l, char **state) {
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         int r;
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        _cleanup_free_ char *line = NULL;
         long unsigned ppid;
         const char *p;
 
@@ -440,14 +428,9 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
         }
 
         p = procfs_file_alloca(pid, "stat");
-        f = fopen(p, "re");
-        if (!f)
-                return -errno;
-
-        if (!fgets(line, sizeof(line), f)) {
-                r = feof(f) ? -EIO : -errno;
+        r = read_one_line_file(p, &line);
+        if (r < 0)
                 return r;
-        }
 
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
@@ -474,28 +457,17 @@ int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
 }
 
 int get_starttime_of_pid(pid_t pid, unsigned long long *st) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        int r;
+        _cleanup_free_ char *line = NULL;
         const char *p;
 
         assert(pid >= 0);
         assert(st);
 
-        if (pid == 0)
-                p = "/proc/self/stat";
-        else
-                p = procfs_file_alloca(pid, "stat");
-
-        f = fopen(p, "re");
-        if (!f)
-                return -errno;
-
-        if (!fgets(line, sizeof(line), f)) {
-                if (ferror(f))
-                        return -errno;
-
-                return -EIO;
-        }
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
 
         /* Let's skip the pid and comm fields. The latter is enclosed
          * in () but does not escape any () in its value, so let's
@@ -552,18 +524,45 @@ char *truncate_nl(char *s) {
         return s;
 }
 
+int get_process_state(pid_t pid) {
+        const char *p;
+        char state;
+        int r;
+        _cleanup_free_ char *line = NULL;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
+
+        p = strrchr(line, ')');
+        if (!p)
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " %c", &state) != 1)
+                return -EIO;
+
+        return (unsigned char) state;
+}
+
 int get_process_comm(pid_t pid, char **name) {
         const char *p;
+        int r;
 
         assert(name);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/comm";
-        else
-                p = procfs_file_alloca(pid, "comm");
+        p = procfs_file_alloca(pid, "comm");
 
-        return read_one_line_file(p, name);
+        r = read_one_line_file(p, name);
+        if (r == -ENOENT)
+                return -ESRCH;
+
+        return r;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
@@ -575,10 +574,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
         assert(line);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/cmdline";
-        else
-                p = procfs_file_alloca(pid, "cmdline");
+        p = procfs_file_alloca(pid, "cmdline");
 
         f = fopen(p, "re");
         if (!f)
@@ -641,7 +637,7 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
 
         /* Kernel threads have no argv[] */
         if (r == NULL || r[0] == 0) {
-                char *t;
+                _cleanup_free_ char *t = NULL;
                 int h;
 
                 free(r);
@@ -654,8 +650,6 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return h;
 
                 r = strjoin("[", t, "]", NULL);
-                free(t);
-
                 if (!r)
                         return -ENOMEM;
         }
@@ -699,10 +693,7 @@ int get_process_capeff(pid_t pid, char **capeff) {
         assert(capeff);
         assert(pid >= 0);
 
-        if (pid == 0)
-                p = "/proc/self/status";
-        else
-                p = procfs_file_alloca(pid, "status");
+        p = procfs_file_alloca(pid, "status");
 
         return get_status_field(p, "\nCapEff:", capeff);
 }
@@ -715,14 +706,11 @@ int get_process_exe(pid_t pid, char **name) {
         assert(pid >= 0);
         assert(name);
 
-        if (pid == 0)
-                p = "/proc/self/exe";
-        else
-                p = procfs_file_alloca(pid, "exe");
+        p = procfs_file_alloca(pid, "exe");
 
         r = readlink_malloc(p, name);
         if (r < 0)
-                return r;
+                return r == -ENOENT ? -ESRCH : r;
 
         d = endswith(*name, " (deleted)");
         if (d)
@@ -809,28 +797,31 @@ char *strappend(const char *s, const char *suffix) {
         return strnappend(s, suffix, suffix ? strlen(suffix) : 0);
 }
 
-int readlink_malloc(const char *p, char **r) {
+int readlink_malloc(const char *p, char **ret) {
         size_t l = 100;
+        int r;
 
         assert(p);
-        assert(r);
+        assert(ret);
 
         for (;;) {
                 char *c;
                 ssize_t n;
 
-                if (!(c = new(char, l)))
+                c = new(char, l);
+                if (!c)
                         return -ENOMEM;
 
-                if ((n = readlink(p, c, l-1)) < 0) {
-                        int ret = -errno;
+                n = readlink(p, c, l-1);
+                if (n < 0) {
+                        r = -errno;
                         free(c);
-                        return ret;
+                        return r;
                 }
 
                 if ((size_t) n < l-1) {
                         c[n] = 0;
-                        *r = c;
+                        *ret = c;
                         return 0;
                 }
 
@@ -936,19 +927,6 @@ char *delete_chars(char *s, const char *bad) {
         *t = 0;
 
         return s;
-}
-
-bool in_charset(const char *s, const char* charset) {
-        const char *i;
-
-        assert(s);
-        assert(charset);
-
-        for (i = s; *i; i++)
-                if (!strchr(charset, *i))
-                        return false;
-
-        return true;
 }
 
 char *file_in_same_dir(const char *path, const char *filename) {
@@ -1355,78 +1333,6 @@ char *xescape(const char *s, const char *bad) {
         return r;
 }
 
-char *bus_path_escape(const char *s) {
-        char *r, *t;
-        const char *f;
-
-        assert(s);
-
-        /* Escapes all chars that D-Bus' object path cannot deal
-         * with. Can be reverse with bus_path_unescape(). We special
-         * case the empty string. */
-
-        if (*s == 0)
-                return strdup("_");
-
-        r = new(char, strlen(s)*3 + 1);
-        if (!r)
-                return NULL;
-
-        for (f = s, t = r; *f; f++) {
-
-                /* Escape everything that is not a-zA-Z0-9. We also
-                 * escape 0-9 if it's the first character */
-
-                if (!(*f >= 'A' && *f <= 'Z') &&
-                    !(*f >= 'a' && *f <= 'z') &&
-                    !(f > s && *f >= '0' && *f <= '9')) {
-                        *(t++) = '_';
-                        *(t++) = hexchar(*f >> 4);
-                        *(t++) = hexchar(*f);
-                } else
-                        *(t++) = *f;
-        }
-
-        *t = 0;
-
-        return r;
-}
-
-char *bus_path_unescape(const char *f) {
-        char *r, *t;
-
-        assert(f);
-
-        /* Special case for the empty string */
-        if (streq(f, "_"))
-                return strdup("");
-
-        r = new(char, strlen(f) + 1);
-        if (!r)
-                return NULL;
-
-        for (t = r; *f; f++) {
-
-                if (*f == '_') {
-                        int a, b;
-
-                        if ((a = unhexchar(f[1])) < 0 ||
-                            (b = unhexchar(f[2])) < 0) {
-                                /* Invalid escape code, let's take it literal then */
-                                *(t++) = '_';
-                        } else {
-                                *(t++) = (char) ((a << 4) | b);
-                                f += 2;
-                        }
-                } else
-                        *(t++) = *f;
-        }
-
-        *t = 0;
-
-        return r;
-}
-
 char *ascii_strlower(char *t) {
         char *p;
 
@@ -1594,7 +1500,14 @@ bool fstype_is_network(const char *fstype) {
                 "nfs\0"
                 "nfs4\0"
                 "gfs\0"
-                "gfs2\0";
+                "gfs2\0"
+                "glusterfs\0";
+
+        const char *x;
+
+        x = startswith(fstype, "fuse.");
+        if (x)
+                fstype = x;
 
         return nulstr_contains(table, fstype);
 }
@@ -1796,16 +1709,13 @@ finish:
 }
 
 int reset_terminal(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd = -1;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
-        r = reset_terminal_fd(fd, true);
-        close_nointr_nofail(fd);
-
-        return r;
+        return reset_terminal_fd(fd, true);
 }
 
 int open_terminal(const char *name, int mode) {
@@ -1844,12 +1754,12 @@ int open_terminal(const char *name, int mode) {
 
         r = isatty(fd);
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (!r) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -ENOTTY;
         }
 
@@ -2038,11 +1948,10 @@ int acquire_terminal(
                  * ended our handle will be dead. It's important that
                  * we do this after sleeping, so that we don't enter
                  * an endless loop. */
-                close_nointr_nofail(fd);
+                safe_close(fd);
         }
 
-        if (notify >= 0)
-                close_nointr_nofail(notify);
+        safe_close(notify);
 
         r = reset_terminal_fd(fd, true);
         if (r < 0)
@@ -2051,11 +1960,8 @@ int acquire_terminal(
         return fd;
 
 fail:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (notify >= 0)
-                close_nointr_nofail(notify);
+        safe_close(fd);
+        safe_close(notify);
 
         return r;
 }
@@ -2138,64 +2044,46 @@ int default_signals(int sig, ...) {
         return r;
 }
 
-int close_pipe(int p[]) {
-        int a = 0, b = 0;
-
+void safe_close_pair(int p[]) {
         assert(p);
 
-        if (p[0] >= 0) {
-                a = close_nointr(p[0]);
-                p[0] = -1;
+        if (p[0] == p[1]) {
+                /* Special case pairs which use the same fd in both
+                 * directions... */
+                p[0] = p[1] = safe_close(p[0]);
+                return;
         }
 
-        if (p[1] >= 0) {
-                b = close_nointr(p[1]);
-                p[1] = -1;
-        }
-
-        return a < 0 ? a : b;
+        p[0] = safe_close(p[0]);
+        p[1] = safe_close(p[1]);
 }
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
-        uint8_t *p;
+        uint8_t *p = buf;
         ssize_t n = 0;
 
         assert(fd >= 0);
         assert(buf);
 
-        p = buf;
-
         while (nbytes > 0) {
                 ssize_t k;
 
-                if ((k = read(fd, p, nbytes)) <= 0) {
+                k = read(fd, p, nbytes);
+                if (k < 0 && errno == EINTR)
+                        continue;
 
-                        if (k < 0 && errno == EINTR)
-                                continue;
+                if (k < 0 && errno == EAGAIN && do_poll) {
 
-                        if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd = {
-                                        .fd = fd,
-                                        .events = POLLIN,
-                                };
+                        /* We knowingly ignore any return value here,
+                         * and expect that any error/EOF is reported
+                         * via read() */
 
-                                if (poll(&pollfd, 1, -1) < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        return n > 0 ? n : -errno;
-                                }
-
-                                /* We knowingly ignore the revents value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read()/write()
-                                 */
-
-                                continue;
-                        }
-
-                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                        fd_wait_for_event(fd, POLLIN, (usec_t) -1);
+                        continue;
                 }
+
+                if (k <= 0)
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
 
                 p += k;
                 nbytes -= k;
@@ -2206,46 +2094,31 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
 }
 
 ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
-        const uint8_t *p;
+        const uint8_t *p = buf;
         ssize_t n = 0;
 
         assert(fd >= 0);
         assert(buf);
 
-        p = buf;
-
         while (nbytes > 0) {
                 ssize_t k;
 
                 k = write(fd, p, nbytes);
-                if (k <= 0) {
+                if (k < 0 && errno == EINTR)
+                        continue;
 
-                        if (k < 0 && errno == EINTR)
-                                continue;
+                if (k < 0 && errno == EAGAIN && do_poll) {
 
-                        if (k < 0 && errno == EAGAIN && do_poll) {
-                                struct pollfd pollfd = {
-                                        .fd = fd,
-                                        .events = POLLOUT,
-                                };
+                        /* We knowingly ignore any return value here,
+                         * and expect that any error/EOF is reported
+                         * via write() */
 
-                                if (poll(&pollfd, 1, -1) < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        return n > 0 ? n : -errno;
-                                }
-
-                                /* We knowingly ignore the revents value here,
-                                 * and expect that any error/EOF is reported
-                                 * via read()/write()
-                                 */
-
-                                continue;
-                        }
-
-                        return n > 0 ? n : (k < 0 ? -errno : 0);
+                        fd_wait_for_event(fd, POLLOUT, (usec_t) -1);
+                        continue;
                 }
+
+                if (k <= 0)
+                        return n > 0 ? n : (k < 0 ? -errno : 0);
 
                 p += k;
                 nbytes -= k;
@@ -2255,30 +2128,71 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         return n;
 }
 
-int parse_bytes(const char *t, off_t *bytes) {
-        static const struct {
+int parse_size(const char *t, off_t base, off_t *size) {
+
+        /* Soo, sometimes we want to parse IEC binary suffxies, and
+         * sometimes SI decimal suffixes. This function can parse
+         * both. Which one is the right way depends on the
+         * context. Wikipedia suggests that SI is customary for
+         * hardrware metrics and network speeds, while IEC is
+         * customary for most data sizes used by software and volatile
+         * (RAM) memory. Hence be careful which one you pick!
+         *
+         * In either case we use just K, M, G as suffix, and not Ki,
+         * Mi, Gi or so (as IEC would suggest). That's because that's
+         * frickin' ugly. But this means you really need to make sure
+         * to document which base you are parsing when you use this
+         * call. */
+
+        struct table {
                 const char *suffix;
                 unsigned long long factor;
-        } table[] = {
-                { "B", 1 },
-                { "K", 1024ULL },
-                { "M", 1024ULL*1024ULL },
-                { "G", 1024ULL*1024ULL*1024ULL },
-                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
-                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+        };
+
+        static const struct table iec[] = {
                 { "E", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "P", 1024ULL*1024ULL*1024ULL*1024ULL*1024ULL },
+                { "T", 1024ULL*1024ULL*1024ULL*1024ULL },
+                { "G", 1024ULL*1024ULL*1024ULL },
+                { "M", 1024ULL*1024ULL },
+                { "K", 1024ULL },
+                { "B", 1 },
                 { "", 1 },
         };
 
+        static const struct table si[] = {
+                { "E", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "P", 1000ULL*1000ULL*1000ULL*1000ULL*1000ULL },
+                { "T", 1000ULL*1000ULL*1000ULL*1000ULL },
+                { "G", 1000ULL*1000ULL*1000ULL },
+                { "M", 1000ULL*1000ULL },
+                { "K", 1000ULL },
+                { "B", 1 },
+                { "", 1 },
+        };
+
+        const struct table *table;
         const char *p;
         unsigned long long r = 0;
+        unsigned n_entries, start_pos = 0;
 
         assert(t);
-        assert(bytes);
+        assert(base == 1000 || base == 1024);
+        assert(size);
+
+        if (base == 1000) {
+                table = si;
+                n_entries = ELEMENTSOF(si);
+        } else {
+                table = iec;
+                n_entries = ELEMENTSOF(iec);
+        }
 
         p = t;
         do {
                 long long l;
+                unsigned long long l2;
+                double frac = 0;
                 char *e;
                 unsigned i;
 
@@ -2294,14 +2208,32 @@ int parse_bytes(const char *t, off_t *bytes) {
                 if (e == p)
                         return -EINVAL;
 
+                if (*e == '.') {
+                        e++;
+                        if (*e >= '0' && *e <= '9') {
+                                char *e2;
+
+                                /* strotoull itself would accept space/+/- */
+                                l2 = strtoull(e, &e2, 10);
+
+                                if (errno == ERANGE)
+                                        return -errno;
+
+                                /* Ignore failure. E.g. 10.M is valid */
+                                frac = l2;
+                                for (; e < e2; e++)
+                                        frac /= 10;
+                        }
+                }
+
                 e += strspn(e, WHITESPACE);
 
-                for (i = 0; i < ELEMENTSOF(table); i++)
+                for (i = start_pos; i < n_entries; i++)
                         if (startswith(e, table[i].suffix)) {
                                 unsigned long long tmp;
-                                if ((unsigned long long) l > ULLONG_MAX / table[i].factor)
+                                if ((unsigned long long) l + (frac > 0) > ULLONG_MAX / table[i].factor)
                                         return -ERANGE;
-                                tmp = l * table[i].factor;
+                                tmp = l * table[i].factor + (unsigned long long) (frac * table[i].factor);
                                 if (tmp > ULLONG_MAX - r)
                                         return -ERANGE;
 
@@ -2310,15 +2242,17 @@ int parse_bytes(const char *t, off_t *bytes) {
                                         return -ERANGE;
 
                                 p = e + strlen(table[i].suffix);
+
+                                start_pos = i + 1;
                                 break;
                         }
 
-                if (i >= ELEMENTSOF(table))
+                if (i >= n_entries)
                         return -EINVAL;
 
         } while (*p);
 
-        *bytes = r;
+        *size = r;
 
         return 0;
 }
@@ -2333,7 +2267,7 @@ int make_stdio(int fd) {
         t = dup3(fd, STDERR_FILENO, 0);
 
         if (fd >= 3)
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
         if (r < 0 || s < 0 || t < 0)
                 return -errno;
@@ -2365,7 +2299,6 @@ bool is_device_path(const char *path) {
 
 int dir_is_empty(const char *path) {
         _cleanup_closedir_ DIR *d;
-        int r;
 
         d = opendir(path);
         if (!d)
@@ -2373,11 +2306,11 @@ int dir_is_empty(const char *path) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r > 0)
-                        return -r;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         return 1;
@@ -2405,42 +2338,60 @@ char* dirname_malloc(const char *path) {
         return dir;
 }
 
-unsigned long long random_ull(void) {
+int dev_urandom(void *p, size_t n) {
         _cleanup_close_ int fd;
-        uint64_t ull;
-        ssize_t r;
+        ssize_t k;
 
         fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
-                goto fallback;
+                return errno == ENOENT ? -ENOSYS : -errno;
 
-        r = loop_read(fd, &ull, sizeof(ull), true);
-        if (r != sizeof(ull))
-                goto fallback;
+        k = loop_read(fd, p, n, true);
+        if (k < 0)
+                return (int) k;
+        if ((size_t) k != n)
+                return -EIO;
 
-        return ull;
-
-fallback:
-        return random() * RAND_MAX + random();
+        return 0;
 }
 
-unsigned random_u(void) {
-        _cleanup_close_ int fd;
-        unsigned u;
-        ssize_t r;
+void random_bytes(void *p, size_t n) {
+        static bool srand_called = false;
+        uint8_t *q;
+        int r;
 
-        fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                goto fallback;
+        r = dev_urandom(p, n);
+        if (r >= 0)
+                return;
 
-        r = loop_read(fd, &u, sizeof(u), true);
-        if (r != sizeof(u))
-                goto fallback;
+        /* If some idiot made /dev/urandom unavailable to us, he'll
+         * get a PRNG instead. */
 
-        return u;
+        if (!srand_called) {
+                unsigned x = 0;
 
-fallback:
-        return random() * RAND_MAX + random();
+#ifdef HAVE_SYS_AUXV_H
+                /* The kernel provides us with a bit of entropy in
+                 * auxv, so let's try to make use of that to seed the
+                 * pseudo-random generator. It's better than
+                 * nothing... */
+
+                void *auxv;
+
+                auxv = (void*) getauxval(AT_RANDOM);
+                if (auxv)
+                        x ^= *(unsigned*) auxv;
+#endif
+
+                x ^= (unsigned) now(CLOCK_REALTIME);
+                x ^= (unsigned) gettid();
+
+                srand(x);
+                srand_called = true;
+        }
+
+        for (q = p; q < (uint8_t*) p + n; q ++)
+                *q = rand();
 }
 
 void rename_process(const char name[8]) {
@@ -2469,7 +2420,7 @@ void rename_process(const char name[8]) {
                         if (!saved_argv[i])
                                 break;
 
-                        memset(saved_argv[i], 0, strlen(saved_argv[i]));
+                        memzero(saved_argv[i], strlen(saved_argv[i]));
                 }
         }
 }
@@ -2561,7 +2512,7 @@ int getttyname_malloc(int fd, char **r) {
         assert(r);
 
         k = ttyname_r(fd, path, sizeof(path));
-        if (k != 0)
+        if (k > 0)
                 return -k;
 
         char_array_0(path);
@@ -2592,28 +2543,17 @@ int getttyname_harder(int fd, char **r) {
 }
 
 int get_ctty_devnr(pid_t pid, dev_t *d) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX], *p;
+        int r;
+        _cleanup_free_ char *line = NULL;
+        const char *p;
         unsigned long ttynr;
-        const char *fn;
-        int k;
 
         assert(pid >= 0);
-        assert(d);
 
-        if (pid == 0)
-                fn = "/proc/self/stat";
-        else
-                fn = procfs_file_alloca(pid, "stat");
-
-        f = fopen(fn, "re");
-        if (!f)
-                return -errno;
-
-        if (!fgets(line, sizeof(line), f)) {
-                k = feof(f) ? -EIO : -errno;
-                return k;
-        }
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r < 0)
+                return r;
 
         p = strrchr(line, ')');
         if (!p)
@@ -2633,14 +2573,18 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
         if (major(ttynr) == 0 && minor(ttynr) == 0)
                 return -ENOENT;
 
-        *d = (dev_t) ttynr;
+        if (d)
+                *d = (dev_t) ttynr;
+
         return 0;
 }
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        int k;
-        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *s, *b, *p;
+        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
+        _cleanup_free_ char *s = NULL;
+        const char *p;
         dev_t devnr;
+        int k;
 
         assert(r);
 
@@ -2658,14 +2602,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
 
                 /* This is an ugly hack */
                 if (major(devnr) == 136) {
-                        if (asprintf(&b, "pts/%lu", (unsigned long) minor(devnr)) < 0)
-                                return -ENOMEM;
-
-                        *r = b;
-                        if (_devnr)
-                                *_devnr = devnr;
-
-                        return 0;
+                        asprintf(&b, "pts/%lu", (unsigned long) minor(devnr));
+                        goto finish;
                 }
 
                 /* Probably something like the ptys which have no
@@ -2673,14 +2611,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                  * vaguely useful. */
 
                 b = strdup(fn + 5);
-                if (!b)
-                        return -ENOMEM;
-
-                *r = b;
-                if (_devnr)
-                        *_devnr = devnr;
-
-                return 0;
+                goto finish;
         }
 
         if (startswith(s, "/dev/"))
@@ -2691,8 +2622,8 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
                 p = s;
 
         b = strdup(p);
-        free(s);
 
+finish:
         if (!b)
                 return -ENOMEM;
 
@@ -2714,21 +2645,22 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
         d = fdopendir(fd);
         if (!d) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
                 return errno == ENOENT ? 0 : -errno;
         }
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 bool is_dir, keep_around;
                 struct stat st;
                 int r;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0 && ret == 0) {
-                        ret = -r;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        if (ret == 0)
+                                ret = -errno;
                         break;
                 }
 
@@ -2798,9 +2730,9 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct 
 
 _pure_ static int is_temporary_fs(struct statfs *s) {
         assert(s);
-        return
-                F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
-                F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
+
+        return F_TYPE_EQUAL(s->f_type, TMPFS_MAGIC) ||
+               F_TYPE_EQUAL(s->f_type, RAMFS_MAGIC);
 }
 
 int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root_dev) {
@@ -2809,7 +2741,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
         assert(fd >= 0);
 
         if (fstatfs(fd, &s) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -2818,7 +2750,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
          * non-state data */
         if (!is_temporary_fs(&s)) {
                 log_error("Attempted to remove disk file system, and we can't allow that.");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -EPERM;
         }
 
@@ -2864,13 +2796,13 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
 
         if (!dangerous) {
                 if (fstatfs(fd, &s) < 0) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -errno;
                 }
 
                 if (!is_temporary_fs(&s)) {
                         log_error("Attempted to remove disk file system, and we can't allow that.");
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return -EPERM;
                 }
         }
@@ -2923,11 +2855,13 @@ int fchmod_and_fchown(int fd, mode_t mode, uid_t uid, gid_t gid) {
          * first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (fchmod(fd, mode) < 0)
-                return -errno;
+        if (mode != (mode_t) -1)
+                if (fchmod(fd, mode) < 0)
+                        return -errno;
 
-        if (fchown(fd, uid, gid) < 0)
-                return -errno;
+        if (uid != (uid_t) -1 || gid != (gid_t) -1)
+                if (fchown(fd, uid, gid) < 0)
+                        return -errno;
 
         return 0;
 }
@@ -3036,23 +2970,6 @@ int status_printf(const char *status, bool ellipse, bool ephemeral, const char *
         va_end(ap);
 
         return r;
-}
-
-int status_welcome(void) {
-        int r;
-        _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
-
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           "ANSI_COLOR", &ansi_color,
-                           NULL);
-        if (r < 0 && r != -ENOENT)
-                log_warning("Failed to read /etc/os-release: %s", strerror(-r));
-
-        return status_printf(NULL, false, false,
-                             "\nWelcome to \x1B[%sm%s\x1B[0m!\n",
-                             isempty(ansi_color) ? "1" : ansi_color,
-                             isempty(pretty_name) ? "Linux" : pretty_name);
 }
 
 char *replace_env(const char *format, char **env) {
@@ -3273,22 +3190,30 @@ bool on_tty(void) {
         return cached_on_tty;
 }
 
-int running_in_chroot(void) {
-        struct stat a = {}, b = {};
+int files_same(const char *filea, const char *fileb) {
+        struct stat a, b;
 
-        /* Only works as root */
-        if (stat("/proc/1/root", &a) < 0)
+        if (stat(filea, &a) < 0)
                 return -errno;
 
-        if (stat("/", &b) < 0)
+        if (stat(fileb, &b) < 0)
                 return -errno;
 
-        return
-                a.st_dev != b.st_dev ||
-                a.st_ino != b.st_ino;
+        return a.st_dev == b.st_dev &&
+               a.st_ino == b.st_ino;
 }
 
-char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+int running_in_chroot(void) {
+        int ret;
+
+        ret = files_same("/proc/1/root", "/");
+        if (ret < 0)
+                return ret;
+
+        return ret == 0;
+}
+
+static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x;
         char *r;
 
@@ -3319,12 +3244,86 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         return r;
 }
 
+char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+        size_t x;
+        char *e;
+        const char *i, *j;
+        unsigned k, len, len2;
+
+        assert(s);
+        assert(percent <= 100);
+        assert(new_length >= 3);
+
+        /* if no multibyte characters use ascii_ellipsize_mem for speed */
+        if (ascii_is_valid(s))
+                return ascii_ellipsize_mem(s, old_length, new_length, percent);
+
+        if (old_length <= 3 || old_length <= new_length)
+                return strndup(s, old_length);
+
+        x = (new_length * percent) / 100;
+
+        if (x > new_length - 3)
+                x = new_length - 3;
+
+        k = 0;
+        for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
+                int c;
+
+                c = utf8_encoded_to_unichar(i);
+                if (c < 0)
+                        return NULL;
+                k += unichar_iswide(c) ? 2 : 1;
+        }
+
+        if (k > x) /* last character was wide and went over quota */
+                x ++;
+
+        for (j = s + old_length; k < new_length && j > i; ) {
+                int c;
+
+                j = utf8_prev_char(j);
+                c = utf8_encoded_to_unichar(j);
+                if (c < 0)
+                        return NULL;
+                k += unichar_iswide(c) ? 2 : 1;
+        }
+        assert(i <= j);
+
+        /* we don't actually need to ellipsize */
+        if (i == j)
+                return memdup(s, old_length + 1);
+
+        /* make space for ellipsis */
+        j = utf8_next_char(j);
+
+        len = i - s;
+        len2 = s + old_length - j;
+        e = new(char, len + 3 + len2 + 1);
+        if (!e)
+                return NULL;
+
+        /*
+        printf("old_length=%zu new_length=%zu x=%zu len=%u len2=%u k=%u\n",
+               old_length, new_length, x, len, len2, k);
+        */
+
+        memcpy(e, s, len);
+        e[len]   = 0xe2; /* tri-dot ellipsis: … */
+        e[len + 1] = 0x80;
+        e[len + 2] = 0xa6;
+
+        memcpy(e + len + 3, j, len2 + 1);
+
+        return e;
+}
+
 char *ellipsize(const char *s, size_t length, unsigned percent) {
         return ellipsize_mem(s, strlen(s), length, percent);
 }
 
 int touch(const char *path) {
-        int fd;
+        _cleanup_close_ int fd;
 
         assert(path);
 
@@ -3336,7 +3335,6 @@ int touch(const char *path) {
         if (fd < 0)
                 return -errno;
 
-        close_nointr_nofail(fd);
         return 0;
 }
 
@@ -3453,7 +3451,7 @@ int wait_for_terminate_and_warn(const char *name, pid_t pid) {
         return -EPROTO;
 }
 
-_noreturn_ void freeze(void) {
+noreturn void freeze(void) {
 
         /* Make sure nobody waits for us on a socket anymore */
         close_all_fds(NULL, 0);
@@ -3499,7 +3497,7 @@ DIR *xopendirat(int fd, const char *name, int flags) {
 
         d = fdopendir(nfd);
         if (!d) {
-                close_nointr_nofail(nfd);
+                safe_close(nfd);
                 return NULL;
         }
 
@@ -3520,25 +3518,21 @@ int signal_from_string_try_harder(const char *s) {
 
 static char *tag_to_udev_node(const char *tagvalue, const char *by) {
         _cleanup_free_ char *t = NULL, *u = NULL;
-        char *dn;
         size_t enc_len;
 
         u = unquote(tagvalue, "\"\'");
-        if (u == NULL)
+        if (!u)
                 return NULL;
 
-        enc_len = strlen(u) * 4;
+        enc_len = strlen(u) * 4 + 1;
         t = new(char, enc_len);
-        if (t == NULL)
+        if (!t)
                 return NULL;
 
         if (encode_devnode_name(u, t, enc_len) < 0)
                 return NULL;
 
-        if (asprintf(&dn, "/dev/disk/by-%s/%s", by, t) < 0)
-                return NULL;
-
-        return dn;
+        return strjoin("/dev/disk/by-", by, "/", t, NULL);
 }
 
 char *fstab_node_to_udev_node(const char *p) {
@@ -3621,12 +3615,21 @@ char *resolve_dev_console(char **active) {
         else
                 tty = *active;
 
+        if (streq(tty, "tty0")) {
+                char *tmp;
+
+                /* Get the active VC (e.g. tty1) */
+                if (read_one_line_file("/sys/class/tty/tty0/active", &tmp) >= 0) {
+                        free(*active);
+                        tty = *active = tmp;
+                }
+        }
+
         return tty;
 }
 
 bool tty_is_vc_resolve(const char *tty) {
-        char *active = NULL;
-        bool b;
+        _cleanup_free_ char *active = NULL;
 
         assert(tty);
 
@@ -3639,10 +3642,7 @@ bool tty_is_vc_resolve(const char *tty) {
                         return false;
         }
 
-        b = tty_is_vc(tty);
-        free(active);
-
-        return b;
+        return tty_is_vc(tty);
 }
 
 const char *default_term_for_tty(const char *tty) {
@@ -3679,111 +3679,123 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
         return endswith(de->d_name, suffix);
 }
 
-void execute_directory(const char *directory, DIR *d, char *argv[]) {
-        DIR *_d = NULL;
-        struct dirent *de;
-        Hashmap *pids = NULL;
+void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv[]) {
+        pid_t executor_pid;
+        int r;
 
         assert(directory);
 
-        /* Executes all binaries in a directory in parallel and
-         * waits for them to finish. */
+        /* Executes all binaries in a directory in parallel and waits
+         * for them to finish. Optionally a timeout is applied. */
 
-        if (!d) {
-                if (!(_d = opendir(directory))) {
+        executor_pid = fork();
+        if (executor_pid < 0) {
+                log_error("Failed to fork: %m");
+                return;
 
-                        if (errno == ENOENT)
-                                return;
+        } else if (executor_pid == 0) {
+                _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
+                _cleanup_closedir_ DIR *_d = NULL;
+                struct dirent *de;
+                sigset_t ss;
 
-                        log_error("Failed to enumerate directory %s: %m", directory);
-                        return;
+                /* We fork this all off from a child process so that
+                 * we can somewhat cleanly make use of SIGALRM to set
+                 * a time limit */
+
+                reset_all_signal_handlers();
+
+                assert_se(sigemptyset(&ss) == 0);
+                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+
+                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                if (!d) {
+                        d = _d = opendir(directory);
+                        if (!d) {
+                                if (errno == ENOENT)
+                                        _exit(EXIT_SUCCESS);
+
+                                log_error("Failed to enumerate directory %s: %m", directory);
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
-                d = _d;
-        }
-
-        if (!(pids = hashmap_new(trivial_hash_func, trivial_compare_func))) {
-                log_error("Failed to allocate set.");
-                goto finish;
-        }
-
-        while ((de = readdir(d))) {
-                char *path;
-                pid_t pid;
-                int k;
-
-                if (!dirent_is_file(de))
-                        continue;
-
-                if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                pids = hashmap_new(NULL, NULL);
+                if (!pids) {
                         log_oom();
-                        continue;
-                }
-
-                if ((pid = fork()) < 0) {
-                        log_error("Failed to fork: %m");
-                        free(path);
-                        continue;
-                }
-
-                if (pid == 0) {
-                        char *_argv[2];
-                        /* Child */
-
-                        if (!argv) {
-                                _argv[0] = path;
-                                _argv[1] = NULL;
-                                argv = _argv;
-                        } else
-                                argv[0] = path;
-
-                        execv(path, argv);
-
-                        log_error("Failed to execute %s: %m", path);
                         _exit(EXIT_FAILURE);
                 }
 
-                log_debug("Spawned %s as %lu", path, (unsigned long) pid);
+                FOREACH_DIRENT(de, d, break) {
+                        _cleanup_free_ char *path = NULL;
+                        pid_t pid;
 
-                if ((k = hashmap_put(pids, UINT_TO_PTR(pid), path)) < 0) {
-                        log_error("Failed to add PID to set: %s", strerror(-k));
-                        free(path);
-                }
-        }
-
-        while (!hashmap_isempty(pids)) {
-                pid_t pid = PTR_TO_UINT(hashmap_first_key(pids));
-                siginfo_t si = {};
-                char *path;
-
-                if (waitid(P_PID, pid, &si, WEXITED) < 0) {
-
-                        if (errno == EINTR)
+                        if (!dirent_is_file(de))
                                 continue;
 
-                        log_error("waitid() failed: %m");
-                        goto finish;
+                        if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        pid = fork();
+                        if (pid < 0) {
+                                log_error("Failed to fork: %m");
+                                continue;
+                        } else if (pid == 0) {
+                                char *_argv[2];
+
+                                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
+
+                                if (!argv) {
+                                        _argv[0] = path;
+                                        _argv[1] = NULL;
+                                        argv = _argv;
+                                } else
+                                        argv[0] = path;
+
+                                execv(path, argv);
+                                log_error("Failed to execute %s: %m", path);
+                                _exit(EXIT_FAILURE);
+                        }
+
+
+                        log_debug("Spawned %s as " PID_FMT ".", path, pid);
+
+                        r = hashmap_put(pids, UINT_TO_PTR(pid), path);
+                        if (r < 0) {
+                                log_oom();
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        path = NULL;
                 }
 
-                if ((path = hashmap_remove(pids, UINT_TO_PTR(si.si_pid)))) {
-                        if (!is_clean_exit(si.si_code, si.si_status, NULL)) {
-                                if (si.si_code == CLD_EXITED)
-                                        log_error("%s exited with exit status %i.", path, si.si_status);
-                                else
-                                        log_error("%s terminated by signal %s.", path, signal_to_string(si.si_status));
-                        } else
-                                log_debug("%s exited successfully.", path);
+                /* Abort execution of this process after the
+                 * timout. We simply rely on SIGALRM as default action
+                 * terminating the process, and turn on alarm(). */
 
-                        free(path);
+                if (timeout != (usec_t) -1)
+                        alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+
+                while (!hashmap_isempty(pids)) {
+                        _cleanup_free_ char *path = NULL;
+                        pid_t pid;
+
+                        pid = PTR_TO_UINT(hashmap_first_key(pids));
+                        assert(pid > 0);
+
+                        path = hashmap_remove(pids, UINT_TO_PTR(pid));
+                        assert(path);
+
+                        wait_for_terminate_and_warn(path, pid);
                 }
+
+                _exit(EXIT_SUCCESS);
         }
 
-finish:
-        if (_d)
-                closedir(_d);
-
-        if (pids)
-                hashmap_free_free(pids);
+        wait_for_terminate_and_warn(directory, executor_pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
@@ -3892,11 +3904,12 @@ char* hostname_cleanup(char *s, bool lowercase) {
 }
 
 int pipe_eof(int fd) {
-        int r;
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = POLLIN|POLLHUP,
         };
+
+        int r;
 
         r = poll(&pollfd, 1, 0);
         if (r < 0)
@@ -3909,13 +3922,16 @@ int pipe_eof(int fd) {
 }
 
 int fd_wait_for_event(int fd, int event, usec_t t) {
-        int r;
+
         struct pollfd pollfd = {
                 .fd = fd,
                 .events = event,
         };
 
-        r = poll(&pollfd, 1, t == (usec_t) -1 ? -1 : (int) (t / USEC_PER_MSEC));
+        struct timespec ts;
+        int r;
+
+        r = ppoll(&pollfd, 1, t == (usec_t) -1 ? NULL : timespec_store(&ts, t), NULL);
         if (r < 0)
                 return -errno;
 
@@ -3940,13 +3956,13 @@ int fopen_temporary(const char *path, FILE **_f, char **_temp_path) {
         if (!t)
                 return -ENOMEM;
 
-        fn = path_get_file_name(path);
-        k = fn-path;
+        fn = basename(path);
+        k = fn - path;
         memcpy(t, path, k);
         t[k] = '.';
         stpcpy(stpcpy(t+k+1, fn), "XXXXXX");
 
-        fd = mkostemp(t, O_WRONLY|O_CLOEXEC);
+        fd = mkostemp_safe(t, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
                 free(t);
                 return -errno;
@@ -3975,16 +3991,13 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *name) {
-        int fd, r;
+        _cleanup_close_ int fd;
 
         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return fd;
 
-        r = terminal_vhangup_fd(fd);
-        close_nointr_nofail(fd);
-
-        return r;
+        return terminal_vhangup_fd(fd);
 }
 
 int vt_disallocate(const char *name) {
@@ -4011,7 +4024,7 @@ int vt_disallocate(const char *name) {
                            "\033[H"    /* move home */
                            "\033[2J",  /* clear screen */
                            10, false);
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
                 return 0;
         }
@@ -4032,7 +4045,7 @@ int vt_disallocate(const char *name) {
                 return fd;
 
         r = ioctl(fd, VT_DISALLOCATE, u);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (r >= 0)
                 return 0;
@@ -4051,13 +4064,14 @@ int vt_disallocate(const char *name) {
                    "\033[H"   /* move home */
                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
                    10, false);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         return 0;
 }
 
-int copy_file(const char *from, const char *to) {
-        int r, fdf, fdt;
+int copy_file(const char *from, const char *to, int flags) {
+        _cleanup_close_ int fdf = -1;
+        int r, fdt;
 
         assert(from);
         assert(to);
@@ -4066,11 +4080,9 @@ int copy_file(const char *from, const char *to) {
         if (fdf < 0)
                 return -errno;
 
-        fdt = open(to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY, 0644);
-        if (fdt < 0) {
-                close_nointr_nofail(fdf);
+        fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
+        if (fdt < 0)
                 return -errno;
-        }
 
         for (;;) {
                 char buf[PIPE_BUF];
@@ -4080,7 +4092,6 @@ int copy_file(const char *from, const char *to) {
                 if (n < 0) {
                         r = -errno;
 
-                        close_nointr_nofail(fdf);
                         close_nointr(fdt);
                         unlink(to);
 
@@ -4095,15 +4106,13 @@ int copy_file(const char *from, const char *to) {
                 if (n != k) {
                         r = k < 0 ? k : (errno ? -errno : -EIO);
 
-                        close_nointr_nofail(fdf);
                         close_nointr(fdt);
-
                         unlink(to);
+
                         return r;
                 }
         }
 
-        close_nointr_nofail(fdf);
         r = close_nointr(fdt);
 
         if (r < 0) {
@@ -4119,7 +4128,7 @@ int symlink_atomic(const char *from, const char *to) {
         _cleanup_free_ char *t;
         const char *fn;
         size_t k;
-        unsigned long long ull;
+        uint64_t u;
         unsigned i;
         int r;
 
@@ -4130,16 +4139,16 @@ int symlink_atomic(const char *from, const char *to) {
         if (!t)
                 return -ENOMEM;
 
-        fn = path_get_file_name(to);
+        fn = basename(to);
         k = fn-to;
         memcpy(t, to, k);
         t[k] = '.';
         x = stpcpy(t+k+1, fn);
 
-        ull = random_ull();
+        u = random_u64();
         for (i = 0; i < 16; i++) {
-                *(x++) = hexchar(ull & 0xF);
-                ull >>= 4;
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
         }
 
         *x = 0;
@@ -4177,7 +4186,7 @@ int socket_from_display(const char *display, char **path) {
 
         k = strspn(display+1, "0123456789");
 
-        f = new(char, sizeof("/tmp/.X11-unix/X") + k);
+        f = new(char, strlen("/tmp/.X11-unix/X") + k + 1);
         if (!f)
                 return -ENOMEM;
 
@@ -4391,7 +4400,7 @@ int glob_extend(char ***strv, const char *path) {
         char **p;
 
         errno = 0;
-        k = glob(optarg, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
+        k = glob(path, GLOB_NOSORT|GLOB_BRACE, NULL, &g);
 
         if (k == GLOB_NOMATCH)
                 return -ENOENT;
@@ -4467,13 +4476,11 @@ int get_files_in_directory(const char *path, char ***list) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
-                int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                assert(k >= 0);
-                if (k > 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
                 if (!de)
                         break;
 
@@ -4562,7 +4569,7 @@ char *strjoin(const char *x, ...) {
 }
 
 bool is_main_thread(void) {
-        static __thread int cached = 0;
+        static thread_local int cached = 0;
 
         if (_unlikely_(cached == 0))
                 cached = getpid() == gettid() ? 1 : -1;
@@ -4711,7 +4718,7 @@ static const char* const sched_policy_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
 
-static const char* const rlimit_table[] = {
+static const char* const rlimit_table[_RLIMIT_MAX] = {
         [RLIMIT_CPU] = "LimitCPU",
         [RLIMIT_FSIZE] = "LimitFSIZE",
         [RLIMIT_DATA] = "LimitDATA",
@@ -4780,7 +4787,7 @@ static const char *const __signal_table[] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
 
 const char *signal_to_string(int signo) {
-        static __thread char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
+        static thread_local char buf[sizeof("RTMIN+")-1 + DECIMAL_STR_MAX(int) + 1];
         const char *name;
 
         name = __signal_to_string(signo);
@@ -4918,15 +4925,15 @@ int fd_inc_sndbuf(int fd, size_t n) {
         socklen_t l = sizeof(value);
 
         r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
-        if (r >= 0 &&
-            l == sizeof(value) &&
-            (size_t) value >= n*2)
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
+        /* If we have the privileges we will ignore the kernel limit. */
+
         value = (int) n;
-        r = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value));
-        if (r < 0)
-                return -errno;
+        if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, sizeof(value)) < 0)
+                        return -errno;
 
         return 1;
 }
@@ -4936,16 +4943,15 @@ int fd_inc_rcvbuf(int fd, size_t n) {
         socklen_t l = sizeof(value);
 
         r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
-        if (r >= 0 &&
-            l == sizeof(value) &&
-            (size_t) value >= n*2)
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
-        value = (int) n;
-        r = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value));
-        if (r < 0)
-                return -errno;
+        /* If we have the privileges we will ignore the kernel limit. */
 
+        value = (int) n;
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
+                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
+                        return -errno;
         return 1;
 }
 
@@ -5070,10 +5076,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         assert(field);
         assert(_value);
 
-        if (pid == 0)
-                path = "/proc/self/environ";
-        else
-                path = procfs_file_alloca(pid, "environ");
+        path = procfs_file_alloca(pid, "environ");
 
         f = fopen(path, "re");
         if (!f)
@@ -5137,7 +5140,7 @@ bool is_valid_documentation_url(const char *url) {
 }
 
 bool in_initrd(void) {
-        static __thread int saved = -1;
+        static int saved = -1;
         struct statfs s;
 
         if (saved >= 0)
@@ -5202,10 +5205,10 @@ int make_console_stdio(void) {
 }
 
 int get_home_dir(char **_h) {
-        char *h;
-        const char *e;
-        uid_t u;
         struct passwd *p;
+        const char *e;
+        char *h;
+        uid_t u;
 
         assert(_h);
 
@@ -5245,6 +5248,53 @@ int get_home_dir(char **_h) {
                 return -ENOMEM;
 
         *_h = h;
+        return 0;
+}
+
+int get_shell(char **_s) {
+        struct passwd *p;
+        const char *e;
+        char *s;
+        uid_t u;
+
+        assert(_s);
+
+        /* Take the user specified one */
+        e = getenv("SHELL");
+        if (e) {
+                s = strdup(e);
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Hardcode home directory for root to avoid NSS */
+        u = getuid();
+        if (u == 0) {
+                s = strdup("/bin/sh");
+                if (!s)
+                        return -ENOMEM;
+
+                *_s = s;
+                return 0;
+        }
+
+        /* Check the database... */
+        errno = 0;
+        p = getpwuid(u);
+        if (!p)
+                return errno > 0 ? -errno : -ESRCH;
+
+        if (!path_is_absolute(p->pw_shell))
+                return -EINVAL;
+
+        s = strdup(p->pw_shell);
+        if (!s)
+                return -ENOMEM;
+
+        *_s = s;
         return 0;
 }
 
@@ -5362,7 +5412,7 @@ bool is_locale_utf8(void) {
                 goto out;
         }
 
-        if(streq(set, "UTF-8")) {
+        if (streq(set, "UTF-8")) {
                 cached_answer = true;
                 goto out;
         }
@@ -5395,6 +5445,7 @@ const char *draw_special_char(DrawSpecialChar ch) {
                         [DRAW_TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
                         [DRAW_TREE_SPACE]         = "  ",                       /*    */
                         [DRAW_TRIANGULAR_BULLET]  = "\342\200\243 ",            /* ‣  */
+                        [DRAW_BLACK_CIRCLE]       = "\342\227\217 ",            /* ●  */
                 },
                 /* ASCII fallback */ {
                         [DRAW_TREE_VERT]          = "| ",
@@ -5402,6 +5453,7 @@ const char *draw_special_char(DrawSpecialChar ch) {
                         [DRAW_TREE_RIGHT]         = "`-",
                         [DRAW_TREE_SPACE]         = "  ",
                         [DRAW_TRIANGULAR_BULLET]  = "> ",
+                        [DRAW_BLACK_CIRCLE]       = "* ",
                 }
         };
 
@@ -5551,15 +5603,14 @@ int on_ac_power(void) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 _cleanup_close_ int fd = -1, device = -1;
                 char contents[6];
                 ssize_t n;
-                int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
-                        return -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0)
+                        return -errno;
 
                 if (!de)
                         break;
@@ -5590,7 +5641,7 @@ int on_ac_power(void) {
                 if (n != 6 || memcmp(contents, "Mains\n", 6))
                         continue;
 
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
                         if (errno == ENOENT)
@@ -5618,14 +5669,14 @@ int on_ac_power(void) {
         return found_online || !found_offline;
 }
 
-static int search_and_fopen_internal(const char *path, const char *mode, char **search, FILE **_f) {
+static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
         char **i;
 
         assert(path);
         assert(mode);
         assert(_f);
 
-        if (!path_strv_canonicalize_uniq(search))
+        if (!path_strv_canonicalize_absolute_uniq(search, root))
                 return -ENOMEM;
 
         STRV_FOREACH(i, search) {
@@ -5649,7 +5700,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, char **
         return -ENOENT;
 }
 
-int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f) {
+int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f) {
         _cleanup_strv_free_ char **copy = NULL;
 
         assert(path);
@@ -5672,10 +5723,10 @@ int search_and_fopen(const char *path, const char *mode, const char **search, FI
         if (!copy)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, copy, _f);
+        return search_and_fopen_internal(path, mode, root, copy, _f);
 }
 
-int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f) {
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f) {
         _cleanup_strv_free_ char **s = NULL;
 
         if (path_is_absolute(path)) {
@@ -5694,57 +5745,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
         if (!s)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, s, _f);
-}
-
-int create_tmp_dir(char template[], char** dir_name) {
-        int r = 0;
-        char *d = NULL, *dt;
-
-        assert(dir_name);
-
-        RUN_WITH_UMASK(0077) {
-                d = mkdtemp(template);
-        }
-        if (!d) {
-                log_error("Can't create directory %s: %m", template);
-                return -errno;
-        }
-
-        dt = strjoin(d, "/tmp", NULL);
-        if (!dt) {
-                r = log_oom();
-                goto fail3;
-        }
-
-        RUN_WITH_UMASK(0000) {
-                r = mkdir(dt, 0777);
-        }
-        if (r < 0) {
-                log_error("Can't create directory %s: %m", dt);
-                r = -errno;
-                goto fail2;
-        }
-        log_debug("Created temporary directory %s", dt);
-
-        r = chmod(dt, 0777 | S_ISVTX);
-        if (r < 0) {
-                log_error("Failed to chmod %s: %m", dt);
-                r = -errno;
-                goto fail1;
-        }
-        log_debug("Set sticky bit on %s", dt);
-
-        *dir_name = dt;
-
-        return 0;
-fail1:
-        rmdir(dt);
-fail2:
-        free(dt);
-fail3:
-        rmdir(template);
-        return r;
+        return search_and_fopen_internal(path, mode, root, s, _f);
 }
 
 char *strextend(char **x, ...) {
@@ -5822,16 +5823,43 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         size_t a;
         void *q;
 
+        assert(p);
+        assert(allocated);
+
         if (*allocated >= need)
                 return *p;
 
         a = MAX(64u, need * 2);
+
+        /* check for overflows */
+        if (a < need)
+                return NULL;
+
         q = realloc(*p, a);
         if (!q)
                 return NULL;
 
         *p = q;
         *allocated = a;
+        return q;
+}
+
+void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
+        size_t prev;
+        uint8_t *q;
+
+        assert(p);
+        assert(allocated);
+
+        prev = *allocated;
+
+        q = greedy_realloc(p, allocated, need);
+        if (!q)
+                return NULL;
+
+        if (*allocated > prev)
+                memzero(&q[prev], *allocated - prev);
+
         return q;
 }
 
@@ -5876,20 +5904,6 @@ bool id128_is_valid(const char *s) {
         return true;
 }
 
-void parse_user_at_host(char *arg, char **user, char **host) {
-        assert(arg);
-        assert(user);
-        assert(host);
-
-        *host = strchr(arg, '@');
-        if (*host == NULL)
-                *host = arg;
-        else {
-                *host[0]++ = '\0';
-                *user = arg;
-        }
-}
-
 int split_pair(const char *s, const char *sep, char **l, char **r) {
         char *x, *a, *b;
 
@@ -5919,4 +5933,461 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
         *r = b;
 
         return 0;
+}
+
+int shall_restore_state(void) {
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
+        size_t l;
+        int r;
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
+        if (r == 0) /* Container ... */
+                return 1;
+
+        r = 1;
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                const char *e;
+                char n[l+1];
+                int k;
+
+                memcpy(n, w, l);
+                n[l] = 0;
+
+                e = startswith(n, "systemd.restore_state=");
+                if (!e)
+                        continue;
+
+                k = parse_boolean(e);
+                if (k >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+int proc_cmdline(char **ret) {
+        int r;
+
+        if (detect_container(NULL) > 0) {
+                char *buf = NULL, *p;
+                size_t sz = 0;
+
+                r = read_full_file("/proc/1/cmdline", &buf, &sz);
+                if (r < 0)
+                        return r;
+
+                for (p = buf; p + 1 < buf + sz; p++)
+                        if (*p == 0)
+                                *p = ' ';
+
+                *p = 0;
+                *ret = buf;
+                return 1;
+        }
+
+        r = read_one_line_file("/proc/cmdline", ret);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
+        _cleanup_free_ char *line = NULL;
+        char *w, *state;
+        size_t l;
+        int r;
+
+        assert(parse_item);
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+        if (r <= 0)
+                return 0;
+
+        FOREACH_WORD_QUOTED(w, l, line, state) {
+                char word[l+1], *value;
+
+                memcpy(word, w, l);
+                word[l] = 0;
+
+                /* Filter out arguments that are intended only for the
+                 * initrd */
+                if (!in_initrd() && startswith(word, "rd."))
+                        continue;
+
+                value = strchr(word, '=');
+                if (value)
+                        *(value++) = 0;
+
+                r = parse_item(word, value);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int container_get_leader(const char *machine, pid_t *pid) {
+        _cleanup_free_ char *s = NULL, *class = NULL;
+        const char *p;
+        pid_t leader;
+        int r;
+
+        assert(machine);
+        assert(pid);
+
+        p = strappenda("/run/systemd/machines/", machine);
+        r = parse_env_file(p, NEWLINE, "LEADER", &s, "CLASS", &class, NULL);
+        if (r == -ENOENT)
+                return -EHOSTDOWN;
+        if (r < 0)
+                return r;
+        if (!s)
+                return -EIO;
+
+        if (!streq_ptr(class, "container"))
+                return -EIO;
+
+        r = parse_pid(s, &leader);
+        if (r < 0)
+                return r;
+        if (leader <= 1)
+                return -EIO;
+
+        *pid = leader;
+        return 0;
+}
+
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1;
+        const char *pidns, *mntns, *root;
+        int rfd;
+
+        assert(pid >= 0);
+        assert(pidns_fd);
+        assert(mntns_fd);
+        assert(root_fd);
+
+        mntns = procfs_file_alloca(pid, "ns/mnt");
+        mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (mntnsfd < 0)
+                return -errno;
+
+        pidns = procfs_file_alloca(pid, "ns/pid");
+        pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (pidnsfd < 0)
+                return -errno;
+
+        root = procfs_file_alloca(pid, "root");
+        rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (rfd < 0)
+                return -errno;
+
+        *pidns_fd = pidnsfd;
+        *mntns_fd = mntnsfd;
+        *root_fd = rfd;
+        pidnsfd = -1;
+        mntnsfd = -1;
+
+        return 0;
+}
+
+int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
+        assert(pidns_fd >= 0);
+        assert(mntns_fd >= 0);
+        assert(root_fd >= 0);
+
+        if (setns(pidns_fd, CLONE_NEWPID) < 0)
+                return -errno;
+
+        if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                return -errno;
+
+        if (fchdir(root_fd) < 0)
+                return -errno;
+
+        if (chroot(".") < 0)
+                return -errno;
+
+        if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setresuid(0, 0, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
+bool pid_is_unwaited(pid_t pid) {
+        /* Checks whether a PID is still valid at all, including a zombie */
+
+        if (pid <= 0)
+                return false;
+
+        if (kill(pid, 0) >= 0)
+                return true;
+
+        return errno != ESRCH;
+}
+
+bool pid_is_alive(pid_t pid) {
+        int r;
+
+        /* Checks whether a PID is still valid and not a zombie */
+
+        if (pid <= 0)
+                return false;
+
+        r = get_process_state(pid);
+        if (r == -ENOENT || r == 'Z')
+                return false;
+
+        return true;
+}
+
+int getpeercred(int fd, struct ucred *ucred) {
+        socklen_t n = sizeof(struct ucred);
+        struct ucred u;
+        int r;
+
+        assert(fd >= 0);
+        assert(ucred);
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n);
+        if (r < 0)
+                return -errno;
+
+        if (n != sizeof(struct ucred))
+                return -EIO;
+
+        /* Check if the data is actually useful and not suppressed due
+         * to namespacing issues */
+        if (u.pid <= 0)
+                return -ENODATA;
+
+        *ucred = u;
+        return 0;
+}
+
+int getpeersec(int fd, char **ret) {
+        socklen_t n = 64;
+        char *s;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        s = new0(char, n);
+        if (!s)
+                return -ENOMEM;
+
+        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+        if (r < 0) {
+                free(s);
+
+                if (errno != ERANGE)
+                        return -errno;
+
+                s = new0(char, n);
+                if (!s)
+                        return -ENOMEM;
+
+                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
+                if (r < 0) {
+                        free(s);
+                        return -errno;
+                }
+        }
+
+        if (isempty(s)) {
+                free(s);
+                return -ENOTSUP;
+        }
+
+        *ret = s;
+        return 0;
+}
+
+/* This is much like like mkostemp() but is subject to umask(). */
+int mkostemp_safe(char *pattern, int flags) {
+        _cleanup_umask_ mode_t u;
+        int fd;
+
+        assert(pattern);
+
+        u = umask(077);
+
+        fd = mkostemp(pattern, flags);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
+
+int open_tmpfile(const char *path, int flags) {
+        char *p;
+        int fd;
+
+        assert(path);
+
+#ifdef O_TMPFILE
+        /* Try O_TMPFILE first, if it is supported */
+        fd = open(path, flags|O_TMPFILE, S_IRUSR|S_IWUSR);
+        if (fd >= 0)
+                return fd;
+#endif
+
+        /* Fall back to unguessable name + unlinking */
+        p = strappenda(path, "/systemd-tmp-XXXXXX");
+
+        fd = mkostemp_safe(p, flags);
+        if (fd < 0)
+                return fd;
+
+        unlink(p);
+        return fd;
+}
+
+int fd_warn_permissions(const char *path, int fd) {
+        struct stat st;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_mode & 0111)
+                log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
+
+        if (st.st_mode & 0002)
+                log_warning("Configuration file %s is marked world-writable. Please remove world writability permission bits. Proceeding anyway.", path);
+
+        if (getpid() == 1 && (st.st_mode & 0044) != 0044)
+                log_warning("Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.", path);
+
+        return 0;
+}
+
+unsigned long personality_from_string(const char *p) {
+
+        /* Parse a personality specifier. We introduce our own
+         * identifiers that indicate specific ABIs, rather than just
+         * hints regarding the register size, since we want to keep
+         * things open for multiple locally supported ABIs for the
+         * same register size. We try to reuse the ABI identifiers
+         * used by libseccomp. */
+
+#if defined(__x86_64__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX32;
+
+        if (streq(p, "x86-64"))
+                return PER_LINUX;
+
+#elif defined(__i386__)
+
+        if (streq(p, "x86"))
+                return PER_LINUX;
+#endif
+
+        /* personality(7) documents that 0xffffffffUL is used for
+         * querying the current personality, hence let's use that here
+         * as error indicator. */
+        return 0xffffffffUL;
+}
+
+const char* personality_to_string(unsigned long p) {
+
+#if defined(__x86_64__)
+
+        if (p == PER_LINUX32)
+                return "x86";
+
+        if (p == PER_LINUX)
+                return "x86-64";
+
+#elif defined(__i386__)
+
+        if (p == PER_LINUX)
+                return "x86";
+#endif
+
+        return NULL;
+}
+
+uint64_t physical_memory(void) {
+        long mem;
+
+        /* We return this as uint64_t in case we are running as 32bit
+         * process on a 64bit kernel with huge amounts of memory */
+
+        mem = sysconf(_SC_PHYS_PAGES);
+        assert(mem > 0);
+
+        return (uint64_t) mem * (uint64_t) page_size();
+}
+
+char* mount_test_option(const char *haystack, const char *needle) {
+
+        struct mntent me = {
+                .mnt_opts = (char*) haystack
+        };
+
+        assert(needle);
+
+        /* Like glibc's hasmntopt(), but works on a string, not a
+         * struct mntent */
+
+        if (!haystack)
+                return NULL;
+
+        return hasmntopt(&me, needle);
+}
+
+void hexdump(FILE *f, const void *p, size_t s) {
+        const uint8_t *b = p;
+        unsigned n = 0;
+
+        assert(s == 0 || b);
+
+        while (s > 0) {
+                size_t i;
+
+                fprintf(f, "%04x  ", n);
+
+                for (i = 0; i < 16; i++) {
+
+                        if (i >= s)
+                                fputs("   ", f);
+                        else
+                                fprintf(f, "%02x ", b[i]);
+
+                        if (i == 7)
+                                fputc(' ', f);
+                }
+
+                fputc(' ', f);
+
+                for (i = 0; i < 16; i++) {
+
+                        if (i >= s)
+                                fputc(' ', f);
+                        else
+                                fputc(isprint(b[i]) ? (char) b[i] : '.', f);
+                }
+
+                fputc('\n', f);
+
+                if (s < 16)
+                        break;
+
+                n += 16;
+                b += 16;
+                s -= 16;
+        }
 }

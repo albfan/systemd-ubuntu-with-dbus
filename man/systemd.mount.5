@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 208" "systemd.mount"
+.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 212" "systemd.mount"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -51,7 +51,7 @@ if it is not run as UID 0\&.
 Mount units must be named after the mount point directories they control\&. Example: the mount point
 /home/lennart
 must be configured in a unit file
-home\-lennart\&.mount\&. For details about the escaping logic used to convert a file system path to a unit name see
+home\-lennart\&.mount\&. For details about the escaping logic used to convert a file system path to a unit name, see
 \fBsystemd.unit\fR(5)\&.
 .PP
 Optionally, a mount unit may be accompanied by an automount unit, to allow on\-demand or parallelized mounting\&. See
@@ -75,7 +75,9 @@ Mount units may either be configured via unit files, or via
 \fBfstab\fR(5)
 for details)\&. Mounts listed in
 /etc/fstab
-will be converted into native units dynamically at boot and when the configuration of the system manager is reloaded\&. See
+will be converted into native units dynamically at boot and when the configuration of the system manager is reloaded\&. In general, configuring mount points through
+/etc/fstab
+is the preferred approach\&. See
 \fBsystemd-fstab-generator\fR(8)
 for details about the conversion\&.
 .PP
@@ -99,6 +101,20 @@ is specified, it may be used to configure how long systemd should wait for a dev
 "min",
 "h",
 "ms"\&.
+.PP
+If
+\fBnofail\fR
+is given, this mount will be only wanted, not required, by the
+local\-fs\&.target\&. This means that the boot will continue even if this mount point is not mounted successfully\&. Option
+\fBfail\fR
+has the opposite meaning and is the default\&.
+.PP
+If
+\fBnoauto\fR
+is given, this mount will not be added as a dependency for
+local\-fs\&.target\&. This means that it will not be mounted automatically during boot, unless it is pulled in by some other unit\&. Option
+\fBauto\fR
+has the opposite meaning and is the default\&.
 .PP
 If a mount point is configured in both
 /etc/fstab
@@ -153,7 +169,9 @@ Configures the time to wait for the mount command to finish\&. If a command does
 \fBSIGKILL\fR\&. (See
 \fBKillMode=\fR
 in
-\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to 90s\&.
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. The default value is set from the manager configuration file\*(Aqs
+\fIDefaultTimeoutStart=\fR
+variable\&.
 .RE
 .PP
 Check
@@ -161,18 +179,6 @@ Check
 and
 \fBsystemd.kill\fR(5)
 for more settings\&.
-.SH "COMPATIBILITY OPTIONS"
-.PP
-The following option is also available in the
-"[Mount]"
-section, but exists purely for compatibility reasons and should not be used in newly written mount files\&.
-.PP
-\fIFsckPassNo=\fR
-.RS 4
-The pass number for the file system checking service for this mount\&. See
-\fBsystemd.service\fR(5)
-for more information on this setting\&.
-.RE
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

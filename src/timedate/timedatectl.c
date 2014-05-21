@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Kay Sievers
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -27,25 +28,21 @@
 #include <string.h>
 #include <sys/timex.h>
 
-#include "dbus-common.h"
+#include "sd-bus.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "util.h"
 #include "spawn-polkit-agent.h"
 #include "build.h"
-#include "hwclock.h"
 #include "strv.h"
 #include "pager.h"
 #include "time-dst.h"
 
-static bool arg_adjust_system_clock = false;
 static bool arg_no_pager = false;
-static enum transport {
-        TRANSPORT_NORMAL,
-        TRANSPORT_SSH,
-        TRANSPORT_POLKIT
-} arg_transport = TRANSPORT_NORMAL;
 static bool arg_ask_password = true;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
-static char *arg_user = NULL;
+static bool arg_adjust_system_clock = false;
 
 static void pager_open_if_enabled(void) {
 
@@ -58,31 +55,26 @@ static void pager_open_if_enabled(void) {
 static void polkit_agent_open_if_enabled(void) {
 
         /* Open the polkit agent as a child process if necessary */
-
         if (!arg_ask_password)
+                return;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return;
 
         polkit_agent_open();
 }
 
 typedef struct StatusInfo {
-        const char *timezone;
-        bool local_rtc;
-        bool ntp;
-        bool can_ntp;
+        usec_t time;
+        char *timezone;
+
+        usec_t rtc_time;
+        bool rtc_local;
+
+        bool ntp_enabled;
+        bool ntp_capable;
+        bool ntp_synced;
 } StatusInfo;
-
-static bool ntp_synced(void) {
-        struct timex txc = {};
-
-        if (adjtimex(&txc) < 0)
-                return false;
-
-        if (txc.status & STA_UNSYNC)
-                return false;
-
-        return true;
-}
 
 static const char *jump_str(int delta_minutes, char *s, size_t size) {
         if (delta_minutes == 60)
@@ -100,70 +92,80 @@ static const char *jump_str(int delta_minutes, char *s, size_t size) {
         return "";
 }
 
-static void print_status_info(StatusInfo *i) {
-        usec_t n;
+static void print_status_info(const StatusInfo *i) {
         char a[FORMAT_TIMESTAMP_MAX];
         char b[FORMAT_TIMESTAMP_MAX];
         char s[32];
         struct tm tm;
         time_t sec;
-        char *zc, *zn;
+        bool have_time = false;
+        _cleanup_free_ char *zc = NULL, *zn = NULL;
         time_t t, tc, tn;
-        int dn;
-        bool is_dstc, is_dstn;
+        int dn = 0;
+        bool is_dstc = false, is_dstn = false;
         int r;
 
         assert(i);
 
-        /* enforce the values of /etc/localtime */
+        /* Enforce the values of /etc/localtime */
         if (getenv("TZ")) {
-                fprintf(stderr, "Warning: ignoring the TZ variable, reading the system's timezone setting only.\n\n");
+                fprintf(stderr, "Warning: Ignoring the TZ variable. Reading the system's time zone setting only.\n\n");
                 unsetenv("TZ");
         }
 
-        n = now(CLOCK_REALTIME);
-        sec = (time_t) (n / USEC_PER_SEC);
+        if (i->time != 0) {
+                sec = (time_t) (i->time / USEC_PER_SEC);
+                have_time = true;
+        } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                sec = time(NULL);
+                have_time = true;
+        } else
+                fprintf(stderr, "Warning: Could not get time from timedated and not operating locally.\n\n");
 
-        zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
-        char_array_0(a);
-        printf("      Local time: %s\n", a);
+        if (have_time) {
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) > 0);
+                char_array_0(a);
+                printf("      Local time: %s\n", a);
 
-        zero(tm);
-        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
-        char_array_0(a);
-        printf("  Universal time: %s\n", a);
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm)) > 0);
+                char_array_0(a);
+                printf("  Universal time: %s\n", a);
+        } else {
+                printf("      Local time: %s\n", "n/a");
+                printf("  Universal time: %s\n", "n/a");
+        }
 
-        zero(tm);
-        r = hwclock_get_time(&tm);
-        if (r >= 0) {
-                /* Calculcate the week-day */
-                mktime(&tm);
+        if (i->rtc_time > 0) {
+                time_t rtc_sec;
 
-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", &tm) > 0);
+                rtc_sec = (time_t)(i->rtc_time / USEC_PER_SEC);
+                zero(tm);
+                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm)) > 0);
                 char_array_0(a);
                 printf("        RTC time: %s\n", a);
-        }
+        } else
+                printf("        RTC time: %s\n", "n/a");
 
         zero(tm);
         assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
         char_array_0(a);
-        printf("        Timezone: %s (%s)\n"
+        printf("       Time zone: %s (%s)\n"
                "     NTP enabled: %s\n"
                "NTP synchronized: %s\n"
                " RTC in local TZ: %s\n",
-               strna(i->timezone),
-               a,
-               i->can_ntp ? yes_no(i->ntp) : "n/a",
-               yes_no(ntp_synced()),
-               yes_no(i->local_rtc));
+               strna(i->timezone), a,
+               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
+               yes_no(i->ntp_synced),
+               yes_no(i->rtc_local));
 
         r = time_get_dst(sec, "/etc/localtime",
                          &tc, &zc, &is_dstc,
                          &tn, &dn, &zn, &is_dstn);
         if (r < 0)
-                printf("      DST active: n/a\n");
-        else {
+                printf("      DST active: %s\n", "n/a");
+        else if (have_time) {
                 printf("      DST active: %s\n", yes_no(is_dstc));
 
                 t = tc - 1;
@@ -191,123 +193,54 @@ static void print_status_info(StatusInfo *i) {
                        "                  %s\n"
                        "                  %s\n",
                        is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
+        } else
+                printf("      DST active: %s\n", yes_no(is_dstc));
 
-                free(zc);
-                free(zn);
-        }
-
-        if (i->local_rtc)
+        if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local timezone. This\n"
+                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
                       "         mode is not fully supported and will create various problems with time\n"
-                      "         zone changes and daylight saving adjustments. If at all possible use\n"
-                      "         RTC in UTC, by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
+                      "         zone changes and daylight saving time adjustments. If at all possible, use\n"
+                      "         RTC in UTC by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
-static int status_property(const char *name, DBusMessageIter *iter, StatusInfo *i) {
-        assert(name);
-        assert(iter);
-
-        switch (dbus_message_iter_get_arg_type(iter)) {
-
-        case DBUS_TYPE_STRING: {
-                const char *s;
-
-                dbus_message_iter_get_basic(iter, &s);
-                if (!isempty(s)) {
-                        if (streq(name, "Timezone"))
-                                i->timezone = s;
-                }
-                break;
-        }
-
-        case DBUS_TYPE_BOOLEAN: {
-                dbus_bool_t b;
-
-                dbus_message_iter_get_basic(iter, &b);
-                if (streq(name, "LocalRTC"))
-                        i->local_rtc = b;
-                else if (streq(name, "NTP"))
-                        i->ntp = b;
-                else if (streq(name, "CanNTP"))
-                        i->can_ntp = b;
-        }
-        }
-
-        return 0;
-}
-
-static int show_status(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "";
-        int r;
-        DBusMessageIter iter, sub, sub2, sub3;
+static int show_status(sd_bus *bus, char **args, unsigned n) {
         StatusInfo info = {};
+        static const struct bus_properties_map map[]  = {
+                { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
+                { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local) },
+                { "NTP",             "b", NULL, offsetof(StatusInfo, ntp_enabled) },
+                { "CanNTP",          "b", NULL, offsetof(StatusInfo, ntp_capable) },
+                { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced) },
+                { "TimeUSec",        "t", NULL, offsetof(StatusInfo, time) },
+                { "RTCTimeUSec",     "t", NULL, offsetof(StatusInfo, rtc_time) },
+                {}
+        };
+        int r;
 
-        assert(args);
+        assert(bus);
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
-        }
-
-        dbus_message_iter_recurse(&iter, &sub);
-
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *name;
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-
-                r = status_property(name, &sub3, &info);
-                if (r < 0) {
-                        log_error("Failed to parse reply.");
-                        return r;
-                }
-
-                dbus_message_iter_next(&sub);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.timedate1",
+                                   "/org/freedesktop/timedate1",
+                                   map,
+                                   &info);
+        if (r < 0) {
+                log_error("Failed to query server: %s", strerror(-r));
+                goto fail;
         }
 
         print_status_info(&info);
-        return 0;
+
+fail:
+        free(info.timezone);
+        return r;
 }
 
-static int set_time(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t relative = false, interactive = arg_ask_password;
+static int set_time(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool relative = false, interactive = arg_ask_password;
         usec_t t;
-        dbus_int64_t u;
         int r;
 
         assert(args);
@@ -321,47 +254,22 @@ static int set_time(DBusConnection *bus, char **args, unsigned n) {
                 return r;
         }
 
-        u = (dbus_uint64_t) t;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetTime",
+                               &error,
+                               NULL,
+                               "xbb", (int64_t)t, relative, interactive);
+        if (r < 0)
+                log_error("Failed to set time: %s", bus_error_message(&error, -r));
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetTime",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INT64, &u,
-                        DBUS_TYPE_BOOLEAN, &relative,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        return r;
 }
 
-static int set_timezone(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password;
-
-        assert(args);
-        assert(n == 2);
-
-        polkit_agent_open_if_enabled();
-
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetTimezone",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[1],
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
-}
-
-static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b, q;
+static int set_timezone(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(args);
@@ -369,61 +277,79 @@ static int set_local_rtc(DBusConnection *bus, char **args, unsigned n) {
 
         polkit_agent_open_if_enabled();
 
-        r = parse_boolean(args[1]);
-        if (r < 0) {
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetTimezone",
+                               &error,
+                               NULL,
+                               "sb", args[1], arg_ask_password);
+        if (r < 0)
+                log_error("Failed to set time zone: %s", bus_error_message(&error, -r));
+
+        return r;
+}
+
+static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r, b;
+
+        assert(args);
+        assert(n == 2);
+
+        polkit_agent_open_if_enabled();
+
+        b = parse_boolean(args[1]);
+        if (b < 0) {
                 log_error("Failed to parse local RTC setting: %s", args[1]);
-                return r;
+                return b;
         }
 
-        b = r;
-        q = arg_adjust_system_clock;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetLocalRTC",
+                               &error,
+                               NULL,
+                               "bbb", b, arg_adjust_system_clock, arg_ask_password);
+        if (r < 0)
+                log_error("Failed to set local RTC: %s", bus_error_message(&error, -r));
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetLocalRTC",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &q,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        return r;
 }
 
-static int set_ntp(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        dbus_bool_t interactive = arg_ask_password, b;
-        int r;
+static int set_ntp(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int b, r;
 
         assert(args);
         assert(n == 2);
 
         polkit_agent_open_if_enabled();
 
-        r = parse_boolean(args[1]);
-        if (r < 0) {
+        b = parse_boolean(args[1]);
+        if (b < 0) {
                 log_error("Failed to parse NTP setting: %s", args[1]);
-                return r;
+                return b;
         }
 
-        b = r;
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.timedate1",
+                               "/org/freedesktop/timedate1",
+                               "org.freedesktop.timedate1",
+                               "SetNTP",
+                               &error,
+                               NULL,
+                               "bb", b, arg_ask_password);
+        if (r < 0)
+                log_error("Failed to set ntp: %s", bus_error_message(&error, -r));
 
-        return bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.timedate1",
-                        "/org/freedesktop/timedate1",
-                        "org.freedesktop.timedate1",
-                        "SetNTP",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_BOOLEAN, &b,
-                        DBUS_TYPE_BOOLEAN, &interactive,
-                        DBUS_TYPE_INVALID);
+        return r;
 }
 
-static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
+static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
         size_t n_zones = 0;
@@ -433,7 +359,7 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
 
         f = fopen("/usr/share/zoneinfo/zone.tab", "re");
         if (!f) {
-                log_error("Failed to open timezone database: %m");
+                log_error("Failed to open time zone database: %m");
                 return -errno;
         }
 
@@ -445,7 +371,7 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
                         if (feof(f))
                                 break;
 
-                        log_error("Failed to read timezone database: %m");
+                        log_error("Failed to read time zone database: %m");
                         return -errno;
                 }
 
@@ -453,7 +379,6 @@ static int list_timezones(DBusConnection *bus, char **args, unsigned n) {
 
                 if (isempty(p) || *p == '#')
                         continue;
-
 
                 /* Skip over country code */
                 p += strcspn(p, WHITESPACE);
@@ -497,21 +422,20 @@ static int help(void) {
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --adjust-system-clock\n"
-               "                         Adjust system clock when changing local RTC mode\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "  -P --privileged        Acquire privileges before execution\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "  -H --host=[USER@]HOST  Operate on remote host\n\n"
+               "  -h --help                Show this help message\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-ask-password     Do not prompt for password\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n\n"
                "Commands:\n"
-               "  status                 Show current time settings\n"
-               "  set-time TIME          Set system time\n"
-               "  set-timezone ZONE      Set system timezone\n"
-               "  list-timezones         Show known timezones\n"
-               "  set-local-rtc BOOL     Control whether RTC is in local time\n"
-               "  set-ntp BOOL           Control whether NTP is enabled\n",
+               "  status                   Show current time settings\n"
+               "  set-time TIME            Set system time\n"
+               "  set-timezone ZONE        Set system time zone\n"
+               "  list-timezones           Show known time zones\n"
+               "  set-local-rtc BOOL       Control whether RTC is in local time\n"
+               "  set-ntp BOOL             Control whether NTP is enabled\n",
                program_invocation_short_name);
 
         return 0;
@@ -531,10 +455,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",             no_argument,       NULL, ARG_VERSION             },
                 { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
                 { "host",                required_argument, NULL, 'H'                     },
-                { "privileged",          no_argument,       NULL, 'P'                     },
+                { "machine",             required_argument, NULL, 'M'                     },
                 { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
                 { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
-                { NULL,                  0,                 NULL, 0                       }
+                {}
         };
 
         int c;
@@ -542,26 +466,26 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 'P':
-                        arg_transport = TRANSPORT_POLKIT;
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
                         break;
 
-                case 'H':
-                        arg_transport = TRANSPORT_SSH;
-                        parse_user_at_host(optarg, &arg_user, &arg_host);
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -580,15 +504,14 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
         return 1;
 }
 
-static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusError *error) {
+static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -598,7 +521,7 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
+                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
                 { "status",                LESS,   1, show_status      },
                 { "set-time",              EQUAL,  2, set_time         },
@@ -613,7 +536,6 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
 
         assert(argc >= 0);
         assert(argv);
-        assert(error);
 
         left = argc - optind;
 
@@ -666,56 +588,31 @@ static int timedatectl_main(DBusConnection *bus, int argc, char *argv[], DBusErr
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (!bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
-        }
-
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
 int main(int argc, char *argv[]) {
-        int r, retval = EXIT_FAILURE;
-        DBusConnection *bus = NULL;
-        DBusError error;
-
-        dbus_error_init(&error);
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto finish;
-        else if (r == 0) {
-                retval = EXIT_SUCCESS;
+
+        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        if (r < 0) {
+                log_error("Failed to create bus connection: %s", strerror(-r));
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
-                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        else if (arg_transport == TRANSPORT_POLKIT)
-                bus_connect_system_polkit(&bus, &error);
-        else if (arg_transport == TRANSPORT_SSH)
-                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
-        else
-                assert_not_reached("Uh, invalid transport...");
-
-        r = timedatectl_main(bus, argc, argv, &error);
-        retval = r < 0 ? EXIT_FAILURE : r;
+        r = timedatectl_main(bus, argc, argv);
 
 finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        dbus_error_free(&error);
-        dbus_shutdown();
-
         pager_close();
 
-        return retval;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

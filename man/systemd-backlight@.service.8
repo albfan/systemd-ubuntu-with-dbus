@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BACKLIGHT@\&.SERVICE" "8" "" "systemd 208" "systemd-backlight@.service"
+.TH "SYSTEMD\-BACKLIGHT@\&.SERVICE" "8" "" "systemd 212" "systemd-backlight@.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,8 +29,19 @@ systemd\-backlight@\&.service
 .SH "DESCRIPTION"
 .PP
 systemd\-backlight@\&.service
-is a service that restores the display backlight brightness at early\-boot and saves it at shutdown\&. On disk, the backlight brightness is stored in
-/var/lib/backlight/\&. Note that by default, only firmware backlight devices are saved/restored\&.
+is a service that restores the display backlight brightness at early boot and saves it at shutdown\&. On disk, the backlight brightness is stored in
+/var/lib/systemd/backlight/\&.
+.SH "KERNEL COMMAND LINE"
+.PP
+systemd\-backlight
+understands the following kernel command line parameter:
+.PP
+\fIsystemd\&.restore_state=\fR
+.RS 4
+Takes a boolean argument\&. Defaults to
+"1"\&. If
+"0", does not restore the backlight settings on boot\&. However, settings will still be stored on shutdown\&.
+.RE
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1)

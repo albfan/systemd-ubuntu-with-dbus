@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 208" "sd_login_monitor_new"
+.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 212" "sd_login_monitor_new"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -128,14 +128,14 @@ integer can be passed directly as
 \fBpoll()\fR\*(Aqs timeout parameter\&.
 .SH "RETURN VALUE"
 .PP
-On success
+On success,
 \fBsd_login_monitor_new()\fR,
 \fBsd_login_monitor_flush()\fR
 and
 \fBsd_login_monitor_get_timeout()\fR
-return 0 or a positive integer\&. On success
+return 0 or a positive integer\&. On success,
 \fBsd_login_monitor_get_fd()\fR
-returns a Unix file descriptor\&. On success
+returns a Unix file descriptor\&. On success,
 \fBsd_login_monitor_get_events()\fR
 returns a combination of
 \fBPOLLIN\fR,
@@ -155,8 +155,8 @@ The
 \fBsd_login_monitor_get_events()\fR
 and
 \fBsd_login_monitor_get_timeout()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

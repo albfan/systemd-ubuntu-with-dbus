@@ -70,9 +70,13 @@ int main(int argc, char *argv[]) {
                   "STATUS=Processing requests...");
 
         for (;;) {
-                struct epoll_event event;
-                int t = -1;
-                usec_t n;
+                usec_t t = (usec_t) -1, n;
+
+                r = sd_event_get_state(server.event);
+                if (r < 0)
+                        goto finish;
+                if (r == SD_EVENT_FINISHED)
+                        break;
 
                 n = now(CLOCK_REALTIME);
 
@@ -87,7 +91,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         /* Calculate when to rotate the next time */
-                        t = (int) ((server.oldest_file_usec + server.max_retention_usec - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC);
+                        t = server.oldest_file_usec + server.max_retention_usec - n;
                 }
 
 #ifdef HAVE_GCRYPT
@@ -98,28 +102,15 @@ int main(int argc, char *argv[]) {
                                 if (n >= u)
                                         t = 0;
                                 else
-                                        t = MIN(t, (int) ((u - n + USEC_PER_MSEC - 1) / USEC_PER_MSEC));
+                                        t = MIN(t, u - n);
                         }
                 }
 #endif
 
-                r = epoll_wait(server.epoll_fd, &event, 1, t);
+                r = sd_event_run(server.event, t);
                 if (r < 0) {
-
-                        if (errno == EINTR)
-                                continue;
-
-                        log_error("epoll_wait() failed: %m");
-                        r = -errno;
+                        log_error("Failed to run event loop: %s", strerror(-r));
                         goto finish;
-                }
-
-                if (r > 0) {
-                        r = process_event(&server, &event);
-                        if (r < 0)
-                                goto finish;
-                        else if (r == 0)
-                                break;
                 }
 
                 server_maybe_append_tags(&server);
@@ -130,8 +121,7 @@ int main(int argc, char *argv[]) {
         server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
-        sd_notify(false,
-                  "STATUS=Shutting down...");
+        sd_notify(false, "STATUS=Shutting down...");
 
         server_done(&server);
 

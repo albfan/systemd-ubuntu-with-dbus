@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 208" "systemd.resource-control"
+.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 212" "systemd.resource-control"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@ systemd.resource-control \- Resource control unit settings
 \fIswap\fR\&.swap
 .SH "DESCRIPTION"
 .PP
-Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset of configuration options for resource control of spawned processes\&. Internally, this relies on the the Control Groups kernel concept for organizing processes in a hierarchial tree of named groups for the purpose of resource management\&.
+Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset of configuration options for resource control of spawned processes\&. Internally, this relies on the Control Groups kernel concept for organizing processes in a hierarchial tree of named groups for the purpose of resource management\&.
 .PP
 This man page lists the configuration options shared by those six unit types\&. See
 \fBsystemd.unit\fR(5)
@@ -46,14 +46,17 @@ for more information on the specific unit configuration files\&. The resource co
 .PP
 See the
 \m[blue]\fBNew Control Group Interfaces\fR\m[]\&\s-2\u[1]\d\s+2
-for an introduction how to make use of resource control APIs from programs\&.
+for an introduction on how to make use of resource control APIs from programs\&.
 .SH "OPTIONS"
 .PP
 Units of the types listed above can have settings for resource control configuration:
 .PP
 \fICPUAccounting=\fR
 .RS 4
-Turn on CPU usage accounting for this unit\&. Takes a boolean argument\&. Note that turning on CPU accounting for one unit might also implicitly turn it on for all units contained in the same slice and for all its parent slices and the units contained therein\&.
+Turn on CPU usage accounting for this unit\&. Takes a boolean argument\&. Note that turning on CPU accounting for one unit might also implicitly turn it on for all units contained in the same slice and for all its parent slices and the units contained therein\&. The system default for this setting maybe controlled with
+\fIDefaultCPUAccounting=\fR
+in
+\fBsystemd-system.conf\fR(5)\&.
 .RE
 .PP
 \fICPUShares=\fR\fI\fIweight\fR\fR
@@ -69,7 +72,10 @@ Implies
 .PP
 \fIMemoryAccounting=\fR
 .RS 4
-Turn on process and kernel memory accounting for this unit\&. Takes a boolean argument\&. Note that turning on memory accounting for one unit might also implicitly turn it on for all units contained in the same slice and for all its parent slices and the units contained therein\&.
+Turn on process and kernel memory accounting for this unit\&. Takes a boolean argument\&. Note that turning on memory accounting for one unit might also implicitly turn it on for all its parent slices\&. The system default for this setting maybe controlled with
+\fIDefaultMemoryAccounting=\fR
+in
+\fBsystemd-system.conf\fR(5)\&.
 .RE
 .PP
 \fIMemoryLimit=\fR\fI\fIbytes\fR\fR
@@ -85,7 +91,10 @@ Implies
 .PP
 \fIBlockIOAccounting=\fR
 .RS 4
-Turn on Block IO accounting for this unit\&. Takes a boolean argument\&. Note that turning on block IO accounting for one unit might also implicitly turn it on for all units contained in the same slice and all for its parent slices and the units contained therein\&.
+Turn on Block IO accounting for this unit\&. Takes a boolean argument\&. Note that turning on block IO accounting for one unit might also implicitly turn it on for all units contained in the same slice and all for its parent slices and the units contained therein\&. The system default for this setting maybe controlled with
+\fIDefaultBlockIOAccounting=\fR
+in
+\fBsystemd-system.conf\fR(5)\&.
 .RE
 .PP
 \fIBlockIOWeight=\fR\fI\fIweight\fR\fR
@@ -101,7 +110,7 @@ Implies
 .PP
 \fIBlockIODeviceWeight=\fR\fI\fIdevice\fR\fR\fI \fR\fI\fIweight\fR\fR
 .RS 4
-Set the per\-device overall block IO weight for the executed processes\&. Takes a space\-separated pair of a file path and a weight value to specify the device specific weight value, between 10 and 1000\&. (Example: "/dev/sda 500")\&. The file path may be specified as path to a block device node or as any other file in which case the backing block device of the file system of the file is determined\&. This controls the
+Set the per\-device overall block IO weight for the executed processes\&. Takes a space\-separated pair of a file path and a weight value to specify the device specific weight value, between 10 and 1000\&. (Example: "/dev/sda 500")\&. The file path may be specified as path to a block device node or as any other file, in which case the backing block device of the file system of the file is determined\&. This controls the
 "blkio\&.weight_device"
 control group attribute, which defaults to 1000\&. Use this option multiple times to set weights for multiple devices\&. For details about this control group attribute, see
 \m[blue]\fBblkio\-controller\&.txt\fR\m[]\&\s-2\u[4]\d\s+2\&.
@@ -112,7 +121,7 @@ Implies
 .PP
 \fIBlockIOReadBandwidth=\fR\fI\fIdevice\fR\fR\fI \fR\fI\fIbytes\fR\fR, \fIBlockIOWriteBandwidth=\fR\fI\fIdevice\fR\fR\fI \fR\fI\fIbytes\fR\fR
 .RS 4
-Set the per\-device overall block IO bandwidth limit for the executed processes\&. Takes a space\-separated pair of a file path and a bandwidth value (in bytes per second) to specify the device specific bandwidth\&. The file path may be a path to a block device node, or as any other file in which case the backing block device of the file system of the file is used\&. If the bandwidth is suffixed with K, M, G, or T, the specified bandwidth is parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes, respectively (Example: "/dev/disk/by\-path/pci\-0000:00:1f\&.2\-scsi\-0:0:0:0 5M")\&. This controls the
+Set the per\-device overall block IO bandwidth limit for the executed processes\&. Takes a space\-separated pair of a file path and a bandwidth value (in bytes per second) to specify the device specific bandwidth\&. The file path may be a path to a block device node, or as any other file in which case the backing block device of the file system of the file is used\&. If the bandwidth is suffixed with K, M, G, or T, the specified bandwidth is parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes, respectively, to the base of 1000\&. (Example: "/dev/disk/by\-path/pci\-0000:00:1f\&.2\-scsi\-0:0:0:0 5M")\&. This controls the
 "blkio\&.read_bps_device"
 and
 "blkio\&.write_bps_device"
@@ -125,19 +134,38 @@ Implies
 .PP
 \fIDeviceAllow=\fR
 .RS 4
-Control access to specific device nodes by the executed processes\&. Takes two space\-separated strings: a device node path (such as
-/dev/null) followed by a combination of
+Control access to specific device nodes by the executed processes\&. Takes two space\-separated strings: a device node specifier followed by a combination of
 \fBr\fR,
 \fBw\fR,
 \fBm\fR
 to control
 \fIr\fReading,
-\fIw\fRriting, or creation of the specific device node by the unit (\fIm\fRknod), respectively\&. This controls the
+\fIw\fRriting, or creation of the specific device node(s) by the unit (\fIm\fRknod), respectively\&. This controls the
 "devices\&.allow"
 and
 "devices\&.deny"
 control group attributes\&. For details about these control group attributes, see
 \m[blue]\fBdevices\&.txt\fR\m[]\&\s-2\u[5]\d\s+2\&.
+.sp
+The device node specifier is either a path to a device node in the file system, starting with
+/dev/, or a string starting with either
+"char\-"
+or
+"block\-"
+followed by a device group name, as listed in
+/proc/devices\&. The latter is useful to whitelist all current and future devices belonging to a specific device group at once\&. The device group is matched according to file name globbing rules, you may hence use the
+"*"
+and
+"?"
+wildcards\&. Examples:
+/dev/sda5
+is a path to a device node, referring to an ATA or SCSI block device\&.
+"char\-pts"
+and
+"char\-alsa"
+are specifiers for all pseudo TTYs and all ALSA sound devices, respectively\&.
+"char\-cpu/*"
+is a specifier matching all CPU related device groups\&.
 .RE
 .PP
 \fIDevicePolicy=auto|closed|strict\fR

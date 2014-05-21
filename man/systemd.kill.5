@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.KILL" "5" "" "systemd 208" "systemd.kill"
+.TH "SYSTEMD\&.KILL" "5" "" "systemd 212" "systemd.kill"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,41 +20,50 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-systemd.kill \- Kill environment configuration
+systemd.kill \- Process killing procedure configuration
 .SH "SYNOPSIS"
 .PP
 \fIservice\fR\&.service,
 \fIsocket\fR\&.socket,
 \fImount\fR\&.mount,
-\fIswap\fR\&.swap
+\fIswap\fR\&.swap,
+\fIscope\fR\&.scope
 .SH "DESCRIPTION"
 .PP
-Unit configuration files for services, sockets, mount points and swap devices share a subset of configuration options which define the process killing parameters of spawned processes\&.
+Unit configuration files for services, sockets, mount points, swap devices and scopes share a subset of configuration options which define the killing procedure of processes belonging to the unit\&.
 .PP
-This man page lists the configuration options shared by these four unit types\&. See
+This man page lists the configuration options shared by these five unit types\&. See
 \fBsystemd.unit\fR(5)
-for the common options of all unit configuration files, and
+for the common options shared by all unit configuration files, and
 \fBsystemd.service\fR(5),
 \fBsystemd.socket\fR(5),
-\fBsystemd.swap\fR(5)
-and
+\fBsystemd.swap\fR(5),
 \fBsystemd.mount\fR(5)
-for more information on the specific unit configuration files\&. The execution specific configuration options are configured in the [Service], [Socket], [Mount], or [Swap] section, depending on the unit type\&.
+and
+\fBsystemd.scope\fR(5)
+for more information on the configuration file options specific to each unit type\&.
+.PP
+The kill procedure configuration options are configured in the [Service], [Socket], [Mount] or [Swap] section, depending on the unit type\&.
 .SH "OPTIONS"
 .PP
 \fIKillMode=\fR
 .RS 4
-Specifies how processes of this service shall be killed\&. One of
+Specifies how processes of this unit shall be killed\&. One of
 \fBcontrol\-group\fR,
 \fBprocess\fR,
+\fBmixed\fR,
 \fBnone\fR\&.
 .sp
 If set to
-\fBcontrol\-group\fR, all remaining processes in the control group of this unit will be terminated on unit stop (for services: after the stop command is executed, as configured with
+\fBcontrol\-group\fR, all remaining processes in the control group of this unit will be killed on unit stop (for services: after the stop command is executed, as configured with
 \fIExecStop=\fR)\&. If set to
 \fBprocess\fR, only the main process itself is killed\&. If set to
-\fBnone\fR, no process is killed\&. In this case only the stop command will be executed on unit stop, but no process be killed otherwise\&. Processes remaining alive after stop are left in their control group and the control group continues to exist after stop unless it is empty\&. Defaults to
-\fBcontrol\-group\fR\&.
+\fBmixed\fR, the
+\fBSIGTERM\fR
+signal (see below) is sent to the main process while the subsequent
+\fBSIGKILL\fR
+signal (see below) is sent to all remaining processes of the unit\*(Aqs control group\&. If set to
+\fBnone\fR, no process is killed\&. In this case, only the stop command will be executed on unit stop, but no process be killed otherwise\&. Processes remaining alive after stop are left in their control group and the control group continues to exist after stop unless it is empty\&.
 .sp
 Processes will first be terminated via
 \fBSIGTERM\fR
@@ -71,11 +80,17 @@ signal (unless this is disabled via the
 option)\&. See
 \fBkill\fR(2)
 for more information\&.
+.sp
+Defaults to
+\fBcontrol\-group\fR\&.
 .RE
 .PP
 \fIKillSignal=\fR
 .RS 4
-Specifies which signal to use when killing a service\&. Defaults to
+Specifies which signal to use when killing a service\&. This controls the signal that is sent as first step of shutting down a unit (see above), and is usually followed by
+\fBSIGKILL\fR
+(see above and below)\&. For a list of valid signals, see
+\fBsignal\fR(7)\&. Defaults to
 \fBSIGTERM\fR\&.
 .RE
 .PP
@@ -104,4 +119,6 @@ to remaining processes after a timeout, if the normal shutdown procedure left pr
 \fBsystemd.swap\fR(5),
 \fBsystemd.mount\fR(5),
 \fBsystemd.exec\fR(5),
-\fBsystemd.directives\fR(7)
+\fBsystemd.directives\fR(7),
+\fBkill\fR(2),
+\fBsignal\fR(7)

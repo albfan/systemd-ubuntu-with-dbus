@@ -33,15 +33,16 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-#include <dbus/dbus.h>
-#include <systemd/sd-daemon.h>
+#include "sd-daemon.h"
+#include "sd-bus.h"
 
 #include "util.h"
 #include "log.h"
 #include "list.h"
 #include "initreq.h"
 #include "special.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "def.h"
 
 #define SERVER_FD_MAX 16
@@ -55,7 +56,7 @@ typedef struct Server {
         LIST_HEAD(Fifo, fifos);
         unsigned n_fifos;
 
-        DBusConnection *bus;
+        sd_bus *bus;
 
         bool quit;
 } Server;
@@ -105,18 +106,17 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
 
 static void change_runlevel(Server *s, int runlevel) {
         const char *target;
-        DBusMessage *m = NULL, *reply = NULL;
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *mode;
         bool isolate = false;
+        int r;
 
         assert(s);
 
-        dbus_error_init(&error);
-
-        if (!(target = translate_runlevel(runlevel, &isolate))) {
+        target = translate_runlevel(runlevel, &isolate);
+        if (!target) {
                 log_warning("Got request for unknown runlevel %c, ignoring.", runlevel);
-                goto finish;
+                return;
         }
 
         if (isolate)
@@ -126,32 +126,19 @@ static void change_runlevel(Server *s, int runlevel) {
 
         log_debug("Running request %s/start/%s", target, mode);
 
-        if (!(m = dbus_message_new_method_call("org.freedesktop.systemd1", "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager", "StartUnit"))) {
-                log_error("Could not allocate message.");
-                goto finish;
+        r = sd_bus_call_method(
+                        s->bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartUnit",
+                        &error,
+                        NULL,
+                        "ss", target, mode);
+        if (r < 0) {
+                log_error("Failed to change runlevel: %s", bus_error_message(&error, -r));
+                return;
         }
-
-        if (!dbus_message_append_args(m,
-                                      DBUS_TYPE_STRING, &target,
-                                      DBUS_TYPE_STRING, &mode,
-                                      DBUS_TYPE_INVALID)) {
-                log_error("Could not attach target and flag information to message.");
-                goto finish;
-        }
-
-        if (!(reply = dbus_connection_send_with_reply_and_block(s->bus, m, -1, &error))) {
-                log_error("Failed to start unit: %s", bus_error_message(&error));
-                goto finish;
-        }
-
-finish:
-        if (m)
-                dbus_message_unref(m);
-
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
 }
 
 static void request_process(Server *s, const struct init_request *req) {
@@ -230,7 +217,7 @@ static int fifo_process(Fifo *f) {
                 if (errno == EAGAIN)
                         return 0;
 
-                log_warning("Failed to read from fifo: %s", strerror(errno));
+                log_warning("Failed to read from fifo: %m");
                 return -1;
         }
 
@@ -251,14 +238,14 @@ static void fifo_free(Fifo *f) {
         if (f->server) {
                 assert(f->server->n_fifos > 0);
                 f->server->n_fifos--;
-                LIST_REMOVE(Fifo, fifo, f->server->fifos, f);
+                LIST_REMOVE(fifo, f->server->fifos, f);
         }
 
         if (f->fd >= 0) {
                 if (f->server)
                         epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
 
-                close_nointr_nofail(f->fd);
+                safe_close(f->fd);
         }
 
         free(f);
@@ -270,32 +257,27 @@ static void server_done(Server *s) {
         while (s->fifos)
                 fifo_free(s->fifos);
 
-        if (s->epoll_fd >= 0)
-                close_nointr_nofail(s->epoll_fd);
+        safe_close(s->epoll_fd);
 
         if (s->bus) {
-                dbus_connection_flush(s->bus);
-                dbus_connection_close(s->bus);
-                dbus_connection_unref(s->bus);
+                sd_bus_flush(s->bus);
+                sd_bus_unref(s->bus);
         }
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
         int r;
         unsigned i;
-        DBusError error;
 
         assert(s);
         assert(n_sockets > 0);
-
-        dbus_error_init(&error);
 
         zero(*s);
 
         s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
                 r = -errno;
-                log_error("Failed to create epoll object: %s", strerror(errno));
+                log_error("Failed to create epoll object: %m");
                 goto fail;
         }
 
@@ -322,8 +304,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 f = new0(Fifo, 1);
                 if (!f) {
                         r = -ENOMEM;
-                        log_error("Failed to create fifo object: %s",
-                                  strerror(errno));
+                        log_error("Failed to create fifo object: %m");
                         goto fail;
                 }
 
@@ -335,20 +316,19 @@ static int server_init(Server *s, unsigned n_sockets) {
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);
-                        log_error("Failed to add fifo fd to epoll object: %s",
-                                  strerror(errno));
+                        log_error("Failed to add fifo fd to epoll object: %m");
                         goto fail;
                 }
 
                 f->fd = fd;
-                LIST_PREPEND(Fifo, fifo, s->fifos, f);
+                LIST_PREPEND(fifo, s->fifos, f);
                 f->server = s;
                 s->n_fifos ++;
         }
 
-        if (bus_connect(DBUS_BUS_SYSTEM, &s->bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s",
-                          bus_error_message(&error));
+        r = bus_open_system_systemd(&s->bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
                 r = -EIO;
                 goto fail;
         }
@@ -358,7 +338,6 @@ static int server_init(Server *s, unsigned n_sockets) {
 fail:
         server_done(s);
 
-        dbus_error_free(&error);
         return r;
 }
 
@@ -434,7 +413,7 @@ int main(int argc, char *argv[]) {
                         if (errno == EINTR)
                                 continue;
 
-                        log_error("epoll_wait() failed: %s", strerror(errno));
+                        log_error("epoll_wait() failed: %m");
                         goto fail;
                 }
 
@@ -454,8 +433,6 @@ fail:
                   "STATUS=Shutting down...");
 
         server_done(&server);
-
-        dbus_shutdown();
 
         return r;
 }

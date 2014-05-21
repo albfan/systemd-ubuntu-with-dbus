@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_SEAT_GET_ACTIVE" "3" "" "systemd 208" "sd_seat_get_active"
+.TH "SD_SEAT_GET_ACTIVE" "3" "" "systemd 212" "sd_seat_get_active"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_seat_get_active, sd_seat_get_sessions, sd_seat_can_multi_session \- Determine state of a specific seat
+sd_seat_get_active, sd_seat_get_sessions, sd_seat_can_multi_session, sd_seat_can_tty, sd_seat_can_graphical \- Determine state of a specific seat
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -71,9 +71,9 @@ parameter of any of these functions is passed as
 \fBNULL\fR, the operation is executed for the seat of the session of the calling process, if there is any\&.
 .SH "RETURN VALUE"
 .PP
-On success
+On success,
 \fBsd_seat_get_active()\fR
-returns 0 or a positive integer\&. On success
+returns 0 or a positive integer\&. On success,
 \fBsd_seat_get_sessions()\fR
 returns the number of entries in the session identifier array\&. If the test succeeds,
 \fBsd_seat_can_multi_session\fR,
@@ -90,8 +90,8 @@ The
 \fBsd_seat_can_tty()\fR
 and
 \fBsd_seat_can_grapical()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

@@ -28,8 +28,11 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 #include <linux/oom.h>
 #include <linux/input.h>
+#include <linux/if_link.h>
+#include <linux/loop.h>
 
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
@@ -44,6 +47,9 @@
 #ifndef RLIMIT_RTTIME
 #define RLIMIT_RTTIME 15
 #endif
+
+/* If RLIMIT_RTTIME is not defined, then we cannot use RLIMIT_NLIMITS as is */
+#define _RLIMIT_MAX (RLIMIT_RTTIME+1 > RLIMIT_NLIMITS ? RLIMIT_RTTIME+1 : RLIMIT_NLIMITS)
 
 #ifndef F_LINUX_SPECIFIC_BASE
 #define F_LINUX_SPECIFIC_BASE 1024
@@ -83,6 +89,19 @@
 
 #ifndef IP_TRANSPARENT
 #define IP_TRANSPARENT 19
+#endif
+
+#ifndef IFLA_CARRIER
+  #define IFLA_CARRIER 33
+  #ifndef IFLA_NUM_RX_QUEUES
+    #define IFLA_NUM_RX_QUEUES 32
+    #ifndef IFLA_NUM_TX_QUEUES
+      #define IFLA_NUM_TX_QUEUES 31
+      #ifndef IFLA_PROMISCUITY
+        #define IFLA_PROMISCUITY 30
+      #endif
+    #endif
+  #endif
 #endif
 
 #if !HAVE_DECL_PIVOT_ROOT
@@ -258,25 +277,17 @@ static inline pid_t gettid(void) {
 #define MAX_HANDLE_SZ 128
 #endif
 
-#if defined __x86_64__
-#  ifndef __NR_name_to_handle_at
+#ifndef __NR_name_to_handle_at
+#  if defined(__x86_64__)
 #    define __NR_name_to_handle_at 303
-#  endif
-#elif defined __i386__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__i386__)
 #    define __NR_name_to_handle_at 341
-#  endif
-#elif defined __arm__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__arm__)
 #    define __NR_name_to_handle_at 370
-#  endif
-#elif defined __powerpc__
-#  ifndef __NR_name_to_handle_at
+#  elif defined(__powerpc__)
 #    define __NR_name_to_handle_at 345
-#  endif
-#else
-#  ifndef __NR_name_to_handle_at
-#    error __NR_name_to_handle_at is not defined
+#  else
+#    error "__NR_name_to_handle_at is not defined"
 #  endif
 #endif
 
@@ -296,30 +307,74 @@ static inline int name_to_handle_at(int fd, const char *name, struct file_handle
 #  ifdef HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
 #  else
-#    error neither secure_getenv nor __secure_getenv are available
+#    error "neither secure_getenv nor __secure_getenv are available"
 #  endif
 #endif
 
 #ifndef CIFS_MAGIC_NUMBER
-#define CIFS_MAGIC_NUMBER 0xFF534D42
+#  define CIFS_MAGIC_NUMBER 0xFF534D42
 #endif
 
 #ifndef TFD_TIMER_CANCEL_ON_SET
-#define TFD_TIMER_CANCEL_ON_SET (1 << 1)
+#  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
 #endif
 
 #ifndef SO_REUSEPORT
-#define SO_REUSEPORT 15
+#  define SO_REUSEPORT 15
 #endif
 
 #ifndef EVIOCREVOKE
-#define EVIOCREVOKE _IOW('E', 0x91, int)
+#  define EVIOCREVOKE _IOW('E', 0x91, int)
 #endif
 
 #ifndef DRM_IOCTL_SET_MASTER
-#define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
+#  define DRM_IOCTL_SET_MASTER _IO('d', 0x1e)
 #endif
 
 #ifndef DRM_IOCTL_DROP_MASTER
-#define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
+#  define DRM_IOCTL_DROP_MASTER _IO('d', 0x1f)
+#endif
+
+#if defined(__i386__) || defined(__x86_64__)
+
+/* The precise definition of __O_TMPFILE is arch specific, so let's
+ * just define this on x86 where we know the value. */
+
+#ifndef __O_TMPFILE
+#define __O_TMPFILE     020000000
+#endif
+
+/* a horrid kludge trying to make sure that this will fail on old kernels */
+#ifndef O_TMPFILE
+#define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+#endif
+
+#endif
+
+#ifndef __NR_setns
+#  if defined(__x86_64__)
+#    define __NR_setns 308
+#  elif defined(__i386__)
+#    define __NR_setns 346
+#  else
+#    error "__NR_setns is not defined"
+#  endif
+#endif
+
+#if !HAVE_DECL_SETNS
+static inline int setns(int fd, int nstype) {
+        return syscall(__NR_setns, fd, nstype);
+}
+#endif
+
+#if !HAVE_DECL_LO_FLAGS_PARTSCAN
+#define LO_FLAGS_PARTSCAN 8
+#endif
+
+#ifndef LOOP_CTL_REMOVE
+#define LOOP_CTL_REMOVE 0x4C81
+#endif
+
+#ifndef LOOP_CTL_GET_FREE
+#define LOOP_CTL_GET_FREE 0x4C82
 #endif

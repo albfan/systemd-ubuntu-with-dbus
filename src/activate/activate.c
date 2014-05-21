@@ -38,83 +38,31 @@
 static char** arg_listen = NULL;
 static bool arg_accept = false;
 static char** arg_args = NULL;
-static char** arg_environ = NULL;
+static char** arg_setenv = NULL;
 
 static int add_epoll(int epoll_fd, int fd) {
+        struct epoll_event ev = {
+                .events = EPOLLIN
+        };
         int r;
-        struct epoll_event ev = {EPOLLIN};
-        ev.data.fd = fd;
 
         assert(epoll_fd >= 0);
         assert(fd >= 0);
 
+        ev.data.fd = fd;
         r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0)
-                log_error("Failed to add event on epoll fd:%d for fd:%d: %s",
-                          epoll_fd, fd, strerror(-r));
-        return r;
-}
-
-static int set_nocloexec(int fd) {
-        int flags;
-
-        flags = fcntl(fd, F_GETFD);
-        if (flags < 0) {
-                log_error("Querying flags for fd:%d: %m", fd);
-                return -errno;
-        }
-
-        if (!(flags & FD_CLOEXEC))
-                return 0;
-
-        if (fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) < 0) {
-                log_error("Settings flags for fd:%d: %m", fd);
-                return -errno;
-        }
-
-        return 0;
-}
-
-static int print_socket(const char* desc, int fd) {
-        int r;
-        SocketAddress addr = {
-                .size = sizeof(union sockaddr_union),
-                .type = SOCK_STREAM,
-        };
-        int family;
-
-        r = getsockname(fd, &addr.sockaddr.sa, &addr.size);
         if (r < 0) {
-                log_warning("Failed to query socket on fd:%d: %m", fd);
-                return 0;
-        }
-
-        family = socket_address_family(&addr);
-        switch(family) {
-        case AF_INET:
-        case AF_INET6: {
-                char* _cleanup_free_ a = NULL;
-                r = socket_address_print(&addr, &a);
-                if (r < 0)
-                        log_warning("socket_address_print(): %s", strerror(-r));
-                else
-                        log_info("%s %s address %s",
-                                 desc,
-                                 family == AF_INET ? "IP" : "IPv6",
-                                 a);
-                break;
-        }
-        default:
-                log_warning("Connection with unknown family %d", family);
+                log_error("Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
+                return -errno;
         }
 
         return 0;
 }
 
 static int open_sockets(int *epoll_fd, bool accept) {
-        int n, fd;
-        int count = 0;
         char **address;
+        int n, fd, r;
+        int count = 0;
 
         n = sd_listen_fds(true);
         if (n < 0) {
@@ -122,19 +70,27 @@ static int open_sockets(int *epoll_fd, bool accept) {
                           strerror(-n));
                 return n;
         }
-        log_info("Received %d descriptors", n);
+        if (n > 0) {
+                log_info("Received %i descriptors via the environment.", n);
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
-                log_debug("Received descriptor fd:%d", fd);
-                print_socket("Listening on", fd);
-
-                if (!arg_accept) {
-                        int r = set_nocloexec(fd);
+                for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+                        r = fd_cloexec(fd, arg_accept);
                         if (r < 0)
                                 return r;
-                }
 
-                count ++;
+                        count ++;
+                }
+        }
+
+        /* Close logging and all other descriptors */
+        if (arg_listen) {
+                int except[3 + n];
+
+                for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
+                        except[fd] = fd;
+
+                log_close();
+                close_all_fds(except, 3 + n);
         }
 
         /** Note: we leak some fd's on error here. I doesn't matter
@@ -143,16 +99,20 @@ static int open_sockets(int *epoll_fd, bool accept) {
          */
 
         STRV_FOREACH(address, arg_listen) {
-                log_info("Opening address %s", *address);
 
-                fd = make_socket_fd(*address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
+                fd = make_socket_fd(LOG_DEBUG, *address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
                 if (fd < 0) {
+                        log_open();
                         log_error("Failed to open '%s': %s", *address, strerror(-fd));
                         return fd;
                 }
 
+                assert(fd == SD_LISTEN_FDS_START + count);
                 count ++;
         }
+
+        if (arg_listen)
+                log_open();
 
         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (*epoll_fd < 0) {
@@ -161,7 +121,12 @@ static int open_sockets(int *epoll_fd, bool accept) {
         }
 
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + count; fd++) {
-                int r = add_epoll(*epoll_fd, fd);
+                _cleanup_free_ char *name = NULL;
+
+                getsockname_pretty(fd, &name);
+                log_info("Listening on %s as %i.", strna(name), fd);
+
+                r = add_epoll(*epoll_fd, fd);
                 if (r < 0)
                         return r;
         }
@@ -170,18 +135,22 @@ static int open_sockets(int *epoll_fd, bool accept) {
 }
 
 static int launch(char* name, char **argv, char **env, int fds) {
-        unsigned n_env = 0, length;
-        _cleanup_strv_free_ char **envp = NULL;
-        char **s;
+
         static const char* tocopy[] = {"TERM=", "PATH=", "USER=", "HOME="};
+        _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *tmp = NULL;
+        unsigned n_env = 0, length;
+        char **s;
         unsigned i;
 
-        length = strv_length(arg_environ);
-        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
-        envp = new(char *, length + 7);
+        length = strv_length(arg_setenv);
 
-        STRV_FOREACH(s, arg_environ) {
+        /* PATH, TERM, HOME, USER, LISTEN_FDS, LISTEN_PID, NULL */
+        envp = new0(char *, length + 7);
+        if (!envp)
+                return log_oom();
+
+        STRV_FOREACH(s, arg_setenv) {
                 if (strchr(*s, '='))
                         envp[n_env++] = *s;
                 else {
@@ -211,14 +180,15 @@ static int launch(char* name, char **argv, char **env, int fds) {
         log_info("Execing %s (%s)", name, tmp);
         execvpe(name, argv, envp);
         log_error("Failed to execp %s (%s): %m", name, tmp);
+
         return -errno;
 }
 
 static int launch1(const char* child, char** argv, char **env, int fd) {
+        _cleanup_free_ char *tmp = NULL;
         pid_t parent_pid, child_pid;
         int r;
 
-        _cleanup_free_ char *tmp = NULL;
         tmp = strv_join(argv, " ");
         if (!tmp)
                 return log_oom();
@@ -271,26 +241,26 @@ static int launch1(const char* child, char** argv, char **env, int fd) {
 }
 
 static int do_accept(const char* name, char **argv, char **envp, int fd) {
-        SocketAddress addr = {
-                .size = sizeof(union sockaddr_union),
-                .type = SOCK_STREAM,
-        };
-        int fd2, r;
+        _cleanup_free_ char *local = NULL, *peer = NULL;
+        int fd2;
 
-        fd2 = accept(fd, &addr.sockaddr.sa, &addr.size);
+        fd2 = accept(fd, NULL, NULL);
         if (fd2 < 0) {
                 log_error("Failed to accept connection on fd:%d: %m", fd);
                 return fd2;
         }
 
-        print_socket("Connection from", fd2);
+        getsockname_pretty(fd2, &local);
+        getpeername_pretty(fd2, &peer);
+        log_info("Connection from %s to %s", strna(peer), strna(local));
 
-        r = launch1(name, argv, envp, fd2);
-        return r;
+        return launch1(name, argv, envp, fd2);
 }
 
 /* SIGCHLD handler. */
 static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
+        PROTECT_ERRNO;
+
         log_info("Child %d died with code %d", t->si_pid, t->si_status);
         /* Wait for a dead child. */
         waitpid(t->si_pid, NULL, 0);
@@ -298,10 +268,10 @@ static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
 
 static int install_chld_handler(void) {
         int r;
-        struct sigaction act;
-        zero(act);
-        act.sa_flags = SA_SIGINFO;
-        act.sa_sigaction = sigchld_hdl;
+        struct sigaction act = {
+                .sa_flags = SA_SIGINFO,
+                .sa_sigaction = sigchld_hdl,
+        };
 
         r = sigaction(SIGCHLD, &act, 0);
         if (r < 0)
@@ -313,10 +283,11 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "Listen on sockets and launch child on connection.\n\n"
                "Options:\n"
-               "  -l --listen=ADDR     Listen for raw connections at ADDR\n"
-               "  -a --accept          Spawn separate child for each connection\n"
-               "  -h --help            Show this help and exit\n"
-               "  --version            Print version string and exit\n"
+               "  -l --listen=ADDR         Listen for raw connections at ADDR\n"
+               "  -a --accept              Spawn separate child for each connection\n"
+               "  -h --help                Show this help and exit\n"
+               "  -E --setenv=NAME[=VALUE] Pass an environment variable to children\n"
+               "  --version                Print version string and exit\n"
                "\n"
                "Note: file descriptors from sd_listen_fds() will be passed through.\n"
                , program_invocation_short_name
@@ -331,12 +302,13 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version",      no_argument,       NULL, ARG_VERSION   },
-                { "listen",       required_argument, NULL, 'l'           },
-                { "accept",       no_argument,       NULL, 'a'           },
-                { "environment",  required_argument, NULL, 'E'           },
-                { NULL,           0,                 NULL, 0             }
+                { "help",        no_argument,       NULL, 'h'           },
+                { "version",     no_argument,       NULL, ARG_VERSION   },
+                { "listen",      required_argument, NULL, 'l'           },
+                { "accept",      no_argument,       NULL, 'a'           },
+                { "setenv",      required_argument, NULL, 'E'           },
+                { "environment", required_argument, NULL, 'E'           }, /* alias */
+                {}
         };
 
         int c;
@@ -344,11 +316,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hl:saE:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hl:aE:", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0 /* done */;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -368,7 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'E': {
-                        int r = strv_extend(&arg_environ, optarg);
+                        int r = strv_extend(&arg_setenv, optarg);
                         if (r < 0)
                                 return r;
 
@@ -379,8 +350,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (optind == argc) {
@@ -398,9 +368,8 @@ int main(int argc, char **argv, char **envp) {
         int r, n;
         int epoll_fd = -1;
 
-        log_set_max_level(LOG_DEBUG);
-        log_show_color(true);
         log_parse_environment();
+        log_open();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -413,8 +382,12 @@ int main(int argc, char **argv, char **envp) {
         n = open_sockets(&epoll_fd, arg_accept);
         if (n < 0)
                 return EXIT_FAILURE;
+        if (n == 0) {
+                log_error("No sockets to listen on specified or passed in.");
+                return EXIT_FAILURE;
+        }
 
-        while (true) {
+        for (;;) {
                 struct epoll_event event;
 
                 r = epoll_wait(epoll_fd, &event, 1, -1);
@@ -426,7 +399,7 @@ int main(int argc, char **argv, char **envp) {
                         return EXIT_FAILURE;
                 }
 
-                log_info("Communication attempt on fd:%d", event.data.fd);
+                log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
                         r = do_accept(argv[optind], argv + optind, envp,
                                       event.data.fd);

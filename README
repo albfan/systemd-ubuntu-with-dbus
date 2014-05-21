@@ -30,13 +30,18 @@ AUTHOR:
 
 LICENSE:
         LGPLv2.1+ for all code
-        - except sd-daemon.[ch] and sd-readahead.[ch] which are MIT
-        - except src/shared/MurmurHash3.c which is Public Domain
+        - except sd-readahead.[ch] which is MIT
+        - except src/shared/MurmurHash2.c which is Public Domain
+        - except src/shared/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
         Linux kernel >= 3.0
+        Linux kernel >= 3.3 for loop device partition support features with nspawn
+        Linux kernel >= 3.8 for Smack support
+
+        Kernel Config Options:
           CONFIG_DEVTMPFS
           CONFIG_CGROUPS (it's OK to disable all controllers)
           CONFIG_INOTIFY_USER
@@ -45,8 +50,8 @@ REQUIREMENTS:
           CONFIG_EPOLL
           CONFIG_NET
           CONFIG_SYSFS
-
-        Linux kernel >= 3.8 for Smack support
+          CONFIG_PROC_FS
+          CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
         Udev will fail to work with the legacy layout:
           CONFIG_SYSFS_DEPRECATED=n
@@ -61,9 +66,6 @@ REQUIREMENTS:
         Some udev rules and virtualization detection relies on it:
           CONFIG_DMIID
 
-        Mount and bind mount handling might require it:
-          CONFIG_FHANDLE
-
         Support for some SCSI devices serial number retrieval, to
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
@@ -75,27 +77,33 @@ REQUIREMENTS:
           CONFIG_TMPFS_XATTR
           CONFIG_SECCOMP
 
-        For systemd-bootchart a kernel with procfs support and several
-        proc output options enabled is required:
-          CONFIG_PROC_FS
+        For systemd-bootchart, several proc debug interfaces are required:
           CONFIG_SCHEDSTATS
           CONFIG_SCHED_DEBUG
 
         For UEFI systems:
-          CONFIG_EFI_VARS
+          CONFIG_EFIVAR_FS
           CONFIG_EFI_PARTITION
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with
-        containers please make sure to either turn off auditing at
+        containers, please make sure to either turn off auditing at
         runtime using the kernel command line option "audit=0", or
         turn it off at kernel compile time using:
           CONFIG_AUDIT=n
+        If systemd is compiled with libseccomp support on
+        architectures which do not use socketcall() and where seccomp
+        is supported (this effectively means x86-64 and ARM, but
+        excludes 32bit x86!), then nspawn will now install a
+        work-around seccomp filter that makes containers boot even
+        with audit being enabled. This works correctly only on kernels
+        3.14 and newer though. TL;DR: turn audit off, still.
 
-        dbus >= 1.4.0
+        glibc >= 2.14
         libcap
+        libseccomp >= 1.0.0 (optional)
         libblkid >= 2.20 (from util-linux) (optional)
-        libkmod >= 14 (optional)
+        libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup (optional)
         libaudit (optional)
@@ -103,21 +111,25 @@ REQUIREMENTS:
         libattr (optional)
         libselinux (optional)
         liblzma (optional)
-        tcpwrappers (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
         libpython (optional)
         make, gcc, and similar tools
 
-        During runtime you need the following additional dependencies:
+        During runtime, you need the following additional
+        dependencies:
 
-        util-linux >= v2.19 (requires fsck -l, agetty -s)
-        sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended)
+        util-linux >= v2.19 (requires fsck -l, agetty -s),
+                      v2.21 required for tests in test/
+        dbus >= 1.4.0 (strictly speaking optional, but recommended)
+        sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended,
+                 required for tests in test/)
         dracut (optional)
         PolicyKit (optional)
 
-        When building from git you need the following additional dependencies:
+        When building from git, you need the following additional
+        dependencies:
 
         docbook-xsl
         xsltproc
@@ -128,19 +140,14 @@ REQUIREMENTS:
         gperf
         gtkdocize (optional)
         python (optional)
+        python-lxml (optional, but required to build the indices)
         sphinx (optional)
-        python-lxml (entirely optional)
 
-        When systemd-hostnamed is used it is strongly recommended to
-        install nss-myhostname to ensure that in a world of
-        dynamically changing hostnames the hostname stays resolvable
+        When systemd-hostnamed is used, it is strongly recommended to
+        install nss-myhostname to ensure that, in a world of
+        dynamically changing hostnames, the hostname stays resolvable
         under all circumstances. In fact, systemd-hostnamed will warn
         if nss-myhostname is not installed.
-
-        Note that D-Bus can link against libsystemd-login.so, which
-        results in a cyclic build dependency. To accommodate for this
-        please build D-Bus without systemd first, then build systemd,
-        then rebuild D-Bus with systemd support.
 
         To build HTML documentation for python-systemd using sphinx,
         please first install systemd (using 'make install'), and then
@@ -156,9 +163,9 @@ USERS AND GROUPS:
 
         tty, dialout, kmem, video, audio, lp, floppy, cdrom, tape, disk
 
-        During runtime the journal daemon requires the
+        During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will
-        be readable by this group (but not writable) which may be used
+        be readable by this group (but not writable), which may be used
         to grant specific users read access.
 
         It is also recommended to grant read access to all journal
@@ -180,14 +187,17 @@ WARNINGS:
 
         systemd will warn you during boot if /usr is on a different
         file system than /. While in systemd itself very little will
-        break if /usr is on a separate partition many of its
+        break if /usr is on a separate partition, many of its
         dependencies very likely will break sooner or later in one
-        form or another. For example udev rules tend to refer to
+        form or another. For example, udev rules tend to refer to
         binaries in /usr, binaries that link to libraries in /usr or
         binaries that refer to data files in /usr. Since these
-        breakages are not always directly visible systemd will warn
+        breakages are not always directly visible, systemd will warn
         about this, since this kind of file system setup is not really
         supported anymore by the basic set of Linux OS components.
+
+        systemd requires that the /run mount point exists. systemd also
+        requires that /var/run is a a symlink → /run.
 
         For more information on this issue consult
         http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken

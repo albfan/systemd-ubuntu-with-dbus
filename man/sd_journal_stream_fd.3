@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_STREAM_FD" "3" "" "systemd 208" "sd_journal_stream_fd"
+.TH "SD_JOURNAL_STREAM_FD" "3" "" "systemd 212" "sd_journal_stream_fd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,7 @@ sd_journal_stream_fd \- Create log stream file descriptor to the journal
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_stream_fd()\fR
-may be used to create a log stream file descriptor\&. Log messages written to this file descriptor as simple newline\-separated text strings are written to the journal\&. This file descriptor can be used internally by applications or be made STDOUT/STDERR of other processes executed\&.
+may be used to create a log stream file descriptor\&. Log messages written to this file descriptor as simple newline\-separated text strings are written to the journal\&. This file descriptor can be used internally by applications or be made standard output or standard error of other processes executed\&.
 .PP
 \fBsd_journal_stream_fd()\fR
 takes a short program identifier string as first argument, which will be written to the journal as _SYSLOG_IDENTIFIER= field for each log entry (see
@@ -62,8 +62,8 @@ The call returns a valid write\-only file descriptor on success or a negative er
 .PP
 The
 \fBsd_journal_stream_fd()\fR
-interface is available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interface is available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "EXAMPLES"
 .PP

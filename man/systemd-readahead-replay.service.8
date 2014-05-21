@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-READAHEAD\-REPLAY\&.SERVICE" "8" "" "systemd 208" "systemd-readahead-replay.service"
+.TH "SYSTEMD\-READAHEAD\-REPLAY\&.SERVICE" "8" "" "systemd 212" "systemd-readahead-replay.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -62,11 +62,6 @@ will also defragment and rearrange files on disk to optimize subsequent boot tim
 systemd\-readahead
 understands the following options:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
 \fB\-\-max\-files=\fR
 .RS 4
 Maximum number of files to read ahead\&. Only valid for thes
@@ -88,6 +83,16 @@ commands\&.
 Maximum time in microseconds to spend collecting data\&. Only valid for the
 \fBcollect\fR
 command\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "COMMANDS"
 .PP

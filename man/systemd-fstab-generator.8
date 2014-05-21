@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 208" "systemd-fstab-generator"
+.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 212" "systemd-fstab-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,6 +32,10 @@ is a generator that translates
 (see
 \fBfstab\fR(5)
 for details) into native systemd units early at boot and when configuration of the system manager is reloaded\&. This will instantiate mount and swap units as necessary\&.
+.PP
+The
+\fIpassno\fR
+field is treated like a simple boolean, and the ordering information is discarded\&. However, if the root file system is checked, it is checked before all the other file systems\&.
 .PP
 See
 \fBsystemd.mount\fR(5)

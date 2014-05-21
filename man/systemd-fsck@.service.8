@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 208" "systemd-fsck@.service"
+.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 212" "systemd-fsck@.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,7 +33,9 @@ systemd\-fsck\-root\&.service
 systemd\-fsck@\&.service
 is a service responsible for file system checks\&. It is instantiated for each device that requires a file system check\&.
 systemd\-fsck\-root\&.service
-is responsible for file system checks on the root file system\&.
+is responsible for file system checks on the root file system\&. The root file system check is performed before the other file systems\&. Either service is enabled at boot if passno in
+/etc/fstab
+for the file system is set to a value greater than zero\&.
 .PP
 systemd\-fsck
 will forward file system checking progress to the console\&. If a file system check fails, emergency mode is activated, by isolating to

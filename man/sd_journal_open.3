@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_OPEN" "3" "" "systemd 208" "sd_journal_open"
+.TH "SD_JOURNAL_OPEN" "3" "" "systemd 212" "sd_journal_open"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_close, sd_journal, SD_JOURNAL_LOCAL_ONLY, SD_JOURNAL_RUNTIME_ONLY, SD_JOURNAL_SYSTEM, SD_JOURNAL_CURRENT_USER \- Open the system journal for reading
+sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_open_container, sd_journal_close, sd_journal, SD_JOURNAL_LOCAL_ONLY, SD_JOURNAL_RUNTIME_ONLY, SD_JOURNAL_SYSTEM, SD_JOURNAL_CURRENT_USER \- Open the system journal for reading
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -34,6 +34,8 @@ sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_cl
 .BI "int sd_journal_open_directory(sd_journal**\ " "ret" ", const\ char*\ " "path" ", int\ " "flags" ");"
 .HP \w'int\ sd_journal_open_files('u
 .BI "int sd_journal_open_files(sd_journal**\ " "ret" ", const\ char**\ " "paths" ", int\ " "flags" ");"
+.HP \w'int\ sd_journal_open_container('u
+.BI "int sd_journal_open_container(sd_journal**\ " "ret" ", const\ char*\ " "machine" ", int\ " "flags" ");"
 .HP \w'void\ sd_journal_close('u
 .BI "void sd_journal_close(sd_journal*\ " "j" ");"
 .SH "DESCRIPTION"
@@ -65,6 +67,12 @@ is similar to
 \fBsd_journal_open()\fR
 but takes a
 \fBNULL\fR\-terminated list of file paths to open\&. All files will be opened and interleaved automatically\&. This call also takes a flags argument, but it must be passed as 0 as no flags are currently understood for this call\&. Please note that in the case of a live journal, this function is only useful for debugging, because individual journal files can be rotated at any moment, and the opening of specific files is inherently racy\&.
+.PP
+\fBsd_journal_open_container()\fR
+is similar to
+\fBsd_journal_open()\fR
+but opens the journal files of a running OS container\&. The specified machine name refers to a container that is registered with
+\fBsystemd-machined\fR(8)\&.
 .PP
 \fIsd_journal\fR
 objects cannot be used in the child after a fork\&. Functions which take a journal object as an argument (\fBsd_journal_next()\fR
@@ -120,7 +128,7 @@ The
 and
 \fBsd_journal_close()\fR
 interfaces are available as a shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "HISTORY"
 .PP
@@ -145,4 +153,5 @@ was deprecated\&.
 \fBsystemd\fR(1),
 \fBsd-journal\fR(3),
 \fBsd_journal_next\fR(3),
-\fBsd_journal_get_data\fR(3)
+\fBsd_journal_get_data\fR(3),
+\fBsystemd-machined\fR(8)

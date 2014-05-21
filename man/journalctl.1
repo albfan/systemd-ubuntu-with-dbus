@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALCTL" "1" "" "systemd 208" "journalctl"
+.TH "JOURNALCTL" "1" "" "systemd 212" "journalctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -40,7 +40,7 @@ If one or more match arguments are passed, the output is filtered accordingly\&.
 \fBsystemd.journal-fields\fR(7)
 for a list of well\-known fields\&. If multiple matches are specified matching different fields, the log entries are filtered by both, i\&.e\&. the resulting output will show only entries matching all the specified matches of this kind\&. If two matches apply to the same field, then they are automatically matched as alternatives, i\&.e\&. the resulting output will show entries matching any of the specified matches for the same field\&. Finally, if the character
 "+"
-appears as separate word on the command line, all matches before and after are combined in a disjunction (i\&.e\&. logical OR)\&.
+appears as a separate word on the command line, all matches before and after are combined in a disjunction (i\&.e\&. logical OR)\&.
 .PP
 As shortcuts for a few types of field/value matches, file paths may be specified\&. If a file path refers to an executable file, this is equivalent to an
 "_EXE="
@@ -56,33 +56,23 @@ group get access to the system journal and the journals of other users\&.
 .PP
 The output is paged through
 \fBless\fR
-by default, and long lines are "truncated" to screen width\&. The hidden part can be viewed by using the left\-arrow and right\-arrow keys\&. Paging can be disabled, see
+by default, and long lines are "truncated" to screen width\&. The hidden part can be viewed by using the left\-arrow and right\-arrow keys\&. Paging can be disabled; see the
 \fB\-\-no\-pager\fR
-and section Environment below\&.
+option and the "Environment" section below\&.
 .PP
-When outputing to a tty, lines are colored according to priority: lines of level ERROR and higher are colored red, lines of level NOTICE and higher are highlighted, and other lines are displayed normally\&.
+When outputing to a tty, lines are colored according to priority: lines of level ERROR and higher are colored red; lines of level NOTICE and higher are highlighted; other lines are displayed normally\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
+\fB\-\-no\-full\fR, \fB\-\-full\fR, \fB\-l\fR
 .RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
-.PP
-\fB\-l\fR, \fB\-\-full\fR
-.RS 4
-Show all (printable) fields in full\&.
+Ellipsize fields when they do not fit in available columns\&. The default is to show full fields, allowing them to wrap or be truncated by the pager, if one is used\&.
+.sp
+The old options
+\fB\-l\fR/\fB\-\-full\fR
+are not useful anymore, except to undo
+\fB\-\-no\-full\fR\&.
 .RE
 .PP
 \fB\-a\fR, \fB\-\-all\fR
@@ -121,7 +111,7 @@ Show all stored output lines, even in follow mode\&. Undoes the effect of
 .PP
 \fB\-r\fR, \fB\-\-reverse\fR
 .RS 4
-Reverse output, so the newest entries are displayed first\&.
+Reverse output so that the newest entries are displayed first\&.
 .RE
 .PP
 \fB\-o\fR, \fB\-\-output=\fR
@@ -169,7 +159,7 @@ for more information)\&.
 .PP
 \fBjson\-pretty\fR
 .RS 4
-formats entries as JSON data structures, but formats them in multiple lines in order to make them more readable for humans\&.
+formats entries as JSON data structures, but formats them in multiple lines in order to make them more readable by humans\&.
 .RE
 .PP
 \fBjson\-sse\fR
@@ -180,7 +170,7 @@ formats entries as JSON data structures, but wraps them in a format suitable for
 .PP
 \fBcat\fR
 .RS 4
-generates a very terse output only showing the actual message of each journal entry with no meta data, not even a timestamp\&.
+generates a very terse output, only showing the actual message of each journal entry with no metadata, not even a timestamp\&.
 .RE
 .RE
 .PP
@@ -199,7 +189,7 @@ use
 .PP
 \fB\-q\fR, \fB\-\-quiet\fR
 .RS 4
-Suppresses any warning message regarding inaccessible system journals when run as normal user\&.
+Suppresses any warning messages regarding inaccessible system journals when run as a normal user\&.
 .RE
 .PP
 \fB\-m\fR, \fB\-\-merge\fR
@@ -220,29 +210,34 @@ will look up the boots starting from the beginning of the journal, and a equal\-
 \fIoffset\fR
 will look up boots starting from the end of the journal\&. Thus,
 \fB1\fR
-means the first boot found in the journal in the chronological order,
+means the first boot found in the journal in chronological order,
 \fB2\fR
 the second and so on; while
 \fB\-0\fR
 is the last boot,
 \fB\-1\fR
-the boot before that, and so on\&. An empty
+the boot before last, and so on\&. An empty
 \fIoffset\fR
 is equivalent to specifying
 \fB\-0\fR, except when the current boot is not the last boot (e\&.g\&. because
 \fB\-\-directory\fR
 was specified to look at logs from a different machine)\&.
 .sp
-If the 32 character
+If the 32\-character
 \fIID\fR
 is specified, it may optionally be followed by
 \fIoffset\fR
 which identifies the boot relative to the one given by boot
 \fIID\fR\&. Negative values mean earlier boots and a positive values mean later boots\&. If
 \fIoffset\fR
-is not specified, a value of zero is assumed and the logs for the boot given by
+is not specified, a value of zero is assumed, and the logs for the boot given by
 \fIID\fR
 are shown\&.
+.RE
+.PP
+\fB\-\-list\-boots\fR
+.RS 4
+Show a tabular list of boot numbers (relative to the current boot), their IDs, and the timestamps of the first and last message pertaining to the boot\&.
 .RE
 .PP
 \fB\-k\fR, \fB\-\-dmesg\fR
@@ -253,9 +248,11 @@ and adds the match
 "_TRANSPORT=kernel"\&.
 .RE
 .PP
-\fB\-u\fR, \fB\-\-unit=\fR
+\fB\-u\fR, \fB\-\-unit=\fR\fB\fIUNIT\fR\fR\fB|\fR\fB\fIPATTERN\fR\fR
 .RS 4
-Show messages for the specified systemd unit\&. This will add a match for messages from the unit ("_SYSTEMD_UNIT=") and additional matches for messages from systemd and messages about coredumps for the specified unit\&.
+Show messages for the specified systemd unit
+\fIUNIT\fR, or for any of the units matched by
+\fIPATTERN\fR\&. If a pattern is specified, a list of unit names found in the journal is compared with the specified pattern and all that match are used\&. For each unit name, a match is added for messages from the unit ("_SYSTEMD_UNIT=\fIUNIT\fR"), along with additional matches for messages from systemd and messages about coredumps for the specified unit\&.
 .sp
 This parameter can be specified multiple times\&.
 .RE
@@ -303,7 +300,26 @@ Start showing entries from the location in the journal specified by the passed c
 .RS 4
 Start showing entries from the location in the journal
 \fIafter\fR
-the location specified by the this cursor\&.
+the location specified by the this cursor\&. The cursor is shown when the
+\fB\-\-show\-cursor\fR
+option is used\&.
+.RE
+.PP
+\fB\-\-show\-cursor\fR
+.RS 4
+The cursor is shown after the last entry after two dashes:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+\-\- cursor: s=0639\&.\&.\&.
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The format of the cursor is private and subject to change\&.
 .RE
 .PP
 \fB\-\-since=\fR, \fB\-\-until=\fR
@@ -337,6 +353,11 @@ Show messages from system services and the kernel (with
 \fB\-\-user\fR)\&. If neither is specified, show all messages that the user can see\&.
 .RE
 .PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Show messages from a running, local container\&. Specify a container name to connect to\&.
+.RE
+.PP
 \fB\-D \fR\fB\fIDIR\fR\fR, \fB\-\-directory=\fR\fB\fIDIR\fR\fR
 .RS 4
 Takes a directory path as argument\&. If specified, journalctl will operate on the specified journal directory
@@ -346,14 +367,14 @@ instead of the default runtime and system journal paths\&.
 .PP
 \fB\-\-file=\fR\fB\fIGLOB\fR\fR
 .RS 4
-Takes a file glob as argument\&. If specified, journalctl will operate on the specified journal files matching
+Takes a file glob as an argument\&. If specified, journalctl will operate on the specified journal files matching
 \fIGLOB\fR
 instead of the default runtime and system journal paths\&. May be specified multiple times, in which case files will be suitably interleaved\&.
 .RE
 .PP
 \fB\-\-root=\fR\fB\fIROOT\fR\fR
 .RS 4
-Takes a directory path as argument\&. If specified, journalctl will operate on catalog file hierarchy underneath the specified directory instead of the root directory (e\&.g\&.
+Takes a directory path as an argument\&. If specified, journalctl will operate on catalog file hierarchy underneath the specified directory instead of the root directory (e\&.g\&.
 \fB\-\-update\-catalog\fR
 will create
 \fIROOT\fR/var/lib/systemd/catalog/database)\&.
@@ -361,7 +382,7 @@ will create
 .PP
 \fB\-\-new\-id128\fR
 .RS 4
-Instead of showing journal contents, generate a new 128 bit ID suitable for identifying messages\&. This is intended for usage by developers who need a new identifier for a new message they introduce and want to make recognizable\&. This will print the new ID in three different formats which can be copied into source code or similar\&.
+Instead of showing journal contents, generate a new 128\-bit ID suitable for identifying messages\&. This is intended for usage by developers who need a new identifier for a new message they introduce and want to make recognizable\&. This will print the new ID in three different formats which can be copied into source code or similar\&.
 .RE
 .PP
 \fB\-\-header\fR
@@ -374,41 +395,43 @@ Instead of showing journal contents, show internal header information of the jou
 Shows the current disk usage of all journal files\&.
 .RE
 .PP
-\fB\-\-list\-catalog \fR\fB[\fIID128\&.\&.\&.\fR]\fR\fB \fR
+\fB\-\-list\-catalog \fR\fB[\fI128\-bit\-ID\&.\&.\&.\fR]\fR\fB \fR
 .RS 4
-List the contents of the message catalog, as table of message IDs plus their short description strings\&.
+List the contents of the message catalog as a table of message IDs, plus their short description strings\&.
 .sp
 If any
-\fIID128\fRs are specified, only those entries are shown\&.
+\fI128\-bit\-ID\fRs are specified, only those entries are shown\&.
 .RE
 .PP
-\fB\-\-dump\-catalog \fR\fB[\fIID128\&.\&.\&.\fR]\fR\fB \fR
+\fB\-\-dump\-catalog \fR\fB[\fI128\-bit\-ID\&.\&.\&.\fR]\fR\fB \fR
 .RS 4
-Show the contents of the message catalog, with entries separated by a line consisting of two dashes and the id (the format is the same as
+Show the contents of the message catalog, with entries separated by a line consisting of two dashes and the ID (the format is the same as
 \&.catalog
-files\&.
+files)\&.
 .sp
 If any
-\fIID128\fRs are specified, only those entries are shown\&.
+\fI128\-bit\-ID\fRs are specified, only those entries are shown\&.
 .RE
 .PP
 \fB\-\-update\-catalog\fR
 .RS 4
-Update the message catalog index\&. This command needs to be executed each time new catalog files are installed, removed or updated to rebuild the binary catalog index\&.
+Update the message catalog index\&. This command needs to be executed each time new catalog files are installed, removed, or updated to rebuild the binary catalog index\&.
 .RE
 .PP
 \fB\-\-setup\-keys\fR
 .RS 4
-Instead of showing journal contents, generate a new key pair for Forward Secure Sealing (FSS)\&. This will generate a sealing key and a verification key\&. The sealing key is stored in the journal data directory and shall remain on the host\&. The verification key should be stored externally\&. Also see the
+Instead of showing journal contents, generate a new key pair for Forward Secure Sealing (FSS)\&. This will generate a sealing key and a verification key\&. The sealing key is stored in the journal data directory and shall remain on the host\&. The verification key should be stored externally\&. Refer to the
 \fBSeal=\fR
 option in
 \fBjournald.conf\fR(5)
-for details\&.
+for information on Forward Secure Sealing and for a link to a refereed scholarly paper detailing the cryptographic theory it is based on\&.
 .RE
 .PP
 \fB\-\-force\fR
 .RS 4
-When \-\-setup\-keys is passed and Forward Secure Sealing has already been set up, recreate FSS keys\&.
+When
+\fB\-\-setup\-keys\fR
+is passed and Forward Secure Sealing (FSS) has already been configured, recreate FSS keys\&.
 .RE
 .PP
 \fB\-\-interval=\fR
@@ -429,9 +452,24 @@ Specifies the FSS verification key to use for the
 \fB\-\-verify\fR
 operation\&.
 .RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
 .SH "EXIT STATUS"
 .PP
-On success, 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned; otherwise, a non\-zero failure code is returned\&.
 .SH "ENVIRONMENT"
 .PP
 \fI$SYSTEMD_PAGER\fR
@@ -443,6 +481,13 @@ is not given; overrides
 "cat"
 is equivalent to passing
 \fB\-\-no\-pager\fR\&.
+.RE
+.PP
+\fI$SYSTEMD_LESS\fR
+.RS 4
+Override the default options passed to
+\fBless\fR
+("FRSXMK")\&.
 .RE
 .SH "EXAMPLES"
 .PP

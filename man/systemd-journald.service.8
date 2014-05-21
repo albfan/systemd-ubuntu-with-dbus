@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-JOURNALD\&.SERVICE" "8" "" "systemd 208" "systemd-journald.service"
+.TH "SYSTEMD\-JOURNALD\&.SERVICE" "8" "" "systemd 212" "systemd-journald.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,9 +33,9 @@ systemd\-journald\&.socket
 systemd\-journald
 is a system service that collects and stores logging data\&. It creates and maintains structured, indexed journals based on logging information that is received from the kernel, from user processes via the libc
 \fBsyslog\fR(3)
-call, from STDOUT/STDERR of system services or via its native API\&. It will implicitly collect numerous meta data fields for each log messages in a secure and unfakeable way\&. See
+call, from standard input and standard error of system services or via its native API\&. It will implicitly collect numerous metadata fields for each log messages in a secure and unfakeable way\&. See
 \fBsystemd.journal-fields\fR(7)
-for more information about the collected meta data\&.
+for more information about the collected metadata\&.
 .PP
 Log data collected by the journal is primarily text\-based but can also include binary data where necessary\&. All objects stored in the journal can be up to 2^64\-1 bytes in size\&.
 .PP
@@ -84,9 +84,9 @@ A few configuration parameters from
 journald\&.conf
 may be overridden on the kernel command line:
 .PP
-\fIsystemd\&.journald\&.forward_to_syslog=\fR, \fIsystemd\&.journald\&.forward_to_kmsg=\fR, \fIsystemd\&.journald\&.forward_to_console=\fR
+\fIsystemd\&.journald\&.forward_to_syslog=\fR, \fIsystemd\&.journald\&.forward_to_kmsg=\fR, \fIsystemd\&.journald\&.forward_to_console=\fR, \fIsystemd\&.journald\&.forward_to_wall=\fR
 .RS 4
-Enables/disables forwarding of collected log messages to syslog, the kernel log buffer or the system console\&.
+Enables/disables forwarding of collected log messages to syslog, the kernel log buffer, the system console or wall\&.
 .sp
 See
 \fBjournald.conf\fR(5)

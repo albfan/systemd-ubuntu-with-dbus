@@ -23,13 +23,16 @@
 #include <assert.h>
 #include <errno.h>
 #include <sys/poll.h>
+#include <sys/socket.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "logs-show.h"
 #include "log.h"
 #include "util.h"
 #include "utf8.h"
 #include "hashmap.h"
+#include "fileio.h"
 #include "journal-internal.h"
 
 /* up to three lines (each up to 100 characters),
@@ -120,6 +123,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                         color_off = ANSI_HIGHLIGHT_OFF;
                 }
         }
+
+        /* A special case: make sure that we print a newline when
+           the message is empty. */
+        if (message_len == 0)
+                fputs("\n", f);
 
         for (pos = message;
              pos < message + message_len;
@@ -919,6 +927,21 @@ int output_journal(
         return ret;
 }
 
+static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
+        assert(f);
+        assert(flags);
+
+        if (!(*flags & OUTPUT_BEGIN_NEWLINE))
+                return 0;
+
+        /* Print a beginning new line if that's request, but only once
+         * on the first line we print. */
+
+        fputc('\n', f);
+        *flags &= ~OUTPUT_BEGIN_NEWLINE;
+        return 0;
+}
+
 static int show_journal(FILE *f,
                         sd_journal *j,
                         OutputMode mode,
@@ -976,6 +999,7 @@ static int show_journal(FILE *f,
                         }
 
                         line ++;
+                        maybe_print_begin_newline(f, &flags);
 
                         r = output_journal(f, j, mode, n_columns, flags, ellipsized);
                         if (r < 0)
@@ -996,8 +1020,10 @@ static int show_journal(FILE *f,
                         if (r < 0)
                                 goto finish;
 
-                        if (r > 0 && not_before < cutoff)
+                        if (r > 0 && not_before < cutoff) {
+                                maybe_print_begin_newline(f, &flags);
                                 fprintf(f, "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
+                        }
 
                         warn_cutoff = false;
                 }
@@ -1112,17 +1138,98 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         return r;
 }
 
-int add_match_this_boot(sd_journal *j) {
+static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
+        pid_t pid, child;
+        siginfo_t si;
+        char buf[37];
+        ssize_t k;
+        int r;
+
+        assert(machine);
+        assert(boot_id);
+
+        if (!filename_is_safe(machine))
+                return -EINVAL;
+
+        r = container_get_leader(machine, &pid);
+        if (r < 0)
+                return r;
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                int fd;
+
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(pidnsfd, mntnsfd, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        _exit(EXIT_FAILURE);
+
+                k = loop_read(fd, buf, 36, false);
+                safe_close(fd);
+                if (k != 36)
+                        _exit(EXIT_FAILURE);
+
+                k = send(pair[1], buf, 36, MSG_NOSIGNAL);
+                if (k != 36)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return r < 0 ? r : -EIO;
+
+        k = recv(pair[0], buf, 36, 0);
+        if (k != 36)
+                return -EIO;
+
+        buf[36] = 0;
+        r = sd_id128_from_string(buf, boot_id);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int add_match_this_boot(sd_journal *j, const char *machine) {
         char match[9+32+1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
         assert(j);
 
-        r = sd_id128_get_boot(&boot_id);
-        if (r < 0) {
-                log_error("Failed to get boot id: %s", strerror(-r));
-                return r;
+        if (machine) {
+                r = get_boot_id_for_machine(machine, &boot_id);
+                if (r < 0) {
+                        log_error("Failed to get boot id of container %s: %s", machine, strerror(-r));
+                        return r;
+                }
+        } else {
+                r = sd_id128_get_boot(&boot_id);
+                if (r < 0) {
+                        log_error("Failed to get boot id: %s", strerror(-r));
+                        return r;
+                }
         }
 
         sd_id128_to_string(boot_id, match + 9);
@@ -1166,7 +1273,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return r;
 
-        r = add_match_this_boot(j);
+        r = add_match_this_boot(j, NULL);
         if (r < 0)
                 return r;
 

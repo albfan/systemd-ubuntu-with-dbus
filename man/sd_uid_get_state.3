@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_UID_GET_STATE" "3" "" "systemd 208" "sd_uid_get_state"
+.TH "SD_UID_GET_STATE" "3" "" "systemd 212" "sd_uid_get_state"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -72,17 +72,17 @@ call after use, including all the strings referenced\&. If the string array para
 \fBNULL\fR
 may be returned and should be considered equivalent to an empty array\&.
 .PP
-Similar,
+Similarly,
 \fBsd_uid_get_seats()\fR
 may be used to determine the list of seats on which the user currently has sessions\&. Similar semantics apply, however note that the user may have multiple sessions on the same seat as well as sessions with no attached seat and hence the number of entries in the returned array may differ from the one returned by
 \fBsd_uid_get_sessions()\fR\&.
 .SH "RETURN VALUE"
 .PP
-On success
+On success,
 \fBsd_uid_get_state()\fR
 returns 0 or a positive integer\&. If the test succeeds,
 \fBsd_uid_is_on_seat()\fR
-returns a positive integer, if it fails 0\&.
+returns a positive integer; if it fails, 0\&.
 \fBsd_uid_get_sessions()\fR
 and
 \fBsd_uid_get_seats()\fR
@@ -94,8 +94,8 @@ The
 \fBsd_uid_is_on_seat()\fR,
 \fBsd_uid_get_sessions()\fR, and
 \fBsd_uid_get_seats()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

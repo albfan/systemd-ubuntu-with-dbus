@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-SYSTEM\&.CONF" "5" "" "systemd 208" "systemd-system.conf"
+.TH "SYSTEMD\-SYSTEM\&.CONF" "5" "" "systemd 212" "systemd-system.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,7 +46,7 @@ for details about these command line arguments\&.
 .PP
 \fICPUAffinity=\fR
 .RS 4
-Configures the initial CPU affinity for the init process\&. Takes a space\-separated list of CPU indexes\&.
+Configures the initial CPU affinity for the init process\&. Takes a space\-separated list of CPU indices\&.
 .RE
 .PP
 \fIJoinControllers=cpu,cpuacct net_cls,netprio\fR
@@ -84,14 +84,70 @@ for details\&. Takes a whitespace\-separated list of capability names as read by
 directive for units, but note that capabilities dropped for PID 1 cannot be regained in individual units, they are lost for good\&.
 .RE
 .PP
+\fISystemCallArchitectures=\fR
+.RS 4
+Takes a space\-separated list of architecture identifiers\&. Selects from which architectures system calls may be invoked on this system\&. This may be used as an effective way to disable invocation of non\-native binaries system\-wide, for example to prohibit execution of 32\-bit x86 binaries on 64\-bit x86\-64 systems\&. This option operates system\-wide, and acts similar to the
+\fISystemCallArchitectures=\fR
+setting of unit files, see
+\fBsystemd.exec\fR(5)
+for details\&. This setting defaults to the empty list, in which case no filtering of system calls based on architecture is applied\&. Known architecture identifiers are
+"x86",
+"x86\-64",
+"x32",
+"arm"
+and the special identifier
+"native"\&. The latter implicitly maps to the native architecture of the system (or more specifically, the architecture the system manager was compiled for)\&. Set this setting to
+"native"
+to prohibit execution of any non\-native binaries\&. When a binary executes a system call of an architecture that is not listed in this setting, it will be immediately terminated with the SIGSYS signal\&.
+.RE
+.PP
 \fITimerSlackNSec=\fR
 .RS 4
-Sets the timer slack in nanoseconds for PID 1 which is then inherited to all executed processes, unless overridden individually, for example with the
+Sets the timer slack in nanoseconds for PID 1, which is inherited by all executed processes, unless overridden individually, for example with the
 \fITimerSlackNSec=\fR
 setting in service units (for details see
-\fBsystemd.exec\fR(5))\&. The timer slack controls the accuracy of wake\-ups triggered by timers\&. See
+\fBsystemd.exec\fR(5))\&. The timer slack controls the accuracy of wake\-ups triggered by system timers\&. See
 \fBprctl\fR(2)
 for more information\&. Note that in contrast to most other time span definitions this parameter takes an integer value in nano\-seconds if no unit is specified\&. The usual time units are understood too\&.
+.RE
+.PP
+\fIDefaultTimerAccuracySec=\fR
+.RS 4
+Sets the default accuracy of timer units\&. This controls the global default for the
+\fIAccuracySec=\fR
+setting of timer units, see
+\fBsystemd.timer\fR(5)
+for details\&.
+\fIAccuracySec=\fR
+set in individual units override the global default for the specific unit\&. Defaults to 1min\&. Note that the accuracy of timer units is also affected by the configured timer slack for PID 1, see
+\fITimerSlackNSec=\fR
+above\&.
+.RE
+.PP
+\fIDefaultTimeoutStartSec=\fR, \fIDefaultTimeoutStopSec=\fR, \fIDefaultRestartSec=\fR
+.RS 4
+Configures the default timeouts for starting and stopping of units, as well as the default time to sleep between automatic restarts of units, as configured per\-unit in
+\fITimeoutStartSec=\fR,
+\fITimeoutStopSec=\fR
+and
+\fIRestartSec=\fR
+(for services, see
+\fBsystemd.service\fR(5)
+for details on the per\-unit settings)\&. For non\-service units,
+\fIDefaultTimeoutStartSec=\fR
+sets the default
+\fITimeoutSec=\fR
+value\&.
+.RE
+.PP
+\fIDefaultStartLimitInterval=\fR, \fIDefaultStartLimitBurst=\fR
+.RS 4
+Configure the default unit start rate limiting, as configured per\-service by
+\fIStartLimitInterval=\fR
+and
+\fIStartLimitBurst=\fR\&. See
+\fBsystemd.service\fR(5)
+for details on the per\-service settings\&.
 .RE
 .PP
 \fIDefaultEnvironment=\fR
@@ -118,6 +174,17 @@ Sets three variables
 "VAR3"\&.
 .RE
 .PP
+\fIDefaultCPUAccounting=\fR, \fIDefaultBlockIOAccounting=\fR, \fIDefaultMemoryAccounting=\fR
+.RS 4
+Configure the default resource accounting settings, as configured per\-unit by
+\fICPUAccounting=\fR,
+\fIBlockIOAccounting=\fR
+and
+\fIMemoryAccounting=\fR\&. See
+\fBsystemd.resource-control\fR(5)
+for details on the per\-unit settings\&.
+.RE
+.PP
 \fIDefaultLimitCPU=\fR, \fIDefaultLimitFSIZE=\fR, \fIDefaultLimitDATA=\fR, \fIDefaultLimitSTACK=\fR, \fIDefaultLimitCORE=\fR, \fIDefaultLimitRSS=\fR, \fIDefaultLimitNOFILE=\fR, \fIDefaultLimitAS=\fR, \fIDefaultLimitNPROC=\fR, \fIDefaultLimitMEMLOCK=\fR, \fIDefaultLimitLOCKS=\fR, \fIDefaultLimitSIGPENDING=\fR, \fIDefaultLimitMSGQUEUE=\fR, \fIDefaultLimitNICE=\fR, \fIDefaultLimitRTPRIO=\fR, \fIDefaultLimitRTTIME=\fR
 .RS 4
 These settings control various default resource limits for units\&. See
@@ -130,4 +197,7 @@ to configure no limit on a specific resource\&. These settings may be overridden
 .PP
 \fBsystemd\fR(1),
 \fBsystemd.directives\fR(7),
-\fBenviron\fR(7)
+\fBsystemd.exec\fR(5),
+\fBsystemd.service\fR(5),
+\fBenviron\fR(7),
+\fBcapabilities\fR(7)

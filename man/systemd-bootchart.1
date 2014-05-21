@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 208" "systemd-bootchart"
+.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 212" "systemd-bootchart"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ is a tool, usually run at system startup, that collects the CPU load, disk load,
 on the kernel commandline\&. systemd\-bootchart will then fork the real init off to resume normal system startup, while monitoring and logging startup information in the background\&.
 .PP
 After collecting a certain amount of data (usually 15\-30 seconds, default 20 s) the logging stops and a graph is generated from the logged information\&. This graph contains vital clues as to which resources are being used, in which order, and where possible problems exist in the startup sequence of the system\&. It is essentially a more detailed version of the
-\fBsystemd\-analyze\fR\fBplot\fR
+\fBsystemd\-analyze plot\fR
 function\&.
 .PP
 Of course, bootchart can also be used at any moment in time to collect and graph some data for an amount of time\&. It is recommended to use the
@@ -76,7 +76,7 @@ file\&. See
 .PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
-Prints a short help text and exits\&.
+Print a short help text and exit\&.
 .RE
 .PP
 \fB\-n\fR, \fB\-\-sample \fR\fB\fIN\fR\fR

@@ -25,10 +25,12 @@
 
 #include "systemd/sd-messages.h"
 #include "socket-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"
+#include "journald-wall.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
@@ -44,7 +46,7 @@ static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned 
                 .msg_iovlen = n_iovec,
                 .msg_name = &sa,
                 .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
-                               + sizeof("/run/systemd/journal/syslog") - 1,
+                               + strlen("/run/systemd/journal/syslog"),
         };
         struct cmsghdr *cmsg;
         union {
@@ -236,7 +238,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-void syslog_parse_priority(char **p, int *priority, bool with_facility) {
+void syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
         int k;
 
@@ -365,7 +367,7 @@ void server_process_syslog_message(
         assert(buf);
 
         orig = buf;
-        syslog_parse_priority((char**) &buf, &priority, true);
+        syslog_parse_priority(&buf, &priority, true);
 
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, orig, ucred, tv);
@@ -378,6 +380,9 @@ void server_process_syslog_message(
 
         if (s->forward_to_console)
                 server_forward_console(s, priority, identifier, buf, ucred);
+
+        if (s->forward_to_wall)
+                server_forward_wall(s, priority, identifier, buf, ucred);
 
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=syslog");
 
@@ -417,7 +422,6 @@ void server_process_syslog_message(
 
 int server_open_syslog_socket(Server *s) {
         int one, r;
-        struct epoll_event ev;
 
         assert(s);
 
@@ -453,10 +457,12 @@ int server_open_syslog_socket(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        one = 1;
-        r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
-        if (r < 0)
-                log_warning("SO_PASSSEC failed: %m");
+        if (use_selinux()) {
+                one = 1;
+                r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                if (r < 0)
+                        log_warning("SO_PASSSEC failed: %m");
+        }
 #endif
 
         one = 1;
@@ -466,12 +472,10 @@ int server_open_syslog_socket(Server *s) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->syslog_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->syslog_fd, &ev) < 0) {
-                log_error("Failed to add syslog server fd to epoll object: %m");
-                return -errno;
+        r = sd_event_add_io(s->event, &s->syslog_event_source, s->syslog_fd, EPOLLIN, process_datagram, s);
+        if (r < 0) {
+                log_error("Failed to add syslog server fd to event loop: %s", strerror(-r));
+                return r;
         }
 
         return 0;

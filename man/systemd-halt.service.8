@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-HALT\&.SERVICE" "8" "" "systemd 208" "systemd-halt.service"
+.TH "SYSTEMD\-HALT\&.SERVICE" "8" "" "systemd 212" "systemd-halt.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ systemd\-kexec\&.service
 systemd\-halt\&.service
 is a system service that is pulled in by
 halt\&.target
-and is responsible for the actual system halt\&. Similar,
+and is responsible for the actual system halt\&. Similarly,
 systemd\-poweroff\&.service
 is pulled in by
 poweroff\&.target,
@@ -50,9 +50,11 @@ by
 kexec\&.target
 to execute the respective actions\&.
 .PP
-When these services are run they ensure that PID 1 is replaced by the
+When these services are run, they ensure that PID 1 is replaced by the
 /usr/lib/systemd/systemd\-shutdown
-tool which is then responsible for the actual shutdown\&. Before shutting down this binary will try to unmount all remaining file systems, disable all remaining swap devices, detach all remaining storage devices and kill all remaining processes\&.
+tool which is then responsible for the actual shutdown\&. Before shutting down, this binary will try to unmount all remaining file systems, disable all remaining swap devices, detach all remaining storage devices and kill all remaining processes\&.
+.PP
+It is necessary to have this code in a separate binary because otherwise rebooting after an upgrade might be broken\ \&\(em the running PID 1 could still depend on libraries which are not available any more, thus keeping the file system busy, which then cannot be re\-mounted read\-only\&.
 .PP
 Immediately before executing the actual system halt/poweroff/reboot/kexec
 systemd\-shutdown

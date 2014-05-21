@@ -14,7 +14,9 @@ After=machine.slice
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-machined
-Restart=always
-RestartSec=0
 BusName=org.freedesktop.machine1
 CapabilityBoundingSet=CAP_KILL
+WatchdogSec=1min
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes

@@ -1,5 +1,5 @@
 '\" t
-.TH "DAEMON" "7" "" "systemd 208" "daemon"
+.TH "DAEMON" "7" "" "systemd 212" "daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ When a traditional SysV daemon starts, it should execute the following steps as 
 .sp -1
 .IP "  1." 4.2
 .\}
-Close all open file descriptors except STDIN, STDOUT, STDERR (i\&.e\&. the first three file descriptors 0, 1, 2)\&. This ensures that no accidentally passed file descriptor stays around in the daemon process\&. On Linux, this is best implemented by iterating through
+Close all open file descriptors except stdin, stdout, stderr (i\&.e\&. the first three file descriptors 0, 1, 2)\&. This ensures that no accidentally passed file descriptor stays around in the daemon process\&. On Linux, this is best implemented by iterating through
 /proc/self/fd, with a fallback of iterating from file descriptor 3 to the value returned by
 \fBgetrlimit()\fR
 for RLIMIT_NOFILE\&.
@@ -139,7 +139,7 @@ in the first child, so that only the second child (the actual daemon process) st
 .\}
 In the daemon process, connect
 /dev/null
-to STDIN, STDOUT, STDERR\&.
+to standard input, output, and error\&.
 .RE
 .sp
 .RS 4
@@ -177,7 +177,7 @@ In the daemon process, change the current directory to the root directory (/), i
 .\}
 In the daemon process, write the daemon PID (as returned by
 \fBgetpid()\fR) to a PID file, for example
-/var/run/foobar\&.pid
+/run/foobar\&.pid
 (for a hypothetical daemon "foobar") to ensure that the daemon cannot be started more than once\&. This must be implemented in race\-free fashion so that the PID file is only updated when it is verified at the same time that the PID previously stored in the PID file no longer exists or belongs to a foreign process\&. Commonly, some kind of file locking is employed to implement this logic\&.
 .RE
 .sp
@@ -231,7 +231,7 @@ Modern services for Linux should be implemented as new\-style daemons\&. This ma
 .PP
 For developing a new\-style daemon, none of the initialization steps recommended for SysV daemons need to be implemented\&. New\-style init systems such as systemd make all of them redundant\&. Moreover, since some of these steps interfere with process monitoring, file descriptor passing and other functionality of the init system, it is recommended not to execute them when run as new\-style service\&.
 .PP
-Note that new\-style init systems guarantee execution of daemon processes in a clean process context: it is guaranteed that the environment block is sanitized, that the signal handlers and mask is reset and that no left\-over file descriptors are passed\&. Daemons will be executed in their own session, and STDIN/STDOUT/STDERR connected to
+Note that new\-style init systems guarantee execution of daemon processes in a clean process context: it is guaranteed that the environment block is sanitized, that the signal handlers and mask is reset and that no left\-over file descriptors are passed\&. Daemons will be executed in their own session, with standard input/output/error connected to
 /dev/null
 unless otherwise configured\&. The umask is reset\&.
 .PP
@@ -359,7 +359,7 @@ interface\&.
 .\}
 Instead of using the
 \fBsyslog()\fR
-call to log directly to the system syslog service, a new\-style daemon may choose to simply log to STDERR via
+call to log directly to the system syslog service, a new\-style daemon may choose to simply log to standard error via
 \fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log priorities are necessary, these can be encoded by prefixing individual log lines with strings like "<4>" (for log priority 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
 \fBprintk()\fR
 priority system\&. In fact, using this style of logging also enables the init system to optionally direct all application logging to the kernel log buffer (kmsg), as accessible via
@@ -383,7 +383,7 @@ might get activated either when Bluetooth hardware is plugged in, or when an app
 Old\-style daemons are usually activated exclusively on boot (and manually by the administrator) via SysV init scripts, as detailed in the
 \m[blue]\fBLSB Linux Standard Base Core Specification\fR\m[]\&\s-2\u[1]\d\s+2\&. This method of activation is supported ubiquitously on Linux init systems, both old\-style and new\-style systems\&. Among other issues, SysV init scripts have the disadvantage of involving shell scripts in the boot process\&. New\-style init systems generally employ updated versions of activation, both during boot\-up and during runtime and using more minimal service description files\&.
 .PP
-In systemd, if the developer or administrator wants to make sure a service or other unit is activated automatically on boot, it is recommended to place a symlink to the unit file in the
+In systemd, if the developer or administrator wants to make sure that a service or other unit is activated automatically on boot, it is recommended to place a symlink to the unit file in the
 \&.wants/
 directory of either
 multi\-user\&.target
@@ -593,12 +593,19 @@ are recommended to use a configure script excerpt like the following to determin
 .nf
 PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemdsystemunitdir],
-        AS_HELP_STRING([\-\-with\-systemdsystemunitdir=DIR], [Directory for systemd service files]),
-        [], [with_systemdsystemunitdir=$($PKG_CONFIG \-\-variable=systemdsystemunitdir systemd)])
-if test "x$with_systemdsystemunitdir" != xno; then
-        AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-fi
-AM_CONDITIONAL(HAVE_SYSTEMD, [test \-n "$with_systemdsystemunitdir" \-a "x$with_systemdsystemunitdir" != xno ])
+     [AS_HELP_STRING([\-\-with\-systemdsystemunitdir=DIR], [Directory for systemd service files])],,
+     [with_systemdsystemunitdir=auto])
+AS_IF([test "x$with_systemdsystemunitdir" = "xyes" \-o "x$with_systemdsystemunitdir" = "xauto"], [
+     def_systemdsystemunitdir=$($PKG_CONFIG \-\-variable=systemdsystemunitdir systemd)
+
+     AS_IF([test "x$def_systemdsystemunitdir" = "x"],
+         [AS_IF([test "x$with_systemdsystemunitdir" = "xyes"],
+                [AC_MSG_ERROR([systemd support requested but pkg\-config unable to query systemd package])])
+          with_systemdsystemunitdir=no],
+         [with_systemdsystemunitdir="$def_systemdsystemunitdir"])])
+AS_IF([test "x$with_systemdsystemunitdir" != "xno"],
+      [AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])])
+AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])
 .fi
 .if n \{\
 .RE
@@ -788,7 +795,7 @@ If the daemon exposes interfaces via D\-Bus, write and install a D\-Bus activati
 .IP " 1." 4
 LSB recommendations for SysV init scripts
 .RS 4
-\%http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
+\%http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
 .RE
 .IP " 2." 4
 Apple MacOS X Daemon Requirements

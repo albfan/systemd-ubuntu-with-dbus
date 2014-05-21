@@ -686,6 +686,23 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         goto fail;
 
+        } else if (strcaseeq(p, "anually") || strcaseeq(p, "yearly")) {
+                r = const_chain(1, &c->month);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(1, &c->day);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->hour);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->minute);
+                if (r < 0)
+                        goto fail;
+                r = const_chain(0, &c->second);
+                if (r < 0)
+                        goto fail;
+
         } else if (strcaseeq(p, "weekly")) {
 
                 c->weekdays_bits = 1;
@@ -920,7 +937,6 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         t = mktime(&tm);
         if (t == (time_t) -1)
                 return -EINVAL;
-
 
         *next = (usec_t) t * USEC_PER_SEC;
         return 0;

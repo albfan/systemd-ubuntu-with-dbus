@@ -41,9 +41,11 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkd
         if (lstat(path, &st) < 0)
                 return -errno;
 
-        if ((st.st_mode & 0777) != mode ||
-            st.st_uid != uid ||
-            st.st_gid != gid ||
+        if ((st.st_mode & 0007) > (mode & 0007) ||
+            (st.st_mode & 0070) > (mode & 0070) ||
+            (st.st_mode & 0700) > (mode & 0700) ||
+            (uid != (uid_t) -1 && st.st_uid != uid) ||
+            (gid != (gid_t) -1 && st.st_gid != gid) ||
             !S_ISDIR(st.st_mode)) {
                 errno = EEXIST;
                 return -errno;
@@ -53,10 +55,10 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, mkd
 }
 
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        return mkdir_safe_internal(path, mode, uid, gid, false);
+        return mkdir_safe_internal(path, mode, uid, gid, mkdir);
 }
 
-static int is_dir(const char* path) {
+int is_dir(const char* path) {
         struct stat st;
 
         if (stat(path, &st) < 0)

@@ -1,0 +1,331 @@
+'\" t
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 212" "systemd.network"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd.network \- Network configuration
+.SH "SYNOPSIS"
+.PP
+\fInetwork\fR\&.network
+.SH "DESCRIPTION"
+.PP
+Network setup is performed by
+\fBsystemd-networkd\fR(8)\&.
+.PP
+Network files must have the extension
+\&.network; other extensions are ignored\&. Networks are applied to links whenever the links appear\&.
+.PP
+The
+\&.network
+files are read from the files located in the system network directory
+/usr/lib/systemd/network, the volatile runtime network directory
+/run/systemd/network
+and the local administration network directory
+/etc/systemd/network\&. All configuration files are collectively sorted and processed in lexical order, regardless of the directories in which they live\&. However, files with identical filenames replace each other\&. Files in
+/etc
+have the highest priority, files in
+/run
+take precedence over files with the same name in
+/usr/lib\&. This can be used to override a system\-supplied configuration file with a local file if needed; a symlink in
+/etc
+with the same name as a configuration file in
+/usr/lib, pointing to
+/dev/null, disables the configuration file entirely\&.
+.PP
+The network file contains a
+"[Match]"
+section, which determines if a given network file may be applied to a given device; and a
+"[Network]"
+section specifying how the device should be configured\&. The first (in lexical order) of the network files that matches a given device is applied\&.
+.PP
+A network file is said to match a device if each of the entries in the
+"[Match]"
+section matches, or if the section is empty\&. The following keys are accepted:
+.PP
+\fIMACAddress=\fR
+.RS 4
+The hardware address\&.
+.RE
+.PP
+\fIPath=\fR
+.RS 4
+The persistent path, as exposed by the udev property
+"ID_PATH"\&. May contain shell style globs\&.
+.RE
+.PP
+\fIDriver=\fR
+.RS 4
+The driver currently bound to the device, as exposed by the udev property
+"DRIVER"
+of its parent device, or if that is not set the driver as exposed by
+"ethtool \-i"
+of the device itself\&.
+.RE
+.PP
+\fIType=\fR
+.RS 4
+The device type, as exposed by the udev property
+"DEVTYPE"\&.
+.RE
+.PP
+\fIName=\fR
+.RS 4
+The device name, as exposed by the udev property
+"INTERFACE"\&. May contain shell style globs\&.
+.RE
+.PP
+\fIHost=\fR
+.RS 4
+Matches against the hostname or machine ID of the host\&. See
+"ConditionHost="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIVirtualization=\fR
+.RS 4
+Checks whether the system is executed in a virtualized environment and optionally test whether it is a specific implementation\&. See
+"ConditionVirtualization="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIKernelCommandLine=\fR
+.RS 4
+Checks whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. See
+"ConditionKernelCommandLine="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIArchitecture=\fR
+.RS 4
+Checks whether the system is running on a specific architecture\&. See
+"ConditionArchitecture="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+The
+"[Network]"
+section accepts the following keys:
+.PP
+\fIDescription=\fR
+.RS 4
+A description of the device\&. This is only used for presentation purposes\&.
+.RE
+.PP
+\fIDHCP=\fR
+.RS 4
+A boolean\&. When true, enables basic DHCPv4 support\&.
+.RE
+.PP
+\fIIPv4LL=\fR
+.RS 4
+A boolean\&. When true, enables IPv4 link\-local support\&. If
+"DHCP="
+is also true, IPv4 link\-local address will be removed upon acquiring a DHCP lease\&.
+.RE
+.PP
+\fIAddress=\fR
+.RS 4
+A static IPv4 or IPv6 address and its prefix length, separated by a
+"/"
+character\&. Specify this key more than once to configure several addresses\&. The format of the address must be as described in
+\fBinet_pton\fR(3)\&. This is a short\-hand for an [Address] section only containing an Address key (see below)\&. This option may be specified more than once\&.
+.RE
+.PP
+\fIGateway=\fR
+.RS 4
+The gateway address, which must be in the format described in
+\fBinet_pton\fR(3)\&. This is a short\-hand for a [Route] section only containing a Gateway key\&. This option may be specified more than once\&.
+.RE
+.PP
+\fIDNS=\fR
+.RS 4
+A DNS server address, which must be in the format described in
+\fBinet_pton\fR(3)\&. This option may be specified more than once\&.
+.RE
+.PP
+\fIBridge=\fR
+.RS 4
+The name of the bridge to add the link to\&.
+.RE
+.PP
+\fIBond=\fR
+.RS 4
+The name of the bond to add the link to\&.
+.RE
+.PP
+\fIVLAN=\fR
+.RS 4
+The name of a VLAN to create on the link\&. This option may be specified more than once\&.
+.RE
+.PP
+\fIMACVLAN=\fR
+.RS 4
+The name of a MACVLAN to create on the link\&. This option may be specified more than once\&.
+.RE
+.PP
+An
+"[Address]"
+section accepts the following keys\&. Specify several
+"[Address]"
+sections to configure several addresses\&.
+.PP
+\fIAddress=\fR
+.RS 4
+As in the
+"[Network]"
+section\&. This key is mandatory\&.
+.RE
+.PP
+\fIBroadcast=\fR
+.RS 4
+The broadcast address, which must be in the format described in
+\fBinet_pton\fR(3)
+\&. This key only applies to IPv4 addresses\&. If it is not given, it is derived from the
+"Address"
+key\&.
+.RE
+.PP
+\fILabel=\fR
+.RS 4
+An address label\&.
+.RE
+.PP
+The
+"[Route]"
+section accepts the following keys\&. Specify several
+"[Route]"
+sections to configure several routes\&.
+.PP
+\fIGateway=\fR
+.RS 4
+As in the
+"[Network]"
+section\&. This key is mandatory\&.
+.RE
+.PP
+\fIDestination=\fR
+.RS 4
+The destination prefix of the route\&. Possibly followed by a slash and the prefixlength, if ommitted a full\-length host route is assumed\&.
+.RE
+.PP
+The
+"[DHCPv4]"
+section accepts the following keys:
+.PP
+\fIUseDNS=\fR
+.RS 4
+When true (the default), the DNS servers received from the DHCP server will be used and take precedence over any statically configured ones\&.
+.RE
+.PP
+\fIUseMTU=\fR
+.RS 4
+When true, the interface maximum transmission unit from the DHCP server will be used on the current link\&. Defaults to false\&.
+.RE
+.PP
+\fIUseHostname=\fR
+.RS 4
+When true (the default), the hostname received from the DHCP server will be used as the transient hostname\&.
+.RE
+.PP
+\fICriticalConnection=\fR
+.RS 4
+When true, the connection will never be torn down even if the DHCP lease expires\&. This is contrary to the DHCP specification, but may be the best choice if, say, the root filesystem relies on this connection\&. Defaults to false\&.
+.RE
+.SH "EXAMPLE"
+.PP
+\fBExample\ \&1.\ \&/etc/systemd/network/50-static.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=enp2s0
+
+[Network]
+Address=192\&.168\&.0\&.15/24
+Gateway=192\&.168\&.0\&.1
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&2.\ \&/etc/systemd/network/80-dhcp.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=en*
+
+[Network]
+DHCP=yes
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&3.\ \&/etc/systemd/network/bridge-static.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=bridge0
+
+[Network]
+Address=192\&.168\&.0\&.15/24
+Gateway=192\&.168\&.0\&.1
+DNS=192\&.168\&.0\&.1
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&4.\ \&/etc/systemd/network/bridge-slave-interface.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=enp2s0
+
+[Network]
+Bridge=bridge0
+.fi
+.if n \{\
+.RE
+.\}
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-networkd\fR(8),
+\fBsystemd.netdev\fR(5)

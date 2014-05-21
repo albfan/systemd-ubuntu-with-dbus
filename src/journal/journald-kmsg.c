@@ -88,7 +88,7 @@ void server_forward_kmsg(
         IOVEC_SET_STRING(iovec[n++], "\n");
 
         if (writev(s->dev_kmsg_fd, iovec, n) < 0)
-                log_debug("Failed to write to /dev/kmsg for logging: %s", strerror(errno));
+                log_debug("Failed to write to /dev/kmsg for logging: %m");
 
         free(ident_buf);
 }
@@ -320,7 +320,7 @@ finish:
         free(pid);
 }
 
-int server_read_dev_kmsg(Server *s) {
+static int server_read_dev_kmsg(Server *s) {
         char buffer[8192+1]; /* the kernel-side limit per record is 8K currently */
         ssize_t l;
 
@@ -335,7 +335,7 @@ int server_read_dev_kmsg(Server *s) {
                  * return EINVAL when we try. So handle this cleanly,
                  * but don' try to ever read from it again. */
                 if (errno == EINVAL) {
-                        epoll_ctl(s->epoll_fd, EPOLL_CTL_DEL, s->dev_kmsg_fd, NULL);
+                        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
                         return 0;
                 }
 
@@ -375,38 +375,67 @@ int server_flush_dev_kmsg(Server *s) {
         return 0;
 }
 
+static int dispatch_dev_kmsg(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Server *s = userdata;
+
+        assert(es);
+        assert(fd == s->dev_kmsg_fd);
+        assert(s);
+
+        if (revents & EPOLLERR)
+                log_warning("/dev/kmsg buffer overrun, some messages lost.");
+
+        if (!(revents & EPOLLIN))
+                log_error("Got invalid event from epoll for /dev/kmsg: %"PRIx32, revents);
+
+        return server_read_dev_kmsg(s);
+}
+
 int server_open_dev_kmsg(Server *s) {
-        struct epoll_event ev;
+        int r;
 
         assert(s);
 
         s->dev_kmsg_fd = open("/dev/kmsg", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->dev_kmsg_fd < 0) {
-                log_warning("Failed to open /dev/kmsg, ignoring: %m");
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "Failed to open /dev/kmsg, ignoring: %m");
                 return 0;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->dev_kmsg_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->dev_kmsg_fd, &ev) < 0) {
+        r = sd_event_add_io(s->event, &s->dev_kmsg_event_source, s->dev_kmsg_fd, EPOLLIN, dispatch_dev_kmsg, s);
+        if (r < 0) {
 
                 /* This will fail with EPERM on older kernels where
                  * /dev/kmsg is not readable. */
-                if (errno == EPERM)
-                        return 0;
+                if (r == -EPERM) {
+                        r = 0;
+                        goto fail;
+                }
 
-                log_error("Failed to add /dev/kmsg fd to epoll object: %m");
-                return -errno;
+                log_error("Failed to add /dev/kmsg fd to event loop: %s", strerror(-r));
+                goto fail;
+        }
+
+        r = sd_event_source_set_priority(s->dev_kmsg_event_source, SD_EVENT_PRIORITY_IMPORTANT+10);
+        if (r < 0) {
+                log_error("Failed to adjust priority of kmsg event source: %s", strerror(-r));
+                goto fail;
         }
 
         s->dev_kmsg_readable = true;
 
         return 0;
+
+fail:
+        s->dev_kmsg_event_source = sd_event_source_unref(s->dev_kmsg_event_source);
+        s->dev_kmsg_fd = safe_close(s->dev_kmsg_fd);
+
+        return r;
 }
 
 int server_open_kernel_seqnum(Server *s) {
-        int fd;
+        _cleanup_close_ int fd;
         uint64_t *p;
 
         assert(s);
@@ -423,18 +452,15 @@ int server_open_kernel_seqnum(Server *s) {
 
         if (posix_fallocate(fd, 0, sizeof(uint64_t)) < 0) {
                 log_error("Failed to allocate sequential number file, ignoring: %m");
-                close_nointr_nofail(fd);
                 return 0;
         }
 
         p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         if (p == MAP_FAILED) {
                 log_error("Failed to map sequential number file, ignoring: %m");
-                close_nointr_nofail(fd);
                 return 0;
         }
 
-        close_nointr_nofail(fd);
         s->kernel_seqnum = p;
 
         return 0;

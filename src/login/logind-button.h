@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindbuttonhfoo
-#define foologindbuttonhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -31,18 +30,19 @@ typedef struct Button Button;
 struct Button {
         Manager *manager;
 
+        sd_event_source *io_event_source;
+        sd_event_source *check_event_source;
+
         char *name;
         char *seat;
         int fd;
 
-        bool lid_close_queued;
+        bool lid_closed;
+        bool docked;
 };
 
 Button* button_new(Manager *m, const char *name);
 void button_free(Button*b);
 int button_open(Button *b);
-int button_process(Button *b);
-int button_recheck(Button *b);
 int button_set_seat(Button *b, const char *sn);
-
-#endif
+int button_check_switches(Button *b);

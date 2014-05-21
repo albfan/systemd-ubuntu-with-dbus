@@ -98,7 +98,7 @@ static int utf8_encoded_expected_len(const char *str) {
 }
 
 /* decode one unicode char */
-static int utf8_encoded_to_unichar(const char *str) {
+int utf8_encoded_to_unichar(const char *str) {
         int unichar;
         int len;
         int i;
@@ -141,14 +141,15 @@ bool utf8_is_printable(const char* str, size_t length) {
 
         assert(str);
 
-        for (p = (const uint8_t*) str; length; p++) {
+        for (p = (const uint8_t*) str; length;) {
                 int encoded_len = utf8_encoded_valid_unichar((const char *)p);
-                int32_t val = utf8_encoded_to_unichar((const char*)p);
+                int val = utf8_encoded_to_unichar((const char*)p);
 
                 if (encoded_len < 0 || val < 0 || is_unicode_control(val))
                         return false;
 
                 length -= encoded_len;
+                p += encoded_len;
         }
 
         return true;
@@ -160,7 +161,9 @@ const char *utf8_is_valid(const char *str) {
         assert(str);
 
         for (p = (const uint8_t*) str; *p; ) {
-                int len = utf8_encoded_valid_unichar((const char *)p);
+                int len;
+
+                len = utf8_encoded_valid_unichar((const char *)p);
 
                 if (len < 0)
                         return NULL;
@@ -169,6 +172,32 @@ const char *utf8_is_valid(const char *str) {
         }
 
         return str;
+}
+
+char *utf8_escape_invalid(const char *str) {
+        char *p, *s;
+
+        assert(str);
+
+        p = s = malloc(strlen(str) * 4 + 1);
+        if (!p)
+                return NULL;
+
+        while (*str) {
+                int len;
+
+                len = utf8_encoded_valid_unichar(str);
+                if (len > 0) {
+                        s = mempcpy(s, str, len);
+                        str += len;
+                } else {
+                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
+                        str += 1;
+                }
+        }
+        *s = '\0';
+
+        return p;
 }
 
 char *ascii_is_valid(const char *str) {
@@ -181,27 +210,6 @@ char *ascii_is_valid(const char *str) {
                         return NULL;
 
         return (char*) str;
-}
-
-char *ascii_filter(const char *str) {
-        const char *s;
-        char *r, *d;
-        size_t l;
-
-        assert(str);
-
-        l = strlen(str);
-        r = malloc(l + 1);
-        if (!r)
-                return NULL;
-
-        for (s = str, d = r; *s; s++)
-                if ((unsigned char) *s < 128)
-                        *(d++) = *s;
-
-        *d = 0;
-
-        return r;
 }
 
 char *utf16_to_utf8(const void *s, size_t length) {

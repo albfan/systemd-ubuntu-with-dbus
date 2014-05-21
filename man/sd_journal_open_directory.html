@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd_journal_open"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_close, sd_journal, SD_JOURNAL_LOCAL_ONLY, SD_JOURNAL_RUNTIME_ONLY, SD_JOURNAL_SYSTEM, SD_JOURNAL_CURRENT_USER — Open the system journal for reading</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open_directory</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">path</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open_files</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>const char** <var class="pdparam">paths</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">void <b class="fsfunc">sd_journal_close</b>(</code></td><td>sd_journal* <var class="pdparam">j</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm274677924448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_open()</code> opens
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="sd_journal_open"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_open_container, sd_journal_close, sd_journal, SD_JOURNAL_LOCAL_ONLY, SD_JOURNAL_RUNTIME_ONLY, SD_JOURNAL_SYSTEM, SD_JOURNAL_CURRENT_USER — Open the system journal for reading</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open_directory</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">path</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open_files</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>const char** <var class="pdparam">paths</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_open_container</b>(</code></td><td>sd_journal** <var class="pdparam">ret</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">machine</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">flags</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">void <b class="fsfunc">sd_journal_close</b>(</code></td><td>sd_journal* <var class="pdparam">j</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm139659363723568"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_open()</code> opens
                 the log journal for reading. It will find all journal
                 files automatically and interleave them automatically
                 when reading. As first argument it takes a pointer to
@@ -55,7 +55,12 @@
                 that in the case of a live journal, this function is only
                 useful for debugging, because individual journal files
                 can be rotated at any moment, and the opening of
-                specific files is inherently racy.</p><p><code class="varname">sd_journal</code> objects cannot be
+                specific files is inherently racy.</p><p><code class="function">sd_journal_open_container()</code>
+                is similar to <code class="function">sd_journal_open()</code>
+                but opens the journal files of a running
+                OS container. The specified machine name refers to a
+                container that is registered with
+                <a href="systemd-machined.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined</span>(8)</span></a>.</p><p><code class="varname">sd_journal</code> objects cannot be
                 used in the child after a fork. Functions which take a
                 journal object as an argument
                 (<code class="function">sd_journal_next()</code> and others)
@@ -90,18 +95,18 @@
                 locally, to its closest entry in time)
                 <a href="sd_journal_seek_cursor.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_seek_cursor</span>(3)</span></a>.</p><p>Notification of journal changes is available via
                 <code class="function">sd_journal_get_fd()</code> and related
-                calls.</p></div><div class="refsect1"><a name="idm274677893168"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The <code class="function">sd_journal_open()</code>,
+                calls.</p></div><div class="refsect1"><a name="idm139659367592928"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The <code class="function">sd_journal_open()</code>,
                 <code class="function">sd_journal_open_directory()</code>, and
                 <code class="function">sd_journal_open_files()</code> calls
                 return 0 on success or a negative errno-style error
                 code. <code class="function">sd_journal_close()</code> returns
-                nothing.</p></div><div class="refsect1"><a name="idm274677888960"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_open()</code>,
+                nothing.</p></div><div class="refsect1"><a name="idm139659367588720"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_open()</code>,
                 <code class="function">sd_journal_open_directory()</code> and
                 <code class="function">sd_journal_close()</code> interfaces are
                 available as a shared library, which can be compiled and
                 linked to with the
-                <code class="constant">libsystemd-journal</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-                file.</p></div><div class="refsect1"><a name="idm274677884112"></a><h2 id="History">History<a class="headerlink" title="Permalink to this headline" href="#History">¶</a></h2><p><code class="function">sd_journal_open()</code>,
+                <code class="constant">libsystemd</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                file.</p></div><div class="refsect1"><a name="idm139659367583872"></a><h2 id="History">History<a class="headerlink" title="Permalink to this headline" href="#History">¶</a></h2><p><code class="function">sd_journal_open()</code>,
                 <code class="function">sd_journal_close()</code>,
                 <code class="constant">SD_JOURNAL_LOCAL_ONLY</code>,
                 <code class="constant">SD_JOURNAL_RUNTIME_ONLY</code>,
@@ -112,9 +117,10 @@
                 and <code class="function">sd_journal_open_files()</code>
                 were added in systemd-205.
                 <code class="constant">SD_JOURNAL_SYSTEM_ONLY</code>
-                was deprecated.</p></div><div class="refsect1"><a name="idm274672909856"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                was deprecated.</p></div><div class="refsect1"><a name="idm139659362950176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd-journal.html"><span class="citerefentry"><span class="refentrytitle">sd-journal</span>(3)</span></a>,
                         <a href="sd_journal_next.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_next</span>(3)</span></a>,
-                        <a href="sd_journal_get_data.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_get_data</span>(3)</span></a>
+                        <a href="sd_journal_get_data.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_get_data</span>(3)</span></a>,
+                        <a href="systemd-machined.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined</span>(8)</span></a>
                 </p></div></div></body></html>

@@ -25,14 +25,15 @@
 #include <string.h>
 #include <getopt.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "log.h"
 #include "util.h"
 #include "strv.h"
 #include "fileio.h"
 #include "build.h"
 #include "sleep-config.h"
+#include "def.h"
 
 static char* arg_verb = NULL;
 
@@ -41,9 +42,12 @@ static int write_mode(char **modes) {
         char **mode;
 
         STRV_FOREACH(mode, modes) {
-                int k = write_string_file("/sys/power/disk", *mode);
+                int k;
+
+                k = write_string_file("/sys/power/disk", *mode);
                 if (k == 0)
                         return 0;
+
                 log_debug("Failed to write '%s' to /sys/power/disk: %s",
                           *mode, strerror(-k));
                 if (r == 0)
@@ -57,15 +61,14 @@ static int write_mode(char **modes) {
         return r;
 }
 
-static int write_state(FILE *f0, char **states) {
-        FILE _cleanup_fclose_ *f = f0;
+static int write_state(FILE **f, char **states) {
         char **state;
         int r = 0;
 
         STRV_FOREACH(state, states) {
                 int k;
 
-                k = write_string_to_file(f, *state);
+                k = write_string_to_file(*f, *state);
                 if (k == 0)
                         return 0;
                 log_debug("Failed to write '%s' to /sys/power/state: %s",
@@ -73,9 +76,9 @@ static int write_state(FILE *f0, char **states) {
                 if (r == 0)
                         r = k;
 
-                fclose(f);
-                f = fopen("/sys/power/state", "we");
-                if (!f) {
+                fclose(*f);
+                *f = fopen("/sys/power/state", "we");
+                if (!*f) {
                         log_error("Failed to open /sys/power/state: %m");
                         return -errno;
                 }
@@ -87,11 +90,11 @@ static int write_state(FILE *f0, char **states) {
 static int execute(char **modes, char **states) {
         char* arguments[4];
         int r;
-        FILE *f;
+        _cleanup_fclose_ FILE *f = NULL;
         const char* note = strappenda("SLEEP=", arg_verb);
 
         /* This file is opened first, so that if we hit an error,
-         * we can abort before modyfing any state. */
+         * we can abort before modifying any state. */
         f = fopen("/sys/power/state", "we");
         if (!f) {
                 log_error("Failed to open /sys/power/state: %m");
@@ -107,7 +110,7 @@ static int execute(char **modes, char **states) {
         arguments[1] = (char*) "pre";
         arguments[2] = arg_verb;
         arguments[3] = NULL;
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_SLEEP_START),
@@ -115,7 +118,7 @@ static int execute(char **modes, char **states) {
                    note,
                    NULL);
 
-        r = write_state(f, states);
+        r = write_state(&f, states);
         if (r < 0)
                 return r;
 
@@ -126,7 +129,7 @@ static int execute(char **modes, char **states) {
                    NULL);
 
         arguments[1] = (char*) "post";
-        execute_directory(SYSTEM_SLEEP_PATH, NULL, arguments);
+        execute_directory(SYSTEM_SLEEP_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
 
         return r;
 }
@@ -154,7 +157,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'           },
                 { "version",      no_argument,       NULL, ARG_VERSION   },
-                { NULL,           0,                 NULL, 0             }
+                {}
         };
 
         int c;
@@ -165,8 +168,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
-                        help();
-                        return 0 /* done */;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -177,8 +179,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (argc - optind != 1) {

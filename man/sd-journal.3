@@ -1,5 +1,5 @@
 '\" t
-.TH "SD\-JOURNAL" "3" "" "systemd 208" "sd-journal"
+.TH "SD\-JOURNAL" "3" "" "systemd 212" "sd-journal"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,8 +28,8 @@ sd-journal \- APIs for submitting and querying log entries to and from the journ
 #include <systemd/sd\-journal\&.h>
 .fi
 .ft
-.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\-journal\fR\ 'u
-\fBpkg\-config \-\-cflags \-\-libs libsystemd\-journal\fR
+.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\fR\ 'u
+\fBpkg\-config \-\-cflags \-\-libs libsystemd\fR
 .SH "DESCRIPTION"
 .PP
 sd\-journal\&.h
@@ -60,8 +60,8 @@ tool\&. Command line access for querying entries from the journal is available w
 tool\&.
 .SH "NOTES"
 .PP
-These APIs are implemented as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

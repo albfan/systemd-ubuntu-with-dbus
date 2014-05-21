@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <netinet/ether.h>
 
 #include "conf-parser.h"
 #include "util.h"
@@ -155,6 +156,7 @@ static int next_assignment(const char *unit,
                            ConfigItemLookup lookup,
                            void *table,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            const char *rvalue,
                            bool relaxed,
@@ -177,8 +179,8 @@ static int next_assignment(const char *unit,
 
         if (r > 0) {
                 if (func)
-                        return func(unit, filename, line, section, lvalue, ltype,
-                                    rvalue, data, userdata);
+                        return func(unit, filename, line, section, section_line,
+                                    lvalue, ltype, rvalue, data, userdata);
 
                 return 0;
         }
@@ -201,6 +203,7 @@ static int parse_line(const char* unit,
                       bool relaxed,
                       bool allow_include,
                       char **section,
+                      unsigned *section_line,
                       char *l,
                       void *userdata) {
 
@@ -221,6 +224,15 @@ static int parse_line(const char* unit,
 
         if (startswith(l, ".include ")) {
                 _cleanup_free_ char *fn = NULL;
+
+                /* .includes are a bad idea, we only support them here
+                 * for historical reasons. They create cyclic include
+                 * problems and make it difficult to detect
+                 * configuration file changes with an easy
+                 * stat(). Better approaches, such as .d/ drop-in
+                 * snippets exist.
+                 *
+                 * Support for them should be eventually removed. */
 
                 if (!allow_include) {
                         log_syntax(unit, LOG_ERR, filename, line, EBADMSG,
@@ -259,10 +271,13 @@ static int parse_line(const char* unit,
                                            "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
+                        free(*section);
                         *section = NULL;
+                        *section_line = 0;
                 } else {
                         free(*section);
                         *section = n;
+                        *section_line = line;
                 }
 
                 return 0;
@@ -292,6 +307,7 @@ static int parse_line(const char* unit,
                                lookup,
                                table,
                                *section,
+                               *section_line,
                                strstrip(l),
                                strstrip(e),
                                relaxed,
@@ -311,7 +327,7 @@ int config_parse(const char *unit,
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
-        unsigned line = 0;
+        unsigned line = 0, section_line = 0;
         int r;
 
         assert(filename);
@@ -324,6 +340,8 @@ int config_parse(const char *unit,
                         return -errno;
                 }
         }
+
+        fd_warn_permissions(filename, fileno(f));
 
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *c = NULL, *e;
@@ -380,6 +398,7 @@ int config_parse(const char *unit,
                                relaxed,
                                allow_include,
                                &section,
+                               &section_line,
                                p,
                                userdata);
                 free(c);
@@ -396,6 +415,7 @@ int config_parse(const char *unit,
                                 const char *filename,                   \
                                 unsigned line,                          \
                                 const char *section,                    \
+                                unsigned section_line,                  \
                                 const char *lvalue,                     \
                                 int ltype,                              \
                                 const char *rvalue,                     \
@@ -427,11 +447,11 @@ DEFINE_PARSER(double, double, safe_atod)
 DEFINE_PARSER(nsec, nsec_t, parse_nsec)
 DEFINE_PARSER(sec, usec_t, parse_sec)
 
-
-int config_parse_bytes_size(const char* unit,
+int config_parse_iec_size(const char* unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
+                            unsigned section_line,
                             const char *lvalue,
                             int ltype,
                             const char *rvalue,
@@ -447,10 +467,9 @@ int config_parse_bytes_size(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_bytes(rvalue, &o);
+        r = parse_size(rvalue, 1024, &o);
         if (r < 0 || (off_t) (size_t) o != o) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse byte value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -458,11 +477,41 @@ int config_parse_bytes_size(const char* unit,
         return 0;
 }
 
+int config_parse_si_size(const char* unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
-int config_parse_bytes_off(const char* unit,
+        size_t *sz = data;
+        off_t o;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_size(rvalue, 1000, &o);
+        if (r < 0 || (off_t) (size_t) o != o) {
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *sz = (size_t) o;
+        return 0;
+}
+
+int config_parse_iec_off(const char* unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            int ltype,
                            const char *rvalue,
@@ -479,10 +528,9 @@ int config_parse_bytes_off(const char* unit,
 
         assert_cc(sizeof(off_t) == sizeof(uint64_t));
 
-        r = parse_bytes(rvalue, bytes);
+        r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse bytes value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse size value, ignoring: %s", rvalue);
 
         return 0;
 }
@@ -491,6 +539,7 @@ int config_parse_bool(const char* unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -516,90 +565,19 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
-int config_parse_tristate(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_string(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
-        int k;
-        int *b = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        /* Tristates are like booleans, but can also take the 'default' value, i.e. "-1" */
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse boolean value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *b = !!k;
-        return 0;
-}
-
-int config_parse_string(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
-
-        char **s = data;
-        char *n;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        if (!utf8_is_valid(n)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "String is not UTF-8 clean, ignoring assignment: %s", rvalue);
-                free(n);
-                return 0;
-        }
-
-        free(*s);
-        if (*n)
-                *s = n;
-        else {
-                free(n);
-                *s = NULL;
-        }
-
-        return 0;
-}
-
-int config_parse_path(const char *unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
-
-        char **s = data;
-        char *n;
-        int offset;
+        char **s = data, *n;
 
         assert(filename);
         assert(lvalue);
@@ -607,16 +585,50 @@ int config_parse_path(const char *unit,
         assert(data);
 
         if (!utf8_is_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
+                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                 return 0;
         }
 
-        offset = rvalue[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
-                                      streq(lvalue, "ReadOnlyDirectories"));
-        if (!path_is_absolute(rvalue + offset)) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Not an absolute path, ignoring: %s", rvalue);
+        if (isempty(rvalue))
+                n = NULL;
+        else {
+                n = strdup(rvalue);
+                if (!n)
+                        return log_oom();
+        }
+
+        free(*s);
+        *s = n;
+
+        return 0;
+}
+
+int config_parse_path(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data, *n;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!utf8_is_valid(rvalue)) {
+                log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
+                return 0;
+        }
+
+        if (!path_is_absolute(rvalue)) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Not an absolute path, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -636,6 +648,7 @@ int config_parse_strv(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -668,76 +681,18 @@ int config_parse_strv(const char *unit,
         }
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                _cleanup_free_ char *n;
+                char *n;
 
                 n = cunescape_length(w, l);
                 if (!n)
                         return log_oom();
 
                 if (!utf8_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "String is not UTF-8 clean, ignoring: %s", rvalue);
+                        log_invalid_utf8(unit, LOG_ERR, filename, line, EINVAL, rvalue);
                         continue;
                 }
 
-                r = strv_extend(sv, n);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        return 0;
-}
-
-int config_parse_path_strv(const char *unit,
-                           const char *filename,
-                           unsigned line,
-                           const char *section,
-                           const char *lvalue,
-                           int ltype,
-                           const char *rvalue,
-                           void *data,
-                           void *userdata) {
-
-        char*** sv = data, *w, *state;
-        size_t l;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
-                strv_free(*sv);
-                *sv = NULL;
-                return 0;
-        }
-
-        FOREACH_WORD_QUOTED(w, l, rvalue, state) {
-                _cleanup_free_ char *n;
-                int offset;
-
-                n = strndup(w, l);
-                if (!n)
-                        return log_oom();
-
-                if (!utf8_is_valid(n)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Path is not UTF-8 clean, ignoring assignment: %s", rvalue);
-                        continue;
-                }
-
-                offset = n[0] == '-' && (streq(lvalue, "InaccessibleDirectories") ||
-                                         streq(lvalue, "ReadOnlyDirectories"));
-                if (!path_is_absolute(n + offset)) {
-                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Not an absolute path, ignoring: %s", rvalue);
-                        continue;
-                }
-
-                path_kill_slashes(n);
-                r = strv_extend(sv, n);
+                r = strv_consume(sv, n);
                 if (r < 0)
                         return log_oom();
         }
@@ -749,6 +704,7 @@ int config_parse_mode(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -782,15 +738,17 @@ int config_parse_mode(const char *unit,
         return 0;
 }
 
-int config_parse_facility(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_log_facility(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
         int *o = data, x;
@@ -812,15 +770,17 @@ int config_parse_facility(const char *unit,
         return 0;
 }
 
-int config_parse_level(const char *unit,
-                       const char *filename,
-                       unsigned line,
-                       const char *section,
-                       const char *lvalue,
-                       int ltype,
-                       const char *rvalue,
-                       void *data,
-                       void *userdata) {
+int config_parse_log_level(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
 
         int *o = data, x;
@@ -838,89 +798,5 @@ int config_parse_level(const char *unit,
         }
 
         *o = (*o & LOG_FACMASK) | x;
-        return 0;
-}
-
-int config_parse_set_status(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
-
-        char *w;
-        size_t l;
-        char *state;
-        int r;
-        ExitStatusSet *status_set = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
-
-                set_free(status_set->signal);
-                set_free(status_set->code);
-
-                status_set->signal = status_set->code = NULL;
-                return 0;
-        }
-
-        FOREACH_WORD(w, l, rvalue, state) {
-                int val;
-                char *temp;
-
-                temp = strndup(w, l);
-                if (!temp)
-                        return log_oom();
-
-                r = safe_atoi(temp, &val);
-                if (r < 0) {
-                        val = signal_from_string_try_harder(temp);
-                        free(temp);
-
-                        if (val > 0) {
-                                r = set_ensure_allocated(&status_set->signal, trivial_hash_func, trivial_compare_func);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = set_put(status_set->signal, INT_TO_PTR(val));
-                                if (r < 0) {
-                                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                                   "Unable to store: %s", w);
-                                        return r;
-                                }
-                        } else {
-                                log_syntax(unit, LOG_ERR, filename, line, -val,
-                                           "Failed to parse value, ignoring: %s", w);
-                                return 0;
-                        }
-                } else {
-                        free(temp);
-
-                        if (val < 0 || val > 255)
-                                log_syntax(unit, LOG_ERR, filename, line, ERANGE,
-                                           "Value %d is outside range 0-255, ignoring", val);
-                        else {
-                                r = set_ensure_allocated(&status_set->code, trivial_hash_func, trivial_compare_func);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = set_put(status_set->code, INT_TO_PTR(val));
-                                if (r < 0) {
-                                        log_syntax(unit, LOG_ERR, filename, line, -r,
-                                                   "Unable to store: %s", w);
-                                        return r;
-                                }
-                        }
-                }
-        }
-
         return 0;
 }

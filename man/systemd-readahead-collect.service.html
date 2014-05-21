@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-readahead-replay.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-readahead-replay.service, systemd-readahead-collect.service, systemd-readahead-done.service, systemd-readahead-done.timer, systemd-readahead — Disk read ahead logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-readahead-replay.service</code></p><p><code class="filename">systemd-readahead-collect.service</code></p><p><code class="filename">systemd-readahead-done.service</code></p><p><code class="filename">systemd-readahead-done.timer</code></p><div class="cmdsynopsis"><p><code class="command">/usr/lib/systemd/systemd-readahead/systemd-readahead</code>  [OPTIONS...]  COMMAND  [DIRECTORY | FILE]</p></div></div><div class="refsect1"><a name="idm274684861104"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-readahead-collect.service</code>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd-readahead-replay.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-readahead-replay.service, systemd-readahead-collect.service, systemd-readahead-done.service, systemd-readahead-done.timer, systemd-readahead — Disk read ahead logic</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-readahead-replay.service</code></p><p><code class="filename">systemd-readahead-collect.service</code></p><p><code class="filename">systemd-readahead-done.service</code></p><p><code class="filename">systemd-readahead-done.timer</code></p><div class="cmdsynopsis"><p><code class="command">/usr/lib/systemd/systemd-readahead/systemd-readahead</code>  [OPTIONS...]  COMMAND  [DIRECTORY | FILE]</p></div></div><div class="refsect1"><a name="idm140414689542656"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-readahead-collect.service</code>
                 is a service that collects disk usage patterns at boot
                 time. <code class="filename">systemd-readahead-replay.service</code>
                 is a service that replays this access data collected
@@ -51,9 +51,8 @@
                 it,
                 <code class="filename">systemd-readahead-collect.service</code>
                 will also defragment and rearrange files on disk to
-                optimize subsequent boot times.</p></div><div class="refsect1"><a name="idm274688754352"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p><code class="filename">systemd-readahead</code> understands
-                the following options:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help text
-                                and exits.</p></dd><dt id="--max-files="><span class="term"><code class="option">--max-files=</code></span><a class="headerlink" title="Permalink to this term" href="#--max-files=">¶</a></dt><dd><p>Maximum number of
+                optimize subsequent boot times.</p></div><div class="refsect1"><a name="idm140414693433280"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p><code class="filename">systemd-readahead</code> understands
+                the following options:</p><div class="variablelist"><dl class="variablelist"><dt id="--max-files="><span class="term"><code class="option">--max-files=</code></span><a class="headerlink" title="Permalink to this term" href="#--max-files=">¶</a></dt><dd><p>Maximum number of
                                 files to read ahead. Only valid
                                 for thes <span class="command"><strong>collect</strong></span>
                                 command.</p></dd><dt id="--file-size-max="><span class="term"><code class="option">--file-size-max=</code></span><a class="headerlink" title="Permalink to this term" href="#--file-size-max=">¶</a></dt><dd><p>Maximum size of files
@@ -63,7 +62,8 @@
                                 commands.</p></dd><dt id="--timeout="><span class="term"><code class="option">--timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#--timeout=">¶</a></dt><dd><p>Maximum time in microseconds
                                 to spend collecting data. Only valid
                                 for the <span class="command"><strong>collect</strong></span>
-                                command.</p></dd></dl></div></div><div class="refsect1"><a name="idm274688742560"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood by
+                                command.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140414693421792"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood by
                 <code class="filename">systemd-readahead</code>:</p><div class="variablelist"><dl class="variablelist"><dt id="collect
                                 [DIRECTORY]"><span class="term"><span class="command"><strong>collect
                                 [<em class="replaceable"><code>DIRECTORY</code></em>]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#collect%0A%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%20%5BDIRECTORY%5D">¶</a></dt><dd><p>Collect read-ahead data on
@@ -81,6 +81,6 @@
                                         output lists approximately how
                                         much will be read ahead by
                                         the <span class="command"><strong>replay</strong></span>
-                                        command.</p></dd></dl></div></div><div class="refsect1"><a name="idm274688724480"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                        command.</p></dd></dl></div></div><div class="refsect1"><a name="idm140414693403728"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
                 </p></div></div></body></html>

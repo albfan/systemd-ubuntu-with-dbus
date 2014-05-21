@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-run">
+<refentry id="systemd-run"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-run</title>
@@ -60,7 +61,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used create and start
+    <para><command>systemd-run</command> may be used to create and start
     a transient <filename>.service</filename> or a
     <filename>.scope</filename> unit and run the specified
     <replaceable>COMMAND</replaceable> in it.</para>
@@ -89,30 +90,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>-h</option></term>
-        <term><option>--help</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Prints a short version
-        string and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--user</option></term>
-
-        <listitem>
-          <para>Talk to the service manager of the calling user,
-          rather than the service manager of the system.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--scope</option></term>
 
         <listitem>
@@ -130,11 +107,23 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       </varlistentry>
 
       <varlistentry>
+        <term><option>--property=</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Sets a unit property for the scope or service
+        unit that is created. This takes an assignment in the same
+        format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--description=</option></term>
 
-        <listitem><para>Provide description for the unit. If not
-        specified, the command itself will be used as a description.
-        See <varname>Description=</varname> in
+        <listitem><para>Provide description for the service or scope
+        unit. If not specified, the command itself will be used as a
+        description.  See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -151,10 +140,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--remain-after-exit</option></term>
 
-        <listitem><para>After the service's process has terminated, keep
-        the service around until it is explicitly stopped. This is
-        useful to collect runtime information about the service after
-        it finished running. Also see
+        <listitem><para>After the service or scope process has
+        terminated, keep the service around until it is explicitly
+        stopped. This is useful to collect runtime information about
+        the service after it finished running. Also see
         <varname>RemainAfterExit=</varname> in
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
@@ -164,14 +153,65 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
       <varlistentry>
         <term><option>--send-sighup</option></term>
 
-        <listitem><para>When terminating the scope unit, send a SIGHUP
-        immediately after SIGTERM. This is useful to indicate to
-        shells and shell-like processes that the connection has been
-        severed. Also see <varname>SendSIGHUP=</varname> in
+        <listitem><para>When terminating the scope or service unit,
+        send a SIGHUP immediately after SIGTERM. This is useful to
+        indicate to shells and shell-like processes that the
+        connection has been severed. Also see
+        <varname>SendSIGHUP=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--service-type=</option></term>
+
+        <listitem><para>Sets the service type. Also see
+        <varname>Type=</varname> in
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+        option has no effect in conjunction with
+        <option>--scope</option>. Defaults to
+        <constant>simple</constant>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=</option></term>
+        <term><option>--gid=</option></term>
+
+        <listitem><para>Runs the service process under the UNIX user
+        and group. Also see <varname>User=</varname> and
+        <varname>Group=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nice=</option></term>
+
+        <listitem><para>Runs the service process with the specified
+        nice level. Also see <varname>Nice=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=</option></term>
+
+        <listitem><para>Runs the service process with the specified
+        environment variables set. Also see
+        <varname>Environment=</varname> in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
     <para>All command-line arguments after the first non-option
@@ -188,7 +228,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
 
     <para>The following command will log the environment variables
     provided by systemd to services:</para>
@@ -200,8 +240,16 @@ Sep 08 07:37:21 bupkis systemd[1]: Starting /usr/bin/env...
 Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
-Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64
-    </programlisting>
+Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64</programlisting>
+
+    <para>The following command invokes the
+    <citerefentry><refentrytitle>updatedb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    tool but lowers the block IO weight for it to 10. See
+    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more information on the <varname>BlockIOWeight=</varname>
+    property.</para>
+
+    <programlisting># systemd-run -p BlockIOWeight=10 updatedb</programlisting>
   </refsect1>
 
   <refsect1>
@@ -212,7 +260,10 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -36,12 +36,14 @@
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
+#include "journald-native.h"
 
 /* Few programs have less than 3MiB resident */
 #define COREDUMP_MIN_START (3*1024*1024)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
 #define COREDUMP_MAX (767*1024*1024)
+assert_cc(COREDUMP_MAX <= ENTRY_SIZE_MAX);
 
 enum {
         ARG_PID = 1,
@@ -240,7 +242,7 @@ int main(int argc, char* argv[]) {
         coredump_bufsize = COREDUMP_MIN_START;
         coredump_data = malloc(coredump_bufsize);
         if (!coredump_data) {
-                r = log_oom();
+                log_warning("Failed to allocate memory for core, core will not be stored.");
                 goto finalize;
         }
 
@@ -251,7 +253,7 @@ int main(int argc, char* argv[]) {
                 n = loop_read(STDIN_FILENO, coredump_data + coredump_size,
                               coredump_bufsize - coredump_size, false);
                 if (n < 0) {
-                        log_error("Failed to read core dump data: %s", strerror(-n));
+                        log_error("Failed to read core data: %s", strerror(-n));
                         r = (int) n;
                         goto finish;
                 } else if (n == 0)
@@ -259,13 +261,13 @@ int main(int argc, char* argv[]) {
 
                 coredump_size += n;
 
-                if(coredump_size > COREDUMP_MAX) {
-                        log_error("Coredump too large, ignoring");
+                if (coredump_size > COREDUMP_MAX) {
+                        log_error("Core too large, core will not be stored.");
                         goto finalize;
                 }
 
                 if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
-                        r = log_oom();
+                        log_warning("Failed to allocate memory for core, core will not be stored.");
                         goto finalize;
                 }
         }
@@ -277,7 +279,7 @@ int main(int argc, char* argv[]) {
 finalize:
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error("Failed to send coredump: %s", strerror(-r));
+                log_error("Failed to log coredump: %s", strerror(-r));
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

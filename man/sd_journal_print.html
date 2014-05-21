@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd_journal_print"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_print, sd_journal_printv, sd_journal_send, sd_journal_sendv, sd_journal_perror, SD_JOURNAL_SUPPRESS_LOCATION — Submit log entries to the journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_print</b>(</code></td><td>int <var class="pdparam">priority</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>...<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_printv</b>(</code></td><td>int <var class="pdparam">priority</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>va_list <var class="pdparam">ap</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_send</b>(</code></td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>...<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_sendv</b>(</code></td><td>const struct iovec *<var class="pdparam">iov</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">n</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_perror</b>(</code></td><td>const char* <var class="pdparam">message</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm274685988832"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_print()</code> may be
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="sd_journal_print"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_journal_print, sd_journal_printv, sd_journal_send, sd_journal_sendv, sd_journal_perror, SD_JOURNAL_SUPPRESS_LOCATION — Submit log entries to the journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-journal.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_print</b>(</code></td><td>int <var class="pdparam">priority</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>...<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_printv</b>(</code></td><td>int <var class="pdparam">priority</var>, </td></tr><tr><td> </td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>va_list <var class="pdparam">ap</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_send</b>(</code></td><td>const char* <var class="pdparam">format</var>, </td></tr><tr><td> </td><td>...<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_sendv</b>(</code></td><td>const struct iovec *<var class="pdparam">iov</var>, </td></tr><tr><td> </td><td>int <var class="pdparam">n</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_journal_perror</b>(</code></td><td>const char* <var class="pdparam">message</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm140348755162864"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_journal_print()</code> may be
                 used to submit simple, plain text log entries to the
                 system journal. The first argument is a priority
                 value. This is followed by a format string and its
@@ -73,8 +73,8 @@
                 for details) instead of the format string. Each
                 structure should reference one field of the entry to
                 submit. The second argument specifies the number of
-                structures in the
-                array. <code class="function">sd_journal_sendv()</code> is
+                structures in the array.
+                <code class="function">sd_journal_sendv()</code> is
                 particularly useful to submit binary objects to the
                 journal where that is necessary.</p><p><code class="function">sd_journal_perror()</code> is a
                 similar to
@@ -113,27 +113,35 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 be guaranteed. Using
                 <code class="function">sd_journal_print()</code> has the
                 benefit of logging source code line, filenames, and
-                functions as meta data along all entries, and
+                functions as metadata along all entries, and
                 guaranteeing chronological ordering with structured
                 log entries that are generated via
                 <code class="function">sd_journal_send()</code>. Using
                 <code class="function">syslog()</code> has the benefit of being
-                more portable.</p></div><div class="refsect1"><a name="idm274685947600"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The four calls return 0 on success or a negative
+                more portable.</p></div><div class="refsect1"><a name="idm140348759025504"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>The four calls return 0 on success or a negative
                 errno-style error code. The
                 <a href="errno.html"><span class="citerefentry"><span class="refentrytitle">errno</span>(3)</span></a>
-                variable itself is not altered.</p></div><div class="refsect1"><a name="idm274685945488"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_print()</code>,
+                variable itself is not altered.</p></div><div class="refsect1"><a name="idm140348759023392"></a><h2 id="Async signal safety">Async signal safety<a class="headerlink" title="Permalink to this headline" href="#Async%20signal%20safety">¶</a></h2><p><code class="function">sd_journal_sendv()</code> is "async signal
+                safe" in the meaning of <a href="signal.html"><span class="citerefentry"><span class="refentrytitle">signal</span>(7)</span></a>.
+                </p><p><code class="function">sd_journal_print</code>,
+                <code class="function">sd_journal_printv</code>,
+                <code class="function">sd_journal_send</code>, and
+                <code class="function">sd_journal_perror</code> are
+                not async signal safe.</p></div><div class="refsect1"><a name="idm140348759017712"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>The <code class="function">sd_journal_print()</code>,
                 <code class="function">sd_journal_printv()</code>,
                 <code class="function">sd_journal_send()</code> and
                 <code class="function">sd_journal_sendv()</code> interfaces
-                are available as shared library, which can be compiled
+                are available as a shared library, which can be compiled
                 and linked to with the
-                <code class="constant">libsystemd-journal</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-                file.</p></div><div class="refsect1"><a name="idm274680973328"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                <code class="constant">libsystemd</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+                file.</p></div><div class="refsect1"><a name="idm140348754385664"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd-journal.html"><span class="citerefentry"><span class="refentrytitle">sd-journal</span>(3)</span></a>,
                         <a href="sd_journal_stream_fd.html"><span class="citerefentry"><span class="refentrytitle">sd_journal_stream_fd</span>(3)</span></a>,
                         <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>,
                         <a href="perror.html"><span class="citerefentry"><span class="refentrytitle">perror</span>(3)</span></a>,
                         <a href="errno.html"><span class="citerefentry"><span class="refentrytitle">errno</span>(3)</span></a>,
-                        <a href="systemd.journal-fields.html"><span class="citerefentry"><span class="refentrytitle">systemd.journal-fields</span>(7)</span></a>
+                        <a href="systemd.journal-fields.html"><span class="citerefentry"><span class="refentrytitle">systemd.journal-fields</span>(7)</span></a>,
+                        <a href="signal.html"><span class="citerefentry"><span class="refentrytitle">signal</span>(7)</span></a>,
+                        <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
                 </p></div></div></body></html>

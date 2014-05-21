@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="udev"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>udev — Dynamic device management</p></div><div class="refsect1"><a name="idm274701428624"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>udev supplies the system software with device events, manages permissions
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="udev"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>udev — Dynamic device management</p></div><div class="refsect1"><a name="idm140195583295824"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>udev supplies the system software with device events, manages permissions
     of device nodes and may create additional symlinks in the <code class="filename">/dev</code>
     directory, or renames network interfaces. The kernel usually just assigns unpredictable
     device names based on the order of discovery. Meaningful symlinks or network device
@@ -31,7 +31,7 @@
     provide additional device information to be stored in the udev database or
     to be used to create meaningful symlink names.</p><p>All device information udev processes is stored in the udev database and
     sent out to possible event subscribers. Access to all stored data and the event
-    sources is provided by the library libudev.</p></div><div class="refsect1"><a name="idm274701424128"></a><h2 id="Rules Files">Rules Files<a class="headerlink" title="Permalink to this headline" href="#Rules%20Files">¶</a></h2><p>The udev rules are read from the files located in the
+    sources is provided by the library libudev.</p></div><div class="refsect1"><a name="idm140195583291232"></a><h2 id="Rules Files">Rules Files<a class="headerlink" title="Permalink to this headline" href="#Rules%20Files">¶</a></h2><p>The udev rules are read from the files located in the
       system rules directory <code class="filename">/usr/lib/udev/rules.d</code>,
       the volatile runtime directory <code class="filename">/run/udev/rules.d</code>
       and the local administration directory <code class="filename">/etc/udev/rules.d</code>.
@@ -39,10 +39,10 @@
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <code class="filename">/etc</code>
       have the highest priority, files in <code class="filename">/run</code> take precedence
-      over files with the same name in <code class="filename">/lib</code>. This can be
+      over files with the same name in <code class="filename">/usr/lib</code>. This can be
       used to override a system-supplied rules file with a local file if needed;
       a symlink in <code class="filename">/etc</code> with the same name as a rules file in
-      <code class="filename">/lib</code>, pointing to <code class="filename">/dev/null</code>,
+      <code class="filename">/usr/lib</code>, pointing to <code class="filename">/dev/null</code>,
       disables the rules file entirely. Rule files must have the extension
       <code class="filename">.rules</code>; other extensions are ignored.</p><p>Every line in the rules file contains at least one key-value pair.
       Except for empty lines or lines beginning with "<code class="literal">#</code>", which are ignored.
@@ -72,18 +72,23 @@
             if needed.</p></dd><dt id="PROGRAM"><span class="term"><code class="varname">PROGRAM</code></span><a class="headerlink" title="Permalink to this term" href="#PROGRAM">¶</a></dt><dd><p>Execute a program to determine whether there
             is a match; the key is true if the program returns
             successfully. The device properties are made available to the
-            executed program in the environment. The program's stdout
-            is available in the RESULT key.</p><p>This can only be used for very short-running foreground tasks. For details
-            see <code class="varname">RUN</code>.</p></dd><dt id="RESULT"><span class="term"><code class="varname">RESULT</code></span><a class="headerlink" title="Permalink to this term" href="#RESULT">¶</a></dt><dd><p>Match the returned string of the last PROGRAM call. This key can
-            be used in the same or in any later rule after a PROGRAM call.</p></dd></dl></div><p>Most of the fields support shell glob pattern matching. The following
+            executed program in the environment. The program's standard ouput
+            is available in the <code class="varname">RESULT</code> key.</p><p>This can only be used for very short-running foreground tasks. For details,
+            see <code class="varname">RUN</code>.</p></dd><dt id="RESULT"><span class="term"><code class="varname">RESULT</code></span><a class="headerlink" title="Permalink to this term" href="#RESULT">¶</a></dt><dd><p>Match the returned string of the last <code class="varname">PROGRAM</code> call.
+            This key can be used in the same or in any later rule after a
+            <code class="varname">PROGRAM</code> call.</p></dd></dl></div><p>Most of the fields support shell glob pattern matching. The following
       pattern characters are supported:</p><div class="variablelist"><dl class="variablelist"><dt id="*"><span class="term">"<code class="literal">*</code>"</span><a class="headerlink" title="Permalink to this term" href="#*">¶</a></dt><dd><p>Matches zero or more characters.</p></dd><dt id="?"><span class="term">"<code class="literal">?</code>"</span><a class="headerlink" title="Permalink to this term" href="#?">¶</a></dt><dd><p>Matches any single character.</p></dd><dt id="[]"><span class="term">"<code class="literal">[]</code>"</span><a class="headerlink" title="Permalink to this term" href="#%5B%5D">¶</a></dt><dd><p>Matches any single character specified within the brackets. For
             example, the pattern string "<code class="literal">tty[SR]</code>"
             would match either "<code class="literal">ttyS</code>" or "<code class="literal">ttyR</code>".
             Ranges are also supported via the "<code class="literal">-</code>" character.
-            For example, to match on the range of all digits, the pattern [0-9] could
-            be used. If the first character following the "<code class="literal">[</code>" is a
-            "<code class="literal">!</code>", any characters not enclosed are matched.</p></dd></dl></div><p>The following keys can get values assigned:</p><div class="variablelist"><dl class="variablelist"><dt id="NAME"><span class="term"><code class="varname">NAME</code></span><a class="headerlink" title="Permalink to this term" href="#NAME">¶</a></dt><dd><p>The name to use for a network interface. The name of a device node
-            cannot be changed by udev, only additional symlinks can be created.</p></dd><dt id="SYMLINK"><span class="term"><code class="varname">SYMLINK</code></span><a class="headerlink" title="Permalink to this term" href="#SYMLINK">¶</a></dt><dd><p>The name of a symlink targeting the node. Every matching rule adds
+            For example, to match on the range of all digits, the pattern
+            "<code class="literal">[0-9]</code>" could be used. If the first character
+            following the "<code class="literal">[</code>" is a "<code class="literal">!</code>",
+            any characters not enclosed are matched.</p></dd></dl></div><p>The following keys can get values assigned:</p><div class="variablelist"><dl class="variablelist"><dt id="NAME"><span class="term"><code class="varname">NAME</code></span><a class="headerlink" title="Permalink to this term" href="#NAME">¶</a></dt><dd><p>The name to use for a network interface. See
+            <a href="systemd.link.html"><span class="citerefentry"><span class="refentrytitle">systemd.link</span>(5)</span></a>
+            for a higher-level mechanism for setting the interface name.
+            The name of a device node cannot be changed by udev, only additional
+            symlinks can be created.</p></dd><dt id="SYMLINK"><span class="term"><code class="varname">SYMLINK</code></span><a class="headerlink" title="Permalink to this term" href="#SYMLINK">¶</a></dt><dd><p>The name of a symlink targeting the node. Every matching rule adds
             this value to the list of symlinks to be created.</p><p>The set of characters to name a symlink is limited. Allowed
             characters are "<code class="literal">0-9A-Za-z#+-.:=@_/</code>", valid UTF-8 character
             sequences, and "<code class="literal">\x00</code>" hex encoding. All other
@@ -96,26 +101,29 @@
             them owns the link) is undefined.</p><p>Symlink names must never conflict with the kernel's default device
             node names, as that would result in unpredictable behavior.
             </p></dd><dt id="OWNER, GROUP, MODE"><span class="term"><code class="varname">OWNER</code>, <code class="varname">GROUP</code>, <code class="varname">MODE</code></span><a class="headerlink" title="Permalink to this term" href="#OWNER,%20GROUP,%20MODE">¶</a></dt><dd><p>The permissions for the device node. Every specified value overrides
-            the compiled-in default value.</p></dd><dt id="ATTR{key}"><span class="term"><code class="varname">ATTR{<em class="replaceable"><code>key</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#ATTR%7Bkey%7D">¶</a></dt><dd><p>The value that should be written to a sysfs attribute of the
+            the compiled-in default value.</p></dd><dt id="SECLABEL{module}"><span class="term"><code class="varname">SECLABEL{<em class="replaceable"><code>module</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#SECLABEL%7Bmodule%7D">¶</a></dt><dd><p>Applies the specified Linux Security Module label to the device node.</p></dd><dt id="ATTR{key}"><span class="term"><code class="varname">ATTR{<em class="replaceable"><code>key</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#ATTR%7Bkey%7D">¶</a></dt><dd><p>The value that should be written to a sysfs attribute of the
             event device.</p></dd><dt id="ENV{key}"><span class="term"><code class="varname">ENV{<em class="replaceable"><code>key</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#ENV%7Bkey%7D">¶</a></dt><dd><p>Set a device property value. Property names with a leading "<code class="literal">.</code>"
             are neither stored in the database nor exported to events or
-            external tools (run by, say, the PROGRAM match key).</p></dd><dt id="TAG"><span class="term"><code class="varname">TAG</code></span><a class="headerlink" title="Permalink to this term" href="#TAG">¶</a></dt><dd><p>Attach a tag to a device. This is used to filter events for users
+            external tools (run by, for example, the <code class="varname">PROGRAM</code>
+            match key).</p></dd><dt id="TAG"><span class="term"><code class="varname">TAG</code></span><a class="headerlink" title="Permalink to this term" href="#TAG">¶</a></dt><dd><p>Attach a tag to a device. This is used to filter events for users
             of libudev's monitor functionality, or to enumerate a group of tagged
             devices. The implementation can only work efficiently if only a few
             tags are attached to a device. It is only meant to be used in
             contexts with specific device filter requirements, and not as a
             general-purpose flag. Excessive use might result in inefficient event
-            handling.</p></dd><dt id="RUN{type}"><span class="term"><code class="varname">RUN{<em class="replaceable"><code>type</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#RUN%7Btype%7D">¶</a></dt><dd><p>Add a program to the list of programs to be executed after processing all the
-            rules for a specific event, depending on "<code class="literal">type</code>":</p><div class="variablelist"><dl class="variablelist"><dt id="program"><span class="term">"<code class="literal">program</code>"</span><a class="headerlink" title="Permalink to this term" href="#program">¶</a></dt><dd><p>Execute an external program specified as the assigned
-                  value. If no absolute path is given, the program is expected to live in
-                  /usr/lib/udev, otherwise the absolute path must be specified.</p><p>This is the default if no <em class="replaceable"><code>type</code></em> is
-                  specified.</p></dd><dt id="builtin"><span class="term">"<code class="literal">builtin</code>"</span><a class="headerlink" title="Permalink to this term" href="#builtin">¶</a></dt><dd><p>As <code class="varname">program</code>, but use one of the built-in programs rather
-                  than an external one.</p></dd></dl></div><p>The program name and following arguments are separated by spaces.
+            handling.</p></dd><dt id="RUN{type}"><span class="term"><code class="varname">RUN{<em class="replaceable"><code>type</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#RUN%7Btype%7D">¶</a></dt><dd><p>Add a program to the list of programs to be executed after
+            processing all the rules for a specific event, depending on
+            "<code class="literal">type</code>":</p><div class="variablelist"><dl class="variablelist"><dt id="program"><span class="term">"<code class="literal">program</code>"</span><a class="headerlink" title="Permalink to this term" href="#program">¶</a></dt><dd><p>Execute an external program specified as the assigned
+                  value. If no absolute path is given, the program is expected
+                  to live in <code class="filename">/usr/lib/udev</code>; otherwise, the
+                  absolute path must be specified.</p><p>This is the default if no <em class="replaceable"><code>type</code></em>
+                  is specified.</p></dd><dt id="builtin"><span class="term">"<code class="literal">builtin</code>"</span><a class="headerlink" title="Permalink to this term" href="#builtin">¶</a></dt><dd><p>As <code class="varname">program</code>, but use one of the
+                  built-in programs rather than an external one.</p></dd></dl></div><p>The program name and following arguments are separated by spaces.
             Single quotes can be used to specify arguments with spaces.</p><p>This can only be used for very short-running foreground tasks. Running an
             event process for a long period of time may block all further events for
-            this or a dependent device.</p><p>Starting daemons or other long running processes is not appropriate
+            this or a dependent device.</p><p>Starting daemons or other long-running processes is not appropriate
             for udev; the forked processes, detached or not, will be unconditionally
-            killed after the event handling has finished.</p></dd><dt id="LABEL"><span class="term"><code class="varname">LABEL</code></span><a class="headerlink" title="Permalink to this term" href="#LABEL">¶</a></dt><dd><p>A named label to which a GOTO may jump.</p></dd><dt id="GOTO"><span class="term"><code class="varname">GOTO</code></span><a class="headerlink" title="Permalink to this term" href="#GOTO">¶</a></dt><dd><p>Jumps to the next LABEL with a matching name.</p></dd><dt id="IMPORT{type}"><span class="term"><code class="varname">IMPORT{<em class="replaceable"><code>type</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#IMPORT%7Btype%7D">¶</a></dt><dd><p>Import a set of variables as device properties,
+            killed after the event handling has finished.</p></dd><dt id="LABEL"><span class="term"><code class="varname">LABEL</code></span><a class="headerlink" title="Permalink to this term" href="#LABEL">¶</a></dt><dd><p>A named label to which a <code class="varname">GOTO</code> may jump.</p></dd><dt id="GOTO"><span class="term"><code class="varname">GOTO</code></span><a class="headerlink" title="Permalink to this term" href="#GOTO">¶</a></dt><dd><p>Jumps to the next <code class="varname">LABEL</code> with a matching name.</p></dd><dt id="IMPORT{type}"><span class="term"><code class="varname">IMPORT{<em class="replaceable"><code>type</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#IMPORT%7Btype%7D">¶</a></dt><dd><p>Import a set of variables as device properties,
             depending on "<code class="literal">type</code>":</p><div class="variablelist"><dl class="variablelist"><dt id="program"><span class="term">"<code class="literal">program</code>"</span><a class="headerlink" title="Permalink to this term" href="#program">¶</a></dt><dd><p>Execute an external program specified as the assigned value and
                   import its output, which must be in environment key
                   format. Path specification, command/argument separation,
@@ -135,37 +143,50 @@
                   priorities overwrite existing symlinks of other devices. The default is 0.</p></dd><dt id="event_timeout="><span class="term"><code class="option">event_timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#event_timeout=">¶</a></dt><dd><p>Number of seconds an event waits for operations to finish before
                   giving up and terminating itself.</p></dd><dt id="string_escape=none|replace"><span class="term"><code class="option">string_escape=<em class="replaceable"><code>none|replace</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#string_escape=none%7Creplace">¶</a></dt><dd><p>Usually control and other possibly unsafe characters are replaced
                   in strings used for device naming. The mode of replacement can be specified
-                  with this option.</p></dd><dt id="static_node="><span class="term"><code class="option">static_node=</code></span><a class="headerlink" title="Permalink to this term" href="#static_node=">¶</a></dt><dd><p>Apply the permissions specified in this rule to the static device node with
-                  the specified name. Also, for every tag specified in this rule, create a symlink
+                  with this option.</p></dd><dt id="static_node="><span class="term"><code class="option">static_node=</code></span><a class="headerlink" title="Permalink to this term" href="#static_node=">¶</a></dt><dd><p>Apply the permissions specified in this rule to the
+                  static device node with the specified name. Also, for every
+                  tag specified in this rule, create a symlink
                   in the directory
                   <code class="filename">/run/udev/static_node-tags/<em class="replaceable"><code>tag</code></em></code>
-                  pointing at the static device node with the specified name. Static device node
-                  creation is performed by systemd-tmpfiles before systemd-udevd is started. The
-                  static nodes might not have a corresponding kernel device; they are used to
-                  trigger automatic kernel module loading when they are accessed.</p></dd><dt id="watch"><span class="term"><code class="option">watch</code></span><a class="headerlink" title="Permalink to this term" href="#watch">¶</a></dt><dd><p>Watch the device node with inotify; when the node is closed after being opened for
-                  writing, a change uevent is synthesized.</p></dd><dt id="nowatch"><span class="term"><code class="option">nowatch</code></span><a class="headerlink" title="Permalink to this term" href="#nowatch">¶</a></dt><dd><p>Disable the watching of a device node with inotify.</p></dd></dl></div></dd></dl></div><p>The <code class="varname">NAME</code>, <code class="varname">SYMLINK</code>, <code class="varname">PROGRAM</code>,
-      <code class="varname">OWNER</code>, <code class="varname">GROUP</code>, <code class="varname">MODE</code>  and  <code class="varname">RUN</code>
-      fields support simple string substitutions. The <code class="varname">RUN</code>
-      substitutions are performed after all rules have been processed, right before the program
-      is executed, allowing for the use of device properties set by earlier matching
-      rules. For all other fields, substitutions are performed while the individual rule is
-      being processed. The available substitutions are:</p><div class="variablelist"><dl class="variablelist"><dt id="$kernel, %k"><span class="term"><code class="option">$kernel</code>, <code class="option">%k</code></span><a class="headerlink" title="Permalink to this term" href="#%24kernel,%20%k">¶</a></dt><dd><p>The kernel name for this device.</p></dd><dt id="$number, %n"><span class="term"><code class="option">$number</code>, <code class="option">%n</code></span><a class="headerlink" title="Permalink to this term" href="#%24number,%20%n">¶</a></dt><dd><p>The kernel number for this device. For example,
-            "<code class="literal">sda3</code>" has kernel number "<code class="literal">3</code>".</p></dd><dt id="$devpath, %p"><span class="term"><code class="option">$devpath</code>, <code class="option">%p</code></span><a class="headerlink" title="Permalink to this term" href="#%24devpath,%20%p">¶</a></dt><dd><p>The devpath of the device.</p></dd><dt id="$id, %b"><span class="term"><code class="option">$id</code>, <code class="option">%b</code></span><a class="headerlink" title="Permalink to this term" href="#%24id,%20%b">¶</a></dt><dd><p>The name of the device matched while searching the devpath upwards for
-              <code class="option">SUBSYSTEMS</code>, <code class="option">KERNELS</code>, <code class="option">DRIVERS</code> and <code class="option">ATTRS</code>.
-            </p></dd><dt id="$driver"><span class="term"><code class="option">$driver</code></span><a class="headerlink" title="Permalink to this term" href="#%24driver">¶</a></dt><dd><p>The driver name of the device matched while searching the devpath upwards for
-              <code class="option">SUBSYSTEMS</code>, <code class="option">KERNELS</code>, <code class="option">DRIVERS</code> and <code class="option">ATTRS</code>.
+                  pointing at the static device node with the specified name.
+                  Static device node creation is performed by systemd-tmpfiles
+                  before systemd-udevd is started. The static nodes might not
+                  have a corresponding kernel device; they are used to trigger
+                  automatic kernel module loading when they are accessed.</p></dd><dt id="watch"><span class="term"><code class="option">watch</code></span><a class="headerlink" title="Permalink to this term" href="#watch">¶</a></dt><dd><p>Watch the device node with inotify; when the node is
+                  closed after being opened for writing, a change uevent is
+                  synthesized.</p></dd><dt id="nowatch"><span class="term"><code class="option">nowatch</code></span><a class="headerlink" title="Permalink to this term" href="#nowatch">¶</a></dt><dd><p>Disable the watching of a device node with inotify.</p></dd></dl></div></dd></dl></div><p>The <code class="varname">NAME</code>, <code class="varname">SYMLINK</code>,
+      <code class="varname">PROGRAM</code>, <code class="varname">OWNER</code>,
+      <code class="varname">GROUP</code>, <code class="varname">MODE</code>, and
+      <code class="varname">RUN</code> fields support simple string substitutions.
+      The <code class="varname">RUN</code> substitutions are performed after all rules
+      have been processed, right before the program is executed, allowing for
+      the use of device properties set by earlier matching rules. For all other
+      fields, substitutions are performed while the individual rule is being
+      processed. The available substitutions are:</p><div class="variablelist"><dl class="variablelist"><dt id="$kernel, %k"><span class="term"><code class="option">$kernel</code>, <code class="option">%k</code></span><a class="headerlink" title="Permalink to this term" href="#%24kernel,%20%k">¶</a></dt><dd><p>The kernel name for this device.</p></dd><dt id="$number, %n"><span class="term"><code class="option">$number</code>, <code class="option">%n</code></span><a class="headerlink" title="Permalink to this term" href="#%24number,%20%n">¶</a></dt><dd><p>The kernel number for this device. For example,
+              "<code class="literal">sda3</code>" has kernel number "<code class="literal">3</code>".
+            </p></dd><dt id="$devpath, %p"><span class="term"><code class="option">$devpath</code>, <code class="option">%p</code></span><a class="headerlink" title="Permalink to this term" href="#%24devpath,%20%p">¶</a></dt><dd><p>The devpath of the device.</p></dd><dt id="$id, %b"><span class="term"><code class="option">$id</code>, <code class="option">%b</code></span><a class="headerlink" title="Permalink to this term" href="#%24id,%20%b">¶</a></dt><dd><p>The name of the device matched while searching the devpath
+              upwards for <code class="option">SUBSYSTEMS</code>, <code class="option">KERNELS</code>,
+              <code class="option">DRIVERS</code>, and <code class="option">ATTRS</code>.
+            </p></dd><dt id="$driver"><span class="term"><code class="option">$driver</code></span><a class="headerlink" title="Permalink to this term" href="#%24driver">¶</a></dt><dd><p>The driver name of the device matched while searching the
+              devpath upwards for <code class="option">SUBSYSTEMS</code>,
+              <code class="option">KERNELS</code>, <code class="option">DRIVERS</code>, and
+              <code class="option">ATTRS</code>.
             </p></dd><dt id="$attr{file}, %s{file}"><span class="term"><code class="option">$attr{<em class="replaceable"><code>file</code></em>}</code>, <code class="option">%s{<em class="replaceable"><code>file</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#%24attr%7Bfile%7D,%20%s%7Bfile%7D">¶</a></dt><dd><p>The value of a sysfs attribute found at the device where
-            all keys of the rule have matched. If the matching device does not have
-            such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or
-            ATTRS test selected a parent device, then the attribute from that
-            parent device is used.</p><p>If the attribute is a symlink, the last element of the symlink target is
-            returned as the value.</p></dd><dt id="$env{key}, %E{key}"><span class="term"><code class="option">$env{<em class="replaceable"><code>key</code></em>}</code>, <code class="option">%E{<em class="replaceable"><code>key</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#%24env%7Bkey%7D,%20%E%7Bkey%7D">¶</a></dt><dd><p>A device property value.</p></dd><dt id="$major, %M"><span class="term"><code class="option">$major</code>, <code class="option">%M</code></span><a class="headerlink" title="Permalink to this term" href="#%24major,%20%M">¶</a></dt><dd><p>The kernel major number for the device.</p></dd><dt id="$minor, %m"><span class="term"><code class="option">$minor</code>, <code class="option">%m</code></span><a class="headerlink" title="Permalink to this term" href="#%24minor,%20%m">¶</a></dt><dd><p>The kernel minor number for the device.</p></dd><dt id="$result, %c"><span class="term"><code class="option">$result</code>, <code class="option">%c</code></span><a class="headerlink" title="Permalink to this term" href="#%24result,%20%c">¶</a></dt><dd><p>The string returned by the external program requested with PROGRAM.
+              all keys of the rule have matched. If the matching device does not
+              have such an attribute, and a previous <code class="option">KERNELS</code>,
+              <code class="option">SUBSYSTEMS</code>, <code class="option">DRIVERS</code>, or
+              <code class="option">ATTRS</code> test selected a parent device, then the
+              attribute from that parent device is used.
+            </p><p>If the attribute is a symlink, the last element of the
+              symlink target is returned as the value.
+            </p></dd><dt id="$env{key}, %E{key}"><span class="term"><code class="option">$env{<em class="replaceable"><code>key</code></em>}</code>, <code class="option">%E{<em class="replaceable"><code>key</code></em>}</code></span><a class="headerlink" title="Permalink to this term" href="#%24env%7Bkey%7D,%20%E%7Bkey%7D">¶</a></dt><dd><p>A device property value.</p></dd><dt id="$major, %M"><span class="term"><code class="option">$major</code>, <code class="option">%M</code></span><a class="headerlink" title="Permalink to this term" href="#%24major,%20%M">¶</a></dt><dd><p>The kernel major number for the device.</p></dd><dt id="$minor, %m"><span class="term"><code class="option">$minor</code>, <code class="option">%m</code></span><a class="headerlink" title="Permalink to this term" href="#%24minor,%20%m">¶</a></dt><dd><p>The kernel minor number for the device.</p></dd><dt id="$result, %c"><span class="term"><code class="option">$result</code>, <code class="option">%c</code></span><a class="headerlink" title="Permalink to this term" href="#%24result,%20%c">¶</a></dt><dd><p>The string returned by the external program requested with
+            <code class="varname">PROGRAM</code>.
             A single part of the string, separated by a space character, may be selected
             by specifying the part number as an attribute: "<code class="literal">%c{N}</code>".
             If the number is followed by the "<code class="literal">+</code>" character, this part plus all remaining parts
             of the result string are substituted: "<code class="literal">%c{N+}</code>".</p></dd><dt id="$parent, %P"><span class="term"><code class="option">$parent</code>, <code class="option">%P</code></span><a class="headerlink" title="Permalink to this term" href="#%24parent,%20%P">¶</a></dt><dd><p>The node name of the parent device.</p></dd><dt id="$name"><span class="term"><code class="option">$name</code></span><a class="headerlink" title="Permalink to this term" href="#%24name">¶</a></dt><dd><p>The current name of the device. If not changed by a rule, it is the
             name of the kernel device.</p></dd><dt id="$links"><span class="term"><code class="option">$links</code></span><a class="headerlink" title="Permalink to this term" href="#%24links">¶</a></dt><dd><p>A space-separated list of the current symlinks. The value is
-            only set during a remove event or if an earlier rule assigned a value.</p></dd><dt id="$root, %r"><span class="term"><code class="option">$root</code>, <code class="option">%r</code></span><a class="headerlink" title="Permalink to this term" href="#%24root,%20%r">¶</a></dt><dd><p>The udev_root value.</p></dd><dt id="$sys, %S"><span class="term"><code class="option">$sys</code>, <code class="option">%S</code></span><a class="headerlink" title="Permalink to this term" href="#%24sys,%20%S">¶</a></dt><dd><p>The sysfs mount point.</p></dd><dt id="$devnode, %N"><span class="term"><code class="option">$devnode</code>, <code class="option">%N</code></span><a class="headerlink" title="Permalink to this term" href="#%24devnode,%20%N">¶</a></dt><dd><p>The name of the device node.</p></dd><dt id="%%"><span class="term"><code class="option">%%</code></span><a class="headerlink" title="Permalink to this term" href="#%%">¶</a></dt><dd><p>The "<code class="literal">%</code>" character itself.</p></dd><dt id="$$"><span class="term"><code class="option">$$</code></span><a class="headerlink" title="Permalink to this term" href="#%24%24">¶</a></dt><dd><p>The "<code class="literal">$</code>" character itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm274700216480"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
+            only set during a remove event or if an earlier rule assigned a value.</p></dd><dt id="$root, %r"><span class="term"><code class="option">$root</code>, <code class="option">%r</code></span><a class="headerlink" title="Permalink to this term" href="#%24root,%20%r">¶</a></dt><dd><p>The udev_root value.</p></dd><dt id="$sys, %S"><span class="term"><code class="option">$sys</code>, <code class="option">%S</code></span><a class="headerlink" title="Permalink to this term" href="#%24sys,%20%S">¶</a></dt><dd><p>The sysfs mount point.</p></dd><dt id="$devnode, %N"><span class="term"><code class="option">$devnode</code>, <code class="option">%N</code></span><a class="headerlink" title="Permalink to this term" href="#%24devnode,%20%N">¶</a></dt><dd><p>The name of the device node.</p></dd><dt id="%%"><span class="term"><code class="option">%%</code></span><a class="headerlink" title="Permalink to this term" href="#%%">¶</a></dt><dd><p>The "<code class="literal">%</code>" character itself.</p></dd><dt id="$$"><span class="term"><code class="option">$$</code></span><a class="headerlink" title="Permalink to this term" href="#%24%24">¶</a></dt><dd><p>The "<code class="literal">$</code>" character itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm140195582080064"></a><h2 id="Hardware Database Files">Hardware Database Files<a class="headerlink" title="Permalink to this headline" href="#Hardware%20Database%20Files">¶</a></h2><p>The hwdb files are read from the files located in the
       system hwdb directory <code class="filename">/usr/lib/udev/hwdb.d</code>,
       the volatile runtime directory <code class="filename">/run/udev/hwdb.d</code>
       and the local administration directory <code class="filename">/etc/udev/hwdb.d</code>.
@@ -173,10 +194,10 @@
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <code class="filename">/etc</code>
       have the highest priority, files in <code class="filename">/run</code> take precedence
-      over files with the same name in <code class="filename">/lib</code>. This can be
+      over files with the same name in <code class="filename">/usr/lib</code>. This can be
       used to override a system-supplied hwdb file with a local file if needed;
       a symlink in <code class="filename">/etc</code> with the same name as a hwdb file in
-      <code class="filename">/lib</code>, pointing to <code class="filename">/dev/null</code>,
+      <code class="filename">/usr/lib</code>, pointing to <code class="filename">/dev/null</code>,
       disables the hwdb file entirely. hwdb files must have the extension
       <code class="filename">.hwdb</code>; other extensions are ignored.</p><p>The hwdb file contains data records consisting of matches and
       associated key-value pairs. Every record in the hwdb starts with one or
@@ -190,5 +211,8 @@
       of a record. Lines beginning with "<code class="literal">#</code>" are ignored.</p><p>The content of all hwdb files is read by
       <a href="udevadm.html"><span class="citerefentry"><span class="refentrytitle">udevadm</span>(8)</span></a>
       and compiled to a binary database located at <code class="filename">/etc/udev/hwdb.bin</code>.
-      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm274705377616"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p><a href="systemd-udevd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-udevd.service</span>(8)</span></a>,
-      <a href="udevadm.html"><span class="citerefentry"><span class="refentrytitle">udevadm</span>(8)</span></a></p></div></div></body></html>
+      During runtime only the binary database is used.</p></div><div class="refsect1"><a name="idm140195582067632"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="systemd-udevd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-udevd.service</span>(8)</span></a>,
+      <a href="udevadm.html"><span class="citerefentry"><span class="refentrytitle">udevadm</span>(8)</span></a>
+      <a href="systemd.link.html"><span class="citerefentry"><span class="refentrytitle">systemd.link</span>(5)</span></a>
+    </p></div></div></body></html>

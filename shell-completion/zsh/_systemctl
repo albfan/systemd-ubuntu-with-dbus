@@ -5,6 +5,7 @@
   local -a _systemctl_cmds
   _systemctl_cmds=(
     "list-sockets:List sockets"
+    "list-timers:List timers"
     "list-units:List units"
     "start:Start (activate) one or more units"
     "stop:Stop (deactivate) one or more units"
@@ -23,8 +24,8 @@
     "is-failed:Check whether units are failed"
     "status:Show runtime status of one or more units"
     "show:Show properties of one or more units/jobs or the manager"
+    "cat:Show the source unit files and drop-ins"
     "reset-failed:Reset failed state for all, one, or more units"
-    "load:Load one or more units"
     "list-unit-files:List installed unit files"
     "enable:Enable one or more unit files"
     "disable:Disable one or more unit files"
@@ -38,7 +39,6 @@
     "is-enabled:Check whether unit files are enabled"
     "list-jobs:List jobs"
     "cancel:Cancel all, one, or more jobs"
-    "dump:Dump server status"
     "snapshot:Create a snapshot"
     "delete:Remove one or more snapshots"
     "show-environment:Dump environment"
@@ -146,7 +146,7 @@ _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files  
 _systemctl_masked_units()  {_sys_masked_units=(  $(__systemctl list-unit-files     | { while read a b; do [[ $b == "masked" ]] && echo " $a"; done; }) )}
 
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show mask preset help list-dependencies ; do
+for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
@@ -264,10 +264,10 @@ done
 (( $+functions[_systemctl_link] )) || _systemctl_link() { _files }
 
 # no systemctl completion for:
-#    [STANDALONE]='daemon-reexec daemon-reload default dump
+#    [STANDALONE]='daemon-reexec daemon-reload default
 #                  emergency exit halt kexec list-jobs list-units
 #                  list-unit-files poweroff reboot rescue show-environment'
-#         [NAME]='snapshot load'
+#         [NAME]='snapshot'
 
 _systemctl_caching_policy()
 {
@@ -287,12 +287,6 @@ _systemctl_caching_policy()
   fi
 
   return 1
-}
-
-_outputmodes() {
-    local -a _output_opts
-    _output_opts=(short short-monotonic verbose export json json-pretty json-see cat)
-    _describe -t output 'output mode' _output_opts || compadd "$@"
 }
 
 _unit_states() {
@@ -339,9 +333,9 @@ _arguments -s \
     {-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
     '--root=[Enable unit files in the specified root directory]:directory:_directories' \
     '--runtime[Enable unit files only temporarily until next reboot]' \
-    {-H+,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-P,--privileged}'[Acquire privileges before execution]' \
     {-n+,--lines=}'[Journal entries to show]:number of entries' \
-    {-o+,--output=}'[Change journal output mode]:modes:_outputmodes' \
+    {-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes' \
     '--plain[When used with list-dependencies, print output as a list]' \
     '*::systemctl command:_systemctl_command'

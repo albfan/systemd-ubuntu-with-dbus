@@ -1,5 +1,5 @@
 '\" t
-.TH "LOGIND\&.CONF" "5" "" "systemd 208" "logind.conf"
+.TH "LOGIND\&.CONF" "5" "" "systemd 212" "logind.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -152,7 +152,7 @@ default to
 "suspend"\&.
 \fIHandleHibernateKey=\fR
 defaults to
-"hibernate"\&.
+"hibernate"\&. Note that the lid switch is ignored if the system is inserted in a docking station, or if more than one display is connected\&.
 .RE
 .PP
 \fIPowerKeyIgnoreInhibited=\fR, \fISuspendKeyIgnoreInhibited=\fR, \fIHibernateKeyIgnoreInhibited=\fR, \fILidSwitchIgnoreInhibited=\fR
@@ -169,6 +169,20 @@ default to
 \fILidSwitchIgnoreInhibited=\fR
 defaults to
 "yes"\&. This means that the lid switch does not respect suspend blockers by default, but the power and sleep keys do\&.
+.RE
+.PP
+\fIRuntimeDirectorySize=\fR
+.RS 4
+Sets the size limit on the
+\fI$XDG_RUNTIME_DIR\fR
+runtime directory for each user who logs in\&. Takes a size in bytes, possibly suffixed with the usual K, G, M, T suffixes, to the base 1024 (IEC)\&. Alternatively, a percentage suffixed by
+"%"
+may be specified, which sets the size limit relative to the amount of physical RAM\&. Defaults to 10%\&. Note that this size is a safety limit only\&. As each runtime directory is a tmpfs file system it will only consume as much memory as it is filled up to\&.
+.RE
+.PP
+\fIRemoveIPC=\fR
+.RS 4
+Controls whether System V and POSIX IPC objects belonging to the user shall be removed when she or he fully logs out\&. Takes a boolean argument\&. If enabled the user may not consume IPC resources after the last of his sessions terminated\&. This covers System V semaphores, shared memory and message queues, as well as POSIX shared memory and message queues\&. Note that IPC objects of the root user are excluded from the effect of this setting\&. Defaults to on\&.
 .RE
 .SH "SEE ALSO"
 .PP

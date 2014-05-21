@@ -36,6 +36,7 @@
 #include "log.h"
 #include "virt.h"
 #include "fileio.h"
+#include "path-util.h"
 
 static int shorten_uuid(char destination[36], const char *source) {
         unsigned i, j;
@@ -59,21 +60,25 @@ static int shorten_uuid(char destination[36], const char *source) {
         return -EINVAL;
 }
 
-static int generate(char id[34]) {
+static int generate(char id[34], const char *root) {
         int fd, r;
         unsigned char *p;
         sd_id128_t buf;
         char *q;
         ssize_t k;
         const char *vm_id;
+        _cleanup_free_ char *dbus_machine_id = NULL;
 
         assert(id);
 
+        if (asprintf(&dbus_machine_id, "%s/var/lib/dbus/machine-id", root) < 0)
+                return log_oom();
+
         /* First, try reading the D-Bus machine id, unless it is a symlink */
-        fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd >= 0) {
                 k = loop_read(fd, id, 33, false);
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
                 if (k == 33 && id[32] == '\n') {
 
@@ -99,7 +104,7 @@ static int generate(char id[34]) {
                 fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
                 if (fd >= 0) {
                         k = loop_read(fd, uuid, 36, false);
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
 
                         if (k >= 36) {
                                 r = shorten_uuid(id, uuid);
@@ -150,12 +155,19 @@ static int generate(char id[34]) {
         return 0;
 }
 
-int machine_id_setup(void) {
+int machine_id_setup(const char *root) {
         _cleanup_close_ int fd = -1;
         int r;
-        bool writable;
+        bool writable = false;
         struct stat st;
         char id[34]; /* 32 + \n + \0 */
+        char *etc_machine_id, *run_machine_id;
+
+        etc_machine_id = strappenda(root, "/etc/machine-id");
+        path_kill_slashes(etc_machine_id);
+
+        run_machine_id = strappenda(root, "/run/machine-id");
+        path_kill_slashes(run_machine_id);
 
         RUN_WITH_UMASK(0000) {
                 /* We create this 0444, to indicate that this isn't really
@@ -163,13 +175,13 @@ int machine_id_setup(void) {
                  * will be owned by root it doesn't matter much, but maybe
                  * people look. */
 
-                fd = open("/etc/machine-id", O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+                fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
                 if (fd >= 0)
                         writable = true;
                 else {
-                        fd = open("/etc/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
-                                log_error("Cannot open /etc/machine-id: %m");
+                                log_error("Cannot open %s: %m", etc_machine_id);
                                 return -errno;
                         }
 
@@ -193,7 +205,7 @@ int machine_id_setup(void) {
         /* Hmm, so, the id currently stored is not useful, then let's
          * generate one */
 
-        r = generate(id);
+        r = generate(id, root);
         if (r < 0)
                 return r;
 
@@ -204,34 +216,33 @@ int machine_id_setup(void) {
                         return 0;
         }
 
-        close_nointr_nofail(fd);
-        fd = -1;
+        fd = safe_close(fd);
 
         /* Hmm, we couldn't write it? So let's write it to
          * /run/machine-id as a replacement */
 
         RUN_WITH_UMASK(0022) {
-                r = write_string_file("/run/machine-id", id);
+                r = write_string_file(run_machine_id, id);
         }
         if (r < 0) {
-                log_error("Cannot write /run/machine-id: %s", strerror(-r));
-                unlink("/run/machine-id");
+                log_error("Cannot write %s: %s", run_machine_id, strerror(-r));
+                unlink(run_machine_id);
                 return r;
         }
 
         /* And now, let's mount it over */
-        r = mount("/run/machine-id", "/etc/machine-id", NULL, MS_BIND, NULL);
+        r = mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
         if (r < 0) {
-                log_error("Failed to mount /etc/machine-id: %m");
-                unlink_noerrno("/run/machine-id");
+                log_error("Failed to mount %s: %m", etc_machine_id);
+                unlink_noerrno(run_machine_id);
                 return -errno;
         }
 
-        log_info("Installed transient /etc/machine-id file.");
+        log_info("Installed transient %s file.", etc_machine_id);
 
         /* Mark the mount read-only */
-        if (mount(NULL, "/etc/machine-id", NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
-                log_warning("Failed to make transient /etc/machine-id read-only: %m");
+        if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
+                log_warning("Failed to make transient %s read-only: %m", etc_machine_id);
 
         return 0;
 }

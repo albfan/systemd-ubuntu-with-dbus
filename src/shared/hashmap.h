@@ -24,11 +24,14 @@
 #include <stdbool.h>
 
 #include "macro.h"
+#include "util.h"
 
 /* Pretty straightforward hash table implementation. As a minor
  * optimization a NULL hashmap object will be treated as empty hashmap
  * for all read operations. That way it is not necessary to
  * instantiate an object for each Hashmap use. */
+
+#define HASH_KEY_SIZE 16
 
 typedef struct Hashmap Hashmap;
 typedef struct _IteratorStruct _IteratorStruct;
@@ -37,19 +40,19 @@ typedef _IteratorStruct* Iterator;
 #define ITERATOR_FIRST ((Iterator) 0)
 #define ITERATOR_LAST ((Iterator) -1)
 
-typedef unsigned (*hash_func_t)(const void *p);
+typedef unsigned long (*hash_func_t)(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]);
 typedef int (*compare_func_t)(const void *a, const void *b);
 
-unsigned string_hash_func(const void *p) _pure_;
+unsigned long string_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int string_compare_func(const void *a, const void *b) _pure_;
 
 /* This will compare the passed pointers directly, and will not
  * dereference them. This is hence not useful for strings or
  * suchlike. */
-unsigned trivial_hash_func(const void *p) _const_;
+unsigned long trivial_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int trivial_compare_func(const void *a, const void *b) _const_;
 
-unsigned uint64_hash_func(const void *p) _pure_;
+unsigned long uint64_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) _pure_;
 int uint64_compare_func(const void *a, const void *b) _pure_;
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
@@ -104,3 +107,10 @@ char **hashmap_get_strv(Hashmap *h);
 
 #define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
         for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_free);
+#define _cleanup_hashmap_free_ _cleanup_(hashmap_freep)
+#define _cleanup_hashmap_free_free_ _cleanup_(hashmap_free_freep)
+#define _cleanup_hashmap_free_free_free_ _cleanup_(hashmap_free_free_freep)

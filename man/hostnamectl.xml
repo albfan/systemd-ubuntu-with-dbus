@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'>
+<refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>hostnamectl</title>
@@ -95,21 +96,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--no-ask-password</option></term>
 
                                 <listitem><para>Do not query the user
@@ -123,18 +109,6 @@
 
                                 <listitem><para>Acquire privileges via PolicyKit
                                 before executing the operation.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-H</option></term>
-                                <term><option>--host</option></term>
-
-                                <listitem><para>Execute the operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by <literal>@</literal>,
-                                to connect to. This will use SSH to
-                                talk to a remote
-                                system.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -158,6 +132,11 @@
                                 hostnames will be updated.
                                 </para></listitem>
                         </varlistentry>
+
+                        <xi:include href="user-system-options.xml" xpointer="host" />
+
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -255,7 +234,7 @@
         <refsect1>
                 <title>Exit status</title>
 
-                <para>On success 0 is returned, a non-zero failure
+                <para>On success, 0 is returned, a non-zero failure
                 code otherwise.</para>
         </refsect1>
 

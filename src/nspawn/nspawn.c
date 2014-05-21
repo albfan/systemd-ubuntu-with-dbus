@@ -33,8 +33,6 @@
 #include <sys/prctl.h>
 #include <sys/capability.h>
 #include <getopt.h>
-#include <sys/poll.h>
-#include <sys/epoll.h>
 #include <termios.h>
 #include <sys/signalfd.h>
 #include <grp.h>
@@ -42,10 +40,28 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
+#include <sys/eventfd.h>
+#include <net/if.h>
+#include <linux/veth.h>
+#include <sys/personality.h>
+#include <linux/loop.h>
 
-#include <systemd/sd-daemon.h>
-#include <systemd/sd-bus.h>
+#ifdef HAVE_SELINUX
+#include <selinux/selinux.h>
+#endif
 
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+
+#ifdef HAVE_BLKID
+#include <blkid/blkid.h>
+#endif
+
+#include "sd-daemon.h"
+#include "sd-bus.h"
+#include "sd-id128.h"
+#include "sd-rtnl.h"
 #include "log.h"
 #include "util.h"
 #include "mkdir.h"
@@ -56,16 +72,24 @@
 #include "strv.h"
 #include "path-util.h"
 #include "loopback-setup.h"
-#include "sd-id128.h"
 #include "dev-setup.h"
 #include "fdset.h"
 #include "build.h"
 #include "fileio.h"
-#include "bus-internal.h"
-#include "bus-message.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "ptyfwd.h"
+#include "bus-kernel.h"
+#include "env-util.h"
+#include "def.h"
+#include "rtnl-util.h"
+#include "udev-util.h"
+#include "blkid-util.h"
+#include "gpt.h"
+#include "siphash24.h"
 
-#ifndef TTY_GID
-#define TTY_GID 5
+#ifdef HAVE_SECCOMP
+#include "seccomp-util.h"
 #endif
 
 typedef enum LinkJournal {
@@ -79,6 +103,8 @@ static char *arg_directory = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
 static char *arg_machine = NULL;
+static const char *arg_selinux_context = NULL;
+static const char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
 static bool arg_private_network = false;
 static bool arg_read_only = false;
@@ -109,31 +135,69 @@ static uint64_t arg_retain =
         (1ULL << CAP_SYS_RESOURCE) |
         (1ULL << CAP_SYS_BOOT) |
         (1ULL << CAP_AUDIT_WRITE) |
-        (1ULL << CAP_AUDIT_CONTROL);
+        (1ULL << CAP_AUDIT_CONTROL) |
+        (1ULL << CAP_MKNOD);
 static char **arg_bind = NULL;
 static char **arg_bind_ro = NULL;
+static char **arg_setenv = NULL;
+static bool arg_quiet = false;
+static bool arg_share_system = false;
+static bool arg_register = true;
+static bool arg_keep_unit = false;
+static char **arg_network_interfaces = NULL;
+static char **arg_network_macvlan = NULL;
+static bool arg_network_veth = false;
+static const char *arg_network_bridge = NULL;
+static unsigned long arg_personality = 0xffffffffLU;
+static const char *arg_image = NULL;
 
 static int help(void) {
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
-               "  -h --help                Show this help\n"
-               "     --version             Print version string\n"
-               "  -D --directory=NAME      Root directory for the container\n"
-               "  -b --boot                Boot up full system (i.e. invoke init)\n"
-               "  -u --user=USER           Run the command under specified user or uid\n"
-               "     --uuid=UUID           Set a specific machine UUID for the container\n"
-               "  -M --machine=NAME        Set the machine name for the container\n"
-               "  -S --slice=SLICE         Place the container in the specified slice\n"
-               "     --private-network     Disable network in container\n"
-               "     --read-only           Mount the root directory read-only\n"
-               "     --capability=CAP      In addition to the default, retain specified\n"
-               "                           capability\n"
-               "     --link-journal=MODE   Link up guest journal, one of no, auto, guest, host\n"
-               "  -j                       Equivalent to --link-journal=host\n"
-               "     --bind=PATH[:PATH]    Bind mount a file or directory from the host into\n"
-               "                           the container\n"
-               "     --bind-ro=PATH[:PATH] Similar, but creates a read-only bind mount\n",
+               "  -h --help                 Show this help\n"
+               "     --version              Print version string\n"
+               "  -q --quiet                Do not show status information\n"
+               "  -D --directory=PATH       Root directory for the container\n"
+               "  -i --image=PATH           File system device or image for the container\n"
+               "  -b --boot                 Boot up full system (i.e. invoke init)\n"
+               "  -u --user=USER            Run the command under specified user or uid\n"
+               "  -M --machine=NAME         Set the machine name for the container\n"
+               "     --uuid=UUID            Set a specific machine UUID for the container\n"
+               "  -S --slice=SLICE          Place the container in the specified slice\n"
+               "     --private-network      Disable network in container\n"
+               "     --network-interface=INTERFACE\n"
+               "                            Assign an existing network interface to the\n"
+               "                            container\n"
+               "     --network-macvlan=INTERFACE\n"
+               "                            Create a macvlan network interface based on an\n"
+               "                            existing network interface to the container\n"
+               "     --network-veth         Add a virtual ethernet connection between host\n"
+               "                            and container\n"
+               "     --network-bridge=INTERFACE\n"
+               "                            Add a virtual ethernet connection between host\n"
+               "                            and container and add it to an existing bridge on\n"
+               "                            the host\n"
+               "  -Z --selinux-context=SECLABEL\n"
+               "                            Set the SELinux security context to be used by\n"
+               "                            processes in the container\n"
+               "  -L --selinux-apifs-context=SECLABEL\n"
+               "                            Set the SELinux security context to be used by\n"
+               "                            API/tmpfs file systems in the container\n"
+               "     --capability=CAP       In addition to the default, retain specified\n"
+               "                            capability\n"
+               "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, host\n"
+               "  -j                        Equivalent to --link-journal=host\n"
+               "     --read-only            Mount the root directory read-only\n"
+               "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
+               "                            the container\n"
+               "     --bind-ro=PATH[:PATH]  Similar, but creates a read-only bind mount\n"
+               "     --setenv=NAME=VALUE    Pass an environment variable to PID 1\n"
+               "     --share-system         Share system namespaces with host\n"
+               "     --register=BOOLEAN     Register container as machine\n"
+               "     --keep-unit            Do not register a scope for the machine, reuse\n"
+               "                            the service unit nspawn is running in\n",
                program_invocation_short_name);
 
         return 0;
@@ -147,41 +211,65 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UUID,
                 ARG_READ_ONLY,
                 ARG_CAPABILITY,
+                ARG_DROP_CAPABILITY,
                 ARG_LINK_JOURNAL,
                 ARG_BIND,
-                ARG_BIND_RO
+                ARG_BIND_RO,
+                ARG_SETENV,
+                ARG_SHARE_SYSTEM,
+                ARG_REGISTER,
+                ARG_KEEP_UNIT,
+                ARG_NETWORK_INTERFACE,
+                ARG_NETWORK_MACVLAN,
+                ARG_NETWORK_VETH,
+                ARG_NETWORK_BRIDGE,
+                ARG_PERSONALITY,
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "directory",       required_argument, NULL, 'D'                 },
-                { "user",            required_argument, NULL, 'u'                 },
-                { "private-network", no_argument,       NULL, ARG_PRIVATE_NETWORK },
-                { "boot",            no_argument,       NULL, 'b'                 },
-                { "uuid",            required_argument, NULL, ARG_UUID            },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "capability",      required_argument, NULL, ARG_CAPABILITY      },
-                { "link-journal",    required_argument, NULL, ARG_LINK_JOURNAL    },
-                { "bind",            required_argument, NULL, ARG_BIND            },
-                { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "slice",           required_argument, NULL, 'S'                 },
-                { NULL,              0,                 NULL, 0                   }
+                { "help",                  no_argument,       NULL, 'h'                   },
+                { "version",               no_argument,       NULL, ARG_VERSION           },
+                { "directory",             required_argument, NULL, 'D'                   },
+                { "user",                  required_argument, NULL, 'u'                   },
+                { "private-network",       no_argument,       NULL, ARG_PRIVATE_NETWORK   },
+                { "boot",                  no_argument,       NULL, 'b'                   },
+                { "uuid",                  required_argument, NULL, ARG_UUID              },
+                { "read-only",             no_argument,       NULL, ARG_READ_ONLY         },
+                { "capability",            required_argument, NULL, ARG_CAPABILITY        },
+                { "drop-capability",       required_argument, NULL, ARG_DROP_CAPABILITY   },
+                { "link-journal",          required_argument, NULL, ARG_LINK_JOURNAL      },
+                { "bind",                  required_argument, NULL, ARG_BIND              },
+                { "bind-ro",               required_argument, NULL, ARG_BIND_RO           },
+                { "machine",               required_argument, NULL, 'M'                   },
+                { "slice",                 required_argument, NULL, 'S'                   },
+                { "setenv",                required_argument, NULL, ARG_SETENV            },
+                { "selinux-context",       required_argument, NULL, 'Z'                   },
+                { "selinux-apifs-context", required_argument, NULL, 'L'                   },
+                { "quiet",                 no_argument,       NULL, 'q'                   },
+                { "share-system",          no_argument,       NULL, ARG_SHARE_SYSTEM      },
+                { "register",              required_argument, NULL, ARG_REGISTER          },
+                { "keep-unit",             no_argument,       NULL, ARG_KEEP_UNIT         },
+                { "network-interface",     required_argument, NULL, ARG_NETWORK_INTERFACE },
+                { "network-macvlan",       required_argument, NULL, ARG_NETWORK_MACVLAN   },
+                { "network-veth",          no_argument,       NULL, ARG_NETWORK_VETH      },
+                { "network-bridge",        required_argument, NULL, ARG_NETWORK_BRIDGE    },
+                { "personality",           required_argument, NULL, ARG_PERSONALITY       },
+                { "image",                 required_argument, NULL, 'i'                   },
+                {}
         };
 
         int c, r;
+        uint64_t plus = 0, minus = 0;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hD:u:bM:jS:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hD:u:bL:M:jS:Z:qi:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -192,10 +280,14 @@ static int parse_argv(int argc, char *argv[]) {
                         free(arg_directory);
                         arg_directory = canonicalize_file_name(optarg);
                         if (!arg_directory) {
-                                log_error("Failed to canonicalize root directory.");
+                                log_error("Invalid root directory: %m");
                                 return -ENOMEM;
                         }
 
+                        break;
+
+                case 'i':
+                        arg_image = optarg;
                         break;
 
                 case 'u':
@@ -205,6 +297,29 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
 
                         break;
+
+                case ARG_NETWORK_BRIDGE:
+                        arg_network_bridge = optarg;
+
+                        /* fall through */
+
+                case ARG_NETWORK_VETH:
+                        arg_network_veth = true;
+                        arg_private_network = true;
+                        break;
+
+                case ARG_NETWORK_INTERFACE:
+                        if (strv_extend(&arg_network_interfaces, optarg) < 0)
+                                return log_oom();
+
+                        arg_private_network = true;
+                        break;
+
+                case ARG_NETWORK_MACVLAN:
+                        if (strv_extend(&arg_network_macvlan, optarg) < 0)
+                                return log_oom();
+
+                        /* fall through */
 
                 case ARG_PRIVATE_NETWORK:
                         arg_private_network = true;
@@ -223,46 +338,69 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'S':
-                        arg_slice = strdup(optarg);
+                        arg_slice = optarg;
                         break;
 
                 case 'M':
-                        if (!hostname_is_valid(optarg)) {
-                                log_error("Invalid machine name: %s", optarg);
-                                return -EINVAL;
+                        if (isempty(optarg)) {
+                                free(arg_machine);
+                                arg_machine = NULL;
+                        } else {
+
+                                if (!hostname_is_valid(optarg)) {
+                                        log_error("Invalid machine name: %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                free(arg_machine);
+                                arg_machine = strdup(optarg);
+                                if (!arg_machine)
+                                        return log_oom();
+
+                                break;
                         }
 
-                        free(arg_machine);
-                        arg_machine = strdup(optarg);
-                        if (!arg_machine)
-                                return log_oom();
+                case 'Z':
+                        arg_selinux_context = optarg;
+                        break;
 
+                case 'L':
+                        arg_selinux_apifs_context = optarg;
                         break;
 
                 case ARG_READ_ONLY:
                         arg_read_only = true;
                         break;
 
-                case ARG_CAPABILITY: {
+                case ARG_CAPABILITY:
+                case ARG_DROP_CAPABILITY: {
                         char *state, *word;
                         size_t length;
 
                         FOREACH_WORD_SEPARATOR(word, length, optarg, ",", state) {
+                                _cleanup_free_ char *t;
                                 cap_value_t cap;
-                                char *t;
 
                                 t = strndup(word, length);
                                 if (!t)
                                         return log_oom();
 
-                                if (cap_from_name(t, &cap) < 0) {
-                                        log_error("Failed to parse capability %s.", t);
-                                        free(t);
-                                        return -EINVAL;
-                                }
+                                if (streq(t, "all")) {
+                                        if (c == ARG_CAPABILITY)
+                                                plus = (uint64_t) -1;
+                                        else
+                                                minus = (uint64_t) -1;
+                                } else {
+                                        if (cap_from_name(t, &cap) < 0) {
+                                                log_error("Failed to parse capability %s.", t);
+                                                return -EINVAL;
+                                        }
 
-                                free(t);
-                                arg_retain |= 1ULL << (uint64_t) cap;
+                                        if (c == ARG_CAPABILITY)
+                                                plus |= 1ULL << (uint64_t) cap;
+                                        else
+                                                minus |= 1ULL << (uint64_t) cap;
+                                }
                         }
 
                         break;
@@ -315,23 +453,91 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = strv_extend(x, a);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         r = strv_extend(x, b);
                         if (r < 0)
-                                return r;
+                                return log_oom();
 
                         break;
                 }
+
+                case ARG_SETENV: {
+                        char **n;
+
+                        if (!env_assignment_is_valid(optarg)) {
+                                log_error("Environment variable assignment '%s' is not valid.", optarg);
+                                return -EINVAL;
+                        }
+
+                        n = strv_env_set(arg_setenv, optarg);
+                        if (!n)
+                                return log_oom();
+
+                        strv_free(arg_setenv);
+                        arg_setenv = n;
+                        break;
+                }
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
+
+                case ARG_SHARE_SYSTEM:
+                        arg_share_system = true;
+                        break;
+
+                case ARG_REGISTER:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --register= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_register = r;
+                        break;
+
+                case ARG_KEEP_UNIT:
+                        arg_keep_unit = true;
+                        break;
+
+                case ARG_PERSONALITY:
+
+                        arg_personality = personality_from_string(optarg);
+                        if (arg_personality == 0xffffffffLU) {
+                                log_error("Unknown or unsupported personality '%s'.", optarg);
+                                return -EINVAL;
+                        }
+
+                        break;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
+
+        if (arg_share_system)
+                arg_register = false;
+
+        if (arg_boot && arg_share_system) {
+                log_error("--boot and --share-system may not be combined.");
+                return -EINVAL;
+        }
+
+        if (arg_keep_unit && cg_pid_get_owner_uid(0, NULL) >= 0) {
+                log_error("--keep-unit may not be used when invoked from a user session.");
+                return -EINVAL;
+        }
+
+        if (arg_directory && arg_image) {
+                log_error("--directory= and --image= may not be combined.");
+                return -EINVAL;
+        }
+
+        arg_retain = (arg_retain | plus | (arg_private_network ? 1ULL << CAP_NET_ADMIN : 0)) & ~minus;
 
         return 1;
 }
@@ -367,6 +573,10 @@ static int mount_all(const char *dest) {
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL;
+#ifdef HAVE_SELINUX
+                _cleanup_free_ char *options = NULL;
+#endif
+                const char *o;
                 int t;
 
                 where = strjoin(dest, "/", mount_table[k].where, NULL);
@@ -389,11 +599,24 @@ static int mount_all(const char *dest) {
 
                 mkdir_p(where, 0755);
 
+#ifdef HAVE_SELINUX
+                if (arg_selinux_apifs_context &&
+                    (streq_ptr(mount_table[k].what, "tmpfs") || streq_ptr(mount_table[k].what, "devpts"))) {
+                        options = strjoin(mount_table[k].options, ",context=\"", arg_selinux_apifs_context, "\"", NULL);
+                        if (!options)
+                                return log_oom();
+
+                        o = options;
+                } else
+#endif
+                        o = mount_table[k].options;
+
+
                 if (mount(mount_table[k].what,
                           where,
                           mount_table[k].type,
                           mount_table[k].flags,
-                          mount_table[k].options) < 0 &&
+                          o) < 0 &&
                     mount_table[k].fatal) {
 
                         log_error("mount(%s) failed: %m", where);
@@ -410,39 +633,46 @@ static int mount_binds(const char *dest, char **l, unsigned long flags) {
         char **x, **y;
 
         STRV_FOREACH_PAIR(x, y, l) {
-                _cleanup_free_ char *where = NULL;
+                char *where;
                 struct stat source_st, dest_st;
+                int r;
 
                 if (stat(*x, &source_st) < 0) {
-                        log_error("failed to stat %s: %m", *x);
+                        log_error("Failed to stat %s: %m", *x);
                         return -errno;
                 }
 
-                where = strjoin(dest, "/", *y, NULL);
-                if (!where)
-                        return log_oom();
-
-                if (stat(where, &dest_st) == 0) {
+                where = strappenda(dest, *y);
+                r = stat(where, &dest_st);
+                if (r == 0) {
                         if ((source_st.st_mode & S_IFMT) != (dest_st.st_mode & S_IFMT)) {
                                 log_error("The file types of %s and %s do not match. Refusing bind mount",
                                                 *x, where);
                                 return -EINVAL;
                         }
-                } else {
-                        /* Create the mount point, but be conservative -- refuse to create block
-                         * and char devices. */
-                        if (S_ISDIR(source_st.st_mode))
-                                mkdir_p_label(where, 0755);
-                        else if (S_ISFIFO(source_st.st_mode))
-                                mkfifo(where, 0644);
-                        else if (S_ISSOCK(source_st.st_mode))
-                                mknod(where, 0644 | S_IFSOCK, 0);
-                        else if (S_ISREG(source_st.st_mode))
-                                touch(where);
-                        else {
-                                log_error("Refusing to create mountpoint for file: %s", *x);
-                                return -ENOTSUP;
+                } else if (errno == ENOENT) {
+                        r = mkdir_parents_label(where, 0755);
+                        if (r < 0) {
+                                log_error("Failed to bind mount %s: %s", *x, strerror(-r));
+                                return r;
                         }
+                } else {
+                        log_error("Failed to bind mount %s: %s", *x, strerror(errno));
+                        return -errno;
+                }
+                /* Create the mount point, but be conservative -- refuse to create block
+                * and char devices. */
+                if (S_ISDIR(source_st.st_mode))
+                        mkdir_label(where, 0755);
+                else if (S_ISFIFO(source_st.st_mode))
+                        mkfifo(where, 0644);
+                else if (S_ISSOCK(source_st.st_mode))
+                        mknod(where, 0644 | S_IFSOCK, 0);
+                else if (S_ISREG(source_st.st_mode))
+                        touch(where);
+                else {
+                        log_error("Refusing to create mountpoint for file: %s", *x);
+                        return -ENOTSUP;
                 }
 
                 if (mount(*x, where, "bind", MS_BIND, NULL) < 0) {
@@ -521,7 +751,6 @@ static int setup_timezone(const char *dest) {
 
 static int setup_resolv_conf(const char *dest) {
         char _cleanup_free_ *where = NULL;
-        _cleanup_close_ int fd = -1;
 
         assert(dest);
 
@@ -533,29 +762,23 @@ static int setup_resolv_conf(const char *dest) {
         if (!where)
                 return log_oom();
 
-        fd = open(where, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
-
         /* We don't really care for the results of this really. If it
          * fails, it fails, but meh... */
-        if (mount("/etc/resolv.conf", where, "bind", MS_BIND, NULL) < 0)
-                log_warning("Failed to bind mount /etc/resolv.conf: %m");
-        else
-                if (mount("/etc/resolv.conf", where, "bind",
-                          MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
-                        log_error("Failed to remount /etc/resolv.conf readonly: %m");
-                        return -errno;
-                }
+        copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW);
 
         return 0;
 }
 
 static int setup_boot_id(const char *dest) {
         _cleanup_free_ char *from = NULL, *to = NULL;
-        sd_id128_t rnd;
+        sd_id128_t rnd = {};
         char as_uuid[37];
         int r;
 
         assert(dest);
+
+        if (arg_share_system)
+                return 0;
 
         /* Generate a new randomized boot ID, so that each boot-up of
          * the container gets a new one */
@@ -611,40 +834,30 @@ static int copy_devnodes(const char *dest) {
         u = umask(0000);
 
         NULSTR_FOREACH(d, devnodes) {
-                struct stat st;
                 _cleanup_free_ char *from = NULL, *to = NULL;
+                struct stat st;
 
-                asprintf(&from, "/dev/%s", d);
-                asprintf(&to, "%s/dev/%s", dest, d);
-
-                if (!from || !to) {
-                        log_oom();
-
-                        if (r == 0)
-                                r = -ENOMEM;
-
-                        break;
-                }
+                from = strappend("/dev/", d);
+                to = strjoin(dest, "/dev/", d, NULL);
+                if (!from || !to)
+                        return log_oom();
 
                 if (stat(from, &st) < 0) {
 
                         if (errno != ENOENT) {
                                 log_error("Failed to stat %s: %m", from);
-                                if (r == 0)
-                                        r = -errno;
+                                return -errno;
                         }
 
                 } else if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
 
                         log_error("%s is not a char or block device, cannot copy", from);
-                        if (r == 0)
-                                r = -EIO;
+                        return -EIO;
 
                 } else if (mknod(to, st.st_mode, st.st_rdev) < 0) {
 
                         log_error("mknod(%s) failed: %m", dest);
-                        if (r == 0)
-                                r = -errno;
+                        return  -errno;
                 }
         }
 
@@ -667,23 +880,19 @@ static int setup_ptmx(const char *dest) {
 }
 
 static int setup_dev_console(const char *dest, const char *console) {
-        struct stat st;
-        _cleanup_free_ char *to = NULL;
-        int r;
         _cleanup_umask_ mode_t u;
+        const char *to;
+        struct stat st;
+        int r;
 
         assert(dest);
         assert(console);
 
         u = umask(0000);
 
-        if (stat(console, &st) < 0) {
-                log_error("Failed to stat %s: %m", console);
+        if (stat("/dev/null", &st) < 0) {
+                log_error("Failed to stat /dev/null: %m");
                 return -errno;
-
-        } else if (!S_ISCHR(st.st_mode)) {
-                log_error("/dev/console is not a char device");
-                return -EIO;
         }
 
         r = chmod_and_chown(console, 0600, 0, 0);
@@ -692,16 +901,15 @@ static int setup_dev_console(const char *dest, const char *console) {
                 return r;
         }
 
-        if (asprintf(&to, "%s/dev/console", dest) < 0)
-                return log_oom();
-
         /* We need to bind mount the right tty to /dev/console since
          * ptys can only exist on pts file systems. To have something
-         * to bind mount things on we create a device node first, that
-         * has the right major/minor (note that the major minor
-         * doesn't actually matter here, since we mount it over
-         * anyway). */
+         * to bind mount things on we create a device node first, and
+         * use /dev/null for that since we the cgroups device policy
+         * allows us to create that freely, while we cannot create
+         * /dev/console. (Note that the major minor doesn't actually
+         * matter here, since we mount it over anyway). */
 
+        to = strappenda(dest, "/dev/console");
         if (mknod(to, (st.st_mode & ~07777) | 0600, st.st_rdev) < 0) {
                 log_error("mknod() for /dev/console failed: %m");
                 return -errno;
@@ -778,7 +986,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         /* Store away the fd in the socket, so that it stays open as
          * long as we run the child */
         k = sendmsg(kmsg_socket, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (k < 0) {
                 log_error("Failed to send FIFO fd: %m");
@@ -792,6 +1000,9 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
 
 static int setup_hostname(void) {
 
+        if (arg_share_system)
+                return 0;
+
         if (sethostname(arg_machine, strlen(arg_machine)) < 0)
                 return -errno;
 
@@ -799,13 +1010,10 @@ static int setup_hostname(void) {
 }
 
 static int setup_journal(const char *directory) {
-        sd_id128_t machine_id;
+        sd_id128_t machine_id, this_id;
         _cleanup_free_ char *p = NULL, *b = NULL, *q = NULL, *d = NULL;
         char *id;
         int r;
-
-        if (arg_link_journal == LINK_NO)
-                return 0;
 
         p = strappend(directory, "/etc/machine-id");
         if (!p)
@@ -829,6 +1037,24 @@ static int setup_journal(const char *directory) {
                 log_error("Failed to parse machine ID from %s: %s", p, strerror(-r));
                 return r;
         }
+
+        r = sd_id128_get_machine(&this_id);
+        if (r < 0) {
+                log_error("Failed to retrieve machine ID: %s", strerror(-r));
+                return r;
+        }
+
+        if (sd_id128_equal(machine_id, this_id)) {
+                log_full(arg_link_journal == LINK_AUTO ? LOG_WARNING : LOG_ERR,
+                         "Host and machine ids are equal (%s): refusing to link journals", id);
+                if (arg_link_journal == LINK_AUTO)
+                        return 0;
+                return
+                        -EEXIST;
+        }
+
+        if (arg_link_journal == LINK_NO)
+                return 0;
 
         free(p);
         p = strappend("/var/log/journal/", id);
@@ -930,258 +1156,173 @@ static int setup_journal(const char *directory) {
         return 0;
 }
 
+static int setup_kdbus(const char *dest, const char *path) {
+        const char *p;
+
+        if (!path)
+                return 0;
+
+        p = strappenda(dest, "/dev/kdbus");
+        if (mkdir(p, 0755) < 0) {
+                log_error("Failed to create kdbus path: %m");
+                return  -errno;
+        }
+
+        if (mount(path, p, "bind", MS_BIND, NULL) < 0) {
+                log_error("Failed to mount kdbus domain path: %m");
+                return -errno;
+        }
+
+        return 0;
+}
+
 static int drop_capabilities(void) {
         return capability_bounding_set_drop(~arg_retain, false);
 }
 
-static int process_pty(int master, pid_t pid, sigset_t *mask) {
-
-        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
-        size_t in_buffer_full = 0, out_buffer_full = 0;
-        struct epoll_event stdin_ev, stdout_ev, master_ev, signal_ev;
-        bool stdin_readable = false, stdout_writable = false, master_readable = false, master_writable = false;
-        int ep = -1, signal_fd = -1, r;
-        bool tried_orderly_shutdown = false;
-
-        assert(master >= 0);
-        assert(pid > 0);
-        assert(mask);
-
-        fd_nonblock(STDIN_FILENO, 1);
-        fd_nonblock(STDOUT_FILENO, 1);
-        fd_nonblock(master, 1);
-
-        signal_fd = signalfd(-1, mask, SFD_NONBLOCK|SFD_CLOEXEC);
-        if (signal_fd < 0) {
-                log_error("signalfd(): %m");
-                r = -errno;
-                goto finish;
-        }
-
-        ep = epoll_create1(EPOLL_CLOEXEC);
-        if (ep < 0) {
-                log_error("Failed to create epoll: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        /* We read from STDIN only if this is actually a TTY,
-         * otherwise we assume non-interactivity. */
-        if (isatty(STDIN_FILENO)) {
-                zero(stdin_ev);
-                stdin_ev.events = EPOLLIN|EPOLLET;
-                stdin_ev.data.fd = STDIN_FILENO;
-
-                if (epoll_ctl(ep, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_ev) < 0) {
-                        log_error("Failed to register STDIN in epoll: %m");
-                        r = -errno;
-                        goto finish;
-                }
-        }
-
-        zero(stdout_ev);
-        stdout_ev.events = EPOLLOUT|EPOLLET;
-        stdout_ev.data.fd = STDOUT_FILENO;
-
-        zero(master_ev);
-        master_ev.events = EPOLLIN|EPOLLOUT|EPOLLET;
-        master_ev.data.fd = master;
-
-        zero(signal_ev);
-        signal_ev.events = EPOLLIN;
-        signal_ev.data.fd = signal_fd;
-
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, STDOUT_FILENO, &stdout_ev) < 0) {
-                if (errno != EPERM) {
-                        log_error("Failed to register stdout in epoll: %m");
-                        r = -errno;
-                        goto finish;
-                }
-                /* stdout without epoll support. Likely redirected to regular file. */
-                stdout_writable = true;
-        }
-
-        if (epoll_ctl(ep, EPOLL_CTL_ADD, master, &master_ev) < 0 ||
-            epoll_ctl(ep, EPOLL_CTL_ADD, signal_fd, &signal_ev) < 0) {
-                log_error("Failed to register fds in epoll: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        for (;;) {
-                struct epoll_event ev[16];
-                ssize_t k;
-                int i, nfds;
-
-                nfds = epoll_wait(ep, ev, ELEMENTSOF(ev), -1);
-                if (nfds < 0) {
-
-                        if (errno == EINTR || errno == EAGAIN)
-                                continue;
-
-                        log_error("epoll_wait(): %m");
-                        r = -errno;
-                        goto finish;
-                }
-
-                assert(nfds >= 1);
-
-                for (i = 0; i < nfds; i++) {
-                        if (ev[i].data.fd == STDIN_FILENO) {
-
-                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
-                                        stdin_readable = true;
-
-                        } else if (ev[i].data.fd == STDOUT_FILENO) {
-
-                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
-                                        stdout_writable = true;
-
-                        } else if (ev[i].data.fd == master) {
-
-                                if (ev[i].events & (EPOLLIN|EPOLLHUP))
-                                        master_readable = true;
-
-                                if (ev[i].events & (EPOLLOUT|EPOLLHUP))
-                                        master_writable = true;
-
-                        } else if (ev[i].data.fd == signal_fd) {
-                                struct signalfd_siginfo sfsi;
-                                ssize_t n;
-
-                                n = read(signal_fd, &sfsi, sizeof(sfsi));
-                                if (n != sizeof(sfsi)) {
-
-                                        if (n >= 0) {
-                                                log_error("Failed to read from signalfd: invalid block size");
-                                                r = -EIO;
-                                                goto finish;
-                                        }
-
-                                        if (errno != EINTR && errno != EAGAIN) {
-                                                log_error("Failed to read from signalfd: %m");
-                                                r = -errno;
-                                                goto finish;
-                                        }
-                                } else {
-
-                                        if (sfsi.ssi_signo == SIGWINCH) {
-                                                struct winsize ws;
-
-                                                /* The window size changed, let's forward that. */
-                                                if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
-                                                        ioctl(master, TIOCSWINSZ, &ws);
-                                        } else if (sfsi.ssi_signo == SIGTERM && arg_boot && !tried_orderly_shutdown) {
-
-                                                log_info("Trying to halt container. Send SIGTERM again to trigger immediate termination.");
-
-                                                /* This only works for systemd... */
-                                                tried_orderly_shutdown = true;
-                                                kill(pid, SIGRTMIN+3);
-
-                                        } else {
-                                                r = 0;
-                                                goto finish;
-                                        }
-                                }
-                        }
-                }
-
-                while ((stdin_readable && in_buffer_full <= 0) ||
-                       (master_writable && in_buffer_full > 0) ||
-                       (master_readable && out_buffer_full <= 0) ||
-                       (stdout_writable && out_buffer_full > 0)) {
-
-                        if (stdin_readable && in_buffer_full < LINE_MAX) {
-
-                                k = read(STDIN_FILENO, in_buffer + in_buffer_full, LINE_MAX - in_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                stdin_readable = false;
-                                        else {
-                                                log_error("read(): %m");
-                                                r = -errno;
-                                                goto finish;
-                                        }
-                                } else
-                                        in_buffer_full += (size_t) k;
-                        }
-
-                        if (master_writable && in_buffer_full > 0) {
-
-                                k = write(master, in_buffer, in_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                master_writable = false;
-                                        else {
-                                                log_error("write(): %m");
-                                                r = -errno;
-                                                goto finish;
-                                        }
-
-                                } else {
-                                        assert(in_buffer_full >= (size_t) k);
-                                        memmove(in_buffer, in_buffer + k, in_buffer_full - k);
-                                        in_buffer_full -= k;
-                                }
-                        }
-
-                        if (master_readable && out_buffer_full < LINE_MAX) {
-
-                                k = read(master, out_buffer + out_buffer_full, LINE_MAX - out_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                master_readable = false;
-                                        else {
-                                                log_error("read(): %m");
-                                                r = -errno;
-                                                goto finish;
-                                        }
-                                }  else
-                                        out_buffer_full += (size_t) k;
-                        }
-
-                        if (stdout_writable && out_buffer_full > 0) {
-
-                                k = write(STDOUT_FILENO, out_buffer, out_buffer_full);
-                                if (k < 0) {
-
-                                        if (errno == EAGAIN || errno == EPIPE || errno == ECONNRESET || errno == EIO)
-                                                stdout_writable = false;
-                                        else {
-                                                log_error("write(): %m");
-                                                r = -errno;
-                                                goto finish;
-                                        }
-
-                                } else {
-                                        assert(out_buffer_full >= (size_t) k);
-                                        memmove(out_buffer, out_buffer + k, out_buffer_full - k);
-                                        out_buffer_full -= k;
-                                }
-                        }
-                }
-        }
-
-finish:
-        if (ep >= 0)
-                close_nointr_nofail(ep);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
-
-        return r;
-}
-
-static int register_machine(void) {
+static int register_machine(pid_t pid) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        if (!arg_register)
+                return 0;
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0) {
+                log_error("Failed to open system bus: %s", strerror(-r));
+                return r;
+        }
+
+        if (arg_keep_unit) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "RegisterMachine",
+                                &error,
+                                NULL,
+                                "sayssus",
+                                arg_machine,
+                                SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
+                                "nspawn",
+                                "container",
+                                (uint32_t) pid,
+                                strempty(arg_directory));
+        } else {
+                _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+
+                r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "CreateMachine");
+                if (r < 0) {
+                        log_error("Failed to create message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_append(
+                                m,
+                                "sayssus",
+                                arg_machine,
+                                SD_BUS_MESSAGE_APPEND_ID128(arg_uuid),
+                                "nspawn",
+                                "container",
+                                (uint32_t) pid,
+                                strempty(arg_directory));
+                if (r < 0) {
+                        log_error("Failed to append message arguments: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0) {
+                        log_error("Failed to open container: %s", strerror(-r));
+                        return r;
+                }
+
+                if (!isempty(arg_slice)) {
+                        r = sd_bus_message_append(m, "(sv)", "Slice", "s", arg_slice);
+                        if (r < 0) {
+                                log_error("Failed to append slice: %s", strerror(-r));
+                                return r;
+                        }
+                }
+
+                r = sd_bus_message_append(m, "(sv)", "DevicePolicy", "s", "strict");
+                if (r < 0) {
+                        log_error("Failed to add device policy: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_append(m, "(sv)", "DeviceAllow", "a(ss)", 10,
+                                          /* Allow the container to
+                                           * access and create the API
+                                           * device nodes, so that
+                                           * PrivateDevices= in the
+                                           * container can work
+                                           * fine */
+                                          "/dev/null", "rwm",
+                                          "/dev/zero", "rwm",
+                                          "/dev/full", "rwm",
+                                          "/dev/random", "rwm",
+                                          "/dev/urandom", "rwm",
+                                          "/dev/tty", "rwm",
+                                          /* Allow the container
+                                           * access to ptys. However,
+                                           * do not permit the
+                                           * container to ever create
+                                           * these device nodes. */
+                                          "/dev/pts/ptmx", "rw",
+                                          "char-pts", "rw",
+                                          /* Allow the container
+                                           * access to all kdbus
+                                           * devices. Again, the
+                                           * container cannot create
+                                           * these nodes, only use
+                                           * them. We use a pretty
+                                           * open match here, so that
+                                           * the kernel API can still
+                                           * change. */
+                                          "char-kdbus", "rw",
+                                          "char-kdbus/*", "rw");
+                if (r < 0) {
+                        log_error("Failed to add device whitelist: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_bus_call(bus, m, 0, &error, NULL);
+        }
+
+        if (r < 0) {
+                log_error("Failed to register machine: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int terminate_machine(pid_t pid) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        const char *path;
+        int r;
+
+        if (!arg_register)
+                return 0;
+
+        r = sd_bus_default_system(&bus);
         if (r < 0) {
                 log_error("Failed to open system bus: %s", strerror(-r));
                 return r;
@@ -1192,48 +1333,1263 @@ static int register_machine(void) {
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "CreateMachine",
+                        "GetMachineByPID",
+                        &error,
+                        &reply,
+                        "u",
+                        (uint32_t) pid);
+        if (r < 0) {
+                /* Note that the machine might already have been
+                 * cleaned up automatically, hence don't consider it a
+                 * failure if we cannot get the machine object. */
+                log_debug("Failed to get machine: %s", bus_error_message(&error, r));
+                return 0;
+        }
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.machine1",
+                        path,
+                        "org.freedesktop.machine1.Machine",
+                        "Terminate",
                         &error,
                         NULL,
-                        "sayssusa(sv)",
-                        arg_machine,
-                        SD_BUS_APPEND_ID128(arg_uuid),
-                        "nspawn",
-                        "container",
-                        (uint32_t) 0,
-                        strempty(arg_directory),
-                        1, "Slice", "s", strempty(arg_slice));
+                        NULL);
         if (r < 0) {
-                log_error("Failed to register machine: %s", error.message ? error.message : strerror(-r));
+                log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
+                return 0;
+        }
+
+        return 0;
+}
+
+static int reset_audit_loginuid(void) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (arg_share_system)
+                return 0;
+
+        r = read_one_line_file("/proc/self/loginuid", &p);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0) {
+                log_error("Failed to read /proc/self/loginuid: %s", strerror(-r));
+                return r;
+        }
+
+        /* Already reset? */
+        if (streq(p, "4294967295"))
+                return 0;
+
+        r = write_string_file("/proc/self/loginuid", "4294967295");
+        if (r < 0) {
+                log_error("Failed to reset audit login UID. This probably means that your kernel is too\n"
+                          "old and you have audit enabled. Note that the auditing subsystem is known to\n"
+                          "be incompatible with containers on old kernels. Please make sure to upgrade\n"
+                          "your kernel or to off auditing with 'audit=0' on the kernel command line before\n"
+                          "using systemd-nspawn. Sleeping for 5s... (%s)\n", strerror(-r));
+
+                sleep(5);
+        }
+
+        return 0;
+}
+
+#define HASH_KEY SD_ID128_MAKE(c3,c4,f9,19,b5,57,b2,1c,e6,cf,14,27,03,9c,ee,a2)
+
+static int get_mac(struct ether_addr *mac) {
+        int r;
+
+        uint8_t result[8];
+        size_t l, sz;
+        uint8_t *v;
+
+        l = strlen(arg_machine);
+        sz = sizeof(sd_id128_t) + l;
+        v = alloca(sz);
+
+        /* fetch some persistent data unique to the host */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this host) to this
+         * container instance */
+        memcpy(v + sizeof(sd_id128_t), arg_machine, l);
+
+        /* Let's hash the host machine ID plus the container name. We
+         * use a fixed, but originally randomly created hash key here. */
+        siphash24(result, v, sz, HASH_KEY.bytes);
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+
+        /* see eth_random_addr in the kernel */
+        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+
+        return 0;
+}
+
+static int setup_veth(pid_t pid, char iface_name[IFNAMSIZ]) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        struct ether_addr mac;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (!arg_network_veth)
+                return 0;
+
+        /* Use two different interface name prefixes depending whether
+         * we are in bridge mode or not. */
+        if (arg_network_bridge)
+                memcpy(iface_name, "vb-", 3);
+        else
+                memcpy(iface_name, "ve-", 3);
+        strncpy(iface_name+3, arg_machine, IFNAMSIZ - 3);
+
+        r = get_mac(&mac);
+        if (r < 0) {
+                log_error("Failed to generate predictable MAC address for host0");
+                return r;
+        }
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+        if (r < 0) {
+                log_error("Failed to allocate netlink message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, iface_name);
+        if (r < 0) {
+                log_error("Failed to add netlink interface name: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+        if (r < 0) {
+                log_error("Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "veth");
+        if (r < 0) {
+                log_error("Failed to append netlink kind: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
+        if (r < 0) {
+                log_error("Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_open_container(m, VETH_INFO_PEER);
+        if (r < 0) {
+                log_error("Failed to open netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, "host0");
+        if (r < 0) {
+                log_error("Failed to add netlink interface name: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_ether_addr(m, IFLA_ADDRESS, &mac);
+        if (r < 0) {
+                log_error("Failed to add netlink MAC address: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+        if (r < 0) {
+                log_error("Failed to add netlink namespace field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_close_container(m);
+        if (r < 0) {
+                log_error("Failed to close netlink container: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        if (r < 0) {
+                log_error("Failed to add new veth interfaces: %s", strerror(-r));
                 return r;
         }
 
         return 0;
 }
 
-static bool audit_enabled(void) {
-        int fd;
+static int setup_bridge(const char veth_name[]) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        int r, bridge;
 
-        fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
-        if (fd >= 0) {
-                close_nointr_nofail(fd);
-                return true;
+        if (!arg_private_network)
+                return 0;
+
+        if (!arg_network_veth)
+                return 0;
+
+        if (!arg_network_bridge)
+                return 0;
+
+        bridge = (int) if_nametoindex(arg_network_bridge);
+        if (bridge <= 0) {
+                log_error("Failed to resolve interface %s: %m", arg_network_bridge);
+                return -errno;
         }
-        return false;
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
+        if (r < 0) {
+                log_error("Failed to allocate netlink message: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_link_set_flags(m, IFF_UP, IFF_UP);
+        if (r < 0) {
+                log_error("Failed to set IFF_UP flag: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_string(m, IFLA_IFNAME, veth_name);
+        if (r < 0) {
+                log_error("Failed to add netlink interface name field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_append_u32(m, IFLA_MASTER, bridge);
+        if (r < 0) {
+                log_error("Failed to add netlink master field: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call(rtnl, m, 0, NULL);
+        if (r < 0) {
+                log_error("Failed to add veth interface to bridge: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+static int parse_interface(struct udev *udev, const char *name) {
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        char ifi_str[2 + DECIMAL_STR_MAX(int)];
+        int ifi;
+
+        ifi = (int) if_nametoindex(name);
+        if (ifi <= 0) {
+                log_error("Failed to resolve interface %s: %m", name);
+                return -errno;
+        }
+
+        sprintf(ifi_str, "n%i", ifi);
+        d = udev_device_new_from_device_id(udev, ifi_str);
+        if (!d) {
+                log_error("Failed to get udev device for interface %s: %m", name);
+                return -errno;
+        }
+
+        if (udev_device_get_is_initialized(d) <= 0) {
+                log_error("Network interface %s is not initialized yet.", name);
+                return -EBUSY;
+        }
+
+        return ifi;
+}
+
+static int move_network_interfaces(pid_t pid) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char **i;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (strv_isempty(arg_network_interfaces))
+                return 0;
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev.");
+                return -ENOMEM;
+        }
+
+        STRV_FOREACH(i, arg_network_interfaces) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                int ifi;
+
+                ifi = parse_interface(udev, *i);
+                if (ifi < 0)
+                        return ifi;
+
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, ifi);
+                if (r < 0) {
+                        log_error("Failed to allocate netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0) {
+                        log_error("Failed to append namespace PID to netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                if (r < 0) {
+                        log_error("Failed to move interface %s to namespace: %s", *i, strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int setup_macvlan(pid_t pid) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_rtnl_unref_ sd_rtnl *rtnl = NULL;
+        char **i;
+        int r;
+
+        if (!arg_private_network)
+                return 0;
+
+        if (strv_isempty(arg_network_macvlan))
+                return 0;
+
+        r = sd_rtnl_open(&rtnl, 0);
+        if (r < 0) {
+                log_error("Failed to connect to netlink: %s", strerror(-r));
+                return r;
+        }
+
+        udev = udev_new();
+        if (!udev) {
+                log_error("Failed to connect to udev.");
+                return -ENOMEM;
+        }
+
+        STRV_FOREACH(i, arg_network_macvlan) {
+                _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
+                _cleanup_free_ char *n = NULL;
+                int ifi;
+
+                ifi = parse_interface(udev, *i);
+                if (ifi < 0)
+                        return ifi;
+
+                r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
+                if (r < 0) {
+                        log_error("Failed to allocate netlink message: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_LINK, ifi);
+                if (r < 0) {
+                        log_error("Failed to add netlink interface index: %s", strerror(-r));
+                        return r;
+                }
+
+                n = strappend("mv-", *i);
+                if (!n)
+                        return log_oom();
+
+                strshorten(n, IFNAMSIZ-1);
+
+                r = sd_rtnl_message_append_string(m, IFLA_IFNAME, n);
+                if (r < 0) {
+                        log_error("Failed to add netlink interface name: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                if (r < 0) {
+                        log_error("Failed to add netlink namespace field: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container(m, IFLA_LINKINFO);
+                if (r < 0) {
+                        log_error("Failed to open netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "macvlan");
+                if (r < 0) {
+                        log_error("Failed to append netlink kind: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_open_container(m, IFLA_INFO_DATA);
+                if (r < 0) {
+                        log_error("Failed to open netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_append_u32(m, IFLA_MACVLAN_MODE, MACVLAN_MODE_BRIDGE);
+                if (r < 0) {
+                        log_error("Failed to append macvlan mode: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_message_close_container(m);
+                if (r < 0) {
+                        log_error("Failed to close netlink container: %s", strerror(-r));
+                        return r;
+                }
+
+                r = sd_rtnl_call(rtnl, m, 0, NULL);
+                if (r < 0) {
+                        log_error("Failed to add new macvlan interfaces: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int audit_still_doesnt_work_in_containers(void) {
+
+#ifdef HAVE_SECCOMP
+        scmp_filter_ctx seccomp;
+        int r;
+
+        /*
+           Audit is broken in containers, much of the userspace audit
+           hookup will fail if running inside a container. We don't
+           care and just turn off creation of audit sockets.
+
+           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
+           with EAFNOSUPPORT which audit userspace uses as indication
+           that audit is disabled in the kernel.
+         */
+
+        seccomp = seccomp_init(SCMP_ACT_ALLOW);
+        if (!seccomp)
+                return log_oom();
+
+        r = seccomp_add_secondary_archs(seccomp);
+        if (r < 0) {
+                log_error("Failed to add secondary archs to seccomp filter: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = seccomp_rule_add(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EAFNOSUPPORT),
+                        SCMP_SYS(socket),
+                        2,
+                        SCMP_A0(SCMP_CMP_EQ, AF_NETLINK),
+                        SCMP_A2(SCMP_CMP_EQ, NETLINK_AUDIT));
+        if (r < 0) {
+                log_error("Failed to add audit seccomp rule: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
+        if (r < 0) {
+                log_error("Failed to unset NO_NEW_PRIVS: %s", strerror(-r));
+                goto finish;
+        }
+
+        r = seccomp_load(seccomp);
+        if (r < 0)
+                log_error("Failed to install seccomp audit filter: %s", strerror(-r));
+
+finish:
+        seccomp_release(seccomp);
+        return r;
+#else
+        return 0;
+#endif
+
+}
+
+static int setup_image(char **device_path, int *loop_nr) {
+        struct loop_info64 info = {
+                .lo_flags = LO_FLAGS_AUTOCLEAR|LO_FLAGS_PARTSCAN
+        };
+        _cleanup_close_ int fd = -1, control = -1, loop = -1;
+        _cleanup_free_ char* loopdev = NULL;
+        struct stat st;
+        int r, nr;
+
+        assert(device_path);
+        assert(loop_nr);
+
+        fd = open(arg_image, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0) {
+                log_error("Failed to open %s: %m", arg_image);
+                return -errno;
+        }
+
+        if (fstat(fd, &st) < 0) {
+                log_error("Failed to stat %s: %m", arg_image);
+                return -errno;
+        }
+
+        if (S_ISBLK(st.st_mode)) {
+                char *p;
+
+                p = strdup(arg_image);
+                if (!p)
+                        return log_oom();
+
+                *device_path = p;
+
+                *loop_nr = -1;
+
+                r = fd;
+                fd = -1;
+
+                return r;
+        }
+
+        if (!S_ISREG(st.st_mode)) {
+                log_error("%s is not a regular file or block device: %m", arg_image);
+                return -EINVAL;
+        }
+
+        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (control < 0) {
+                log_error("Failed to open /dev/loop-control: %m");
+                return -errno;
+        }
+
+        nr = ioctl(control, LOOP_CTL_GET_FREE);
+        if (nr < 0) {
+                log_error("Failed to allocate loop device: %m");
+                return -errno;
+        }
+
+        if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
+                return log_oom();
+
+        loop = open(loopdev, O_CLOEXEC|(arg_read_only ? O_RDONLY : O_RDWR)|O_NONBLOCK|O_NOCTTY);
+        if (loop < 0) {
+                log_error("Failed to open loop device %s: %m", loopdev);
+                return -errno;
+        }
+
+        if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
+                log_error("Failed to set loopback file descriptor on %s: %m", loopdev);
+                return -errno;
+        }
+
+        if (arg_read_only)
+                info.lo_flags |= LO_FLAGS_READ_ONLY;
+
+        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0) {
+                log_error("Failed to set loopback settings on %s: %m", loopdev);
+                return -errno;
+        }
+
+        *device_path = loopdev;
+        loopdev = NULL;
+
+        *loop_nr = nr;
+
+        r = loop;
+        loop = -1;
+
+        return r;
+}
+
+static int dissect_image(
+                int fd,
+                char **root_device, bool *root_device_rw,
+                char **home_device, bool *home_device_rw,
+                char **srv_device, bool *srv_device_rw,
+                bool *secondary) {
+
+#ifdef HAVE_BLKID
+        int home_nr = -1, root_nr = -1, secondary_root_nr = -1, srv_nr = -1;
+        _cleanup_free_ char *home = NULL, *root = NULL, *secondary_root = NULL, *srv = NULL;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        struct udev_list_entry *first, *item;
+        bool home_rw = true, root_rw = true, secondary_root_rw = true, srv_rw = true;
+        const char *pttype = NULL;
+        blkid_partlist pl;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(root_device);
+        assert(home_device);
+        assert(srv_device);
+        assert(secondary);
+
+        b = blkid_new_probe();
+        if (!b)
+                return log_oom();
+
+        errno = 0;
+        r = blkid_probe_set_device(b, fd, 0, 0);
+        if (r != 0) {
+                if (errno == 0)
+                        return log_oom();
+
+                log_error("Failed to set device on blkid probe: %m");
+                return -errno;
+        }
+
+        blkid_probe_enable_partitions(b, 1);
+        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -2 || r == 1) {
+                log_error("Failed to identify any partition table on %s.\n"
+                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+                return -EINVAL;
+        } else if (r != 0) {
+                if (errno == 0)
+                        errno = EIO;
+                log_error("Failed to probe: %m");
+                return -errno;
+        }
+
+        blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        if (!streq_ptr(pttype, "gpt")) {
+                log_error("Image %s does not carry a GUID Partition Table.\n"
+                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+                return -EINVAL;
+        }
+
+        errno = 0;
+        pl = blkid_probe_get_partitions(b);
+        if (!pl) {
+                if (errno == 0)
+                        return log_oom();
+
+                log_error("Failed to list partitions of %s", arg_image);
+                return -errno;
+        }
+
+        udev = udev_new();
+        if (!udev)
+                return log_oom();
+
+        if (fstat(fd, &st) < 0) {
+                log_error("Failed to stat block device: %m");
+                return -errno;
+        }
+
+        d = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
+        if (!d)
+                return log_oom();
+
+        e = udev_enumerate_new(udev);
+        if (!e)
+                return log_oom();
+
+        r = udev_enumerate_add_match_parent(e, d);
+        if (r < 0)
+                return log_oom();
+
+        r = udev_enumerate_scan_devices(e);
+        if (r < 0) {
+                log_error("Failed to scan for partition devices of %s: %s", arg_image, strerror(-r));
+                return r;
+        }
+
+        first = udev_enumerate_get_list_entry(e);
+        udev_list_entry_foreach(item, first) {
+                _cleanup_udev_device_unref_ struct udev_device *q;
+                const char *stype, *node;
+                unsigned long long flags;
+                sd_id128_t type_id;
+                blkid_partition pp;
+                dev_t qn;
+                int nr;
+
+                errno = 0;
+                q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                if (!q) {
+                        if (!errno)
+                                errno = ENOMEM;
+
+                        log_error("Failed to get partition device of %s: %m", arg_image);
+                        return -errno;
+                }
+
+                qn = udev_device_get_devnum(q);
+                if (major(qn) == 0)
+                        continue;
+
+                if (st.st_rdev == qn)
+                        continue;
+
+                node = udev_device_get_devnode(q);
+                if (!node)
+                        continue;
+
+                pp = blkid_partlist_devno_to_partition(pl, qn);
+                if (!pp)
+                        continue;
+
+                flags = blkid_partition_get_flags(pp);
+                if (flags & GPT_FLAG_NO_AUTO)
+                        continue;
+
+                nr = blkid_partition_get_partno(pp);
+                if (nr < 0)
+                        continue;
+
+                stype = blkid_partition_get_type_string(pp);
+                if (!stype)
+                        continue;
+
+                if (sd_id128_from_string(stype, &type_id) < 0)
+                        continue;
+
+                if (sd_id128_equal(type_id, GPT_HOME)) {
+
+                        if (home && nr >= home_nr)
+                                continue;
+
+                        home_nr = nr;
+                        home_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                        free(home);
+                        home = strdup(node);
+                        if (!home)
+                                return log_oom();
+                } else if (sd_id128_equal(type_id, GPT_SRV)) {
+
+                        if (srv && nr >= srv_nr)
+                                continue;
+
+                        srv_nr = nr;
+                        srv_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                        free(srv);
+                        srv = strdup(node);
+                        if (!srv)
+                                return log_oom();
+                }
+#ifdef GPT_ROOT_NATIVE
+                else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                        if (root && nr >= root_nr)
+                                continue;
+
+                        root_nr = nr;
+                        root_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+                        free(root);
+                        root = strdup(node);
+                        if (!root)
+                                return log_oom();
+                }
+#endif
+#ifdef GPT_ROOT_SECONDARY
+                else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
+
+                        if (secondary_root && nr >= secondary_root_nr)
+                                continue;
+
+                        secondary_root_nr = nr;
+                        secondary_root_rw = !(flags & GPT_FLAG_READ_ONLY);
+
+
+                        free(secondary_root);
+                        secondary_root = strdup(node);
+                        if (!secondary_root)
+                                return log_oom();
+                }
+#endif
+        }
+
+        if (!root && !secondary_root) {
+                log_error("Failed to identify root partition in disk image %s.\n"
+                          "Note that the disk image needs to follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/ to be supported by systemd-nspawn.", arg_image);
+                return -EINVAL;
+        }
+
+        if (root) {
+                *root_device = root;
+                root = NULL;
+
+                *root_device_rw = root_rw;
+                *secondary = false;
+        } else if (secondary_root) {
+                *root_device = secondary_root;
+                secondary_root = NULL;
+
+                *root_device_rw = secondary_root_rw;
+                *secondary = true;
+        }
+
+        if (home) {
+                *home_device = home;
+                home = NULL;
+
+                *home_device_rw = home_rw;
+        }
+
+        if (srv) {
+                *srv_device = srv;
+                srv = NULL;
+
+                *srv_device_rw = srv_rw;
+        }
+
+        return 0;
+#else
+        log_error("--image= is not supported, compiled without blkid support.");
+        return -ENOTSUP;
+#endif
+}
+
+static int mount_device(const char *what, const char *where, const char *directory, bool rw) {
+#ifdef HAVE_BLKID
+        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        const char *fstype, *p;
+        int r;
+
+        assert(what);
+        assert(where);
+
+        if (arg_read_only)
+                rw = false;
+
+        if (directory)
+                p = strappenda(where, directory);
+        else
+                p = where;
+
+        errno = 0;
+        b = blkid_new_probe_from_filename(what);
+        if (!b) {
+                if (errno == 0)
+                        return log_oom();
+                log_error("Failed to allocate prober for %s: %m", what);
+                return -errno;
+        }
+
+        blkid_probe_enable_superblocks(b, 1);
+        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == -1 || r == 1) {
+                log_error("Cannot determine file system type of %s", what);
+                return -EINVAL;
+        } else if (r != 0) {
+                if (errno == 0)
+                        errno = EIO;
+                log_error("Failed to probe %s: %m", what);
+                return -errno;
+        }
+
+        errno = 0;
+        if (blkid_probe_lookup_value(b, "TYPE", &fstype, NULL) < 0) {
+                if (errno == 0)
+                        errno = EINVAL;
+                log_error("Failed to determine file system type of %s", what);
+                return -errno;
+        }
+
+        if (streq(fstype, "crypto_LUKS")) {
+                log_error("nspawn currently does not support LUKS disk images.");
+                return -ENOTSUP;
+        }
+
+        if (mount(what, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), NULL) < 0) {
+                log_error("Failed to mount %s: %m", what);
+                return -errno;
+        }
+
+        return 0;
+#else
+        log_error("--image= is not supported, compiled without blkid support.");
+        return -ENOTSUP;
+#endif
+}
+
+static int mount_devices(
+                const char *where,
+                const char *root_device, bool root_device_rw,
+                const char *home_device, bool home_device_rw,
+                const char *srv_device, bool srv_device_rw) {
+        int r;
+
+        assert(where);
+
+        if (root_device) {
+                r = mount_device(root_device, arg_directory, NULL, root_device_rw);
+                if (r < 0) {
+                        log_error("Failed to mount root directory: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        if (home_device) {
+                r = mount_device(home_device, arg_directory, "/home", home_device_rw);
+                if (r < 0) {
+                        log_error("Failed to mount home directory: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        if (srv_device) {
+                r = mount_device(srv_device, arg_directory, "/srv", srv_device_rw);
+                if (r < 0) {
+                        log_error("Failed to mount server data directory: %s", strerror(-r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static void loop_remove(int nr, int *image_fd) {
+        _cleanup_close_ int control = -1;
+
+        if (nr < 0)
+                return;
+
+        if (image_fd && *image_fd >= 0) {
+                ioctl(*image_fd, LOOP_CLR_FD);
+                *image_fd = safe_close(*image_fd);
+        }
+
+        control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (control < 0)
+                return;
+
+        ioctl(control, LOOP_CTL_REMOVE, nr);
+}
+
+static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
+        int pipe_fds[2];
+        pid_t pid;
+
+        assert(database);
+        assert(key);
+        assert(rpid);
+
+        if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
+                log_error("Failed to allocate pipe: %m");
+                return -errno;
+        }
+
+        pid = fork();
+        if (pid < 0) {
+                log_error("Failed to fork getent child: %m");
+                return -errno;
+        } else if (pid == 0) {
+                int nullfd;
+                char *empty_env = NULL;
+
+                if (dup3(pipe_fds[1], STDOUT_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (pipe_fds[0] > 2)
+                        safe_close(pipe_fds[0]);
+                if (pipe_fds[1] > 2)
+                        safe_close(pipe_fds[1]);
+
+                nullfd = open("/dev/null", O_RDWR);
+                if (nullfd < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (dup3(nullfd, STDIN_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (dup3(nullfd, STDERR_FILENO, 0) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (nullfd > 2)
+                        safe_close(nullfd);
+
+                reset_all_signal_handlers();
+                close_all_fds(NULL, 0);
+
+                execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);
+                execle("/bin/getent", "getent", database, key, NULL, &empty_env);
+                _exit(EXIT_FAILURE);
+        }
+
+        pipe_fds[1] = safe_close(pipe_fds[1]);
+
+        *rpid = pid;
+
+        return pipe_fds[0];
+}
+
+static int change_uid_gid(char **_home) {
+        char line[LINE_MAX], *w, *x, *state, *u, *g, *h;
+        _cleanup_free_ uid_t *uids = NULL;
+        _cleanup_free_ char *home = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
+        unsigned n_uids = 0;
+        size_t sz, l;
+        uid_t uid;
+        gid_t gid;
+        pid_t pid;
+        int r;
+
+        assert(_home);
+
+        if (!arg_user || streq(arg_user, "root") || streq(arg_user, "0")) {
+                /* Reset everything fully to 0, just in case */
+
+                if (setgroups(0, NULL) < 0) {
+                        log_error("setgroups() failed: %m");
+                        return -errno;
+                }
+
+                if (setresgid(0, 0, 0) < 0) {
+                        log_error("setregid() failed: %m");
+                        return -errno;
+                }
+
+                if (setresuid(0, 0, 0) < 0) {
+                        log_error("setreuid() failed: %m");
+                        return -errno;
+                }
+
+                *_home = NULL;
+                return 0;
+        }
+
+        /* First, get user credentials */
+        fd = spawn_getent("passwd", arg_user, &pid);
+        if (fd < 0)
+                return fd;
+
+        f = fdopen(fd, "r");
+        if (!f)
+                return log_oom();
+        fd = -1;
+
+        if (!fgets(line, sizeof(line), f)) {
+
+                if (!ferror(f)) {
+                        log_error("Failed to resolve user %s.", arg_user);
+                        return -ESRCH;
+                }
+
+                log_error("Failed to read from getent: %m");
+                return -errno;
+        }
+
+        truncate_nl(line);
+
+        wait_for_terminate_and_warn("getent passwd", pid);
+
+        x = strchr(line, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid user field.");
+                return -EIO;
+        }
+
+        u = strchr(x+1, ':');
+        if (!u) {
+                log_error("/etc/passwd entry has invalid password field.");
+                return -EIO;
+        }
+
+        u++;
+        g = strchr(u, ':');
+        if (!g) {
+                log_error("/etc/passwd entry has invalid UID field.");
+                return -EIO;
+        }
+
+        *g = 0;
+        g++;
+        x = strchr(g, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid GID field.");
+                return -EIO;
+        }
+
+        *x = 0;
+        h = strchr(x+1, ':');
+        if (!h) {
+                log_error("/etc/passwd entry has invalid GECOS field.");
+                return -EIO;
+        }
+
+        h++;
+        x = strchr(h, ':');
+        if (!x) {
+                log_error("/etc/passwd entry has invalid home directory field.");
+                return -EIO;
+        }
+
+        *x = 0;
+
+        r = parse_uid(u, &uid);
+        if (r < 0) {
+                log_error("Failed to parse UID of user.");
+                return -EIO;
+        }
+
+        r = parse_gid(g, &gid);
+        if (r < 0) {
+                log_error("Failed to parse GID of user.");
+                return -EIO;
+        }
+
+        home = strdup(h);
+        if (!home)
+                return log_oom();
+
+        /* Second, get group memberships */
+        fd = spawn_getent("initgroups", arg_user, &pid);
+        if (fd < 0)
+                return fd;
+
+        fclose(f);
+        f = fdopen(fd, "r");
+        if (!f)
+                return log_oom();
+        fd = -1;
+
+        if (!fgets(line, sizeof(line), f)) {
+                if (!ferror(f)) {
+                        log_error("Failed to resolve user %s.", arg_user);
+                        return -ESRCH;
+                }
+
+                log_error("Failed to read from getent: %m");
+                return -errno;
+        }
+
+        truncate_nl(line);
+
+        wait_for_terminate_and_warn("getent initgroups", pid);
+
+        /* Skip over the username and subsequent separator whitespace */
+        x = line;
+        x += strcspn(x, WHITESPACE);
+        x += strspn(x, WHITESPACE);
+
+        FOREACH_WORD(w, l, x, state) {
+                char c[l+1];
+
+                memcpy(c, w, l);
+                c[l] = 0;
+
+                if (!GREEDY_REALLOC(uids, sz, n_uids+1))
+                        return log_oom();
+
+                r = parse_uid(c, &uids[n_uids++]);
+                if (r < 0) {
+                        log_error("Failed to parse group data from getent.");
+                        return -EIO;
+                }
+        }
+
+        r = mkdir_parents(home, 0775);
+        if (r < 0) {
+                log_error("Failed to make home root directory: %s", strerror(-r));
+                return r;
+        }
+
+        r = mkdir_safe(home, 0755, uid, gid);
+        if (r < 0 && r != -EEXIST) {
+                log_error("Failed to make home directory: %s", strerror(-r));
+                return r;
+        }
+
+        fchown(STDIN_FILENO, uid, gid);
+        fchown(STDOUT_FILENO, uid, gid);
+        fchown(STDERR_FILENO, uid, gid);
+
+        if (setgroups(n_uids, uids) < 0) {
+                log_error("Failed to set auxiliary groups: %m");
+                return -errno;
+        }
+
+        if (setresgid(gid, gid, gid) < 0) {
+                log_error("setregid() failed: %m");
+                return -errno;
+        }
+
+        if (setresuid(uid, uid, uid) < 0) {
+                log_error("setreuid() failed: %m");
+                return -errno;
+        }
+
+        if (_home) {
+                *_home = home;
+                home = NULL;
+        }
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
-        pid_t pid = 0;
-        int r = EXIT_FAILURE, k;
-        _cleanup_close_ int master = -1;
-        int n_fd_passed;
+
+        _cleanup_free_ char *kdbus_domain = NULL, *device_path = NULL, *root_device = NULL, *home_device = NULL, *srv_device = NULL;
+        bool root_device_rw = true, home_device_rw = true, srv_device_rw = true;
+        _cleanup_close_ int master = -1, kdbus_fd = -1, image_fd = -1;
+        _cleanup_close_pair_ int kmsg_socket_pair[2] = { -1, -1 };
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        int r = EXIT_FAILURE, k, n_fd_passed, loop_nr = -1;
         const char *console = NULL;
-        struct termios saved_attr, raw_attr;
+        char veth_name[IFNAMSIZ];
+        bool secondary = false;
+        pid_t pid = 0;
         sigset_t mask;
-        bool saved_attr_valid = false;
-        struct winsize ws;
-        int kmsg_socket_pair[2] = { -1, -1 };
-        FDSet *fds = NULL;
 
         log_parse_environment();
         log_open();
@@ -1246,24 +2602,25 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_directory) {
-                char *p;
+        if (!arg_image) {
+                if (arg_directory) {
+                        char *p;
 
-                p = path_make_absolute_cwd(arg_directory);
-                free(arg_directory);
-                arg_directory = p;
-        } else
-                arg_directory = get_current_dir_name();
+                        p = path_make_absolute_cwd(arg_directory);
+                        free(arg_directory);
+                        arg_directory = p;
+                } else
+                        arg_directory = get_current_dir_name();
 
-        if (!arg_directory) {
-                log_error("Failed to determine path, please use -D.");
-                goto finish;
+                if (!arg_directory) {
+                        log_error("Failed to determine path, please use -D.");
+                        goto finish;
+                }
+                path_kill_slashes(arg_directory);
         }
 
-        path_kill_slashes(arg_directory);
-
         if (!arg_machine) {
-                arg_machine = strdup(path_get_file_name(arg_directory));
+                arg_machine = strdup(basename(arg_image ? arg_image : arg_directory));
                 if (!arg_machine) {
                         log_oom();
                         goto finish;
@@ -1286,23 +2643,6 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (arg_boot && audit_enabled()) {
-                log_warning("The kernel auditing subsystem is known to be incompatible with containers.\n"
-                            "Please make sure to turn off auditing with 'audit=0' on the kernel command\n"
-                            "line before using systemd-nspawn. Sleeping for 5s...\n");
-                sleep(5);
-        }
-
-        if (path_equal(arg_directory, "/")) {
-                log_error("Spawning container on root directory not supported.");
-                goto finish;
-        }
-
-        if (path_is_os_tree(arg_directory) <= 0) {
-                log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
-                goto finish;
-        }
-
         log_close();
         n_fd_passed = sd_listen_fds(false);
         if (n_fd_passed > 0) {
@@ -1314,6 +2654,54 @@ int main(int argc, char *argv[]) {
         }
         fdset_close_others(fds);
         log_open();
+
+        if (arg_directory) {
+                if (path_equal(arg_directory, "/")) {
+                        log_error("Spawning container on root directory not supported.");
+                        goto finish;
+                }
+
+                if (arg_boot) {
+                        if (path_is_os_tree(arg_directory) <= 0) {
+                                log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
+                                goto finish;
+                        }
+                } else {
+                        const char *p;
+
+                        p = strappenda(arg_directory,
+                                       argc > optind && path_is_absolute(argv[optind]) ? argv[optind] : "/usr/bin/");
+                        if (access(p, F_OK) < 0) {
+                                log_error("Directory %s lacks the binary to execute or doesn't look like a binary tree. Refusing.", arg_directory);
+                                goto finish;
+
+                        }
+                }
+        } else {
+                char template[] = "/tmp/nspawn-root-XXXXXX";
+
+                if (!mkdtemp(template)) {
+                        log_error("Failed to create temporary directory: %m");
+                        r = -errno;
+                        goto finish;
+                }
+
+                arg_directory = strdup(template);
+                if (!arg_directory) {
+                        r = log_oom();
+                        goto finish;
+                }
+
+                image_fd = setup_image(&device_path, &loop_nr);
+                if (image_fd < 0) {
+                        r = image_fd;
+                        goto finish;
+                }
+
+                r = dissect_image(image_fd, &root_device, &root_device_rw, &home_device, &home_device_rw, &srv_device, &srv_device_rw, &secondary);
+                if (r < 0)
+                        goto finish;
+        }
 
         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
         if (master < 0) {
@@ -1327,26 +2715,36 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_info("Spawning namespace container on %s (console is %s).", arg_directory, console);
-
-        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) >= 0)
-                ioctl(master, TIOCSWINSZ, &ws);
+        if (!arg_quiet)
+                log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_image ? arg_image : arg_directory);
 
         if (unlockpt(master) < 0) {
                 log_error("Failed to unlock tty: %m");
                 goto finish;
         }
 
-        if (tcgetattr(STDIN_FILENO, &saved_attr) >= 0) {
-                saved_attr_valid = true;
+        if (access("/dev/kdbus/control", F_OK) >= 0) {
 
-                raw_attr = saved_attr;
-                cfmakeraw(&raw_attr);
-                raw_attr.c_lflag &= ~ECHO;
+                if (arg_share_system) {
+                        kdbus_domain = strdup("/dev/kdbus");
+                        if (!kdbus_domain) {
+                                log_oom();
+                                goto finish;
+                        }
+                } else {
+                        const char *ns;
+
+                        ns = strappenda("machine-", arg_machine);
+                        kdbus_fd = bus_kernel_create_domain(ns, &kdbus_domain);
+                        if (r < 0)
+                                log_debug("Failed to create kdbus domain: %s", strerror(-r));
+                        else
+                                log_debug("Successfully created kdbus domain as %s", kdbus_domain);
+                }
         }
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, kmsg_socket_pair) < 0) {
-                log_error("Failed to create kmsg socket pair.");
+                log_error("Failed to create kmsg socket pair: %m");
                 goto finish;
         }
 
@@ -1357,21 +2755,26 @@ int main(int argc, char *argv[]) {
         assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
 
         for (;;) {
+                int parent_ready_fd = -1, child_ready_fd = -1;
                 siginfo_t status;
-                int pipefd[2], pipefd2[2];
+                eventfd_t x;
 
-                if (pipe2(pipefd, O_NONBLOCK|O_CLOEXEC) < 0) {
-                        log_error("pipe2(): %m");
+                parent_ready_fd = eventfd(0, EFD_CLOEXEC);
+                if (parent_ready_fd < 0) {
+                        log_error("Failed to create event fd: %m");
                         goto finish;
                 }
 
-                if (pipe2(pipefd2, O_NONBLOCK|O_CLOEXEC) < 0) {
-                        log_error("pipe2(): %m");
-                        close_pipe(pipefd);
+                child_ready_fd = eventfd(0, EFD_CLOEXEC);
+                if (child_ready_fd < 0) {
+                        log_error("Failed to create event fd: %m");
                         goto finish;
                 }
 
-                pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWIPC|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|(arg_private_network ? CLONE_NEWNET : 0), NULL);
+                pid = syscall(__NR_clone,
+                              SIGCHLD|CLONE_NEWNS|
+                              (arg_share_system ? 0 : CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS)|
+                              (arg_private_network ? CLONE_NEWNET : 0), NULL);
                 if (pid < 0) {
                         if (errno == EINVAL)
                                 log_error("clone() failed, do you have namespace support enabled in your kernel? (You need UTS, IPC, PID and NET namespacing built in): %m");
@@ -1383,12 +2786,10 @@ int main(int argc, char *argv[]) {
 
                 if (pid == 0) {
                         /* child */
-                        const char *home = NULL;
-                        uid_t uid = (uid_t) -1;
-                        gid_t gid = (gid_t) -1;
+                        _cleanup_free_ char *home = NULL;
                         unsigned n_env = 2;
                         const char *envp[] = {
-                                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                                "PATH=" DEFAULT_PATH_SPLIT_USR,
                                 "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
                                 NULL, /* TERM */
                                 NULL, /* HOME */
@@ -1399,32 +2800,19 @@ int main(int argc, char *argv[]) {
                                 NULL, /* LISTEN_PID */
                                 NULL
                         };
+                        char **env_use;
 
                         envp[n_env] = strv_find_prefix(environ, "TERM=");
                         if (envp[n_env])
                                 n_env ++;
 
-                        /* Wait for the parent process to log our PID */
-                        close_nointr_nofail(pipefd[1]);
-                        fd_wait_for_event(pipefd[0], POLLHUP, -1);
-                        close_nointr_nofail(pipefd[0]);
-
-                        close_nointr_nofail(master);
-                        master = -1;
-
-                        if (saved_attr_valid) {
-                                if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
-                                        log_error("Failed to set terminal attributes: %m");
-                                        goto child_fail;
-                                }
-                        }
+                        master = safe_close(master);
 
                         close_nointr(STDIN_FILENO);
                         close_nointr(STDOUT_FILENO);
                         close_nointr(STDERR_FILENO);
 
-                        close_nointr_nofail(kmsg_socket_pair[0]);
-                        kmsg_socket_pair[0] = -1;
+                        kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
 
                         reset_all_signal_handlers();
 
@@ -1434,7 +2822,7 @@ int main(int argc, char *argv[]) {
                         k = open_terminal(console, O_RDWR);
                         if (k != STDIN_FILENO) {
                                 if (k >= 0) {
-                                        close_nointr_nofail(k);
+                                        safe_close(k);
                                         k = -EINVAL;
                                 }
 
@@ -1453,16 +2841,13 @@ int main(int argc, char *argv[]) {
                                 goto child_fail;
                         }
 
+                        if (reset_audit_loginuid() < 0)
+                                goto child_fail;
+
                         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
                                 log_error("PR_SET_PDEATHSIG failed: %m");
                                 goto child_fail;
                         }
-
-                        close_pipe(pipefd2);
-
-                        r = register_machine();
-                        if (r < 0)
-                                goto finish;
 
                         /* Mark everything as slave, so that we still
                          * receive mounts from the real root, but don't
@@ -1471,6 +2856,12 @@ int main(int argc, char *argv[]) {
                                 log_error("MS_SLAVE|MS_REC failed: %m");
                                 goto child_fail;
                         }
+
+                        if (mount_devices(arg_directory,
+                                          root_device, root_device_rw,
+                                          home_device, home_device_rw,
+                                          srv_device, srv_device_rw) < 0)
+                                goto child_fail;
 
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
@@ -1495,14 +2886,16 @@ int main(int argc, char *argv[]) {
 
                         dev_setup(arg_directory);
 
+                        if (audit_still_doesnt_work_in_containers() < 0)
+                                goto child_fail;
+
                         if (setup_dev_console(arg_directory, console) < 0)
                                 goto child_fail;
 
                         if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
                                 goto child_fail;
 
-                        close_nointr_nofail(kmsg_socket_pair[1]);
-                        kmsg_socket_pair[1] = -1;
+                        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
 
                         if (setup_boot_id(arg_directory) < 0)
                                 goto child_fail;
@@ -1521,6 +2914,15 @@ int main(int argc, char *argv[]) {
 
                         if (mount_binds(arg_directory, arg_bind_ro, MS_RDONLY) < 0)
                                 goto child_fail;
+
+                        if (setup_kdbus(arg_directory, kdbus_domain) < 0)
+                                goto child_fail;
+
+                        /* Tell the parent that we are ready, and that
+                         * it can cgroupify us to that we lack access
+                         * to certain devices and resources. */
+                        eventfd_write(child_ready_fd, 1);
+                        child_ready_fd = safe_close(child_ready_fd);
 
                         if (chdir(arg_directory) < 0) {
                                 log_error("chdir(%s) failed: %m", arg_directory);
@@ -1544,68 +2946,17 @@ int main(int argc, char *argv[]) {
 
                         umask(0022);
 
-                        loopback_setup();
+                        if (arg_private_network)
+                                loopback_setup();
 
                         if (drop_capabilities() < 0) {
                                 log_error("drop_capabilities() failed: %m");
                                 goto child_fail;
                         }
 
-                        if (arg_user) {
-
-                                /* Note that this resolves user names
-                                 * inside the container, and hence
-                                 * accesses the NSS modules from the
-                                 * container and not the host. This is
-                                 * a bit weird... */
-
-                                if (get_user_creds((const char**)&arg_user, &uid, &gid, &home, NULL) < 0) {
-                                        log_error("get_user_creds() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (mkdir_parents_label(home, 0775) < 0) {
-                                        log_error("mkdir_parents_label() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (mkdir_safe_label(home, 0775, uid, gid) < 0) {
-                                        log_error("mkdir_safe_label() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (initgroups((const char*)arg_user, gid) < 0) {
-                                        log_error("initgroups() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresgid(gid, gid, gid) < 0) {
-                                        log_error("setregid() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresuid(uid, uid, uid) < 0) {
-                                        log_error("setreuid() failed: %m");
-                                        goto child_fail;
-                                }
-                        } else {
-                                /* Reset everything fully to 0, just in case */
-
-                                if (setgroups(0, NULL) < 0) {
-                                        log_error("setgroups() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresgid(0, 0, 0) < 0) {
-                                        log_error("setregid() failed: %m");
-                                        goto child_fail;
-                                }
-
-                                if (setresuid(0, 0, 0) < 0) {
-                                        log_error("setreuid() failed: %m");
-                                        goto child_fail;
-                                }
-                        }
+                        r = change_uid_gid(&home);
+                        if (r < 0)
+                                goto child_fail;
 
                         if ((asprintf((char**)(envp + n_env++), "HOME=%s", home ? home: "/root") < 0) ||
                             (asprintf((char**)(envp + n_env++), "USER=%s", arg_user ? arg_user : "root") < 0) ||
@@ -1637,6 +2988,43 @@ int main(int argc, char *argv[]) {
 
                         setup_hostname();
 
+                        if (arg_personality != 0xffffffffLU) {
+                                if (personality(arg_personality) < 0) {
+                                        log_error("personality() failed: %m");
+                                        goto child_fail;
+                                }
+                        } else if (secondary) {
+                                if (personality(PER_LINUX32) < 0) {
+                                        log_error("personality() failed: %m");
+                                        goto child_fail;
+                                }
+                        }
+
+#ifdef HAVE_SELINUX
+                        if (arg_selinux_context)
+                                if (setexeccon((security_context_t) arg_selinux_context) < 0) {
+                                        log_error("setexeccon(\"%s\") failed: %m", arg_selinux_context);
+                                        goto child_fail;
+                                }
+#endif
+
+                        if (!strv_isempty(arg_setenv)) {
+                                char **n;
+
+                                n = strv_env_merge(2, envp, arg_setenv);
+                                if (!n) {
+                                        log_oom();
+                                        goto child_fail;
+                                }
+
+                                env_use = n;
+                        } else
+                                env_use = (char**) envp;
+
+                        /* Wait until the parent is ready with the setup, too... */
+                        eventfd_read(parent_ready_fd, &x);
+                        parent_ready_fd = safe_close(parent_ready_fd);
+
                         if (arg_boot) {
                                 char **a;
                                 size_t l;
@@ -1648,18 +3036,19 @@ int main(int argc, char *argv[]) {
                                 memcpy(a + 1, argv + optind, l * sizeof(char*));
 
                                 a[0] = (char*) "/usr/lib/systemd/systemd";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
 
                                 a[0] = (char*) "/lib/systemd/systemd";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
 
                                 a[0] = (char*) "/sbin/init";
-                                execve(a[0], a, (char**) envp);
+                                execve(a[0], a, env_use);
                         } else if (argc > optind)
-                                execvpe(argv[optind], argv + optind, (char**) envp);
+                                execvpe(argv[optind], argv + optind, env_use);
                         else {
                                 chdir(home ? home : "/root");
-                                execle("/bin/bash", "-bash", NULL, (char**) envp);
+                                execle("/bin/bash", "-bash", NULL, env_use);
+                                execle("/bin/sh", "-sh", NULL, env_use);
                         }
 
                         log_error("execv() failed: %m");
@@ -1668,25 +3057,58 @@ int main(int argc, char *argv[]) {
                         _exit(EXIT_FAILURE);
                 }
 
-                log_info("Init process in the container running as PID %lu.", (unsigned long) pid);
-                close_nointr_nofail(pipefd[0]);
-                close_nointr_nofail(pipefd[1]);
-
-                /* Wait for the child process to establish cgroup hierarchy */
-                close_nointr_nofail(pipefd2[1]);
-                fd_wait_for_event(pipefd2[0], POLLHUP, -1);
-                close_nointr_nofail(pipefd2[0]);
-
                 fdset_free(fds);
                 fds = NULL;
 
-                if (process_pty(master, pid, &mask) < 0)
+                /* Wait until the child reported that it is ready with
+                 * all it needs to do with priviliges. After we got
+                 * the notification we can make the process join its
+                 * cgroup which might limit what it can do */
+                eventfd_read(child_ready_fd, &x);
+
+                r = register_machine(pid);
+                if (r < 0)
                         goto finish;
 
-                if (saved_attr_valid)
-                        tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
+                r = move_network_interfaces(pid);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_veth(pid, veth_name);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_bridge(veth_name);
+                if (r < 0)
+                        goto finish;
+
+                r = setup_macvlan(pid);
+                if (r < 0)
+                        goto finish;
+
+                /* Notify the child that the parent is ready with all
+                 * its setup, and thtat the child can now hand over
+                 * control to the code to run inside the container. */
+                eventfd_write(parent_ready_fd, 1);
+
+                k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
+                if (k < 0) {
+                        r = EXIT_FAILURE;
+                        break;
+                }
+
+                if (!arg_quiet)
+                        putc('\n', stdout);
+
+                /* Kill if it is not dead yet anyway */
+                terminate_machine(pid);
+
+                /* Redundant, but better safe than sorry */
+                kill(pid, SIGKILL);
 
                 k = wait_for_terminate(pid, &status);
+                pid = 0;
+
                 if (k < 0) {
                         r = EXIT_FAILURE;
                         break;
@@ -1695,47 +3117,53 @@ int main(int argc, char *argv[]) {
                 if (status.si_code == CLD_EXITED) {
                         r = status.si_status;
                         if (status.si_status != 0) {
-                                log_error("Container failed with error code %i.", status.si_status);
+                                log_error("Container %s failed with error code %i.", arg_machine, status.si_status);
                                 break;
                         }
 
-                        log_debug("Container exited successfully.");
+                        if (!arg_quiet)
+                                log_debug("Container %s exited successfully.", arg_machine);
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGINT) {
-                        log_info("Container has been shut down.");
+
+                        if (!arg_quiet)
+                                log_info("Container %s has been shut down.", arg_machine);
                         r = 0;
                         break;
                 } else if (status.si_code == CLD_KILLED &&
                            status.si_status == SIGHUP) {
-                        log_info("Container is being rebooted.");
+
+                        if (!arg_quiet)
+                                log_info("Container %s is being rebooted.", arg_machine);
                         continue;
                 } else if (status.si_code == CLD_KILLED ||
                            status.si_code == CLD_DUMPED) {
 
-                        log_error("Container terminated by signal %s.", signal_to_string(status.si_status));
+                        log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
                         r = EXIT_FAILURE;
                         break;
                 } else {
-                        log_error("Container failed due to unknown reason.");
+                        log_error("Container %s failed due to unknown reason.", arg_machine);
                         r = EXIT_FAILURE;
                         break;
                 }
         }
 
 finish:
-        if (saved_attr_valid)
-                tcsetattr(STDIN_FILENO, TCSANOW, &saved_attr);
-
-        close_pipe(kmsg_socket_pair);
+        loop_remove(loop_nr, &image_fd);
 
         if (pid > 0)
                 kill(pid, SIGKILL);
 
         free(arg_directory);
         free(arg_machine);
-
-        fdset_free(fds);
+        free(arg_user);
+        strv_free(arg_setenv);
+        strv_free(arg_network_interfaces);
+        strv_free(arg_network_macvlan);
+        strv_free(arg_bind);
+        strv_free(arg_bind_ro);
 
         return r;
 }

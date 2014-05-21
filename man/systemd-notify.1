@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 208" "systemd-notify"
+.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 212" "systemd-notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,16 +43,6 @@ is set for the service unit this command is called from\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-\-ready\fR
 .RS 4
 Inform the init system about service start\-up completion\&. This is equivalent to
@@ -87,9 +77,19 @@ Returns 0 if the system was booted up with systemd, non\-zero otherwise\&. If th
 Controls disk read\-ahead operations\&. The argument must be a string, and either "cancel", "done" or "noreplay"\&. For details about the semantics of this option see
 \fBsd_readahead\fR(3)\&.
 .RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&Start-up Notification and Status Updates\fR

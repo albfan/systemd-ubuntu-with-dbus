@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [208],
+        [212],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -33,6 +33,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 AC_PREFIX_DEFAULT([/usr])
+AM_MAINTAINER_MODE([enable])
 AM_INIT_AUTOMAKE([foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects check-news])
 AM_SILENT_RULES([yes])
 AC_CANONICAL_HOST
@@ -59,24 +60,23 @@ AC_PROG_SED
 AC_PROG_GREP
 AC_PROG_AWK
 
-AC_PROG_CC
 AC_PROG_CC_C99
-AM_PROG_CC_C_O
-AC_PROG_GCC_TRADITIONAL
 
 AC_PATH_PROG([M4], [m4])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
-AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon])
-AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck])
+AC_PATH_PROG([QUOTAON], [quotaon], [/usr/sbin/quotaon], [$PATH:/usr/sbin:/sbin])
+AC_PATH_PROG([QUOTACHECK], [quotacheck], [/usr/sbin/quotacheck], [$PATH:/usr/sbin:/sbin])
 
-AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap])
+AC_PATH_PROG([SETCAP], [setcap], [/usr/sbin/setcap], [$PATH:/usr/sbin:/sbin])
 
-AC_PATH_PROG([KILL], [kill], [/usr/bin/kill])
+AC_PATH_PROG([KILL], [kill], [/usr/bin/kill], [$PATH:/usr/sbin:/sbin])
 
-AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod])
+AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
 
-AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec])
+AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec], [$PATH:/usr/sbin:/sbin])
+
+M4_DEFINES=
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
 m4_ifdef([GTK_DOC_CHECK], [
@@ -94,7 +94,6 @@ GOBJECT_INTROSPECTION_CHECK([1.31.1])
    AM_CONDITIONAL([HAVE_INTROSPECTION], [false])
    enable_introspection=no])
 
-AC_CHECK_TOOL(OBJCOPY, objcopy)
 AC_CHECK_TOOL(STRINGS, strings)
 AC_CHECK_TOOL(GPERF, gperf)
 if test -z "$GPERF" ; then
@@ -130,6 +129,7 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Winit-self \
         -Wdeclaration-after-statement \
         -Wfloat-equal \
+        -Wsuggest-attribute=noreturn \
         -Wmissing-prototypes \
         -Wstrict-prototypes \
         -Wredundant-decls \
@@ -137,7 +137,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wmissing-noreturn \
         -Wshadow \
         -Wendif-labels \
-        -Wcast-align \
         -Wstrict-aliasing=2 \
         -Wwrite-strings \
         -Wno-long-long \
@@ -146,6 +145,8 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -Wno-missing-field-initializers \
         -Wno-unused-result \
         -Werror=overflow \
+        -Wdate-time \
+        -Wnested-externs \
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
@@ -156,9 +157,13 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fdata-sections \
         -fstack-protector \
         --param=ssp-buffer-size=4])
+AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
+        [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
+               -flto])],
+        [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
 AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
 
-AS_CASE([$CFLAGS], [*-O[[12345g\ ]]*],
+AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
@@ -169,8 +174,13 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--no-undefined \
         -Wl,--gc-sections \
         -Wl,-z,relro \
-        -Wl,-z,now])
+        -Wl,-z,now \
+        -Wl,-fuse-ld=gold])
 AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
+
+AC_CHECK_SIZEOF(pid_t)
+AC_CHECK_SIZEOF(uid_t)
+AC_CHECK_SIZEOF(gid_t)
 
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
@@ -178,9 +188,11 @@ have_python=no
 AC_ARG_WITH([python],
         [AS_HELP_STRING([--without-python], [Disable building the man page index and systemd-python (default: test)])])
 
+have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
-        AS_IF([test "$PYTHON" != :], [have_python=yes])
+        AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes], [have_lxml=no])
+        AS_IF([test "$PYTHON" != : -a $have_lxml = yes], [have_python=yes])
 ])
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
@@ -229,16 +241,37 @@ LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at], [], [], [[#include <sys/types.h>
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN], [], [], [[#include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>
-#include <fcntl.h>]])
+#include <fcntl.h>
+#include <sched.h>
+#include <linux/loop.h>]])
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
 
-PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2])
+# ------------------------------------------------------------------------------
+have_dbus=no
+AC_ARG_ENABLE(dbus, AS_HELP_STRING([--disable-dbus], [disable usage of dbus-1 in tests]))
+AS_IF([test "x$enable_dbus" != "xno"], [
+        PKG_CHECK_MODULES(DBUS, [dbus-1 >= 1.3.2],
+                [AC_DEFINE(HAVE_DBUS, 1, [Define if dbus-1 library is available]) have_dbus=yes],
+                [have_dbus=no])
+        AS_IF([test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"],
+                [AC_MSG_ERROR([*** dbus-1 support requested but libraries not found])])])
+AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
 
+# ------------------------------------------------------------------------------
+have_compat_libs=no
+AC_ARG_ENABLE([compat_libs], AS_HELP_STRING([--enable-compat-libs],[Enable creation of compatibility libraries]),
+                [case "${enableval}" in
+                        yes) have_compat_libs=yes ;;
+                        no) have_compat_libs=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --enable-compat-libs) ;;
+                esac],
+                [have_compat_libs=no])
+AM_CONDITIONAL([ENABLE_COMPAT_LIBS], [test "$have_compat_libs" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_coverage=no
@@ -269,9 +302,9 @@ AC_ARG_ENABLE(kmod, AS_HELP_STRING([--disable-kmod], [disable loadable modules s
 if test "x$enable_kmod" != "xno"; then
         PKG_CHECK_EXISTS([ libkmod ], have_kmod=yes, have_kmod=no)
         if test "x$have_kmod" = "xyes"; then
-                PKG_CHECK_MODULES(KMOD, [ libkmod >= 14 ],
+                PKG_CHECK_MODULES(KMOD, [ libkmod >= 15 ],
                         [AC_DEFINE(HAVE_KMOD, 1, [Define if kmod is available])],
-                        AC_MSG_ERROR([*** kmod version >= 14 not found]))
+                        AC_MSG_ERROR([*** kmod version >= 15 not found]))
         fi
         if test "x$have_kmod" = xno -a "x$enable_kmod" = xyes; then
                 AC_MSG_ERROR([*** kmod support requested, but libraries not found])
@@ -290,6 +323,21 @@ if test "x$enable_blkid" != "xno"; then
         fi
 fi
 AM_CONDITIONAL(HAVE_BLKID, [test "$have_blkid" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_seccomp=no
+AC_ARG_ENABLE(seccomp, AS_HELP_STRING([--disable-seccomp], [Disable optional SECCOMP support]))
+if test "x$enable_seccomp" != "xno"; then
+        PKG_CHECK_MODULES(SECCOMP, [libseccomp >= 1.0.0],
+               [AC_DEFINE(HAVE_SECCOMP, 1, [Define if seccomp is available])
+                have_seccomp=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_SECCOMP"],
+               [have_seccomp=no])
+        if test "x$have_seccomp" = "xno" -a "x$enable_seccomp" = "xyes"; then
+                AC_MSG_ERROR([*** seccomp support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_SECCOMP, [test "$have_seccomp" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_ima=yes
@@ -329,12 +377,30 @@ have_selinux=no
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--disable-selinux], [Disable optional SELINUX support]))
 if test "x$enable_selinux" != "xno"; then
         PKG_CHECK_MODULES([SELINUX], [libselinux >= 2.1.9],
-                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available]) have_selinux=yes], have_selinux=no)
+                [AC_DEFINE(HAVE_SELINUX, 1, [Define if SELinux is available])
+                 have_selinux=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_SELINUX"],
+                [have_selinux=no])
         if test "x$have_selinux" = xno -a "x$enable_selinux" = xyes; then
                 AC_MSG_ERROR([*** SELinux support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_SELINUX, [test "$have_selinux" = "yes"])
+
+have_apparmor=no
+AC_ARG_ENABLE(apparmor, AS_HELP_STRING([--disable-apparmor], [Disable optional AppArmor support]))
+if test "x$enable_apparmor" != "xno"; then
+        PKG_CHECK_MODULES([APPARMOR], [libapparmor],
+                [AC_DEFINE(HAVE_APPARMOR, 1, [Define if AppArmor is available])
+                 have_apparmor=yes
+                 M4_DEFINES="$M4_DEFINES -DHAVE_APPARMOR"],
+                [have_apparmor=no])
+        if test "x$have_apparmor" = xno -a "x$enable_apparmor" = xyes; then
+                AC_MSG_ERROR([*** AppArmor support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_APPARMOR, [test "$have_apparmor" = "yes"])
+
 
 AC_ARG_WITH(debug-shell,
         AS_HELP_STRING([--with-debug-shell=PATH],
@@ -365,31 +431,6 @@ fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_ENABLE([tcpwrap],
-        AS_HELP_STRING([--disable-tcpwrap],[Disable optional TCP wrappers support]),
-                [case "${enableval}" in
-                        yes) have_tcpwrap=yes ;;
-                        no) have_tcpwrap=no ;;
-                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-tcpwrap) ;;
-                esac],
-                [have_tcpwrap=auto])
-
-if test "x${have_tcpwrap}" != xno ; then
-        ACX_LIBWRAP
-        if test "x${LIBWRAP_LIBS}" = x ; then
-                if test "x$have_tcpwrap" = xyes ; then
-                        AC_MSG_ERROR([*** TCP wrappers support not found.])
-                fi
-                have_tcpwrap=no
-        else
-                have_tcpwrap=yes
-        fi
-else
-        LIBWRAP_LIBS=
-fi
-AC_SUBST(LIBWRAP_LIBS)
-
-# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
         AS_HELP_STRING([--disable-pam],[Disable optional PAM support]),
                 [case "${enableval}" in
@@ -418,6 +459,7 @@ if test "x${have_pam}" != xno ; then
         if test "x$have_pam" = xyes ; then
                 PAM_LIBS="-lpam -lpam_misc"
                 AC_DEFINE(HAVE_PAM, 1, [PAM available])
+                M4_DEFINES="$M4_DEFINES -DHAVE_PAM"
         else
                 have_pam=no
         fi
@@ -520,9 +562,16 @@ if test "x${have_xattr}" = xno; then
         fi
 else
         if test "x${have_smack}" = xauto; then
+                M4_DEFINES="$M4_DEFINES -DHAVE_SMACK"
                 have_smack=yes
         fi
 fi
+
+AC_ARG_WITH(smack-run-label,
+AS_HELP_STRING([--with-smack-run-label=STRING],
+        [run systemd --system with a specific SMACK label]),
+        [AC_DEFINE_UNQUOTED(SMACK_RUN_LABEL, ["$withval"], [Run with a smack label])],
+        [])
 
 if test "x${have_smack}" = xyes ; then
         AC_DEFINE(HAVE_SMACK, 1, [Define if SMACK is available])
@@ -626,13 +675,25 @@ AM_CONDITIONAL(HAVE_QRENCODE, [test "$have_qrencode" = "yes"])
 have_microhttpd=no
 AC_ARG_ENABLE(microhttpd, AS_HELP_STRING([--disable-microhttpd], [disable microhttpd support]))
 if test "x$enable_microhttpd" != "xno"; then
-        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.5],
+        PKG_CHECK_MODULES(MICROHTTPD, [libmicrohttpd >= 0.9.33],
                 [AC_DEFINE(HAVE_MICROHTTPD, 1, [Define if microhttpd is available]) have_microhttpd=yes], have_microhttpd=no)
         if test "x$have_microhttpd" = xno -a "x$enable_microhttpd" = xyes; then
                 AC_MSG_ERROR([*** microhttpd support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_MICROHTTPD, [test "$have_microhttpd" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_gnutls=no
+AC_ARG_ENABLE(gnutls, AS_HELP_STRING([--disable-gnutls], [disable gnutls support]))
+if test "x$enable_gnutls" != "xno"; then
+        PKG_CHECK_MODULES(GNUTLS, [gnutls >= 3.1.4],
+                [AC_DEFINE(HAVE_GNUTLS, 1, [Define if gnutls is available]) have_gnutls=yes], have_gnutls=no)
+        if test "x$have_gnutls" = xno -a "x$enable_gnutls" = xyes; then
+                AC_MSG_ERROR([*** gnutls support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_binfmt=no
@@ -699,6 +760,14 @@ fi
 AM_CONDITIONAL(ENABLE_BACKLIGHT, [test "$have_backlight" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_rfkill=no
+AC_ARG_ENABLE(rfkill, AS_HELP_STRING([--disable-rfkill], [disable rfkill tools]))
+if test "x$enable_rfkill" != "xno"; then
+        have_rfkill=yes
+fi
+AM_CONDITIONAL(ENABLE_RFKILL, [test "$have_rfkill" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_logind=no
 AC_ARG_ENABLE(logind, AS_HELP_STRING([--disable-logind], [disable login daemon]))
 if test "x$enable_logind" != "xno"; then
@@ -758,6 +827,14 @@ fi
 AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
+if test "x$enable_networkd" != "xno"; then
+        AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
+        have_networkd=yes
+fi
+AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
+
+# ------------------------------------------------------------------------------
 have_efi=no
 AC_ARG_ENABLE(efi, AS_HELP_STRING([--disable-efi], [disable EFI support]))
 if test "x$enable_efi" != "xno"; then
@@ -765,6 +842,24 @@ if test "x$enable_efi" != "xno"; then
         have_efi=yes
 fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
+
+# ------------------------------------------------------------------------------
+have_multi_seat_x=no
+AC_ARG_ENABLE(multi_seat_x, AS_HELP_STRING([--disable-multi-seat-x], [do not build multi-seat-x]))
+if test "x$enable_multi_seat_x" != "xno"; then
+        have_multi_seat_x=yes
+fi
+AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_kdbus=no
+AC_ARG_ENABLE(kdbus, AS_HELP_STRING([--enable-kdbus], [do connect to kdbus by default]))
+if test "x$enable_kdbus" = "xyes"; then
+        AC_DEFINE(ENABLE_KDBUS, 1, [Define if kdbus support is to be enabled])
+        have_kdbus=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_KDBUS"
+fi
+AM_CONDITIONAL(ENABLE_KDBUS, [test "$have_kdbus" = "yes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_WITH(rc-local-script-path-start,
@@ -814,7 +909,7 @@ AC_DEFINE_UNQUOTED(TELINIT, ["$TELINIT"], [Path to telinit])
 
 AC_SUBST(TELINIT)
 
-AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h])
+AC_CHECK_HEADERS_ONCE([valgrind/memcheck.h valgrind/valgrind.h])
 
 # ------------------------------------------------------------------------------
 have_myhostname=no
@@ -865,12 +960,7 @@ AS_IF([test "x$enable_gudev" = "xyes"], [ AC_DEFINE(HAVE_GLIB, 1, [Define if gli
 # ------------------------------------------------------------------------------
 have_manpages=no
 AC_ARG_ENABLE(manpages, AS_HELP_STRING([--disable-manpages], [disable manpages]))
-AS_IF([test "x$enable_manpages" != xno], [
-        AS_IF([test "x$enable_manpages" = xyes -a "x$XSLTPROC" = x], [
-                AC_MSG_ERROR([*** Manpages requested but xsltproc not found])
-        ])
-        AS_IF([test "x$XSLTPROC" != x], [have_manpages=yes])
-])
+AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
@@ -878,7 +968,6 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
-M4_DEFINES=
 
 AC_ARG_WITH([sysvinit-path],
         [AS_HELP_STRING([--with-sysvinit-path=PATH],
@@ -1015,11 +1104,12 @@ AC_MSG_RESULT([
         $PACKAGE_NAME $VERSION
 
         libcryptsetup:           ${have_libcryptsetup}
-        tcpwrap:                 ${have_tcpwrap}
         PAM:                     ${have_pam}
         AUDIT:                   ${have_audit}
         IMA:                     ${have_ima}
+        AppArmor:                ${have_apparmor}
         SELinux:                 ${have_selinux}
+        SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
         XZ:                      ${have_xz}
         ACL:                     ${have_acl}
@@ -1028,6 +1118,7 @@ AC_MSG_RESULT([
         QRENCODE:                ${have_qrencode}
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
+        GNUTLS:                  ${have_gnutls}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
@@ -1036,19 +1127,24 @@ AC_MSG_RESULT([
         tmpfiles:                ${have_tmpfiles}
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
+        rfkill:                  ${have_rfkill}
         logind:                  ${have_logind}
         machined:                ${have_machined}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
         localed:                 ${have_localed}
+        networkd:                ${have_networkd}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
         kmod:                    ${have_kmod}
         blkid:                   ${have_blkid}
+        dbus:                    ${have_dbus}
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
+        multi-seat-x:            ${have_multi_seat_x}
+        kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
         man pages:               ${have_manpages}
@@ -1056,6 +1152,7 @@ AC_MSG_RESULT([
         test coverage:           ${have_coverage}
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
+        compatibility libraries: ${have_compat_libs}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}

@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEV" "7" "" "systemd 208" "udev"
+.TH "UDEV" "7" "" "systemd 212" "udev"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,10 +42,10 @@ and the local administration directory
 have the highest priority, files in
 /run
 take precedence over files with the same name in
-/lib\&. This can be used to override a system\-supplied rules file with a local file if needed; a symlink in
+/usr/lib\&. This can be used to override a system\-supplied rules file with a local file if needed; a symlink in
 /etc
 with the same name as a rules file in
-/lib, pointing to
+/usr/lib, pointing to
 /dev/null, disables the rules file entirely\&. Rule files must have the extension
 \&.rules; other extensions are ignored\&.
 .PP
@@ -167,15 +167,21 @@ Test the existence of a file\&. An octal mode mask can be specified if needed\&.
 .PP
 \fIPROGRAM\fR
 .RS 4
-Execute a program to determine whether there is a match; the key is true if the program returns successfully\&. The device properties are made available to the executed program in the environment\&. The program\*(Aqs stdout is available in the RESULT key\&.
+Execute a program to determine whether there is a match; the key is true if the program returns successfully\&. The device properties are made available to the executed program in the environment\&. The program\*(Aqs standard ouput is available in the
+\fIRESULT\fR
+key\&.
 .sp
-This can only be used for very short\-running foreground tasks\&. For details see
+This can only be used for very short\-running foreground tasks\&. For details, see
 \fIRUN\fR\&.
 .RE
 .PP
 \fIRESULT\fR
 .RS 4
-Match the returned string of the last PROGRAM call\&. This key can be used in the same or in any later rule after a PROGRAM call\&.
+Match the returned string of the last
+\fIPROGRAM\fR
+call\&. This key can be used in the same or in any later rule after a
+\fIPROGRAM\fR
+call\&.
 .RE
 .PP
 Most of the fields support shell glob pattern matching\&. The following pattern characters are supported:
@@ -199,7 +205,9 @@ would match either
 or
 "ttyR"\&. Ranges are also supported via the
 "\-"
-character\&. For example, to match on the range of all digits, the pattern [0\-9] could be used\&. If the first character following the
+character\&. For example, to match on the range of all digits, the pattern
+"[0\-9]"
+could be used\&. If the first character following the
 "["
 is a
 "!", any characters not enclosed are matched\&.
@@ -209,7 +217,9 @@ The following keys can get values assigned:
 .PP
 \fINAME\fR
 .RS 4
-The name to use for a network interface\&. The name of a device node cannot be changed by udev, only additional symlinks can be created\&.
+The name to use for a network interface\&. See
+\fBsystemd.link\fR(5)
+for a higher\-level mechanism for setting the interface name\&. The name of a device node cannot be changed by udev, only additional symlinks can be created\&.
 .RE
 .PP
 \fISYMLINK\fR
@@ -233,6 +243,11 @@ Symlink names must never conflict with the kernel\*(Aqs default device node name
 The permissions for the device node\&. Every specified value overrides the compiled\-in default value\&.
 .RE
 .PP
+\fISECLABEL{\fR\fI\fImodule\fR\fR\fI}\fR
+.RS 4
+Applies the specified Linux Security Module label to the device node\&.
+.RE
+.PP
 \fIATTR{\fR\fI\fIkey\fR\fR\fI}\fR
 .RS 4
 The value that should be written to a sysfs attribute of the event device\&.
@@ -242,7 +257,9 @@ The value that should be written to a sysfs attribute of the event device\&.
 .RS 4
 Set a device property value\&. Property names with a leading
 "\&."
-are neither stored in the database nor exported to events or external tools (run by, say, the PROGRAM match key)\&.
+are neither stored in the database nor exported to events or external tools (run by, for example, the
+\fIPROGRAM\fR
+match key)\&.
 .RE
 .PP
 \fITAG\fR
@@ -257,7 +274,8 @@ Add a program to the list of programs to be executed after processing all the ru
 .PP
 "program"
 .RS 4
-Execute an external program specified as the assigned value\&. If no absolute path is given, the program is expected to live in /usr/lib/udev, otherwise the absolute path must be specified\&.
+Execute an external program specified as the assigned value\&. If no absolute path is given, the program is expected to live in
+/usr/lib/udev; otherwise, the absolute path must be specified\&.
 .sp
 This is the default if no
 \fItype\fR
@@ -274,17 +292,21 @@ The program name and following arguments are separated by spaces\&. Single quote
 .sp
 This can only be used for very short\-running foreground tasks\&. Running an event process for a long period of time may block all further events for this or a dependent device\&.
 .sp
-Starting daemons or other long running processes is not appropriate for udev; the forked processes, detached or not, will be unconditionally killed after the event handling has finished\&.
+Starting daemons or other long\-running processes is not appropriate for udev; the forked processes, detached or not, will be unconditionally killed after the event handling has finished\&.
 .RE
 .PP
 \fILABEL\fR
 .RS 4
-A named label to which a GOTO may jump\&.
+A named label to which a
+\fIGOTO\fR
+may jump\&.
 .RE
 .PP
 \fIGOTO\fR
 .RS 4
-Jumps to the next LABEL with a matching name\&.
+Jumps to the next
+\fILABEL\fR
+with a matching name\&.
 .RE
 .PP
 \fIIMPORT{\fR\fI\fItype\fR\fR\fI}\fR
@@ -379,8 +401,7 @@ The
 \fIPROGRAM\fR,
 \fIOWNER\fR,
 \fIGROUP\fR,
-\fIMODE\fR
-and
+\fIMODE\fR, and
 \fIRUN\fR
 fields support simple string substitutions\&. The
 \fIRUN\fR
@@ -409,8 +430,7 @@ The devpath of the device\&.
 The name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
 \fBKERNELS\fR,
-\fBDRIVERS\fR
-and
+\fBDRIVERS\fR, and
 \fBATTRS\fR\&.
 .RE
 .PP
@@ -419,14 +439,18 @@ and
 The driver name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
 \fBKERNELS\fR,
-\fBDRIVERS\fR
-and
+\fBDRIVERS\fR, and
 \fBATTRS\fR\&.
 .RE
 .PP
 \fB$attr{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
 .RS 4
-The value of a sysfs attribute found at the device where all keys of the rule have matched\&. If the matching device does not have such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or ATTRS test selected a parent device, then the attribute from that parent device is used\&.
+The value of a sysfs attribute found at the device where all keys of the rule have matched\&. If the matching device does not have such an attribute, and a previous
+\fBKERNELS\fR,
+\fBSUBSYSTEMS\fR,
+\fBDRIVERS\fR, or
+\fBATTRS\fR
+test selected a parent device, then the attribute from that parent device is used\&.
 .sp
 If the attribute is a symlink, the last element of the symlink target is returned as the value\&.
 .RE
@@ -448,7 +472,8 @@ The kernel minor number for the device\&.
 .PP
 \fB$result\fR, \fB%c\fR
 .RS 4
-The string returned by the external program requested with PROGRAM\&. A single part of the string, separated by a space character, may be selected by specifying the part number as an attribute:
+The string returned by the external program requested with
+\fIPROGRAM\fR\&. A single part of the string, separated by a space character, may be selected by specifying the part number as an attribute:
 "%c{N}"\&. If the number is followed by the
 "+"
 character, this part plus all remaining parts of the result string are substituted:
@@ -509,10 +534,10 @@ and the local administration directory
 have the highest priority, files in
 /run
 take precedence over files with the same name in
-/lib\&. This can be used to override a system\-supplied hwdb file with a local file if needed; a symlink in
+/usr/lib\&. This can be used to override a system\-supplied hwdb file with a local file if needed; a symlink in
 /etc
 with the same name as a hwdb file in
-/lib, pointing to
+/usr/lib, pointing to
 /dev/null, disables the hwdb file entirely\&. hwdb files must have the extension
 \&.hwdb; other extensions are ignored\&.
 .PP
@@ -530,4 +555,4 @@ and compiled to a binary database located at
 .SH "SEE ALSO"
 .PP
 \fBsystemd-udevd.service\fR(8),
-\fBudevadm\fR(8)
+\fBudevadm\fR(8)\fBsystemd.link\fR(5)

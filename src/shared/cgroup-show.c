@@ -63,9 +63,9 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
         pid_width = DECIMAL_STR_WIDTH(biggest);
 
         /* And sort */
-        qsort(pids, n_pids, sizeof(pid_t), compare);
+        qsort_safe(pids, n_pids, sizeof(pid_t), compare);
 
-        if(flags & OUTPUT_FULL_WIDTH)
+        if (flags & OUTPUT_FULL_WIDTH)
                 n_columns = 0;
         else {
                 if (n_columns > pid_width+2)
@@ -74,7 +74,7 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                         n_columns = 20;
         }
         for (i = 0; i < n_pids; i++) {
-                char *t = NULL;
+                _cleanup_free_ char *t = NULL;
 
                 get_process_cmdline(pids[i], n_columns, true, &t);
 
@@ -85,8 +85,6 @@ static void show_pid_array(int pids[], unsigned n_pids, const char *prefix, unsi
                        pid_width,
                        (unsigned long) pids[i],
                        strna(t));
-
-                free(t);
         }
 }
 
@@ -96,7 +94,7 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
         _cleanup_fclose_ FILE *f = NULL;
         size_t n = 0, n_allocated = 0;
         _cleanup_free_ pid_t *pids = NULL;
-        char *p = NULL;
+        _cleanup_free_ char *p = NULL;
         pid_t pid;
         int r;
 
@@ -104,13 +102,8 @@ static int show_cgroup_one_by_path(const char *path, const char *prefix, unsigne
         if (r < 0)
                 return r;
 
-        fn = strappend(p, "/cgroup.procs");
-        free(p);
-        if (!fn)
-                return -ENOMEM;
-
+        fn = strappenda(p, "/cgroup.procs");
         f = fopen(fn, "re");
-        free(fn);
         if (!f)
                 return -errno;
 
@@ -185,7 +178,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
 
                 if (last) {
                         printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_BRANCH),
-                                           path_get_file_name(last));
+                                           basename(last));
 
                         if (!p1) {
                                 p1 = strappend(prefix, draw_special_char(DRAW_TREE_VERT));
@@ -209,7 +202,7 @@ int show_cgroup_by_path(const char *path, const char *prefix, unsigned n_columns
 
         if (last) {
                 printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT),
-                                   path_get_file_name(last));
+                                   basename(last));
 
                 if (!p2) {
                         p2 = strappend(prefix, "  ");

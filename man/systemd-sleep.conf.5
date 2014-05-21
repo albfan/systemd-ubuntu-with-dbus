@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-SLEEP\&.CONF" "5" "" "systemd 208" "systemd-sleep.conf"
+.TH "SYSTEMD\-SLEEP\&.CONF" "5" "" "systemd 212" "systemd-sleep.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -67,7 +67,7 @@ The string to be written to
 by, respectively,
 \fBsystemd-suspend.service\fR(8),
 \fBsystemd-hibernate.service\fR(8), or
-\fBsystemd-hybrid-sleep.service\fR(8)\&. More than one value can be specified by seperating multiple values with commas\&. They will be tried in turn, until one is written without error\&. If neither suceeds, the operation will be aborted\&.
+\fBsystemd-hybrid-sleep.service\fR(8)\&. More than one value can be specified by separating multiple values with whitespace\&. They will be tried in turn, until one is written without error\&. If neither succeeds, the operation will be aborted\&.
 .RE
 .PP
 \fISuspendState=\fR, \fIHibernateState=\fR, \fIHybridSleepState=\fR
@@ -77,7 +77,7 @@ The string to be written to
 by, respectively,
 \fBsystemd-suspend.service\fR(8),
 \fBsystemd-hibernate.service\fR(8), or
-\fBsystemd-hybrid-sleep.service\fR(8)\&. More than one value can be specified by seperating multiple values with commas\&. They will be tried in turn, until one is written without error\&. If neither suceeds, the operation will be aborted\&.
+\fBsystemd-hybrid-sleep.service\fR(8)\&. More than one value can be specified by separating multiple values with whitespace\&. They will be tried in turn, until one is written without error\&. If neither succeeds, the operation will be aborted\&.
 .RE
 .SH "EXAMPLE: FREEZE"
 .PP
@@ -93,7 +93,6 @@ with
 .nf
 [Sleep]
 SuspendState=freeze
-    
 .fi
 .if n \{\
 .RE

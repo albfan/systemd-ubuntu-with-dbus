@@ -21,9 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/epoll.h>
 #include <string.h>
-#include <errno.h>
 #include <unistd.h>
 
 #include "util.h"
@@ -47,7 +45,7 @@ Inhibitor* inhibitor_new(Manager *m, const char* id) {
                 return NULL;
         }
 
-        i->id = path_get_file_name(i->state_file);
+        i->id = basename(i->state_file);
 
         if (hashmap_put(m->inhibitors, i->id, i) < 0) {
                 free(i->state_file);
@@ -64,11 +62,12 @@ Inhibitor* inhibitor_new(Manager *m, const char* id) {
 void inhibitor_free(Inhibitor *i) {
         assert(i);
 
+        hashmap_remove(i->manager->inhibitors, i->id);
+
+        inhibitor_remove_fifo(i);
+
         free(i->who);
         free(i->why);
-
-        hashmap_remove(i->manager->inhibitors, i->id);
-        inhibitor_remove_fifo(i);
 
         if (i->state_file) {
                 unlink(i->state_file);
@@ -79,9 +78,9 @@ void inhibitor_free(Inhibitor *i) {
 }
 
 int inhibitor_save(Inhibitor *i) {
-        char *temp_path, *cc;
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
-        FILE *f;
 
         assert(i);
 
@@ -99,31 +98,31 @@ int inhibitor_save(Inhibitor *i) {
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
                 "MODE=%s\n"
-                "UID=%lu\n"
-                "PID=%lu\n",
+                "UID="UID_FMT"\n"
+                "PID="PID_FMT"\n",
                 inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
-                (unsigned long) i->uid,
-                (unsigned long) i->pid);
+                i->uid,
+                i->pid);
 
         if (i->who) {
+                _cleanup_free_ char *cc = NULL;
+
                 cc = cescape(i->who);
                 if (!cc)
                         r = -ENOMEM;
-                else {
+                else
                         fprintf(f, "WHO=%s\n", cc);
-                        free(cc);
-                }
         }
 
         if (i->why) {
+                _cleanup_free_ char *cc = NULL;
+
                 cc = cescape(i->why);
                 if (!cc)
                         r = -ENOMEM;
-                else {
+                else
                         fprintf(f, "WHY=%s\n", cc);
-                        free(cc);
-                }
         }
 
         if (i->fifo_path)
@@ -137,12 +136,9 @@ int inhibitor_save(Inhibitor *i) {
                 unlink(temp_path);
         }
 
-        fclose(f);
-        free(temp_path);
-
 finish:
         if (r < 0)
-                log_error("Failed to save inhibit data for %s: %s", i->id, strerror(-r));
+                log_error("Failed to save inhibit data %s: %s", i->state_file, strerror(-r));
 
         return r;
 }
@@ -164,7 +160,7 @@ int inhibitor_start(Inhibitor *i) {
 
         i->started = true;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited\0" : "DelayInhibited\0");
+        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
 
         return 0;
 }
@@ -183,22 +179,25 @@ int inhibitor_stop(Inhibitor *i) {
 
         i->started = false;
 
-        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited\0" : "DelayInhibited\0");
+        manager_send_changed(i->manager, i->mode == INHIBIT_BLOCK ? "BlockInhibited" : "DelayInhibited", NULL);
 
         return 0;
 }
 
 int inhibitor_load(Inhibitor *i) {
-        InhibitWhat w;
-        InhibitMode mm;
-        int r;
-        char *cc,
+
+        _cleanup_free_ char
                 *what = NULL,
                 *uid = NULL,
                 *pid = NULL,
                 *who = NULL,
                 *why = NULL,
                 *mode = NULL;
+
+        InhibitWhat w;
+        InhibitMode mm;
+        char *cc;
+        int r;
 
         r = parse_env_file(i->state_file, NEWLINE,
                            "WHAT", &what,
@@ -210,7 +209,7 @@ int inhibitor_load(Inhibitor *i) {
                            "FIFO", &i->fifo_path,
                            NULL);
         if (r < 0)
-                goto finish;
+                return r;
 
         w = what ? inhibit_what_from_string(what) : 0;
         if (w >= 0)
@@ -223,21 +222,19 @@ int inhibitor_load(Inhibitor *i) {
         if (uid) {
                 r = parse_uid(uid, &i->uid);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         if (pid) {
                 r = parse_pid(pid, &i->pid);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         if (who) {
                 cc = cunescape(who);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!cc)
+                        return -ENOMEM;
 
                 free(i->who);
                 i->who = cc;
@@ -245,10 +242,8 @@ int inhibitor_load(Inhibitor *i) {
 
         if (why) {
                 cc = cunescape(why);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!cc)
+                        return -ENOMEM;
 
                 free(i->why);
                 i->why = cc;
@@ -258,18 +253,23 @@ int inhibitor_load(Inhibitor *i) {
                 int fd;
 
                 fd = inhibitor_create_fifo(i);
-                if (fd >= 0)
-                        close_nointr_nofail(fd);
+                safe_close(fd);
         }
 
-finish:
-        free(what);
-        free(uid);
-        free(pid);
-        free(who);
-        free(why);
+        return 0;
+}
 
-        return r;
+static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Inhibitor *i = userdata;
+
+        assert(s);
+        assert(fd == i->fifo_fd);
+        assert(i);
+
+        inhibitor_stop(i);
+        inhibitor_free(i);
+
+        return 0;
 }
 
 int inhibitor_create_fifo(Inhibitor *i) {
@@ -283,7 +283,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
                 if (r < 0)
                         return r;
 
-                if (asprintf(&i->fifo_path, "/run/systemd/inhibit/%s.ref", i->id) < 0)
+                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref", NULL);
+                if (!i->fifo_path)
                         return -ENOMEM;
 
                 if (mkfifo(i->fifo_path, 0600) < 0 && errno != EEXIST)
@@ -292,21 +293,19 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Open reading side */
         if (i->fifo_fd < 0) {
-                struct epoll_event ev = {};
-
                 i->fifo_fd = open(i->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
                 if (i->fifo_fd < 0)
                         return -errno;
+        }
 
-                r = hashmap_put(i->manager->inhibitor_fds, INT_TO_PTR(i->fifo_fd + 1), i);
+        if (!i->event_source) {
+                r = sd_event_add_io(i->manager->event, &i->event_source, i->fifo_fd, 0, inhibitor_dispatch_fifo, i);
                 if (r < 0)
                         return r;
 
-                ev.events = 0;
-                ev.data.u32 = FD_OTHER_BASE + i->fifo_fd;
-
-                if (epoll_ctl(i->manager->epoll_fd, EPOLL_CTL_ADD, i->fifo_fd, &ev) < 0)
-                        return -errno;
+                r = sd_event_source_set_priority(i->event_source, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        return r;
         }
 
         /* Open writing side */
@@ -320,12 +319,8 @@ int inhibitor_create_fifo(Inhibitor *i) {
 void inhibitor_remove_fifo(Inhibitor *i) {
         assert(i);
 
-        if (i->fifo_fd >= 0) {
-                assert_se(hashmap_remove(i->manager->inhibitor_fds, INT_TO_PTR(i->fifo_fd + 1)) == i);
-                assert_se(epoll_ctl(i->manager->epoll_fd, EPOLL_CTL_DEL, i->fifo_fd, NULL) == 0);
-                close_nointr_nofail(i->fifo_fd);
-                i->fifo_fd = -1;
-        }
+        i->event_source = sd_event_source_unref(i->event_source);
+        i->fifo_fd = safe_close(i->fifo_fd);
 
         if (i->fifo_path) {
                 unlink(i->fifo_path);
@@ -341,7 +336,7 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
 
         assert(m);
 
-        HASHMAP_FOREACH(i, m->inhibitor_fds, j)
+        HASHMAP_FOREACH(i, m->inhibitors, j)
                 if (i->mode == mm)
                         what |= i->what;
 
@@ -371,7 +366,8 @@ bool manager_is_inhibited(
                 dual_timestamp *since,
                 bool ignore_inactive,
                 bool ignore_uid,
-                uid_t uid) {
+                uid_t uid,
+                Inhibitor **offending) {
 
         Inhibitor *i;
         Iterator j;
@@ -381,7 +377,7 @@ bool manager_is_inhibited(
         assert(m);
         assert(w > 0 && w < _INHIBIT_WHAT_MAX);
 
-        HASHMAP_FOREACH(i, m->inhibitor_fds, j) {
+        HASHMAP_FOREACH(i, m->inhibitors, j) {
                 if (!(i->what & w))
                         continue;
 
@@ -399,6 +395,9 @@ bool manager_is_inhibited(
                         ts = i->since;
 
                 inhibited = true;
+
+                if (offending)
+                        *offending = i;
         }
 
         if (since)
@@ -408,7 +407,7 @@ bool manager_is_inhibited(
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {
-        static __thread char buffer[97];
+        static thread_local char buffer[97];
         char *p;
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)

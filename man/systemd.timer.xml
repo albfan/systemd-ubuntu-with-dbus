@@ -141,7 +141,7 @@
                                 also include time units. Example:
                                 "OnBootSec=5h 30min" means 5 hours and
                                 30 minutes after boot-up. For details
-                                about the syntax of time spans see
+                                about the syntax of time spans, see
                                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                                 <para>If a timer configured with
@@ -163,7 +163,14 @@
                                 to any of these options, the list of
                                 timers is reset, and all prior
                                 assignments will have no
-                                effect.</para></listitem>
+                                effect.</para>
+
+                                <para>Note that timers do not
+                                necessarily expire at the precise
+                                time configured with these settings,
+                                as they are subject to the
+                                <varname>AccuracySec=</varname>
+                                setting below.</para></listitem>
 
                         </varlistentry>
 
@@ -171,16 +178,61 @@
                                 <term><varname>OnCalendar=</varname></term>
 
                                 <listitem><para>Defines realtime
-                                (i.e. wallclock) timers via calendar
+                                (i.e. wallclock) timers with calendar
                                 event expressions. See
                                 <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information on the syntax of
-                                calendar event expressions. Otherwise
+                                calendar event expressions. Otherwise,
                                 the semantics are similar to
                                 <varname>OnActiveSec=</varname> and
-                                related settings.</para></listitem>
+                                related settings.</para>
+
+                                <para>Note that timers do not
+                                necessarily expire at the precise
+                                time configured with this setting,
+                                as it is subject to the
+                                <varname>AccuracySec=</varname>
+                                setting below.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><varname>AccuracySec=</varname></term>
+
+                                <listitem><para>Specify the accuracy
+                                the timer shall elapse with. Defaults
+                                to 1min. The timer is scheduled to
+                                elapse within a time window starting
+                                with the time specified in
+                                <varname>OnCalendar=</varname>,
+                                <varname>OnActiveSec=</varname>,
+                                <varname>OnBootSec=</varname>,
+                                <varname>OnStartupSec=</varname>,
+                                <varname>OnUnitActiveSec=</varname> or
+                                <varname>OnUnitInactiveSec=</varname>
+                                and ending the time configured with
+                                <varname>AccuracySec=</varname>
+                                later. Within this time window, the
+                                expiry time will be placed at a
+                                host-specific, randomized but stable
+                                position that is synchronized between
+                                all local timer units. This is done in
+                                order to distribute the wake-up time
+                                in networked installations, as well as
+                                optimizing power consumption to
+                                suppress unnecessary CPU wake-ups. To
+                                get best accuracy, set this option to
+                                1us. Note that the timer is still
+                                subject to the timer slack configured
+                                via
+                                <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+                                <varname>TimerSlackNSec=</varname>
+                                setting. See
+                                <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                for details. To optimize power
+                                consumption, make sure to set this
+                                value as high as possible and as low
+                                as necessary.</para></listitem>
+                        </varlistentry>
                         <varlistentry>
                                 <term><varname>Unit=</varname></term>
 
@@ -197,6 +249,45 @@
                                 are named identically, except for the
                                 suffix.</para></listitem>
                         </varlistentry>
+
+
+                        <varlistentry>
+                                <term><varname>Persistent=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true the service unit is
+                                immediately triggered when the timer
+                                unit is activated and the timer
+                                elapsed at least once since the last
+                                time the service unit has been
+                                triggered by the timer unit. The time
+                                when the service unit was last
+                                triggered is stored on disk. This is
+                                useful to catch up for missed timers
+                                when a machine is shutdown temporarily
+                                and then is powered up again. Note
+                                that this setting only has an effect
+                                on timers configured with
+                                <varname>OnCalendar=</varname>.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>WakeSystem=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. If true an elapsing timer
+                                will cause the system to resume from
+                                suspend, should it be suspended and if
+                                the system supports this. Note that
+                                this option will only make sure the
+                                system resumes on the appropriate
+                                times, it will not take care of
+                                suspending it again after any work
+                                that is to be done is
+                                finished. Defaults to
+                                <varname>false</varname>.</para></listitem>
+                        </varlistentry>
                 </variablelist>
         </refsect1>
 
@@ -208,7 +299,9 @@
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                          <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
                   </para>
         </refsect1>
 

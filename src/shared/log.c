@@ -62,7 +62,7 @@ void log_close_console(void) {
 
         if (getpid() == 1) {
                 if (console_fd >= 3)
-                        close_nointr_nofail(console_fd);
+                        safe_close(console_fd);
 
                 console_fd = -1;
         }
@@ -84,12 +84,7 @@ static int log_open_console(void) {
 }
 
 void log_close_kmsg(void) {
-
-        if (kmsg_fd < 0)
-                return;
-
-        close_nointr_nofail(kmsg_fd);
-        kmsg_fd = -1;
+        kmsg_fd = safe_close(kmsg_fd);
 }
 
 static int log_open_kmsg(void) {
@@ -105,12 +100,7 @@ static int log_open_kmsg(void) {
 }
 
 void log_close_syslog(void) {
-
-        if (syslog_fd < 0)
-                return;
-
-        close_nointr_nofail(syslog_fd);
-        syslog_fd = -1;
+        syslog_fd = safe_close(syslog_fd);
 }
 
 static int create_log_socket(int type) {
@@ -126,7 +116,10 @@ static int create_log_socket(int type) {
         /* We need a blocking fd here since we'd otherwise lose
         messages way too early. However, let's not hang forever in the
         unlikely case of a deadlock. */
-        timeval_store(&tv, 1*USEC_PER_MINUTE);
+        if (getpid() == 1)
+                timeval_store(&tv, 10 * USEC_PER_MSEC);
+        else
+                timeval_store(&tv, 10 * USEC_PER_SEC);
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
         return fd;
@@ -149,7 +142,7 @@ static int log_open_syslog(void) {
         }
 
         if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
-                close_nointr_nofail(syslog_fd);
+                safe_close(syslog_fd);
 
                 /* Some legacy syslog systems still use stream
                  * sockets. They really shouldn't. But what can we
@@ -177,12 +170,7 @@ fail:
 }
 
 void log_close_journal(void) {
-
-        if (journal_fd < 0)
-                return;
-
-        close_nointr_nofail(journal_fd);
-        journal_fd = -1;
+        journal_fd = safe_close(journal_fd);
 }
 
 static int log_open_journal(void) {
@@ -272,8 +260,6 @@ int log_open(void) {
         log_close_journal();
         log_close_syslog();
 
-        /* Get the real /dev/console if we are PID=1, hence reopen */
-        log_close_console();
         return log_open_console();
 }
 
@@ -337,8 +323,25 @@ static int write_to_console(
                 IOVEC_SET_STRING(iovec[n++], ANSI_HIGHLIGHT_OFF);
         IOVEC_SET_STRING(iovec[n++], "\n");
 
-        if (writev(console_fd, iovec, n) < 0)
-                return -errno;
+        if (writev(console_fd, iovec, n) < 0) {
+
+                if (errno == EIO && getpid() == 1) {
+
+                        /* If somebody tried to kick us from our
+                         * console tty (via vhangup() or suchlike),
+                         * try to reconnect */
+
+                        log_close_console();
+                        log_open_console();
+
+                        if (console_fd < 0)
+                                return 0;
+
+                        if (writev(console_fd, iovec, n) < 0)
+                                return -errno;
+                } else
+                        return -errno;
+        }
 
         return 1;
 }
@@ -685,27 +688,35 @@ int log_meta_object(
         return r;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-_noreturn_ static void log_assert(const char *text, const char *file, int line, const char *func, const char *format) {
+static void log_assert(int level, const char *text, const char *file, int line, const char *func, const char *format) {
         static char buffer[LINE_MAX];
 
+        if (_likely_(LOG_PRI(level) > log_max_level))
+                return;
+
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buffer, sizeof(buffer), format, text, file, line, func);
+        REENABLE_WARNING;
 
         char_array_0(buffer);
         log_abort_msg = buffer;
 
-        log_dispatch(LOG_CRIT, file, line, func, NULL, NULL, buffer);
+        log_dispatch(level, file, line, func, NULL, NULL, buffer);
+}
+
+noreturn void log_assert_failed(const char *text, const char *file, int line, const char *func) {
+        log_assert(LOG_CRIT, text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
         abort();
 }
-#pragma GCC diagnostic pop
 
-_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func) {
-        log_assert(text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
+noreturn void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
+        log_assert(LOG_CRIT, text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
+        abort();
 }
 
-_noreturn_ void log_assert_failed_unreachable(const char *text, const char *file, int line, const char *func) {
-        log_assert(text, file, line, func, "Code should not be reached '%s' at %s:%u, function %s(). Aborting.");
+void log_assert_failed_return(const char *text, const char *file, int line, const char *func) {
+        PROTECT_ERRNO;
+        log_assert(LOG_DEBUG, text, file, line, func, "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
 }
 
 int log_oom_internal(const char *file, int line, const char *func) {
@@ -852,7 +863,24 @@ int log_set_max_level_from_string(const char *e) {
 }
 
 void log_parse_environment(void) {
+        _cleanup_free_ char *line = NULL;
         const char *e;
+        int r;
+
+        r = proc_cmdline(&line);
+        if (r < 0)
+                log_warning("Failed to read /proc/cmdline. Ignoring: %s", strerror(-r));
+        else if (r > 0) {
+                char *w, *state;
+                size_t l;
+
+                FOREACH_WORD_QUOTED(w, l, line, state) {
+                        if (l == 5 && startswith(w, "debug")) {
+                                log_set_max_level(LOG_DEBUG);
+                                break;
+                        }
+                }
+        }
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -883,8 +911,16 @@ void log_show_color(bool b) {
         show_color = b;
 }
 
+bool log_get_show_color(void) {
+        return show_color;
+}
+
 void log_show_location(bool b) {
         show_location = b;
+}
+
+bool log_get_show_location(void) {
+        return show_location;
 }
 
 int log_show_color_from_string(const char *e) {
@@ -916,7 +952,7 @@ bool log_on_console(void) {
         return syslog_fd < 0 && kmsg_fd < 0 && journal_fd < 0;
 }
 
-static const char *const log_target_table[] = {
+static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_KMSG] = "kmsg",
         [LOG_TARGET_JOURNAL] = "journal",
@@ -929,3 +965,20 @@ static const char *const log_target_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
+
+void log_received_signal(int level, const struct signalfd_siginfo *si) {
+        if (si->ssi_pid > 0) {
+                _cleanup_free_ char *p = NULL;
+
+                get_process_comm(si->ssi_pid, &p);
+
+                log_full(level,
+                         "Received SIG%s from PID "PID_FMT" (%s).",
+                         signal_to_string(si->ssi_signo),
+                         si->ssi_pid, strna(p));
+        } else
+                log_full(level,
+                         "Received SIG%s.",
+                         signal_to_string(si->ssi_signo));
+
+}

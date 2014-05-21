@@ -52,6 +52,7 @@
 #include "conf-files.h"
 #include "capability.h"
 #include "specifier.h"
+#include "build.h"
 
 /* This reads all files listed in /etc/tmpfiles.d/?*.conf and creates
  * them in the file system. This is intended to be used to create
@@ -106,9 +107,11 @@ static Set *unix_sockets = NULL;
 static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
+static bool arg_boot = false;
 
 static char **include_prefixes = NULL;
 static char **exclude_prefixes = NULL;
+static char *arg_root = NULL;
 
 static const char conf_file_dirs[] =
         "/etc/tmpfiles.d\0"
@@ -275,12 +278,15 @@ static int dir_cleanup(
                         continue;
 
                 if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno == ENOENT)
+                                continue;
 
-                        if (errno != ENOENT) {
+                        /* FUSE, NFS mounts, SELinux might return EACCES */
+                        if (errno == EACCES)
+                                log_debug("stat(%s/%s) failed: %m", p, dent->d_name);
+                        else
                                 log_error("stat(%s/%s) failed: %m", p, dent->d_name);
-                                r = -errno;
-                        }
-
+                        r = -errno;
                         continue;
                 }
 
@@ -356,7 +362,7 @@ static int dir_cleanup(
                                 continue;
 
                         if (i->type != IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
-                                log_debug("rmdir '%s'\n", sub_path);
+                                log_debug("rmdir '%s'", sub_path);
 
                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
                                         if (errno != ENOENT && errno != ENOTEMPTY) {
@@ -404,7 +410,7 @@ static int dir_cleanup(
                         if (age >= cutoff)
                                 continue;
 
-                        log_debug("unlink '%s'\n", sub_path);
+                        log_debug("unlink '%s'", sub_path);
 
                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
                                 if (errno != ENOENT) {
@@ -431,8 +437,6 @@ finish:
 }
 
 static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
-        int r;
-
         /* not using i->path directly because it may be a glob */
         if (i->mode_set)
                 if (chmod(path, i->mode) < 0) {
@@ -453,8 +457,7 @@ static int item_set_perms_full(Item *i, const char *path, bool ignore_enoent) {
                         }
                 }
 
-        r = label_fix(path, false, false);
-        return r == -ENOENT && ignore_enoent ? 0 : r;
+        return label_fix(path, ignore_enoent, false);
 }
 
 static int item_set_perms(Item *i, const char *path) {
@@ -462,8 +465,10 @@ static int item_set_perms(Item *i, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path) {
-        int r, e, fd, flags;
+        int e, flags;
+        int fd = -1;
         struct stat st;
+        int r = 0;
 
         flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
@@ -491,7 +496,7 @@ static int write_one_file(Item *i, const char *path) {
 
                 unescaped = cunescape(i->argument);
                 if (unescaped == NULL) {
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return log_oom();
                 }
 
@@ -500,12 +505,12 @@ static int write_one_file(Item *i, const char *path) {
 
                 if (n < 0 || (size_t) n < l) {
                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
-                        close_nointr_nofail(fd);
+                        safe_close(fd);
                         return n < 0 ? n : -EIO;
                 }
         }
 
-        close_nointr_nofail(fd);
+        safe_close(fd);
 
         if (stat(path, &st) < 0) {
                 log_error("stat(%s) failed: %m", path);
@@ -537,15 +542,15 @@ static int recursive_relabel_children(Item *i, const char *path) {
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
-                bool is_dir;
+                bool dir;
                 int r;
                 _cleanup_free_ char *entry_path = NULL;
 
-                r = readdir_r(d, &buf.de, &de);
-                if (r != 0) {
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
                         if (ret == 0)
-                                ret = -r;
+                                ret = -errno;
                         break;
                 }
 
@@ -562,18 +567,17 @@ static int recursive_relabel_children(Item *i, const char *path) {
                 }
 
                 if (de->d_type == DT_UNKNOWN) {
-                        struct stat st;
-
-                        if (lstat(entry_path, &st) < 0) {
+                        r = is_dir(entry_path);
+                        if (r < 0) {
                                 if (ret == 0 && errno != ENOENT)
                                         ret = -errno;
                                 continue;
                         }
 
-                        is_dir = S_ISDIR(st.st_mode);
+                        dir = r;
 
                 } else
-                        is_dir = de->d_type == DT_DIR;
+                        dir = de->d_type == DT_DIR;
 
                 r = item_set_perms(i, entry_path);
                 if (r < 0) {
@@ -582,7 +586,7 @@ static int recursive_relabel_children(Item *i, const char *path) {
                         continue;
                 }
 
-                if (is_dir) {
+                if (dir) {
                         r = recursive_relabel_children(i, entry_path);
                         if (r < 0 && ret == 0)
                                 ret = r;
@@ -635,8 +639,9 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
 }
 
 static int create_item(Item *i) {
-        int r, e;
+        int e;
         struct stat st;
+        int r = 0;
 
         assert(i);
 
@@ -726,7 +731,7 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_SYMLINK: {
-                char *x;
+                _cleanup_free_ char *x = NULL;
 
                 label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
@@ -746,12 +751,10 @@ static int create_item(Item *i) {
                 }
 
                 if (!streq(i->argument, x)) {
-                        free(x);
                         log_error("%s is not the right symlinks.", i->path);
                         return -EEXIST;
                 }
 
-                free(x);
                 break;
         }
 
@@ -995,10 +998,7 @@ static void item_free(Item *i) {
         free(i);
 }
 
-static inline void item_freep(Item **i) {
-        if (*i)
-                item_free(*i);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
 #define _cleanup_item_free_ _cleanup_(item_freep)
 
 static bool item_equal(Item *a, Item *b) {
@@ -1073,7 +1073,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_item_free_ Item *i = NULL;
         Item *existing;
         _cleanup_free_ char
-                *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
+                *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         char type;
         Hashmap *h;
         int r, n = -1;
@@ -1083,8 +1083,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         assert(buffer);
 
         r = sscanf(buffer,
-                   "%c %ms %ms %ms %ms %ms %n",
-                   &type,
+                   "%ms %ms %ms %ms %ms %ms %n",
+                   &action,
                    &path,
                    &mode,
                    &user,
@@ -1095,6 +1095,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
         }
+
+        if (strlen(action) > 2 || (strlen(action) > 1 && action[1] != '!')) {
+                log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
+                return -EINVAL;
+        } else if (strlen(action) > 1 && !arg_boot)
+                return 0;
+
+        type = action[0];
 
         i = new0(Item, 1);
         if (!i)
@@ -1180,6 +1188,15 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (!should_include_path(i->path))
                 return 0;
 
+        if (arg_root) {
+                char *p = strappend(arg_root, i->path);
+                if (!p)
+                        return log_oom();
+
+                free(i->path);
+                i->path = p;
+        }
+
         if (user && !streq(user, "-")) {
                 const char *u = user;
 
@@ -1263,11 +1280,14 @@ static int help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
+               "     --boot                 Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules that apply to paths with the specified prefix\n"
-               "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n",
+               "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n"
+               "     --root=PATH            Operate on an alternate filesystem root\n",
                program_invocation_short_name);
 
         return 0;
@@ -1276,21 +1296,27 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
+                ARG_VERSION = 0x100,
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
+                ARG_BOOT,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
+                ARG_ROOT,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,         NULL, 'h'                },
+                { "version",        no_argument,         NULL, ARG_VERSION        },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "boot",           no_argument,         NULL, ARG_BOOT           },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
-                { NULL,             0,                   NULL, 0                  }
+                { "root",           required_argument,   NULL, ARG_ROOT           },
+                {}
         };
 
         int c;
@@ -1303,7 +1329,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_CREATE:
@@ -1318,22 +1348,32 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_remove = true;
                         break;
 
+                case ARG_BOOT:
+                        arg_boot = true;
+                        break;
+
                 case ARG_PREFIX:
-                        if (strv_extend(&include_prefixes, optarg) < 0)
+                        if (strv_push(&include_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
                 case ARG_EXCLUDE_PREFIX:
-                        if (strv_extend(&exclude_prefixes, optarg) < 0)
+                        if (strv_push(&exclude_prefixes, optarg) < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_ROOT:
+                        arg_root = path_make_absolute_cwd(optarg);
+                        if (!arg_root)
+                                return log_oom();
+                        path_kill_slashes(arg_root);
                         break;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -1355,7 +1395,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
 
         assert(fn);
 
-        r = search_and_fopen_nulstr(fn, "re", conf_file_dirs, &f);
+        r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -1456,7 +1496,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+                r = conf_files_list_nulstr(&files, ".conf", arg_root, conf_file_dirs);
                 if (r < 0) {
                         log_error("Failed to enumerate tmpfiles.d files: %s", strerror(-r));
                         goto finish;
@@ -1485,7 +1525,9 @@ finish:
         hashmap_free(items);
         hashmap_free(globs);
 
-        strv_free(include_prefixes);
+        free(include_prefixes);
+        free(exclude_prefixes);
+        free(arg_root);
 
         set_free_free(unix_sockets);
 

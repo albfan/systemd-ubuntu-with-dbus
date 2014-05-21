@@ -190,7 +190,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                                 continue;
 
                         /* split node */
-                        new_child = calloc(sizeof(struct trie_node), 1);
+                        new_child = new0(struct trie_node, 1);
                         if (!new_child)
                                 return -ENOMEM;
 
@@ -233,7 +233,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         ssize_t off;
 
                         /* new child */
-                        child = calloc(sizeof(struct trie_node), 1);
+                        child = new0(struct trie_node, 1);
                         if (!child)
                                 return -ENOMEM;
 
@@ -341,7 +341,7 @@ static int trie_store(struct trie *trie, const char *filename) {
         struct trie_f t = {
                 .trie = trie,
         };
-        char *filename_tmp;
+        _cleanup_free_ char *filename_tmp = NULL;
         int64_t pos;
         int64_t root_off;
         int64_t size;
@@ -385,24 +385,23 @@ static int trie_store(struct trie *trie, const char *filename) {
                 err = -errno;
         fclose(t.f);
         if (err < 0 || rename(filename_tmp, filename) < 0) {
-                unlink(filename_tmp);
-                goto out;
+                unlink_noerrno(filename_tmp);
+                return err < 0 ? err : -errno;
         }
 
-        log_debug("=== trie on-disk ===\n");
-        log_debug("size:             %8llu bytes\n", (unsigned long long)size);
-        log_debug("header:           %8zu bytes\n", sizeof(struct trie_header_f));
-        log_debug("nodes:            %8llu bytes (%8llu)\n",
-                  (unsigned long long)t.nodes_count * sizeof(struct trie_node_f), (unsigned long long)t.nodes_count);
-        log_debug("child pointers:   %8llu bytes (%8llu)\n",
-                  (unsigned long long)t.children_count * sizeof(struct trie_child_entry_f), (unsigned long long)t.children_count);
-        log_debug("value pointers:   %8llu bytes (%8llu)\n",
-                  (unsigned long long)t.values_count * sizeof(struct trie_value_entry_f), (unsigned long long)t.values_count);
-        log_debug("string store:     %8llu bytes\n", (unsigned long long)trie->strings->len);
-        log_debug("strings start:    %8llu\n", (unsigned long long) t.strings_off);
-out:
-        free(filename_tmp);
-        return err;
+        log_debug("=== trie on-disk ===");
+        log_debug("size:             %8"PRIu64" bytes", size);
+        log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
+        log_debug("nodes:            %8"PRIu64" bytes (%8"PRIu64")",
+                  t.nodes_count * sizeof(struct trie_node_f), t.nodes_count);
+        log_debug("child pointers:   %8"PRIu64" bytes (%8"PRIu64")",
+                  t.children_count * sizeof(struct trie_child_entry_f), t.children_count);
+        log_debug("value pointers:   %8"PRIu64" bytes (%8"PRIu64")",
+                  t.values_count * sizeof(struct trie_value_entry_f), t.values_count);
+        log_debug("string store:     %8zu bytes", trie->strings->len);
+        log_debug("strings start:    %8"PRIu64, t.strings_off);
+
+        return 0;
 }
 
 static int insert_data(struct trie *trie, struct udev_list *match_list,
@@ -412,7 +411,7 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
 
         value = strchr(line, '=');
         if (!value) {
-                log_error("Error, key/value pair expected but got '%s' in '%s':\n", line, filename);
+                log_error("Error, key/value pair expected but got '%s' in '%s':", line, filename);
                 return -EINVAL;
         }
 
@@ -420,7 +419,7 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
         value++;
 
         if (line[0] == '\0' || value[0] == '\0') {
-                log_error("Error, empty key or value '%s' in '%s':\n", line, filename);
+                log_error("Error, empty key or value '%s' in '%s':", line, filename);
                 return -EINVAL;
         }
 
@@ -471,7 +470,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
                                 break;
 
                         if (line[0] == ' ') {
-                                log_error("Error, MATCH expected but got '%s' in '%s':\n", line, filename);
+                                log_error("Error, MATCH expected but got '%s' in '%s':", line, filename);
                                 break;
                         }
 
@@ -482,7 +481,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                 case HW_MATCH:
                         if (len == 0) {
-                                log_error("Error, DATA expected but got empty line in '%s':\n", filename);
+                                log_error("Error, DATA expected but got empty line in '%s':", filename);
                                 state = HW_NONE;
                                 udev_list_cleanup(&match_list);
                                 break;
@@ -508,7 +507,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
                         }
 
                         if (line[0] != ' ') {
-                                log_error("Error, DATA expected but got '%s' in '%s':\n", line, filename);
+                                log_error("Error, DATA expected but got '%s' in '%s':", line, filename);
                                 state = HW_NONE;
                                 udev_list_cleanup(&match_list);
                                 break;
@@ -526,35 +525,29 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
 static void help(void) {
         printf("Usage: udevadm hwdb OPTIONS\n"
-               "  --update            update the hardware database\n"
-               "  --test=<modalias>   query database and print result\n"
-               "  --root=<path>       alternative root path in the filesystem\n"
-               "  --help\n\n");
+               "  -u,--update          update the hardware database\n"
+               "  -t,--test=MODALIAS   query database and print result\n"
+               "  -r,--root=PATH       alternative root path in the filesystem\n"
+               "  -h,--help\n\n");
 }
 
 static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
-                { "update", no_argument, NULL, 'u' },
-                { "root", required_argument, NULL, 'r' },
-                { "test", required_argument, NULL, 't' },
-                { "help", no_argument, NULL, 'h' },
+                { "update", no_argument,       NULL, 'u' },
+                { "test",   required_argument, NULL, 't' },
+                { "root",   required_argument, NULL, 'r' },
+                { "help",   no_argument,       NULL, 'h' },
                 {}
         };
         const char *test = NULL;
         const char *root = "";
         bool update = false;
         struct trie *trie = NULL;
-        int err;
+        int err, c;
         int rc = EXIT_SUCCESS;
 
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "ut:r:h", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "ut:r:h", options, NULL)) >= 0)
+                switch(c) {
                 case 'u':
                         update = true;
                         break;
@@ -567,19 +560,22 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 case 'h':
                         help();
                         return EXIT_SUCCESS;
+                case '?':
+                        return EXIT_FAILURE;
+                default:
+                        assert_not_reached("Unknown option");
                 }
-        }
 
         if (!update && !test) {
-                help();
-                return EXIT_SUCCESS;
+                log_error("Either --update or --test must be used");
+                return EXIT_FAILURE;
         }
 
         if (update) {
                 char **files, **f;
                 _cleanup_free_ char *hwdb_bin = NULL;
 
-                trie = calloc(sizeof(struct trie), 1);
+                trie = new0(struct trie, 1);
                 if (!trie) {
                         rc = EXIT_FAILURE;
                         goto out;
@@ -593,7 +589,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 }
 
                 /* index */
-                trie->root = calloc(sizeof(struct trie_node), 1);
+                trie->root = new0(struct trie_node, 1);
                 if (!trie->root) {
                         rc = EXIT_FAILURE;
                         goto out;
@@ -602,7 +598,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                 err = conf_files_list_strv(&files, ".hwdb", root, conf_file_dirs);
                 if (err < 0) {
-                        log_error("failed to enumerate hwdb files: %s\n", strerror(-err));
+                        log_error("failed to enumerate hwdb files: %s", strerror(-err));
                         rc = EXIT_FAILURE;
                         goto out;
                 }
@@ -614,18 +610,18 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                 strbuf_complete(trie->strings);
 
-                log_debug("=== trie in-memory ===\n");
-                log_debug("nodes:            %8zu bytes (%8zu)\n",
+                log_debug("=== trie in-memory ===");
+                log_debug("nodes:            %8zu bytes (%8zu)",
                           trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
-                log_debug("children arrays:  %8zu bytes (%8zu)\n",
+                log_debug("children arrays:  %8zu bytes (%8zu)",
                           trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
-                log_debug("values arrays:    %8zu bytes (%8zu)\n",
+                log_debug("values arrays:    %8zu bytes (%8zu)",
                           trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
-                log_debug("strings:          %8zu bytes\n",
+                log_debug("strings:          %8zu bytes",
                           trie->strings->len);
-                log_debug("strings incoming: %8zu bytes (%8zu)\n",
+                log_debug("strings incoming: %8zu bytes (%8zu)",
                           trie->strings->in_len, trie->strings->in_count);
-                log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
+                log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                           trie->strings->dedup_len, trie->strings->dedup_count);
 
                 if (asprintf(&hwdb_bin, "%s/etc/udev/hwdb.bin", root) < 0) {
@@ -648,7 +644,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
 
                         udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, test, 0))
                                 printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
-                        hwdb = udev_hwdb_unref(hwdb);
+                        udev_hwdb_unref(hwdb);
                 }
         }
 out:

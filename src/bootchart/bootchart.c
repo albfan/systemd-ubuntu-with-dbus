@@ -220,7 +220,6 @@ static int parse_args(int argc, char *argv[]) {
                         fprintf(stderr, " --help,      -h          Display this message\n");
                         fprintf(stderr, "See bootchart.conf for more information.\n");
                         exit (EXIT_SUCCESS);
-                        break;
                 default:
                         break;
                 }
@@ -234,8 +233,7 @@ static int parse_args(int argc, char *argv[]) {
         return 0;
 }
 
-static void do_journal_append(char *file)
-{
+static void do_journal_append(char *file) {
         struct iovec iovec[5];
         int r, f, j = 0;
         ssize_t n;
@@ -254,20 +252,20 @@ static void do_journal_append(char *file)
 
         p = malloc(9 + BOOTCHART_MAX);
         if (!p) {
-                r = log_oom();
+                log_oom();
                 return;
         }
 
         memcpy(p, "BOOTCHART=", 10);
 
-        f = open(file, O_RDONLY);
+        f = open(file, O_RDONLY|O_CLOEXEC);
         if (f < 0) {
-                log_error("Failed to read bootchart data: %m\n");
+                log_error("Failed to read bootchart data: %m");
                 return;
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
         if (n < 0) {
-                log_error("Failed to read bootchart data: %s\n", strerror(-n));
+                log_error("Failed to read bootchart data: %s", strerror(-n));
                 close(f);
                 return;
         }
@@ -319,10 +317,10 @@ int main(int argc, char *argv[]) {
         (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
         /* start with empty ps LL */
-        ps_first = calloc(1, sizeof(struct ps_struct));
+        ps_first = new0(struct ps_struct, 1);
         if (!ps_first) {
-                perror("calloc(ps_struct)");
-                exit(EXIT_FAILURE);
+                log_oom();
+                return EXIT_FAILURE;
         }
 
         /* handle TERM/INT nicely */
@@ -332,7 +330,7 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
-        LIST_HEAD_INIT(struct list_sample_data, head);
+        LIST_HEAD_INIT(head);
 
         /* main program loop */
         for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
@@ -357,11 +355,11 @@ int main(int argc, char *argv[]) {
                         t = time(NULL);
                         strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                         snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                        of = fopen(output_file, "w");
+                        of = fopen(output_file, "we");
                 }
 
                 if (sysfd < 0)
-                        sysfd = open("/sys", O_RDONLY);
+                        sysfd = open("/sys", O_RDONLY|O_CLOEXEC);
 
                 if (!build)
                         parse_env_file("/etc/os-release", NEWLINE,
@@ -398,15 +396,15 @@ int main(int argc, char *argv[]) {
                                         /* caught signal, probably HUP! */
                                         break;
                                 }
-                                perror("nanosleep()");
-                                exit (EXIT_FAILURE);
+                                log_error("nanosleep() failed: %m");
+                                exit(EXIT_FAILURE);
                         }
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
                         arg_samples_len -= (int)(newint_ns / interval);
                 }
-                LIST_PREPEND(struct list_sample_data, link, head, sampledata);
+                LIST_PREPEND(link, head, sampledata);
         }
 
         /* do some cleanup, close fd's */
@@ -425,7 +423,7 @@ int main(int argc, char *argv[]) {
                 t = time(NULL);
                 strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                 snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                of = fopen(output_file, "w");
+                of = fopen(output_file, "we");
         }
 
         if (!of) {

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-CGTOP" "1" "" "systemd 208" "systemd-cgtop"
+.TH "SYSTEMD\-CGTOP" "1" "" "systemd 212" "systemd-cgtop"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,31 +42,21 @@ and disk I/O usage for those in
 \fIMemoryAccounting=1\fR
 and
 \fIBlockIOAccounting=1\fR
-settings in the unit files in question (See
+settings in the unit files in question\&. See
 \fBsystemd.resource-control\fR(5)
-for details)\&.
+for details\&.
 .PP
 To emphasize this: unless
 "CPUAccounting=1",
 "MemoryAccounting=1"
 and
 "BlockIOAccounting=1"
-are enabled for the services in question no resource accounting will be available for system services and the data shown by
+are enabled for the services in question, no resource accounting will be available for system services and the data shown by
 \fBsystemd\-cgtop\fR
 will be incomplete\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
-.PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a version string and exits\&.
-.RE
 .PP
 \fB\-p\fR
 .RS 4
@@ -122,6 +112,16 @@ Maximum control group tree traversal depth\&. Specifies how deep
 \fBsystemd\-cgtop\fR
 shall traverse the control group hierarchies\&. If 0 is specified, only the root group is monitored\&. For 1, only the first level of control groups is monitored, and so on\&. Defaults to 3\&.
 .RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
 .SH "KEYS"
 .PP
 \fBsystemd\-cgtop\fR
@@ -158,7 +158,7 @@ Increase or decrease refresh delay, respectively\&.
 .RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

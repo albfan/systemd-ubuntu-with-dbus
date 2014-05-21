@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
+  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -33,6 +34,34 @@
 #include "build.h"
 #include "strv.h"
 
+static const char prefixes[] =
+        "/etc\0"
+        "/run\0"
+        "/usr/local/lib\0"
+        "/usr/local/share\0"
+        "/usr/lib\0"
+        "/usr/share\0"
+#ifdef HAVE_SPLIT_USR
+        "/lib\0"
+#endif
+        ;
+
+static const char suffixes[] =
+        "sysctl.d\0"
+        "tmpfiles.d\0"
+        "modules-load.d\0"
+        "binfmt.d\0"
+        "systemd/system\0"
+        "systemd/user\0"
+        "systemd/system-preset\0"
+        "systemd/user-preset\0"
+        "udev/rules.d\0"
+        "modprobe.d\0";
+
+static const char have_dropins[] =
+        "systemd/system\0"
+        "systemd/user\0";
+
 static bool arg_no_pager = false;
 static int arg_diff = -1;
 
@@ -47,6 +76,14 @@ static enum {
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
 } arg_flags = 0;
+
+static void pager_open_if_enabled(void) {
+
+        if (arg_no_pager)
+                return;
+
+        pager_open(false);
+}
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
@@ -76,7 +113,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
                 return 0;
 
         printf("%s%s%s %s → %s\n",
-               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight(), top, bottom);
+               ansi_highlight_green(), "[EQUIVALENT]", ansi_highlight_off(), top, bottom);
         return 1;
 }
 
@@ -160,24 +197,26 @@ static int found_override(const char *top, const char *bottom) {
 }
 
 static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const char *toppath, const char *drop) {
-        _cleanup_free_ char *conf = NULL;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
         _cleanup_strv_free_ char **list = NULL;
         char **file;
         char *c;
         int r;
 
+        assert(!endswith(drop, "/"));
+
         path = strjoin(toppath, "/", drop, NULL);
         if (!path)
                 return -ENOMEM;
 
-        path_kill_slashes(path);
+        log_debug("Looking at %s", path);
 
-        conf = strdup(drop);
-        if (!conf)
+        unit = strdup(drop);
+        if (!unit)
                 return -ENOMEM;
 
-        c = strrchr(conf, '.');
+        c = strrchr(unit, '.');
         if (!c)
                 return -EINVAL;
         *c = 0;
@@ -200,35 +239,21 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 p = strjoin(path, "/", *file, NULL);
                 if (!p)
                         return -ENOMEM;
+                d = p + strlen(toppath) + 1;
 
-                path_kill_slashes(p);
-
-                d = strrchr(p, '/');
-                if (!d || d == p) {
-                        free(p);
-                        return -EINVAL;
-                }
-                d--;
-                d = strrchr(p, '/');
-
-                if (!d || d == p) {
-                        free(p);
-                        return -EINVAL;
-                }
-
+                log_debug("Adding at top: %s → %s", d, p);
                 k = hashmap_put(top, d, p);
                 if (k >= 0) {
                         p = strdup(p);
                         if (!p)
                                 return -ENOMEM;
-                        d = strrchr(p, '/');
-                        d--;
-                        d = strrchr(p, '/');
+                        d = p + strlen(toppath) + 1;
                 } else if (k != -EEXIST) {
                         free(p);
                         return k;
                 }
 
+                log_debug("Adding at bottom: %s → %s", d, p);
                 free(hashmap_remove(bottom, d));
                 k = hashmap_put(bottom, d, p);
                 if (k < 0) {
@@ -236,14 +261,14 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                         return k;
                 }
 
-                h = hashmap_get(drops, conf);
+                h = hashmap_get(drops, unit);
                 if (!h) {
                         h = hashmap_new(string_hash_func, string_compare_func);
                         if (!h)
                                 return -ENOMEM;
-                        hashmap_put(drops, conf, h);
-                        conf = strdup(conf);
-                        if (!conf)
+                        hashmap_put(drops, unit, h);
+                        unit = strdup(unit);
+                        if (!unit)
                                 return -ENOMEM;
                 }
 
@@ -251,7 +276,8 @@ static int enumerate_dir_d(Hashmap *top, Hashmap *bottom, Hashmap *drops, const 
                 if (!p)
                         return -ENOMEM;
 
-                k = hashmap_put(h, path_get_file_name(p), p);
+                log_debug("Adding to drops: %s → %s → %s", unit, basename(p), p);
+                k = hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
                         if (k != -EEXIST)
@@ -269,27 +295,28 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
         assert(drops);
         assert(path);
 
+        log_debug("Looking at %s", path);
+
         d = opendir(path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                log_error("Failed to enumerate %s: %m", path);
+                log_error("Failed to open %s: %m", path);
                 return -errno;
         }
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 int k;
                 char *p;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0)
-                        return -k;
-
+                errno = 0;
+                de = readdir(d);
                 if (!de)
-                        break;
+                        return -errno;
+
+                dirent_ensure_type(d, de);
 
                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
                         enumerate_dir_d(top, bottom, drops, path, de->d_name);
@@ -301,9 +328,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                 if (!p)
                         return -ENOMEM;
 
-                path_kill_slashes(p);
-
-                k = hashmap_put(top, path_get_file_name(p), p);
+                log_debug("Adding at top: %s → %s", basename(p), p);
+                k = hashmap_put(top, basename(p), p);
                 if (k >= 0) {
                         p = strdup(p);
                         if (!p)
@@ -313,44 +339,37 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
                         return k;
                 }
 
-                free(hashmap_remove(bottom, path_get_file_name(p)));
-                k = hashmap_put(bottom, path_get_file_name(p), p);
+                log_debug("Adding at bottom: %s → %s", basename(p), p);
+                free(hashmap_remove(bottom, basename(p)));
+                k = hashmap_put(bottom, basename(p), p);
                 if (k < 0) {
                         free(p);
                         return k;
                 }
         }
-
-        return 0;
 }
 
-static int process_suffix(const char *prefixes, const char *suffix, bool dropins) {
+static int process_suffix(const char *suffix, const char *onlyprefix) {
         const char *p;
         char *f;
-        Hashmap *top, *bottom=NULL, *drops=NULL;
+        Hashmap *top, *bottom, *drops;
         Hashmap *h;
         char *key;
         int r = 0, k;
         Iterator i, j;
         int n_found = 0;
+        bool dropins;
 
-        assert(prefixes);
         assert(suffix);
+        assert(!startswith(suffix, "/"));
+        assert(!strstr(suffix, "//"));
+
+        dropins = nulstr_contains(have_dropins, suffix);
 
         top = hashmap_new(string_hash_func, string_compare_func);
-        if (!top) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
         bottom = hashmap_new(string_hash_func, string_compare_func);
-        if (!bottom) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
         drops = hashmap_new(string_hash_func, string_compare_func);
-        if (!drops) {
+        if (!top || !bottom || !drops) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -365,10 +384,8 @@ static int process_suffix(const char *prefixes, const char *suffix, bool dropins
                 }
 
                 k = enumerate_dir(top, bottom, drops, t, dropins);
-                if (k < 0)
+                if (r == 0)
                         r = k;
-
-                log_debug("Looking at %s", t);
         }
 
         HASHMAP_FOREACH_KEY(f, key, top, i) {
@@ -377,20 +394,23 @@ static int process_suffix(const char *prefixes, const char *suffix, bool dropins
                 o = hashmap_get(bottom, key);
                 assert(o);
 
-                if (path_equal(o, f))
-                        notify_override_unchanged(f);
-                else {
-                        k = found_override(f, o);
-                        if (k < 0)
-                                r = k;
-                        else
-                                n_found += k;
+                if (!onlyprefix || startswith(o, onlyprefix)) {
+                        if (path_equal(o, f)) {
+                                notify_override_unchanged(f);
+                        } else {
+                                k = found_override(f, o);
+                                if (k < 0)
+                                        r = k;
+                                else
+                                        n_found += k;
+                        }
                 }
 
                 h = hashmap_get(drops, key);
                 if (h)
                         HASHMAP_FOREACH(o, h, j)
-                                n_found += notify_override_extended(f, o);
+                                if (!onlyprefix || startswith(o, onlyprefix))
+                                        n_found += notify_override_extended(f, o);
         }
 
 finish:
@@ -409,29 +429,45 @@ finish:
         return r < 0 ? r : n_found;
 }
 
-static int process_suffix_chop(const char *prefixes, const char *suffix, const char *have_dropins) {
+static int process_suffixes(const char *onlyprefix) {
+        const char *n;
+        int n_found = 0, r;
+
+        NULSTR_FOREACH(n, suffixes) {
+                r = process_suffix(n, onlyprefix);
+                if (r < 0)
+                        return r;
+                else
+                        n_found += r;
+        }
+        return n_found;
+}
+
+static int process_suffix_chop(const char *arg) {
         const char *p;
 
-        assert(prefixes);
-        assert(suffix);
+        assert(arg);
 
-        if (!path_is_absolute(suffix))
-                return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
+        if (!path_is_absolute(arg))
+                return process_suffix(arg, NULL);
 
         /* Strip prefix from the suffix */
         NULSTR_FOREACH(p, prefixes) {
-                if (startswith(suffix, p)) {
-                        suffix += strlen(p);
+                const char *suffix = startswith(arg, p);
+                if (suffix) {
                         suffix += strspn(suffix, "/");
-                        return process_suffix(prefixes, suffix, nulstr_contains(have_dropins, suffix));
+                        if (*suffix)
+                                return process_suffix(suffix, NULL);
+                        else
+                                return process_suffixes(arg);
                 }
         }
 
-        log_error("Invalid suffix specification %s.", suffix);
+        log_error("Invalid suffix specification %s.", arg);
         return -EINVAL;
 }
 
-static void help(void) {
+static int help(void) {
 
         printf("%s [OPTIONS...] [SUFFIX...]\n\n"
                "Find overridden configuration files.\n\n"
@@ -441,6 +477,8 @@ static void help(void) {
                "     --diff[=1|0]     Show a diff when overridden files differ\n"
                "  -t --type=LIST...   Only display a selected set of override types\n",
                program_invocation_short_name);
+
+        return 0;
 }
 
 static int parse_flags(const char *flag_str, int flags) {
@@ -482,7 +520,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
                 { "diff",      optional_argument, NULL, ARG_DIFF     },
                 { "type",      required_argument, NULL, 't'          },
-                { NULL,        0,                 NULL, 0            }
+                {}
         };
 
         int c;
@@ -506,9 +544,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_PAGER:
                         arg_no_pager = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
 
                 case 't': {
                         int f;
@@ -538,9 +573,11 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -548,35 +585,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-
-        const char prefixes[] =
-                "/etc\0"
-                "/run\0"
-                "/usr/local/lib\0"
-                "/usr/local/share\0"
-                "/usr/lib\0"
-                "/usr/share\0"
-#ifdef HAVE_SPLIT_USR
-                "/lib\0"
-#endif
-                ;
-
-        const char suffixes[] =
-                "sysctl.d\0"
-                "tmpfiles.d\0"
-                "modules-load.d\0"
-                "binfmt.d\0"
-                "systemd/system\0"
-                "systemd/user\0"
-                "systemd/system-preset\0"
-                "systemd/user-preset\0"
-                "udev/rules.d\0"
-                "modprobe.d\0";
-
-        const char have_dropins[] =
-                "systemd/system\0"
-                "systemd/user\0";
-
         int r = 0, k;
         int n_found = 0;
 
@@ -595,14 +603,14 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        if (!arg_no_pager)
-                pager_open(false);
+        pager_open_if_enabled();
 
         if (optind < argc) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        k = process_suffix_chop(prefixes, argv[i], have_dropins);
+                        path_kill_slashes(argv[i]);
+                        k = process_suffix_chop(argv[i]);
                         if (k < 0)
                                 r = k;
                         else
@@ -610,15 +618,11 @@ int main(int argc, char *argv[]) {
                 }
 
         } else {
-                const char *n;
-
-                NULSTR_FOREACH(n, suffixes) {
-                        k = process_suffix(prefixes, n, nulstr_contains(have_dropins, n));
-                        if (k < 0)
-                                r = k;
-                        else
-                                n_found += k;
-                }
+                k = process_suffixes(NULL);
+                if (k < 0)
+                        r = k;
+                else
+                        n_found += k;
         }
 
         if (r >= 0)

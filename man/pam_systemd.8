@@ -1,5 +1,5 @@
 '\" t
-.TH "PAM_SYSTEMD" "8" "" "systemd 208" "pam_systemd"
+.TH "PAM_SYSTEMD" "8" "" "systemd 212" "pam_systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -108,12 +108,31 @@ The following options are understood:
 .PP
 \fBclass=\fR
 .RS 4
-Takes a string argument which sets the session class\&. The XDG_SESSION_CLASS environmental variable takes precedence\&.
+Takes a string argument which sets the session class\&. The XDG_SESSION_CLASS environmental variable takes precedence\&. One of
+"user",
+"greeter",
+"lock\-screen"
+or
+"background"\&. See
+\fBsd_session_get_class\fR(3)
+for details about the session class\&.
 .RE
 .PP
-\fBdebug=\fR
+\fBtype=\fR
 .RS 4
-Takes a boolean argument\&. If yes, the module will log debugging information as it operates\&.
+Takes a string argument which sets the session type\&. The XDG_SESSION_TYPE environmental variable takes precedence\&. One of
+"unspecified",
+"tty",
+"x11"
+or
+"wayland"\&. See
+\fBsd_session_get_type\fR(3)
+for details about the session type\&.
+.RE
+.PP
+\fBdebug\fR\fB[=]\fR
+.RS 4
+Takes an optional boolean argument\&. If yes or without the argument, the module will log debugging information as it operates\&.
 .RE
 .SH "MODULE TYPES PROVIDED"
 .PP
@@ -139,6 +158,40 @@ and the same contents\&. If a user logs in once, then logs out again, and logs i
 in the filename\&. This directory shall be used for runtime file system objects such as
 \fBAF_UNIX\fR
 sockets, FIFOs, PID files and similar\&. It is guaranteed that this directory is local and offers the greatest possible file system feature set the operating system provides\&.
+.RE
+.PP
+The following environment variables are read by the module and may be used by the PAM service to pass metadata to the module:
+.PP
+\fI$XDG_SESSION_TYPE\fR
+.RS 4
+The session type\&. This may be used instead of
+\fBsession=\fR
+on the module parameter line, and is usually preferred\&.
+.RE
+.PP
+\fI$XDG_SESSION_CLASS\fR
+.RS 4
+The session class\&. This may be used instead of
+\fBclass=\fR
+on the module parameter line, and is usually preferred\&.
+.RE
+.PP
+\fI$XDG_SESSION_DESKTOP\fR
+.RS 4
+The session deskop\&. This may be used to indicate the session desktop used, where this applies\&. This should be a short, lowercase string identifying the desktop environment used if this information is available\&. For example:
+"gnome", or
+"kde"\&.
+.RE
+.PP
+\fI$XDG_SEAT\fR
+.RS 4
+The seat name the session shall be registered for, if any\&.
+.RE
+.PP
+\fI$XDG_VTNR\fR
+.RS 4
+The VT number the session shall be registered for, if any\&. (Only applies to seats with a VT available, such as
+"seat0")
 .RE
 .SH "EXAMPLE"
 .sp

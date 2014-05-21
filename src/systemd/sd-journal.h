@@ -1,7 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foojournalhfoo
-#define foojournalhfoo
+#ifndef foosdjournalhfoo
+#define foosdjournalhfoo
 
 /***
   This file is part of systemd.
@@ -28,51 +28,35 @@
 #include <sys/uio.h>
 #include <syslog.h>
 
-#include <systemd/sd-id128.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef _sd_printf_attr_
-#  if __GNUC__ >= 4
-#    define _sd_printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
-#  else
-#    define _sd_printf_attr_(a,b)
-#  endif
-#endif
-
-#ifndef _sd_sentinel_attr_
-#  define _sd_sentinel_attr_ __attribute__((sentinel))
-#endif
+#include "sd-id128.h"
+#include "_sd-common.h"
 
 /* Journal APIs. See sd-journal(3) for more information. */
 
+_SD_BEGIN_DECLARATIONS;
+
 /* Write to daemon */
-int sd_journal_print(int priority, const char *format, ...) _sd_printf_attr_(2, 3);
-int sd_journal_printv(int priority, const char *format, va_list ap) _sd_printf_attr_(2, 0);
-int sd_journal_send(const char *format, ...) _sd_printf_attr_(1, 0) _sd_sentinel_attr_;
+int sd_journal_print(int priority, const char *format, ...) _sd_printf_(2, 3);
+int sd_journal_printv(int priority, const char *format, va_list ap) _sd_printf_(2, 0);
+int sd_journal_send(const char *format, ...) _sd_printf_(1, 0) _sd_sentinel_;
 int sd_journal_sendv(const struct iovec *iov, int n);
 int sd_journal_perror(const char *message);
 
-/* Used by the macros below. Don't call this directly. */
-int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_attr_(5, 6);
-int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_attr_(5, 0);
-int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_attr_(4, 0) _sd_sentinel_attr_;
+/* Used by the macros below. You probably don't want to call this directly. */
+int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(5, 6);
+int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) _sd_printf_(5, 0);
+int sd_journal_send_with_location(const char *file, const char *line, const char *func, const char *format, ...) _sd_printf_(4, 0) _sd_sentinel_;
 int sd_journal_sendv_with_location(const char *file, const char *line, const char *func, const struct iovec *iov, int n);
 int sd_journal_perror_with_location(const char *file, const char *line, const char *func, const char *message);
 
 /* implicitly add code location to messages sent, if this is enabled */
 #ifndef SD_JOURNAL_SUPPRESS_LOCATION
 
-#define _sd_XSTRINGIFY(x) #x
-#define _sd_STRINGIFY(x) _sd_XSTRINGIFY(x)
-
-#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, format, ap)
-#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
-#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, iovec, n)
-#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _sd_STRINGIFY(__LINE__), __func__, message)
+#define sd_journal_print(priority, ...) sd_journal_print_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_printv(priority, format, ap) sd_journal_printv_with_location(priority, "CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, format, ap)
+#define sd_journal_send(...) sd_journal_send_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, __VA_ARGS__)
+#define sd_journal_sendv(iovec, n) sd_journal_sendv_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, iovec, n)
+#define sd_journal_perror(message) sd_journal_perror_with_location("CODE_FILE=" __FILE__, "CODE_LINE=" _SD_STRINGIFY(__LINE__), __func__, message)
 
 #endif
 
@@ -87,8 +71,9 @@ enum {
         SD_JOURNAL_LOCAL_ONLY = 1,
         SD_JOURNAL_RUNTIME_ONLY = 2,
         SD_JOURNAL_SYSTEM = 4,
-        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM, /* deprecated */
         SD_JOURNAL_CURRENT_USER = 8,
+
+        SD_JOURNAL_SYSTEM_ONLY = SD_JOURNAL_SYSTEM, /* deprecated name */
 };
 
 /* Wakeup event types */
@@ -101,6 +86,7 @@ enum {
 int sd_journal_open(sd_journal **ret, int flags);
 int sd_journal_open_directory(sd_journal **ret, const char *path, int flags);
 int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
+int sd_journal_open_container(sd_journal **ret, const char *machine, int flags);
 void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
@@ -150,7 +136,7 @@ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec);
 int sd_journal_reliable_fd(sd_journal *j);
 
 int sd_journal_get_catalog(sd_journal *j, char **text);
-int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret);
+int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 
 #define SD_JOURNAL_FOREACH(j)                                           \
         if (sd_journal_seek_head(j) >= 0)                               \
@@ -166,8 +152,6 @@ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **ret);
 #define SD_JOURNAL_FOREACH_UNIQUE(j, data, l)                           \
         for (sd_journal_restart_unique(j); sd_journal_enumerate_unique((j), &(data), &(l)) > 0; )
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

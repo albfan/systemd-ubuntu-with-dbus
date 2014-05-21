@@ -234,11 +234,8 @@ static int ask_password_plymouth(
         r = 0;
 
 finish:
-        if (notify >= 0)
-                close_nointr_nofail(notify);
-
-        if (fd >= 0)
-                close_nointr_nofail(fd);
+        safe_close(notify);
+        safe_close(fd);
 
         free(packet);
 
@@ -294,9 +291,7 @@ static int parse_password(const char *filename, char **wall) {
                 }
         }
 
-        if (pid > 0 &&
-            kill(pid, 0) < 0 &&
-            errno == ESRCH) {
+        if (pid > 0 && !pid_is_alive(pid)) {
                 r = 0;
                 goto finish;
         }
@@ -363,7 +358,7 @@ static int parse_password(const char *filename, char **wall) {
 
                 } else {
                         int tty_fd = -1;
-                        char *password;
+                        char *password = NULL;
 
                         if (arg_console)
                                 if ((tty_fd = acquire_terminal("/dev/console", false, false, false, (usec_t) -1)) < 0) {
@@ -374,7 +369,7 @@ static int parse_password(const char *filename, char **wall) {
                         r = ask_password_tty(message, not_after, filename, &password);
 
                         if (arg_console) {
-                                close_nointr_nofail(tty_fd);
+                                safe_close(tty_fd);
                                 release_terminal();
                         }
 
@@ -421,8 +416,7 @@ static int parse_password(const char *filename, char **wall) {
 finish:
         fclose(f);
 
-        if (socket_fd >= 0)
-                close_nointr_nofail(socket_fd);
+        safe_close(socket_fd);
 
         free(packet);
         free(socket_name);
@@ -494,7 +488,7 @@ static bool wall_tty_match(const char *path) {
                 return true;
 
         /* What, we managed to open the pipe? Then this tty is filtered. */
-        close_nointr_nofail(fd);
+        safe_close(fd);
         return false;
 }
 
@@ -540,7 +534,7 @@ static int show_passwords(void) {
                 free(p);
 
                 if (wall) {
-                        utmp_wall(wall, wall_tty_match);
+                        utmp_wall(wall, NULL, wall_tty_match);
                         free(wall);
                 }
         }
@@ -616,14 +610,9 @@ static int watch_passwords(void) {
         r = 0;
 
 finish:
-        if (notify >= 0)
-                close_nointr_nofail(notify);
-
-        if (signal_fd >= 0)
-                close_nointr_nofail(signal_fd);
-
-        if (tty_block_fd >= 0)
-                close_nointr_nofail(tty_block_fd);
+        safe_close(notify);
+        safe_close(signal_fd);
+        safe_close(tty_block_fd);
 
         return r;
 }
@@ -666,7 +655,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "wall",     no_argument, NULL, ARG_WALL     },
                 { "plymouth", no_argument, NULL, ARG_PLYMOUTH },
                 { "console",  no_argument, NULL, ARG_CONSOLE  },
-                { NULL,    0,           NULL, 0               }
+                {}
         };
 
         int c;
@@ -679,8 +668,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -715,8 +703,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

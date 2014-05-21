@@ -19,38 +19,18 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sd_booted"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_booted — Test whether the system is running the systemd init system</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_booted</b>(</code></td><td>void<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm274673488944"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_booted()</code> checks whether
-                the system was booted up using the systemd init system.</p></div><div class="refsect1"><a name="idm274673487200"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On failure, this call returns a negative
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="sd_booted"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_booted — Test whether the system is running the systemd init system</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_booted</b>(</code></td><td>void<code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm140499809844336"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_booted()</code> checks whether
+                the system was booted up using the systemd init system.</p></div><div class="refsect1"><a name="idm140499809842704"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On failure, this call returns a negative
                 errno-style error code. If the system was booted up
                 with systemd as init system, this call returns a
-                positive return value, zero otherwise.</p></div><div class="refsect1"><a name="idm274673485776"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>This function is provided by the reference
-                implementation of APIs for new-style daemons and
-                distributed with the systemd package. The algorithm it
-                implements is simple, and can easily be reimplemented
-                in daemons if it is important to support this
-                interface without using the reference
-                implementation.</p><p>Internally, this function checks whether the
+                positive return value, zero otherwise.</p></div><div class="refsect1"><a name="idm140499809841280"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><a name="pkgconfig-text"></a>These APIs are implemented as a shared
+  library, which can be compiled and linked to with the
+  <code class="constant">libsystemd</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+  file.</p><p>Internally, this function checks whether the
                 directory <code class="filename">/run/systemd/system/</code>
                 exists. A simple check like this can also be
                 implemented trivially in shell or any other
-                language.</p><p>For details about the algorithm check the
-                liberally licensed reference implementation sources:
-                <a class="ulink" href="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c" target="_top">http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c</a>
-                and <a class="ulink" href="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h" target="_top">http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h</a></p><p><code class="function">sd_booted()</code> is implemented
-                in the reference implementation's
-                <code class="filename">sd-daemon.c</code> and
-                <code class="filename">sd-daemon.h</code> files. These
-                interfaces are available as shared library, which can
-                be compiled and linked to with the
-                <code class="constant">libsystemd-daemon</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
-                file. Alternatively, applications consuming these APIs
-                may copy the implementation into their source
-                tree. For more details about the reference
-                implementation see
-                <a href="sd-daemon.html"><span class="citerefentry"><span class="refentrytitle">sd-daemon</span>(3)</span></a>.</p><p>If the reference implementation is used as
-                drop-in files and -DDISABLE_SYSTEMD is set during
-                compilation, this function will always return 0 and
-                otherwise become a NOP.</p></div><div class="refsect1"><a name="idm274673476080"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                language.</p></div><div class="refsect1"><a name="idm140499809768576"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd-daemon.html"><span class="citerefentry"><span class="refentrytitle">sd-daemon</span>(3)</span></a>
                 </p></div></div></body></html>

@@ -41,15 +41,23 @@ $1.TTYReset,                     config_parse_bool,                  0,         
 $1.TTYVHangup,                   config_parse_bool,                  0,                             offsetof($1, exec_context.tty_vhangup)
 $1.TTYVTDisallocate,             config_parse_bool,                  0,                             offsetof($1, exec_context.tty_vt_disallocate)
 $1.SyslogIdentifier,             config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.syslog_identifier)
-$1.SyslogFacility,               config_parse_facility,              0,                             offsetof($1, exec_context.syslog_priority)
-$1.SyslogLevel,                  config_parse_level,                 0,                             offsetof($1, exec_context.syslog_priority)
+$1.SyslogFacility,               config_parse_log_facility,          0,                             offsetof($1, exec_context.syslog_priority)
+$1.SyslogLevel,                  config_parse_log_level,             0,                             offsetof($1, exec_context.syslog_priority)
 $1.SyslogLevelPrefix,            config_parse_bool,                  0,                             offsetof($1, exec_context.syslog_level_prefix)
 $1.Capabilities,                 config_parse_exec_capabilities,     0,                             offsetof($1, exec_context)
 $1.SecureBits,                   config_parse_exec_secure_bits,      0,                             offsetof($1, exec_context)
 $1.CapabilityBoundingSet,        config_parse_bounding_set,          0,                             offsetof($1, exec_context.capability_bounding_set_drop)
 $1.TimerSlackNSec,               config_parse_nsec,                  0,                             offsetof($1, exec_context.timer_slack_nsec)
-$1.NoNewPrivileges,              config_parse_bool,                  0,                             offsetof($1, exec_context.no_new_privileges)
-$1.SystemCallFilter,             config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
+$1.NoNewPrivileges,              config_parse_no_new_priviliges,     0,                             offsetof($1, exec_context)
+m4_ifdef(`HAVE_SECCOMP',
+`$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
+$1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
+$1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)
+$1.RestrictAddressFamilies,      config_parse_address_families,      0,                             offsetof($1, exec_context)',
+`$1.SystemCallFilter,            config_parse_warn_compat,           0,                             0
+$1.SystemCallArchitectures,      config_parse_warn_compat,           0,                             0
+$1.SystemCallErrorNumber,        config_parse_warn_compat,           0,                             0
+$1.RestrictAddressFamilies,      config_parse_warn_compat,           0,                             0')
 $1.LimitCPU,                     config_parse_limit,                 RLIMIT_CPU,                    offsetof($1, exec_context.rlimit)
 $1.LimitFSIZE,                   config_parse_limit,                 RLIMIT_FSIZE,                  offsetof($1, exec_context.rlimit)
 $1.LimitDATA,                    config_parse_limit,                 RLIMIT_DATA,                   offsetof($1, exec_context.rlimit)
@@ -66,16 +74,27 @@ $1.LimitMSGQUEUE,                config_parse_limit,                 RLIMIT_MSGQ
 $1.LimitNICE,                    config_parse_limit,                 RLIMIT_NICE,                   offsetof($1, exec_context.rlimit)
 $1.LimitRTPRIO,                  config_parse_limit,                 RLIMIT_RTPRIO,                 offsetof($1, exec_context.rlimit)
 $1.LimitRTTIME,                  config_parse_limit,                 RLIMIT_RTTIME,                 offsetof($1, exec_context.rlimit)
-$1.ReadWriteDirectories,         config_parse_path_strv,             0,                             offsetof($1, exec_context.read_write_dirs)
-$1.ReadOnlyDirectories,          config_parse_path_strv,             0,                             offsetof($1, exec_context.read_only_dirs)
-$1.InaccessibleDirectories,      config_parse_path_strv,             0,                             offsetof($1, exec_context.inaccessible_dirs)
+$1.ReadWriteDirectories,         config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_write_dirs)
+$1.ReadOnlyDirectories,          config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.read_only_dirs)
+$1.InaccessibleDirectories,      config_parse_namespace_path_strv,   0,                             offsetof($1, exec_context.inaccessible_dirs)
 $1.PrivateTmp,                   config_parse_bool,                  0,                             offsetof($1, exec_context.private_tmp)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
+$1.PrivateDevices,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_devices)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context)
-$1.TCPWrapName,                  config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.tcpwrap_name)
-$1.PAMName,                      config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
+$1.Personality,                  config_parse_personality,           0,                             offsetof($1, exec_context.personality)
+$1.RuntimeDirectoryMode,         config_parse_mode,                  0,                             offsetof($1, exec_context.runtime_directory_mode)
+$1.RuntimeDirectory,             config_parse_runtime_directory,     0,                             offsetof($1, exec_context.runtime_directory)
+m4_ifdef(`HAVE_PAM',
+`$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)',
+`$1.PAMName,                     config_parse_warn_compat,           0,                             0')
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
-$1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)'
+$1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
+m4_ifdef(`HAVE_SELINUX',
+`$1.SELinuxContext,              config_parse_exec_selinux_context,  0,                             offsetof($1, exec_context)',
+`$1.SELinuxContext,              config_parse_warn_compat,           0,                             0')
+m4_ifdef(`HAVE_APPARMOR',
+`$1.AppArmorProfile,              config_parse_exec_apparmor_profile,0,                             offsetof($1, exec_context)',
+`$1.AppArmorProfile,              config_parse_warn_compat,          0,                             0')'
 )m4_dnl
 m4_define(`KILL_CONTEXT_CONFIG_ITEMS',
 `$1.SendSIGKILL,                 config_parse_bool,                  0,                             offsetof($1, kill_context.send_sigkill)
@@ -116,13 +135,15 @@ Unit.PropagateReloadTo,          config_parse_unit_deps,             UNIT_PROPAG
 Unit.ReloadPropagatedFrom,       config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.PropagateReloadFrom,        config_parse_unit_deps,             UNIT_RELOAD_PROPAGATED_FROM,   0
 Unit.PartOf,                     config_parse_unit_deps,             UNIT_PART_OF,                  0
+Unit.JoinsNamespaceOf,           config_parse_unit_deps,             UNIT_JOINS_NAMESPACE_OF,       0
 Unit.RequiresMountsFor,          config_parse_unit_requires_mounts_for, 0,                          0
 Unit.StopWhenUnneeded,           config_parse_bool,                  0,                             offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,          config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_start)
 Unit.RefuseManualStop,           config_parse_bool,                  0,                             offsetof(Unit, refuse_manual_stop)
 Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Unit, allow_isolate)
 Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Unit, default_dependencies)
-Unit.OnFailureIsolate,           config_parse_bool,                  0,                             offsetof(Unit, on_failure_isolate)
+Unit.OnFailureJobMode,           config_parse_job_mode,              0,                             offsetof(Unit, on_failure_job_mode)
+Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,                             offsetof(Unit, on_failure_job_mode)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
@@ -136,6 +157,7 @@ Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_D
 Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
 Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
+Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
 Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            0
 Unit.ConditionCapability,        config_parse_unit_condition_string, CONDITION_CAPABILITY,          0
@@ -173,7 +195,6 @@ Service.NonBlocking,             config_parse_bool,                  0,         
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
-Service.FsckPassNo,              config_parse_fsck_passno,           0,                             offsetof(Service, fsck_passno)
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -199,33 +220,46 @@ Socket.Accept,                   config_parse_bool,                  0,         
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
 Socket.Priority,                 config_parse_int,                   0,                             offsetof(Socket, priority)
-Socket.ReceiveBuffer,            config_parse_bytes_size,            0,                             offsetof(Socket, receive_buffer)
-Socket.SendBuffer,               config_parse_bytes_size,            0,                             offsetof(Socket, send_buffer)
+Socket.ReceiveBuffer,            config_parse_iec_size,              0,                             offsetof(Socket, receive_buffer)
+Socket.SendBuffer,               config_parse_iec_size,              0,                             offsetof(Socket, send_buffer)
 Socket.IPTOS,                    config_parse_ip_tos,                0,                             offsetof(Socket, ip_tos)
 Socket.IPTTL,                    config_parse_int,                   0,                             offsetof(Socket, ip_ttl)
 Socket.Mark,                     config_parse_int,                   0,                             offsetof(Socket, mark)
-Socket.PipeSize,                 config_parse_bytes_size,            0,                             offsetof(Socket, pipe_size)
+Socket.PipeSize,                 config_parse_iec_size,              0,                             offsetof(Socket, pipe_size)
 Socket.FreeBind,                 config_parse_bool,                  0,                             offsetof(Socket, free_bind)
 Socket.Transparent,              config_parse_bool,                  0,                             offsetof(Socket, transparent)
 Socket.Broadcast,                config_parse_bool,                  0,                             offsetof(Socket, broadcast)
 Socket.PassCredentials,          config_parse_bool,                  0,                             offsetof(Socket, pass_cred)
 Socket.PassSecurity,             config_parse_bool,                  0,                             offsetof(Socket, pass_sec)
 Socket.TCPCongestion,            config_parse_string,                0,                             offsetof(Socket, tcp_congestion)
+Socket.ReusePort,                config_parse_bool,                  0,                             offsetof(Socket, reuse_port)
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
 Socket.MessageQueueMessageSize,  config_parse_long,                  0,                             offsetof(Socket, mq_msgsize)
 Socket.Service,                  config_parse_socket_service,        0,                             0
-Socket.SmackLabel,               config_parse_string,                0,                             offsetof(Socket, smack)
+m4_ifdef(`HAVE_SMACK',
+`Socket.SmackLabel,              config_parse_string,                0,                             offsetof(Socket, smack)
 Socket.SmackLabelIPIn,           config_parse_string,                0,                             offsetof(Socket, smack_ip_in)
-Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)
+Socket.SmackLabelIPOut,          config_parse_string,                0,                             offsetof(Socket, smack_ip_out)',
+`Socket.SmackLabel,              config_parse_warn_compat,           0,                             0
+Socket.SmackLabelIPIn,           config_parse_warn_compat,           0,                             0
+Socket.SmackLabelIPOut,          config_parse_warn_compat,           0,                             0')
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
+m4_dnl
+BusName.Name,                    config_parse_string,                0,                             offsetof(BusName, name)
+BusName.Activating,              config_parse_bool,                  0,                             offsetof(BusName, activating)
+BusName.Service,                 config_parse_busname_service,       0,                             0
+BusName.AllowUser,               config_parse_bus_policy,            0,                             0
+BusName.AllowGroup,              config_parse_bus_policy,            0,                             0
+BusName.AllowWorld,              config_parse_bus_policy,            0,                             0
+BusName.SELinuxContext,          config_parse_exec_selinux_context,  0,                             0
+BusName.AcceptFileDescriptors,   config_parse_bool,                  0,                             offsetof(BusName, accept_fd)
 m4_dnl
 Mount.What,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.what)
 Mount.Where,                     config_parse_path,                  0,                             offsetof(Mount, where)
 Mount.Options,                   config_parse_string,                0,                             offsetof(Mount, parameters_fragment.options)
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
-Mount.FsckPassNo,                config_parse_fsck_passno,           0,                             offsetof(Mount, parameters_fragment.passno)
 Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
@@ -248,6 +282,9 @@ Timer.OnBootSec,                 config_parse_timer,                 0,         
 Timer.OnStartupSec,              config_parse_timer,                 0,                             0
 Timer.OnUnitActiveSec,           config_parse_timer,                 0,                             0
 Timer.OnUnitInactiveSec,         config_parse_timer,                 0,                             0
+Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
+Timer.WakeSystem,                config_parse_bool,                  0,                             offsetof(Timer, wake_system)
+Timer.AccuracySec,               config_parse_sec,                   0,                             offsetof(Timer, accuracy_usec)
 Timer.Unit,                      config_parse_trigger_unit,          0,                             0
 m4_dnl
 Path.PathExists,                 config_parse_path_spec,             0,                             0

@@ -242,10 +242,10 @@
                                 <literal>ignore</literal>, logind will
                                 never handle these keys. If
                                 <literal>lock</literal>, all running
-                                sessions will be screen-locked; otherwise,
-                                the specified action
-                                will be taken in the respective
-                                event. Only input devices with the
+                                sessions will be screen-locked;
+                                otherwise, the specified action will
+                                be taken in the respective event. Only
+                                input devices with the
                                 <literal>power-switch</literal> udev
                                 tag will be watched for key/lid switch
                                 events. <varname>HandlePowerKey=</varname>
@@ -257,7 +257,11 @@
                                 default to <literal>suspend</literal>.
                                 <varname>HandleHibernateKey=</varname>
                                 defaults to
-                                <literal>hibernate</literal>.</para></listitem>
+                                <literal>hibernate</literal>. Note
+                                that the lid switch is ignored if the
+                                system is inserted in a docking
+                                station, or if more than one display
+                                is connected.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -289,6 +293,48 @@
                                 suspend blockers by default, but the
                                 power and sleep keys do.
                                 </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RuntimeDirectorySize=</varname></term>
+
+                                <listitem><para>Sets the size limit on
+                                the
+                                <varname>$XDG_RUNTIME_DIR</varname>
+                                runtime directory for each user who
+                                logs in. Takes a size in bytes,
+                                possibly suffixed with the usual K, G,
+                                M, T suffixes, to the base 1024
+                                (IEC). Alternatively, a percentage
+                                suffixed by <literal>%</literal> may
+                                be specified, which sets the size
+                                limit relative to the amount of
+                                physical RAM. Defaults to 10%. Note
+                                that this size is a safety limit
+                                only. As each runtime directory is a
+                                tmpfs file system it will only consume
+                                as much memory as it is filled up
+                                to.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RemoveIPC=</varname></term>
+
+                                <listitem><para>Controls whether
+                                System V and POSIX IPC objects
+                                belonging to the user shall be removed
+                                when she or he fully logs out. Takes a
+                                boolean argument. If enabled the user
+                                may not consume IPC resources after
+                                the last of his sessions
+                                terminated. This covers System V
+                                semaphores, shared memory and message
+                                queues, as well as POSIX shared memory
+                                and message queues. Note that IPC
+                                objects of the root user are excluded
+                                from the effect of this
+                                setting. Defaults to
+                                on.</para></listitem>
                         </varlistentry>
 
                 </variablelist>

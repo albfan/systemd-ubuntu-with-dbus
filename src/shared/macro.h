@@ -27,10 +27,9 @@
 #include <sys/uio.h>
 #include <inttypes.h>
 
-#define _printf_attr_(a,b) __attribute__ ((format (printf, a, b)))
+#define _printf_(a,b) __attribute__ ((format (printf, a, b)))
 #define _alloc_(...) __attribute__ ((alloc_size(__VA_ARGS__)))
 #define _sentinel_ __attribute__ ((sentinel))
-#define _noreturn_ __attribute__((noreturn))
 #define _unused_ __attribute__ ((unused))
 #define _destructor_ __attribute__ ((destructor))
 #define _pure_ __attribute__ ((pure))
@@ -44,15 +43,39 @@
 #define _public_ __attribute__ ((visibility("default")))
 #define _hidden_ __attribute__ ((visibility("hidden")))
 #define _weakref_(x) __attribute__((weakref(#x)))
-#define _introspect_(x) __attribute__((section("introspect." x)))
 #define _alignas_(x) __attribute__((aligned(__alignof(x))))
 #define _cleanup_(x) __attribute__((cleanup(x)))
+
+/* Temporarily disable some warnings */
+#define DISABLE_WARNING_DECLARATION_AFTER_STATEMENT                     \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wdeclaration-after-statement\"")
+
+#define DISABLE_WARNING_FORMAT_NONLITERAL                               \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
+
+#define DISABLE_WARNING_MISSING_PROTOTYPES                              \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wmissing-prototypes\"")
+
+#define DISABLE_WARNING_NONNULL                                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
+
+#define REENABLE_WARNING                                                \
+        _Pragma("GCC diagnostic pop")
 
 /* automake test harness */
 #define EXIT_TEST_SKIP 77
 
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
+
+#define XCONCATENATE(x, y) x ## y
+#define CONCATENATE(x, y) XCONCATENATE(x, y)
+
+#define UNIQUE(prefix) CONCATENATE(prefix, __LINE__)
 
 /* Rounds up */
 
@@ -75,7 +98,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + ali - 1) & ~(ali - 1));
 }
 
-#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) p))
+#define ALIGN_TO_PTR(p, ali) ((void*) ALIGN_TO((unsigned long) p, ali))
 
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 
@@ -114,6 +137,13 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                         _a < _b ? _a : _b;      \
                 })
 
+#define LESS_BY(A,B)                            \
+        __extension__ ({                        \
+                        typeof(A) _A = (A);     \
+                        typeof(B) _B = (B);     \
+                        _A > _B ? _A - _B : 0;  \
+                })
+
 #ifndef CLAMP
 #define CLAMP(x, low, high)                                             \
         __extension__ ({                                                \
@@ -144,20 +174,29 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         } while (false)
 
 #if defined(static_assert)
-#define assert_cc(expr)                         \
-        do {                                    \
-                static_assert(expr, #expr);     \
-        } while (false)
+/* static_assert() is sometimes defined in a way that trips up
+ * -Wdeclaration-after-statement, hence let's temporarily turn off
+ * this warning around it. */
+#define assert_cc(expr)                                                 \
+        DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
+        static_assert(expr, #expr);                                     \
+        REENABLE_WARNING
 #else
-#define assert_cc(expr)                         \
-        do {                                    \
-                switch (0) {                    \
-                case 0:                         \
-                case !!(expr):                  \
-                        ;                       \
-                }                               \
-        } while (false)
+#define assert_cc(expr)                                                 \
+        DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
+        struct UNIQUE(_assert_struct_) {                                \
+                char x[(expr) ? 0 : -1];                                \
+        };                                                              \
+        REENABLE_WARNING
 #endif
+
+#define assert_return(expr, r)                                          \
+        do {                                                            \
+                if (_unlikely_(!(expr))) {                              \
+                        log_assert_failed_return(#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        return (r);                                     \
+                }                                                       \
+        } while (false)
 
 #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
 #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
@@ -267,24 +306,60 @@ do {                                                                    \
         }                                                               \
 } while(false)
 
- /* Because statfs.t_type can be int on some architecures, we have to cast
+ /* Because statfs.t_type can be int on some architectures, we have to cast
   * the const magic to the type, otherwise the compiler warns about
   * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
 
-
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix. */
-
 #define DECIMAL_STR_MAX(type)                                           \
-        (1+(sizeof(type) <= 1 ? 3 :                                     \
+        (2+(sizeof(type) <= 1 ? 3 :                                     \
             sizeof(type) <= 2 ? 5 :                                     \
             sizeof(type) <= 4 ? 10 :                                    \
             sizeof(type) <= 8 ? 20 : sizeof(int[-2*(sizeof(type) > 8)])))
 
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
+
+#define IN_SET(x, y, ...)                                               \
+        ({                                                              \
+                const typeof(y) _y = (y);                               \
+                const typeof(_y) _x = (x);                              \
+                unsigned _i;                                            \
+                bool _found = false;                                    \
+                for (_i = 0; _i < 1 + sizeof((const typeof(_x)[]) { __VA_ARGS__ })/sizeof(const typeof(_x)); _i++) \
+                        if (((const typeof(_x)[]) { _y, __VA_ARGS__ })[_i] == _x) { \
+                                _found = true;                          \
+                                break;                                  \
+                        }                                               \
+                _found;                                                 \
+        })
+
+/* Define C11 thread_local attribute even on older gcc compiler
+ * version */
+#ifndef thread_local
+/*
+ * Don't break on glibc < 2.16 that doesn't define __STDC_NO_THREADS__
+ * see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53769
+ */
+#if __STDC_VERSION__ >= 201112L && !(defined(__STDC_NO_THREADS__) || (defined(__GNU_LIBRARY__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 16))
+#define thread_local _Thread_local
+#else
+#define thread_local __thread
+#endif
+#endif
+
+/* Define C11 noreturn without <stdnoreturn.h> and even on older gcc
+ * compiler versions */
+#ifndef noreturn
+#if __STDC_VERSION__ >= 201112L
+#define noreturn _Noreturn
+#else
+#define noreturn __attribute__((noreturn))
+#endif
+#endif
 
 #include "log.h"

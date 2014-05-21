@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
                          [ARGS...]
-                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm274694735024"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
+                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm140428502326768"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
                 <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -66,10 +66,10 @@
                 see each other. The PID namespace separation of the
                 two containers is complete and the containers will
                 share very few runtime objects except for the
-                underlying file system. It is however possible to
-                enter an existing container, see
-                <a class="link" href="#example-nsenter" title="Example 4">Example 4</a> below.
-                </p><p><span class="command"><strong>systemd-nspawn</strong></span> implements the
+                underlying file system. Use
+                <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>'s
+                <span class="command"><strong>login</strong></span> command to request an
+                additional login prompt in a running container.</p><p><span class="command"><strong>systemd-nspawn</strong></span> implements the
                 <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface" target="_top">Container
                 Interface</a> specification.</p><p>As a safety check
                 <span class="command"><strong>systemd-nspawn</strong></span> will verify the
@@ -78,39 +78,56 @@
                 <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
-                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm274698612992"></a><h2 id="Incompatibility with Auditing">Incompatibility with Auditing<a class="headerlink" title="Permalink to this headline" href="#Incompatibility%20with%20Auditing">¶</a></h2><p>Note that the kernel auditing subsystem is
-                currently broken when used together with
-                containers. We hence recommend turning it off entirely
-                by booting with "<code class="literal">audit=0</code>" on the
-                kernel command line, or by turning it off at kernel
-                build time. If auditing is enabled in the kernel,
-                operating systems booted in an nspawn container might
-                refuse log-in attempts.</p></div><div class="refsect1"><a name="idm274698590992"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
+                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm140428501580000"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
                 arguments are used as arguments for the init
                 binary. Otherwise, <em class="replaceable"><code>COMMAND</code></em>
                 specifies the program to launch in the container, and
                 the remaining arguments are used as arguments for this
                 program. If <code class="option">-b</code> is not used and no
                 arguments are specifed, a shell is launched in the
-                container.</p><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
-                                text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a version string
-                                and exits.</p></dd><dt id="-D"><span class="term"><code class="option">-D</code>, </span><span class="term"><code class="option">--directory=</code></span><a class="headerlink" title="Permalink to this term" href="#-D">¶</a></dt><dd><p>Directory to use as
-                                file system root for the namespace
-                                container. If omitted, the current
-                                directory will be
-                                used.</p></dd><dt id="-b"><span class="term"><code class="option">-b</code>, </span><span class="term"><code class="option">--boot</code></span><a class="headerlink" title="Permalink to this term" href="#-b">¶</a></dt><dd><p>Automatically search
+                container.</p><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-D"><span class="term"><code class="option">-D</code>, </span><span class="term"><code class="option">--directory=</code></span><a class="headerlink" title="Permalink to this term" href="#-D">¶</a></dt><dd><p>Directory to use as
+                                file system root for the container. If
+                                neither <code class="option">--directory=</code>
+                                nor <code class="option">--image=</code> are
+                                specified, the current directory will
+                                be used. May not be specified together with
+                                <code class="option">--image=</code>.</p></dd><dt id="-i"><span class="term"><code class="option">-i</code>, </span><span class="term"><code class="option">--image=</code></span><a class="headerlink" title="Permalink to this term" href="#-i">¶</a></dt><dd><p>Disk image to mount
+                                the root directory for the container
+                                from. Takes a path to a regular file
+                                or to a block device node. The file or
+                                block device must contain a GUID
+                                Partition Table with a root partition
+                                which is mounted as the root directory
+                                of the container. Optionally, it may
+                                contain a home and/or a server data
+                                partition which are mounted to the
+                                appropriate places in the
+                                container. All these partitions must
+                                be identified by the partition types
+                                defined by the <a class="ulink" href="http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/" target="_top">Discoverable
+                                Partitions Specification</a>. Any
+                                other partitions, such as foreign
+                                partitions, swap partitions or EFI
+                                system partitions are not mounted. May
+                                not be specified together with
+                                <code class="option">--directory=</code>.</p></dd><dt id="-b"><span class="term"><code class="option">-b</code>, </span><span class="term"><code class="option">--boot</code></span><a class="headerlink" title="Permalink to this term" href="#-b">¶</a></dt><dd><p>Automatically search
                                 for an init binary and invoke it
                                 instead of a shell or a user supplied
-                                program. If this option is used, arguments
-                                specified on the command line are used
-                                as arguments for the init binary.
-                                </p></dd><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--user=</code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>Run the command
-                                under specified user, create home
-                                directory and cd into it. As rest
-                                of systemd-nspawn, this is not
-                                the security feature and limits
-                                against accidental changes only.
-                                </p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p>Sets the machine name
+                                program. If this option is used,
+                                arguments specified on the command
+                                line are used as arguments for the
+                                init binary. This option may not be
+                                combined with
+                                <code class="option">--share-system</code>.
+                                </p></dd><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--user=</code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>After transitioning
+                                into the container, change to the
+                                specified user defined in the
+                                container's user database. Like all
+                                other systemd-nspawn features, this is
+                                not a security feature and provides
+                                protection against accidental
+                                destructive operations
+                                only.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p>Sets the machine name
                                 for this container. This name may be
                                 used to identify this container on the
                                 host, and is used to initialize the
@@ -118,20 +135,87 @@
                                 container can choose to override,
                                 however). If not specified, the last
                                 component of the root directory of the
-                                container is used.</p></dd><dt id="--slice="><span class="term"><code class="option">--slice=</code></span><a class="headerlink" title="Permalink to this term" href="#--slice=">¶</a></dt><dd><p>Make the container
-                                part of the specified slice, instead
-                                of the
-                                <code class="filename">machine.slice</code>.</p></dd><dt id="--uuid="><span class="term"><code class="option">--uuid=</code></span><a class="headerlink" title="Permalink to this term" href="#--uuid=">¶</a></dt><dd><p>Set the specified UUID
+                                container is used.</p></dd><dt id="--uuid="><span class="term"><code class="option">--uuid=</code></span><a class="headerlink" title="Permalink to this term" href="#--uuid=">¶</a></dt><dd><p>Set the specified UUID
                                 for the container. The init system
                                 will initialize
                                 <code class="filename">/etc/machine-id</code>
                                 from this if this file is not set yet.
-                                </p></dd><dt id="--private-network"><span class="term"><code class="option">--private-network</code></span><a class="headerlink" title="Permalink to this term" href="#--private-network">¶</a></dt><dd><p>Turn off networking in
-                                the container. This makes all network
-                                interfaces unavailable in the
-                                container, with the exception of the
-                                loopback device.</p></dd><dt id="--read-only"><span class="term"><code class="option">--read-only</code></span><a class="headerlink" title="Permalink to this term" href="#--read-only">¶</a></dt><dd><p>Mount the root file
-                                system read-only for the
+                                </p></dd><dt id="--slice="><span class="term"><code class="option">--slice=</code></span><a class="headerlink" title="Permalink to this term" href="#--slice=">¶</a></dt><dd><p>Make the container
+                                part of the specified slice, instead
+                                of the default
+                                <code class="filename">machine.slice</code>.</p></dd><dt id="--private-network"><span class="term"><code class="option">--private-network</code></span><a class="headerlink" title="Permalink to this term" href="#--private-network">¶</a></dt><dd><p>Disconnect networking
+                                of the container from the host. This
+                                makes all network interfaces
+                                unavailable in the container, with the
+                                exception of the loopback device and
+                                those specified with
+                                <code class="option">--network-interface=</code>
+                                and configured with
+                                <code class="option">--network-veth</code>. If
+                                this option is specified, the
+                                CAP_NET_ADMIN capability will be added
+                                to the set of capabilities the
+                                container retains. The latter may be
+                                disabled by using
+                                <code class="option">--drop-capability=</code>.</p></dd><dt id="--network-interface="><span class="term"><code class="option">--network-interface=</code></span><a class="headerlink" title="Permalink to this term" href="#--network-interface=">¶</a></dt><dd><p>Assign the specified
+                                network interface to the
+                                container. This will remove the
+                                specified interface from the calling
+                                namespace and place it in the
+                                container. When the container
+                                terminates, it is moved back to the
+                                host namespace. Note that
+                                <code class="option">--network-interface=</code>
+                                implies
+                                <code class="option">--private-network</code>. This
+                                option may be used more than once to
+                                add multiple network interfaces to the
+                                container.</p></dd><dt id="--network-macvlan="><span class="term"><code class="option">--network-macvlan=</code></span><a class="headerlink" title="Permalink to this term" href="#--network-macvlan=">¶</a></dt><dd><p>Create a
+                                "<code class="literal">macvlan</code>" interface
+                                of the specified Ethernet network
+                                interface and add it to the
+                                container. A
+                                "<code class="literal">macvlan</code>" interface
+                                is a virtual interface that adds a
+                                second MAC address to an existing
+                                physical Ethernet link. The interface
+                                in the container will be named after
+                                the interface on the host, prefixed
+                                with "<code class="literal">mv-</code>". Note that
+                                <code class="option">--network-macvlan=</code>
+                                implies
+                                <code class="option">--private-network</code>. This
+                                option may be used more than once to
+                                add multiple network interfaces to the
+                                container.</p></dd><dt id="--network-veth"><span class="term"><code class="option">--network-veth</code></span><a class="headerlink" title="Permalink to this term" href="#--network-veth">¶</a></dt><dd><p>Create a virtual
+                                Ethernet link
+                                ("<code class="literal">veth</code>") between host
+                                and container. The host side of the
+                                Ethernet link will be available as a
+                                network interface named after the
+                                container's name (as specified with
+                                <code class="option">--machine=</code>), prefixed
+                                with "<code class="literal">ve-</code>". The
+                                container side of the the Ethernet
+                                link will be named
+                                "<code class="literal">host0</code>". Note that
+                                <code class="option">--network-veth</code>
+                                implies
+                                <code class="option">--private-network</code>.</p></dd><dt id="--network-bridge="><span class="term"><code class="option">--network-bridge=</code></span><a class="headerlink" title="Permalink to this term" href="#--network-bridge=">¶</a></dt><dd><p>Adds the host side of
+                                the Ethernet link created with
+                                <code class="option">--network-veth</code> to the
+                                specified bridge. Note that
+                                <code class="option">--network-bridge=</code>
+                                implies
+                                <code class="option">--network-veth</code>. If
+                                this option is used the host side of
+                                the Ethernet link will use the
+                                "<code class="literal">vb-</code>" prefix instead
+                                of "<code class="literal">ve-</code>".</p></dd><dt id="-Z"><span class="term"><code class="option">-Z</code>, </span><span class="term"><code class="option">--selinux-context=</code></span><a class="headerlink" title="Permalink to this term" href="#-Z">¶</a></dt><dd><p>Sets the SELinux
+                                security context to be used to label
+                                processes in the container.</p></dd><dt id="-L"><span class="term"><code class="option">-L</code>, </span><span class="term"><code class="option">--selinux-apifs-context=</code></span><a class="headerlink" title="Permalink to this term" href="#-L">¶</a></dt><dd><p>Sets the SELinux security
+                                context to be used to label files in
+                                the virtual API file systems in the
                                 container.</p></dd><dt id="--capability="><span class="term"><code class="option">--capability=</code></span><a class="headerlink" title="Permalink to this term" href="#--capability=">¶</a></dt><dd><p>List one or more
                                 additional capabilities to grant the
                                 container. Takes a comma-separated
@@ -152,7 +236,17 @@
                                 CAP_SYS_PTRACE, CAP_SYS_TTY_CONFIG,
                                 CAP_SYS_RESOURCE, CAP_SYS_BOOT,
                                 CAP_AUDIT_WRITE,
-                                CAP_AUDIT_CONTROL.</p></dd><dt id="--link-journal="><span class="term"><code class="option">--link-journal=</code></span><a class="headerlink" title="Permalink to this term" href="#--link-journal=">¶</a></dt><dd><p>Control whether the
+                                CAP_AUDIT_CONTROL. Also CAP_NET_ADMIN
+                                is retained if
+                                <code class="option">--private-network</code> is
+                                specified. If the special value
+                                "<code class="literal">all</code>" is passed, all
+                                capabilities are
+                                retained.</p></dd><dt id="--drop-capability="><span class="term"><code class="option">--drop-capability=</code></span><a class="headerlink" title="Permalink to this term" href="#--drop-capability=">¶</a></dt><dd><p>Specify one or more
+                                additional capabilities to drop for
+                                the container. This allows running the
+                                container with fewer capabilities than
+                                the default (see above).</p></dd><dt id="--link-journal="><span class="term"><code class="option">--link-journal=</code></span><a class="headerlink" title="Permalink to this term" href="#--link-journal=">¶</a></dt><dd><p>Control whether the
                                 container's journal shall be made
                                 visible to the host system. If enabled,
                                 allows viewing the container's journal
@@ -188,7 +282,9 @@
                                 journal persistently if further on
                                 the default of "<code class="literal">auto</code>"
                                 is used.</p></dd><dt id="-j"><span class="term"><code class="option">-j</code></span><a class="headerlink" title="Permalink to this term" href="#-j">¶</a></dt><dd><p>Equivalent to
-                                <code class="option">--link-journal=guest</code>.</p></dd><dt id="--bind="><span class="term"><code class="option">--bind=</code>, </span><span class="term"><code class="option">--bind-ro=</code></span><a class="headerlink" title="Permalink to this term" href="#--bind=">¶</a></dt><dd><p>Bind mount a file or
+                                <code class="option">--link-journal=guest</code>.</p></dd><dt id="--read-only"><span class="term"><code class="option">--read-only</code></span><a class="headerlink" title="Permalink to this term" href="#--read-only">¶</a></dt><dd><p>Mount the root file
+                                system read-only for the
+                                container.</p></dd><dt id="--bind="><span class="term"><code class="option">--bind=</code>, </span><span class="term"><code class="option">--bind-ro=</code></span><a class="headerlink" title="Permalink to this term" href="#--bind=">¶</a></dt><dd><p>Bind mount a file or
                                 directory from the host into the
                                 container. Either takes a path
                                 argument -- in which case the
@@ -201,32 +297,111 @@
                                 destination in the container. The
                                 <code class="option">--bind-ro=</code> option
                                 creates read-only bind
-                                mount.</p></dd></dl></div></div><div class="refsect1"><a name="idm274693634016"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                                mounts.</p></dd><dt id="--setenv="><span class="term"><code class="option">--setenv=</code></span><a class="headerlink" title="Permalink to this term" href="#--setenv=">¶</a></dt><dd><p>Specifies an
+                                environment variable assignment to
+                                pass to the init process in the
+                                container, in the format
+                                "<code class="literal">NAME=VALUE</code>". This
+                                may be used to override the default
+                                variables or to set additional
+                                variables. This parameter may be used
+                                more than once.</p></dd><dt id="--share-system"><span class="term"><code class="option">--share-system</code></span><a class="headerlink" title="Permalink to this term" href="#--share-system">¶</a></dt><dd><p>Allows the container
+                                to share certain system facilities
+                                with the host. More specifically, this
+                                turns off PID namespacing, UTS
+                                namespacing and IPC namespacing, and
+                                thus allows the guest to see and
+                                interact more easily with processes
+                                outside of the container. Note that
+                                using this option makes it impossible
+                                to start up a full Operating System in
+                                the container, as an init system
+                                cannot operate in this mode. It is
+                                only useful to run specific programs
+                                or applications this way, without
+                                involving an init system in the
+                                container. This option implies
+                                <code class="option">--register=no</code>. This
+                                option may not be combined with
+                                <code class="option">--boot</code>.</p></dd><dt id="--register="><span class="term"><code class="option">--register=</code></span><a class="headerlink" title="Permalink to this term" href="#--register=">¶</a></dt><dd><p>Controls whether the
+                                container is registered with
+                                <a href="systemd-machined.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined</span>(8)</span></a>. Takes
+                                a boolean argument, defaults to
+                                "<code class="literal">yes</code>". This option
+                                should be enabled when the container
+                                runs a full Operating System (more
+                                specifically: an init system), and is
+                                useful to ensure that the container is
+                                accessible via
+                                <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
+                                and shown by tools such as
+                                <a href="ps.html"><span class="citerefentry"><span class="refentrytitle">ps</span>(1)</span></a>. If
+                                the container does not run an init
+                                system, it is recommended to set this
+                                option to "<code class="literal">no</code>". Note
+                                that <code class="option">--share-system</code>
+                                implies
+                                <code class="option">--register=no</code>.
+                                </p></dd><dt id="--keep-unit"><span class="term"><code class="option">--keep-unit</code></span><a class="headerlink" title="Permalink to this term" href="#--keep-unit">¶</a></dt><dd><p>Instead of creating a
+                                transient scope unit to run the
+                                container in, simply register the
+                                service or scope unit
+                                <span class="command"><strong>systemd-nspawn</strong></span> has
+                                been invoked in with
+                                <a href="systemd-machined.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined</span>(8)</span></a>. This
+                                has no effect if
+                                <code class="option">--register=no</code> is
+                                used. This switch should be used if
+                                <span class="command"><strong>systemd-nspawn</strong></span> is
+                                invoked from within a service unit,
+                                and the service unit's sole purpose
+                                is to run a single
+                                <span class="command"><strong>systemd-nspawn</strong></span>
+                                container. This option is not
+                                available if run from a user
+                                session.</p></dd><dt id="--personality="><span class="term"><code class="option">--personality=</code></span><a class="headerlink" title="Permalink to this term" href="#--personality=">¶</a></dt><dd><p>Control the
+                                architecture ("personality") reported
+                                by
+                                <a href="uname.html"><span class="citerefentry"><span class="refentrytitle">uname</span>(2)</span></a>
+                                in the container. Currently, only
+                                "<code class="literal">x86</code>" and
+                                "<code class="literal">x86-64</code>" are
+                                supported. This is useful when running
+                                a 32bit container on a 64bit
+                                host. If this setting is not used
+                                the personality reported in the
+                                container is the same as the one
+                                reported on the
+                                host.</p></dd><dt id="-q"><span class="term"><code class="option">-q</code>, </span><span class="term"><code class="option">--quiet</code></span><a class="headerlink" title="Permalink to this term" href="#-q">¶</a></dt><dd><p>Turns off any status
+                                output by the tool itself. When this
+                                switch is used, the only output
+                                from nspawn will be the console output
+                                of the container OS itself.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140428503875616"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into
                 the directory <code class="filename">/srv/mycontainer/</code> and
                 then boots an OS in a namespace container in
-                it.</p></div><div class="refsect1"><a name="idm274693631168"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+                it.</p></div><div class="refsect1"><a name="idm140428504048784"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable
                 distribution into the directory
                 <code class="filename">~/debian-tree/</code> and then spawns a
-                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm274693628448"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm140428501935760"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a mimimal Arch Linux distribution into
                 the directory <code class="filename">~/arch-tree/</code> and then
-                boots an OS in a namespace container in it.</p></div><div class="refsect1"><a name="example-nsenter"></a><h2 id="Example 4">Example 4<a class="headerlink" title="Permalink to this headline" href="#Example%204">¶</a></h2><p>To enter the container, PID of one of the
-                processes sharing the new namespaces must be used.
-                <span class="command"><strong>systemd-nspawn</strong></span> prints the PID
-                (as viewed from the outside) of the launched process,
-                and it can be used to enter the container.</p><pre class="programlisting"># nsenter -m -u -i -n -p -t $PID</pre><p><a href="nsenter.html"><span class="citerefentry"><span class="refentrytitle">nsenter</span>(1)</span></a>
-                is part of
-                <a class="ulink" href="https://github.com/karelzak/util-linux" target="_top">util-linux</a>.
-                Kernel support for entering namespaces was added in
-                Linux 3.8.</p></div><div class="refsect1"><a name="idm274693621248"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
-                container is returned.</p></div><div class="refsect1"><a name="idm274693620000"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                boots an OS in a namespace container in it.</p></div><div class="refsect1"><a name="idm140428503436928"></a><h2 id="Example 4">Example 4<a class="headerlink" title="Permalink to this headline" href="#Example%204">¶</a></h2><pre class="programlisting"># mv ~/arch-tree /var/lib/container/arch
+# systemctl enable systemd-nspawn@arch.service
+# systemctl start systemd-nspawn@arch.service</pre><p>This makes the Arch Linux container part of the
+                <code class="filename">multi-user.target</code> on the host.
+                </p></div><div class="refsect1"><a name="idm140428504518064"></a><h2 id="Example 5">Example 5<a class="headerlink" title="Permalink to this headline" href="#Example%205">¶</a></h2><pre class="programlisting"># btrfs subvolume snapshot / /.tmp
+# systemd-nspawn --private-network -D /.tmp -b</pre><p>This runs a copy of the host system in a
+                btrfs snapshot.</p></div><div class="refsect1"><a name="idm140428502640112"></a><h2 id="Example 6">Example 6<a class="headerlink" title="Permalink to this headline" href="#Example%206">¶</a></h2><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre><p>This runs a container with SELinux sandbox security contexts.</p></div><div class="refsect1"><a name="idm140428502258080"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
+                container is returned.</p></div><div class="refsect1"><a name="idm140428503439680"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
-                        <a href="unshare.html"><span class="citerefentry"><span class="refentrytitle">unshare</span>(1)</span></a>,
                         <a href="yum.html"><span class="citerefentry"><span class="refentrytitle">yum</span>(8)</span></a>,
                         <a href="debootstrap.html"><span class="citerefentry"><span class="refentrytitle">debootstrap</span>(8)</span></a>,
                         <a href="pacman.html"><span class="citerefentry"><span class="refentrytitle">pacman</span>(8)</span></a>,
-                        <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>
+                        <a href="systemd.slice.html"><span class="citerefentry"><span class="refentrytitle">systemd.slice</span>(5)</span></a>,
+                        <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
                 </p></div></div></body></html>

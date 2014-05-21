@@ -12,9 +12,11 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=default.target
 Before=shutdown.target
+ConditionVirtualization=no
 
 [Timer]
 OnActiveSec=30s
+AccuracySec=1s
 
 [Install]
 Also=systemd-readahead-collect.service

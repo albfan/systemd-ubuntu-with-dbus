@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SWAP" "5" "" "systemd 208" "systemd.swap"
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 212" "systemd.swap"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -44,7 +44,7 @@ binary is executed in, and in
 Swap units must be named after the devices or files they control\&. Example: the swap device
 /dev/sda5
 must be configured in a unit file
-dev\-sda5\&.swap\&. For details about the escaping logic used to convert a file system path to a unit name see
+dev\-sda5\&.swap\&. For details about the escaping logic used to convert a file system path to a unit name, see
 \fBsystemd.unit\fR(5)\&.
 .PP
 All swap units automatically get the appropriate dependencies on the devices or on the mount points of the files they are activated from\&.
@@ -106,7 +106,9 @@ Configures the time to wait for the swapon command to finish\&. If a command doe
 \fBSIGKILL\fR\&. (See
 \fBKillMode=\fR
 in
-\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to 90s\&.
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to
+\fITimeoutStartSec=\fR
+from the manager configuration file\&.
 .RE
 .PP
 Check

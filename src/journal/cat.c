@@ -63,7 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "identifier",   required_argument, NULL, 't'              },
                 { "priority",     required_argument, NULL, 'p'              },
                 { "level-prefix", required_argument, NULL, ARG_LEVEL_PREFIX },
-                { NULL,           0,                 NULL, 0                }
+                {}
         };
 
         int c;
@@ -76,8 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -115,9 +114,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                default:
-                        log_error("Unknown option code %c", c);
+                case '?':
                         return -EINVAL;
+
+                default:
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -151,7 +152,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (fd >= 3)
-                close_nointr_nofail(fd);
+                safe_close(fd);
 
         fd = -1;
 
@@ -169,11 +170,8 @@ int main(int argc, char *argv[]) {
         log_error("Failed to execute process: %s", strerror(-r));
 
 finish:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        if (saved_stderr >= 0)
-                close_nointr_nofail(saved_stderr);
+        safe_close(fd);
+        safe_close(saved_stderr);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
