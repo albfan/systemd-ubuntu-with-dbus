@@ -12,6 +12,7 @@ systemd (214-1) UNRELEASED; urgency=medium
     + Added. Include stdbool before using bool in function prototypes. Fixes
       build of the insserv generator
   * Add python-lxml to build-depends for python-systemd
+  * Turn on parallel build support
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
 
