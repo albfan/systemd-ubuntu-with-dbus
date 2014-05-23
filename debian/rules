@@ -22,6 +22,7 @@ CONFFLAGS = \
 	--disable-efi \
 	--disable-myhostname \
 	--disable-vconsole \
+	--disable-microhttpd \
 	--disable-silent-rules
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
 CONFFLAGS += --enable-libcryptsetup

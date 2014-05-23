@@ -14,6 +14,8 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Add python-lxml to build-depends for python-systemd
   * Turn on parallel build support
   * Install the new busctl binary and translations
+  * Explicitly disable microhttp so the package build doesn't fail if the
+    required dependencies for it happen to be installed.
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
 
