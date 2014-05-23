@@ -38,6 +38,7 @@ Build-Depends: debhelper (>= 9),
                libgirepository1.0-dev (>= 1.31.1),
                gobject-introspection (>= 1.31.1),
                python-dev,
+               python-lxml,
                libglib2.0-doc
 
 Package: systemd

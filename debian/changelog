@@ -11,6 +11,7 @@ systemd (214-1) UNRELEASED; urgency=medium
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
     + Added. Include stdbool before using bool in function prototypes. Fixes
       build of the insserv generator
+  * Add python-lxml to build-depends for python-systemd
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
 
