@@ -20,11 +20,11 @@ Bug-Ubuntu: https://launchpad.net/bugs/1297363
  create mode 100644 src/shared/cgmanager.c
  create mode 100644 src/shared/cgmanager.h
 
-diff --git a/Makefile.am b/Makefile.am
-index 7026b15..40f2309 100644
---- a/Makefile.am
-+++ b/Makefile.am
-@@ -177,6 +177,10 @@ AM_CPPFLAGS = \
+Index: systemd-204/Makefile.am
+===================================================================
+--- systemd-204.orig/Makefile.am	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/Makefile.am	2014-05-13 15:44:37.000000000 -0400
+@@ -177,6 +177,10 @@
  	-I $(top_srcdir)/src/libsystemd-bus \
  	$(OUR_CPPFLAGS)
  
@@ -35,7 +35,7 @@ index 7026b15..40f2309 100644
  AM_CFLAGS = $(OUR_CFLAGS)
  AM_LDFLAGS = $(OUR_LDFLAGS)
  
-@@ -681,6 +685,8 @@ libsystemd_shared_la_SOURCES = \
+@@ -681,6 +685,8 @@
  	src/shared/cgroup-util.h \
  	src/shared/cgroup-show.c \
  	src/shared/cgroup-show.h \
@@ -44,7 +44,7 @@ index 7026b15..40f2309 100644
  	src/shared/unit-name.c \
  	src/shared/unit-name.h \
  	src/shared/utmp-wtmp.c \
-@@ -705,6 +711,14 @@ libsystemd_shared_la_SOURCES = \
+@@ -705,6 +711,14 @@
  	src/shared/MurmurHash3.c \
  	src/shared/MurmurHash3.h
  
@@ -59,7 +59,7 @@ index 7026b15..40f2309 100644
  #-------------------------------------------------------------------------------
  noinst_LTLIBRARIES += \
  	libsystemd-dbus.la
-@@ -769,6 +783,11 @@ libsystemd_label_la_CFLAGS = \
+@@ -769,6 +783,11 @@
  libsystemd_label_la_LIBADD = \
  	$(SELINUX_LIBS)
  
@@ -71,11 +71,11 @@ index 7026b15..40f2309 100644
  # ------------------------------------------------------------------------------
  noinst_LTLIBRARIES += \
  	libsystemd-logs.la
-diff --git a/configure.ac b/configure.ac
-index b2871d1..1af7b7c 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -780,6 +780,24 @@ AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
+Index: systemd-204/configure.ac
+===================================================================
+--- systemd-204.orig/configure.ac	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/configure.ac	2014-05-13 12:18:13.000000000 -0400
+@@ -780,6 +780,24 @@
  
  # ------------------------------------------------------------------------------
  
@@ -100,7 +100,7 @@ index b2871d1..1af7b7c 100644
  # Location of the init scripts as mandated by LSB
  SYSTEM_SYSVINIT_PATH=/etc/init.d
  SYSTEM_SYSVRCND_PATH=/etc/rc.d
-@@ -946,6 +964,7 @@ AC_MSG_RESULT([
+@@ -946,6 +964,7 @@
          gtk-doc:                 ${enable_gtk_doc}
          Split /usr:              ${enable_split_usr}
          SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
@@ -108,10 +108,10 @@ index b2871d1..1af7b7c 100644
  
          prefix:                  ${prefix}
          rootprefix:              ${with_rootprefix}
-diff --git a/src/login/logind.c b/src/login/logind.c
-index cee2b9b..bb40421 100644
---- a/src/login/logind.c
-+++ b/src/login/logind.c
+Index: systemd-204/src/login/logind.c
+===================================================================
+--- systemd-204.orig/src/login/logind.c	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/src/login/logind.c	2014-05-13 12:18:13.000000000 -0400
 @@ -38,6 +38,7 @@
  #include "strv.h"
  #include "conf-parser.h"
@@ -120,7 +120,7 @@ index cee2b9b..bb40421 100644
  
  Manager *manager_new(void) {
          Manager *m;
-@@ -601,6 +602,57 @@ static int manager_enumerate_users_from_cgroup(Manager *m) {
+@@ -601,6 +602,57 @@
          int r = 0, k;
          char *name;
  
@@ -178,7 +178,7 @@ index cee2b9b..bb40421 100644
          r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_path, &d);
          if (r < 0) {
                  if (r == -ENOENT)
-@@ -737,6 +789,9 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
+@@ -737,6 +789,9 @@
          Iterator i;
          int r = 0;
  
@@ -188,7 +188,7 @@ index cee2b9b..bb40421 100644
          HASHMAP_FOREACH(u, m->users, i) {
                  _cleanup_closedir_ DIR *d = NULL;
                  char *name;
-@@ -745,6 +800,55 @@ static int manager_enumerate_sessions_from_cgroup(Manager *m) {
+@@ -745,6 +800,55 @@
                  if (!u->cgroup_path)
                          continue;
  
@@ -244,12 +244,11 @@ index cee2b9b..bb40421 100644
                  k = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, &d);
                  if (k < 0) {
                          if (k == -ENOENT)
-diff --git a/src/shared/cgmanager.c b/src/shared/cgmanager.c
-new file mode 100644
-index 0000000..8001f66
---- /dev/null
-+++ b/src/shared/cgmanager.c
-@@ -0,0 +1,239 @@
+Index: systemd-204/src/shared/cgmanager.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ systemd-204/src/shared/cgmanager.c	2014-05-13 15:45:10.444135865 -0400
+@@ -0,0 +1,240 @@
 +/*
 + * lxc: linux Container library
 + *
@@ -321,6 +320,7 @@ index 0000000..8001f66
 +		nih_free(nerr);
 +		nih_free(cgroup_manager);
 +		cgroup_manager = NULL;
++		return false;
 +	}
 +	return true;
 +}
@@ -489,11 +489,10 @@ index 0000000..8001f66
 +	return true;
 +}
 +#endif
-diff --git a/src/shared/cgmanager.h b/src/shared/cgmanager.h
-new file mode 100644
-index 0000000..2676170
---- /dev/null
-+++ b/src/shared/cgmanager.h
+Index: systemd-204/src/shared/cgmanager.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ systemd-204/src/shared/cgmanager.h	2014-05-13 12:18:13.000000000 -0400
 @@ -0,0 +1,44 @@
 +/*
 + * lxc: linux Container library
@@ -539,10 +538,10 @@ index 0000000..2676170
 +bool cgm_controller_exists(const char *controller);
 +bool cgm_enter(const char *controller, const char *cgroup_path, pid_t pid);
 +#endif
-diff --git a/src/shared/cgroup-label.c b/src/shared/cgroup-label.c
-index 5b5163c..9904283 100644
---- a/src/shared/cgroup-label.c
-+++ b/src/shared/cgroup-label.c
+Index: systemd-204/src/shared/cgroup-label.c
+===================================================================
+--- systemd-204.orig/src/shared/cgroup-label.c	2013-04-15 22:41:21.360855712 -0400
++++ systemd-204/src/shared/cgroup-label.c	2014-05-13 12:18:13.000000000 -0400
 @@ -30,6 +30,7 @@
  #include <ftw.h>
  
@@ -551,7 +550,7 @@ index 5b5163c..9904283 100644
  #include "log.h"
  #include "set.h"
  #include "macro.h"
-@@ -40,6 +41,27 @@ int cg_create(const char *controller, const char *path, const char *suffix) {
+@@ -40,6 +41,27 @@
          _cleanup_free_ char *fs = NULL;
          int r;
  
@@ -579,10 +578,10 @@ index 5b5163c..9904283 100644
          r = cg_get_path_and_check(controller, path, suffix, &fs);
          if (r < 0)
                  return r;
-diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
-index 43c415d..7a0c7e6 100644
---- a/src/shared/cgroup-util.c
-+++ b/src/shared/cgroup-util.c
+Index: systemd-204/src/shared/cgroup-util.c
+===================================================================
+--- systemd-204.orig/src/shared/cgroup-util.c	2013-05-06 15:06:04.057670685 -0400
++++ systemd-204/src/shared/cgroup-util.c	2014-05-13 15:44:57.109471302 -0400
 @@ -29,6 +29,7 @@
  #include <sys/types.h>
  #include <ftw.h>
@@ -591,7 +590,7 @@ index 43c415d..7a0c7e6 100644
  #include "cgroup-util.h"
  #include "log.h"
  #include "set.h"
-@@ -43,9 +44,57 @@ int cg_enumerate_processes(const char *controller, const char *path, FILE **_f)
+@@ -43,9 +44,57 @@
          _cleanup_free_ char *fs = NULL;
          FILE *f;
          int r;
@@ -649,7 +648,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path(controller, path, "cgroup.procs", &fs);
          if (r < 0)
                  return r;
-@@ -62,9 +111,56 @@ int cg_enumerate_tasks(const char *controller, const char *path, FILE **_f) {
+@@ -62,9 +111,56 @@
          _cleanup_free_ char *fs = NULL;
          FILE *f;
          int r;
@@ -706,7 +705,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path(controller, path, "tasks", &fs);
          if (r < 0)
                  return r;
-@@ -154,6 +250,26 @@ int cg_rmdir(const char *controller, const char *path, bool honour_sticky) {
+@@ -154,6 +250,26 @@
          _cleanup_free_ char *p = NULL;
          int r;
  
@@ -733,7 +732,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path(controller, path, NULL, &p);
          if (r < 0)
                  return r;
-@@ -462,7 +578,7 @@ int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto,
+@@ -462,7 +578,7 @@
          return ret;
  }
  
@@ -742,7 +741,7 @@ index 43c415d..7a0c7e6 100644
  
          assert(controller);
  
-@@ -531,9 +647,24 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
+@@ -531,9 +647,24 @@
  
  static int check_hierarchy(const char *p) {
          char *cc;
@@ -767,7 +766,7 @@ index 43c415d..7a0c7e6 100644
          /* Check if this controller actually really exists */
          cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
          strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
-@@ -592,9 +723,58 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
+@@ -592,9 +723,58 @@
  int cg_trim(const char *controller, const char *path, bool delete_root) {
          _cleanup_free_ char *fs = NULL;
          int r = 0;
@@ -826,7 +825,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path(controller, path, NULL, &fs);
          if (r < 0)
                  return r;
-@@ -644,6 +824,26 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
+@@ -644,6 +824,26 @@
          assert(path);
          assert(pid >= 0);
  
@@ -853,7 +852,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path_and_check(controller, path, "tasks", &fs);
          if (r < 0)
                  return r;
-@@ -664,10 +864,33 @@ int cg_set_group_access(
+@@ -664,10 +864,33 @@
                  gid_t gid) {
  
          _cleanup_free_ char *fs = NULL;
@@ -888,7 +887,7 @@ index 43c415d..7a0c7e6 100644
          if (mode != (mode_t) -1)
                  mode &= 0777;
  
-@@ -697,6 +920,36 @@ int cg_set_task_access(
+@@ -697,6 +920,36 @@
          if (mode != (mode_t) -1)
                  mode &= 0666;
  
@@ -925,7 +924,7 @@ index 43c415d..7a0c7e6 100644
          r = cg_get_path(controller, path, "tasks", &fs);
          if (r < 0)
                  return r;
-@@ -906,14 +1159,59 @@ int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
+@@ -906,14 +1159,59 @@
  int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
          _cleanup_closedir_ DIR *d = NULL;
          char *fn;
@@ -934,7 +933,7 @@ index 43c415d..7a0c7e6 100644
  
 +        char **children;
 +        char *p1;
-+        int i;
++        int i = 0;
 +
          assert(path);
  
@@ -985,11 +984,11 @@ index 43c415d..7a0c7e6 100644
          r = cg_enumerate_subgroups(controller, path, &d);
          if (r < 0)
                  return r == -ENOENT ? 1 : r;
-diff --git a/src/shared/cgroup-util.h b/src/shared/cgroup-util.h
-index 25dd277..f364959 100644
---- a/src/shared/cgroup-util.h
-+++ b/src/shared/cgroup-util.h
-@@ -113,3 +113,5 @@ char *cg_escape(const char *p);
+Index: systemd-204/src/shared/cgroup-util.h
+===================================================================
+--- systemd-204.orig/src/shared/cgroup-util.h	2013-05-06 15:06:04.057670685 -0400
++++ systemd-204/src/shared/cgroup-util.h	2014-05-13 12:18:13.000000000 -0400
+@@ -113,3 +113,5 @@
  char *cg_unescape(const char *p) _pure_;
  
  bool cg_controller_is_valid(const char *p, bool allow_named);
