@@ -217,6 +217,7 @@ override_dh_installdocs:
 override_dh_installinit:
 	dh_installinit -R --no-start
 	dh_installinit --name=udev-finish --no-start
+	dh_installinit --name=lvm2 --no-start
 	# the following are only upstart jobs
 	dh_installinit --name=udevtrigger --noscripts
 	dh_installinit --name=udevmonitor --noscripts
