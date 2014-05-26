@@ -245,6 +245,7 @@ override_dh_installinit:
 	dh_installinit --name=udevtrigger --no-start
 	dh_installinit --name=udevmonitor --no-start
 	dh_installinit --name=udev-fallback-graphics --no-start
+	dh_installinit --name=lvm2 --no-start
 
 # The SysV compat tools (which are symlinks to systemctl) are
 # quasi-essential, so add its dependencies to Pre-Depends
