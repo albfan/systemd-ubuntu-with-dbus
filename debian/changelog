@@ -1,3 +1,10 @@
+systemd (204-10ubuntu5) UNRELEASED; urgency=medium
+
+  * Make udev.init provide "mdadm-raid", as Ubuntu assembles MD devices via
+    udev rules instead of an init script. (LP: #1323274)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 26 May 2014 15:36:56 +0200
+
 systemd (204-10ubuntu4) utopic; urgency=medium
 
   * Drop Fix-a-race-condition-at-boot-with-serio-devices.patch, superseded by
