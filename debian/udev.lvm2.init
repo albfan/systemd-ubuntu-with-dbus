@@ -1,0 +1,15 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          lvm2 lvm
+# Required-Start:    mountdevsubfs
+# Required-Stop:
+# Should-Start:      udev mdadm-raid cryptdisks-early multipath-tools-boot
+# Should-Stop:       umountroot mdadm-raid
+# X-Start-Before:    checkfs mountall
+# X-Stop-After:      umountfs
+# Default-Start:     S
+# Default-Stop:
+### END INIT INFO
+
+# dummy job, Ubuntu does LVM setup in udev rules, so starting udev is enough
+true
