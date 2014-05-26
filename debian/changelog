@@ -10,6 +10,8 @@ systemd (219-3ubuntu1) UNRELEASED; urgency=medium
       wait-for-root in initramfs-tools.
     - initramfs init-bottom: If LVM is installed, settle udev,
       otherwise we get missing LV symlinks. Workaround for LP #1185394.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
