@@ -25,6 +25,8 @@ systemd (208-6ubuntu1) UNRELEASED; urgency=medium
     - Add 40-hyperv-hotadd.rules: Workaround for LP #1233466.
     - Mark graphics devices as PRIMARY_DEVICE_FOR_DISPLAY so that we can wait
       for those in plymouth.
+    - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
+      dependencies to "lvm2" which is handled with udev rules in Ubuntu.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
