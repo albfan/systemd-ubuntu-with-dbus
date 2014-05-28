@@ -1,3 +1,10 @@
+systemd (204-10ubuntu6) utopic; urgency=medium
+
+  * No change rebuild to drop the upstart dependency introduced by the
+    new debhelper.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Tue, 27 May 2014 15:53:04 +0200
+
 systemd (204-10ubuntu5) utopic; urgency=medium
 
   * Make udev.init provide "mdadm-raid", "lvm", and "lvm2", as Ubuntu
