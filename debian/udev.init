@@ -1,6 +1,6 @@
 #!/bin/sh -e
 ### BEGIN INIT INFO
-# Provides:          udev mdadm-raid lvm lvm2
+# Provides:          udev mdadm-raid
 # Required-Start:    mountkernfs 
 # Required-Stop:     
 # Default-Start:     S

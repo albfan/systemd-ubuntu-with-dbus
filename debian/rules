@@ -188,6 +188,7 @@ override_dh_installinit:
 	dh_installinit --name=udevtrigger --no-start
 	dh_installinit --name=udevmonitor --no-start
 	dh_installinit --name=udev-fallback-graphics --no-start
+	dh_installinit --name=lvm2 --no-start
 
 override_dh_makeshlibs:
 	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb
