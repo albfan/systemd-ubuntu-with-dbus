@@ -36,6 +36,7 @@
 #include "dhcp-lease-internal.h"
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-client.h"
+#include "network-internal.h"
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
@@ -66,6 +67,20 @@ int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, struct in_addr **addr, size_t *a
         if (lease->dns_size) {
                 *addr_size = lease->dns_size;
                 *addr = lease->dns;
+        } else
+                return -ENOENT;
+
+        return 0;
+}
+
+int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, struct in_addr **addr, size_t *addr_size) {
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(addr_size, -EINVAL);
+
+        if (lease->ntp_size) {
+                *addr_size = lease->ntp_size;
+                *addr = lease->ntp;
         } else
                 return -ENOENT;
 
@@ -112,7 +127,10 @@ int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        addr->s_addr = lease->router;
+        if (lease->router != INADDR_ANY)
+                addr->s_addr = lease->router;
+        else
+                return -ENOENT;
 
         return 0;
 }
@@ -156,113 +174,254 @@ sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease) {
                 free(lease->hostname);
                 free(lease->domainname);
                 free(lease->dns);
+                free(lease->ntp);
                 free(lease);
         }
 
         return NULL;
 }
 
+static void lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uint32_t min) {
+        be32_t val;
+
+        assert(option);
+        assert(ret);
+
+        if (len == 4) {
+                memcpy(&val, option, 4);
+                *ret = be32toh(val);
+
+                if (*ret < min)
+                        *ret = min;
+        }
+}
+
+static void lease_parse_s32(const uint8_t *option, size_t len, int32_t *ret) {
+        lease_parse_u32(option, len, (uint32_t *)ret, 0);
+}
+
+static void lease_parse_u16(const uint8_t *option, size_t len, uint16_t *ret, uint16_t min) {
+        be16_t val;
+
+        assert(option);
+        assert(ret);
+
+        if (len == 2) {
+                memcpy(&val, option, 2);
+                *ret = be16toh(val);
+
+                if (*ret < min)
+                        *ret = min;
+        }
+}
+
+static void lease_parse_be32(const uint8_t *option, size_t len, be32_t *ret) {
+        assert(option);
+        assert(ret);
+
+        if (len == 4)
+                memcpy(ret, option, 4);
+}
+
+static void lease_parse_bool(const uint8_t *option, size_t len, bool *ret) {
+        assert(option);
+        assert(ret);
+
+        if (len == 1)
+                *ret = !!(*option);
+}
+
+static void lease_parse_u8(const uint8_t *option, size_t len, uint8_t *ret, uint8_t min) {
+        assert(option);
+        assert(ret);
+
+        if (len == 1) {
+                *ret = *option;
+
+                if (*ret < min)
+                        *ret = min;
+        }
+}
+
+static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
+        assert(option);
+        assert(ret);
+
+        if (len >= 1) {
+                char *string;
+
+                string = strndup((const char *)option, len);
+                if (!string)
+                        return -errno;
+
+                free(*ret);
+                *ret = string;
+        }
+
+        return 0;
+}
+
+static int lease_parse_in_addrs_aux(const uint8_t *option, size_t len, struct in_addr **ret, size_t *ret_size, size_t mult) {
+        assert(option);
+        assert(ret);
+        assert(ret_size);
+
+        if (len && !(len % (4 * mult))) {
+                size_t size;
+                struct in_addr *addresses;
+
+                size = len / 4;
+
+                addresses = newdup(struct in_addr, option, size);
+                if (!addresses)
+                        return -ENOMEM;
+
+                free(*ret);
+                *ret = addresses;
+                *ret_size = size;
+        }
+
+        return 0;
+}
+
+static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *ret_size) {
+        return lease_parse_in_addrs_aux(option, len, ret, ret_size, 1);
+}
+
+static int lease_parse_in_addrs_pairs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *ret_size) {
+        return lease_parse_in_addrs_aux(option, len, ret, ret_size, 2);
+}
+
 int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
                               void *user_data) {
         sd_dhcp_lease *lease = user_data;
-        be32_t val;
+        int r;
+
+        assert(lease);
 
         switch(code) {
 
+        case DHCP_OPTION_TIME_OFFSET:
+                lease_parse_s32(option, len, &lease->time_offset);
+
+                break;
+
+        case DHCP_OPTION_INTERFACE_MTU_AGING_TIMEOUT:
+                lease_parse_u32(option, len, &lease->mtu_aging_timeout, 0);
+
+                break;
+
         case DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->lifetime = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->lifetime, 1);
 
                 break;
 
         case DHCP_OPTION_SERVER_IDENTIFIER:
-                if (len >= 4)
-                        memcpy(&lease->server_address, option, 4);
+                lease_parse_be32(option, len, &lease->server_address);
 
                 break;
 
         case DHCP_OPTION_SUBNET_MASK:
-                if (len >= 4)
-                        memcpy(&lease->subnet_mask, option, 4);
+                lease_parse_be32(option, len, &lease->subnet_mask);
+
+                break;
+
+        case DHCP_OPTION_BROADCAST:
+                lease_parse_be32(option, len, &lease->broadcast);
 
                 break;
 
         case DHCP_OPTION_ROUTER:
-                if (len >= 4)
-                        memcpy(&lease->router, option, 4);
+                lease_parse_be32(option, len, &lease->router);
 
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME_SERVER:
-                if (len && !(len % 4)) {
-                        unsigned i;
+                r = lease_parse_in_addrs(option, len, &lease->dns, &lease->dns_size);
+                if (r < 0)
+                        return r;
 
-                        lease->dns_size = len / 4;
+                break;
 
-                        free(lease->dns);
-                        lease->dns = new0(struct in_addr, lease->dns_size);
-                        if (!lease->dns)
-                                return -ENOMEM;
+        case DHCP_OPTION_NTP_SERVER:
+                r = lease_parse_in_addrs(option, len, &lease->ntp, &lease->ntp_size);
+                if (r < 0)
+                        return r;
 
-                        for (i = 0; i < lease->dns_size; i++) {
-                                memcpy(&lease->dns[i].s_addr, option + 4 * i, 4);
-                        }
-                }
+                break;
+
+        case DHCP_OPTION_POLICY_FILTER:
+                r = lease_parse_in_addrs_pairs(option, len, &lease->policy_filter, &lease->policy_filter_size);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        case DHCP_OPTION_STATIC_ROUTE:
+                r = lease_parse_in_addrs_pairs(option, len, &lease->static_route, &lease->static_route_size);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_INTERFACE_MTU:
-                if (len >= 2) {
-                        be16_t mtu;
+                lease_parse_u16(option, len, &lease->mtu, 68);
 
-                        memcpy(&mtu, option, 2);
-                        lease->mtu = be16toh(mtu);
+                break;
 
-                        if (lease->mtu < 68)
-                                lease->mtu = 0;
-                }
+        case DHCP_OPTION_INTERFACE_MDR:
+                lease_parse_u16(option, len, &lease->mdr, 576);
+
+                break;
+
+        case DHCP_OPTION_INTERFACE_TTL:
+                lease_parse_u8(option, len, &lease->ttl, 1);
+
+                break;
+
+        case DHCP_OPTION_BOOT_FILE_SIZE:
+                lease_parse_u16(option, len, &lease->boot_file_size, 0);
 
                 break;
 
         case DHCP_OPTION_DOMAIN_NAME:
-                if (len >= 1) {
-                        free(lease->domainname);
-                        lease->domainname = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->domainname);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_HOST_NAME:
-                if (len >= 1) {
-                        free(lease->hostname);
-                        lease->hostname = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->hostname);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_ROOT_PATH:
-                if (len >= 1) {
-                        free(lease->root_path);
-                        lease->root_path = strndup((const char *)option, len);
-                }
+                r = lease_parse_string(option, len, &lease->root_path);
+                if (r < 0)
+                        return r;
 
                 break;
 
         case DHCP_OPTION_RENEWAL_T1_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t1 = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->t1, 1);
 
                 break;
 
         case DHCP_OPTION_REBINDING_T2_TIME:
-                if (len == 4) {
-                        memcpy(&val, option, 4);
-                        lease->t2 = be32toh(val);
-                }
+                lease_parse_u32(option, len, &lease->t2, 1);
+
+                break;
+
+        case DHCP_OPTION_ENABLE_IP_FORWARDING:
+                lease_parse_bool(option, len, &lease->ip_forward);
+
+                break;
+
+        case DHCP_OPTION_ENABLE_IP_FORWARDING_NL:
+                lease_parse_bool(option, len, &lease->ip_forward_non_local);
 
                 break;
         }
@@ -271,25 +430,25 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const uint8_t *option,
 }
 
 int dhcp_lease_new(sd_dhcp_lease **ret) {
-        _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
+        sd_dhcp_lease *lease;
 
         lease = new0(sd_dhcp_lease, 1);
         if (!lease)
                 return -ENOMEM;
 
+        lease->router = INADDR_ANY;
         lease->n_ref = REFCNT_INIT;
 
         *ret = lease;
-        lease = NULL;
-
         return 0;
 }
 
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        char buf[INET_ADDRSTRLEN];
         struct in_addr address;
+        struct in_addr *addresses;
+        size_t addresses_size;
         const char *string;
         uint16_t mtu;
         int r;
@@ -307,71 +466,40 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 goto finish;
 
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
-
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "ADDRESS=%s\n", string);
-
-        r = sd_dhcp_lease_get_router(lease, &address);
-        if (r < 0)
-                goto finish;
-
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
-
-        fprintf(f,
-                "ROUTER=%s\n", string);
+                "ADDRESS=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_netmask(lease, &address);
         if (r < 0)
                 goto finish;
 
-        string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-        if (!string) {
-                r = -errno;
-                goto finish;
-        }
+        fprintf(f, "NETMASK=%s\n", inet_ntoa(address));
 
-        fprintf(f,
-                "NETMASK=%s\n", string);
+        r = sd_dhcp_lease_get_router(lease, &address);
+        if (r >= 0)
+                fprintf(f, "ROUTER=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_server_identifier(lease, &address);
-        if (r >= 0) {
-                string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-                if (!string) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                fprintf(f,
-                        "SERVER_ADDRESS=%s\n", string);
-        }
+        if (r >= 0)
+                fprintf(f, "SERVER_ADDRESS=%s\n",
+                        inet_ntoa(address));
 
         r = sd_dhcp_lease_get_next_server(lease, &address);
-        if (r >= 0) {
-                string = inet_ntop(AF_INET, &address, buf, INET_ADDRSTRLEN);
-                if (!string) {
-                        r = -errno;
-                        goto finish;
-                }
-
-                fprintf(f,
-                        "NEXT_SERVER=%s\n", string);
-        }
+        if (r >= 0)
+                fprintf(f, "NEXT_SERVER=%s\n", inet_ntoa(address));
 
         r = sd_dhcp_lease_get_mtu(lease, &mtu);
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
 
-/* TODO: DNS. See resolv.conf writing in network-manager.c */
+        r = sd_dhcp_lease_get_dns(lease, &addresses, &addresses_size);
+        if (r >= 0)
+                serialize_in_addrs(f, "DNS", addresses, addresses_size);
+
+        r = sd_dhcp_lease_get_ntp(lease, &addresses, &addresses_size);
+        if (r >= 0)
+                serialize_in_addrs(f, "NTP", addresses, addresses_size);
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
         if (r >= 0)
@@ -406,7 +534,7 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
         _cleanup_dhcp_lease_unref_ sd_dhcp_lease *lease = NULL;
         _cleanup_free_ char *address = NULL, *router = NULL, *netmask = NULL,
                             *server_address = NULL, *next_server = NULL,
-                            *mtu = NULL;
+                            *dns = NULL, *ntp = NULL, *mtu = NULL;
         struct in_addr addr;
         int r;
 
@@ -423,6 +551,8 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                            "NETMASK", &netmask,
                            "SERVER_IDENTIFIER", &server_address,
                            "NEXT_SERVER", &next_server,
+                           "DNS", &dns,
+                           "NTP", &ntp,
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
@@ -442,11 +572,13 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
 
         lease->address = addr.s_addr;
 
-        r = inet_pton(AF_INET, router, &addr);
-        if (r < 0)
-                return r;
+        if (router) {
+                r = inet_pton(AF_INET, router, &addr);
+                if (r < 0)
+                        return r;
 
-        lease->router = addr.s_addr;
+                lease->router = addr.s_addr;
+        }
 
         r = inet_pton(AF_INET, netmask, &addr);
         if (r < 0)
@@ -468,6 +600,18 @@ int dhcp_lease_load(const char *lease_file, sd_dhcp_lease **ret) {
                         return r;
 
                 lease->next_server = addr.s_addr;
+        }
+
+        if (dns) {
+                r = deserialize_in_addrs(&lease->dns, &lease->dns_size, dns);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ntp) {
+                r = deserialize_in_addrs(&lease->ntp, &lease->ntp_size, dns);
+                if (r < 0)
+                        return r;
         }
 
         if (mtu) {

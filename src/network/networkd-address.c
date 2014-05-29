@@ -28,6 +28,15 @@
 #include "conf-parser.h"
 #include "network-internal.h"
 
+static void address_init(Address *address) {
+        assert(address);
+
+        address->family = AF_UNSPEC;
+        address->scope = RT_SCOPE_UNIVERSE;
+        address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
+        address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
+}
+
 int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
@@ -46,12 +55,11 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         if (!address)
                 return -ENOMEM;
 
-        address->family = AF_UNSPEC;
-        address->scope = RT_SCOPE_UNIVERSE;
+        address_init(address);
 
         address->network = network;
 
-        LIST_PREPEND(static_addresses, network->static_addresses, address);
+        LIST_PREPEND(addresses, network->static_addresses, address);
 
         if (section) {
                 address->section = section;
@@ -71,8 +79,7 @@ int address_new_dynamic(Address **ret) {
         if (!address)
                 return -ENOMEM;
 
-        address->family = AF_UNSPEC;
-        address->scope = RT_SCOPE_UNIVERSE;
+        address_init(address);
 
         *ret = address;
         address = NULL;
@@ -85,7 +92,7 @@ void address_free(Address *address) {
                 return;
 
         if (address->network) {
-                LIST_REMOVE(static_addresses, address->network->static_addresses, address);
+                LIST_REMOVE(addresses, address->network->static_addresses, address);
 
                 if (address->section)
                         hashmap_remove(address->network->addresses_by_section,
@@ -127,6 +134,87 @@ int address_drop(Address *address, Link *link,
                 r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
         if (r < 0) {
                 log_error("Could not append IFA_LOCAL attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_call_async(link->manager->rtnl, req, callback, link, 0, NULL);
+        if (r < 0) {
+                log_error("Could not send rtnetlink message: %s", strerror(-r));
+                return r;
+        }
+
+        return 0;
+}
+
+int address_update(Address *address, Link *link,
+                   sd_rtnl_message_handler_t callback) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
+        int r;
+
+        assert(address);
+        assert(address->family == AF_INET || address->family == AF_INET6);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
+                                     link->ifindex, address->family);
+        if (r < 0) {
+                log_error("Could not allocate RTM_NEWADDR message: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_prefixlen(req, address->prefixlen);
+        if (r < 0) {
+                log_error("Could not set prefixlen: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        if (r < 0) {
+                log_error("Could not set flags: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_rtnl_message_addr_set_scope(req, address->scope);
+        if (r < 0) {
+                log_error("Could not set scope: %s", strerror(-r));
+                return r;
+        }
+
+        if (address->family == AF_INET)
+                r = sd_rtnl_message_append_in_addr(req, IFA_LOCAL, &address->in_addr.in);
+        else if (address->family == AF_INET6)
+                r = sd_rtnl_message_append_in6_addr(req, IFA_LOCAL, &address->in_addr.in6);
+        if (r < 0) {
+                log_error("Could not append IFA_LOCAL attribute: %s",
+                          strerror(-r));
+                return r;
+        }
+
+        if (address->family == AF_INET) {
+                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                if (r < 0) {
+                        log_error("Could not append IFA_BROADCAST attribute: %s",
+                                  strerror(-r));
+                        return r;
+                }
+        }
+
+        if (address->label) {
+                r = sd_rtnl_message_append_string(req, IFA_LABEL, address->label);
+                if (r < 0) {
+                        log_error("Could not append IFA_LABEL attribute: %s",
+                                  strerror(-r));
+                        return r;
+                }
+        }
+
+        r = sd_rtnl_message_append_cache_info(req, IFA_CACHEINFO, &address->cinfo);
+        if (r < 0) {
+                log_error("Could not append IFA_CACHEINFO attribute: %s",
                           strerror(-r));
                 return r;
         }
@@ -225,7 +313,8 @@ int config_parse_dns(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Set **dns = data;
+        Network *network = userdata;
+        Address *tail;
         _cleanup_address_free_ Address *n = NULL;
         int r;
 
@@ -233,7 +322,7 @@ int config_parse_dns(const char *unit,
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(network);
 
         r = address_new_dynamic(&n);
         if (r < 0)
@@ -246,7 +335,18 @@ int config_parse_dns(const char *unit,
                 return 0;
         }
 
-        set_put(*dns, n);
+        if (streq(lvalue, "DNS")) {
+                LIST_FIND_TAIL(addresses, network->dns, tail);
+                LIST_INSERT_AFTER(addresses, network->dns, tail, n);
+        } else if (streq(lvalue, "NTP")) {
+                LIST_FIND_TAIL(addresses, network->ntp, tail);
+                LIST_INSERT_AFTER(addresses, network->ntp, tail, n);
+        } else {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Key is invalid, ignoring assignment: %s=%s", lvalue, rvalue);
+                return 0;
+        }
+
         n = NULL;
 
         return 0;
@@ -417,4 +517,47 @@ int config_parse_label(const char *unit,
         n = NULL;
 
         return 0;
+}
+
+bool address_equal(Address *a1, Address *a2) {
+        /* same object */
+        if (a1 == a2)
+                return true;
+
+        /* one, but not both, is NULL */
+        if (!a1 || !a2)
+                return false;
+
+        if (a1->family != a2->family)
+                return false;
+
+        switch (a1->family) {
+        /* use the same notion of equality as the kernel does */
+        case AF_UNSPEC:
+                return true;
+
+        case AF_INET:
+                if (a1->prefixlen != a2->prefixlen)
+                        return false;
+                else {
+                        uint32_t b1, b2;
+
+                        b1 = be32toh(a1->in_addr.in.s_addr);
+                        b2 = be32toh(a2->in_addr.in.s_addr);
+
+                        return (b1 >> (32 - a1->prefixlen)) == (b2 >> (32 - a1->prefixlen));
+                }
+
+        case AF_INET6:
+        {
+                uint64_t *b1, *b2;
+
+                b1 = (uint64_t*)&a1->in_addr.in6;
+                b2 = (uint64_t*)&a2->in_addr.in6;
+
+                return (((b1[0] ^ b2[0]) | (b1[1] ^ b2[1])) == 0UL);
+        }
+        default:
+                assert_not_reached("Invalid address family");
+        }
 }

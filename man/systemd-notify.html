@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd-notify"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-notify — Notify service manager about start-up completion and other daemon status changes</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-notify [OPTIONS...]  [VARIABLE=VALUE...]</code> </p></div></div><div class="refsect1"><a name="idm140044157819456"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-notify</strong></span> may be
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd-notify"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-notify — Notify service manager about start-up completion and other daemon status changes</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-notify [OPTIONS...]  [VARIABLE=VALUE...]</code> </p></div></div><div class="refsect1"><a name="idm139751708481232"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-notify</strong></span> may be
                 called by daemon scripts to notify the init system
                 about status changes. It can be used to send arbitrary
                 information, encoded in an environment-block-like list
@@ -33,7 +33,7 @@
                 update.</p><p>Note that systemd will refuse reception of
                 status updates from this command unless
                 <code class="varname">NotifyAccess=all</code> is set for the
-                service unit this command is called from.</p></div><div class="refsect1"><a name="idm140044158545536"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--ready"><span class="term"><code class="option">--ready</code></span><a class="headerlink" title="Permalink to this term" href="#--ready">¶</a></dt><dd><p>Inform the init system
+                service unit this command is called from.</p></div><div class="refsect1"><a name="idm139751708475616"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--ready"><span class="term"><code class="option">--ready</code></span><a class="headerlink" title="Permalink to this term" href="#--ready">¶</a></dt><dd><p>Inform the init system
                                 about service start-up
                                 completion. This is equivalent to
                                 <span class="command"><strong>systemd-notify
@@ -69,8 +69,8 @@
                                 "done" or "noreplay". For details
                                 about the semantics of this option see
                                 <a href="sd_readahead.html"><span class="citerefentry"><span class="refentrytitle">sd_readahead</span>(3)</span></a>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140044156306672"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm140044158098560"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140044158710672"></a><p class="title"><b>Example 1. Start-up Notification and Status Updates</b></p><div class="example-contents"><p>A simple shell daemon that sends
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139751712410496"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm139751712409312"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139751712408640"></a><p class="title"><b>Example 1. Start-up Notification and Status Updates</b></p><div class="example-contents"><p>A simple shell daemon that sends
                         start-up notifications after having set up its
                         communication channel. During runtime it sends
                         further status updates to the init
@@ -86,7 +86,7 @@ while : ; do
         # Do something with $a ...
 
         systemd-notify --status="Waiting for data..."
-done</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140044156361536"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+done</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139751712398640"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                         <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

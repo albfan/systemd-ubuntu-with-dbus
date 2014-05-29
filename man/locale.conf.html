@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="locale.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>locale.conf — Configuration file for locale settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/locale.conf</code></p></div><div class="refsect1"><a name="idm139848292996496"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/locale.conf</code> file
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="locale.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>locale.conf — Configuration file for locale settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/locale.conf</code></p></div><div class="refsect1"><a name="idm139905311011328"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/locale.conf</code> file
                 configures system-wide locale settings. It is read at
                 early-boot by
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>.</p><p>The basic file format of
@@ -52,7 +52,7 @@
                 individual users.</p><p>Depending on the operating system, other
                 configuration files might be checked for locale
                 configuration as well, however only as
-                fallback.</p></div><div class="refsect1"><a name="idm139848292983744"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following locale settings may be set using
+                fallback.</p></div><div class="refsect1"><a name="idm139905309367648"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following locale settings may be set using
                 <code class="filename">/etc/locale.conf</code>:
                 <code class="varname">LANG=</code>,
                 <code class="varname">LANGUAGE=</code>,
@@ -71,8 +71,8 @@
                 <code class="varname">LC_ALL</code> may not be configured in
                 this file. For details about the meaning and semantics
                 of these settings, refer to
-                <a href="locale.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm139848296875360"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139848296874688"></a><p class="title"><b>Example 1. German locale with English messages</b></p><div class="example-contents"><p><code class="filename">/etc/locale.conf</code>:</p><pre class="programlisting">LANG=de_DE.UTF-8
-LC_MESSAGES=en_US.UTF-8</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139848296872096"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                <a href="locale.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm139905309254768"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139905311446800"></a><p class="title"><b>Example 1. German locale with English messages</b></p><div class="example-contents"><p><code class="filename">/etc/locale.conf</code>:</p><pre class="programlisting">LANG=de_DE.UTF-8
+LC_MESSAGES=en_US.UTF-8</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139905313310240"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="locale.html"><span class="citerefentry"><span class="refentrytitle">locale</span>(7)</span></a>,
                           <a href="systemd-localed.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-localed.service</span>(8)</span></a>

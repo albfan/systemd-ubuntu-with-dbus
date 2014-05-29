@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 212" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 213" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -343,6 +343,10 @@ is set to the main process of the daemon, and may be used for command lines like
 .if n \{\
 .RE
 .\}
+.sp
+Note however that reloading a daemon by sending a signal (as with the example line above) is usually not a good choice, because this is an asynchronous operation and hence not suitable to order reloads of multiple services against each other\&. It is strongly recommended to set
+\fIExecReload=\fR
+to a command that not only triggers a configuration reload of the daemon, but also synchronously waits for it to complete\&.
 .RE
 .PP
 \fIExecStop=\fR
@@ -626,6 +630,25 @@ causes a forced reboot which will terminate all processes forcibly but should ca
 causes immediate execution of the
 \fBreboot\fR(2)
 system call, which might result in data loss\&. Defaults to
+\fBnone\fR\&.
+.RE
+.PP
+\fIRebootArgument=\fR
+.RS 4
+Configure the optional argument for the
+\fBreboot\fR(2)
+system call if
+\fIStartLimitAction=\fR
+is a reboot action\&. This works just like the optional argument to
+\fBsystemctl reboot\fR
+command\&.
+.RE
+.PP
+\fIFailureAction=\fR
+.RS 4
+Configure the action to take when the service enters a failed state\&. Takes the same values as
+\fIStartLimitAction=\fR
+and executes the same actions\&. Defaults to
 \fBnone\fR\&.
 .RE
 .PP

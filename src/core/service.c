@@ -24,7 +24,10 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/reboot.h>
+#include <linux/reboot.h>
+#include <sys/syscall.h>
 
+#include "async.h"
 #include "manager.h"
 #include "unit.h"
 #include "service.h"
@@ -220,7 +223,7 @@ static void service_close_socket_fd(Service *s) {
         if (s->socket_fd < 0)
                 return;
 
-        s->socket_fd = safe_close(s->socket_fd);
+        s->socket_fd = asynchronous_close(s->socket_fd);
 }
 
 static void service_connection_unref(Service *s) {
@@ -299,6 +302,9 @@ static void service_done(Unit *u) {
 
         free(s->status_text);
         s->status_text = NULL;
+
+        free(s->reboot_arg);
+        s->reboot_arg = NULL;
 
         s->exec_runtime = exec_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
@@ -387,7 +393,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char 
         static const char * const table[] = {
                 /* LSB defined facilities */
                 "local_fs",             NULL,
-                "network",              SPECIAL_NETWORK_TARGET,
+                "network",              SPECIAL_NETWORK_ONLINE_TARGET,
                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
                 "portmap",              SPECIAL_RPCBIND_TARGET,
                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
@@ -829,6 +835,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                                 FOREACH_WORD_QUOTED(w, z, strchr(t, ':')+1, i) {
                                         char *n, *m;
+                                        bool is_before;
 
                                         if (!(n = strndup(w, z))) {
                                                 r = -ENOMEM;
@@ -849,7 +856,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_dependency_by_name(u, startswith_no_case(t, "X-Start-Before:") ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
+                                        is_before = startswith_no_case(t, "X-Start-Before:");
+
+                                        if (streq(m, SPECIAL_NETWORK_ONLINE_TARGET) && !is_before)
+                                                /* the network-online target is special, as it needs to be actively pulled in */
+                                                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, m, NULL, true);
+                                        else
+                                                r = unit_add_dependency_by_name(u, is_before ? UNIT_BEFORE : UNIT_AFTER, m, NULL, true);
 
                                         if (r < 0)
                                                 log_error_unit(u->id, "[%s:%u] Failed to add dependency on %s, ignoring: %s",
@@ -1835,6 +1848,8 @@ static int cgroup_good(Service *s) {
         return !r;
 }
 
+static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none);
+
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         int r;
         assert(s);
@@ -1843,6 +1858,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 s->result = f;
 
         service_set_state(s, s->result != SERVICE_SUCCESS ? SERVICE_FAILED : SERVICE_DEAD);
+
+        if (s->result != SERVICE_SUCCESS)
+                service_execute_action(s, s->failure_action, "failed", false);
 
         if (allow_restart &&
             !s->forbid_restart &&
@@ -2366,26 +2384,27 @@ fail:
         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
-static int service_start_limit_test(Service *s) {
+static int service_execute_action(Service *s, FailureAction action, const char *reason, bool log_action_none) {
         assert(s);
 
-        if (ratelimit_test(&s->start_limit))
-                return 0;
+        if (action == SERVICE_FAILURE_ACTION_REBOOT ||
+            action == SERVICE_FAILURE_ACTION_REBOOT_FORCE)
+                update_reboot_param_file(s->reboot_arg);
 
-        switch (s->start_limit_action) {
+        switch (action) {
 
-        case SERVICE_START_LIMIT_NONE:
-                log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, refusing to start.",
-                                 UNIT(s)->id);
+        case SERVICE_FAILURE_ACTION_NONE:
+                if (log_action_none)
+                        log_warning_unit(UNIT(s)->id,
+                                         "%s %s, refusing to start.", UNIT(s)->id, reason);
                 break;
 
-        case SERVICE_START_LIMIT_REBOOT: {
+        case SERVICE_FAILURE_ACTION_REBOOT: {
                 _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 int r;
 
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, rebooting.", UNIT(s)->id);
+                                 "%s %s, rebooting.", UNIT(s)->id, reason);
 
                 r = manager_add_job_by_name(UNIT(s)->manager, JOB_START,
                                             SPECIAL_REBOOT_TARGET, JOB_REPLACE,
@@ -2397,26 +2416,42 @@ static int service_start_limit_test(Service *s) {
                 break;
         }
 
-        case SERVICE_START_LIMIT_REBOOT_FORCE:
+        case SERVICE_FAILURE_ACTION_REBOOT_FORCE:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, forcibly rebooting.", UNIT(s)->id);
+                                 "%s %s, forcibly rebooting.", UNIT(s)->id, reason);
                 UNIT(s)->manager->exit_code = MANAGER_REBOOT;
                 break;
 
-        case SERVICE_START_LIMIT_REBOOT_IMMEDIATE:
+        case SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE:
                 log_warning_unit(UNIT(s)->id,
-                                 "%s start request repeated too quickly, rebooting immediately.", UNIT(s)->id);
+                                 "%s %s, rebooting immediately.", UNIT(s)->id, reason);
                 sync();
+                if (s->reboot_arg) {
+                        log_info("Rebooting with argument '%s'.", s->reboot_arg);
+                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                                LINUX_REBOOT_CMD_RESTART2, s->reboot_arg);
+                }
+
+                log_info("Rebooting.");
                 reboot(RB_AUTOBOOT);
                 break;
 
         default:
                 log_error_unit(UNIT(s)->id,
-                               "start limit action=%i", s->start_limit_action);
-                assert_not_reached("Unknown StartLimitAction.");
+                               "failure action=%i", action);
+                assert_not_reached("Unknown FailureAction.");
         }
 
         return -ECANCELED;
+}
+
+static int service_start_limit_test(Service *s) {
+        assert(s);
+
+        if (ratelimit_test(&s->start_limit))
+                return 0;
+
+        return service_execute_action(s, s->start_limit_action, "start request repeated too quickly", true);
 }
 
 static int service_start(Unit *u) {
@@ -2678,7 +2713,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
                 else {
 
-                        safe_close(s->socket_fd);
+                        asynchronous_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "main-exec-status-pid")) {
@@ -3805,13 +3840,13 @@ static const char* const service_result_table[_SERVICE_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(service_result, ServiceResult);
 
-static const char* const start_limit_action_table[_SERVICE_START_LIMIT_MAX] = {
-        [SERVICE_START_LIMIT_NONE] = "none",
-        [SERVICE_START_LIMIT_REBOOT] = "reboot",
-        [SERVICE_START_LIMIT_REBOOT_FORCE] = "reboot-force",
-        [SERVICE_START_LIMIT_REBOOT_IMMEDIATE] = "reboot-immediate"
+static const char* const failure_action_table[_SERVICE_FAILURE_ACTION_MAX] = {
+        [SERVICE_FAILURE_ACTION_NONE] = "none",
+        [SERVICE_FAILURE_ACTION_REBOOT] = "reboot",
+        [SERVICE_FAILURE_ACTION_REBOOT_FORCE] = "reboot-force",
+        [SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate"
 };
-DEFINE_STRING_TABLE_LOOKUP(start_limit_action, StartLimitAction);
+DEFINE_STRING_TABLE_LOOKUP(failure_action, FailureAction);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),

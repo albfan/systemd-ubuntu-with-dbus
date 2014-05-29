@@ -338,7 +338,7 @@ static int start_transient_service(
         if (arg_unit)
                 name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".service");
         else
-                asprintf(&name, "run-%lu.service", (unsigned long) getpid());
+                asprintf(&name, "run-"PID_FMT".service", getpid());
         if (!name)
                 return log_oom();
 
@@ -474,7 +474,7 @@ static int start_transient_scope(
         if (arg_unit)
                 name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".scope");
         else
-                asprintf(&name, "run-%lu.scope", (unsigned long) getpid());
+                asprintf(&name, "run-"PID_FMT".scope", getpid());
         if (!name)
                 return log_oom();
 
@@ -593,7 +593,7 @@ int main(int argc, char* argv[]) {
                 arg_description = description;
         }
 
-        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
+        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0) {
                 log_error("Failed to create bus connection: %s", strerror(-r));
                 goto finish;

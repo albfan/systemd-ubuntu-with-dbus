@@ -1,0 +1,50 @@
+'\" t
+.TH "SYSTEMD\-RESOLVED\&.SERVICE" "8" "" "systemd 213" "systemd-resolved.service"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-resolved.service, systemd-resolved \- Network Name Resolution manager
+.SH "SYNOPSIS"
+.PP
+systemd\-resolved\&.service
+.PP
+/usr/lib/systemd/systemd\-resolved
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-networkd\fR
+is a system service that manages network name resolution\&. It does so by generating
+/run/systemd/network/resolv\&.conf, which may be symlinked from
+/etc/resolv\&.conf\&. The contents is generated from the global settings in
+\fBresolved.conf\fR(5), the per\-link static settings in
+\&.network
+files, and the per\-link dynamic settings received over DHCP\&. See
+\fBsystemd.network\fR(5)
+for more details\&.
+.PP
+Note that
+/run/systemd/network/resolv\&.conf
+should not be used directly, but only through a symlink from
+/etc/resolv\&.conf\&.
+.SH "SEE ALSO"
+.PP
+\fBresolved.conf\fR(5),
+\fBsystemd\fR(1),
+\fBsystemd.network\fR(5),
+\fBsystemd-networkd.service\fR(8)

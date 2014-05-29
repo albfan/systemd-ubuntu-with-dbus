@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd.preset"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.preset — Service enablement presets</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system-preset/*.preset</code></p><p><code class="filename">/run/systemd/system-preset/*.preset</code></p><p><code class="filename">/usr/lib/systemd/system-preset/*.preset</code></p><p><code class="filename">/etc/systemd/user-preset/*.preset</code></p><p><code class="filename">/run/systemd/user-preset/*.preset</code></p><p><code class="filename">/usr/lib/systemd/user-preset/*.preset</code></p></div><div class="refsect1"><a name="idm140419906648432"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Preset files may be used to encode policy which
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd.preset"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.preset — Service enablement presets</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system-preset/*.preset</code></p><p><code class="filename">/run/systemd/system-preset/*.preset</code></p><p><code class="filename">/usr/lib/systemd/system-preset/*.preset</code></p><p><code class="filename">/etc/systemd/user-preset/*.preset</code></p><p><code class="filename">/run/systemd/user-preset/*.preset</code></p><p><code class="filename">/usr/lib/systemd/user-preset/*.preset</code></p></div><div class="refsect1"><a name="idm140511772449344"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Preset files may be used to encode policy which
                 units shall be enabled by default and which ones
                 shall be disabled. They are read by <span class="command"><strong>systemctl
                 preset</strong></span> (for more information see
@@ -44,7 +44,7 @@
                 units shall rather be disabled, it is necessary to ship
                 a preset file with a single, catchall
                 "<code class="filename">disable *</code>" line. (See example 1,
-                below.)</p></div><div class="refsect1"><a name="idm140419906640448"></a><h2 id="Preset File Format">Preset File Format<a class="headerlink" title="Permalink to this headline" href="#Preset%20File%20Format">¶</a></h2><p>The preset files contain a list of
+                below.)</p></div><div class="refsect1"><a name="idm140511772441360"></a><h2 id="Preset File Format">Preset File Format<a class="headerlink" title="Permalink to this headline" href="#Preset%20File%20Format">¶</a></h2><p>The preset files contain a list of
                 directives consisting of either the word
                 "<code class="literal">enable</code>" or
                 "<code class="literal">disable</code>" followed by a space and a
@@ -78,10 +78,10 @@
                 file supplied by the vendor, the recommended way is to
                 place a symlink to <code class="filename">/dev/null</code> in
                 <code class="filename">/etc/systemd/system-preset/</code>
-                bearing the same filename.</p></div><div class="refsect1"><a name="idm140419910579040"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140419910578368"></a><p class="title"><b>Example 1. Default off example <code class="filename">/usr/lib/systemd/system-preset/99-default.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">disable *</pre></div></div><br class="example-break"><p>This disables all units. Due to the filename
+                bearing the same filename.</p></div><div class="refsect1"><a name="idm140511776326240"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140511776325568"></a><p class="title"><b>Example 1. Default off example <code class="filename">/usr/lib/systemd/system-preset/99-default.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">disable *</pre></div></div><br class="example-break"><p>This disables all units. Due to the filename
                 prefix "<code class="literal">99-</code>", it will be read last and
                 hence can easily be overridden by spin or
-                administrator preset policy or suchlike.</p><div class="example"><a name="idm140419910574928"></a><p class="title"><b>Example 2. A GNOME spin example <code class="filename">/usr/lib/systemd/system-preset/50-gnome.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">enable gdm.service
+                administrator preset policy or suchlike.</p><div class="example"><a name="idm140511776322224"></a><p class="title"><b>Example 2. A GNOME spin example <code class="filename">/usr/lib/systemd/system-preset/50-gnome.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">enable gdm.service
 enable colord.service
 enable accounts-daemon.service
 enable avahi-daemon.*</pre></div></div><br class="example-break"><p>This enables the three mentioned units, plus all
@@ -92,7 +92,7 @@ enable avahi-daemon.*</pre></div></div><br class="example-break"><p>This enables
                 enabled as they are installed. It leaves all other
                 units untouched, and subject to other (later) preset
                 files, for example like the one from the first example
-                above.</p><div class="example"><a name="idm140419910563856"></a><p class="title"><b>Example 3. Administrator policy <code class="filename">/etc/systemd/system-preset/00-lennart.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">enable httpd.service
+                above.</p><div class="example"><a name="idm140511776311200"></a><p class="title"><b>Example 3. Administrator policy <code class="filename">/etc/systemd/system-preset/00-lennart.preset</code>:</b></p><div class="example-contents"><pre class="programlisting">enable httpd.service
 enable sshd.service
 enable postfix.service
 disable *</pre></div></div><br class="example-break"><p>This enables three specific services and
@@ -100,7 +100,7 @@ disable *</pre></div></div><br class="example-break"><p>This enables three speci
                 to specifically select the units to enable, and
                 disable all others. Due to the filename prefix
                 "<code class="literal">00-</code>" it will be read early and hence
-                overrides all other preset policy files.</p></div><div class="refsect1"><a name="idm140419910560192"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                overrides all other preset policy files.</p></div><div class="refsect1"><a name="idm140511776307536"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>

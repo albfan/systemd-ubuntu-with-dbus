@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_PRINT" "3" "" "systemd 212" "sd_journal_print"
+.TH "SD_JOURNAL_PRINT" "3" "" "systemd 213" "sd_journal_print"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,15 +29,15 @@ sd_journal_print, sd_journal_printv, sd_journal_send, sd_journal_sendv, sd_journ
 .fi
 .ft
 .HP \w'int\ sd_journal_print('u
-.BI "int sd_journal_print(int\ " "priority" ", const\ char*\ " "format" ", \&.\&.\&.);"
+.BI "int sd_journal_print(int\ " "priority" ", const\ char\ *" "format" ", \&.\&.\&.);"
 .HP \w'int\ sd_journal_printv('u
-.BI "int sd_journal_printv(int\ " "priority" ", const\ char*\ " "format" ", va_list\ " "ap" ");"
+.BI "int sd_journal_printv(int\ " "priority" ", const\ char\ *" "format" ", va_list\ " "ap" ");"
 .HP \w'int\ sd_journal_send('u
-.BI "int sd_journal_send(const\ char*\ " "format" ", \&.\&.\&.);"
+.BI "int sd_journal_send(const\ char\ *" "format" ", \&.\&.\&.);"
 .HP \w'int\ sd_journal_sendv('u
 .BI "int sd_journal_sendv(const\ struct\ iovec\ *" "iov" ", int\ " "n" ");"
 .HP \w'int\ sd_journal_perror('u
-.BI "int sd_journal_perror(const\ char*\ " "message" ");"
+.BI "int sd_journal_perror(const\ char\ *" "message" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_print()\fR
@@ -132,6 +132,10 @@ has the benefit of being more portable\&.
 The four calls return 0 on success or a negative errno\-style error code\&. The
 \fBerrno\fR(3)
 variable itself is not altered\&.
+.PP
+If
+\fBsystemd-journald\fR(8)
+is not running (the socket is not present), those functions do nothing, and also return 0\&.
 .SH "ASYNC SIGNAL SAFETY"
 .PP
 \fBsd_journal_sendv()\fR

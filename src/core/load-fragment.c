@@ -97,9 +97,8 @@ int config_parse_unit_deps(const char* unit,
 
         UnitDependency d = ltype;
         Unit *u = userdata;
-        char *w;
+        char *w, *state;
         size_t l;
-        char *state;
 
         assert(filename);
         assert(lvalue);
@@ -2000,7 +1999,7 @@ int config_parse_unit_condition_null(const char *unit,
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_start_limit_action, start_limit_action, StartLimitAction, "Failed to parse start limit action specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_failure_action, failure_action, FailureAction, "Failed to parse failure action specifier");
 
 int config_parse_unit_requires_mounts_for(
                 const char *unit,
@@ -2431,8 +2430,7 @@ int config_parse_cpu_shares(
                 void *data,
                 void *userdata) {
 
-        CGroupContext *c = data;
-        unsigned long lu;
+        unsigned long *shares = data, lu;
         int r;
 
         assert(filename);
@@ -2440,18 +2438,57 @@ int config_parse_cpu_shares(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->cpu_shares = 1024;
+                *shares = (unsigned long) -1;
                 return 0;
         }
 
         r = safe_atolu(rvalue, &lu);
         if (r < 0 || lu <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "CPU shares '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU shares '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
-        c->cpu_shares = lu;
+        *shares = lu;
+        return 0;
+}
+
+int config_parse_cpu_quota(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        double percent;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->cpu_quota_per_sec_usec = (usec_t) -1;
+                return 0;
+        }
+
+        if (!endswith(rvalue, "%")) {
+
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU quota '%s' not ending in '%%'. Ignoring.", rvalue);
+                return 0;
+        }
+
+        if (sscanf(rvalue, "%lf%%", &percent) != 1 || percent <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "CPU quota '%s' invalid. Ignoring.", rvalue);
+                return 0;
+        }
+
+        c->cpu_quota_per_sec_usec = (usec_t) (percent * USEC_PER_SEC / 100);
+
         return 0;
 }
 
@@ -2560,8 +2597,7 @@ int config_parse_blockio_weight(
                 void *data,
                 void *userdata) {
 
-        CGroupContext *c = data;
-        unsigned long lu;
+        unsigned long *weight = data, lu;
         int r;
 
         assert(filename);
@@ -2569,19 +2605,17 @@ int config_parse_blockio_weight(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                c->blockio_weight = 1000;
+                *weight = (unsigned long) -1;
                 return 0;
         }
 
         r = safe_atolu(rvalue, &lu);
         if (r < 0 || lu < 10 || lu > 1000) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Block IO weight '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Block IO weight '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
 
-        c->blockio_weight = lu;
-
+        *weight = lu;
         return 0;
 }
 
@@ -2619,8 +2653,7 @@ int config_parse_blockio_device_weight(
         n = strcspn(rvalue, WHITESPACE);
         weight = rvalue + n;
         if (!*weight) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Expected block device and device weight. Ignoring.");
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Expected block device and device weight. Ignoring.");
                 return 0;
         }
 
@@ -2629,19 +2662,16 @@ int config_parse_blockio_device_weight(
                 return log_oom();
 
         if (!path_startswith(path, "/dev")) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Invalid device node path '%s'. Ignoring.", path);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
 
         weight += strspn(weight, WHITESPACE);
         r = safe_atolu(weight, &lu);
         if (r < 0 || lu < 10 || lu > 1000) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Block IO weight '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL, "Block IO weight '%s' invalid. Ignoring.", rvalue);
                 return 0;
         }
-
 
         w = new0(CGroupBlockIODeviceWeight, 1);
         if (!w)
@@ -2982,7 +3012,7 @@ int config_parse_namespace_path_strv(
         return 0;
 }
 
-int config_parse_no_new_priviliges(
+int config_parse_no_new_privileges(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -3387,7 +3417,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unit_slice,            "SLICE" },
                 { config_parse_documentation,         "URL" },
                 { config_parse_service_timeout,       "SECONDS" },
-                { config_parse_start_limit_action,    "ACTION" },
+                { config_parse_failure_action,        "ACTION" },
                 { config_parse_set_status,            "STATUS" },
                 { config_parse_service_sockets,       "SOCKETS" },
                 { config_parse_environ,               "ENVIRON" },

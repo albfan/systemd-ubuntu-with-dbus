@@ -103,7 +103,10 @@ int sd_peer_get_machine_name(int fd, char **machine);
 int sd_peer_get_slice(int fd, char **slice);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
-int sd_uid_get_state(uid_t uid, char**state);
+int sd_uid_get_state(uid_t uid, char **state);
+
+/* Return primary session of user, if there is any */
+int sd_uid_get_display(uid_t uid, char **session);
 
 /* Return 1 if UID has session on seat. If require_active is true, this will
  * look for active sessions only. */
@@ -138,7 +141,7 @@ int sd_session_get_seat(const char *session, char **seat);
 /* Determine the (PAM) service name this session was registered by. */
 int sd_session_get_service(const char *session, char **service);
 
-/* Determine the type of this session, i.e. one of "tty", "x11" or "unspecified". */
+/* Determine the type of this session, i.e. one of "tty", "x11", "wayland", "mir" or "unspecified". */
 int sd_session_get_type(const char *session, char **type);
 
 /* Determine the class of this session, i.e. one of "user", "greeter" or "lock-screen". */

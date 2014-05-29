@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="nss-myhostname"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>nss-myhostname — Provide hostname resolution for the locally
-                configured system hostname.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">nss-myhostname.la</code></p></div><div class="refsect1"><a name="idm140548917955568"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>nss-myhostname</strong></span> is a plugin for the GNU Name Service Switch
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="nss-myhostname"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>nss-myhostname — Provide hostname resolution for the locally
+                configured system hostname.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">nss-myhostname.la</code></p></div><div class="refsect1"><a name="idm139884367853248"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>nss-myhostname</strong></span> is a plugin for the GNU Name Service Switch
                 (NSS) functionality of the GNU C Library (<span class="command"><strong>glibc</strong></span>)
                 providing hostname resolution for the locally configured system
                 hostname as returned by
@@ -40,7 +40,7 @@
                 <code class="filename">/etc/nsswitch.conf</code></p><p>It is recommended to put <code class="option">myhostname</code>
                 last in the <code class="filename">nsswitch.conf</code> line to make
                 sure that this mapping is only used as fallback, and any DNS
-                or <code class="filename">/etc/hosts</code> based mapping takes precedence.</p></div><div class="refsect1"><a name="idm140548914162016"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting"># /etc/nsswitch.conf
+                or <code class="filename">/etc/hosts</code> based mapping takes precedence.</p></div><div class="refsect1"><a name="idm139884366951888"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting"># /etc/nsswitch.conf
 
 passwd:         compat
 group:          compat
@@ -60,7 +60,7 @@ netgroup:       nis</pre><p>To test, use <span class="command"><strong>glibc</st
 ::1             RAW
 127.0.0.2       STREAM
 127.0.0.2       DGRAM
-127.0.0.2       RAW</pre><p>In this case the local hostname is <code class="varname">omega</code>.</p></div><div class="refsect1"><a name="idm140548918056768"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+127.0.0.2       RAW</pre><p>In this case the local hostname is <code class="varname">omega</code>.</p></div><div class="refsect1"><a name="idm139884367552208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
                         <a href="logind.conf.html"><span class="citerefentry"><span class="refentrytitle">logind.conf</span>(5)</span></a>,

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.LINK" "5" "" "systemd 212" "systemd.link"
+.TH "SYSTEMD\&.LINK" "5" "" "systemd 213" "systemd.link"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -70,7 +70,7 @@ The persistent path, as exposed by the udev property
 .RS 4
 The driver currently bound to the device, as exposed by the udev property
 "DRIVER"
-of its parent device, or if that is not set the driver as exposed by
+of its parent device, or if that is not set, the driver as exposed by
 "ethtool \-i"
 of the device itself\&.
 .RE
@@ -139,7 +139,7 @@ The policy by which the MAC address should be set\&. The available policies are:
 .PP
 "persistent"
 .RS 4
-If the hardware has a persistent MAC address, as most hardware should, and this is used by the kernel, nothing is done\&. Otherwise, a new MAC address is generated which is guaranteed to be the same on every boot for the given machine and the given device, but which is otherwise random\&.
+If the hardware has a persistent MAC address, as most hardware should, and if it is used by the kernel, nothing is done\&. Otherwise, a new MAC address is generated which is guaranteed to be the same on every boot for the given machine and the given device, but which is otherwise random\&.
 .RE
 .PP
 "random"
@@ -168,22 +168,19 @@ on the kernel commandline\&. Each of the policies may fail, and the first succes
 "database"
 .RS 4
 The name is set based on entries in the udev\*(Aqs Hardware Database with the key
-"ID_NET_NAME_FROM_DATABASE"
-\&.
+"ID_NET_NAME_FROM_DATABASE"\&.
 .RE
 .PP
 "onboard"
 .RS 4
 The name is set based on information given by the firmware for on\-board devices, as exported by the udev property
-"ID_NET_NAME_ONBOARD"
-\&.
+"ID_NET_NAME_ONBOARD"\&.
 .RE
 .PP
 "slot"
 .RS 4
 The name is set based on information given by the firmware for hot\-plug devices, as exported by the udev property
-"ID_NET_NAME_SLOT"
-\&.
+"ID_NET_NAME_SLOT"\&.
 .RE
 .PP
 "path"
@@ -237,7 +234,7 @@ Wake on PHY activity\&.
 .PP
 "magic"
 .RS 4
-Wake on receipt of a magic packet
+Wake on receipt of a magic packet\&.
 .RE
 .PP
 "off"

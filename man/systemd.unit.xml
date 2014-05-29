@@ -70,7 +70,8 @@
 <filename>...</filename>
                 </literallayout></para>
 
-                <para><literallayout><filename>$HOME/.config/systemd/user/*</filename>
+                <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
+<filename>$HOME/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
@@ -138,10 +139,12 @@
                 <para>Unit files may contain additional options on top
                 of those listed here. If systemd encounters an unknown
                 option, it will write a warning log message but
-                continue loading the unit. If an option is prefixed
-                with <option>X-</option>, it is ignored completely by
-                systemd. Applications may use this to include
-                additional information in the unit files.</para>
+                continue loading the unit. If an option or section name
+                is prefixed with <option>X-</option>, it is ignored
+                completely by systemd. Options within an ignored
+                section do not need the prefix. Applications may use
+                this to include additional information in the unit
+                files.</para>
 
                 <para>Boolean arguments used in unit files can be
                 written in various formats. For positive settings the
@@ -320,8 +323,12 @@
                     </thead>
                     <tbody>
                       <row>
+                        <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
+                        <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
+                      </row>
+                      <row>
                         <entry><filename>$HOME/.config/systemd/user</filename></entry>
-                        <entry>User configuration</entry>
+                        <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
                       </row>
                       <row>
                         <entry><filename>/etc/systemd/user</filename></entry>
@@ -700,13 +707,26 @@
                         <varlistentry>
                                 <term><varname>RequiresMountsFor=</varname></term>
 
-                                <listitem><para>Takes a space-separated
-                                list of absolute paths. Automatically
-                                adds dependencies of type
-                                <varname>Requires=</varname> and
-                                <varname>After=</varname> for all
+                                <listitem><para>Takes a
+                                space-separated list of absolute
+                                paths. Automatically adds dependencies
+                                of type <varname>Requires=</varname>
+                                and <varname>After=</varname> for all
                                 mount units required to access the
-                                specified path.</para></listitem>
+                                specified path.</para>
+
+                                <para>Mount points marked with
+                                <option>noauto</option> are not
+                                mounted automatically and will be
+                                ignored for the purposes of this
+                                option. If such a mount should be a
+                                requirement for this unit,
+                                direct dependencies on the mount
+                                units may be added
+                                (<varname>Requires=</varname> and
+                                <varname>After=</varname> or
+                                some other combination).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -1001,7 +1021,7 @@
                                 case the kernel command line is
                                 searched for the word appearing as is,
                                 or as left hand side of an
-                                assignment. In the latter case the
+                                assignment. In the latter case, the
                                 exact assignment is looked for with
                                 right and left hand side
                                 matching.</para>

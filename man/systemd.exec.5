@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 212" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 213" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -178,7 +178,7 @@ but reads the environment variables from a text file\&. The text file should con
 The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
 "\-", which indicates that if the file does not exist, it will not be read and no error or warning message is logged\&. This option may be specified more than once in which case all specified files are read\&. If the empty string is assigned to this option, the list of file to read is reset, all prior assignments have no effect\&.
 .sp
-The files listed with this directive will be read shortly before the process is executed (more specifically, this means after all processes from a previous unit state terminated\&. This means you can generate these files in one unit state, and read it with this option in the next)\&. Settings from these files override settings made with
+The files listed with this directive will be read shortly before the process is executed (more specifically, after all processes from a previous unit state terminated\&. This means you can generate these files in one unit state, and read it with this option in the next)\&. Settings from these files override settings made with
 \fIEnvironment=\fR\&. If the same variable is set twice from these files, the files will be read in the order they are specified and the later setting will override the earlier setting\&.
 .RE
 .PP
@@ -477,7 +477,7 @@ directories inside it that is not shared by processes outside of the namespace\&
 /tmp
 or
 /var/tmp
-impossible\&. If this is enabled all temporary files created by a service in these directories will be removed after the service is stopped\&. Defaults to false\&. It is possible to run two or more units within the same private
+impossible\&. If this is enabled, all temporary files created by a service in these directories will be removed after the service is stopped\&. Defaults to false\&. It is possible to run two or more units within the same private
 /tmp
 and
 /var/tmp
@@ -561,7 +561,7 @@ for details\&.
 .PP
 \fIAppArmorProfile=\fR
 .RS 4
-Take a profile name as argument\&. The process executed by the unit will switch to this profile when started\&. Profiles must already be loaded in the kernel, or the unit will fail\&. This result in a non operation if AppArmor is not enabled\&. If prefixed by
+Takes a profile name as argument\&. The process executed by the unit will switch to this profile when started\&. Profiles must already be loaded in the kernel, or the unit will fail\&. This result in a non operation if AppArmor is not enabled\&. If prefixed by
 "\-", all errors will be ignored\&.
 .RE
 .PP
@@ -646,11 +646,11 @@ the listed address families will be applied as blacklist, otherwise as whitelist
 system call only\&. Sockets passed into the process by other means (for example, by using socket activation with socket units, see
 \fBsystemd.socket\fR(5)) are unaffected\&. Also, sockets created with
 \fBsocketpair()\fR
-(which creates connected AF_UNIX sockets only) are unaffected\&. Note that this option has no effect on 32bit x86 and is ignored (but works correctly on x86\-64)\&. If running in user mode and this option is used,
+(which creates connected AF_UNIX sockets only) are unaffected\&. Note that this option has no effect on 32\-bit x86 and is ignored (but works correctly on x86\-64)\&. If running in user mode and this option is used,
 \fINoNewPrivileges=yes\fR
-is implied\&. By default no restriction applies, all address families are accessible to processes\&. If assigned the empty string any previous list changes are undone\&.
+is implied\&. By default, no restriction applies, all address families are accessible to processes\&. If assigned the empty string, any previous list changes are undone\&.
 .sp
-Use this option to limit exposure of processes to remote systems, in particular via exotic network protocols\&. Note that in most cases the local
+Use this option to limit exposure of processes to remote systems, in particular via exotic network protocols\&. Note that in most cases, the local
 \fBAF_UNIX\fR
 address family should be included in the configured whitelist as it is frequently used for local communication, including for
 \fBsyslog\fR(2)
@@ -664,21 +664,21 @@ Controls which kernel architecture
 shall report, when invoked by unit processes\&. Takes one of
 \fBx86\fR
 and
-\fBx86\-64\fR\&. This is useful when running 32bit services on a 64bit host system\&. If not specified the personality is left unmodified and thus reflects the personality of the host system\*(Aqs kernel\&.
+\fBx86\-64\fR\&. This is useful when running 32\-bit services on a 64\-bit host system\&. If not specified, the personality is left unmodified and thus reflects the personality of the host system\*(Aqs kernel\&.
 .RE
 .PP
 \fIRuntimeDirectory=\fR, \fIRuntimeDirectoryMode=\fR
 .RS 4
-Takes a list of directory names\&. If set one or more directories by the specified names will be created below
+Takes a list of directory names\&. If set, one or more directories by the specified names will be created below
 /run
 (for system services) or below
 \fI$XDG_RUNTIME_DIR\fR
-(for user services) when the unit is started and removed when the unit is stopped\&. The directories will have the access mode specified in
+(for user services) when the unit is started, and removed when the unit is stopped\&. The directories will have the access mode specified in
 \fIRuntimeDirectoryMode=\fR, and will be owned by the user and group specified in
 \fIUser=\fR
 and
 \fIGroup=\fR\&. Use this to manage one or more runtime directories of the unit and bind their lifetime to the daemon runtime\&. The specified directory names must be relative, and may not include a
-"/", i\&.e\&. must refer to simple directories to create or remove\&. This is particularly useful for unpriviliges daemons that cannot create runtime directories in
+"/", i\&.e\&. must refer to simple directories to create or remove\&. This is particularly useful for unprivileged daemons that cannot create runtime directories in
 /run
 due to lack of privileges, and to make sure the runtime directory is cleaned up automatically after use\&. For runtime directories that require more complex or different configuration or lifetime guarantees, please consider using
 \fBtmpfiles.d\fR(5)\&.
@@ -770,7 +770,7 @@ options above; to specify variables globally, use
 \fBsystemd-system.conf\fR(5)) or the kernel option
 \fIsystemd\&.setenv=\fR
 (see
-\fBsystemd\fR(1))\&. Additional variables may also be set through PAM, c\&.f\&.\ \&\fBpam_env\fR(8)\&.
+\fBsystemd\fR(1))\&. Additional variables may also be set through PAM, cf\&.\ \&\fBpam_env\fR(8)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

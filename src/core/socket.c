@@ -470,8 +470,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->control_pid > 0)
                 fprintf(f,
-                        "%sControl PID: %lu\n",
-                        prefix, (unsigned long) s->control_pid);
+                        "%sControl PID: "PID_FMT"\n",
+                        prefix, s->control_pid);
 
         if (s->bind_to_device)
                 fprintf(f,
@@ -663,15 +663,21 @@ static int instance_from_socket(int fd, unsigned nr, char **instance) {
                 int k;
 
                 k = getpeercred(fd, &ucred);
-                if (k < 0)
+                if (k >= 0) {
+                        if (asprintf(&r,
+                                     "%u-"PID_FMT"-"UID_FMT,
+                                     nr, ucred.pid, ucred.uid) < 0)
+                                return -ENOMEM;
+                } else if (k == -ENODATA) {
+                        /* This handles the case where somebody is
+                         * connecting from another pid/uid namespace
+                         * (e.g. from outside of our container). */
+                        if (asprintf(&r,
+                                     "%u-unknown",
+                                     nr) < 0)
+                                return -ENOMEM;
+                } else
                         return k;
-
-                if (asprintf(&r,
-                             "%u-%lu-%lu",
-                             nr,
-                             (unsigned long) ucred.pid,
-                             (unsigned long) ucred.uid) < 0)
-                        return -ENOMEM;
 
                 break;
         }
@@ -1497,6 +1503,12 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
 
                 if (!pending) {
+                        if (!UNIT_ISSET(s->service)) {
+                                log_error_unit(UNIT(s)->id, "%s: service to activate vanished, refusing activation.", UNIT(s)->id);
+                                r = -ENOENT;
+                                goto fail;
+                        }
+
                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL);
                         if (r < 0)
                                 goto fail;
@@ -1704,7 +1716,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item_format(u, f, "n-accepted", "%u", s->n_accepted);
 
         if (s->control_pid > 0)
-                unit_serialize_item_format(u, f, "control-pid", "%lu", (unsigned long) s->control_pid);
+                unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
 
         if (s->control_command_id >= 0)
                 unit_serialize_item(u, f, "control-command", socket_exec_command_to_string(s->control_command_id));

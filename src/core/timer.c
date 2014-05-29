@@ -496,22 +496,8 @@ static void timer_enter_running(Timer *t) {
 
         dual_timestamp_get(&t->last_trigger);
 
-        if (t->stamp_path) {
-                _cleanup_close_ int fd = -1;
-
-                mkdir_parents_label(t->stamp_path, 0755);
-
-                /* Update the file atime + mtime, if we can */
-                fd = open(t->stamp_path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0644);
-                if (fd >= 0) {
-                        struct timespec ts[2];
-
-                        timespec_store(&ts[0], t->last_trigger.realtime);
-                        ts[1] = ts[0];
-
-                        futimens(fd, ts);
-                }
-        }
+        if (t->stamp_path)
+                touch_file(t->stamp_path, true, t->last_trigger.realtime, (uid_t) -1, (gid_t) -1, 0);
 
         timer_set_state(t, TIMER_RUNNING);
         return;
@@ -539,6 +525,11 @@ static int timer_start(Unit *u) {
 
                 if (stat(t->stamp_path, &st) >= 0)
                         t->last_trigger.realtime = timespec_load(&st.st_atim);
+                else if (errno == ENOENT)
+                        /* The timer has never run before,
+                         * make sure a stamp file exists.
+                         */
+                        touch_file(t->stamp_path, true, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
         }
 
         t->result = TIMER_SUCCESS;

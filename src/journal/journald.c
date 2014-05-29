@@ -37,11 +37,6 @@ int main(int argc, char *argv[]) {
         Server server;
         int r;
 
-        /* if (getppid() != 1) { */
-        /*         log_error("This program should be invoked by init only."); */
-        /*         return EXIT_FAILURE; */
-        /* } */
-
         if (argc > 1) {
                 log_error("This program does not take arguments.");
                 return EXIT_FAILURE;
@@ -62,7 +57,7 @@ int main(int argc, char *argv[]) {
         server_flush_to_var(&server);
         server_flush_dev_kmsg(&server);
 
-        log_debug("systemd-journald running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-journald running as pid "PID_FMT, getpid());
         server_driver_message(&server, SD_MESSAGE_JOURNAL_START, "Journal started");
 
         sd_notify(false,
@@ -117,7 +112,7 @@ int main(int argc, char *argv[]) {
                 server_maybe_warn_forward_syslog_missed(&server);
         }
 
-        log_debug("systemd-journald stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-journald stopped as pid "PID_FMT, getpid());
         server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:

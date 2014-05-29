@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 212" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 213" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -145,7 +145,7 @@ A boolean\&. When true, enables basic DHCPv4 support\&.
 .RS 4
 A boolean\&. When true, enables IPv4 link\-local support\&. If
 "DHCP="
-is also true, IPv4 link\-local address will be removed upon acquiring a DHCP lease\&.
+is also true, acquiring DHCP address will deprecate previously acquired IPv4 link\-local address or stop acquiring process if one has not been acquired before\&.
 .RE
 .PP
 \fIAddress=\fR
@@ -204,8 +204,7 @@ section\&. This key is mandatory\&.
 \fIBroadcast=\fR
 .RS 4
 The broadcast address, which must be in the format described in
-\fBinet_pton\fR(3)
-\&. This key only applies to IPv4 addresses\&. If it is not given, it is derived from the
+\fBinet_pton\fR(3)\&. This key only applies to IPv4 addresses\&. If it is not given, it is derived from the
 "Address"
 key\&.
 .RE
@@ -230,7 +229,7 @@ section\&. This key is mandatory\&.
 .PP
 \fIDestination=\fR
 .RS 4
-The destination prefix of the route\&. Possibly followed by a slash and the prefixlength, if ommitted a full\-length host route is assumed\&.
+The destination prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If ommitted, a full\-length host route is assumed\&.
 .RE
 .PP
 The

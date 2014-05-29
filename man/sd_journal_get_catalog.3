@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_CATALOG" "3" "" "systemd 212" "sd_journal_get_catalog"
+.TH "SD_JOURNAL_GET_CATALOG" "3" "" "systemd 213" "sd_journal_get_catalog"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,9 @@ sd_journal_get_catalog, sd_journal_get_catalog_for_message_id \- Retrieve messag
 .fi
 .ft
 .HP \w'int\ sd_journal_get_catalog('u
-.BI "int sd_journal_get_catalog(sd_journal*\ " "j" ", char**\ " "ret" ");"
+.BI "int sd_journal_get_catalog(sd_journal\ *" "j" ", char\ **" "ret" ");"
 .HP \w'int\ sd_journal_get_catalog_for_message_id('u
-.BI "int sd_journal_get_catalog_for_message_id(sd_id128_t\ " "id" ", char**\ " "ret" ");"
+.BI "int sd_journal_get_catalog_for_message_id(sd_id128_t\ " "id" ", char\ **" "ret" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_catalog()\fR

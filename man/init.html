@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd, init — systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd [OPTIONS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">init [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm139683855669616"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>systemd is a system and service manager for
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd, init — systemd system and service manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd [OPTIONS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">init [OPTIONS...]  {COMMAND}</code> </p></div></div><div class="refsect1"><a name="idm140554357535968"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>systemd is a system and service manager for
                 Linux operating systems. When run as first process on
                 boot (as PID 1), it acts as init system that brings
                 up and maintains userspace services.</p><p>For compatibility with SysV, if systemd is called
@@ -34,7 +34,7 @@
                 <code class="filename">system.conf</code>, otherwise
                 <code class="filename">user.conf</code>. See
                 <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>
-                for more information.</p></div><div class="refsect1"><a name="idm139683855661040"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--test"><span class="term"><code class="option">--test</code></span><a class="headerlink" title="Permalink to this term" href="#--test">¶</a></dt><dd><p>Determine startup
+                for more information.</p></div><div class="refsect1"><a name="idm140554357445136"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--test"><span class="term"><code class="option">--test</code></span><a class="headerlink" title="Permalink to this term" href="#--test">¶</a></dt><dd><p>Determine startup
                                 sequence, dump it and exit. This is an
                                 option useful for debugging
                                 only.</p></dd><dt id="--dump-configuration-items"><span class="term"><code class="option">--dump-configuration-items</code></span><a class="headerlink" title="Permalink to this term" href="#--dump-configuration-items">¶</a></dt><dd><p>Dump understood unit
@@ -131,7 +131,7 @@
                                 <code class="option">--default-standard-error=</code>
                                 to
                                 <code class="option">inherit</code>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm139683854596944"></a><h2 id="Concepts">Concepts<a class="headerlink" title="Permalink to this headline" href="#Concepts">¶</a></h2><p>systemd provides a dependency system between
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140554352588544"></a><h2 id="Concepts">Concepts<a class="headerlink" title="Permalink to this headline" href="#Concepts">¶</a></h2><p>systemd provides a dependency system between
                 various entities called "units" of 12 different
                 types. Units encapsulate various objects that are
                 relevant for system boot-up and maintenance. The
@@ -304,7 +304,7 @@
                 or initrd environment should implement the
                 <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface" target="_top">Container
                 Interface</a> or <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface" target="_top">initrd
-                Interface</a> specifications, respectively.</p></div><div class="refsect1"><a name="idm139683854546672"></a><h2 id="Directories">Directories<a class="headerlink" title="Permalink to this headline" href="#Directories">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="System unit directories"><span class="term">System unit directories</span><a class="headerlink" title="Permalink to this term" href="#System%20unit%20directories">¶</a></dt><dd><p>The systemd system
+                Interface</a> specifications, respectively.</p></div><div class="refsect1"><a name="idm140554352538352"></a><h2 id="Directories">Directories<a class="headerlink" title="Permalink to this headline" href="#Directories">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="System unit directories"><span class="term">System unit directories</span><a class="headerlink" title="Permalink to this term" href="#System%20unit%20directories">¶</a></dt><dd><p>The systemd system
                                 manager reads unit configuration from
                                 various directories. Packages that
                                 want to install unit files shall place
@@ -368,7 +368,7 @@
                                 unit with a native unit configuration
                                 file cannot be started by activating it
                                 in the SysV runlevel link
-                                farm.</p></dd></dl></div></div><div class="refsect1"><a name="idm139683854524448"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGTERM"><span class="term"><code class="constant">SIGTERM</code></span><a class="headerlink" title="Permalink to this term" href="#SIGTERM">¶</a></dt><dd><p>Upon receiving this
+                                farm.</p></dd></dl></div></div><div class="refsect1"><a name="idm140554352516480"></a><h2 id="Signals">Signals<a class="headerlink" title="Permalink to this headline" href="#Signals">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="SIGTERM"><span class="term"><code class="constant">SIGTERM</code></span><a class="headerlink" title="Permalink to this term" href="#SIGTERM">¶</a></dt><dd><p>Upon receiving this
                                 signal the systemd system manager
                                 serializes its state, reexecutes
                                 itself and deserializes the saved
@@ -486,7 +486,7 @@
                                 <code class="varname">systemd.log_target=syslog-or-kmsg</code>
                                 on <code class="constant">SIGRTMIN+29</code>) on
                                 the kernel command
-                                line.</p></dd></dl></div></div><div class="refsect1"><a name="idm139683854455776"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_LOG_LEVEL"><span class="term"><code class="varname">$SYSTEMD_LOG_LEVEL</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_LEVEL">¶</a></dt><dd><p>systemd reads the
+                                line.</p></dd></dl></div></div><div class="refsect1"><a name="idm140554352447808"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_LOG_LEVEL"><span class="term"><code class="varname">$SYSTEMD_LOG_LEVEL</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_LEVEL">¶</a></dt><dd><p>systemd reads the
                                 log level from this environment
                                 variable. This can be overridden with
                                 <code class="option">--log-level=</code>.</p></dd><dt id="$SYSTEMD_LOG_TARGET"><span class="term"><code class="varname">$SYSTEMD_LOG_TARGET</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LOG_TARGET">¶</a></dt><dd><p>systemd reads the
@@ -518,9 +518,9 @@
                                 start-up completion notification. See
                                 <a href="sd_notify.html"><span class="citerefentry"><span class="refentrytitle">sd_notify</span>(3)</span></a>
                                 for more information.
-                                </p></dd></dl></div></div><div class="refsect1"><a name="idm139683854432352"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>When run as system instance systemd parses a
+                                </p></dd></dl></div></div><div class="refsect1"><a name="idm140554352424384"></a><h2 id="Kernel Command Line">Kernel Command Line<a class="headerlink" title="Permalink to this headline" href="#Kernel%20Command%20Line">¶</a></h2><p>When run as system instance systemd parses a
                 number of kernel command line
-                arguments<a href="#ftn.idm139683854431328" class="footnote" name="idm139683854431328"><sup class="footnote">[1]</sup></a>:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.unit="><span class="term"><code class="varname">systemd.unit=</code>, </span><span class="term"><code class="varname">rd.systemd.unit=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.unit=">¶</a></dt><dd><p>Overrides the unit to
+                arguments<a href="#ftn.idm140554352423360" class="footnote" name="idm140554352423360"><sup class="footnote">[1]</sup></a>:</p><div class="variablelist"><dl class="variablelist"><dt id="systemd.unit="><span class="term"><code class="varname">systemd.unit=</code>, </span><span class="term"><code class="varname">rd.systemd.unit=</code></span><a class="headerlink" title="Permalink to this term" href="#systemd.unit=">¶</a></dt><dd><p>Overrides the unit to
                                 activate on boot. Defaults to
                                 <code class="filename">default.target</code>. This
                                 may be used to temporarily boot into a
@@ -626,7 +626,7 @@
                                 </p></dd></dl></div><p>For other kernel command line parameters
                 understood by components of the core OS, please refer
                 to
-                <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm139683854371200"></a><h2 id="Sockets and FIFOs">Sockets and FIFOs<a class="headerlink" title="Permalink to this headline" href="#Sockets%20and%20FIFOs">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/run/systemd/notify"><span class="term"><code class="filename">/run/systemd/notify</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/notify">¶</a></dt><dd><p>Daemon status
+                <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>.</p></div><div class="refsect1"><a name="idm140554352363232"></a><h2 id="Sockets and FIFOs">Sockets and FIFOs<a class="headerlink" title="Permalink to this headline" href="#Sockets%20and%20FIFOs">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="/run/systemd/notify"><span class="term"><code class="filename">/run/systemd/notify</code></span><a class="headerlink" title="Permalink to this term" href="#/run/systemd/notify">¶</a></dt><dd><p>Daemon status
                                 notification socket. This is an
                                 <code class="constant">AF_UNIX</code> datagram socket and is used to
                                 implement the daemon notification
@@ -649,7 +649,7 @@
                                 unit. This is a named pipe in the file
                                 system. This interface is obsolete and
                                 should not be used in new
-                                applications.</p></dd></dl></div></div><div class="refsect1"><a name="idm139683854358016"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                applications.</p></dd></dl></div></div><div class="refsect1"><a name="idm140554352350048"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         The <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/" target="_top">systemd Homepage</a>,
                         <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
                         <a href="locale.conf.html"><span class="citerefentry"><span class="refentrytitle">locale.conf</span>(5)</span></a>,
@@ -664,7 +664,7 @@
                         <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>,
                         <a href="bootup.html"><span class="citerefentry"><span class="refentrytitle">bootup</span>(7)</span></a>,
                         <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>
-                </p></div><div class="footnotes"><br><hr style="width:100; text-align:left;margin-left: 0"><div id="ftn.idm139683854431328" class="footnote"><p><a href="#idm139683854431328" class="para"><sup class="para">[1] </sup></a>If run inside a Linux
+                </p></div><div class="footnotes"><br><hr style="width:100; text-align:left;margin-left: 0"><div id="ftn.idm140554352423360" class="footnote"><p><a href="#idm140554352423360" class="para"><sup class="para">[1] </sup></a>If run inside a Linux
                 container these arguments may be passed as command
                 line arguments to systemd itself, next to any of the
                 command line options listed in the Options section

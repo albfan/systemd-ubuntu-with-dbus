@@ -40,7 +40,7 @@ typedef struct sd_rtnl_message sd_rtnl_message;
 typedef int (*sd_rtnl_message_handler_t)(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata);
 
 /* bus */
-int sd_rtnl_open(sd_rtnl **nl, uint32_t groups);
+int sd_rtnl_open(sd_rtnl **nl, unsigned n_groups, ...);
 
 sd_rtnl *sd_rtnl_ref(sd_rtnl *nl);
 sd_rtnl *sd_rtnl_unref(sd_rtnl *nl);
@@ -68,6 +68,7 @@ int sd_rtnl_detach_event(sd_rtnl *nl);
 
 /* messages */
 int sd_rtnl_message_new_link(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index);
+int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret, int index, unsigned char family);
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t msg_type, int index,
                              unsigned char family);
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlmsg_type,
@@ -76,6 +77,7 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t nlm
 sd_rtnl_message *sd_rtnl_message_ref(sd_rtnl_message *m);
 sd_rtnl_message *sd_rtnl_message_unref(sd_rtnl_message *m);
 
+int sd_rtnl_message_request_dump(sd_rtnl_message *m, int dump);
 int sd_rtnl_message_get_errno(sd_rtnl_message *m);
 int sd_rtnl_message_get_type(sd_rtnl_message *m, uint16_t *type);
 int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
@@ -83,6 +85,11 @@ int sd_rtnl_message_is_broadcast(sd_rtnl_message *m);
 int sd_rtnl_message_addr_set_prefixlen(sd_rtnl_message *m, unsigned char prefixlen);
 int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope);
 int sd_rtnl_message_addr_set_flags(sd_rtnl_message *m, unsigned char flags);
+int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family);
+int sd_rtnl_message_addr_get_prefixlen(sd_rtnl_message *m, unsigned char *prefixlen);
+int sd_rtnl_message_addr_get_scope(sd_rtnl_message *m, unsigned char *scope);
+int sd_rtnl_message_addr_get_flags(sd_rtnl_message *m, unsigned char *flags);
+int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex);
 
 int sd_rtnl_message_link_set_flags(sd_rtnl_message *m, unsigned flags, unsigned change);
 int sd_rtnl_message_link_set_type(sd_rtnl_message *m, unsigned type);
@@ -99,8 +106,10 @@ int sd_rtnl_message_append_u32(sd_rtnl_message *m, unsigned short type, uint32_t
 int sd_rtnl_message_append_in_addr(sd_rtnl_message *m, unsigned short type, const struct in_addr *data);
 int sd_rtnl_message_append_in6_addr(sd_rtnl_message *m, unsigned short type, const struct in6_addr *data);
 int sd_rtnl_message_append_ether_addr(sd_rtnl_message *m, unsigned short type, const struct ether_addr *data);
+int sd_rtnl_message_append_cache_info(sd_rtnl_message *m, unsigned short type, const struct ifa_cacheinfo *info);
 
 int sd_rtnl_message_open_container(sd_rtnl_message *m, unsigned short type);
+int sd_rtnl_message_open_container_union(sd_rtnl_message *m, unsigned short type, const char *key);
 int sd_rtnl_message_close_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data);
@@ -108,12 +117,15 @@ int sd_rtnl_message_read_u8(sd_rtnl_message *m, unsigned short type, uint8_t *da
 int sd_rtnl_message_read_u16(sd_rtnl_message *m, unsigned short type, uint16_t *data);
 int sd_rtnl_message_read_u32(sd_rtnl_message *m, unsigned short type, uint32_t *data);
 int sd_rtnl_message_read_ether_addr(sd_rtnl_message *m, unsigned short type, struct ether_addr *data);
+int sd_rtnl_message_read_cache_info(sd_rtnl_message *m, unsigned short type, struct ifa_cacheinfo *info);
 int sd_rtnl_message_read_in_addr(sd_rtnl_message *m, unsigned short type, struct in_addr *data);
 int sd_rtnl_message_read_in6_addr(sd_rtnl_message *m, unsigned short type, struct in6_addr *data);
 int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type);
 int sd_rtnl_message_exit_container(sd_rtnl_message *m);
 
 int sd_rtnl_message_rewind(sd_rtnl_message *m);
+
+sd_rtnl_message *sd_rtnl_message_next(sd_rtnl_message *m);
 
 _SD_END_DECLARATIONS;
 

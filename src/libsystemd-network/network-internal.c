@@ -38,7 +38,7 @@
 
 int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
         size_t l, sz = 0;
-        const char *name, *field = NULL;
+        const char *name = NULL, *field = NULL;
         int r;
         uint8_t *v;
 
@@ -79,7 +79,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_virt,
                       Condition *match_kernel,
                       Condition *match_arch,
-                      const char *dev_mac,
+                      const struct ether_addr *dev_mac,
                       const char *dev_path,
                       const char *dev_parent_driver,
                       const char *dev_driver,
@@ -98,7 +98,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_arch && !condition_test_architecture(match_arch))
                 return 0;
 
-        if (match_mac && (!dev_mac || memcmp(match_mac, ether_aton(dev_mac), ETH_ALEN)))
+        if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
                 return 0;
 
         if (match_path && (!dev_path || fnmatch(match_path, dev_path, 0)))
@@ -323,6 +323,136 @@ int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
                 else
                         return -EINVAL;
         }
+
+        return 0;
+}
+
+int load_module(struct kmod_ctx *ctx, const char *mod_name) {
+        struct kmod_list *modlist = NULL, *l;
+        int r;
+
+        assert(ctx);
+        assert(mod_name);
+
+        r = kmod_module_new_from_lookup(ctx, mod_name, &modlist);
+        if (r < 0)
+                return r;
+
+        if (!modlist) {
+                log_error("Failed to find module '%s'", mod_name);
+                return -ENOENT;
+        }
+
+        kmod_list_foreach(l, modlist) {
+                struct kmod_module *mod = kmod_module_get_module(l);
+
+                r = kmod_module_probe_insert_module(mod, 0, NULL, NULL, NULL, NULL);
+                if (r == 0)
+                        log_info("Inserted module '%s'", kmod_module_get_name(mod));
+                else {
+                        log_error("Failed to insert '%s': %s", kmod_module_get_name(mod),
+                                  strerror(-r));
+                }
+
+                kmod_module_unref(mod);
+        }
+
+        kmod_module_unref_list(modlist);
+
+        return r;
+}
+
+void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
+        unsigned i;
+
+        assert(f);
+        assert(key);
+        assert(addresses);
+        assert(size);
+
+        fprintf(f, "%s=", key);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, "%s%s", inet_ntoa(addresses[i]),
+                        (i < (size - 1)) ? " ": "");
+
+        fputs("\n", f);
+}
+
+int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *string) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t size = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                _cleanup_free_ char *addr_str = NULL;
+                struct in_addr *new_addresses;
+                int r;
+
+                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in_addr));
+                if (!new_addresses)
+                        return -ENOMEM;
+                else
+                        addresses = new_addresses;
+
+                addr_str = strndup(word, len);
+                if (!addr_str)
+                        return -ENOMEM;
+
+                r = inet_pton(AF_INET, addr_str, &(addresses[size]));
+                if (r <= 0)
+                        continue;
+
+                size ++;
+        }
+
+        *ret_size = size;
+        *ret = addresses;
+        addresses = NULL;
+
+        return 0;
+}
+
+int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *string) {
+        _cleanup_free_ struct in6_addr *addresses = NULL;
+        size_t size = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                _cleanup_free_ char *addr_str = NULL;
+                struct in6_addr *new_addresses;
+                int r;
+
+                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in6_addr));
+                if (!new_addresses)
+                        return -ENOMEM;
+                else
+                        addresses = new_addresses;
+
+                addr_str = strndup(word, len);
+                if (!addr_str)
+                        return -ENOMEM;
+
+                r = inet_pton(AF_INET6, addr_str, &(addresses[size]));
+                if (r <= 0)
+                        continue;
+
+                size++;
+        }
+
+        *ret_size = size;
+        *ret = addresses;
+        addresses = NULL;
 
         return 0;
 }

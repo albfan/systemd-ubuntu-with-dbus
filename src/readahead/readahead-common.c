@@ -52,7 +52,7 @@ int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         }
 
         if (st->st_size <= 0 || st->st_size > file_size_max) {
-                log_debug("Not preloading file %s with size out of bounds %llu", fn, (unsigned long long) st->st_size);
+                log_debug("Not preloading file %s with size out of bounds %zu", fn, st->st_size);
                 return 0;
         }
 
@@ -75,7 +75,7 @@ int fs_on_ssd(const char *p) {
         if (major(st.st_dev) == 0) {
                 _cleanup_fclose_ FILE *f = NULL;
                 int mount_id;
-                struct file_handle *h;
+                union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
 
                 /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
                  *
@@ -83,9 +83,7 @@ int fs_on_ssd(const char *p) {
                  * and then lookup the mount ID in mountinfo to find
                  * the mount options. */
 
-                h = alloca(MAX_HANDLE_SZ);
-                h->handle_bytes = MAX_HANDLE_SZ;
-                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
+                r = name_to_handle_at(AT_FDCWD, p, &h.handle, &mount_id, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return false;
 
@@ -257,7 +255,7 @@ ReadaheadShared *shared_get(void) {
    Simply so that it is more unlikely that users end up picking this
    value too so that we can recognize better whether the user changed
    the value while we had it temporarily bumped. */
-#define BUMP_REQUEST_NR (20*1024)
+#define BUMP_REQUEST_NR (20*1024u)
 
 int block_bump_request_nr(const char *p) {
         struct stat st;
@@ -298,7 +296,7 @@ int block_bump_request_nr(const char *p) {
         free(line);
         line = NULL;
 
-        if (asprintf(&line, "%lu", (unsigned long) BUMP_REQUEST_NR) < 0) {
+        if (asprintf(&line, "%u", BUMP_REQUEST_NR) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -307,7 +305,7 @@ int block_bump_request_nr(const char *p) {
         if (r < 0)
                 goto finish;
 
-        log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
+        log_info("Bumped block_nr parameter of %u:%u to %u. This is a temporary hack and should be removed one day.", major(d), minor(d), BUMP_REQUEST_NR);
         r = 1;
 
 finish:
@@ -381,7 +379,7 @@ int block_set_readahead(const char *p, uint64_t bytes) {
                 goto finish;
         }
 
-        if (asprintf(&line, "%llu", (unsigned long long) bytes / 1024ULL) < 0) {
+        if (asprintf(&line, "%llu", bytes / 1024ULL) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }

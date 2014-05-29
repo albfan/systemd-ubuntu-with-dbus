@@ -74,8 +74,8 @@
 
                         <orderedlist>
                                 <listitem><para>Close all open file
-                                descriptors except stdin, stdout,
-                                stderr (i.e. the first three file
+                                descriptors except standard input, output,
+                                and error (i.e. the first three file
                                 descriptors 0, 1, 2). This ensures
                                 that no accidentally passed file
                                 descriptor stays around in the daemon
@@ -158,9 +158,7 @@
                                 it is verified at the same time that
                                 the PID previously stored in the PID
                                 file no longer exists or belongs to a
-                                foreign process. Commonly, some kind of
-                                file locking is employed to implement
-                                this logic.</para></listitem>
+                                foreign process.</para></listitem>
 
                                 <listitem><para>In the daemon process,
                                 drop privileges, if possible and
@@ -354,7 +352,7 @@
 
                         <para>These recommendations are similar but
                         not identical to the <ulink
-                        url="http://developer.apple.com/mac/library/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/LaunchOnDemandDaemons.html#//apple_ref/doc/uid/TP40001762-104738">Apple
+                        url="https://developer.apple.com/library/mac/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html">Apple
                         MacOS X Daemon Requirements</ulink>.</para>
                 </refsect2>
 

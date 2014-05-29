@@ -141,25 +141,26 @@ static int manager_connect_bus(Manager *m) {
                 return r;
         }
 
-        r = sd_bus_add_object_vtable(m->bus, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/machine1", "org.freedesktop.machine1.Manager", manager_vtable, m);
         if (r < 0) {
                 log_error("Failed to add manager object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_fallback_vtable(m->bus, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/machine1/machine", "org.freedesktop.machine1.Machine", machine_vtable, machine_object_find, m);
         if (r < 0) {
                 log_error("Failed to add machine object vtable: %s", strerror(-r));
                 return r;
         }
 
-        r = sd_bus_add_node_enumerator(m->bus, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/machine1/machine", machine_node_enumerator, m);
         if (r < 0) {
                 log_error("Failed to add machine enumerator: %s", strerror(-r));
                 return r;
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
@@ -173,6 +174,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
@@ -186,6 +188,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.DBus.Properties',"
@@ -198,6 +201,7 @@ static int manager_connect_bus(Manager *m) {
         }
 
         r = sd_bus_add_match(m->bus,
+                             NULL,
                              "type='signal',"
                              "sender='org.freedesktop.systemd1',"
                              "interface='org.freedesktop.systemd1.Manager',"
@@ -334,7 +338,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        log_debug("systemd-machined running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-machined running as pid "PID_FMT, getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -342,7 +346,7 @@ int main(int argc, char *argv[]) {
 
         r = manager_run(m);
 
-        log_debug("systemd-machined stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
 
 finish:
         sd_notify(false,

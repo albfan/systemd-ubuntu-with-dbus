@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_SEAT_GET_ACTIVE" "3" "" "systemd 212" "sd_seat_get_active"
+.TH "SD_SEAT_GET_ACTIVE" "3" "" "systemd 213" "sd_seat_get_active"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,15 +29,15 @@ sd_seat_get_active, sd_seat_get_sessions, sd_seat_can_multi_session, sd_seat_can
 .fi
 .ft
 .HP \w'int\ sd_seat_get_active('u
-.BI "int sd_seat_get_active(const\ char*\ " "seat" ", char**\ " "session" ", uid_t*\ " "uid" ");"
+.BI "int sd_seat_get_active(const\ char\ *" "seat" ", char\ **" "session" ", uid_t\ *" "uid" ");"
 .HP \w'int\ sd_seat_get_sessions('u
-.BI "int sd_seat_get_sessions(const\ char*\ " "seat" ", char***\ " "sessions" ", uid_t**\ " "uid" ", unsigned\ int*\ " "n_uids" ");"
+.BI "int sd_seat_get_sessions(const\ char\ *" "seat" ", char\ ***" "sessions" ", uid_t\ **" "uid" ", unsigned\ int\ *" "n_uids" ");"
 .HP \w'int\ sd_seat_can_multi_session('u
-.BI "int sd_seat_can_multi_session(const\ char*\ " "seat" ");"
+.BI "int sd_seat_can_multi_session(const\ char\ *" "seat" ");"
 .HP \w'int\ sd_seat_can_tty('u
-.BI "int sd_seat_can_tty(const\ char*\ " "seat" ");"
+.BI "int sd_seat_can_tty(const\ char\ *" "seat" ");"
 .HP \w'int\ sd_seat_can_graphical('u
-.BI "int sd_seat_can_graphical(const\ char*\ " "seat" ");"
+.BI "int sd_seat_can_graphical(const\ char\ *" "seat" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_seat_get_active()\fR

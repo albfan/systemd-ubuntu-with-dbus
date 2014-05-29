@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_REALTIME_USEC" "3" "" "systemd 212" "sd_journal_get_realtime_usec"
+.TH "SD_JOURNAL_GET_REALTIME_USEC" "3" "" "systemd 213" "sd_journal_get_realtime_usec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,9 @@ sd_journal_get_realtime_usec, sd_journal_get_monotonic_usec \- Read timestamps f
 .fi
 .ft
 .HP \w'int\ sd_journal_get_realtime_usec('u
-.BI "int sd_journal_get_realtime_usec(sd_journal*\ " "j" ", uint64_t*\ " "usec" ");"
+.BI "int sd_journal_get_realtime_usec(sd_journal\ *" "j" ", uint64_t\ *" "usec" ");"
 .HP \w'int\ sd_journal_get_monotonic_usec('u
-.BI "int sd_journal_get_monotonic_usec(sd_journal*\ " "j" ", uint64_t*\ " "usec" ", sd_id128_t*\ " "boot_id" ");"
+.BI "int sd_journal_get_monotonic_usec(sd_journal\ *" "j" ", uint64_t\ *" "usec" ", sd_id128_t\ *" "boot_id" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_realtime_usec()\fR

@@ -106,6 +106,7 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
         sd_rtnl_message *m;
         sd_rtnl_message *r;
         struct in_addr in_data;
+        struct ifa_cacheinfo cache;
         char *label;
 
         assert_se(sd_rtnl_message_new_addr(rtnl, &m, RTM_GETADDR, ifindex, AF_INET) >= 0);
@@ -116,6 +117,7 @@ static void test_address_get(sd_rtnl *rtnl, int ifindex) {
         assert_se(sd_rtnl_message_read_in_addr(r, IFA_LOCAL, &in_data) == 0);
         assert_se(sd_rtnl_message_read_in_addr(r, IFA_ADDRESS, &in_data) == 0);
         assert_se(sd_rtnl_message_read_string(r, IFA_LABEL, &label) == 0);
+        assert_se(sd_rtnl_message_read_cache_info(r, IFA_CACHEINFO, &cache) == 0);
 
         assert_se(sd_rtnl_flush(rtnl) >= 0);
         assert_se((m = sd_rtnl_message_unref(m)) == NULL);
@@ -279,10 +281,7 @@ static void test_container(void) {
         assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_LINKINFO) == -ENOTSUP);
-        assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) >= 0);
-        assert_se(sd_rtnl_message_open_container(m, IFLA_INFO_DATA) == -ENOTSUP);
+        assert_se(sd_rtnl_message_open_container_union(m, IFLA_INFO_DATA, "vlan") >= 0);
         assert_se(sd_rtnl_message_append_u16(m, IFLA_VLAN_ID, 100) >= 0);
         assert_se(sd_rtnl_message_close_container(m) >= 0);
         assert_se(sd_rtnl_message_append_string(m, IFLA_INFO_KIND, "vlan") >= 0);
@@ -303,7 +302,7 @@ static void test_container(void) {
         assert_se(streq("vlan", string_data));
         assert_se(sd_rtnl_message_exit_container(m) >= 0);
 
-        assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) == 0);
+        assert_se(sd_rtnl_message_read_u32(m, IFLA_LINKINFO, &u32_data) < 0);
 
         assert_se(sd_rtnl_message_exit_container(m) == -EINVAL);
 }
@@ -321,6 +320,34 @@ static void test_match(void) {
         assert_se(sd_rtnl_remove_match(rtnl, RTM_NEWLINK, &link_handler, NULL) == 0);
 
         assert_se((rtnl = sd_rtnl_unref(rtnl)) == NULL);
+}
+
+static void test_get_addresses(sd_rtnl *rtnl) {
+        _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL, *reply = NULL;
+        sd_rtnl_message *m;
+
+        assert_se(sd_rtnl_message_new_addr(rtnl, &req, RTM_GETADDR, 0, AF_UNSPEC) >= 0);
+
+        assert_se(sd_rtnl_call(rtnl, req, 0, &reply) >= 0);
+
+        for (m = reply; m; m = sd_rtnl_message_next(m)) {
+                uint16_t type;
+                unsigned char family, scope, flags;
+                int ifindex;
+
+                assert_se(sd_rtnl_message_get_type(m, &type) >= 0);
+                assert_se(type == RTM_NEWADDR);
+
+                assert_se(sd_rtnl_message_addr_get_ifindex(m, &ifindex) >= 0);
+                assert_se(sd_rtnl_message_addr_get_family(m, &family) >= 0);
+                assert_se(sd_rtnl_message_addr_get_scope(m, &scope) >= 0);
+                assert_se(sd_rtnl_message_addr_get_flags(m, &flags) >= 0);
+
+                assert_se(ifindex > 0);
+                assert_se(family == AF_INET || family == AF_INET6);
+
+                log_info("got IPv%u address on ifindex %i", family == AF_INET ? 4: 6, ifindex);
+        }
 }
 
 int main(void) {
@@ -352,6 +379,8 @@ int main(void) {
         test_event_loop(if_loopback);
 
         test_link_configure(rtnl, if_loopback);
+
+        test_get_addresses(rtnl);
 
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_GETLINK, if_loopback) >= 0);
         assert_se(m);

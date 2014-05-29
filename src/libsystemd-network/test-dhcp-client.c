@@ -29,6 +29,8 @@
 
 #include "util.h"
 #include "socket-util.h"
+#include "sd-event.h"
+#include "event-util.h"
 
 #include "dhcp-protocol.h"
 #include "dhcp-internal.h"
@@ -77,7 +79,9 @@ static void test_request_basic(sd_event *e)
 
         assert_se(sd_dhcp_client_set_index(client, 15) == 0);
         assert_se(sd_dhcp_client_set_index(client, -42) == -EINVAL);
-        assert_se(sd_dhcp_client_set_index(client, -1) == 0);
+        assert_se(sd_dhcp_client_set_index(client, -1) == -EINVAL);
+        assert_se(sd_dhcp_client_set_index(client, 0) == -EINVAL);
+        assert_se(sd_dhcp_client_set_index(client, 1) == 0);
 
         assert_se(sd_dhcp_client_set_request_option(client,
                                         DHCP_OPTION_SUBNET_MASK) == -EEXIST);
@@ -109,6 +113,8 @@ static void test_request_basic(sd_event *e)
         assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
         assert_se(sd_dhcp_client_set_request_option(client, 44) == 0);
         assert_se(sd_dhcp_client_set_request_option(client, 33) == -EEXIST);
+
+        sd_dhcp_client_unref(client);
 }
 
 static void test_checksum(void)
@@ -152,7 +158,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         assert_se(s >= 0);
         assert_se(packet);
 
-        size = sizeof(DHCPPacket) + 4;
+        size = sizeof(DHCPPacket);
         assert_se(len > size);
 
         discover = memdup(packet, len);
@@ -190,7 +196,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
         return 575;
 }
 
-int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
+int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link, uint32_t id)
 {
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, test_fd) < 0)
                 return -errno;
@@ -198,7 +204,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link)
         return test_fd[0];
 }
 
-int dhcp_network_bind_udp_socket(int index, be32_t address, uint16_t port)
+int dhcp_network_bind_udp_socket(be32_t address, uint16_t port)
 {
         return 0;
 }
@@ -251,7 +257,7 @@ static void test_discover_message(sd_event *e)
         sd_event_run(e, (uint64_t) -1);
 
         sd_dhcp_client_stop(client);
-        sd_dhcp_client_free(client);
+        sd_dhcp_client_unref(client);
 
         test_fd[1] = safe_close(test_fd[1]);
 
@@ -338,7 +344,7 @@ static uint8_t test_addr_acq_ack[] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x63, 0x82, 0x53, 0x63, 0x35, 0x01, 0x05, 0x36,
         0x04, 0xc0, 0xa8, 0x02, 0x01, 0x33, 0x04, 0x00,
-        0x00, 0x02, 0x58, 0x01, 0x04,   0xff, 0xff, 0xff,
+        0x00, 0x02, 0x58, 0x01, 0x04, 0xff, 0xff, 0xff,
         0x00, 0x2a, 0x04, 0xc0, 0xa8, 0x02, 0x01, 0x0f,
         0x09, 0x6c, 0x61, 0x62, 0x2e, 0x69, 0x6e, 0x74,
         0x72, 0x61, 0x03, 0x04, 0xc0, 0xa8, 0x02, 0x01,
@@ -347,8 +353,7 @@ static uint8_t test_addr_acq_ack[] = {
 };
 
 static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
-                                   void *userdata)
-{
+                                   void *userdata) {
         sd_event *e = userdata;
         sd_dhcp_lease *lease;
         struct in_addr addr;
@@ -374,11 +379,11 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
         if (verbose)
                 printf("  DHCP address acquired\n");
 
+        sd_dhcp_lease_unref(lease);
         sd_event_exit(e, 0);
 }
 
-static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
-{
+static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)request;
         int res;
@@ -409,8 +414,7 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request)
         return 0;
 };
 
-static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
-{
+static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)discover;
         int res;
@@ -437,13 +441,12 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover)
         assert_se(res == sizeof(test_addr_acq_offer));
 
         if (verbose)
-                printf("  send DHCP Offer\n");
+                printf("  sent DHCP Offer\n");
 
         return 0;
 }
 
-static void test_addr_acq(sd_event *e)
-{
+static void test_addr_acq(sd_event *e) {
         usec_t time_now = now(CLOCK_MONOTONIC);
         sd_dhcp_client *client;
         int res, r;
@@ -480,7 +483,7 @@ static void test_addr_acq(sd_event *e)
 
         sd_dhcp_client_set_callback(client, NULL, NULL);
         sd_dhcp_client_stop(client);
-        sd_dhcp_client_free(client);
+        sd_dhcp_client_unref(client);
 
         test_fd[1] = safe_close(test_fd[1]);
 
@@ -488,9 +491,12 @@ static void test_addr_acq(sd_event *e)
         xid = 0;
 }
 
-int main(int argc, char *argv[])
-{
-        sd_event *e;
+int main(int argc, char *argv[]) {
+        _cleanup_event_unref_ sd_event *e;
+
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
 
         assert_se(sd_event_new(&e) >= 0);
 

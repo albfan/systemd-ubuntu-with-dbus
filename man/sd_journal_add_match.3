@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_ADD_MATCH" "3" "" "systemd 212" "sd_journal_add_match"
+.TH "SD_JOURNAL_ADD_MATCH" "3" "" "systemd 213" "sd_journal_add_match"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,13 +29,13 @@ sd_journal_add_match, sd_journal_add_disjunction, sd_journal_add_conjunction, sd
 .fi
 .ft
 .HP \w'int\ sd_journal_add_match('u
-.BI "int sd_journal_add_match(sd_journal*\ " "j" ", const\ void*\ " "data" ", size_t\ " "size" ");"
+.BI "int sd_journal_add_match(sd_journal\ *" "j" ", const\ void\ *" "data" ", size_t\ " "size" ");"
 .HP \w'int\ sd_journal_add_disjunction('u
-.BI "int sd_journal_add_disjunction(sd_journal*\ " "j" ");"
+.BI "int sd_journal_add_disjunction(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_add_conjunction('u
-.BI "int sd_journal_add_conjunction(sd_journal*\ " "j" ");"
+.BI "int sd_journal_add_conjunction(sd_journal\ *" "j" ");"
 .HP \w'void\ sd_journal_flush_matches('u
-.BI "void sd_journal_flush_matches(sd_journal*\ " "j" ");"
+.BI "void sd_journal_flush_matches(sd_journal\ *" "j" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_add_match()\fR

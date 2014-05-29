@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND" "3" "" "systemd 212" "sd_bus_message_append"
+.TH "SD_BUS_MESSAGE_APPEND" "3" "" "systemd 213" "sd_bus_message_append"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,9 +32,9 @@ sd_bus_message_append \- Attach parts of message based on a format string
 .BI "int sd_bus_message_append(sd_bus_message\ *" "m" ", const\ char\ *" "types" ", \&.\&.\&.);"
 .SH "DESCRIPTION"
 .PP
-Function
+The
 \fBsd_bus_message_append\fR
-appends a sequence of items to message
+function appends a sequence of items to message
 \fIm\fR\&. The format string
 \fItypes\fR
 describes the types of arguments that follow\&.

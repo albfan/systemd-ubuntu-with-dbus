@@ -519,6 +519,20 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 following:</para>
 
                                 <programlisting>/bin/kill -HUP $MAINPID</programlisting>
+
+                                <para>Note however that reloading a
+                                daemon by sending a signal (as with
+                                the example line above) is usually not
+                                a good choice, because this is an
+                                asynchronous operation and hence not
+                                suitable to order reloads of multiple
+                                services against each other. It is
+                                strongly recommended to set
+                                <varname>ExecReload=</varname> to a
+                                command that not only triggers a
+                                configuration reload of the daemon,
+                                but also synchronously waits for it to
+                                complete.</para>
                                 </listitem>
                         </varlistentry>
 
@@ -1015,6 +1029,30 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
                                 system call, which might result in
                                 data loss. Defaults to
                                 <option>none</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>RebootArgument=</varname></term>
+                                <listitem><para>Configure the optional
+                                argument for the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call if
+                                <varname>StartLimitAction=</varname>
+                                is a reboot action. This works just
+                                like the optional argument to
+                                <command>systemctl reboot</command>
+                                command.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>FailureAction=</varname></term>
+                                <listitem><para>Configure the action
+                                to take when the service enters a failed
+                                state. Takes the same values as
+                                <varname>StartLimitAction=</varname>
+                                and executes the same actions.
+                                Defaults to <option>none</option>.
+                                </para></listitem>
                         </varlistentry>
 
                 </variablelist>

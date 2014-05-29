@@ -22,6 +22,7 @@
 ***/
 
 #include <alloca.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <time.h>
 #include <sys/time.h>
@@ -64,6 +65,22 @@
 #  define GID_FMT "%" PRIu16
 #else
 #  error Unknown gid_t size
+#endif
+
+#if SIZEOF_TIME_T == 8
+#  define PRI_TIME PRIu64
+#elif SIZEOF_GID_T == 4
+#  define PRI_TIME PRIu32
+#else
+#  error Unknown time_t size
+#endif
+
+#if SIZEOF_RLIM_T == 8
+#  define RLIM_FMT "%" PRIu64
+#elif SIZEOF_RLIM_T == 4
+#  define RLIM_FMT "%" PRIu32
+#else
+#  error Unknown rlim_t size
 #endif
 
 #include "macro.h"
@@ -392,6 +409,7 @@ char* dirname_malloc(const char *path);
 void rename_process(const char name[8]);
 
 void sigset_add_many(sigset_t *ss, ...);
+int sigprocmask_many(int how, ...);
 
 bool hostname_is_set(void);
 
@@ -460,6 +478,7 @@ char *ellipsize(const char *s, size_t length, unsigned percent);
                                    /* bytes                 columns */
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
+int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
 char *unquote(const char *s, const char *quotes);
@@ -680,14 +699,16 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
 bool is_locale_utf8(void);
 
 typedef enum DrawSpecialChar {
-        DRAW_TREE_VERT,
+        DRAW_TREE_VERTICAL,
         DRAW_TREE_BRANCH,
         DRAW_TREE_RIGHT,
         DRAW_TREE_SPACE,
         DRAW_TRIANGULAR_BULLET,
         DRAW_BLACK_CIRCLE,
+        DRAW_ARROW,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
+
 const char *draw_special_char(DrawSpecialChar ch);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
@@ -730,21 +751,13 @@ void *unhexmem(const char *p, size_t l);
 char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need);
-void* greedy_realloc0(void **p, size_t *allocated, size_t need);
-#define GREEDY_REALLOC(array, allocated, need) \
-        greedy_realloc((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
-#define GREEDY_REALLOC0(array, allocated, need) \
-        greedy_realloc0((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
+void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size);
+void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
+#define GREEDY_REALLOC(array, allocated, need)                          \
+        greedy_realloc((void**) &(array), &(allocated), (need), sizeof((array)[0]))
 
-#define GREEDY_REALLOC0_T(array, count, need)                           \
-        ({                                                              \
-                size_t _size = (count) * sizeof((array)[0]);            \
-                void *_ptr = GREEDY_REALLOC0((array), _size, (need));   \
-                if (_ptr)                                               \
-                        (count) = _size / sizeof((array)[0]);           \
-                _ptr;                                                   \
-        })
+#define GREEDY_REALLOC0(array, allocated, need)                         \
+        greedy_realloc0((void**) &(array), &(allocated), (need), sizeof((array)[0]))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
@@ -898,8 +911,8 @@ int parse_proc_cmdline(int (*parse_word)(const char *key, const char *value));
 
 int container_get_leader(const char *machine, pid_t *pid);
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd);
-int namespace_enter(int pidns_fd, int mntns_fd, int root_fd);
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
 
 bool pid_is_alive(pid_t pid);
 bool pid_is_unwaited(pid_t pid);
@@ -922,3 +935,10 @@ uint64_t physical_memory(void);
 char* mount_test_option(const char *haystack, const char *needle);
 
 void hexdump(FILE *f, const void *p, size_t s);
+
+union file_handle_union {
+        struct file_handle handle;
+        char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
+};
+
+int update_reboot_param_file(const char *param);

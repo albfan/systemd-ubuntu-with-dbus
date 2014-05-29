@@ -703,6 +703,8 @@ MANPAGES += \
 	man/sd_bus_open_user.3 \
 	man/sd_bus_path_encode.3 \
 	man/sd_bus_request_name.3 \
+	man/sd_event_add_time.3 \
+	man/sd_event_new.3 \
 	man/systemd-bus-proxyd.8 \
 	man/systemd-bus-proxyd@.service.8
 MANPAGES_ALIAS += \
@@ -760,6 +762,14 @@ MANPAGES_ALIAS += \
 	man/sd_bus_ref.3 \
 	man/sd_bus_release_name.3 \
 	man/sd_bus_unref.3 \
+	man/sd_event_default.3 \
+	man/sd_event_ref.3 \
+	man/sd_event_source_get_time.3 \
+	man/sd_event_source_get_time_accuracy.3 \
+	man/sd_event_source_get_time_clock.3 \
+	man/sd_event_source_set_time.3 \
+	man/sd_event_source_set_time_accuracy.3 \
+	man/sd_event_unref.3 \
 	man/systemd-bus-proxyd.socket.8
 man/sd_bus_creds_get_audit_login_uid.3: man/sd_bus_creds_get_pid.3
 man/sd_bus_creds_get_audit_session_id.3: man/sd_bus_creds_get_pid.3
@@ -815,6 +825,14 @@ man/sd_bus_path_decode.3: man/sd_bus_path_encode.3
 man/sd_bus_ref.3: man/sd_bus_new.3
 man/sd_bus_release_name.3: man/sd_bus_request_name.3
 man/sd_bus_unref.3: man/sd_bus_new.3
+man/sd_event_default.3: man/sd_event_new.3
+man/sd_event_ref.3: man/sd_event_new.3
+man/sd_event_source_get_time.3: man/sd_event_add_time.3
+man/sd_event_source_get_time_accuracy.3: man/sd_event_add_time.3
+man/sd_event_source_get_time_clock.3: man/sd_event_add_time.3
+man/sd_event_source_set_time.3: man/sd_event_add_time.3
+man/sd_event_source_set_time_accuracy.3: man/sd_event_add_time.3
+man/sd_event_unref.3: man/sd_event_new.3
 man/systemd-bus-proxyd.socket.8: man/systemd-bus-proxyd@.service.8
 man/sd_bus_creds_get_audit_login_uid.html: man/sd_bus_creds_get_pid.html
 	$(html-alias)
@@ -978,6 +996,30 @@ man/sd_bus_release_name.html: man/sd_bus_request_name.html
 man/sd_bus_unref.html: man/sd_bus_new.html
 	$(html-alias)
 
+man/sd_event_default.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_ref.html: man/sd_event_new.html
+	$(html-alias)
+
+man/sd_event_source_get_time.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_get_time_accuracy.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_get_time_clock.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_set_time.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_source_set_time_accuracy.html: man/sd_event_add_time.html
+	$(html-alias)
+
+man/sd_event_unref.html: man/sd_event_new.html
+	$(html-alias)
+
 man/systemd-bus-proxyd.socket.html: man/systemd-bus-proxyd@.service.html
 	$(html-alias)
 
@@ -1022,12 +1064,18 @@ endif
 
 if ENABLE_NETWORKD
 MANPAGES += \
+	man/systemd-networkd-wait-online.service.8 \
 	man/systemd-networkd.service.8 \
 	man/systemd.netdev.5 \
 	man/systemd.network.5
 MANPAGES_ALIAS += \
+	man/systemd-networkd-wait-online.8 \
 	man/systemd-networkd.8
+man/systemd-networkd-wait-online.8: man/systemd-networkd-wait-online.service.8
 man/systemd-networkd.8: man/systemd-networkd.service.8
+man/systemd-networkd-wait-online.html: man/systemd-networkd-wait-online.service.html
+	$(html-alias)
+
 man/systemd-networkd.html: man/systemd-networkd.service.html
 	$(html-alias)
 
@@ -1083,6 +1131,18 @@ man/systemd-readahead.html: man/systemd-readahead-replay.service.html
 
 endif
 
+if ENABLE_RESOLVED
+MANPAGES += \
+	man/resolved.conf.5 \
+	man/systemd-resolved.service.8
+MANPAGES_ALIAS += \
+	man/systemd-resolved.8
+man/systemd-resolved.8: man/systemd-resolved.service.8
+man/systemd-resolved.html: man/systemd-resolved.service.html
+	$(html-alias)
+
+endif
+
 if ENABLE_RFKILL
 MANPAGES += \
 	man/systemd-rfkill@.service.8
@@ -1102,6 +1162,17 @@ MANPAGES_ALIAS += \
 	man/systemd-timedated.8
 man/systemd-timedated.8: man/systemd-timedated.service.8
 man/systemd-timedated.html: man/systemd-timedated.service.html
+	$(html-alias)
+
+endif
+
+if ENABLE_TIMESYNCD
+MANPAGES += \
+	man/systemd-timesyncd.service.8
+MANPAGES_ALIAS += \
+	man/systemd-timesyncd.8
+man/systemd-timesyncd.8: man/systemd-timesyncd.service.8
+man/systemd-timesyncd.html: man/systemd-timesyncd.service.html
 	$(html-alias)
 
 endif
@@ -1217,6 +1288,7 @@ MANPAGES_ALIAS += \
 	man/sd_session_get_uid.3 \
 	man/sd_session_get_vt.3 \
 	man/sd_session_is_remote.3 \
+	man/sd_uid_get_display.3 \
 	man/sd_uid_get_seats.3 \
 	man/sd_uid_get_sessions.3 \
 	man/sd_uid_is_on_seat.3 \
@@ -1257,6 +1329,7 @@ man/sd_session_get_type.3: man/sd_session_is_active.3
 man/sd_session_get_uid.3: man/sd_session_is_active.3
 man/sd_session_get_vt.3: man/sd_session_is_active.3
 man/sd_session_is_remote.3: man/sd_session_is_active.3
+man/sd_uid_get_display.3: man/sd_uid_get_state.3
 man/sd_uid_get_seats.3: man/sd_uid_get_state.3
 man/sd_uid_get_sessions.3: man/sd_uid_get_state.3
 man/sd_uid_is_on_seat.3: man/sd_uid_get_state.3
@@ -1369,6 +1442,9 @@ man/sd_session_get_vt.html: man/sd_session_is_active.html
 man/sd_session_is_remote.html: man/sd_session_is_active.html
 	$(html-alias)
 
+man/sd_uid_get_display.html: man/sd_uid_get_state.html
+	$(html-alias)
+
 man/sd_uid_get_seats.html: man/sd_uid_get_state.html
 	$(html-alias)
 
@@ -1424,6 +1500,7 @@ EXTRA_DIST += \
 	man/nss-myhostname.xml \
 	man/os-release.xml \
 	man/pam_systemd.xml \
+	man/resolved.conf.xml \
 	man/runlevel.xml \
 	man/sd-daemon.xml \
 	man/sd-id128.xml \
@@ -1446,6 +1523,8 @@ EXTRA_DIST += \
 	man/sd_bus_open_user.xml \
 	man/sd_bus_path_encode.xml \
 	man/sd_bus_request_name.xml \
+	man/sd_event_add_time.xml \
+	man/sd_event_new.xml \
 	man/sd_get_seats.xml \
 	man/sd_id128_get_machine.xml \
 	man/sd_id128_randomize.xml \
@@ -1512,6 +1591,7 @@ EXTRA_DIST += \
 	man/systemd-machine-id-setup.xml \
 	man/systemd-machined.service.xml \
 	man/systemd-modules-load.service.xml \
+	man/systemd-networkd-wait-online.service.xml \
 	man/systemd-networkd.service.xml \
 	man/systemd-notify.xml \
 	man/systemd-nspawn.xml \
@@ -1519,6 +1599,7 @@ EXTRA_DIST += \
 	man/systemd-random-seed.service.xml \
 	man/systemd-readahead-replay.service.xml \
 	man/systemd-remount-fs.service.xml \
+	man/systemd-resolved.service.xml \
 	man/systemd-rfkill@.service.xml \
 	man/systemd-run.xml \
 	man/systemd-shutdownd.service.xml \
@@ -1529,6 +1610,7 @@ EXTRA_DIST += \
 	man/systemd-system-update-generator.xml \
 	man/systemd-system.conf.xml \
 	man/systemd-timedated.service.xml \
+	man/systemd-timesyncd.service.xml \
 	man/systemd-tmpfiles.xml \
 	man/systemd-tty-ask-password-agent.xml \
 	man/systemd-udevd.service.xml \

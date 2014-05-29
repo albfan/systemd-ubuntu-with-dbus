@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <sys/utsname.h>
 
 #include "util.h"
 #include "strv.h"
@@ -40,6 +41,9 @@ enum {
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
+        PROP_KERNEL_NAME,
+        PROP_KERNEL_RELEASE,
+        PROP_KERNEL_VERSION,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
         _PROP_MAX
@@ -70,10 +74,19 @@ static void context_free(Context *c, sd_bus *bus) {
 
 static int context_read_data(Context *c) {
         int r;
+        struct utsname u;
 
         assert(c);
 
         context_reset(c);
+
+        assert_se(uname(&u) >= 0);
+        c->data[PROP_KERNEL_NAME] = strdup(u.sysname);
+        c->data[PROP_KERNEL_RELEASE] = strdup(u.release);
+        c->data[PROP_KERNEL_VERSION] = strdup(u.version);
+        if (!c->data[PROP_KERNEL_NAME] || !c->data[PROP_KERNEL_RELEASE] ||
+            !c->data[PROP_KERNEL_VERSION])
+                return -ENOMEM;
 
         c->data[PROP_HOSTNAME] = gethostname_malloc();
         if (!c->data[PROP_HOSTNAME])
@@ -237,15 +250,34 @@ static char* context_fallback_icon_name(Context *c) {
         return strdup("computer");
 }
 
-static int context_write_data_hostname(Context *c) {
+static bool hostname_is_useful(const char *hn) {
+        return !isempty(hn) && !streq(hn, "localhost");
+}
+
+static int context_update_kernel_hostname(Context *c) {
+        const char *static_hn;
         const char *hn;
 
         assert(c);
 
-        if (isempty(c->data[PROP_HOSTNAME]))
-                hn = "localhost";
-        else
+        static_hn = c->data[PROP_STATIC_HOSTNAME];
+
+        /* /etc/hostname with something other than "localhost"
+         * has the highest preference ... */
+        if (hostname_is_useful(static_hn))
+                hn = static_hn;
+
+        /* ... the transient host name, (ie: DHCP) comes next ...*/
+        else if (!isempty(c->data[PROP_HOSTNAME]))
                 hn = c->data[PROP_HOSTNAME];
+
+        /* ... fallback to static "localhost.*" ignored above ... */
+        else if (!isempty(static_hn))
+                hn = static_hn;
+
+        /* ... and the ultimate fallback */
+        else
+                hn = "localhost";
 
         if (sethostname(hn, strlen(hn)) < 0)
                 return -errno;
@@ -398,7 +430,7 @@ static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, s
         free(c->data[PROP_HOSTNAME]);
         c->data[PROP_HOSTNAME] = h;
 
-        r = context_write_data_hostname(c);
+        r = context_update_kernel_hostname(c);
         if (r < 0) {
                 log_error("Failed to set host name: %s", strerror(-r));
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
@@ -448,6 +480,12 @@ static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *user
 
                 free(c->data[PROP_STATIC_HOSTNAME]);
                 c->data[PROP_STATIC_HOSTNAME] = h;
+        }
+
+        r = context_update_kernel_hostname(c);
+        if (r < 0) {
+                log_error("Failed to set host name: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
         }
 
         r = context_write_data_static_hostname(c);
@@ -555,6 +593,9 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -579,7 +620,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", hostname_vtable, c);
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", hostname_vtable, c);
         if (r < 0) {
                 log_error("Failed to register object: %s", strerror(-r));
                 return r;

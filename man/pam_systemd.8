@@ -1,5 +1,5 @@
 '\" t
-.TH "PAM_SYSTEMD" "8" "" "systemd 212" "pam_systemd"
+.TH "PAM_SYSTEMD" "8" "" "systemd 213" "pam_systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -123,9 +123,10 @@ for details about the session class\&.
 Takes a string argument which sets the session type\&. The XDG_SESSION_TYPE environmental variable takes precedence\&. One of
 "unspecified",
 "tty",
-"x11"
+"x11",
+"wayland"
 or
-"wayland"\&. See
+"mir"\&. See
 \fBsd_session_get_type\fR(3)
 for details about the session type\&.
 .RE
@@ -178,9 +179,11 @@ on the module parameter line, and is usually preferred\&.
 .PP
 \fI$XDG_SESSION_DESKTOP\fR
 .RS 4
-The session deskop\&. This may be used to indicate the session desktop used, where this applies\&. This should be a short, lowercase string identifying the desktop environment used if this information is available\&. For example:
-"gnome", or
-"kde"\&.
+A single, short identifier string for the desktop environment\&. This may be used to indicate the session desktop used, where this applies and if this information is available\&. For example:
+"GNOME", or
+"KDE"\&. It is recommended to use the same identifiers and capitalization as for
+\fI$XDG_CURRENT_DESKTOP\fR, as defined by the
+\m[blue]\fBDesktop Entry Specification\fR\m[]\&\s-2\u[1]\d\s+2\&.
 .RE
 .PP
 \fI$XDG_SEAT\fR
@@ -224,3 +227,9 @@ session    required     pam_systemd\&.so
 \fBsystemd.scope\fR(5),
 \fBsystemd.slice\fR(5),
 \fBsystemd.service\fR(5)
+.SH "NOTES"
+.IP " 1." 4
+Desktop Entry Specification
+.RS 4
+\%http://standards.freedesktop.org/desktop-entry-spec/latest/
+.RE

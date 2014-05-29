@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [212],
+        [213],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -76,6 +76,8 @@ AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
 
 AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec], [$PATH:/usr/sbin:/sbin])
 
+AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
+
 M4_DEFINES=
 
 # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
@@ -113,6 +115,23 @@ AS_IF([test "x$enable_address_sanitizer" = "xyes"], [
             address_sanitizer_cppflags="-DVALGRIND=1"
             address_sanitizer_ldflags="-Wc,-fsanitize=address"
       ])
+
+undefined_sanitizer_cflags=
+undefined_sanitizer_cppflags=
+undefined_sanitizer_ldflags=
+AC_ARG_ENABLE(undefined-sanitizer, AS_HELP_STRING([--enable-undefined-sanitizer], [enable -fsanitize=undefined]))
+AS_IF([test "x$enable_undefined_sanitizer" = "xyes"], [
+            CC_CHECK_FLAG_APPEND([with_us_cflags], [CFLAGS], [-fsanitize=undefined])
+            AS_IF([test -z "$with_us_cflags"],
+                  [AC_MSG_ERROR([*** -fsanitize=undefined is not supported])])
+            undefined_sanitizer_cflags="$with_us_cflags -fno-omit-frame-pointer -DVALGRIND=1"
+            undefined_sanitizer_cppflags="-DVALGRIND=1"
+            undefined_sanitizer_ldflags="-Wc,-fsanitize=undefined"
+      ])
+
+sanitizer_cflags="$address_sanitizer_cflags $undefined_sanitizer_cflags"
+sanitizer_cppflags="$address_sanitizer_cppflags $undefined_sanitizer_cppflags"
+sanitizer_ldflags="$address_sanitizer_ldflags $undefined_sanitizer_ldflags"
 
 CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -pipe \
@@ -156,18 +175,20 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -ffunction-sections \
         -fdata-sections \
         -fstack-protector \
+        -fstack-protector-strong \
+        -fPIE \
         --param=ssp-buffer-size=4])
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -flto])],
         [AC_MSG_RESULT([skipping -flto, optimization not enabled])])
-AC_SUBST([OUR_CFLAGS], "$with_cflags $address_sanitizer_cflags")
+AC_SUBST([OUR_CFLAGS], "$with_cflags $sanitizer_cflags")
 
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
                -Wp,-D_FORTIFY_SOURCE=2])],
         [AC_MSG_RESULT([skipping -D_FORTIFY_SOURCE, optimization not enabled])])
-AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $address_sanitizer_cppflags")
+AC_SUBST([OUR_CPPFLAGS], "$with_cppflags $sanitizer_cppflags")
 
 CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--as-needed \
@@ -175,12 +196,18 @@ CC_CHECK_FLAGS_APPEND([with_ldflags], [LDFLAGS], [\
         -Wl,--gc-sections \
         -Wl,-z,relro \
         -Wl,-z,now \
+        -pie \
         -Wl,-fuse-ld=gold])
-AC_SUBST([OUR_LDFLAGS], "$with_ldflags $address_sanitizer_ldflags")
+AC_SUBST([OUR_LDFLAGS], "$with_ldflags $sanitizer_ldflags")
 
 AC_CHECK_SIZEOF(pid_t)
 AC_CHECK_SIZEOF(uid_t)
 AC_CHECK_SIZEOF(gid_t)
+AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(rlim_t,,[
+       #include <sys/time.h>
+       #include <sys/resource.h>
+])
 
 # ------------------------------------------------------------------------------
 # we use python to build the man page index, and for systemd-python
@@ -802,6 +829,51 @@ fi
 AM_CONDITIONAL(ENABLE_TIMEDATED, [test "$have_timedated" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_timesyncd=no
+AC_ARG_ENABLE(timesyncd, AS_HELP_STRING([--disable-timesyncd], [disable timesync daemon]))
+if test "x$enable_timesyncd" != "xno"; then
+        have_timesyncd=yes
+fi
+AM_CONDITIONAL(ENABLE_TIMESYNCD, [test "$have_timesyncd" = "yes"])
+
+AC_ARG_WITH(ntp-servers,
+        AS_HELP_STRING([--with-ntp-servers=NTPSERVERS],
+                [Space-separated list of default NTP servers]),
+        [NTP_SERVERS="$withval"],
+        [NTP_SERVERS="time1.google.com time2.google.com time3.google.com time4.google.com"])
+
+AC_DEFINE_UNQUOTED(NTP_SERVERS, ["$NTP_SERVERS"], [Default NTP Servers])
+AC_SUBST(NTP_SERVERS)
+
+AC_ARG_WITH(time-epoch,
+        AS_HELP_STRING([--with-time-epoch=SECONDS],
+                [Time epoch for time clients]),
+        [TIME_EPOCH="$withval"],
+        [TIME_EPOCH="`stat -c %Y ${srcdir}/NEWS 2>/dev/null || echo 0`"])
+
+AC_DEFINE_UNQUOTED(TIME_EPOCH, [$TIME_EPOCH], [Time Epoch])
+
+# ------------------------------------------------------------------------------
+AC_ARG_WITH(system-uid-max,
+        AS_HELP_STRING([--with-system-uid-max=UID]
+                [Maximum UID for system users]),
+        [SYSTEM_UID_MAX="$withval"],
+        [SYSTEM_UID_MAX="`awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs 2>/dev/null || echo 999`"])
+
+AC_DEFINE_UNQUOTED(SYSTEM_UID_MAX, [$SYSTEM_UID_MAX], [Maximum System UID])
+AC_SUBST(SYSTEM_UID_MAX)
+
+# ------------------------------------------------------------------------------
+AC_ARG_WITH(system-gid-max,
+        AS_HELP_STRING([--with-system-gid-max=GID]
+                [Maximum GID for system groups]),
+        [SYSTEM_GID_MAX="$withval"],
+        [SYSTEM_GID_MAX="`awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' /etc/login.defs 2>/dev/null || echo 999`"])
+
+AC_DEFINE_UNQUOTED(SYSTEM_GID_MAX, [$SYSTEM_GID_MAX], [Maximum System GID])
+AC_SUBST(SYSTEM_GID_MAX)
+
+# ------------------------------------------------------------------------------
 have_localed=no
 AC_ARG_ENABLE(localed, AS_HELP_STRING([--disable-localed], [disable locale daemon]))
 if test "x$enable_localed" != "xno"; then
@@ -827,11 +899,31 @@ fi
 AM_CONDITIONAL(ENABLE_POLKIT, [test "x$have_polkit" = "xyes"])
 
 # ------------------------------------------------------------------------------
+have_resolved=no
+AC_ARG_ENABLE(resolved, AS_HELP_STRING([--disable-resolved], [disable resolve daemon]))
+if test "x$enable_resolved" != "xno"; then
+        have_resolved=yes
+fi
+AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
+
+AC_ARG_WITH(dns-servers,
+        AS_HELP_STRING([--with-dns-servers=DNSSERVERS],
+                [Space-separated list of default DNS servers]),
+        [DNS_SERVERS="$withval"],
+        [DNS_SERVERS="8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844"])
+
+AC_DEFINE_UNQUOTED(DNS_SERVERS, ["$DNS_SERVERS"], [Default DNS Servers])
+AC_SUBST(DNS_SERVERS)
+
+# ------------------------------------------------------------------------------
+have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
 if test "x$enable_networkd" != "xno"; then
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
 fi
+AS_IF([test "x$have_networkd" = "xyes" -a "x$have_kmod" != "xyes"],
+      [AC_MSG_ERROR([networkd requires kmod])])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
 # ------------------------------------------------------------------------------
@@ -1132,8 +1224,13 @@ AC_MSG_RESULT([
         machined:                ${have_machined}
         hostnamed:               ${have_hostnamed}
         timedated:               ${have_timedated}
+        timesyncd:               ${have_timesyncd}
+        default NTP servers:     ${NTP_SERVERS}
+        time epoch:              ${TIME_EPOCH}
         localed:                 ${have_localed}
         networkd:                ${have_networkd}
+        resolved:                ${have_resolved}
+        default DNS servers:     ${DNS_SERVERS}
         coredump:                ${have_coredump}
         polkit:                  ${have_polkit}
         efi:                     ${have_efi}
@@ -1179,6 +1276,8 @@ AC_MSG_RESULT([
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
+        Maximum System UID:      ${SYSTEM_UID_MAX}
+        Maximum System GID:      ${SYSTEM_GID_MAX}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

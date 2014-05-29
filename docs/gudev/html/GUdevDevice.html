@@ -530,8 +530,9 @@ g_udev_device_get_driver (<em class="parameter"><code><a class="link" href="GUde
 <div class="refsect3">
 <a name="id-1.2.3.7.7.6"></a><h4>Returns</h4>
 <p> The name of the driver for <em class="parameter"><code>device</code></em>
-or <code class="literal">NULL</code> if unknown.</p>
-<p></p>
+or <code class="literal">NULL</code> if
+unknown. </p>
+<p><span class="annotation">[nullable]</span></p>
 </div>
 </div>
 <hr>
@@ -673,9 +674,9 @@ g_udev_device_get_device_file (<em class="parameter"><code><a class="link" href=
 <div class="refsect3">
 <a name="id-1.2.3.7.12.6"></a><h4>Returns</h4>
 <p> The device file for <em class="parameter"><code>device</code></em>
-or <code class="literal">NULL</code> if no device file
-exists.</p>
-<p></p>
+or <code class="literal">NULL</code> if no
+device file exists. </p>
+<p><span class="annotation">[nullable]</span></p>
 </div>
 </div>
 <hr>
@@ -733,9 +734,10 @@ g_udev_device_get_parent (<em class="parameter"><code><a class="link" href="GUde
 </div>
 <div class="refsect3">
 <a name="id-1.2.3.7.14.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if <em class="parameter"><code>device</code></em>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if
+<em class="parameter"><code>device</code></em>
 has no parent. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -780,11 +782,13 @@ device encountered where <em class="parameter"><code>subsystem</code></em>
 </div>
 <div class="refsect3">
 <a name="id-1.2.3.7.15.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if <em class="parameter"><code>device</code></em>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if
+<em class="parameter"><code>device</code></em>
 has no parent with <em class="parameter"><code>subsystem</code></em>
 and <em class="parameter"><code>devtype</code></em>
-. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+. Free with
+<code class="function">g_object_unref()</code>. </p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -980,10 +984,11 @@ g_udev_device_get_property (<em class="parameter"><code><a class="link" href="GU
 <a name="id-1.2.3.7.21.6"></a><h4>Returns</h4>
 <p> The value for <em class="parameter"><code>key</code></em>
 or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em>
-doesn't exist on <em class="parameter"><code>device</code></em>
+doesn't
+exist on <em class="parameter"><code>device</code></em>
 . Do not free this string, it is owned by <em class="parameter"><code>device</code></em>
-.</p>
-<p></p>
+. </p>
+<p><span class="annotation">[nullable]</span></p>
 </div>
 </div>
 <hr>
@@ -1188,12 +1193,13 @@ locale is not taken into account).</p>
 </div>
 <div class="refsect3">
 <a name="id-1.2.3.7.26.6"></a><h4>Returns</h4>
-<p> The value of <em class="parameter"><code>key</code></em>
+<p>The value of <em class="parameter"><code>key</code></em>
 on <em class="parameter"><code>device</code></em>
 split into tokens or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em>
 doesn't exist. This array is owned by <em class="parameter"><code>device</code></em>
-and should not be freed by the caller. </p>
-<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span></p>
+and should not be
+freed by the caller. </p>
+<p><span class="annotation">[nullable][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span></p>
 </div>
 </div>
 <hr>
@@ -1294,10 +1300,11 @@ g_udev_device_get_sysfs_attr (<em class="parameter"><code><a class="link" href="
 </div>
 <div class="refsect3">
 <a name="id-1.2.3.7.29.6"></a><h4>Returns</h4>
-<p> The value of the sysfs attribute or <code class="literal">NULL</code> if there is no
-such attribute. Do not free this string, it is owned by <em class="parameter"><code>device</code></em>
-.</p>
-<p></p>
+<p> The value of the sysfs attribute or <code class="literal">NULL</code> if
+there is no such attribute. Do not free this string, it is owned by
+<em class="parameter"><code>device</code></em>
+. </p>
+<p><span class="annotation">[nullable]</span></p>
 </div>
 </div>
 <hr>
@@ -1497,9 +1504,11 @@ not taken into account).</p>
 </div>
 <div class="refsect3">
 <a name="id-1.2.3.7.34.6"></a><h4>Returns</h4>
-<p> The value of the sysfs attribute split into tokens or <code class="literal">NULL</code> if there is no such attribute. This array is owned by <em class="parameter"><code>device</code></em>
-and should not be freed by the caller. </p>
-<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span></p>
+<p>The value of the sysfs attribute split into tokens or <code class="literal">NULL</code> if
+there is no such attribute. This array is owned by <em class="parameter"><code>device</code></em>
+and
+should not be freed by the caller. </p>
+<p><span class="annotation">[nullable][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span></p>
 </div>
 </div>
 </div>

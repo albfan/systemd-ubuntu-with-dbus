@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 212" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 213" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -145,6 +145,9 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBreboot\fR(8)
 \-\- Halt, power\-off or reboot the machine
+.br
+\fBresolved.conf\fR(5)
+\-\- Network Name Resolution configuration file
 .br
 \fBrunlevel\fR(8)
 \-\- Print previous and current SysV runlevel
@@ -391,6 +394,36 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBSD_ERR\fR(3)
 \-\- APIs for new\-style daemons
+.br
+\fBsd_event_add_time\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_default\fR(3)
+\-\- Acquire and release an event loop object
+.br
+\fBsd_event_new\fR(3)
+\-\- Acquire and release an event loop object
+.br
+\fBsd_event_ref\fR(3)
+\-\- Acquire and release an event loop object
+.br
+\fBsd_event_source_get_time\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_source_get_time_accuracy\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_source_get_time_clock\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_source_set_time\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_source_set_time_accuracy\fR(3)
+\-\- Add a timer event source to an event loop
+.br
+\fBsd_event_unref\fR(3)
+\-\- Acquire and release an event loop object
 .br
 \fBsd_get_machine_names\fR(3)
 \-\- Determine available seats, sessions, logged in users and virtual machines/containers
@@ -767,6 +800,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_session_is_remote\fR(3)
 \-\- Determine state of a specific session
 .br
+\fBsd_uid_get_display\fR(3)
+\-\- Determine login state of a specific Unix user ID
+.br
 \fBsd_uid_get_seats\fR(3)
 \-\- Determine login state of a specific Unix user ID
 .br
@@ -971,6 +1007,12 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-networkd\fR(8)
 \-\- Network manager
 .br
+\fBsystemd-networkd-wait-online\fR(8)
+\-\- Wait for network to come online
+.br
+\fBsystemd-networkd-wait-online.service\fR(8)
+\-\- Wait for network to come online
+.br
 \fBsystemd-networkd.service\fR(8)
 \-\- Network manager
 .br
@@ -1018,6 +1060,12 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-remount-fs.service\fR(8)
 \-\- Remount root and kernel file systems
+.br
+\fBsystemd-resolved\fR(8)
+\-\- Network Name Resolution manager
+.br
+\fBsystemd-resolved.service\fR(8)
+\-\- Network Name Resolution manager
 .br
 \fBsystemd-rfkill\fR(8)
 \-\- Load and save the RF kill switch state at boot and shutdown
@@ -1069,6 +1117,12 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-timedated.service\fR(8)
 \-\- Time and date bus mechanism
+.br
+\fBsystemd-timesyncd\fR(8)
+\-\- Network Time Synchronization
+.br
+\fBsystemd-timesyncd.service\fR(8)
+\-\- Network Time Synchronization
 .br
 \fBsystemd-tmpfiles\fR(8)
 \-\- Creates, deletes and cleans up volatile and temporary files and directories
@@ -1228,4 +1282,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 384 entries, referring to 167 individual manual pages\&.
+This index contains 402 entries, referring to 173 individual manual pages\&.

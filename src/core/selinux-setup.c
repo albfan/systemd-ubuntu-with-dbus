@@ -46,82 +46,82 @@ static int null_log(int type, const char *fmt, ...) {
 int selinux_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SELINUX
-       int enforce = 0;
-       usec_t before_load, after_load;
-       security_context_t con;
-       int r;
-       union selinux_callback cb;
+        int enforce = 0;
+        usec_t before_load, after_load;
+        security_context_t con;
+        int r;
+        union selinux_callback cb;
+        bool initialized = false;
 
-       assert(loaded_policy);
+        assert(loaded_policy);
 
-       /* Turn off all of SELinux' own logging, we want to do that */
-       cb.func_log = null_log;
-       selinux_set_callback(SELINUX_CB_LOG, cb);
+        /* Turn off all of SELinux' own logging, we want to do that */
+        cb.func_log = null_log;
+        selinux_set_callback(SELINUX_CB_LOG, cb);
 
-       /* Don't load policy in the initrd if we don't appear to have
-        * it.  For the real root, we check below if we've already
-        * loaded policy, and return gracefully.
-        */
-       if (in_initrd() && access(selinux_path(), F_OK) < 0)
-               return 0;
+        /* Don't load policy in the initrd if we don't appear to have
+         * it.  For the real root, we check below if we've already
+         * loaded policy, and return gracefully.
+         */
+        if (in_initrd() && access(selinux_path(), F_OK) < 0)
+                return 0;
 
-       /* Already initialized by somebody else? */
-       r = getcon_raw(&con);
-       if (r == 0) {
-               bool initialized;
+        /* Already initialized by somebody else? */
+        r = getcon_raw(&con);
+        if (r == 0) {
+                initialized = !streq(con, "kernel");
+                freecon(con);
+        }
 
-               initialized = !streq(con, "kernel");
-               freecon(con);
+        /* Make sure we have no fds open while loading the policy and
+         * transitioning */
+        log_close();
 
-               if (initialized)
-                       return 0;
-       }
+        /* Now load the policy */
+        before_load = now(CLOCK_MONOTONIC);
+        r = selinux_init_load_policy(&enforce);
+        if (r == 0) {
+                char timespan[FORMAT_TIMESPAN_MAX];
+                char *label;
 
-       /* Make sure we have no fds open while loading the policy and
-        * transitioning */
-       log_close();
+                retest_selinux();
 
-       /* Now load the policy */
-       before_load = now(CLOCK_MONOTONIC);
-       r = selinux_init_load_policy(&enforce);
-       if (r == 0) {
-               char timespan[FORMAT_TIMESPAN_MAX];
-               char *label;
+                /* Transition to the new context */
+                r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
+                if (r < 0 || label == NULL) {
+                        log_open();
+                        log_error("Failed to compute init label, ignoring.");
+                } else {
+                        r = setcon(label);
 
-               retest_selinux();
+                        log_open();
+                        if (r < 0)
+                                log_error("Failed to transition into init label '%s', ignoring.", label);
 
-               /* Transition to the new context */
-               r = label_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
-               if (r < 0 || label == NULL) {
-                       log_open();
-                       log_error("Failed to compute init label, ignoring.");
-               } else {
-                       r = setcon(label);
+                        label_free(label);
+                }
 
-                       log_open();
-                       if (r < 0)
-                               log_error("Failed to transition into init label '%s', ignoring.", label);
+                after_load = now(CLOCK_MONOTONIC);
 
-                       label_free(label);
-               }
+                log_info("Successfully loaded SELinux policy in %s.",
+                         format_timespan(timespan, sizeof(timespan), after_load - before_load, 0));
 
-               after_load = now(CLOCK_MONOTONIC);
+                *loaded_policy = true;
 
-               log_info("Successfully loaded SELinux policy in %s.",
-                        format_timespan(timespan, sizeof(timespan), after_load - before_load, 0));
+        } else {
+                log_open();
 
-               *loaded_policy = true;
+                if (enforce > 0) {
+                        if (!initialized) {
+                                log_error("Failed to load SELinux policy. Freezing.");
+                                return -EIO;
+                        }
 
-       } else {
-               log_open();
-
-               if (enforce > 0) {
-                       log_error("Failed to load SELinux policy. Freezing.");
-                       return -EIO;
-               } else
-                       log_debug("Unable to load SELinux policy. Ignoring.");
-       }
+                        log_warning("Failed to load new SELinux policy. Continuing with old policy.");
+                } else
+                        log_debug("Unable to load SELinux policy. Ignoring.");
+        }
 #endif
 
-       return 0;
+        return 0;
 }

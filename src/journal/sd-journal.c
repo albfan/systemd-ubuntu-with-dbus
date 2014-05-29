@@ -1273,7 +1273,7 @@ static bool file_type_wanted(int flags, const char *filename) {
         if (flags & SD_JOURNAL_CURRENT_USER) {
                 char prefix[5 + DECIMAL_STR_MAX(uid_t) + 1];
 
-                assert_se(snprintf(prefix, sizeof(prefix), "user-%lu", (unsigned long) getuid())
+                assert_se(snprintf(prefix, sizeof(prefix), "user-"UID_FMT, getuid())
                           < (int) sizeof(prefix));
 
                 if (file_has_type_prefix(prefix, filename))
@@ -1455,8 +1455,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %s",
-                                  m->path, strerror(errno));
+                        log_debug("Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)
@@ -1546,8 +1545,7 @@ static int add_root_directory(sd_journal *j, const char *p) {
                 de = readdir(d);
                 if (!de && errno != 0) {
                         r = -errno;
-                        log_debug("Failed to read directory %s: %s",
-                                  m->path, strerror(errno));
+                        log_debug("Failed to read directory %s: %m", m->path);
                         return r;
                 }
                 if (!de)

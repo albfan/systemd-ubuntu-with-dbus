@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RUN" "1" "" "systemd 212" "systemd-run"
+.TH "SYSTEMD\-RUN" "1" "" "systemd 213" "systemd-run"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -73,7 +73,7 @@ command\&.
 .PP
 \fB\-\-description=\fR
 .RS 4
-Provide description for the service or scope unit\&. If not specified, the command itself will be used as a description\&. See
+Provide a description for the service or scope unit\&. If not specified, the command itself will be used as a description\&. See
 \fIDescription=\fR
 in
 \fBsystemd.unit\fR(5)\&.
@@ -199,7 +199,7 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz\-3\&.11\&.0\-0\&.rc5\&.gi
 .PP
 The following command invokes the
 \fBupdatedb\fR(8)
-tool but lowers the block IO weight for it to 10\&. See
+tool, but lowers the block IO weight for it to 10\&. See
 \fBsystemd.resource-control\fR(5)
 for more information on the
 \fIBlockIOWeight=\fR

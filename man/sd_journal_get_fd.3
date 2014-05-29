@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_FD" "3" "" "systemd 212" "sd_journal_get_fd"
+.TH "SD_JOURNAL_GET_FD" "3" "" "systemd 213" "sd_journal_get_fd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,17 +29,17 @@ sd_journal_get_fd, sd_journal_get_events, sd_journal_get_timeout, sd_journal_pro
 .fi
 .ft
 .HP \w'int\ sd_journal_get_fd('u
-.BI "int sd_journal_get_fd(sd_journal*\ " "j" ");"
+.BI "int sd_journal_get_fd(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_get_events('u
-.BI "int sd_journal_get_events(sd_journal*\ " "j" ");"
+.BI "int sd_journal_get_events(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_get_timeout('u
-.BI "int sd_journal_get_timeout(sd_journal*\ " "j" ", uint64_t*\ " "timeout_usec" ");"
+.BI "int sd_journal_get_timeout(sd_journal\ *" "j" ", uint64_t\ *" "timeout_usec" ");"
 .HP \w'int\ sd_journal_process('u
-.BI "int sd_journal_process(sd_journal*\ " "j" ");"
+.BI "int sd_journal_process(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_wait('u
-.BI "int sd_journal_wait(sd_journal*\ " "j" ", uint64_t\ " "timeout_usec" ");"
+.BI "int sd_journal_wait(sd_journal\ *" "j" ", uint64_t\ " "timeout_usec" ");"
 .HP \w'int\ sd_journal_reliable_fd('u
-.BI "int sd_journal_reliable_fd(sd_journal*\ " "j" ");"
+.BI "int sd_journal_reliable_fd(sd_journal\ *" "j" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_fd()\fR

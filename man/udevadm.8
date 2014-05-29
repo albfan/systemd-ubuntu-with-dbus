@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEVADM" "8" "" "systemd 212" "udevadm"
+.TH "UDEVADM" "8" "" "systemd 213" "udevadm"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -233,24 +233,9 @@ Watches the udev event queue, and exits if all current events are handled\&.
 Maximum number of seconds to wait for the event queue to become empty\&. The default value is 120 seconds\&. A value of 0 will check if the queue is empty and always return immediately\&.
 .RE
 .PP
-\fB\-s\fR, \fB\-\-seq\-start=\fR\fB\fISEQNUM\fR\fR
-.RS 4
-Wait only for events after the given sequence number\&.
-.RE
-.PP
-\fB\-e\fR, \fB\-\-seq\-end=\fR\fB\fISEQNUM\fR\fR
-.RS 4
-Wait only for events before the given sequence number\&.
-.RE
-.PP
 \fB\-E\fR, \fB\-\-exit\-if\-exists=\fR\fB\fIFILE\fR\fR
 .RS 4
 Stop waiting if file exists\&.
-.RE
-.PP
-\fB\-q\fR, \fB\-\-quiet\fR
-.RS 4
-Do not print any output, like the remaining queue entries when reaching the timeout\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

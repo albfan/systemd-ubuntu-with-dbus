@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_STRING_MEMFD" "3" "" "systemd 212" "sd_bus_message_append_string_memfd"
+.TH "SD_BUS_MESSAGE_APPEND_STRING_MEMFD" "3" "" "systemd 213" "sd_bus_message_append_string_memfd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,7 @@ sd_bus_message_append_string_memfd, sd_bus_message_append_string_iovec, sd_bus_m
 .BI "int sd_bus_message_append_string_space(sd_bus_message\ *" "m" ", size_t\ " "size" ", char\ **" "s" ");"
 .SH "DESCRIPTION"
 .PP
-Functions
+The functions
 \fBsd_bus_message_append_string_memfd\fR
 and
 \fBsd_bus_message_append_string_iovec\fR
@@ -45,8 +45,7 @@ can be used to append a single string (item of type
 \fIm\fR\&.
 .PP
 In case of
-\fBsd_bus_message_append_string_memfd\fR
-the contents of
+\fBsd_bus_message_append_string_memfd\fR, the contents of
 \fImemfd\fR
 are the string\&. They must satisfy the same constraints as described for the
 "s"
@@ -54,17 +53,16 @@ type in
 \fBsd_bus_message_append_basic\fR(3)\&.
 .PP
 In case of
-\fBsd_bus_message_append_string_iovec\fR
-the payload of
+\fBsd_bus_message_append_string_iovec\fR, the payload of
 \fIiov\fR
 is the string\&. It must satisfy the same constraints as described for the
 "s"
 type in
 \fBsd_bus_message_append_basic\fR(3)\&.
 .PP
-Pointer
+The
 \fIiov\fR
-must point to
+argument must point to
 \fIn\fRstruct iovec
 structures\&. Each structure may have the
 iov_base
@@ -74,14 +72,14 @@ will be inserted\&. The memory pointed at by
 \fIiov\fR
 may be changed after this call\&.
 .PP
-Function
+The
 \fBsd_bus_message_append_string_space\fR
-appends space for a string to message
-\fIm\fR\&. If behaves similarly to
+function appends space for a string to message
+\fIm\fR\&. It behaves similar to
 \fBsd_bus_message_append_basic\fR
 with type
-"s", but instead of copying a string into the the message, it returns a pointer to the destination area to the caller in pointer
-\fIp\fR\&. Space for string of length
+"s", but instead of copying a string into the message, it returns a pointer to the destination area to the caller in pointer
+\fIp\fR\&. Space for the string of length
 \fIsize\fR
 plus the terminating
 \fBNUL\fR
@@ -119,7 +117,7 @@ Memory allocation failed\&.
 .RE
 .SH "NOTES"
 .PP
-Functions described here are available as a shared library, which can be compiled and linked to with the
+The functions described here are available as a shared library, which can be compiled and linked to with the
 \fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"

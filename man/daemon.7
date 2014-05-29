@@ -1,5 +1,5 @@
 '\" t
-.TH "DAEMON" "7" "" "systemd 212" "daemon"
+.TH "DAEMON" "7" "" "systemd 213" "daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,7 +37,7 @@ When a traditional SysV daemon starts, it should execute the following steps as 
 .sp -1
 .IP "  1." 4.2
 .\}
-Close all open file descriptors except stdin, stdout, stderr (i\&.e\&. the first three file descriptors 0, 1, 2)\&. This ensures that no accidentally passed file descriptor stays around in the daemon process\&. On Linux, this is best implemented by iterating through
+Close all open file descriptors except standard input, output, and error (i\&.e\&. the first three file descriptors 0, 1, 2)\&. This ensures that no accidentally passed file descriptor stays around in the daemon process\&. On Linux, this is best implemented by iterating through
 /proc/self/fd, with a fallback of iterating from file descriptor 3 to the value returned by
 \fBgetrlimit()\fR
 for RLIMIT_NOFILE\&.
@@ -178,7 +178,7 @@ In the daemon process, change the current directory to the root directory (/), i
 In the daemon process, write the daemon PID (as returned by
 \fBgetpid()\fR) to a PID file, for example
 /run/foobar\&.pid
-(for a hypothetical daemon "foobar") to ensure that the daemon cannot be started more than once\&. This must be implemented in race\-free fashion so that the PID file is only updated when it is verified at the same time that the PID previously stored in the PID file no longer exists or belongs to a foreign process\&. Commonly, some kind of file locking is employed to implement this logic\&.
+(for a hypothetical daemon "foobar") to ensure that the daemon cannot be started more than once\&. This must be implemented in race\-free fashion so that the PID file is only updated when it is verified at the same time that the PID previously stored in the PID file no longer exists or belongs to a foreign process\&.
 .RE
 .sp
 .RS 4
@@ -800,5 +800,5 @@ LSB recommendations for SysV init scripts
 .IP " 2." 4
 Apple MacOS X Daemon Requirements
 .RS 4
-\%http://developer.apple.com/mac/library/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/LaunchOnDemandDaemons.html#//apple_ref/doc/uid/TP40001762-104738
+\%https://developer.apple.com/library/mac/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
 .RE

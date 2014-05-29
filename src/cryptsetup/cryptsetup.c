@@ -88,6 +88,13 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
+                if (arg_key_size % 8) {
+                        log_error("size= not a multiple of 8, ignoring.");
+                        return 0;
+                }
+
+                arg_key_size /= 8;
+
         } else if (startswith(option, "key-slot=")) {
 
                 arg_type = CRYPT_LUKS1;
@@ -257,6 +264,8 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         int r;
         char **p;
         _cleanup_free_ char *text = NULL;
+        _cleanup_free_ char *escaped_name = NULL;
+        char *id;
 
         assert(name);
         assert(passwords);
@@ -264,7 +273,13 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
         if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(text, "drive-harddisk", until, accept_cached, passwords);
+        escaped_name = cescape(name);
+        if (!escaped_name)
+                return log_oom();
+
+        id = strappenda("cryptsetup:", escaped_name);
+
+        r = ask_password_auto(text, "drive-harddisk", id, until, accept_cached, passwords);
         if (r < 0) {
                 log_error("Failed to query password: %s", strerror(-r));
                 return r;
@@ -278,7 +293,9 @@ static int get_password(const char *name, usec_t until, bool accept_cached, char
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
 
-                r = ask_password_auto(text, "drive-harddisk", until, false, &passwords2);
+                id = strappenda("cryptsetup-verification:", escaped_name);
+
+                r = ask_password_auto(text, "drive-harddisk", id, until, false, &passwords2);
                 if (r < 0) {
                         log_error("Failed to query verification password: %s", strerror(-r));
                         return r;
@@ -404,7 +421,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                 /* for CRYPT_PLAIN limit reads
                  * from keyfile to key length, and
                  * ignore keyfile-size */
-                arg_keyfile_size = arg_key_size / 8;
+                arg_keyfile_size = arg_key_size;
 
                 /* In contrast to what the name
                  * crypt_setup() might suggest this
@@ -567,7 +584,7 @@ int main(int argc, char *argv[]) {
                 else
                         until = 0;
 
-                arg_key_size = (arg_key_size > 0 ? arg_key_size : 256);
+                arg_key_size = (arg_key_size > 0 ? arg_key_size : (256 / 8));
 
                 if (key_file) {
                         struct stat st;

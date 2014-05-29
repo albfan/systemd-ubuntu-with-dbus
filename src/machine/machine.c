@@ -123,17 +123,42 @@ int machine_save(Machine *m) {
                 "NAME=%s\n",
                 m->name);
 
-        if (m->unit)
-                fprintf(f, "SCOPE=%s\n", m->unit); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+        if (m->unit) {
+                _cleanup_free_ char *escaped;
+
+                escaped = cescape(m->unit);
+                if (!escaped) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+        }
 
         if (m->scope_job)
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
 
-        if (m->service)
-                fprintf(f, "SERVICE=%s\n", m->service);
+        if (m->service) {
+                _cleanup_free_ char *escaped;
 
-        if (m->root_directory)
-                fprintf(f, "ROOT=%s\n", m->root_directory);
+                escaped = cescape(m->service);
+                if (!escaped) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+                fprintf(f, "SERVICE=%s\n", escaped);
+        }
+
+        if (m->root_directory) {
+                _cleanup_free_ char *escaped;
+
+                escaped = cescape(m->root_directory);
+                if (!escaped) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+                fprintf(f, "ROOT=%s\n", escaped);
+        }
 
         if (!sd_id128_equal(m->id, SD_ID128_NULL))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
@@ -303,7 +328,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_MACHINE_START),
                    "NAME=%s", m->name,
-                   "LEADER=%lu", (unsigned long) m->leader,
+                   "LEADER="PID_FMT, m->leader,
                    "MESSAGE=New machine %s.", m->name,
                    NULL);
 
@@ -350,7 +375,7 @@ int machine_stop(Machine *m) {
                 log_struct(LOG_INFO,
                            MESSAGE_ID(SD_MESSAGE_MACHINE_STOP),
                            "NAME=%s", m->name,
-                           "LEADER=%lu", (unsigned long) m->leader,
+                           "LEADER="PID_FMT, m->leader,
                            "MESSAGE=Machine %s terminated.", m->name,
                            NULL);
 

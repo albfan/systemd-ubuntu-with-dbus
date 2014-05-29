@@ -41,6 +41,7 @@ int path_get_parent(const char *path, char **parent);
 bool path_is_absolute(const char *p) _pure_;
 char* path_make_absolute(const char *p, const char *prefix);
 char* path_make_absolute_cwd(const char *p);
+int path_make_relative(const char *from_dir, const char *to_path, char **_r);
 char* path_kill_slashes(char *path);
 char* path_startswith(const char *path, const char *prefix) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
@@ -56,6 +57,8 @@ int path_is_os_tree(const char *path);
 int find_binary(const char *name, char **filename);
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
+
+int fsck_exists(const char *fstype);
 
 /* Iterates through the path prefixes of the specified path, going up
  * the tree, to root. Also returns "" (and not "/"!) for the root

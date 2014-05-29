@@ -6,6 +6,9 @@
 /* Canonical host string. */
 #undef CANONICAL_HOST
 
+/* Default DNS Servers */
+#undef DNS_SERVERS
+
 /* Define if EFI support is to be enabled */
 #undef ENABLE_EFI
 
@@ -271,6 +274,9 @@
    */
 #undef LT_OBJDIR
 
+/* Default NTP Servers */
+#undef NTP_SERVERS
+
 /* Name of package */
 #undef PACKAGE
 
@@ -313,6 +319,12 @@
 /* The size of `pid_t', as computed by sizeof. */
 #undef SIZEOF_PID_T
 
+/* The size of `rlim_t', as computed by sizeof. */
+#undef SIZEOF_RLIM_T
+
+/* The size of `time_t', as computed by sizeof. */
+#undef SIZEOF_TIME_T
+
 /* The size of `uid_t', as computed by sizeof. */
 #undef SIZEOF_UID_T
 
@@ -322,8 +334,17 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
+/* Maximum System GID */
+#undef SYSTEM_GID_MAX
+
+/* Maximum System UID */
+#undef SYSTEM_UID_MAX
+
 /* Path to telinit */
 #undef TELINIT
+
+/* Time Epoch */
+#undef TIME_EPOCH
 
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME

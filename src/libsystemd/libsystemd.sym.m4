@@ -135,6 +135,11 @@ global:
         sd_peer_get_user_unit;
         sd_peer_get_machine_name;
         sd_peer_get_slice;
+} LIBSYSTEMD_209;
+
+LIBSYSTEMD_213 {
+global:
+        sd_uid_get_display;
 
 m4_ifdef(`ENABLE_KDBUS',
         /* sd-bus */
@@ -173,7 +178,6 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_send_to;
         sd_bus_call;
         sd_bus_call_async;
-        sd_bus_call_async_cancel;
         sd_bus_get_fd;
         sd_bus_get_events;
         sd_bus_get_timeout;
@@ -181,27 +185,26 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_process_priority;
         sd_bus_wait;
         sd_bus_flush;
-        sd_bus_get_current;
+        sd_bus_get_current_message;
+        sd_bus_get_current_slot;
         sd_bus_get_tid;
         sd_bus_attach_event;
         sd_bus_detach_event;
         sd_bus_get_event;
         sd_bus_add_filter;
-        sd_bus_remove_filter;
         sd_bus_add_match;
-        sd_bus_remove_match;
         sd_bus_add_object;
-        sd_bus_remove_object;
         sd_bus_add_fallback;
-        sd_bus_remove_fallback;
         sd_bus_add_object_vtable;
-        sd_bus_remove_object_vtable;
         sd_bus_add_fallback_vtable;
-        sd_bus_remove_fallback_vtable;
         sd_bus_add_node_enumerator;
-        sd_bus_remove_node_enumerator;
         sd_bus_add_object_manager;
-        sd_bus_remove_object_manager;
+        sd_bus_slot_ref;
+        sd_bus_slot_unref;
+        sd_bus_slot_get_bus;
+        sd_bus_slot_get_userdata;
+        sd_bus_slot_set_userdata;
+        sd_bus_slot_get_current_message;
         sd_bus_message_new_signal;
         sd_bus_message_new_method_call;
         sd_bus_message_new_method_return;
@@ -331,6 +334,8 @@ m4_ifdef(`ENABLE_KDBUS',
         sd_bus_track_ref;
         sd_bus_track_unref;
         sd_bus_track_get_bus;
+        sd_bus_track_get_userdata;
+        sd_bus_track_set_userdata;
         sd_bus_track_add_sender;
         sd_bus_track_remove_sender;
         sd_bus_track_add_name;
@@ -401,5 +406,30 @@ m4_ifdef(`ENABLE_KDBUS',
         /* sd-utf8 */
         sd_utf8_is_valid;
         sd_ascii_is_valid;
+
+        /* sd-resolve */
+        sd_resolve_default;
+        sd_resolve_new;
+        sd_resolve_ref;
+        sd_resolve_unref;
+        sd_resolve_get_fd;
+        sd_resolve_get_events;
+        sd_resolve_get_timeout;
+        sd_resolve_process;
+        sd_resolve_wait;
+        sd_resolve_get_tid;
+        sd_resolve_attach_event;
+        sd_resolve_detach_event;
+        sd_resolve_get_event;
+        sd_resolve_getaddrinfo;
+        sd_resolve_getnameinfo;
+        sd_resolve_res_query;
+        sd_resolve_res_search;
+        sd_resolve_query_ref;
+        sd_resolve_query_unref;
+        sd_resolve_query_is_done;
+        sd_resolve_query_get_userdata;
+        sd_resolve_query_set_userdata;
+        sd_resolve_query_get_resolve;
 )
-} LIBSYSTEMD_209;
+} LIBSYSTEMD_211;

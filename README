@@ -43,7 +43,7 @@ REQUIREMENTS:
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
-          CONFIG_CGROUPS (it's OK to disable all controllers)
+          CONFIG_CGROUPS (it is OK to disable all controllers)
           CONFIG_INOTIFY_USER
           CONFIG_SIGNALFD
           CONFIG_TIMERFD
@@ -70,6 +70,9 @@ REQUIREMENTS:
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
+        Required for PrivateNetwork in service units:
+          CONFIG_NET_NS
+
         Optional but strongly recommended:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
@@ -94,7 +97,7 @@ REQUIREMENTS:
         If systemd is compiled with libseccomp support on
         architectures which do not use socketcall() and where seccomp
         is supported (this effectively means x86-64 and ARM, but
-        excludes 32bit x86!), then nspawn will now install a
+        excludes 32-bit x86!), then nspawn will now install a
         work-around seccomp filter that makes containers boot even
         with audit being enabled. This works correctly only on kernels
         3.14 and newer though. TL;DR: turn audit off, still.
@@ -180,6 +183,11 @@ USERS AND GROUPS:
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
+        The NTP daemon requires the "systemd-timesync" system user and
+        group to exist. During execution this network facing service
+        will drop privileges (with the exception of CAP_SYS_TIME) and
+        assume this uid/gid for security reasons.
+
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a
         symlink to /proc/mounts. Please ensure that /etc/mtab is a
@@ -197,7 +205,7 @@ WARNINGS:
         supported anymore by the basic set of Linux OS components.
 
         systemd requires that the /run mount point exists. systemd also
-        requires that /var/run is a a symlink → /run.
+        requires that /var/run is a a symlink to /run.
 
         For more information on this issue consult
         http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken

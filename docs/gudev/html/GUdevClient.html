@@ -242,8 +242,11 @@ g_udev_client_query_by_subsystem (<em class="parameter"><code><a class="link" hr
 </div>
 <div class="refsect3">
 <a name="id-1.2.2.9.3.6"></a><h4>Returns</h4>
-<p> A list of <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> objects. The caller should free the result by using <code class="function">g_object_unref()</code> on each element in the list and then <code class="function">g_list_free()</code> on the list. </p>
-<p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> GUdevDevice][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p> A
+list of <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> objects. The caller should free the result by
+using <code class="function">g_object_unref()</code> on each element in the list and then
+<code class="function">g_list_free()</code> on the list. </p>
+<p><span class="annotation">[nullable][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> GUdevDevice][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -283,8 +286,9 @@ g_udev_client_query_by_device_number (<em class="parameter"><code><a class="link
 </div>
 <div class="refsect3">
 <a name="id-1.2.2.9.4.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -318,8 +322,9 @@ g_udev_client_query_by_device_file (<em class="parameter"><code><a class="link" 
 </div>
 <div class="refsect3">
 <a name="id-1.2.2.9.5.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -353,8 +358,9 @@ g_udev_client_query_by_sysfs_path (<em class="parameter"><code><a class="link" h
 </div>
 <div class="refsect3">
 <a name="id-1.2.2.9.6.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -395,8 +401,9 @@ g_udev_client_query_by_subsystem_and_name
 </div>
 <div class="refsect3">
 <a name="id-1.2.2.9.7.6"></a><h4>Returns</h4>
-<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
-<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+<p> A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. </p>
+<p><span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
 </div>

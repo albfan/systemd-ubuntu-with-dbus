@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd.timer"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.timer — Timer unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>timer</code></em>.timer</code></p></div><div class="refsect1"><a name="idm139995915878448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd.timer"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.timer — Timer unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>timer</code></em>.timer</code></p></div><div class="refsect1"><a name="idm139964710607712"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.timer</code>" encodes information about
                 a timer controlled and supervised by systemd, for
                 timer-based activation.</p><p>This man page lists the configuration options
@@ -45,7 +45,7 @@
                 that timer units are stopped cleanly prior to system
                 shutdown. Only timer units involved with early boot or
                 late system shutdown should disable this
-                option.</p></div><div class="refsect1"><a name="idm139995915869072"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Timer files must include a [Timer] section,
+                option.</p></div><div class="refsect1"><a name="idm139964710598464"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Timer files must include a [Timer] section,
                 which carries information about the timer it
                 defines. The options specific to the [Timer] section
                 of timer units are the following:</p><div class="variablelist"><dl class="variablelist"><dt id="OnActiveSec="><span class="term"><code class="varname">OnActiveSec=</code>, </span><span class="term"><code class="varname">OnBootSec=</code>, </span><span class="term"><code class="varname">OnStartupSec=</code>, </span><span class="term"><code class="varname">OnUnitActiveSec=</code>, </span><span class="term"><code class="varname">OnUnitInactiveSec=</code></span><a class="headerlink" title="Permalink to this term" href="#OnActiveSec=">¶</a></dt><dd><p>Defines monotonic timers
@@ -159,22 +159,20 @@
                                 and the unit name of the timer unit
                                 are named identically, except for the
                                 suffix.</p></dd><dt id="Persistent="><span class="term"><code class="varname">Persistent=</code></span><a class="headerlink" title="Permalink to this term" href="#Persistent=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true the service unit is
-                                immediately triggered when the timer
-                                unit is activated and the timer
-                                elapsed at least once since the last
-                                time the service unit has been
-                                triggered by the timer unit. The time
-                                when the service unit was last
-                                triggered is stored on disk. This is
-                                useful to catch up for missed timers
-                                when a machine is shutdown temporarily
-                                and then is powered up again. Note
-                                that this setting only has an effect
-                                on timers configured with
-                                <code class="varname">OnCalendar=</code>.
+                                argument. If true, the time when the
+                                service unit was last triggered is
+                                stored on disk. When the timer is
+                                activated, the service unit is
+                                triggered immediately if it would have
+                                been triggered at least once during
+                                the time when the timer was inactive.
+                                This is useful to catch up on missed
+                                runs of the service when the machine
+                                was off. Note that this setting only
+                                has an effect on timers configured
+                                with <code class="varname">OnCalendar=</code>.
                                 </p></dd><dt id="WakeSystem="><span class="term"><code class="varname">WakeSystem=</code></span><a class="headerlink" title="Permalink to this term" href="#WakeSystem=">¶</a></dt><dd><p>Takes a boolean
-                                argument. If true an elapsing timer
+                                argument. If true, an elapsing timer
                                 will cause the system to resume from
                                 suspend, should it be suspended and if
                                 the system supports this. Note that
@@ -184,7 +182,7 @@
                                 suspending it again after any work
                                 that is to be done is
                                 finished. Defaults to
-                                <code class="varname">false</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139995919750144"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                <code class="varname">false</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm139964714530240"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

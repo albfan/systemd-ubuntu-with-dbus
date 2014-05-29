@@ -26,37 +26,40 @@
 
 #include "dhcp-internal.h"
 
-int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
-                       size_t optlen, const void *optval)
-{
-        if (!buf || !buflen)
-                return -EINVAL;
+static int option_append(uint8_t options[], size_t size, size_t *offset,
+                         uint8_t code, size_t optlen, const void *optval) {
+        assert(options);
+        assert(offset);
+
+        if (code != DHCP_OPTION_END)
+                /* always make sure there is space for an END option */
+                size --;
 
         switch (code) {
 
         case DHCP_OPTION_PAD:
         case DHCP_OPTION_END:
-                if (*buflen < 1)
+                if (size < *offset + 1)
                         return -ENOBUFS;
 
-                (*buf)[0] = code;
-                *buf += 1;
-                *buflen -= 1;
+                options[*offset] = code;
+                *offset += 1;
                 break;
 
         default:
-                if (*buflen < optlen + 2)
+                if (size < *offset + optlen + 2)
                         return -ENOBUFS;
 
-                if (!optval)
-                        return -EINVAL;
+                options[*offset] = code;
+                options[*offset + 1] = optlen;
 
-                (*buf)[0] = code;
-                (*buf)[1] = optlen;
-                memcpy(&(*buf)[2], optval, optlen);
+                if (optlen) {
+                        assert(optval);
 
-                *buf += optlen + 2;
-                *buflen -= (optlen + 2);
+                        memcpy(&options[*offset + 2], optval, optlen);
+                }
+
+                *offset += optlen + 2;
 
                 break;
         }
@@ -64,117 +67,183 @@ int dhcp_option_append(uint8_t **buf, size_t *buflen, uint8_t code,
         return 0;
 }
 
-static int parse_options(const uint8_t *buf, size_t buflen, uint8_t *overload,
-                         uint8_t *message_type, dhcp_option_cb_t cb,
-                         void *user_data)
-{
-        const uint8_t *code = buf;
-        const uint8_t *len;
+int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset,
+                       uint8_t overload,
+                       uint8_t code, size_t optlen, const void *optval) {
+        size_t file_offset = 0, sname_offset =0;
+        bool file, sname;
+        int r;
 
-        while (buflen > 0) {
-                switch (*code) {
+        assert(message);
+        assert(offset);
+
+        file = overload & DHCP_OVERLOAD_FILE;
+        sname = overload & DHCP_OVERLOAD_SNAME;
+
+        if (*offset < size) {
+                /* still space in the options array */
+                r = option_append(message->options, size, offset, code, optlen, optval);
+                if (r >= 0)
+                        return 0;
+                else if (r == -ENOBUFS && (file || sname)) {
+                        /* did not fit, but we have more buffers to try
+                           close the options array and move the offset to its end */
+                        r = option_append(message->options, size, offset, DHCP_OPTION_END, 0, NULL);
+                        if (r < 0)
+                                return r;
+
+                        *offset = size;
+                } else
+                        return r;
+        }
+
+        if (overload & DHCP_OVERLOAD_FILE) {
+                file_offset = *offset - size;
+
+                if (file_offset < sizeof(message->file)) {
+                        /* still space in the 'file' array */
+                        r = option_append(message->file, sizeof(message->file), &file_offset, code, optlen, optval);
+                        if (r >= 0) {
+                                *offset = size + file_offset;
+                                return 0;
+                        } else if (r == -ENOBUFS && sname) {
+                                /* did not fit, but we have more buffers to try
+                                   close the file array and move the offset to its end */
+                                r = option_append(message->options, size, offset, DHCP_OPTION_END, 0, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                *offset = size + sizeof(message->file);
+                        } else
+                                return r;
+                }
+        }
+
+        if (overload & DHCP_OVERLOAD_SNAME) {
+                sname_offset = *offset - size - (file ? sizeof(message->file) : 0);
+
+                if (sname_offset < sizeof(message->sname)) {
+                        /* still space in the 'sname' array */
+                        r = option_append(message->sname, sizeof(message->sname), &sname_offset, code, optlen, optval);
+                        if (r >= 0) {
+                                *offset = size + (file ? sizeof(message->file) : 0) + sname_offset;
+                                return 0;
+                        } else {
+                                /* no space, or other error, give up */
+                                return r;
+                        }
+                }
+        }
+
+        return -ENOBUFS;
+}
+
+static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overload,
+                         uint8_t *message_type, dhcp_option_cb_t cb,
+                         void *user_data) {
+        uint8_t code, len;
+        size_t offset = 0;
+
+        while (offset < buflen) {
+                switch (options[offset]) {
                 case DHCP_OPTION_PAD:
-                        buflen -= 1;
-                        code++;
+                        offset++;
+
                         break;
 
                 case DHCP_OPTION_END:
                         return 0;
 
                 case DHCP_OPTION_MESSAGE_TYPE:
-                        if (buflen < 3)
+                        if (buflen < offset + 3)
                                 return -ENOBUFS;
-                        buflen -= 3;
 
-                        len = code + 1;
-                        if (*len != 1)
+                        len = options[++offset];
+                        if (len != 1)
                                 return -EINVAL;
 
                         if (message_type)
-                                *message_type = *(len + 1);
+                                *message_type = options[++offset];
+                        else
+                                offset++;
 
-                        code += 3;
+                        offset++;
 
                         break;
 
                 case DHCP_OPTION_OVERLOAD:
-                        if (buflen < 3)
+                        if (buflen < offset + 3)
                                 return -ENOBUFS;
-                        buflen -= 3;
 
-                        len = code + 1;
-                        if (*len != 1)
+                        len = options[++offset];
+                        if (len != 1)
                                 return -EINVAL;
 
                         if (overload)
-                                *overload = *(len + 1);
+                                *overload = options[++offset];
+                        else
+                                offset++;
 
-                        code += 3;
+                        offset++;
 
                         break;
 
                 default:
-                        if (buflen < 3)
+                        if (buflen < offset + 3)
                                 return -ENOBUFS;
 
-                        len = code + 1;
+                        code = options[offset];
+                        len = options[++offset];
 
-                        if (buflen < (size_t)*len + 2)
+                        if (buflen < ++offset + len)
                                 return -EINVAL;
-                        buflen -= *len + 2;
 
                         if (cb)
-                                cb(*code, *len, len + 1, user_data);
+                                cb(code, len, &options[offset], user_data);
 
-                        code += *len + 2;
+                        offset += len;
 
                         break;
                 }
         }
 
-        if (buflen)
+        if (offset < buflen)
                 return -EINVAL;
 
         return 0;
 }
 
 int dhcp_option_parse(DHCPMessage *message, size_t len,
-                      dhcp_option_cb_t cb, void *user_data)
-{
+                      dhcp_option_cb_t cb, void *user_data) {
         uint8_t overload = 0;
         uint8_t message_type = 0;
-        uint8_t *opt = (uint8_t *)(message + 1);
-        int res;
+        int r;
 
         if (!message)
                 return -EINVAL;
 
-        if (len < sizeof(DHCPMessage) + 4)
+        if (len < sizeof(DHCPMessage))
                 return -EINVAL;
 
-        len -= sizeof(DHCPMessage) + 4;
+        len -= sizeof(DHCPMessage);
 
-        if (opt[0] != 0x63 && opt[1] != 0x82 && opt[2] != 0x53 &&
-                        opt[3] != 0x63)
-                return -EINVAL;
-
-        res = parse_options(&opt[4], len, &overload, &message_type,
-                        cb, user_data);
-        if (res < 0)
-                return res;
+        r = parse_options(message->options, len, &overload, &message_type,
+                          cb, user_data);
+        if (r < 0)
+                return r;
 
         if (overload & DHCP_OVERLOAD_FILE) {
-                res = parse_options(message->file, sizeof(message->file),
+                r = parse_options(message->file, sizeof(message->file),
                                 NULL, &message_type, cb, user_data);
-                if (res < 0)
-                        return res;
+                if (r < 0)
+                        return r;
         }
 
         if (overload & DHCP_OVERLOAD_SNAME) {
-                res = parse_options(message->sname, sizeof(message->sname),
+                r = parse_options(message->sname, sizeof(message->sname),
                                 NULL, &message_type, cb, user_data);
-                if (res < 0)
-                        return res;
+                if (r < 0)
+                        return r;
         }
 
         if (message_type)

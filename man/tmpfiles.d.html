@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="tmpfiles.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>tmpfiles.d — Configuration for creation, deletion and
-                cleaning of volatile and temporary files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/tmpfiles.d/*.conf</code></p><p><code class="filename">/run/tmpfiles.d/*.conf</code></p><p><code class="filename">/usr/lib/tmpfiles.d/*.conf</code></p></div><div class="refsect1"><a name="idm139914926517152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> uses the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="tmpfiles.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>tmpfiles.d — Configuration for creation, deletion and
+                cleaning of volatile and temporary files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/tmpfiles.d/*.conf</code></p><p><code class="filename">/run/tmpfiles.d/*.conf</code></p><p><code class="filename">/usr/lib/tmpfiles.d/*.conf</code></p></div><div class="refsect1"><a name="idm140366028796144"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-tmpfiles</strong></span> uses the
                 configuration files from the above directories to describe the
                 creation, cleaning and removal of volatile and
                 temporary files and directories which usually reside
@@ -34,11 +34,11 @@
                 <code class="filename">/proc</code>, as well as some other
                 directories below <code class="filename">/var</code>.</p><p>System daemons frequently require private
                 runtime directories below <code class="filename">/run</code> to
-                place communication sockets and similar in. For these
+                place communication sockets and similar in. For these,
                 consider declaring them in their unit files using
                 <code class="varname">RuntimeDirectory=</code>
                 (see <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a> for details),
-                if this is feasible.</p></div><div class="refsect1"><a name="idm139914926505888"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the
+                if this is feasible.</p></div><div class="refsect1"><a name="idm140366030096672"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>Each configuration file shall be named in the
                 style of
                 <code class="filename"><em class="replaceable"><code>package</code></em>.conf</code>
                 or
@@ -71,7 +71,7 @@
                 containing type, path, mode, ownership, age, and argument
                 fields:</p><pre class="programlisting">#Type Path        Mode UID  GID  Age Argument
 d    /run/user   0755 root root 10d -
-L    /tmp/foobar -    -    -    -   /dev/null</pre><div class="refsect2"><a name="idm139914930395504"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single letter and
+L    /tmp/foobar -    -    -    -   /dev/null</pre><div class="refsect2"><a name="idm140366028630464"></a><h3 id="Type">Type<a class="headerlink" title="Permalink to this headline" href="#Type">¶</a></h3><p>The type consists of a single letter and
                         optionally an exclamation mark.</p><p>The following line types are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="f"><span class="term"><code class="varname">f</code></span><a class="headerlink" title="Permalink to this term" href="#f">¶</a></dt><dd><p>Create a file if it does not exist yet. If the argument parameter is given, it will be written to the file.</p></dd><dt id="F"><span class="term"><code class="varname">F</code></span><a class="headerlink" title="Permalink to this term" href="#F">¶</a></dt><dd><p>Create or truncate a file. If the argument parameter is given, it will be written to the file.</p></dd><dt id="w"><span class="term"><code class="varname">w</code></span><a class="headerlink" title="Permalink to this term" href="#w">¶</a></dt><dd><p>Write the argument parameter to a file, if the file exists.
                                             Lines of this type accept shell-style globs in place of normal path
                                             names. The argument parameter will be written without a trailing
@@ -154,9 +154,9 @@ d /tmp/.X11-unix 1777 root root 10d
 r! /tmp/.X[0-9]*-lock</pre><p>
                         The second line in contrast to the first one
                         would break a running system, and will only be
-                        executed with <code class="option">--boot</code>.</p></div><div class="refsect2"><a name="idm139914930360272"></a><h3 id="Path">Path<a class="headerlink" title="Permalink to this headline" href="#Path">¶</a></h3><p>The file system path specification supports simple specifier
+                        executed with <code class="option">--boot</code>.</p></div><div class="refsect2"><a name="idm140366030131008"></a><h3 id="Path">Path<a class="headerlink" title="Permalink to this headline" href="#Path">¶</a></h3><p>The file system path specification supports simple specifier
                         expansion. The following expansions are
-                        understood:</p><div class="table"><a name="idm139914930359040"></a><p class="title"><b>Table 1. Specifiers available</b></p><div class="table-contents"><table summary="Specifiers available" border="1"><colgroup><col align="left" class="spec"><col align="left" class="mean"><col align="left" class="detail"></colgroup><thead><tr><th align="left">Specifier</th><th align="left">Meaning</th><th align="left">Details</th></tr></thead><tbody><tr><td align="left">"<code class="literal">%m</code>"</td><td align="left">Machine ID</td><td align="left">The machine ID of the running system, formatted as string. See <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%b</code>"</td><td align="left">Boot ID</td><td align="left">The boot ID of the running system, formatted as string. See <a href="random.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%H</code>"</td><td align="left">Host name</td><td align="left">The hostname of the running system.</td></tr><tr><td align="left">"<code class="literal">%v</code>"</td><td align="left">Kernel release</td><td align="left">Identical to <span class="command"><strong>uname -r</strong></span> output.</td></tr><tr><td align="left">"<code class="literal">%%</code>"</td><td align="left">Escaped %</td><td align="left">Single percent sign.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect2"><a name="idm139914925413248"></a><h3 id="Mode">Mode<a class="headerlink" title="Permalink to this headline" href="#Mode">¶</a></h3><p>The file access mode to use when
+                        understood:</p><div class="table"><a name="idm140366028810960"></a><p class="title"><b>Table 1. Specifiers available</b></p><div class="table-contents"><table summary="Specifiers available" border="1"><colgroup><col align="left" class="spec"><col align="left" class="mean"><col align="left" class="detail"></colgroup><thead><tr><th align="left">Specifier</th><th align="left">Meaning</th><th align="left">Details</th></tr></thead><tbody><tr><td align="left">"<code class="literal">%m</code>"</td><td align="left">Machine ID</td><td align="left">The machine ID of the running system, formatted as string. See <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%b</code>"</td><td align="left">Boot ID</td><td align="left">The boot ID of the running system, formatted as string. See <a href="random.html"><span class="citerefentry"><span class="refentrytitle">random</span>(4)</span></a> for more information.</td></tr><tr><td align="left">"<code class="literal">%H</code>"</td><td align="left">Host name</td><td align="left">The hostname of the running system.</td></tr><tr><td align="left">"<code class="literal">%v</code>"</td><td align="left">Kernel release</td><td align="left">Identical to <span class="command"><strong>uname -r</strong></span> output.</td></tr><tr><td align="left">"<code class="literal">%%</code>"</td><td align="left">Escaped %</td><td align="left">Single percent sign.</td></tr></tbody></table></div></div><br class="table-break"></div><div class="refsect2"><a name="idm140366029541040"></a><h3 id="Mode">Mode<a class="headerlink" title="Permalink to this headline" href="#Mode">¶</a></h3><p>The file access mode to use when
                         creating this file or directory. If omitted or
                         when set to -, the default is used: 0755 for
                         directories, 0644 for all other file objects.
@@ -166,7 +166,7 @@ r! /tmp/.X[0-9]*-lock</pre><p>
                         will not be modified. This parameter is
                         ignored for <code class="varname">x</code>,
                         <code class="varname">r</code>, <code class="varname">R</code>,
-                        <code class="varname">L</code> lines.</p></div><div class="refsect2"><a name="idm139914925408640"></a><h3 id="UID, GID">UID, GID<a class="headerlink" title="Permalink to this headline" href="#UID,%20GID">¶</a></h3><p>The user and group to use for this file
+                        <code class="varname">L</code> lines.</p></div><div class="refsect2"><a name="idm140366029393120"></a><h3 id="UID, GID">UID, GID<a class="headerlink" title="Permalink to this headline" href="#UID,%20GID">¶</a></h3><p>The user and group to use for this file
                         or directory. This may either be a numeric
                         user/group ID or a user or group name. If
                         omitted or when set to "<code class="literal">-</code>",
@@ -177,7 +177,7 @@ r! /tmp/.X[0-9]*-lock</pre><p>
                         parameters are ignored for
                         <code class="varname">x</code>, <code class="varname">r</code>,
                         <code class="varname">R</code>, <code class="varname">L</code>
-                        lines.</p></div><div class="refsect2"><a name="idm139914925404000"></a><h3 id="Age">Age<a class="headerlink" title="Permalink to this headline" href="#Age">¶</a></h3><p>The date field, when set, is used to
+                        lines.</p></div><div class="refsect2"><a name="idm140366029082832"></a><h3 id="Age">Age<a class="headerlink" title="Permalink to this headline" href="#Age">¶</a></h3><p>The date field, when set, is used to
                         decide what files to delete when cleaning. If
                         a file or directory is older than the current
                         time minus the age field, it is deleted. The
@@ -197,7 +197,7 @@ r! /tmp/.X[0-9]*-lock</pre><p>
                         is only applied to files and directories one
                         level inside the directory specified, but not
                         the files and directories immediately inside
-                        it.</p></div><div class="refsect2"><a name="idm139914925393024"></a><h3 id="Argument">Argument<a class="headerlink" title="Permalink to this headline" href="#Argument">¶</a></h3><p>For <code class="varname">L</code> lines
+                        it.</p></div><div class="refsect2"><a name="idm140366028401152"></a><h3 id="Argument">Argument<a class="headerlink" title="Permalink to this headline" href="#Argument">¶</a></h3><p>For <code class="varname">L</code> lines
                         determines the destination path of the
                         symlink. For <code class="varname">c</code>,
                         <code class="varname">b</code> determines the
@@ -209,9 +209,9 @@ r! /tmp/.X[0-9]*-lock</pre><p>
                         and <code class="varname">w</code> may be used to
                         specify a short string that is written to the
                         file, suffixed by a newline. Ignored for all
-                        other lines.</p></div></div><div class="refsect1"><a name="idm139914925387664"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm139914925387024"></a><p class="title"><b>Example 1. /etc/tmpfiles.d/screen.conf example</b></p><div class="example-contents"><p><span class="command"><strong>screen</strong></span> needs two directories created at boot with specific modes and ownership.</p><pre class="programlisting">d /run/screens  1777 root root 10d
-d /run/uscreens 0755 root root 10d12h</pre></div></div><br class="example-break"><div class="example"><a name="idm139914925384560"></a><p class="title"><b>Example 2. /etc/tmpfiles.d/abrt.conf example</b></p><div class="example-contents"><p><span class="command"><strong>abrt</strong></span> needs a directory created at boot with specific mode and ownership and its content should be preserved.</p><pre class="programlisting">d /var/tmp/abrt 0755 abrt abrt
-x /var/tmp/abrt/*</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm139914925382032"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        other lines.</p></div></div><div class="refsect1"><a name="idm140366029844064"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm140366030871136"></a><p class="title"><b>Example 1. /etc/tmpfiles.d/screen.conf example</b></p><div class="example-contents"><p><span class="command"><strong>screen</strong></span> needs two directories created at boot with specific modes and ownership.</p><pre class="programlisting">d /run/screens  1777 root root 10d
+d /run/uscreens 0755 root root 10d12h</pre></div></div><br class="example-break"><div class="example"><a name="idm140366031107840"></a><p class="title"><b>Example 2. /etc/tmpfiles.d/abrt.conf example</b></p><div class="example-contents"><p><span class="command"><strong>abrt</strong></span> needs a directory created at boot with specific mode and ownership and its content should be preserved.</p><pre class="programlisting">d /var/tmp/abrt 0755 abrt abrt
+x /var/tmp/abrt/*</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm140366028559744"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-tmpfiles.html"><span class="citerefentry"><span class="refentrytitle">systemd-tmpfiles</span>(8)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

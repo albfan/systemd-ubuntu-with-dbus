@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_OPEN" "3" "" "systemd 212" "sd_journal_open"
+.TH "SD_JOURNAL_OPEN" "3" "" "systemd 213" "sd_journal_open"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,15 +29,15 @@ sd_journal_open, sd_journal_open_directory, sd_journal_open_files, sd_journal_op
 .fi
 .ft
 .HP \w'int\ sd_journal_open('u
-.BI "int sd_journal_open(sd_journal**\ " "ret" ", int\ " "flags" ");"
+.BI "int sd_journal_open(sd_journal\ **" "ret" ", int\ " "flags" ");"
 .HP \w'int\ sd_journal_open_directory('u
-.BI "int sd_journal_open_directory(sd_journal**\ " "ret" ", const\ char*\ " "path" ", int\ " "flags" ");"
+.BI "int sd_journal_open_directory(sd_journal\ **" "ret" ", const\ char\ *" "path" ", int\ " "flags" ");"
 .HP \w'int\ sd_journal_open_files('u
-.BI "int sd_journal_open_files(sd_journal**\ " "ret" ", const\ char**\ " "paths" ", int\ " "flags" ");"
+.BI "int sd_journal_open_files(sd_journal\ **" "ret" ", const\ char\ **" "paths" ", int\ " "flags" ");"
 .HP \w'int\ sd_journal_open_container('u
-.BI "int sd_journal_open_container(sd_journal**\ " "ret" ", const\ char*\ " "machine" ", int\ " "flags" ");"
+.BI "int sd_journal_open_container(sd_journal\ **" "ret" ", const\ char\ *" "machine" ", int\ " "flags" ");"
 .HP \w'void\ sd_journal_close('u
-.BI "void sd_journal_close(sd_journal*\ " "j" ");"
+.BI "void sd_journal_close(sd_journal\ *" "j" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_open()\fR

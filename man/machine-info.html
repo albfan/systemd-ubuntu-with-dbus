@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm140588959089888"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="machine-info"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machine-info — Local machine information file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/machine-info</code></p></div><div class="refsect1"><a name="idm139712505082368"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/machine-info</code> file
                 contains machine metadata.</p><p>The basic file format of
                 <code class="filename">machine-info</code> is a
                 newline-separated list of environment-like
@@ -35,7 +35,7 @@
                 information as well, however only as fallback.</p><p>You may use
                 <a href="hostnamectl.html"><span class="citerefentry"><span class="refentrytitle">hostnamectl</span>(1)</span></a>
                 to change the settings of this file from the command
-                line.</p></div><div class="refsect1"><a name="idm140588959083440"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine metadata parameters may
+                line.</p></div><div class="refsect1"><a name="idm139712504624448"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following machine metadata parameters may
                 be set using
                 <code class="filename">/etc/machine-info</code>:</p><div class="variablelist"><dl class="variablelist"><dt id="PRETTY_HOSTNAME="><span class="term"><code class="varname">PRETTY_HOSTNAME=</code></span><a class="headerlink" title="Permalink to this term" href="#PRETTY_HOSTNAME=">¶</a></dt><dd><p>A pretty
                                 human-readable UTF-8 machine identifier
@@ -84,9 +84,9 @@
                                 override misdetected configuration or
                                 to manually configure the chassis type
                                 where automatic detection is not
-                                available.</p></dd></dl></div></div><div class="refsect1"><a name="idm140588959141488"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
+                                available.</p></dd></dl></div></div><div class="refsect1"><a name="idm139712504258080"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><pre class="programlisting">PRETTY_HOSTNAME="Lennart's Tablet"
 ICON_NAME=computer-tablet
-CHASSIS=tablet</pre></div><div class="refsect1"><a name="idm140588959140032"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+CHASSIS=tablet</pre></div><div class="refsect1"><a name="idm139712503890992"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>,
                           <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

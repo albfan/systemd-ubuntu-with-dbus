@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm140240353036368"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm140293033869424"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 <code class="filename">.service</code> encodes information
                 about a process controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -62,7 +62,7 @@
                 comprehensive but not 100%. For details about the
                 incompatibilities, see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities" target="_top">Incompatibilities
                 with SysV</a> document.
-                </p></div><div class="refsect1"><a name="idm140240356975040"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
+                </p></div><div class="refsect1"><a name="idm140293037753008"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
                 "<code class="literal">[Service]</code>" section, which carries
                 information about the service and the process it
                 supervises. A number of options that may be used in
@@ -367,7 +367,19 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 <code class="varname">$MAINPID</code> is set to
                                 the main process of the daemon, and
                                 may be used for command lines like the
-                                following:</p><pre class="programlisting">/bin/kill -HUP $MAINPID</pre></dd><dt id="ExecStop="><span class="term"><code class="varname">ExecStop=</code></span><a class="headerlink" title="Permalink to this term" href="#ExecStop=">¶</a></dt><dd><p>Commands to execute to
+                                following:</p><pre class="programlisting">/bin/kill -HUP $MAINPID</pre><p>Note however that reloading a
+                                daemon by sending a signal (as with
+                                the example line above) is usually not
+                                a good choice, because this is an
+                                asynchronous operation and hence not
+                                suitable to order reloads of multiple
+                                services against each other. It is
+                                strongly recommended to set
+                                <code class="varname">ExecReload=</code> to a
+                                command that not only triggers a
+                                configuration reload of the daemon,
+                                but also synchronously waits for it to
+                                complete.</p></dd><dt id="ExecStop="><span class="term"><code class="varname">ExecStop=</code></span><a class="headerlink" title="Permalink to this term" href="#ExecStop=">¶</a></dt><dd><p>Commands to execute to
                                 stop the service started via
                                 <code class="varname">ExecStart=</code>. This
                                 argument takes multiple command lines,
@@ -762,11 +774,25 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 <a href="reboot.html"><span class="citerefentry"><span class="refentrytitle">reboot</span>(2)</span></a>
                                 system call, which might result in
                                 data loss. Defaults to
-                                <code class="option">none</code>.</p></dd></dl></div><p>Check
+                                <code class="option">none</code>.</p></dd><dt id="RebootArgument="><span class="term"><code class="varname">RebootArgument=</code></span><a class="headerlink" title="Permalink to this term" href="#RebootArgument=">¶</a></dt><dd><p>Configure the optional
+                                argument for the
+                                <a href="reboot.html"><span class="citerefentry"><span class="refentrytitle">reboot</span>(2)</span></a>
+                                system call if
+                                <code class="varname">StartLimitAction=</code>
+                                is a reboot action. This works just
+                                like the optional argument to
+                                <span class="command"><strong>systemctl reboot</strong></span>
+                                command.</p></dd><dt id="FailureAction="><span class="term"><code class="varname">FailureAction=</code></span><a class="headerlink" title="Permalink to this term" href="#FailureAction=">¶</a></dt><dd><p>Configure the action
+                                to take when the service enters a failed
+                                state. Takes the same values as
+                                <code class="varname">StartLimitAction=</code>
+                                and executes the same actions.
+                                Defaults to <code class="option">none</code>.
+                                </p></dd></dl></div><p>Check
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm140240351797888"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
+                for more settings.</p></div><div class="refsect1"><a name="idm140293032624000"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
                 "<code class="literal">[Service]</code>" section, but exist purely
                 for compatibility reasons and should not be used in
                 newly written service files.</p><div class="variablelist"><dl class="variablelist"><dt id="SysVStartPriority="><span class="term"><code class="varname">SysVStartPriority=</code></span><a class="headerlink" title="Permalink to this term" href="#SysVStartPriority=">¶</a></dt><dd><p>Set the SysV start
@@ -787,7 +813,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 instead. For more details, see
                                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.
                                 If used, pass an integer value in the
-                                range 0-99.</p></dd></dl></div></div><div class="refsect1"><a name="idm140240351791264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                range 0-99.</p></dd></dl></div></div><div class="refsect1"><a name="idm140293032617296"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

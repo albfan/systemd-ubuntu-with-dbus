@@ -73,6 +73,7 @@
 #include "log.h"
 #include "strv.h"
 #include "label.h"
+#include "mkdir.h"
 #include "path-util.h"
 #include "exit-status.h"
 #include "hashmap.h"
@@ -83,7 +84,6 @@
 #include "gunicode.h"
 #include "virt.h"
 #include "def.h"
-#include "missing.h"
 
 int saved_argc = 0;
 char **saved_argv = NULL;
@@ -166,19 +166,19 @@ int close_nointr(int fd) {
 
         assert(fd >= 0);
         r = close(fd);
-
-        /* Just ignore EINTR; a retry loop is the wrong
-         * thing to do on Linux.
-         *
-         * http://lkml.indiana.edu/hypermail/linux/kernel/0509.1/0877.html
-         * https://bugzilla.gnome.org/show_bug.cgi?id=682819
-         * http://utcc.utoronto.ca/~cks/space/blog/unix/CloseEINTR
-         * https://sites.google.com/site/michaelsafyan/software-engineering/checkforeintrwheninvokingclosethinkagain
-         */
-        if (_unlikely_(r < 0 && errno == EINTR))
-                return 0;
-        else if (r >= 0)
+        if (r >= 0)
                 return r;
+        else if (errno == EINTR)
+                /*
+                 * Just ignore EINTR; a retry loop is the wrong
+                 * thing to do on Linux.
+                 *
+                 * http://lkml.indiana.edu/hypermail/linux/kernel/0509.1/0877.html
+                 * https://bugzilla.gnome.org/show_bug.cgi?id=682819
+                 * http://utcc.utoronto.ca/~cks/space/blog/unix/CloseEINTR
+                 * https://sites.google.com/site/michaelsafyan/software-engineering/checkforeintrwheninvokingclosethinkagain
+                 */
+                return 0;
         else
                 return -errno;
 }
@@ -195,7 +195,13 @@ int safe_close(int fd) {
 
         if (fd >= 0) {
                 PROTECT_ERRNO;
-                assert_se(close_nointr(fd) == 0);
+
+                /* The kernel might return pretty much any error code
+                 * via close(), but the fd will be closed anyway. The
+                 * only condition we want to check for here is whether
+                 * the fd was invalid at all... */
+
+                assert_se(close_nointr(fd) != -EBADF);
         }
 
         return -1;
@@ -2011,7 +2017,6 @@ int ignore_signals(int sig, ...) {
         va_list ap;
         int r = 0;
 
-
         if (sigaction(sig, &sa, NULL) < 0)
                 r = -errno;
 
@@ -2437,6 +2442,24 @@ void sigset_add_many(sigset_t *ss, ...) {
         va_end(ap);
 }
 
+int sigprocmask_many(int how, ...) {
+        va_list ap;
+        sigset_t ss;
+        int sig;
+
+        assert_se(sigemptyset(&ss) == 0);
+
+        va_start(ap, how);
+        while ((sig = va_arg(ap, int)) > 0)
+                assert_se(sigaddset(&ss, sig) == 0);
+        va_end(ap);
+
+        if (sigprocmask(how, &ss, NULL) < 0)
+                return -errno;
+
+        return 0;
+}
+
 char* gethostname_malloc(void) {
         struct utsname u;
 
@@ -2477,7 +2500,7 @@ static char *lookup_uid(uid_t uid) {
         if (getpwuid_r(uid, &pwbuf, buf, bufsize, &pw) == 0 && pw)
                 return strdup(pw->pw_name);
 
-        if (asprintf(&name, "%lu", (unsigned long) uid) < 0)
+        if (asprintf(&name, UID_FMT, uid) < 0)
                 return NULL;
 
         return name;
@@ -2602,7 +2625,7 @@ int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
 
                 /* This is an ugly hack */
                 if (major(devnr) == 136) {
-                        asprintf(&b, "pts/%lu", (unsigned long) minor(devnr));
+                        asprintf(&b, "pts/%u", minor(devnr));
                         goto finish;
                 }
 
@@ -3322,20 +3345,47 @@ char *ellipsize(const char *s, size_t length, unsigned percent) {
         return ellipsize_mem(s, strlen(s), length, percent);
 }
 
-int touch(const char *path) {
+int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
         _cleanup_close_ int fd;
+        int r;
 
         assert(path);
 
-        /* This just opens the file for writing, ensuring it
-         * exists. It doesn't call utimensat() the way /usr/bin/touch
-         * does it. */
+        if (parents)
+                mkdir_parents(path, 0755);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, 0644);
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode > 0 ? mode : 0644);
         if (fd < 0)
                 return -errno;
 
+        if (mode > 0) {
+                r = fchmod(fd, mode);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (uid != (uid_t) -1 || gid != (gid_t) -1) {
+                r = fchown(fd, uid, gid);
+                if (r < 0)
+                        return -errno;
+        }
+
+        if (stamp != (usec_t) -1) {
+                struct timespec ts[2];
+
+                timespec_store(&ts[0], stamp);
+                ts[1] = ts[0];
+                r = futimens(fd, ts);
+        } else
+                r = futimens(fd, NULL);
+        if (r < 0)
+                return -errno;
+
         return 0;
+}
+
+int touch(const char *path) {
+        return touch_file(path, false, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
 }
 
 char *unquote(const char *s, const char* quotes) {
@@ -4277,7 +4327,7 @@ char* uid_to_name(uid_t uid) {
         if (p)
                 return strdup(p->pw_name);
 
-        if (asprintf(&r, "%lu", (unsigned long) uid) < 0)
+        if (asprintf(&r, UID_FMT, uid) < 0)
                 return NULL;
 
         return r;
@@ -4294,7 +4344,7 @@ char* gid_to_name(gid_t gid) {
         if (p)
                 return strdup(p->gr_name);
 
-        if (asprintf(&r, "%lu", (unsigned long) gid) < 0)
+        if (asprintf(&r, GID_FMT, gid) < 0)
                 return NULL;
 
         return r;
@@ -5439,21 +5489,25 @@ out:
 
 const char *draw_special_char(DrawSpecialChar ch) {
         static const char *draw_table[2][_DRAW_SPECIAL_CHAR_MAX] = {
+
                 /* UTF-8 */ {
-                        [DRAW_TREE_VERT]          = "\342\224\202 ",            /* │  */
+                        [DRAW_TREE_VERTICAL]      = "\342\224\202 ",            /* │  */
                         [DRAW_TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
                         [DRAW_TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
                         [DRAW_TREE_SPACE]         = "  ",                       /*    */
-                        [DRAW_TRIANGULAR_BULLET]  = "\342\200\243 ",            /* ‣  */
-                        [DRAW_BLACK_CIRCLE]       = "\342\227\217 ",            /* ●  */
+                        [DRAW_TRIANGULAR_BULLET]  = "\342\200\243",             /* ‣ */
+                        [DRAW_BLACK_CIRCLE]       = "\342\227\217",             /* ● */
+                        [DRAW_ARROW]              = "\342\206\222",             /* → */
                 },
+
                 /* ASCII fallback */ {
-                        [DRAW_TREE_VERT]          = "| ",
+                        [DRAW_TREE_VERTICAL]      = "| ",
                         [DRAW_TREE_BRANCH]        = "|-",
                         [DRAW_TREE_RIGHT]         = "`-",
                         [DRAW_TREE_SPACE]         = "  ",
-                        [DRAW_TRIANGULAR_BULLET]  = "> ",
-                        [DRAW_BLACK_CIRCLE]       = "* ",
+                        [DRAW_TRIANGULAR_BULLET]  = ">",
+                        [DRAW_BLACK_CIRCLE]       = "*",
+                        [DRAW_ARROW]              = "->",
                 }
         };
 
@@ -5819,8 +5873,8 @@ char *strrep(const char *s, unsigned n) {
         return r;
 }
 
-void* greedy_realloc(void **p, size_t *allocated, size_t need) {
-        size_t a;
+void* greedy_realloc(void **p, size_t *allocated, size_t need, size_t size) {
+        size_t a, newalloc;
         void *q;
 
         assert(p);
@@ -5829,10 +5883,11 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
         if (*allocated >= need)
                 return *p;
 
-        a = MAX(64u, need * 2);
+        newalloc = MAX(need * 2, 64u / size);
+        a = newalloc * size;
 
         /* check for overflows */
-        if (a < need)
+        if (a < size * need)
                 return NULL;
 
         q = realloc(*p, a);
@@ -5840,11 +5895,11 @@ void* greedy_realloc(void **p, size_t *allocated, size_t need) {
                 return NULL;
 
         *p = q;
-        *allocated = a;
+        *allocated = newalloc;
         return q;
 }
 
-void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
+void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size) {
         size_t prev;
         uint8_t *q;
 
@@ -5853,12 +5908,12 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need) {
 
         prev = *allocated;
 
-        q = greedy_realloc(p, allocated, need);
+        q = greedy_realloc(p, allocated, need, size);
         if (!q)
                 return NULL;
 
         if (*allocated > prev)
-                memzero(&q[prev], *allocated - prev);
+                memzero(q + prev * size, (*allocated - prev) * size);
 
         return q;
 }
@@ -6064,58 +6119,91 @@ int container_get_leader(const char *machine, pid_t *pid) {
         return 0;
 }
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1;
-        const char *pidns, *mntns, *root;
-        int rfd;
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *root_fd) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1;
+        int rfd = -1;
 
         assert(pid >= 0);
-        assert(pidns_fd);
-        assert(mntns_fd);
-        assert(root_fd);
 
-        mntns = procfs_file_alloca(pid, "ns/mnt");
-        mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (mntnsfd < 0)
-                return -errno;
+        if (mntns_fd) {
+                const char *mntns;
 
-        pidns = procfs_file_alloca(pid, "ns/pid");
-        pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (pidnsfd < 0)
-                return -errno;
+                mntns = procfs_file_alloca(pid, "ns/mnt");
+                mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntnsfd < 0)
+                        return -errno;
+        }
 
-        root = procfs_file_alloca(pid, "root");
-        rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (rfd < 0)
-                return -errno;
+        if (pidns_fd) {
+                const char *pidns;
 
-        *pidns_fd = pidnsfd;
-        *mntns_fd = mntnsfd;
-        *root_fd = rfd;
-        pidnsfd = -1;
-        mntnsfd = -1;
+                pidns = procfs_file_alloca(pid, "ns/pid");
+                pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (pidnsfd < 0)
+                        return -errno;
+        }
+
+        if (netns_fd) {
+                const char *netns;
+
+                netns = procfs_file_alloca(pid, "ns/net");
+                netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netnsfd < 0)
+                        return -errno;
+        }
+
+        if (root_fd) {
+                const char *root;
+
+                root = procfs_file_alloca(pid, "root");
+                rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                if (rfd < 0)
+                        return -errno;
+        }
+
+        if (pidns_fd)
+                *pidns_fd = pidnsfd;
+
+        if (mntns_fd)
+                *mntns_fd = mntnsfd;
+
+        if (netns_fd)
+                *netns_fd = netnsfd;
+
+        if (root_fd)
+                *root_fd = rfd;
+
+        pidnsfd = mntnsfd = netnsfd = -1;
 
         return 0;
 }
 
-int namespace_enter(int pidns_fd, int mntns_fd, int root_fd) {
-        assert(pidns_fd >= 0);
-        assert(mntns_fd >= 0);
-        assert(root_fd >= 0);
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
 
-        if (setns(pidns_fd, CLONE_NEWPID) < 0)
-                return -errno;
+        if (pidns_fd >= 0)
+                if (setns(pidns_fd, CLONE_NEWPID) < 0)
+                        return -errno;
 
-        if (setns(mntns_fd, CLONE_NEWNS) < 0)
-                return -errno;
+        if (mntns_fd >= 0)
+                if (setns(mntns_fd, CLONE_NEWNS) < 0)
+                        return -errno;
 
-        if (fchdir(root_fd) < 0)
-                return -errno;
+        if (netns_fd >= 0)
+                if (setns(netns_fd, CLONE_NEWNET) < 0)
+                        return -errno;
 
-        if (chroot(".") < 0)
-                return -errno;
+        if (root_fd >= 0) {
+                if (fchdir(root_fd) < 0)
+                        return -errno;
+
+                if (chroot(".") < 0)
+                        return -errno;
+        }
 
         if (setresgid(0, 0, 0) < 0)
+                return -errno;
+
+        if (setgroups(0, NULL) < 0)
                 return -errno;
 
         if (setresuid(0, 0, 0) < 0)
@@ -6390,4 +6478,20 @@ void hexdump(FILE *f, const void *p, size_t s) {
                 b += 16;
                 s -= 16;
         }
+}
+
+int update_reboot_param_file(const char *param)
+{
+        int r = 0;
+
+        if (param) {
+
+                r = write_string_file(REBOOT_PARAM_FILE, param);
+                if (r < 0)
+                        log_error("Failed to write reboot param to "
+                                  REBOOT_PARAM_FILE": %s", strerror(-r));
+        } else
+                unlink(REBOOT_PARAM_FILE);
+
+        return r;
 }

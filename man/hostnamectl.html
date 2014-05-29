@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="hostnamectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hostnamectl — Control the system hostname</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">hostnamectl</code>  [OPTIONS...] {COMMAND}</p></div></div><div class="refsect1"><a name="idm140687673303264"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>hostnamectl</strong></span> may be used to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="hostnamectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>hostnamectl — Control the system hostname</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">hostnamectl</code>  [OPTIONS...] {COMMAND}</p></div></div><div class="refsect1"><a name="idm139661313632288"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>hostnamectl</strong></span> may be used to
                 query and change the system hostname and related
                 settings.</p><p>This tool distinguishes three different
                 hostnames: the high-level "pretty" hostname which
@@ -27,11 +27,9 @@
                 (e.g. "Lennart's Laptop"), the static hostname which
                 is used to initialize the kernel hostname at boot
                 (e.g. "lennarts-laptop"), and the transient hostname
-                which might be assigned temporarily due to network
-                configuration and might revert back to the static
-                hostname if network connectivity is lost and is only
-                temporarily written to the kernel hostname
-                (e.g. "dhcp-47-11").</p><p>Note that the pretty hostname has little
+                which is a default received from network configuration.
+                If a static hostname is set, and is valid (something other
+                than localhost) then the transient hostname is not used.</p><p>Note that the pretty hostname has little
                 restrictions on the characters used, while the static
                 and transient hostnames are limited to the usually
                 accepted characters of Internet domain names.</p><p>The static hostname is stored in
@@ -40,7 +38,7 @@
                 for more information. The pretty hostname, chassis
                 type, and icon name are stored in
                 <code class="filename">/etc/machine-info</code>, see
-                <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a>.</p></div><div class="refsect1"><a name="idm140687673296112"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user
+                <a href="machine-id.html"><span class="citerefentry"><span class="refentrytitle">machine-id</span>(5)</span></a>.</p></div><div class="refsect1"><a name="idm139661309819632"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user
                                 for authentication for privileged
                                 operations.</p></dd><dt id="-P"><span class="term"><code class="option">-P</code>, </span><span class="term"><code class="option">--privileged</code></span><a class="headerlink" title="Permalink to this term" href="#-P">¶</a></dt><dd><p>Acquire privileges via PolicyKit
                                 before executing the operation.</p></dd><dt id="--static"><span class="term"><code class="option">--static</code>, </span><span class="term"><code class="option">--transient</code>, </span><span class="term"><code class="option">--pretty</code></span><a class="headerlink" title="Permalink to this term" href="#--static">¶</a></dt><dd><p>If
@@ -120,8 +118,8 @@
                                 reset the chassis type to the default
                                 value which is determined from the
                                 firmware and possibly other
-                                parameters.</p></dd></dl></div></div><div class="refsect1"><a name="idm140687677252000"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm140687677250816"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                parameters.</p></dd></dl></div></div><div class="refsect1"><a name="idm139661313729728"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm139661313728544"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(1)</span></a>,
                         <a href="hostname.html"><span class="citerefentry"><span class="refentrytitle">hostname</span>(5)</span></a>,

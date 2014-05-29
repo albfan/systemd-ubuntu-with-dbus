@@ -19,10 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
                 <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
                 <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm140588732460736"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm140166724723648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
                 mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</p><p>This man page lists the configuration options
@@ -39,7 +39,7 @@
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
-                type.</p></div><div class="refsect1"><a name="idm140588732454256"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
+                type.</p></div><div class="refsect1"><a name="idm140166724652464"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
                                 not set, defaults to the root directory
@@ -202,7 +202,7 @@
                                 effect.</p><p>The files listed with this
                                 directive will be read shortly before
                                 the process is executed (more
-                                specifically, this means after all
+                                specifically, after all
                                 processes from a previous unit state
                                 terminated. This means you can
                                 generate these files in one unit
@@ -599,7 +599,7 @@
                                 processes via
                                 <code class="filename">/tmp</code> or
                                 <code class="filename">/var/tmp</code>
-                                impossible. If this is enabled all
+                                impossible. If this is enabled, all
                                 temporary files created by a service
                                 in these directories will be removed
                                 after the service is stopped. Defaults
@@ -740,7 +740,7 @@
                                 "<code class="literal">-</code>", all errors will
                                 be ignored. See
                                 <a href="setexeccon.html"><span class="citerefentry"><span class="refentrytitle">setexeccon</span>(3)</span></a>
-                                for details.</p></dd><dt id="AppArmorProfile="><span class="term"><code class="varname">AppArmorProfile=</code></span><a class="headerlink" title="Permalink to this term" href="#AppArmorProfile=">¶</a></dt><dd><p>Take a profile name as argument.
+                                for details.</p></dd><dt id="AppArmorProfile="><span class="term"><code class="varname">AppArmorProfile=</code></span><a class="headerlink" title="Permalink to this term" href="#AppArmorProfile=">¶</a></dt><dd><p>Takes a profile name as argument.
                                 The process executed by the unit will switch to
                                 this profile when started. Profiles must already
                                 be loaded in the kernel, or the unit will fail.
@@ -884,20 +884,20 @@
                                 (which creates connected AF_UNIX
                                 sockets only) are unaffected. Note
                                 that this option has no effect on
-                                32bit x86 and is ignored (but works
+                                32-bit x86 and is ignored (but works
                                 correctly on x86-64). If running in user
                                 mode and this option is used,
                                 <code class="varname">NoNewPrivileges=yes</code>
-                                is implied. By default no
+                                is implied. By default, no
                                 restriction applies, all address
                                 families are accessible to
                                 processes. If assigned the empty
-                                string any previous list changes are
+                                string, any previous list changes are
                                 undone.</p><p>Use this option to limit
                                 exposure of processes to remote
                                 systems, in particular via exotic
                                 network protocols. Note that in most
-                                cases the local
+                                cases, the local
                                 <code class="constant">AF_UNIX</code> address
                                 family should be included in the
                                 configured whitelist as it is
@@ -911,20 +911,20 @@
                                 processes. Takes one of
                                 <code class="constant">x86</code> and
                                 <code class="constant">x86-64</code>. This is
-                                useful when running 32bit services on
-                                a 64bit host system. If not specified
+                                useful when running 32-bit services on
+                                a 64-bit host system. If not specified,
                                 the personality is left unmodified and
                                 thus reflects the personality of the
                                 host system's
                                 kernel.</p></dd><dt id="RuntimeDirectory="><span class="term"><code class="varname">RuntimeDirectory=</code>, </span><span class="term"><code class="varname">RuntimeDirectoryMode=</code></span><a class="headerlink" title="Permalink to this term" href="#RuntimeDirectory=">¶</a></dt><dd><p>Takes a list of
-                                directory names. If set one or more
+                                directory names. If set, one or more
                                 directories by the specified names
                                 will be created below
                                 <code class="filename">/run</code> (for system
                                 services) or below
                                 <code class="varname">$XDG_RUNTIME_DIR</code>
                                 (for user services) when the unit is
-                                started and removed when the unit is
+                                started, and removed when the unit is
                                 stopped. The directories will have the
                                 access mode specified in
                                 <code class="varname">RuntimeDirectoryMode=</code>,
@@ -940,7 +940,7 @@
                                 "<code class="literal">/</code>", i.e. must refer
                                 to simple directories to create or
                                 remove. This is particularly useful
-                                for unpriviliges daemons that cannot
+                                for unprivileged daemons that cannot
                                 create runtime directories in
                                 <code class="filename">/run</code> due to lack
                                 of privileges, and to make sure the
@@ -949,7 +949,7 @@
                                 directories that require more complex
                                 or different configuration or lifetime
                                 guarantees, please consider using
-                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm140588731169952"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
+                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm140166719576384"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
                 a clean environment in which select variables
                 listed below are set. System processes started by systemd
                 do not inherit variables from PID 1, but processes
@@ -1019,7 +1019,7 @@
                 <code class="varname">systemd.setenv=</code> (see
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>). Additional
                 variables may also be set through PAM,
-                c.f. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140588731130464"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                cf. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140166719536896"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,

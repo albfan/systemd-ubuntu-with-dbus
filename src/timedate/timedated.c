@@ -31,12 +31,13 @@
 #include "util.h"
 #include "strv.h"
 #include "def.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "conf-files.h"
 #include "path-util.h"
 #include "fileio-label.h"
 #include "label.h"
 #include "bus-util.h"
+#include "bus-errors.h"
 #include "event-util.h"
 
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
@@ -45,25 +46,15 @@
 typedef struct Context {
         char *zone;
         bool local_rtc;
-        unsigned can_ntp;
-        unsigned use_ntp;
+        bool can_ntp;
+        bool use_ntp;
         Hashmap *polkit_registry;
 } Context;
-
-static void context_reset(Context *c) {
-        assert(c);
-
-        free(c->zone);
-        c->zone = NULL;
-
-        c->local_rtc = false;
-        c->can_ntp = c->use_ntp = -1;
-}
 
 static void context_free(Context *c, sd_bus *bus) {
         assert(c);
 
-        context_reset(c);
+        free(c->zone);
         bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
 }
 
@@ -121,8 +112,6 @@ static int context_read_data(Context *c) {
 
         assert(c);
 
-        context_reset(c);
-
         r = readlink_malloc("/etc/localtime", &t);
         if (r < 0) {
                 if (r == -EINVAL)
@@ -153,7 +142,7 @@ have_timezone:
                 c->zone = NULL;
         }
 
-        c->local_rtc = hwclock_is_localtime() > 0;
+        c->local_rtc = clock_is_localtime() > 0;
 
         return 0;
 }
@@ -323,17 +312,11 @@ static int context_read_ntp(Context *c, sd_bus *bus) {
                 if (r < 0)
                         return r;
 
-                c->can_ntp = 1;
-                c->use_ntp =
-                        streq(s, "enabled") ||
-                        streq(s, "enabled-runtime");
+                c->can_ntp = true;
+                c->use_ntp = STR_IN_SET(s, "enabled", "enabled-runtime");
 
                 return 0;
         }
-
-        /* NTP is not installed. */
-        c->can_ntp = 0;
-        c->use_ntp = 0;
 
         return 0;
 }
@@ -465,7 +448,7 @@ static int property_get_rtc_time(
         int r;
 
         zero(tm);
-        r = hwclock_get_time(&tm);
+        r = clock_get_hwclock(&tm);
         if (r == -EBUSY) {
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
                 t = 0;
@@ -546,7 +529,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         }
 
         /* 2. Tell the kernel our timezone */
-        hwclock_set_timezone(NULL);
+        clock_set_timezone(NULL);
 
         if (c->local_rtc) {
                 struct timespec ts;
@@ -555,7 +538,7 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
                 /* 3. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
                 assert_se(tm = localtime(&ts.tv_sec));
-                hwclock_set_time(tm);
+                clock_set_hwclock(tm);
         }
 
         log_struct(LOG_INFO,
@@ -602,7 +585,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
         }
 
         /* 2. Tell the kernel our timezone */
-        hwclock_set_timezone(NULL);
+        clock_set_timezone(NULL);
 
         /* 3. Synchronize clocks */
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -621,7 +604,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 /* Override the main fields of
                  * struct tm, but not the timezone
                  * fields */
-                if (hwclock_get_time(&tm) >= 0) {
+                if (clock_get_hwclock(&tm) >= 0) {
 
                         /* And set the system clock
                          * with this */
@@ -642,7 +625,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
                 else
                         tm = gmtime(&ts.tv_sec);
 
-                hwclock_set_time(tm);
+                clock_set_hwclock(tm);
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -663,6 +646,9 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         assert(bus);
         assert(m);
         assert(c);
+
+        if (c->use_ntp)
+                return sd_bus_error_setf(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
 
         r = sd_bus_message_read(m, "xbb", &utc, &relative, &interactive);
         if (r < 0)
@@ -705,12 +691,11 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
                 tm = localtime(&ts.tv_sec);
         else
                 tm = gmtime(&ts.tv_sec);
-
-        hwclock_set_time(tm);
+        clock_set_hwclock(tm);
 
         log_struct(LOG_INFO,
                    MESSAGE_ID(SD_MESSAGE_TIME_CHANGE),
-                   "REALTIME=%llu", (unsigned long long) timespec_load(&ts),
+                   "REALTIME="USEC_FMT, timespec_load(&ts),
                    "MESSAGE=Changed local time to %s", ctime(&ts.tv_sec),
                    NULL);
 
@@ -757,9 +742,9 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("LocalRTC", "b", NULL, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("CanNTP", "b", bus_property_get_tristate, offsetof(Context, can_ntp), 0),
-        SD_BUS_PROPERTY("NTP", "b", bus_property_get_tristate, offsetof(Context, use_ntp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("LocalRTC", "b", bus_property_get_bool, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CanNTP", "b", bus_property_get_bool, offsetof(Context, can_ntp), 0),
+        SD_BUS_PROPERTY("NTP", "b", bus_property_get_bool, offsetof(Context, use_ntp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NTPSynchronized", "b", property_get_ntp_sync, 0, 0),
         SD_BUS_PROPERTY("TimeUSec", "t", property_get_time, 0, 0),
         SD_BUS_PROPERTY("RTCTimeUSec", "t", property_get_rtc_time, 0, 0),
@@ -784,7 +769,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
                 return r;
         }
 
-        r = sd_bus_add_object_vtable(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
         if (r < 0) {
                 log_error("Failed to register object: %s", strerror(-r));
                 return r;
@@ -809,13 +794,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 }
 
 int main(int argc, char *argv[]) {
-        Context context = {
-                .zone = NULL,
-                .local_rtc = false,
-                .can_ntp = -1,
-                .use_ntp = -1,
-        };
-
+        Context context = {};
         _cleanup_event_unref_ sd_event *event = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;

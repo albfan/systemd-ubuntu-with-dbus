@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm140525680453536"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm140006830569248"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.mount</code>" encodes information about
                 a file system mount point controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -70,7 +70,7 @@
                 userspace-to-userpace interfaces. Some of them may not
                 be changed via mount units, and cannot be disabled.
                 For a longer discussion see <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems" target="_top">API
-                File Systems</a>.</p></div><div class="refsect1"><a name="idm140525684386544"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
+                File Systems</a>.</p></div><div class="refsect1"><a name="idm140006834448768"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
                 files, or via <code class="filename">/etc/fstab</code> (see
                 <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
                 for details). Mounts listed in
@@ -123,7 +123,7 @@
                 this is superseded by the rule that configuration in
                 <code class="filename">/etc</code> will always take precedence
                 over configuration in
-                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm140525684355376"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
+                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm140006834417440"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
                 which carries information about the file system mount points it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -181,7 +181,7 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm140525679369232"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm140006829485552"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

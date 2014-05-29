@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_ID128_TO_STRING" "3" "" "systemd 212" "sd_id128_to_string"
+.TH "SD_ID128_TO_STRING" "3" "" "systemd 213" "sd_id128_to_string"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,10 +28,10 @@ sd_id128_to_string, sd_id128_from_string \- Format or parse 128\-bit IDs as stri
 #include <systemd/sd\-id128\&.h>
 .fi
 .ft
-.HP \w'char*\ sd_id128_to_string('u
-.BI "char* sd_id128_to_string(sd_id128_t\ " "id" ",\ char\ " "s" "[33]);"
+.HP \w'char\ *sd_id128_to_string('u
+.BI "char *sd_id128_to_string(sd_id128_t\ " "id" ",\ char\ " "s" "[33]);"
 .HP \w'int\ sd_id128_from_string('u
-.BI "int sd_id128_from_string(const\ char*\ " "s" ",\ sd_id128_t*\ " "ret" ");"
+.BI "int sd_id128_from_string(const\ char\ *" "s" ",\ sd_id128_t\ *" "ret" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_id128_to_string()\fR

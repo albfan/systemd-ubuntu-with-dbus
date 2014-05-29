@@ -184,7 +184,7 @@ static int export_legacy_dbus_address(
                 return PAM_SUCCESS;
 
         if (asprintf(&s, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT,
-                     (unsigned long) uid, runtime) < 0) {
+                     uid, runtime) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set bus variable.");
                 return PAM_BUF_ERR;
         }
@@ -252,7 +252,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (streq_ptr(service, "systemd-user")) {
                 _cleanup_free_ char *p = NULL, *rt = NULL;
 
-                if (asprintf(&p, "/run/systemd/users/%lu", (unsigned long) pw->pw_uid) < 0)
+                if (asprintf(&p, "/run/systemd/users/"UID_FMT, pw->pw_uid) < 0)
                         return PAM_BUF_ERR;
 
                 r = parse_env_file(p, NEWLINE,
@@ -475,7 +475,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         if (session_fd >= 0) {
-                session_fd = dup(session_fd);
+                session_fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
                 if (session_fd < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to dup session fd: %m");
                         return PAM_SESSION_ERR;

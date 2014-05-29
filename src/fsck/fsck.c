@@ -4,6 +4,7 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
+  Copyright 2014 Holger Hans Peter Freyther
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -37,10 +38,12 @@
 #include "bus-errors.h"
 #include "fileio.h"
 #include "udev-util.h"
+#include "path-util.h"
 
 static bool arg_skip = false;
 static bool arg_force = false;
 static bool arg_show_progress = false;
+static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -84,6 +87,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                         arg_skip = true;
                 else
                         log_warning("Invalid fsck.mode= parameter. Ignoring.");
+        } else if (streq(key, "fsck.repair") && value) {
+
+                if (streq(value, "preen"))
+                        arg_repair = "-a";
+                else if (streq(value, "yes"))
+                        arg_repair = "-y";
+                else if (streq(value, "no"))
+                        arg_repair = "-n";
+                else
+                        log_warning("Invalid fsck.repair= parameter. Ignoring.");
         } else if (startswith(key, "fsck."))
                 log_warning("Invalid fsck parameter. Ignoring.");
 #ifdef HAVE_SYSV_COMPAT
@@ -285,14 +298,13 @@ int main(int argc, char *argv[]) {
 
         type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
         if (type) {
-                const char *checker = strappenda("/sbin/fsck.", type);
-                r = access(checker, X_OK);
+                r = fsck_exists(type);
                 if (r < 0) {
-                        if (errno == ENOENT) {
-                                log_info("%s doesn't exist, not checking file system.", checker);
+                        if (r == -ENOENT) {
+                                log_info("fsck.%s doesn't exist, not checking file system.", type);
                                 return EXIT_SUCCESS;
                         } else
-                                log_warning("%s cannot be used: %m", checker);
+                                log_warning("fsck.%s cannot be used: %s", type, strerror(-r));
                 }
         }
 
@@ -303,7 +315,7 @@ int main(int argc, char *argv[]) {
                 }
 
         cmdline[i++] = "/sbin/fsck";
-        cmdline[i++] = "-a";
+        cmdline[i++] =  arg_repair;
         cmdline[i++] = "-T";
         cmdline[i++] = "-l";
 

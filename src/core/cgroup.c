@@ -27,15 +27,21 @@
 #include "cgroup-util.h"
 #include "cgroup.h"
 
+#define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
         /* Initialize everything to the kernel defaults, assuming the
          * structure is preinitialized to 0 */
 
-        c->cpu_shares = 1024;
+        c->cpu_shares = (unsigned long) -1;
+        c->startup_cpu_shares = (unsigned long) -1;
         c->memory_limit = (uint64_t) -1;
-        c->blockio_weight = 1000;
+        c->blockio_weight = (unsigned long) -1;
+        c->startup_blockio_weight = (unsigned long) -1;
+
+        c->cpu_quota_per_sec_usec = (usec_t) -1;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -82,6 +88,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
+        char u[FORMAT_TIMESPAN_MAX];
 
         assert(c);
         assert(f);
@@ -93,14 +100,20 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sBlockIOAccounting=%s\n"
                 "%sMemoryAccounting=%s\n"
                 "%sCPUShares=%lu\n"
+                "%sStartupCPUShares=%lu\n"
+                "%sCPUQuotaPerSecSec=%s\n"
                 "%sBlockIOWeight=%lu\n"
+                "%sStartupBlockIOWeight=%lu\n"
                 "%sMemoryLimit=%" PRIu64 "\n"
                 "%sDevicePolicy=%s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->blockio_accounting),
                 prefix, yes_no(c->memory_accounting),
                 prefix, c->cpu_shares,
+                prefix, c->startup_cpu_shares,
+                prefix, strna(format_timespan(u, sizeof(u), c->cpu_quota_per_sec_usec, 1)),
                 prefix, c->blockio_weight,
+                prefix, c->startup_blockio_weight,
                 prefix, c->memory_limit,
                 prefix, cgroup_device_policy_to_string(c->device_policy));
 
@@ -269,7 +282,7 @@ fail:
         return -errno;
 }
 
-void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path) {
+void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path, ManagerState state) {
         bool is_root;
         int r;
 
@@ -284,12 +297,27 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         is_root = isempty(path) || path_equal(path, "/");
 
         if ((mask & CGROUP_CPU) && !is_root) {
-                char buf[DECIMAL_STR_MAX(unsigned long) + 1];
+                char buf[MAX(DECIMAL_STR_MAX(unsigned long), DECIMAL_STR_MAX(usec_t)) + 1];
 
-                sprintf(buf, "%lu\n", c->cpu_shares);
+                sprintf(buf, "%lu\n",
+                        state == MANAGER_STARTING && c->startup_cpu_shares != (unsigned long) -1 ? c->startup_cpu_shares :
+                        c->cpu_shares != (unsigned long) -1 ? c->cpu_shares : 1024);
                 r = cg_set_attribute("cpu", path, "cpu.shares", buf);
                 if (r < 0)
                         log_warning("Failed to set cpu.shares on %s: %s", path, strerror(-r));
+
+                sprintf(buf, USEC_FMT "\n", CGROUP_CPU_QUOTA_PERIOD_USEC);
+                r = cg_set_attribute("cpu", path, "cpu.cfs_period_us", buf);
+                if (r < 0)
+                        log_warning("Failed to set cpu.cfs_period_us on %s: %s", path, strerror(-r));
+
+                if (c->cpu_quota_per_sec_usec != (usec_t) -1) {
+                        sprintf(buf, USEC_FMT "\n", c->cpu_quota_per_sec_usec * CGROUP_CPU_QUOTA_PERIOD_USEC / USEC_PER_SEC);
+                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", buf);
+                } else
+                        r = cg_set_attribute("cpu", path, "cpu.cfs_quota_us", "-1");
+                if (r < 0)
+                        log_warning("Failed to set cpu.cfs_quota_us on %s: %s", path, strerror(-r));
         }
 
         if (mask & CGROUP_BLKIO) {
@@ -300,7 +328,8 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 CGroupBlockIODeviceBandwidth *b;
 
                 if (!is_root) {
-                        sprintf(buf, "%lu\n", c->blockio_weight);
+                        sprintf(buf, "%lu\n", state == MANAGER_STARTING && c->startup_blockio_weight != (unsigned long) -1 ? c->startup_blockio_weight :
+                                c->blockio_weight != (unsigned long) -1 ? c->blockio_weight : 1000);
                         r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
                                 log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
@@ -415,11 +444,15 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
 
         /* Figure out which controllers we need */
 
-        if (c->cpu_accounting || c->cpu_shares != 1024)
+        if (c->cpu_accounting ||
+            c->cpu_shares != (unsigned long) -1 ||
+            c->startup_cpu_shares != (unsigned long) -1 ||
+            c->cpu_quota_per_sec_usec != (usec_t) -1)
                 mask |= CGROUP_CPUACCT | CGROUP_CPU;
 
         if (c->blockio_accounting ||
-            c->blockio_weight != 1000 ||
+            c->blockio_weight != (unsigned long) -1 ||
+            c->startup_blockio_weight != (unsigned long) -1 ||
             c->blockio_device_weights ||
             c->blockio_device_bandwidths)
                 mask |= CGROUP_BLKIO;
@@ -475,18 +508,12 @@ CGroupControllerMask unit_get_members_mask(Unit *u) {
 }
 
 CGroupControllerMask unit_get_siblings_mask(Unit *u) {
-        CGroupControllerMask m;
-
         assert(u);
 
         if (UNIT_ISSET(u->slice))
-                m = unit_get_members_mask(UNIT_DEREF(u->slice));
-        else
-                m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
+                return unit_get_members_mask(UNIT_DEREF(u->slice));
 
-        /* Sibling propagation is only relevant for weight-based
-         * controllers, so let's mask out everything else */
-        return m & (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+        return unit_get_cgroup_mask(u) | unit_get_members_mask(u);
 }
 
 CGroupControllerMask unit_get_target_mask(Unit *u) {
@@ -616,7 +643,7 @@ static bool unit_has_mask_realized(Unit *u, CGroupControllerMask mask) {
  * If not, create paths, move processes over, and set attributes.
  *
  * Returns 0 on success and < 0 on failure. */
-static int unit_realize_cgroup_now(Unit *u) {
+static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         CGroupControllerMask mask;
         int r;
 
@@ -634,7 +661,7 @@ static int unit_realize_cgroup_now(Unit *u) {
 
         /* First, realize parents */
         if (UNIT_ISSET(u->slice)) {
-                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice), state);
                 if (r < 0)
                         return r;
         }
@@ -645,7 +672,7 @@ static int unit_realize_cgroup_now(Unit *u) {
                 return r;
 
         /* Finally, apply the necessary attributes. */
-        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path);
+        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path, state);
 
         return 0;
 }
@@ -660,14 +687,17 @@ static void unit_add_to_cgroup_queue(Unit *u) {
 }
 
 unsigned manager_dispatch_cgroup_queue(Manager *m) {
-        Unit *i;
+        ManagerState state;
         unsigned n = 0;
+        Unit *i;
         int r;
+
+        state = manager_state(m);
 
         while ((i = m->cgroup_queue)) {
                 assert(i->in_cgroup_queue);
 
-                r = unit_realize_cgroup_now(i);
+                r = unit_realize_cgroup_now(i, state);
                 if (r < 0)
                         log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
 
@@ -739,7 +769,7 @@ int unit_realize_cgroup(Unit *u) {
         unit_queue_siblings(u);
 
         /* And realize this one now (and apply the values) */
-        return unit_realize_cgroup_now(u);
+        return unit_realize_cgroup_now(u, manager_state(u->manager));
 }
 
 void unit_destroy_cgroup(Unit *u) {
@@ -807,12 +837,6 @@ int manager_setup_cgroup(Manager *m) {
 
         assert(m);
 
-        /* 0. Be nice to Ingo Molnar #628004 */
-        if (path_is_mount_point("/sys/fs/cgroup/systemd", false) <= 0) {
-                log_warning("No control group support available, not creating root group.");
-                return 0;
-        }
-
         /* 1. Determine hierarchy */
         free(m->cgroup_root);
         m->cgroup_root = NULL;
@@ -871,7 +895,7 @@ int manager_setup_cgroup(Manager *m) {
         safe_close(m->pin_cgroupfs_fd);
 
         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
-        if (r < 0) {
+        if (m->pin_cgroupfs_fd < 0) {
                 log_error("Failed to open pin file: %m");
                 return -errno;
         }

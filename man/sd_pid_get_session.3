@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_PID_GET_SESSION" "3" "" "systemd 212" "sd_pid_get_session"
+.TH "SD_PID_GET_SESSION" "3" "" "systemd 213" "sd_pid_get_session"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,29 +29,29 @@ sd_pid_get_session, sd_pid_get_unit, sd_pid_get_user_unit, sd_pid_get_owner_uid,
 .fi
 .ft
 .HP \w'int\ sd_pid_get_session('u
-.BI "int sd_pid_get_session(pid_t\ " "pid" ", char**\ " "session" ");"
+.BI "int sd_pid_get_session(pid_t\ " "pid" ", char\ **" "session" ");"
 .HP \w'int\ sd_pid_get_unit('u
-.BI "int sd_pid_get_unit(pid_t\ " "pid" ", char**\ " "unit" ");"
+.BI "int sd_pid_get_unit(pid_t\ " "pid" ", char\ **" "unit" ");"
 .HP \w'int\ sd_pid_get_user_unit('u
-.BI "int sd_pid_get_user_unit(pid_t\ " "pid" ", char**\ " "unit" ");"
+.BI "int sd_pid_get_user_unit(pid_t\ " "pid" ", char\ **" "unit" ");"
 .HP \w'int\ sd_pid_get_owner_uid('u
-.BI "int sd_pid_get_owner_uid(pid_t\ " "pid" ", uid_t*\ " "uid" ");"
+.BI "int sd_pid_get_owner_uid(pid_t\ " "pid" ", uid_t\ *" "uid" ");"
 .HP \w'int\ sd_pid_get_machine_name('u
-.BI "int sd_pid_get_machine_name(pid_t\ " "pid" ", char**\ " "name" ");"
+.BI "int sd_pid_get_machine_name(pid_t\ " "pid" ", char\ **" "name" ");"
 .HP \w'int\ sd_pid_get_slice('u
-.BI "int sd_pid_get_slice(pid_t\ " "pid" ", char**\ " "slice" ");"
+.BI "int sd_pid_get_slice(pid_t\ " "pid" ", char\ **" "slice" ");"
 .HP \w'int\ sd_peer_get_session('u
-.BI "int sd_peer_get_session(int\ " "fd" ", char**\ " "session" ");"
+.BI "int sd_peer_get_session(int\ " "fd" ", char\ **" "session" ");"
 .HP \w'int\ sd_peer_get_unit('u
-.BI "int sd_peer_get_unit(int\ " "fd" ", char**\ " "unit" ");"
+.BI "int sd_peer_get_unit(int\ " "fd" ", char\ **" "unit" ");"
 .HP \w'int\ sd_peer_get_user_unit('u
-.BI "int sd_peer_get_user_unit(int\ " "fd" ", char**\ " "unit" ");"
+.BI "int sd_peer_get_user_unit(int\ " "fd" ", char\ **" "unit" ");"
 .HP \w'int\ sd_peer_get_owner_uid('u
-.BI "int sd_peer_get_owner_uid(int\ " "fd" ", uid_t*\ " "uid" ");"
+.BI "int sd_peer_get_owner_uid(int\ " "fd" ", uid_t\ *" "uid" ");"
 .HP \w'int\ sd_peer_get_machine_name('u
-.BI "int sd_peer_get_machine_name(int\ " "fd" ", char**\ " "name" ");"
+.BI "int sd_peer_get_machine_name(int\ " "fd" ", char\ **" "name" ");"
 .HP \w'int\ sd_peer_get_slice('u
-.BI "int sd_peer_get_slice(int\ " "fd" ", char**\ " "slice" ");"
+.BI "int sd_peer_get_slice(int\ " "fd" ", char\ **" "slice" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_pid_get_session()\fR

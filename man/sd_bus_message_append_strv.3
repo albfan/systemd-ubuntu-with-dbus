@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_STRV" "3" "" "systemd 212" "sd_bus_message_append_strv"
+.TH "SD_BUS_MESSAGE_APPEND_STRV" "3" "" "systemd 213" "sd_bus_message_append_strv"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,12 +32,12 @@ sd_bus_message_append_strv \- Attach an array of strings to a message
 .BI "int sd_bus_message_append_strv(sd_bus_message\ *" "m" ", char\ **" "l" ");"
 .SH "DESCRIPTION"
 .PP
-Function
+The
 \fBsd_bus_message_append\fR
-can be used to append an array of strings to message
-\fIm\fR\&. Parameter
+function can be used to append an array of strings to message
+\fIm\fR\&. The parameter
 \fIl\fR
-points to a
+shall point to a
 \fBNULL\fR\-terminated array of pointers to
 \fBNUL\fR\-terminated strings\&. Each string must satisfy the same constraints as described for the
 "s"
@@ -48,8 +48,8 @@ The memory pointed at by
 \fIp\fR
 and the contents of the strings themselves are copied into the memory area containing the message and may be changed after this call\&. Note that the signature of
 \fIl\fR
-parameter is be treated as
-\fBconst char* const*\fR, and the the contents will not be modified\&.
+parameter is to be treated as
+\fBconst char\ \&*const\ \&*\fR, and the contents will not be modified\&.
 .SH "RETURN VALUE"
 .PP
 On success, this call returns 0 or a positive integer\&. On failure, a negative errno\-style error code is returned\&.
@@ -83,6 +83,7 @@ Memory allocation failed\&.
 .RE
 .SH "NOTES"
 .PP
+The
 \fBsd_bus_append_append_strv()\fR
 function described here is available as a shared library, which can be compiled and linked to with the
 \fBlibsystemd\fR\ \&\fBpkg-config\fR(1)

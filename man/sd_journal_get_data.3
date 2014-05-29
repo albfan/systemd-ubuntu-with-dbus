@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_DATA" "3" "" "systemd 212" "sd_journal_get_data"
+.TH "SD_JOURNAL_GET_DATA" "3" "" "systemd 213" "sd_journal_get_data"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,17 +29,17 @@ sd_journal_get_data, sd_journal_enumerate_data, sd_journal_restart_data, SD_JOUR
 .fi
 .ft
 .HP \w'int\ sd_journal_get_data('u
-.BI "int sd_journal_get_data(sd_journal*\ " "j" ", const\ char*\ " "field" ", const\ void**\ " "data" ", size_t*\ " "length" ");"
+.BI "int sd_journal_get_data(sd_journal\ *" "j" ", const\ char\ *" "field" ", const\ void\ **" "data" ", size_t\ *" "length" ");"
 .HP \w'int\ sd_journal_enumerate_data('u
-.BI "int sd_journal_enumerate_data(sd_journal*\ " "j" ", const\ void**\ " "data" ", size_t*\ " "length" ");"
+.BI "int sd_journal_enumerate_data(sd_journal\ *" "j" ", const\ void\ **" "data" ", size_t\ *" "length" ");"
 .HP \w'void\ sd_journal_restart_data('u
-.BI "void sd_journal_restart_data(sd_journal*\ " "j" ");"
+.BI "void sd_journal_restart_data(sd_journal\ *" "j" ");"
 .HP \w'SD_JOURNAL_FOREACH_DATA('u
-.BI "SD_JOURNAL_FOREACH_DATA(sd_journal*\ " "j" ", const\ void*\ " "data" ", size_t\ " "length" ");"
+.BI "SD_JOURNAL_FOREACH_DATA(sd_journal\ *" "j" ", const\ void\ *" "data" ", size_t\ " "length" ");"
 .HP \w'int\ sd_journal_set_data_threshold('u
-.BI "int sd_journal_set_data_threshold(sd_journal*\ " "j" ", size_t\ " "sz" ");"
+.BI "int sd_journal_set_data_threshold(sd_journal\ *" "j" ", size_t\ " "sz" ");"
 .HP \w'int\ sd_journal_get_data_threshold('u
-.BI "int sd_journal_get_data_threshold(sd_journal*\ " "j" ", size_t*\ " "sz" ");"
+.BI "int sd_journal_get_data_threshold(sd_journal\ *" "j" ", size_t\ *" "sz" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_data()\fR

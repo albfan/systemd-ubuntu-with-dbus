@@ -19,8 +19,8 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="sd-readahead"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-readahead — Reference implementation of APIs for
-                controlling boot-time read-ahead</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include "sd-readahead.h"</pre></div></div><div class="refsect1"><a name="idm140581426232432"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-readahead.c</code> and
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="sd-readahead"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd-readahead — Reference implementation of APIs for
+                controlling boot-time read-ahead</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include "sd-readahead.h"</pre></div></div><div class="refsect1"><a name="idm140407164095664"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">sd-readahead.c</code> and
                 <code class="filename">sd-readahead.h</code> provide a
                 reference implementation for APIs for controlling boot-time
                 read-ahead, as implemented by the read-ahead subsystem
@@ -29,7 +29,7 @@
                 init system.</p><p>See
                 <a href="sd_readahead.html"><span class="citerefentry"><span class="refentrytitle">sd_readahead</span>(3)</span></a>
                 for more information about the function
-                implemented.</p></div><div class="refsect1"><a name="idm140581426227872"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>This interface is provided by the reference
+                implemented.</p></div><div class="refsect1"><a name="idm140407164090928"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p>This interface is provided by the reference
                 implementation of APIs for controlling boot-time
                 read-ahead and distributed with the systemd
                 package. The algorithms it implements are simple, and
@@ -51,7 +51,7 @@
                 NOPs when -DDISABLE_SYSTEMD is set during
                 compilation. In addition, if
                 <code class="filename">sd-readhead.c</code> is compiled on
-                non-Linux systems it becomes NOPs.</p></div><div class="refsect1"><a name="idm140581426221200"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                non-Linux systems it becomes NOPs.</p></div><div class="refsect1"><a name="idm140407164084352"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd_readahead.html"><span class="citerefentry"><span class="refentrytitle">sd_readahead</span>(3)</span></a>,
                         <a href="sd-daemon.html"><span class="citerefentry"><span class="refentrytitle">sd-daemon</span>(3)</span></a>

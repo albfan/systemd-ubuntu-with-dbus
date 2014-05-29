@@ -220,7 +220,7 @@ const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("RuntimePath", "s", NULL, offsetof(User, runtime_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(User, service), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Slice", "s", NULL, offsetof(User, slice), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Display", "(so)", property_get_display, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Display", "(so)", property_get_display, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
         SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -250,7 +250,7 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
                 sd_bus_message *message;
                 pid_t pid;
 
-                message = sd_bus_get_current(bus);
+                message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
@@ -291,7 +291,7 @@ char *user_bus_path(User *u) {
 
         assert(u);
 
-        if (asprintf(&s, "/org/freedesktop/login1/user/_%llu", (unsigned long long) u->uid) < 0)
+        if (asprintf(&s, "/org/freedesktop/login1/user/_"UID_FMT, u->uid) < 0)
                 return NULL;
 
         return s;

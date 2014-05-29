@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 212" "sd_login_monitor_new"
+.TH "SD_LOGIN_MONITOR_NEW" "3" "" "systemd 213" "sd_login_monitor_new"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,17 +29,17 @@ sd_login_monitor_new, sd_login_monitor_unref, sd_login_monitor_flush, sd_login_m
 .fi
 .ft
 .HP \w'int\ sd_login_monitor_new('u
-.BI "int sd_login_monitor_new(const\ char*\ " "category" ", sd_login_monitor**\ " "ret" ");"
-.HP \w'sd_login_monitor*\ sd_login_monitor_unref('u
-.BI "sd_login_monitor* sd_login_monitor_unref(sd_login_monitor*\ " "m" ");"
+.BI "int sd_login_monitor_new(const\ char\ *" "category" ", sd_login_monitor\ **" "ret" ");"
+.HP \w'sd_login_monitor\ *sd_login_monitor_unref('u
+.BI "sd_login_monitor *sd_login_monitor_unref(sd_login_monitor\ *" "m" ");"
 .HP \w'int\ sd_login_monitor_flush('u
-.BI "int sd_login_monitor_flush(sd_login_monitor*\ " "m" ");"
+.BI "int sd_login_monitor_flush(sd_login_monitor\ *" "m" ");"
 .HP \w'int\ sd_login_monitor_get_fd('u
-.BI "int sd_login_monitor_get_fd(sd_login_monitor*\ " "m" ");"
+.BI "int sd_login_monitor_get_fd(sd_login_monitor\ *" "m" ");"
 .HP \w'int\ sd_login_monitor_get_events('u
-.BI "int sd_login_monitor_get_events(sd_login_monitor*\ " "m" ");"
+.BI "int sd_login_monitor_get_events(sd_login_monitor\ *" "m" ");"
 .HP \w'int\ sd_login_monitor_get_timeout('u
-.BI "int sd_login_monitor_get_timeout(sd_login_monitor*\ " "m" ", uint64_t*\ " "timeout_usec" ");"
+.BI "int sd_login_monitor_get_timeout(sd_login_monitor\ *" "m" ", uint64_t\ *" "timeout_usec" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_login_monitor_new()\fR

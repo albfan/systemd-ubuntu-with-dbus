@@ -508,6 +508,7 @@ void unit_free(Unit *u) {
         }
 
         set_remove(u->manager->failed_units, u);
+        set_remove(u->manager->startup_units, u);
 
         free(u->description);
         strv_free(u->documentation);
@@ -1070,6 +1071,25 @@ static int unit_add_mount_dependencies(Unit *u) {
         return 0;
 }
 
+static int unit_add_startup_units(Unit *u) {
+        CGroupContext *c;
+        int r = 0;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        if (c->startup_cpu_shares == (unsigned long) -1 &&
+            c->startup_blockio_weight == (unsigned long) -1)
+                return 0;
+
+        r = set_put(u->manager->startup_units, u);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
 int unit_load(Unit *u) {
         int r;
 
@@ -1108,6 +1128,10 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 r = unit_add_mount_dependencies(u);
+                if (r < 0)
+                        goto fail;
+
+                r = unit_add_startup_units(u);
                 if (r < 0)
                         goto fail;
 
@@ -1550,7 +1574,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Note that this is called for all low-level state changes,
          * even if they might map to the same high-level
-         * UnitActiveState! That means that ns == os is OK an expected
+         * UnitActiveState! That means that ns == os is an expected
          * behavior here. For example: if a mount point is remounted
          * this function will be called too! */
 
@@ -1573,7 +1597,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         u->active_exit_timestamp = ts;
         }
 
-        /* Keep track of failed of units */
+        /* Keep track of failed units */
         if (ns == UNIT_FAILED && os != UNIT_FAILED)
                 set_put(u->manager->failed_units, u);
         else if (os == UNIT_FAILED && ns != UNIT_FAILED)
@@ -1698,7 +1722,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
-                        /* The bus just might have become available,
+                        /* The bus might have just become available,
                          * hence try to connect to it, if we aren't
                          * yet connected. */
                         bus_init(m, true);
@@ -2287,25 +2311,25 @@ bool unit_can_serialize(Unit *u) {
 }
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
-        ExecRuntime *rt;
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
 
-        if (!unit_can_serialize(u))
-                return 0;
+        if (unit_can_serialize(u)) {
+                ExecRuntime *rt;
 
-        r = UNIT_VTABLE(u)->serialize(u, f, fds);
-        if (r < 0)
-                return r;
-
-        rt = unit_get_exec_runtime(u);
-        if (rt) {
-                r = exec_runtime_serialize(rt, u, f, fds);
+                r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
                         return r;
+
+                rt = unit_get_exec_runtime(u);
+                if (rt) {
+                        r = exec_runtime_serialize(rt, u, f, fds);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
@@ -2367,16 +2391,13 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
-        size_t offset;
         ExecRuntime **rt = NULL;
+        size_t offset;
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
-
-        if (!unit_can_serialize(u))
-                return 0;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         if (offset > 0)
@@ -2487,24 +2508,34 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (!s)
                                 return -ENOMEM;
 
-                        free(u->cgroup_path);
-                        u->cgroup_path = s;
+                        if (u->cgroup_path) {
+                                void *p;
 
+                                p = hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
+                                log_info("Removing cgroup_path %s from hashmap (%p)",
+                                         u->cgroup_path, p);
+                                free(u->cgroup_path);
+                        }
+
+                        u->cgroup_path = s;
                         assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
+
                         continue;
                 }
 
-                if (rt) {
-                        r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                if (unit_can_serialize(u)) {
+                        if (rt) {
+                                r = exec_runtime_deserialize_item(rt, u, l, v, fds);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
                                 return r;
-                        if (r > 0)
-                                continue;
                 }
-
-                r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
-                if (r < 0)
-                        return r;
         }
 }
 

@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 212" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 213" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -94,7 +94,7 @@ and
 Configures the rate limiting that is applied to all messages generated on the system\&. If, in the time interval defined by
 \fIRateLimitInterval=\fR, more messages than specified in
 \fIRateLimitBurst=\fR
-are logged by a service, all further messages within the interval are dropped until the interval is over\&. A message about the number of dropped messages is generated\&. This rate limiting is applied per\-service, so that two services which log do not interfere with each other\*(Aqs limits\&. Defaults to 200 messages in 10s\&. The time specification for
+are logged by a service, all further messages within the interval are dropped until the interval is over\&. A message about the number of dropped messages is generated\&. This rate limiting is applied per\-service, so that two services which log do not interfere with each other\*(Aqs limits\&. Defaults to 1000 messages in 30s\&. The time specification for
 \fIRateLimitInterval=\fR
 may be specified in the following units:
 "s",

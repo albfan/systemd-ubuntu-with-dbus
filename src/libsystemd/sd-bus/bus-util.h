@@ -76,7 +76,6 @@ int bus_open_transport_systemd(BusTransport transport, const char *host, bool us
 int bus_print_property(const char *name, sd_bus_message *property, bool all);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool all);
 
-int bus_property_get_tristate(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 #define bus_property_get_usec ((sd_bus_property_get_t) NULL)
@@ -139,12 +138,16 @@ typedef struct UnitInfo {
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, sd_bus_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_slot*, sd_bus_slot_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_message*, sd_bus_message_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_creds*, sd_bus_creds_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus_track*, sd_bus_track_unref);
 
 #define _cleanup_bus_unref_ _cleanup_(sd_bus_unrefp)
+#define _cleanup_bus_slot_unref_ _cleanup_(sd_bus_slot_unrefp)
 #define _cleanup_bus_message_unref_ _cleanup_(sd_bus_message_unrefp)
 #define _cleanup_bus_creds_unref_ _cleanup_(sd_bus_creds_unrefp)
+#define _cleanup_bus_track_unref_ _cleanup_(sd_bus_slot_unrefp)
 #define _cleanup_bus_error_free_ _cleanup_(sd_bus_error_free)
 
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \

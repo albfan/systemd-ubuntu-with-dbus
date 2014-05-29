@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 212" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 213" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -251,12 +251,11 @@ to select whether to kill only the main process, the control process or all proc
 or
 \fIExecReload=\fR
 settings of service units are control processes\&. Note that there is only one control process per unit at a time, as only one state change is executed at a time\&. For services of type
-\fIType=forking\fR
-the initial process started by the manager for
+\fIType=forking\fR, the initial process started by the manager for
 \fIExecStart=\fR
 is a control process, while the process ultimately forked off by that one is then considered the main process of the unit (if it can be determined)\&. This is different for service units of other types, where the process forked off by the manager for
 \fIExecStart=\fR
-is always the main process itself\&. A service unit consists of no or one main process, no or one control process plus any number of additional processes\&. Not all unit types manage processes of these types however\&. For example for mount units control processes are defined (which are the invocations of
+is always the main process itself\&. A service unit consists of zero or one main process, zero or one control process plus any number of additional processes\&. Not all unit types manage processes of these types however\&. For example, for mount units, control processes are defined (which are the invocations of
 /usr/bin/mount
 and
 /usr/bin/umount), but no main process is defined\&. If omitted, defaults to
@@ -286,7 +285,7 @@ When used with
 or
 \fBkexec\fR, execute the selected operation without shutting down all units\&. However, all processes will be killed forcibly and all file systems are unmounted or remounted read\-only\&. This is hence a drastic but relatively safe option to request an immediate reboot\&. If
 \fB\-\-force\fR
-is specified twice for these operations, they will be executed immediately without terminating any processes or umounting any file systems\&. Warning: specifying
+is specified twice for these operations, they will be executed immediately without terminating any processes or unmounting any file systems\&. Warning: specifying
 \fB\-\-force\fR
 twice with any of these operations might result in data loss\&.
 .RE
@@ -510,8 +509,7 @@ is specified, this will also print the current unit state to standard output\&.
 \fBstatus\fR [\fIPATTERN\fR\&.\&.\&.|\fIPID\fR\&.\&.\&.]]
 .RS 4
 Show terse runtime status information about one or more units, followed by most recent log data from the journal\&. If no units are specified, show system status\&. If combined with
-\fB\-\-all\fR
-also shows status of all units (subject to limitations specified with
+\fB\-\-all\fR, also show the status of all units (subject to limitations specified with
 \fB\-t\fR)\&. If a PID is passed, show information about the unit the process belongs to\&.
 .sp
 This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
@@ -741,7 +739,7 @@ Mask one or more unit files, as specified on the command line\&. This will link 
 /dev/null, making it impossible to start them\&. This is a stronger version of
 \fBdisable\fR, since it prohibits all kinds of activation of the unit, including manual activation\&. Use this option with care\&. This honors the
 \fB\-\-runtime\fR
-option to only mask temporarily until the next reoobt of the system\&.
+option to only mask temporarily until the next reboot of the system\&.
 .RE
 .PP
 \fBunmask \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -949,7 +947,7 @@ Switches to a different root directory and executes a new system manager process
 .RE
 .SS "Parameter Syntax"
 .PP
-Unit ommands listed above take either a single unit name (designated as
+Unit commands listed above take either a single unit name (designated as
 \fINAME\fR), or multiple unit specifications (designated as
 \fIPATTERN\fR\&.\&.\&.)\&. In the first case, the unit name with or without a suffix must be given\&. If the suffix is not specified, systemctl will append a suitable suffix,
 "\&.service"

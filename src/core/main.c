@@ -61,7 +61,7 @@
 #include "capability.h"
 #include "killall.h"
 #include "env-util.h"
-#include "hwclock.h"
+#include "clock-util.h"
 #include "fileio.h"
 #include "dbus-manager.h"
 #include "bus-error.h"
@@ -412,18 +412,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 }
 
         } else if (streq(key, "quiet") && !value) {
-
                 if (arg_show_status == _SHOW_STATUS_UNSET)
                         arg_show_status = SHOW_STATUS_AUTO;
 
         } else if (streq(key, "debug") && !value) {
-
-                /* Log to kmsg, the journal socket will fill up before the
-                 * journal is started and tools running during that time
-                 * will block with every log message for for 60 seconds,
-                 * before they give up. */
                 log_set_max_level(LOG_DEBUG);
-                log_set_target(detect_container(NULL) > 0 ? LOG_TARGET_CONSOLE : LOG_TARGET_KMSG);
+                if (detect_container(NULL) > 0)
+                        log_set_target(LOG_TARGET_CONSOLE);
 
         } else if (!in_initrd() && !value) {
                 unsigned i;
@@ -1187,21 +1182,6 @@ static void test_usr(void) {
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
-static void test_cgroups(void) {
-
-        if (access("/proc/cgroups", F_OK) >= 0)
-                return;
-
-        log_warning("CONFIG_CGROUPS was not set when your kernel was compiled. "
-                    "Systems without control groups are not supported. "
-                    "We will now sleep for 10s, and then continue boot-up. "
-                    "Expect breakage and please do not file bugs. "
-                    "Instead fix your kernel and enable CONFIG_CGROUPS. "
-                    "Consult http://0pointer.de/blog/projects/cgroups-vs-cgroups.html for more information.");
-
-        sleep(10);
-}
-
 static int initialize_join_controllers(void) {
         /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
          * + "net_prio". We'd like to add "cpuset" to the mix, but
@@ -1372,11 +1352,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 if (!skip_setup) {
-                        if (hwclock_is_localtime() > 0) {
+                        if (clock_is_localtime() > 0) {
                                 int min;
 
                                 /* The first-time call to settimeofday() does a time warp in the kernel */
-                                r = hwclock_set_timezone(&min);
+                                r = clock_set_timezone(&min);
                                 if (r < 0)
                                         log_error("Failed to apply local time delta, ignoring: %s", strerror(-r));
                                 else
@@ -1390,10 +1370,10 @@ int main(int argc, char *argv[]) {
                                  * that way. In such case, we need to delay the time-warp or the sealing
                                  * until we reach the real system.
                                  */
-                                hwclock_reset_timezone();
+                                clock_reset_timezone();
 
                                 /* Tell the kernel our timezone */
-                                r = hwclock_set_timezone(NULL);
+                                r = clock_set_timezone(NULL);
                                 if (r < 0)
                                         log_error("Failed to set the kernel's timezone, ignoring: %s", strerror(-r));
                         }
@@ -1589,7 +1569,6 @@ int main(int argc, char *argv[]) {
 
                 test_mtab();
                 test_usr();
-                test_cgroups();
         }
 
         if (arg_running_as == SYSTEMD_SYSTEM && arg_runtime_watchdog > 0)

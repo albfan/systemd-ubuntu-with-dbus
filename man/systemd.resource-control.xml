@@ -115,14 +115,49 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <varlistentry>
         <term><varname>CPUShares=<replaceable>weight</replaceable></varname></term>
+        <term><varname>StartupCPUShares=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified overall CPU time share weight to
-          the processes executed. Takes an integer value. This
-          controls the <literal>cpu.shares</literal> control group
+          <para>Assign the specified CPU time share weight to the
+          processes executed. Those options take an integer value and
+          control the <literal>cpu.shares</literal> control group
           attribute, which defaults to 1024. For details about this
           control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
+          The available CPU time is split up among all units within
+          one slice relative to their CPU time share weight.</para>
+
+          <para>While <varname>StartupCPUShares=</varname> only
+          applies to the startup phase of the system,
+          <varname>CPUShares=</varname> applies to normal runtime of
+          the system, and if the former is not set also to the startup
+          phase. Using <varname>StartupCPUShares=</varname> allows
+          priorizing specific services at boot-up differently than
+          during normal runtime.</para>
+
+          <para>Those options imply
+          <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUQuota=</varname></term>
+
+        <listitem>
+          <para>Assign the specified CPU time quota to the processes
+          executed. Takes a percentage value, suffixed with "%". The
+          percentage specifies how much CPU time the unit shall get at
+          maximum, relative to the total CPU time available on one
+          CPU. Use values &gt; 100% for alloting CPU time on more than
+          one CPU. This controls the
+          <literal>cpu.cfs_quota_us</literal> control group
+          attribute. For details about this control group attribute,
+          see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUShares=20%</varname> ensures that
+          the executed processes will never get more than 20% CPU time
+          on one CPU.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>
         </listitem>
@@ -179,19 +214,24 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
       <varlistentry>
         <term><varname>BlockIOWeight=<replaceable>weight</replaceable></varname></term>
+        <term><varname>StartupBlockIOWeight=<replaceable>weight</replaceable></varname></term>
 
-        <listitem><para>Set the default
-        overall block IO weight for the
-        executed processes. Takes a single
-        weight value (between 10 and 1000) to
-        set the default block IO weight. This
-        controls the
-        <literal>blkio.weight</literal>
-        control group attribute, which
-        defaults to 1000. For details about
-        this control group attribute, see
-        <ulink
-            url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
+        <listitem><para>Set the default overall block IO weight for
+        the executed processes. Takes a single weight value (between
+        10 and 1000) to set the default block IO weight. This controls
+        the <literal>blkio.weight</literal> control group attribute,
+        which defaults to 1000. For details about this control group
+        attribute, see <ulink
+        url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
+        The available IO bandwidth is split up among all units within
+        one slice relative to their block IO weight.</para>
+
+        <para>While <varname>StartupBlockIOWeight=</varname> only
+        applies to the startup phase of the system,
+        <varname>BlockIOWeight=</varname> applies to the later runtime
+        of the system, and if the former is not set also to the
+        startup phase. This allows priorizing specific services at
+        boot-up differently than during runtime.</para>
 
         <para>Implies
         <literal>BlockIOAccounting=true</literal>.</para>

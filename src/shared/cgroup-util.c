@@ -472,9 +472,7 @@ static int join_path(const char *controller, const char *path, const char *suffi
         if (!t)
                 return -ENOMEM;
 
-        path_kill_slashes(t);
-
-        *fs = t;
+        *fs = path_kill_slashes(t);
         return 0;
 }
 
@@ -643,7 +641,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (pid == 0)
                 pid = getpid();
 
-        snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
+        snprintf(c, sizeof(c), PID_FMT"\n", pid);
 
         return write_string_file(fs, c);
 }
@@ -957,8 +955,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                         if (!t)
                                 return -ENOMEM;
 
-                        path_kill_slashes(t);
-                        *path = t;
+                        *path = path_kill_slashes(t);
                 }
 
                 if (controller)
@@ -1048,8 +1045,7 @@ int cg_mangle_path(const char *path, char **result) {
                 if (!t)
                         return -ENOMEM;
 
-                path_kill_slashes(t);
-                *result = t;
+                *result = path_kill_slashes(t);
                 return 0;
         }
 

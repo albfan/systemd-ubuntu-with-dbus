@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 212" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 213" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -117,7 +117,7 @@ Automatically search for an init binary and invoke it instead of a shell or a us
 .PP
 \fB\-u\fR, \fB\-\-user=\fR
 .RS 4
-After transitioning into the container, change to the specified user defined in the container\*(Aqs user database\&. Like all other systemd\-nspawn features, this is not a security feature and provides protection against accidental destructive operations only\&.
+After transitioning into the container, change to the specified user\-defined in the container\*(Aqs user database\&. Like all other systemd\-nspawn features, this is not a security feature and provides protection against accidental destructive operations only\&.
 .RE
 .PP
 \fB\-M\fR, \fB\-\-machine=\fR
@@ -172,7 +172,7 @@ implies
 .RS 4
 Create a virtual Ethernet link ("veth") between host and container\&. The host side of the Ethernet link will be available as a network interface named after the container\*(Aqs name (as specified with
 \fB\-\-machine=\fR), prefixed with
-"ve\-"\&. The container side of the the Ethernet link will be named
+"ve\-"\&. The container side of the Ethernet link will be named
 "host0"\&. Note that
 \fB\-\-network\-veth\fR
 implies
@@ -186,7 +186,7 @@ Adds the host side of the Ethernet link created with
 to the specified bridge\&. Note that
 \fB\-\-network\-bridge=\fR
 implies
-\fB\-\-network\-veth\fR\&. If this option is used the host side of the Ethernet link will use the
+\fB\-\-network\-veth\fR\&. If this option is used, the host side of the Ethernet link will use the
 "vb\-"
 prefix instead of
 "ve\-"\&.
@@ -309,7 +309,7 @@ in the container\&. Currently, only
 "x86"
 and
 "x86\-64"
-are supported\&. This is useful when running a 32bit container on a 64bit host\&. If this setting is not used the personality reported in the container is the same as the one reported on the host\&.
+are supported\&. This is useful when running a 32\-bit container on a 64\-bit host\&. If this setting is not used, the personality reported in the container is the same as the one reported on the host\&.
 .RE
 .PP
 \fB\-q\fR, \fB\-\-quiet\fR

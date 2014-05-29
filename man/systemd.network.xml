@@ -192,8 +192,9 @@
                                         <term><varname>IPv4LL=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables IPv4 link-local support.
-                                                If <literal>DHCP=</literal> is also true, IPv4 link-local
-                                                address will be removed upon acquiring a DHCP lease.
+                                                If <literal>DHCP=</literal> is also true, acquiring DHCP address
+                                                will deprecate previously acquired IPv4 link-local address or
+                                                stop acquiring process if one has not been acquired before.
                                                 </para>
                                         </listitem>
                                 </varlistentry>
@@ -271,8 +272,8 @@
                                         <term><varname>Broadcast=</varname></term>
                                         <listitem>
                                                 <para>The broadcast address, which must be in the format described in
-                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-                                                . This key only applies to IPv4 addresses. If it is not given, it is
+                                                <citerefentry><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+                                                This key only applies to IPv4 addresses. If it is not given, it is
                                                 derived from the <literal>Address</literal> key.</para>
                                         </listitem>
                                 </varlistentry>
@@ -298,7 +299,7 @@
                                         <term><varname>Destination=</varname></term>
                                         <listitem>
                                                 <para>The destination prefix of the route. Possibly followed by a slash and the
-                                                prefixlength, if ommitted a full-length host route is assumed.</para>
+                                                prefixlength. If ommitted, a full-length host route is assumed.</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>

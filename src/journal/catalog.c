@@ -103,7 +103,7 @@ static int finish_item(
                 const char *payload) {
 
         ssize_t offset;
-        CatalogItem *i;
+        _cleanup_free_ CatalogItem *i = NULL;
         int r;
 
         assert(h);
@@ -126,13 +126,14 @@ static int finish_item(
         i->offset = htole64((uint64_t) offset);
 
         r = hashmap_put(h, i, i);
-        if (r == EEXIST) {
+        if (r == -EEXIST) {
                 log_warning("Duplicate entry for " SD_ID128_FORMAT_STR ".%s, ignoring.",
                             SD_ID128_FORMAT_VAL(id), language ? language : "C");
-                free(i);
                 return 0;
-        }
+        } else if (r < 0)
+                return r;
 
+        i = NULL;
         return 0;
 }
 
@@ -156,6 +157,37 @@ int catalog_file_lang(const char* filename, char **lang) {
 
         *lang = _lang;
         return 1;
+}
+
+static int catalog_entry_lang(const char* filename, int line,
+                              const char* t, const char* deflang, char **lang) {
+        size_t c;
+
+        c = strlen(t);
+        if (c == 0) {
+                log_error("[%s:%u] Language too short.", filename, line);
+                return -EINVAL;
+        }
+        if (c > 31) {
+                log_error("[%s:%u] language too long.", filename, line);
+                return -EINVAL;
+        }
+
+        if (deflang) {
+                if (streq(t, deflang)) {
+                        log_warning("[%s:%u] language specified unnecessarily",
+                                    filename, line);
+                        return 0;
+                } else
+                        log_warning("[%s:%u] language differs from default for file",
+                                    filename, line);
+        }
+
+        *lang = strdup(t);
+        if (!*lang)
+                        return -ENOMEM;
+
+        return 0;
 }
 
 int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
@@ -237,25 +269,9 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                                 if (with_language) {
                                         t = strstrip(line + 2 + 1 + 32 + 1);
 
-                                        c = strlen(t);
-                                        if (c <= 0) {
-                                                log_error("[%s:%u] Language too short.", path, n);
-                                                return -EINVAL;
-                                        }
-                                        if (c > 31) {
-                                                log_error("[%s:%u] language too long.", path, n);
-                                                return -EINVAL;
-                                        }
-
-                                        if (deflang) {
-                                                log_warning("[%s:%u] language %s", path, n,
-                                                            streq(t, deflang) ?
-                                                            "specified unnecessarily" :
-                                                            "differs from default for file");
-                                                lang = strdup(t);
-                                                if (!lang)
-                                                        return -ENOMEM;
-                                        }
+                                        r = catalog_entry_lang(path, n, t, deflang, &lang);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 got_id = true;
@@ -383,8 +399,8 @@ error:
 int catalog_update(const char* database, const char* root, const char* const* dirs) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
-        Hashmap *h;
         struct strbuf *sb = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         CatalogItem *i;
         Iterator j;
@@ -406,13 +422,17 @@ int catalog_update(const char* database, const char* root, const char* const* di
         }
 
         STRV_FOREACH(f, files) {
-                log_debug("reading file '%s'", *f);
-                catalog_import_file(h, sb, *f);
+                log_debug("Reading file '%s'", *f);
+                r = catalog_import_file(h, sb, *f);
+                if (r < 0) {
+                        log_error("Failed to import file '%s': %s.",
+                                  *f, strerror(-r));
+                        goto finish;
+                }
         }
 
         if (hashmap_size(h) <= 0) {
                 log_info("No items in catalog.");
-                r = 0;
                 goto finish;
         } else
                 log_debug("Found %u items in catalog.", hashmap_size(h));
@@ -443,11 +463,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
                           database, n, sb->len, r);
 
-        r = 0;
-
 finish:
-        if (h)
-                hashmap_free_free(h);
         if (sb)
                 strbuf_cleanup(sb);
 

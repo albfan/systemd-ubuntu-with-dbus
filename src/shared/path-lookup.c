@@ -125,6 +125,8 @@ static char** user_dirs(
                         goto fail;
 
         } else if (home) {
+                _cleanup_free_ char *data_home_parent = NULL;
+
                 if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
                         goto fail;
 
@@ -135,8 +137,14 @@ static char** user_dirs(
                  * then filter out this link, if it is actually is
                  * one. */
 
-                mkdir_parents_label(data_home, 0777);
-                (void) symlink("../../../.config/systemd/user", data_home);
+                if (path_get_parent(data_home, &data_home_parent) >= 0) {
+                        _cleanup_free_ char *config_home_relative = NULL;
+
+                        if (path_make_relative(data_home_parent, config_home, &config_home_relative) >= 0) {
+                                mkdir_parents_label(data_home, 0777);
+                                (void) symlink(config_home_relative, data_home);
+                        }
+                }
         }
 
         e = getenv("XDG_DATA_DIRS");
@@ -198,6 +206,7 @@ int lookup_paths_init(
                 LookupPaths *p,
                 SystemdRunningAs running_as,
                 bool personal,
+                const char *root_dir,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late) {
@@ -275,10 +284,8 @@ int lookup_paths_init(
                 }
         }
 
-        if (!path_strv_canonicalize_absolute(p->unit_path, NULL))
+        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
                 return -ENOMEM;
-
-        strv_uniq(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
                 _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
@@ -331,14 +338,11 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                if (!path_strv_canonicalize_absolute(p->sysvinit_path, NULL))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
                         return -ENOMEM;
 
-                if (!path_strv_canonicalize_absolute(p->sysvrcnd_path, NULL))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
                         return -ENOMEM;
-
-                strv_uniq(p->sysvinit_path);
-                strv_uniq(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
                         _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");

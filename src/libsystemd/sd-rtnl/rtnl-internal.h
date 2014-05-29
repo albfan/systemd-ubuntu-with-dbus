@@ -29,6 +29,8 @@
 
 #include "sd-rtnl.h"
 
+#include "rtnl-types.h"
+
 #define RTNL_DEFAULT_TIMEOUT ((usec_t) (25 * USEC_PER_SEC))
 
 #define RTNL_WQUEUE_MAX 1024
@@ -64,9 +66,18 @@ struct sd_rtnl {
 
         sd_rtnl_message **rqueue;
         unsigned rqueue_size;
+        size_t rqueue_allocated;
+
+        sd_rtnl_message **rqueue_partial;
+        unsigned rqueue_partial_size;
+        size_t rqueue_partial_allocated;
 
         sd_rtnl_message **wqueue;
         unsigned wqueue_size;
+        size_t wqueue_allocated;
+
+        struct nlmsghdr *rbuffer;
+        size_t rbuffer_allocated;
 
         bool processing:1;
 
@@ -91,18 +102,24 @@ struct sd_rtnl_message {
         sd_rtnl *rtnl;
 
         struct nlmsghdr *hdr;
+        const struct NLTypeSystem *(container_type_system[RTNL_CONTAINER_DEPTH]); /* the type of the container and all its parents */
         size_t container_offsets[RTNL_CONTAINER_DEPTH]; /* offset from hdr to each container's start */
         unsigned n_containers; /* number of containers */
         size_t next_rta_offset; /* offset from hdr to next rta */
         size_t *rta_offset_tb[RTNL_CONTAINER_DEPTH];
         unsigned short rta_tb_size[RTNL_CONTAINER_DEPTH];
         bool sealed:1;
+
+        sd_rtnl_message *next; /* next in a chain of multi-part messages */
 };
 
-int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, size_t initial_size);
+int message_new(sd_rtnl *rtnl, sd_rtnl_message **ret, uint16_t type);
 
 int socket_write_message(sd_rtnl *nl, sd_rtnl_message *m);
-int socket_read_message(sd_rtnl *nl, sd_rtnl_message **ret);
+int socket_read_message(sd_rtnl *nl);
+
+int rtnl_rqueue_make_room(sd_rtnl *rtnl);
+int rtnl_rqueue_partial_make_room(sd_rtnl *rtnl);
 
 int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **data);
 int rtnl_message_parse(sd_rtnl_message *m,

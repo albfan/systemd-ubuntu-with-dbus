@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 212" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 213" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,6 +45,7 @@ systemd.unit \- Unit configuration
 .fi
 .PP
 .nf
+$XDG_CONFIG_HOME/systemd/user/*
 $HOME/\&.config/systemd/user/*
 /etc/systemd/user/*
 /run/systemd/user/*
@@ -83,8 +84,8 @@ file format\&.
 .PP
 Unit files are loaded from a set of paths determined during compilation, described in the next section\&.
 .PP
-Unit files may contain additional options on top of those listed here\&. If systemd encounters an unknown option, it will write a warning log message but continue loading the unit\&. If an option is prefixed with
-\fBX\-\fR, it is ignored completely by systemd\&. Applications may use this to include additional information in the unit files\&.
+Unit files may contain additional options on top of those listed here\&. If systemd encounters an unknown option, it will write a warning log message but continue loading the unit\&. If an option or section name is prefixed with
+\fBX\-\fR, it is ignored completely by systemd\&. Options within an ignored section do not need the prefix\&. Applications may use this to include additional information in the unit files\&.
 .PP
 Boolean arguments used in unit files can be written in various formats\&. For positive settings the strings
 \fB1\fR,
@@ -218,11 +219,17 @@ T}
 l l
 l l
 l l
+l l
 l l.
+T{
+$XDG_CONFIG_HOME/systemd/user
+T}:T{
+User configuration (only used when $XDG_CONFIG_HOME is set)
+T}
 T{
 $HOME/\&.config/systemd/user
 T}:T{
-User configuration
+User configuration (only used when $XDG_CONFIG_HOME is not set)
 T}
 T{
 /etc/systemd/user
@@ -418,6 +425,13 @@ Takes a space\-separated list of absolute paths\&. Automatically adds dependenci
 and
 \fIAfter=\fR
 for all mount units required to access the specified path\&.
+.sp
+Mount points marked with
+\fBnoauto\fR
+are not mounted automatically and will be ignored for the purposes of this option\&. If such a mount should be a requirement for this unit, direct dependencies on the mount units may be added (\fIRequires=\fR
+and
+\fIAfter=\fR
+or some other combination)\&.
 .RE
 .PP
 \fIOnFailureJobMode=\fR
@@ -562,7 +576,7 @@ may be used to match against the hostname or machine ID of the host\&. This eith
 .sp
 \fIConditionKernelCommandLine=\fR
 may be used to check whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. The argument must either be a single word, or an assignment (i\&.e\&. two words, separated
-"=")\&. In the former case the kernel command line is searched for the word appearing as is, or as left hand side of an assignment\&. In the latter case the exact assignment is looked for with right and left hand side matching\&.
+"=")\&. In the former case the kernel command line is searched for the word appearing as is, or as left hand side of an assignment\&. In the latter case, the exact assignment is looked for with right and left hand side matching\&.
 .sp
 \fIConditionSecurity=\fR
 may be used to check whether the given security module is enabled on the system\&. Currently the recognized values values are

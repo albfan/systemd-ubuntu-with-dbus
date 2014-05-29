@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 212" "systemd.resource-control"
+.TH "SYSTEMD\&.RESOURCE\-CONTROL" "5" "" "systemd 213" "systemd.resource-control"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -59,12 +59,35 @@ in
 \fBsystemd-system.conf\fR(5)\&.
 .RE
 .PP
-\fICPUShares=\fR\fI\fIweight\fR\fR
+\fICPUShares=\fR\fI\fIweight\fR\fR, \fIStartupCPUShares=\fR\fI\fIweight\fR\fR
 .RS 4
-Assign the specified overall CPU time share weight to the processes executed\&. Takes an integer value\&. This controls the
+Assign the specified CPU time share weight to the processes executed\&. Those options take an integer value and control the
 "cpu\&.shares"
 control group attribute, which defaults to 1024\&. For details about this control group attribute, see
+\m[blue]\fBsched\-design\-CFS\&.txt\fR\m[]\&\s-2\u[2]\d\s+2\&. The available CPU time is split up among all units within one slice relative to their CPU time share weight\&.
+.sp
+While
+\fIStartupCPUShares=\fR
+only applies to the startup phase of the system,
+\fICPUShares=\fR
+applies to normal runtime of the system, and if the former is not set also to the startup phase\&. Using
+\fIStartupCPUShares=\fR
+allows priorizing specific services at boot\-up differently than during normal runtime\&.
+.sp
+Those options imply
+"CPUAccounting=true"\&.
+.RE
+.PP
+\fICPUQuota=\fR
+.RS 4
+Assign the specified CPU time quota to the processes executed\&. Takes a percentage value, suffixed with "%"\&. The percentage specifies how much CPU time the unit shall get at maximum, relative to the total CPU time available on one CPU\&. Use values > 100% for alloting CPU time on more than one CPU\&. This controls the
+"cpu\&.cfs_quota_us"
+control group attribute\&. For details about this control group attribute, see
 \m[blue]\fBsched\-design\-CFS\&.txt\fR\m[]\&\s-2\u[2]\d\s+2\&.
+.sp
+Example:
+\fICPUShares=20%\fR
+ensures that the executed processes will never get more than 20% CPU time on one CPU\&.
 .sp
 Implies
 "CPUAccounting=true"\&.
@@ -97,12 +120,18 @@ in
 \fBsystemd-system.conf\fR(5)\&.
 .RE
 .PP
-\fIBlockIOWeight=\fR\fI\fIweight\fR\fR
+\fIBlockIOWeight=\fR\fI\fIweight\fR\fR, \fIStartupBlockIOWeight=\fR\fI\fIweight\fR\fR
 .RS 4
 Set the default overall block IO weight for the executed processes\&. Takes a single weight value (between 10 and 1000) to set the default block IO weight\&. This controls the
 "blkio\&.weight"
 control group attribute, which defaults to 1000\&. For details about this control group attribute, see
-\m[blue]\fBblkio\-controller\&.txt\fR\m[]\&\s-2\u[4]\d\s+2\&.
+\m[blue]\fBblkio\-controller\&.txt\fR\m[]\&\s-2\u[4]\d\s+2\&. The available IO bandwidth is split up among all units within one slice relative to their block IO weight\&.
+.sp
+While
+\fIStartupBlockIOWeight=\fR
+only applies to the startup phase of the system,
+\fIBlockIOWeight=\fR
+applies to the later runtime of the system, and if the former is not set also to the startup phase\&. This allows priorizing specific services at boot\-up differently than during runtime\&.
 .sp
 Implies
 "BlockIOAccounting=true"\&.

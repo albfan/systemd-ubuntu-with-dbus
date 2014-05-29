@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_NEXT" "3" "" "systemd 212" "sd_journal_next"
+.TH "SD_JOURNAL_NEXT" "3" "" "systemd 213" "sd_journal_next"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,17 +29,17 @@ sd_journal_next, sd_journal_previous, sd_journal_next_skip, sd_journal_previous_
 .fi
 .ft
 .HP \w'int\ sd_journal_next('u
-.BI "int sd_journal_next(sd_journal*\ " "j" ");"
+.BI "int sd_journal_next(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_previous('u
-.BI "int sd_journal_previous(sd_journal*\ " "j" ");"
+.BI "int sd_journal_previous(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_next_skip('u
-.BI "int sd_journal_next_skip(sd_journal*\ " "j" ", uint64_t\ " "skip" ");"
+.BI "int sd_journal_next_skip(sd_journal\ *" "j" ", uint64_t\ " "skip" ");"
 .HP \w'int\ sd_journal_previous_skip('u
-.BI "int sd_journal_previous_skip(sd_journal*\ " "j" ", uint64_t\ " "skip" ");"
+.BI "int sd_journal_previous_skip(sd_journal\ *" "j" ", uint64_t\ " "skip" ");"
 .HP \w'SD_JOURNAL_FOREACH('u
-.BI "SD_JOURNAL_FOREACH(sd_journal*\ " "j" ");"
+.BI "SD_JOURNAL_FOREACH(sd_journal\ *" "j" ");"
 .HP \w'SD_JOURNAL_FOREACH_BACKWARDS('u
-.BI "SD_JOURNAL_FOREACH_BACKWARDS(sd_journal*\ " "j" ");"
+.BI "SD_JOURNAL_FOREACH_BACKWARDS(sd_journal\ *" "j" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_next()\fR

@@ -79,14 +79,12 @@ int manager_handle_action(
                         return 0;
                 }
 
-                /* If we have more than one or no displays connected,
-                 * don't react to lid closing. The no display case we
-                 * treat like this under the assumption that there is
-                 * no modern drm driver available. */
+                /* If we have more than one display connected,
+                 * don't react to lid closing. */
                 n = manager_count_displays(m);
                 if (n < 0)
                         log_warning("Display counting failed: %s", strerror(-n));
-                else if (n != 1) {
+                else if (n > 1) {
                         log_debug("Ignoring lid switch request, %i displays connected.", n);
                         return 0;
                 }
@@ -153,17 +151,17 @@ int manager_handle_action(
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
                 if (!is_edge) {
-                        log_debug("Refusing operation, %s is inhibited by UID %lu/%s, PID %lu/%s.",
+                        log_debug("Refusing operation, %s is inhibited by UID "UID_FMT"/%s, PID "PID_FMT"/%s.",
                                   inhibit_what_to_string(inhibit_operation),
-                                  (unsigned long) offending->uid, strna(u),
-                                  (unsigned long) offending->pid, strna(comm));
+                                  offending->uid, strna(u),
+                                  offending->pid, strna(comm));
                         return 0;
                 }
 
-                log_error("Refusing operation, %s is inhibited by UID %lu/%s, PID %lu/%s.",
+                log_error("Refusing operation, %s is inhibited by UID "UID_FMT"/%s, PID "PID_FMT"/%s.",
                           inhibit_what_to_string(inhibit_operation),
-                          (unsigned long) offending->uid, strna(u),
-                          (unsigned long) offending->pid, strna(comm));
+                          offending->uid, strna(u),
+                          offending->pid, strna(comm));
 
                 warn_melody();
                 return -EPERM;

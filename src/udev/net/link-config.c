@@ -139,26 +139,29 @@ void link_config_ctx_free(link_config_ctx *ctx) {
 }
 
 static int load_link(link_config_ctx *ctx, const char *filename) {
-        link_config *link;
-        _cleanup_fclose_ FILE *file;
+        _cleanup_free_ link_config *link = NULL;
+        _cleanup_fclose_ FILE *file = NULL;
         int r;
 
         assert(ctx);
         assert(filename);
+
+        if (null_or_empty_path(filename)) {
+                log_debug("skipping empty file: %s", filename);
+                return 0;
+        }
 
         file = fopen(filename, "re");
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
                 else
-                        return errno;
+                        return -errno;
         }
 
         link = new0(link_config, 1);
-        if (!link) {
-                r = log_oom();
-                goto failure;
-        }
+        if (!link)
+                return log_oom();
 
         link->mac_policy = _MACPOLICY_INVALID;
         link->wol = _WOL_INVALID;
@@ -168,19 +171,16 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                          (void*) link_config_gperf_lookup, false, false, link);
         if (r < 0) {
                 log_warning("Could not parse config file %s: %s", filename, strerror(-r));
-                goto failure;
+                return r;
         } else
                 log_debug("Parsed configuration file %s", filename);
 
         link->filename = strdup(filename);
 
         LIST_PREPEND(links, ctx->links, link);
+        link = NULL;
 
         return 0;
-
-failure:
-        free(link);
-        return r;
 }
 
 static bool enable_name_policy(void) {
@@ -243,7 +243,7 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, NULL, link->match_host,
                                      link->match_virt, link->match_kernel, link->match_arch,
-                                     udev_device_get_sysattr_value(device, "address"),
+                                     ether_aton(udev_device_get_sysattr_value(device, "address")),
                                      udev_device_get_property_value(device, "ID_PATH"),
                                      udev_device_get_driver(udev_device_get_parent(device)),
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
@@ -276,22 +276,6 @@ static bool mac_is_random(struct udev_device *device) {
 
         /* check for NET_ADDR_RANDOM */
         return type == 1;
-}
-
-static bool mac_is_permanent(struct udev_device *device) {
-        const char *s;
-        unsigned type;
-        int r;
-
-        s = udev_device_get_sysattr_value(device, "addr_assign_type");
-        if (!s)
-                return true; /* if we don't know, assume it is permanent */
-        r = safe_atou(s, &type);
-        if (r < 0)
-                return true;
-
-        /* check for NET_ADDR_PERM */
-        return type == 0;
 }
 
 static int get_mac(struct udev_device *device, bool want_random, struct ether_addr *mac) {
@@ -389,7 +373,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config, struct udev_dev
 
         switch (config->mac_policy) {
                 case MACPOLICY_PERSISTENT:
-                        if (!mac_is_permanent(device)) {
+                        if (mac_is_random(device)) {
                                 r = get_mac(device, false, &generated_mac);
                                 if (r < 0)
                                         return r;

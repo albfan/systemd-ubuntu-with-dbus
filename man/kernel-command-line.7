@@ -1,5 +1,5 @@
 '\" t
-.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 212" "kernel-command-line"
+.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 213" "kernel-command-line"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -76,6 +76,12 @@ Parameters understood by the system and service manager to control locale and la
 .RE
 .PP
 \fIfsck\&.mode=\fR
+.RS 4
+Parameter understood by the file system checker services\&. For details, see
+\fBsystemd-fsck@.service\fR(8)\&.
+.RE
+.PP
+\fIfsck\&.repair=\fR
 .RS 4
 Parameter understood by the file system checker services\&. For details, see
 \fBsystemd-fsck@.service\fR(8)\&.

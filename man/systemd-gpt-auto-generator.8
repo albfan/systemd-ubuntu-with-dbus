@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 212" "systemd-gpt-auto-generator"
+.TH "SYSTEMD\-GPT\-AUTO\-GENERATOR" "8" "" "systemd 213" "systemd-gpt-auto-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -30,11 +30,11 @@ systemd\-gpt\-auto\-generator
 is a unit generator that automatically discovers root,
 /home,
 /srv
-and swap partitions and creates mount and swap units for them, based on the the partition type GUIDs of GUID partition tables (GPT)\&. It implements the
+and swap partitions and creates mount and swap units for them, based on the partition type GUIDs of GUID partition tables (GPT)\&. It implements the
 \m[blue]\fBDiscoverable Partitions Specification\fR\m[]\&\s-2\u[1]\d\s+2\&. Note that this generator has no effect on non\-GPT systems, on systems where the units are explicitly configured (for example, listed in
 \fBfstab\fR(5)), or where the mount points are non\-empty\&.
 .PP
-This generator will only look for root partitions on the same physical disk the EFI System Partition (ESP) is located on\&. It will only look for the other partitions on the same physical disk the root file system is located on\&. These partitions will not be search on systems where the root file system is distributed on multiple disks, for example via btrfs RAID\&.
+This generator will only look for root partitions on the same physical disk the EFI System Partition (ESP) is located on\&. It will only look for the other partitions on the same physical disk the root file system is located on\&. These partitions will not be searched on systems where the root file system is distributed on multiple disks, for example via btrfs RAID\&.
 .PP
 systemd\-gpt\-auto\-generator
 is useful for centralizing file system configuration in the partition table and making manual configuration in
@@ -71,28 +71,28 @@ T{
 T}:T{
 Root Partition (x86)
 T}:T{
-On 32bit x86 systems the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
+On 32\-bit x86 systems, the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
 T}
 T{
 4f68bce3\-e8cd\-4db1\-96e7\-fbcaf984b709
 T}:T{
 Root Partition (x86\-64)
 T}:T{
-On 64bit x86 systems the first x86\-64 root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
+On 64\-bit x86 systems, the first x86\-64 root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
 T}
 T{
 69dad710\-2ce4\-4e3c\-b16c\-21a1d49abed3
 T}:T{
-Root Partition (32bit ARM)
+Root Partition (32\-bit ARM)
 T}:T{
-On 32bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
+On 32\-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
 T}
 T{
 b921b045\-1df0\-41c3\-af44\-4c6f280d3fae
 T}:T{
-Root Partition (64bit ARM)
+Root Partition (64\-bit ARM)
 T}:T{
-On 64bit ARM systems the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
+On 64\-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory /\&.
 T}
 T{
 933ac7e1\-2eb4\-4f13\-b844\-0e14e2aef915
@@ -135,7 +135,7 @@ will mount the EFI System Partition (ESP) to
 /boot
 if not otherwise mounted\&.
 .PP
-When using this generator in conjunction with btrfs file systems make sure to set the correct default subvolumes on them, using
+When using this generator in conjunction with btrfs file systems, make sure to set the correct default subvolumes on them, using
 \fBbtrfs subvolume set\-default\fR\&.
 .PP
 systemd\-gpt\-auto\-generator

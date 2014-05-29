@@ -1060,6 +1060,9 @@ int job_coldplug(Job *j) {
         if (r < 0)
                 return r;
 
+        if (j->state == JOB_WAITING)
+                job_add_to_run_queue(j);
+
         if (j->begin_usec == 0 || j->unit->job_timeout == 0)
                 return 0;
 

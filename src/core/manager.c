@@ -422,7 +422,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 return -ENOMEM;
 
 #ifdef ENABLE_EFI
-        if (detect_container(NULL) <= 0)
+        if (running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0)
                 boot_timestamps(&m->userspace_timestamp, &m->firmware_timestamp, &m->loader_timestamp);
 #endif
 
@@ -452,6 +452,10 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                 goto fail;
 
         r = hashmap_ensure_allocated(&m->watch_bus, string_hash_func, string_compare_func);
+        if (r < 0)
+                goto fail;
+
+        r = set_ensure_allocated(&m->startup_units, trivial_hash_func, trivial_compare_func);
         if (r < 0)
                 goto fail;
 
@@ -793,6 +797,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->watch_pids2);
         hashmap_free(m->watch_bus);
 
+        set_free(m->startup_units);
         set_free(m->failed_units);
 
         sd_event_source_unref(m->signal_event_source);
@@ -967,6 +972,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         r = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
+                        NULL,
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);
@@ -2129,9 +2135,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 if (u->id != t)
                         continue;
 
-                if (!unit_can_serialize(u))
-                        continue;
-
                 /* Start marker */
                 fputs(u->id, f);
                 fputc('\n', f);
@@ -2373,6 +2376,7 @@ int manager_reload(Manager *m) {
 
         q = lookup_paths_init(
                         &m->lookup_paths, m->running_as, true,
+                        NULL,
                         m->generator_unit_path,
                         m->generator_unit_path_early,
                         m->generator_unit_path_late);
@@ -2445,6 +2449,8 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
 void manager_check_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
+        Unit *u = NULL;
+        Iterator i;
 
         assert(m);
 
@@ -2531,6 +2537,9 @@ void manager_check_finished(Manager *m) {
                                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC),
                                    NULL);
         }
+
+        SET_FOREACH(u, m->startup_units, i)
+                cgroup_context_apply(unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path, manager_state(m));
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 

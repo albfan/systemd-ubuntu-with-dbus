@@ -138,6 +138,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnASUS:pn*
  KEYBOARD_KEY_ef=mute
 
 keyboard:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
+keyboard:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
 
 ###########################################################
@@ -579,6 +580,18 @@ keyboard:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
 keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
+# enhanced USB keyboard
+keyboard:usb:v04B3p301B*
+ KEYBOARD_KEY_90001=prog1 # ThinkVantage
+ KEYBOARD_KEY_90002=screenlock
+ KEYBOARD_KEY_90003=file
+ KEYBOARD_KEY_90004=wordprocessor
+ KEYBOARD_KEY_90005=spreadsheet
+ KEYBOARD_KEY_90006=calc
+ KEYBOARD_KEY_90007=mail
+ KEYBOARD_KEY_90008=www
+
+
 ###########################################################
 # Logitech
 ###########################################################
@@ -923,6 +936,14 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
  KEYBOARD_KEY_97=!kbdillumdown                          # Fn+F7 keyboard backlight down
  KEYBOARD_KEY_96=!kbdillumup                            # Fn+F8 keyboard backlight up
  KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 Wi-Fi toggle
+
+# Series 7 Ultra
+keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*7[34]0U3E*:pvr*
+ KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
+ KEYBOARD_KEY_97=!kbdillumdown                          # Fn+F9 keyboard backlight down
+ KEYBOARD_KEY_96=!kbdillumup                            # Fn+F10 keyboard backlight up
+ KEYBOARD_KEY_b3=!prog3                                 # Fn+F11 fan/cooling mode changer
+ KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 wlan/airplane switch
 
 # SQ1US
 keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pnSQ1US:pvr*

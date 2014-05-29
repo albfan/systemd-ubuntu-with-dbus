@@ -24,6 +24,7 @@
 #include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <libkmod.h>
 
 #include "udev.h"
 #include "condition-util.h"
@@ -37,7 +38,7 @@ bool net_match_config(const struct ether_addr *match_mac,
                       Condition *match_virt,
                       Condition *match_kernel,
                       Condition *match_arch,
-                      const char *dev_mac,
+                      const struct ether_addr *dev_mac,
                       const char *dev_path,
                       const char *dev_parent_driver,
                       const char *dev_driver,
@@ -65,3 +66,9 @@ int config_parse_ifalias(const char *unit, const char *filename, unsigned line,
 int net_parse_inaddr(const char *address, unsigned char *family, void *dst);
 
 int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]);
+
+int load_module(struct kmod_ctx *ctx, const char *mod_name);
+
+void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size);
+int deserialize_in_addrs(struct in_addr **addresses, size_t *size, const char *string);
+int deserialize_in6_addrs(struct in6_addr **addresses, size_t *size, const char *string);

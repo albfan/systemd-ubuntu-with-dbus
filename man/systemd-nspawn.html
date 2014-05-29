@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="systemd-nspawn"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-nspawn — Spawn a namespace container for debugging, testing and building</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>  [OPTIONS...] [<em class="replaceable"><code>COMMAND</code></em>
                          [ARGS...]
-                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm140428502326768"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
+                        ]</p></div><div class="cmdsynopsis"><p><code class="command">systemd-nspawn</code>   -b  [OPTIONS...] [ARGS...]</p></div></div><div class="refsect1"><a name="idm140333747372384"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-nspawn</strong></span> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
                 <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
@@ -78,7 +78,7 @@
                 <a href="os-release.html"><span class="citerefentry"><span class="refentrytitle">os-release</span>(5)</span></a>). It
                 might be necessary to add this file to the container
                 tree manually if the OS of the container is too old to
-                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm140428501580000"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
+                contain this file out-of-the-box.</p></div><div class="refsect1"><a name="idm140333751295536"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>If option <code class="option">-b</code> is specified, the
                 arguments are used as arguments for the init
                 binary. Otherwise, <em class="replaceable"><code>COMMAND</code></em>
                 specifies the program to launch in the container, and
@@ -121,7 +121,7 @@
                                 <code class="option">--share-system</code>.
                                 </p></dd><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--user=</code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>After transitioning
                                 into the container, change to the
-                                specified user defined in the
+                                specified user-defined in the
                                 container's user database. Like all
                                 other systemd-nspawn features, this is
                                 not a security feature and provides
@@ -196,7 +196,7 @@
                                 container's name (as specified with
                                 <code class="option">--machine=</code>), prefixed
                                 with "<code class="literal">ve-</code>". The
-                                container side of the the Ethernet
+                                container side of the Ethernet
                                 link will be named
                                 "<code class="literal">host0</code>". Note that
                                 <code class="option">--network-veth</code>
@@ -208,7 +208,7 @@
                                 <code class="option">--network-bridge=</code>
                                 implies
                                 <code class="option">--network-veth</code>. If
-                                this option is used the host side of
+                                this option is used, the host side of
                                 the Ethernet link will use the
                                 "<code class="literal">vb-</code>" prefix instead
                                 of "<code class="literal">ve-</code>".</p></dd><dt id="-Z"><span class="term"><code class="option">-Z</code>, </span><span class="term"><code class="option">--selinux-context=</code></span><a class="headerlink" title="Permalink to this term" href="#-Z">¶</a></dt><dd><p>Sets the SELinux
@@ -367,8 +367,8 @@
                                 "<code class="literal">x86</code>" and
                                 "<code class="literal">x86-64</code>" are
                                 supported. This is useful when running
-                                a 32bit container on a 64bit
-                                host. If this setting is not used
+                                a 32-bit container on a 64-bit
+                                host. If this setting is not used,
                                 the personality reported in the
                                 container is the same as the one
                                 reported on the
@@ -377,26 +377,26 @@
                                 switch is used, the only output
                                 from nspawn will be the console output
                                 of the container OS itself.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140428503875616"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm140333746222656"></a><h2 id="Example 1">Example 1<a class="headerlink" title="Permalink to this headline" href="#Example%201">¶</a></h2><pre class="programlisting"># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</pre><p>This installs a minimal Fedora distribution into
                 the directory <code class="filename">/srv/mycontainer/</code> and
                 then boots an OS in a namespace container in
-                it.</p></div><div class="refsect1"><a name="idm140428504048784"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
+                it.</p></div><div class="refsect1"><a name="idm140333746219616"></a><h2 id="Example 2">Example 2<a class="headerlink" title="Permalink to this headline" href="#Example%202">¶</a></h2><pre class="programlisting"># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</pre><p>This installs a minimal Debian unstable
                 distribution into the directory
                 <code class="filename">~/debian-tree/</code> and then spawns a
-                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm140428501935760"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
+                shell in a namespace container in it.</p></div><div class="refsect1"><a name="idm140333746216896"></a><h2 id="Example 3">Example 3<a class="headerlink" title="Permalink to this headline" href="#Example%203">¶</a></h2><pre class="programlisting"># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</pre><p>This installs a mimimal Arch Linux distribution into
                 the directory <code class="filename">~/arch-tree/</code> and then
-                boots an OS in a namespace container in it.</p></div><div class="refsect1"><a name="idm140428503436928"></a><h2 id="Example 4">Example 4<a class="headerlink" title="Permalink to this headline" href="#Example%204">¶</a></h2><pre class="programlisting"># mv ~/arch-tree /var/lib/container/arch
+                boots an OS in a namespace container in it.</p></div><div class="refsect1"><a name="idm140333746214400"></a><h2 id="Example 4">Example 4<a class="headerlink" title="Permalink to this headline" href="#Example%204">¶</a></h2><pre class="programlisting"># mv ~/arch-tree /var/lib/container/arch
 # systemctl enable systemd-nspawn@arch.service
 # systemctl start systemd-nspawn@arch.service</pre><p>This makes the Arch Linux container part of the
                 <code class="filename">multi-user.target</code> on the host.
-                </p></div><div class="refsect1"><a name="idm140428504518064"></a><h2 id="Example 5">Example 5<a class="headerlink" title="Permalink to this headline" href="#Example%205">¶</a></h2><pre class="programlisting"># btrfs subvolume snapshot / /.tmp
+                </p></div><div class="refsect1"><a name="idm140333746211856"></a><h2 id="Example 5">Example 5<a class="headerlink" title="Permalink to this headline" href="#Example%205">¶</a></h2><pre class="programlisting"># btrfs subvolume snapshot / /.tmp
 # systemd-nspawn --private-network -D /.tmp -b</pre><p>This runs a copy of the host system in a
-                btrfs snapshot.</p></div><div class="refsect1"><a name="idm140428502640112"></a><h2 id="Example 6">Example 6<a class="headerlink" title="Permalink to this headline" href="#Example%206">¶</a></h2><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
-# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre><p>This runs a container with SELinux sandbox security contexts.</p></div><div class="refsect1"><a name="idm140428502258080"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
-                container is returned.</p></div><div class="refsect1"><a name="idm140428503439680"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                btrfs snapshot.</p></div><div class="refsect1"><a name="idm140333746209888"></a><h2 id="Example 6">Example 6<a class="headerlink" title="Permalink to this headline" href="#Example%206">¶</a></h2><pre class="programlisting"># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+# systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</pre><p>This runs a container with SELinux sandbox security contexts.</p></div><div class="refsect1"><a name="idm140333746207888"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>The exit code of the program executed in the
+                container is returned.</p></div><div class="refsect1"><a name="idm140333746206640"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(1)</span></a>,
                         <a href="yum.html"><span class="citerefentry"><span class="refentrytitle">yum</span>(8)</span></a>,

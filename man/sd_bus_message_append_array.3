@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_ARRAY" "3" "" "systemd 212" "sd_bus_message_append_array"
+.TH "SD_BUS_MESSAGE_APPEND_ARRAY" "3" "" "systemd 213" "sd_bus_message_append_array"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,9 +38,9 @@ sd_bus_message_append_array, sd_bus_message_append_array_memfd, sd_bus_message_a
 .BI "int sd_bus_message_append_array_space(char\ " "type" ", size_t\ " "size" ", char\ void\ **" "ptr" ");"
 .SH "DESCRIPTION"
 .PP
-Function
+The
 \fBsd_bus_message_append_array\fR
-appends items to message
+functionc appends items to message
 \fIm\fR
 as the single array\&. A container will be opened, items appended, and the container closed\&. Parameter
 \fItype\fR
@@ -79,22 +79,22 @@ The memory pointed at by
 \fIp\fR
 is copied into the memory area containing the message and may be changed after this call\&.
 .PP
-Function
+The
 \fBsd_bus_message_append_array_memfd\fR
-appends items to message
+function appends items to message
 \fIm\fR, similarly to
 \fBsd_bus_message_append_array\fR\&. Contents of the memory file descriptor
 \fImemfd\fR
 are used as the contents of the array\&. Their size must be a multiple of the size of the type
 \fItype\fR\&.
 .PP
-Descriptor
+The descriptor specified with
 \fImemfd\fR
 will be sealed and cannot be modified after this call\&.
 .PP
-Function
+The
 \fBsd_bus_message_append_array_iovec\fR
-appends items to message
+function appends items to message
 \fIm\fR, similarly to
 \fBsd_bus_message_append_array\fR\&. Contents of the iovec
 \fIiov\fR
@@ -105,9 +105,9 @@ payload (the sum of
 fields) must be a multiple of the size of the type
 \fItype\fR\&.
 .PP
-Pointer
+The
 \fIiov\fR
-must point to
+argument must point to
 \fIn\fRstruct iovec
 structures\&. Each structure may have the
 iov_base
@@ -117,15 +117,15 @@ bytes will be inserted\&. The memory pointed at by
 \fIiov\fR
 may be changed after this call\&.
 .PP
-Function
+The
 \fBsd_bus_message_append_array_space\fR
-appends space for an array of items to message
+function appends space for an array of items to message
 \fIm\fR\&. It behaves the same as
 \fBsd_bus_message_append_array\fR, but instead of copying items to the message, it returns a pointer to the destination area to the caller in pointer
 \fIp\fR\&.
 .SH "RETURN VALUE"
 .PP
-On success, those calls return 0 or a positive integer\&. On failure, they returns a negative errno\-style error code\&.
+On success, these calls return 0 or a positive integer\&. On failure, they returns a negative errno\-style error code\&.
 .SH "ERRORS"
 .PP
 Returned errors may indicate the following problems:

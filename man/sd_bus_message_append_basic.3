@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_BASIC" "3" "" "systemd 212" "sd_bus_message_append_basic"
+.TH "SD_BUS_MESSAGE_APPEND_BASIC" "3" "" "systemd 213" "sd_bus_message_append_basic"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -209,7 +209,7 @@ For types
 is interpreted as a pointer to a
 \fBNUL\fR\-terminated character sequence\&. As a special case, a
 \fBNULL\fR
-pointer is interpreted as an empty string\&. The string should be valid Unicode string encoded as UTF\-8\&. In case of the two latter types, additionally the requirements for a D\-Bus object path or type signature should be satisfied\&. Those requirements should be verified by the recepient of the message\&.
+pointer is interpreted as an empty string\&. The string should be valid Unicode string encoded as UTF\-8\&. In case of the two latter types, the additional requirements for a D\-Bus object path or type signature should be satisfied\&. Those requirements should be verified by the recepient of the message\&.
 .SH "RETURN VALUE"
 .PP
 On success, this call returns 0 or a positive integer\&. On failure, it returns a negative errno\-style error code\&.
@@ -243,6 +243,7 @@ Memory allocation failed\&.
 .RE
 .SH "NOTES"
 .PP
+The
 \fBsd_bus_append_basic()\fR
 function described here is available as a shared library, which can be compiled and linked to with the
 \fBlibsystemd\fR\ \&\fBpkg-config\fR(1)

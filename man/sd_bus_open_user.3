@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_OPEN_USER" "3" "" "systemd 212" "sd_bus_open_user"
+.TH "SD_BUS_OPEN_USER" "3" "" "systemd 213" "sd_bus_open_user"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,13 +43,13 @@ sd_bus_open_user, sd_bus_open_system, sd_bus_open_system_remote, sd_bus_open_sys
 .SH "DESCRIPTION"
 .PP
 \fBsd_bus_open_user()\fR
-creates a new bus object and opens a connection to the the user bus\&.
+creates a new bus object and opens a connection to the user bus\&.
 \fBsd_bus_open_system()\fR
 does the same, but connects to the system bus\&.
 .PP
 If the
 \fI$DBUS_SESSION_BUS_ADDRESS\fR
-environment variable is set (c\&.f\&.
+environment variable is set (cf\&.
 \fBenviron\fR(7)), it will be used as the address of the user bus\&. This variable can contain multiple addresses separated by
 ";"\&. If this variable is not set, a suitable default for the default user D\-Bus instance will be used\&.
 .PP

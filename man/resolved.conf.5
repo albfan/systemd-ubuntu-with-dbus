@@ -1,0 +1,43 @@
+'\" t
+.TH "RESOLVED\&.CONF" "5" "" "systemd 213" "resolved.conf"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+resolved.conf \- Network Name Resolution configuration file
+.SH "SYNOPSIS"
+.PP
+/etc/systemd/resolved\&.conf
+.SH "DESCRIPTION"
+.PP
+When starting, systemd\-resolved will read the configuration file
+resolved\&.conf\&. This configuration file determines the fallback DNS servers\&.
+.SH "OPTIONS"
+.PP
+\fIDNS=\fR
+.RS 4
+A space separated list of IPv4 and IPv6 addresses to be used as the fallback DNS servers\&. Note that the servers obtained from
+\fBsystemd-networkd.service\fR(8)
+take precedence\&. If this option is not given, a compiled\-in list of DNS servers is used instead\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-resolved.service\fR(8),
+\fBsystemd-networkd.service\fR(8)

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 212</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf — Login manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p></div><div class="refsect1"><a name="idm140376696618672"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the systemd login manager, <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140376696616640"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 213</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf — Login manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p></div><div class="refsect1"><a name="idm140465966776592"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the systemd login manager, <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm140465966774560"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
                 "<code class="literal">[Login]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="NAutoVTs="><span class="term"><code class="varname">NAutoVTs=</code></span><a class="headerlink" title="Permalink to this term" href="#NAutoVTs=">¶</a></dt><dd><p>Takes a positive
                                 integer. Configures how many virtual
                                 terminals (VTs) to allocate by default
@@ -31,31 +31,31 @@
                                 template unit
                                 <code class="filename">autovt@.service</code>
                                 for the respective VT TTY name,
-                                e.g. <code class="filename">autovt@tty4.service</code>. By
+                                for example, <code class="filename">autovt@tty4.service</code>. By
                                 default,
                                 <code class="filename">autovt@.service</code>
                                 is linked to
-                                <code class="filename">getty@.service</code>,
-                                i.e. login prompts are started
+                                <code class="filename">getty@.service</code>.
+                                In other words, login prompts are started
                                 dynamically as the user switches to
                                 unused virtual terminals. Hence, this
                                 parameter controls how many login
                                 "<code class="literal">gettys</code>" are
                                 available on the VTs. If a VT is
                                 already used by some other subsystem
-                                (for example a graphical login), this
+                                (for example, a graphical login), this
                                 kind of activation will not be
                                 attempted. Note that the VT configured
                                 in <code class="varname">ReserveVT=</code> is
                                 always subject to this kind of
                                 activation, even if it is not one of
-                                VTs configured with the
+                                the VTs configured with the
                                 <code class="varname">NAutoVTs=</code>
                                 directive. Defaults to 6. When set to
                                 0, automatic spawning of
                                 "<code class="literal">autovt</code>" services is
                                 disabled.</p></dd><dt id="ReserveVT="><span class="term"><code class="varname">ReserveVT=</code></span><a class="headerlink" title="Permalink to this term" href="#ReserveVT=">¶</a></dt><dd><p>Takes a positive
-                                integer. Configures the number of one
+                                integer. Identifies one
                                 virtual terminal that shall
                                 unconditionally be reserved for
                                 <code class="filename">autovt@.service</code>
@@ -63,7 +63,7 @@
                                 selected with this option will be
                                 marked busy unconditionally, so that no
                                 other subsystem will allocate it. This
-                                functionality is useful to ensure that
+                                functionality is useful to ensure that,
                                 regardless of how many VTs are allocated
                                 by other subsystems, one login
                                 "<code class="literal">getty</code>" is always
@@ -75,8 +75,8 @@
                                 disabled.</p></dd><dt id="KillUserProcesses="><span class="term"><code class="varname">KillUserProcesses=</code></span><a class="headerlink" title="Permalink to this term" href="#KillUserProcesses=">¶</a></dt><dd><p>Takes a boolean
                                 argument. Configures whether the
                                 processes of a user should be killed
-                                when she or he completely logs out (i.e. after
-                                her/his last session ended). Defaults to
+                                when the user completely logs out (i.e. after
+                                the user's last session ended). Defaults to
                                 "<code class="literal">no</code>".</p><p>Note that setting
                                 <code class="varname">KillUserProcesses=1</code>
                                 will break tools like
@@ -104,7 +104,7 @@
                                 "<code class="literal">kexec</code>",
                                 "<code class="literal">suspend</code>",
                                 "<code class="literal">hibernate</code>",
-                                "<code class="literal">hybrid-sleep</code>",
+                                "<code class="literal">hybrid-sleep</code>", and
                                 "<code class="literal">lock</code>". Defaults to
                                 "<code class="literal">ignore</code>".</p><p>Note that this requires that
                                 user sessions correctly report the
@@ -125,7 +125,7 @@
                                 being active before the inhibitor is
                                 ignored and the operation executes
                                 anyway. Defaults to
-                                5s.</p></dd><dt id="HandlePowerKey="><span class="term"><code class="varname">HandlePowerKey=</code>, </span><span class="term"><code class="varname">HandleSuspendKey=</code>, </span><span class="term"><code class="varname">HandleHibernateKey=</code>, </span><span class="term"><code class="varname">HandleLidSwitch=</code></span><a class="headerlink" title="Permalink to this term" href="#HandlePowerKey=">¶</a></dt><dd><p>Controls whether
+                                5.</p></dd><dt id="HandlePowerKey="><span class="term"><code class="varname">HandlePowerKey=</code>, </span><span class="term"><code class="varname">HandleSuspendKey=</code>, </span><span class="term"><code class="varname">HandleHibernateKey=</code>, </span><span class="term"><code class="varname">HandleLidSwitch=</code></span><a class="headerlink" title="Permalink to this term" href="#HandlePowerKey=">¶</a></dt><dd><p>Controls whether
                                 logind shall handle the system power
                                 and sleep keys and the lid switch to
                                 trigger actions such as system
@@ -137,7 +137,7 @@
                                 "<code class="literal">kexec</code>",
                                 "<code class="literal">suspend</code>",
                                 "<code class="literal">hibernate</code>",
-                                "<code class="literal">hybrid-sleep</code>" and
+                                "<code class="literal">hybrid-sleep</code>", and
                                 "<code class="literal">lock</code>". If
                                 "<code class="literal">ignore</code>", logind will
                                 never handle these keys. If
@@ -188,22 +188,22 @@
                                 <code class="varname">$XDG_RUNTIME_DIR</code>
                                 runtime directory for each user who
                                 logs in. Takes a size in bytes,
-                                possibly suffixed with the usual K, G,
-                                M, T suffixes, to the base 1024
-                                (IEC). Alternatively, a percentage
-                                suffixed by "<code class="literal">%</code>" may
-                                be specified, which sets the size
+                                optionally suffixed with the usual K, G,
+                                M, and T suffixes, to the base 1024
+                                (IEC). Alternatively, a numerical
+                                percentage suffixed by "<code class="literal">%</code>"
+                                may be specified, which sets the size
                                 limit relative to the amount of
                                 physical RAM. Defaults to 10%. Note
                                 that this size is a safety limit
                                 only. As each runtime directory is a
-                                tmpfs file system it will only consume
-                                as much memory as it is filled up
-                                to.</p></dd><dt id="RemoveIPC="><span class="term"><code class="varname">RemoveIPC=</code></span><a class="headerlink" title="Permalink to this term" href="#RemoveIPC=">¶</a></dt><dd><p>Controls whether
+                                tmpfs file system, it will only consume
+                                as much memory as is needed.
+                                </p></dd><dt id="RemoveIPC="><span class="term"><code class="varname">RemoveIPC=</code></span><a class="headerlink" title="Permalink to this term" href="#RemoveIPC=">¶</a></dt><dd><p>Controls whether
                                 System V and POSIX IPC objects
                                 belonging to the user shall be removed
-                                when she or he fully logs out. Takes a
-                                boolean argument. If enabled the user
+                                when the user fully logs out. Takes a
+                                boolean argument. If enabled, the user
                                 may not consume IPC resources after
                                 the last of his sessions
                                 terminated. This covers System V
@@ -213,7 +213,7 @@
                                 objects of the root user are excluded
                                 from the effect of this
                                 setting. Defaults to
-                                on.</p></dd></dl></div></div><div class="refsect1"><a name="idm140376695526624"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                "<code class="literal">yes</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm140465965683456"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
                           <a href="loginctl.html"><span class="citerefentry"><span class="refentrytitle">loginctl</span>(1)</span></a>,
