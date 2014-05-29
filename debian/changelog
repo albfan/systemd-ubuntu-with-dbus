@@ -1,9 +1,9 @@
-systemd (204-10ubuntu8) UNRELEASED; urgency=medium
+systemd (204-10ubuntu8) utopic; urgency=medium
 
   * debian/udev.udev-finish.upstart: Don't make this a task anymore, as
     startpar needs this job to be running.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 29 May 2014 09:57:24 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 29 May 2014 10:00:01 +0200
 
 systemd (204-10ubuntu7) utopic; urgency=medium
 
