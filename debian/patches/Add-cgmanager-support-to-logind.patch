@@ -22,8 +22,8 @@ Bug-Ubuntu: https://launchpad.net/bugs/1297363
 
 Index: systemd-204/Makefile.am
 ===================================================================
---- systemd-204.orig/Makefile.am	2014-05-13 12:18:13.000000000 -0400
-+++ systemd-204/Makefile.am	2014-05-13 15:44:37.000000000 -0400
+--- systemd-204.orig/Makefile.am	2014-06-18 22:55:50.000000000 -0400
++++ systemd-204/Makefile.am	2014-06-18 23:17:11.000000000 -0400
 @@ -177,6 +177,10 @@
  	-I $(top_srcdir)/src/libsystemd-bus \
  	$(OUR_CPPFLAGS)
@@ -73,8 +73,8 @@ Index: systemd-204/Makefile.am
  	libsystemd-logs.la
 Index: systemd-204/configure.ac
 ===================================================================
---- systemd-204.orig/configure.ac	2014-05-13 12:18:13.000000000 -0400
-+++ systemd-204/configure.ac	2014-05-13 12:18:13.000000000 -0400
+--- systemd-204.orig/configure.ac	2014-06-18 22:55:50.000000000 -0400
++++ systemd-204/configure.ac	2014-06-18 22:55:50.000000000 -0400
 @@ -780,6 +780,24 @@
  
  # ------------------------------------------------------------------------------
@@ -110,8 +110,8 @@ Index: systemd-204/configure.ac
          rootprefix:              ${with_rootprefix}
 Index: systemd-204/src/login/logind.c
 ===================================================================
---- systemd-204.orig/src/login/logind.c	2014-05-13 12:18:13.000000000 -0400
-+++ systemd-204/src/login/logind.c	2014-05-13 12:18:13.000000000 -0400
+--- systemd-204.orig/src/login/logind.c	2014-06-18 22:55:50.000000000 -0400
++++ systemd-204/src/login/logind.c	2014-06-18 23:05:45.610335508 -0400
 @@ -38,6 +38,7 @@
  #include "strv.h"
  #include "conf-parser.h"
@@ -124,7 +124,7 @@ Index: systemd-204/src/login/logind.c
          int r = 0, k;
          char *name;
  
-+        char **children;
++        char **children = NULL;
 +        int i;
 +
 +        #ifdef HAVE_CGMANAGER
@@ -182,7 +182,7 @@ Index: systemd-204/src/login/logind.c
          Iterator i;
          int r = 0;
  
-+        char **children;
++        char **children = NULL;
 +        int i1;
 +
          HASHMAP_FOREACH(u, m->users, i) {
@@ -247,8 +247,8 @@ Index: systemd-204/src/login/logind.c
 Index: systemd-204/src/shared/cgmanager.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ systemd-204/src/shared/cgmanager.c	2014-05-13 15:45:10.444135865 -0400
-@@ -0,0 +1,240 @@
++++ systemd-204/src/shared/cgmanager.c	2014-06-18 23:20:04.942249484 -0400
+@@ -0,0 +1,247 @@
 +/*
 + * lxc: linux Container library
 + *
@@ -380,6 +380,7 @@ Index: systemd-204/src/shared/cgmanager.c
 +char *cgm_get(const char *controller, const char *cgroup_path, const char *key)
 +{
 +	char *result = NULL;
++	char *ret = NULL;
 +
 +	if (cgroup_path[0] == '/')
 +		cgroup_path++;
@@ -390,10 +391,16 @@ Index: systemd-204/src/shared/cgmanager.c
 +		log_error("cgmanager: cgm_get for controller=%s, cgroup_path=%s failed: %s",
 +		          controller, cgroup_path, nerr->message);
 +		nih_free(nerr);
-+		free(result);
++		nih_free(result);
 +		return NULL;
 +	}
-+	return result;
++
++	if (result) {
++		ret = strdup(result);
++		nih_free(result);
++	}
++
++	return ret;
 +}
 +
 +bool cgm_chmod(const char *controller, const char *cgroup_path, int mode)
@@ -492,7 +499,7 @@ Index: systemd-204/src/shared/cgmanager.c
 Index: systemd-204/src/shared/cgmanager.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ systemd-204/src/shared/cgmanager.h	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/src/shared/cgmanager.h	2014-06-18 22:55:50.000000000 -0400
 @@ -0,0 +1,44 @@
 +/*
 + * lxc: linux Container library
@@ -541,7 +548,7 @@ Index: systemd-204/src/shared/cgmanager.h
 Index: systemd-204/src/shared/cgroup-label.c
 ===================================================================
 --- systemd-204.orig/src/shared/cgroup-label.c	2013-04-15 22:41:21.360855712 -0400
-+++ systemd-204/src/shared/cgroup-label.c	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/src/shared/cgroup-label.c	2014-06-18 22:55:50.000000000 -0400
 @@ -30,6 +30,7 @@
  #include <ftw.h>
  
@@ -581,7 +588,7 @@ Index: systemd-204/src/shared/cgroup-label.c
 Index: systemd-204/src/shared/cgroup-util.c
 ===================================================================
 --- systemd-204.orig/src/shared/cgroup-util.c	2013-05-06 15:06:04.057670685 -0400
-+++ systemd-204/src/shared/cgroup-util.c	2014-05-13 15:44:57.109471302 -0400
++++ systemd-204/src/shared/cgroup-util.c	2014-06-18 23:05:18.786828925 -0400
 @@ -29,6 +29,7 @@
  #include <sys/types.h>
  #include <ftw.h>
@@ -931,7 +938,7 @@ Index: systemd-204/src/shared/cgroup-util.c
 +        char *p;
          int r;
  
-+        char **children;
++        char **children = NULL;
 +        char *p1;
 +        int i = 0;
 +
@@ -987,7 +994,7 @@ Index: systemd-204/src/shared/cgroup-util.c
 Index: systemd-204/src/shared/cgroup-util.h
 ===================================================================
 --- systemd-204.orig/src/shared/cgroup-util.h	2013-05-06 15:06:04.057670685 -0400
-+++ systemd-204/src/shared/cgroup-util.h	2014-05-13 12:18:13.000000000 -0400
++++ systemd-204/src/shared/cgroup-util.h	2014-06-18 22:55:50.000000000 -0400
 @@ -113,3 +113,5 @@
  char *cg_unescape(const char *p) _pure_;
  

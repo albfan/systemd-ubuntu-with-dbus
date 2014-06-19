@@ -1,3 +1,11 @@
+systemd (204-10ubuntu9) UNRELEASED; urgency=medium
+
+  * Fix various issues with the cgmanager integration (LP: #1309025):
+     - Always nih_free variables that were potentially nih allocated.
+     - Always initialize the children listings to NULL.
+
+ -- Stéphane Graber <stgraber@ubuntu.com>  Wed, 18 Jun 2014 23:34:41 -0400
+
 systemd (204-10ubuntu8) utopic; urgency=medium
 
   * debian/udev.udev-finish.upstart: Don't make this a task anymore, as
