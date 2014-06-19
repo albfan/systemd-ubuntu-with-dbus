@@ -1,4 +1,4 @@
-systemd (204-10ubuntu9) UNRELEASED; urgency=medium
+systemd (204-10ubuntu9) utopic; urgency=medium
 
   * Fix various issues with the cgmanager integration (LP: #1309025):
      - Always nih_free variables that were potentially nih allocated.
