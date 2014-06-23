@@ -21,6 +21,9 @@ systemd (204-11) UNRELEASED; urgency=medium
     systemd-sysv as default init. While downgrading the Pre-Depends in
     sysvinit would have been an alternative, dropping the Conflicts and only
     keeping the Replaces was deemed the lesser evil. (Closes: #748355)
+  * Use Conflicts instead of Breaks against sysvinit-core. This avoids
+    /sbin/init going missing when switching from systemd-sysv to sysvinit.
+    While at it, add a Replaces: upstart. (Closes: #751589)
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
