@@ -16,6 +16,11 @@ systemd (204-11) UNRELEASED; urgency=medium
     parent_add_child().
   * Drop "-b debian" from Vcs-Git since we use the master branch for
     packaging now.
+  * Drop Conflicts: sysvinit (<< 2.88dsf-44~) from systemd-sysv since this
+    breaks dist-upgrades from wheezy when switching from sysvinit to
+    systemd-sysv as default init. While downgrading the Pre-Depends in
+    sysvinit would have been an alternative, dropping the Conflicts and only
+    keeping the Replaces was deemed the lesser evil. (Closes: #748355)
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
