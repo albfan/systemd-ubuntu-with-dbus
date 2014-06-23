@@ -76,8 +76,7 @@ Package: systemd-sysv
 Architecture: linux-any
 Section: admin
 Priority: extra
-Conflicts: upstart,
-           runit-run
+Conflicts: upstart
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core
 Breaks: sysvinit-core
