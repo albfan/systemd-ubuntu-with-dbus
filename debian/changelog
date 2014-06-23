@@ -12,6 +12,8 @@ systemd (204-11) UNRELEASED; urgency=medium
   * Make no-patch-numbers the default for gbp-pq.
   * Cherry-pick upstream fix to properly handle multiline syslog messages.
     (Closes: #746351)
+  * Cherry-pick upstream fix for libudev which fixes a memleak in
+    parent_add_child().
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
