@@ -10,6 +10,8 @@ systemd (204-11) UNRELEASED; urgency=medium
 
   [ Michael Biebl ]
   * Make no-patch-numbers the default for gbp-pq.
+  * Cherry-pick upstream fix to properly handle multiline syslog messages.
+    (Closes: #746351)
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
