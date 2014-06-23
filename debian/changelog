@@ -14,6 +14,8 @@ systemd (204-11) UNRELEASED; urgency=medium
     (Closes: #746351)
   * Cherry-pick upstream fix for libudev which fixes a memleak in
     parent_add_child().
+  * Drop "-b debian" from Vcs-Git since we use the master branch for
+    packaging now.
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
