@@ -1,4 +1,4 @@
-systemd (208-2) UNRELEASED; urgency=medium
+systemd (208-2) experimental; urgency=medium
 
   [ Sjoerd Simons ]
   * Don't stop a running user manager from garbage collecting the users. Fixes
@@ -12,7 +12,7 @@ systemd (208-2) UNRELEASED; urgency=medium
   * Merge changes from unstable branch.
   * Cherry-pick upstream fixes to make sd_session_get_vt() actually work.
 
- -- Sjoerd Simons <sjoerd@debian.org>  Tue, 29 Apr 2014 08:51:39 +0200
+ -- Michael Biebl <biebl@debian.org>  Tue, 24 Jun 2014 17:45:26 +0200
 
 systemd (208-1) experimental; urgency=medium
 
