@@ -16,7 +16,7 @@ Forwarded: no
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
-index 127da7e..c90cc98 100644
+index b9ba36d..5aed7fa 100644
 --- a/rules/80-drivers.rules
 +++ b/rules/80-drivers.rules
 @@ -3,6 +3,7 @@
