@@ -43,3 +43,8 @@ Always-probe-cpu-support-drivers.patch
 Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 login-Don-t-stop-a-running-user-manager-from-garbage.patch
+rules-drivers-always-call-kmod-even-when-a-driver-is.patch
+Advertise-hibernation-only-if-there-s-enough-free-sw.patch
+journal-handle-multiline-syslog-messages.patch
+libudev-fix-memleak-when-enumerating-childs.patch
+Add-run-initctl-support-to-SysV-compat-tools.patch
