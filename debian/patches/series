@@ -44,3 +44,5 @@ Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 login-Don-t-stop-a-running-user-manager-from-garbage.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
+login-make-sd_session_get_vt-actually-work.patch
+login-fix-invalid-free-in-sd_session_get_vt.patch
