@@ -8,6 +8,9 @@ systemd (208-2) UNRELEASED; urgency=medium
   * Fix bug-script: “systemctl dump” is now “systemd-analyze dump”
     (Closes: #748311)
 
+  [ Michael Biebl ]
+  * Merge changes from unstable branch.
+
  -- Sjoerd Simons <sjoerd@debian.org>  Tue, 29 Apr 2014 08:51:39 +0200
 
 systemd (208-1) experimental; urgency=medium
