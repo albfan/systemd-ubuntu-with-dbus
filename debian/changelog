@@ -26,6 +26,14 @@ systemd (204-11) UNRELEASED; urgency=medium
     While at it, add a Replaces: upstart. (Closes: #751589)
   * Make the SysV compat tools try both /run/initctl and /dev/initctl. This
     makes them usable under sysvinit as PID 1 without requiring any symlinks.
+  * Various ifupdown integration fixes
+    - Use DefaultDependencies=no in ifup@.service so the service can be
+      started as early as possible.
+    - Create the ifupdown runtime directory in ifup@.service as we can no
+      longer rely on the networking service to do that for us.
+    - Don't stop ifup@.service on shutdown but let the networking service take
+      care of stopping all hotplugged interfaces.
+    - Only start ifup@.service for interfaces configured as allow-hotplug.
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
