@@ -24,6 +24,8 @@ systemd (204-11) UNRELEASED; urgency=medium
   * Use Conflicts instead of Breaks against sysvinit-core. This avoids
     /sbin/init going missing when switching from systemd-sysv to sysvinit.
     While at it, add a Replaces: upstart. (Closes: #751589)
+  * Make the SysV compat tools try both /run/initctl and /dev/initctl. This
+    makes them usable under sysvinit as PID 1 without requiring any symlinks.
 
   [ Michael Stapelberg ]
   * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
