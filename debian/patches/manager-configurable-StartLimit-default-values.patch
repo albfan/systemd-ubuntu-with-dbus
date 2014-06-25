@@ -1,0 +1,160 @@
+From: Lukas Nykryn <lnykryn@redhat.com>
+Date: Fri, 8 Nov 2013 16:01:22 +0100
+Subject: manager: configurable StartLimit default values
+
+https://bugzilla.redhat.com/show_bug.cgi?id=821723
+---
+ man/systemd-system.conf.xml | 13 +++++++++++++
+ man/systemd.service.xml     |  9 ++++++---
+ src/core/main.c             |  6 ++++++
+ src/core/manager.h          |  3 +++
+ src/core/service.c          |  4 +++-
+ src/core/system.conf        |  2 ++
+ src/core/user.conf          |  2 ++
+ src/shared/def.h            |  3 +++
+ 8 files changed, 38 insertions(+), 4 deletions(-)
+
+diff --git a/man/systemd-system.conf.xml b/man/systemd-system.conf.xml
+index c1f26484..9a1a99fe 100644
+--- a/man/systemd-system.conf.xml
++++ b/man/systemd-system.conf.xml
+@@ -115,6 +115,19 @@
+                                 <varname>TimeoutSec=</varname> value.
+                                 </para></listitem>
+                         </varlistentry>
++                        <varlistentry>
++                                <term><varname>DefaultStartLimitInterval=</varname></term>
++                                <term><varname>DefaultStartLimitBurst=</varname></term>
++
++                                <listitem><para>Configure the default start rate
++                                limiting, as configured per-service by
++                                <varname>StartLimitInterval=</varname> and
++                                <varname>StartLimitBurst=</varname>. See
++                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
++                                for details on the per-service
++                                settings).
++                                </para></listitem>
++                        </varlistentry>
+ 
+                         <varlistentry>
+                                 <term><varname>CPUAffinity=</varname></term>
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index df040483..3f31c115 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -863,12 +863,15 @@
+                                 these two options, this rate limiting
+                                 may be modified. Use
+                                 <varname>StartLimitInterval=</varname>
+-                                to configure the checking interval
+-                                (defaults to 10s, set to 0 to disable
++                                to configure the checking interval (defaults to
++                                <varname>DefaultStartLimitInterval=</varname> in
++                                manager configuration file, set to 0 to disable
+                                 any kind of rate limiting). Use
+                                 <varname>StartLimitBurst=</varname> to
+                                 configure how many starts per interval
+-                                are allowed (defaults to 5). These
++                                are allowed (defaults to
++                                <varname>DefaultStartLimitBurst=</varname> in
++                                manager configuration file). These
+                                 configuration options are particularly
+                                 useful in conjunction with
+                                 <varname>Restart=</varname>, however
+diff --git a/src/core/main.c b/src/core/main.c
+index 937994cb..00fd3948 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -93,6 +93,8 @@ static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
+ static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
+ static usec_t arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
+ static usec_t arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
++static usec_t arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
++static unsigned arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
+ static usec_t arg_runtime_watchdog = 0;
+ static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+ static char **arg_default_environment = NULL;
+@@ -642,6 +644,8 @@ static int parse_config_file(void) {
+                 { "Manager", "DefaultTimeoutStartSec", config_parse_sec,         0, &arg_default_timeout_start_usec },
+                 { "Manager", "DefaultTimeoutStopSec", config_parse_sec,          0, &arg_default_timeout_stop_usec  },
+                 { "Manager", "DefaultRestartSec",     config_parse_sec,          0, &arg_default_restart_usec  },
++                { "Manager", "DefaultStartLimitInterval", config_parse_sec,      0, &arg_default_start_limit_interval },
++                { "Manager", "DefaultStartLimitBurst", config_parse_unsigned,    0, &arg_default_start_limit_burst },
+                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
+                 { "Manager", "RuntimeWatchdogSec",    config_parse_sec,          0, &arg_runtime_watchdog    },
+                 { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
+@@ -1551,6 +1555,8 @@ int main(int argc, char *argv[]) {
+         m->default_restart_usec = arg_default_restart_usec;
+         m->default_timeout_start_usec = arg_default_timeout_start_usec;
+         m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
++        m->default_start_limit_interval = arg_default_start_limit_interval;
++        m->default_start_limit_burst = arg_default_start_limit_burst;
+         m->runtime_watchdog = arg_runtime_watchdog;
+         m->shutdown_watchdog = arg_shutdown_watchdog;
+         m->userspace_timestamp = userspace_timestamp;
+diff --git a/src/core/manager.h b/src/core/manager.h
+index e74c6097..ee42c5e0 100644
+--- a/src/core/manager.h
++++ b/src/core/manager.h
+@@ -233,6 +233,9 @@ struct Manager {
+         usec_t default_restart_usec, default_timeout_start_usec,
+                 default_timeout_stop_usec;
+ 
++        usec_t default_start_limit_interval;
++        unsigned default_start_limit_burst;
++
+         struct rlimit *rlimit[RLIMIT_NLIMITS];
+ 
+         /* non-zero if we are reloading or reexecuting, */
+diff --git a/src/core/service.c b/src/core/service.c
+index e81aa1fa..56621803 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -143,7 +143,9 @@ static void service_init(Unit *u) {
+         kill_context_init(&s->kill_context);
+         cgroup_context_init(&s->cgroup_context);
+ 
+-        RATELIMIT_INIT(s->start_limit, 10*USEC_PER_SEC, 5);
++        RATELIMIT_INIT(s->start_limit,
++                       u->manager->default_start_limit_interval,
++                       u->manager->default_start_limit_burst);
+ 
+         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+ }
+diff --git a/src/core/system.conf b/src/core/system.conf
+index 3c6cc034..38bbca5b 100644
+--- a/src/core/system.conf
++++ b/src/core/system.conf
+@@ -27,6 +27,8 @@
+ #DefaultTimeoutStartSec=90s
+ #DefaultTimeoutStopSec=90s
+ #DefaultRestartSec=100ms
++#DefaultStartLimitInterval=10s
++#DefaultStartLimitBurst=5
+ #DefaultEnvironment=
+ #DefaultLimitCPU=
+ #DefaultLimitFSIZE=
+diff --git a/src/core/user.conf b/src/core/user.conf
+index b0307018..923ca669 100644
+--- a/src/core/user.conf
++++ b/src/core/user.conf
+@@ -17,3 +17,5 @@
+ #DefaultTimeoutStartSec=90s
+ #DefaultTimeoutStopSec=90s
+ #DefaultRestartSec=100ms
++#DefaultStartLimitInterval=10s
++#DefaultStartLimitBurst=5
+diff --git a/src/shared/def.h b/src/shared/def.h
+index edd0bcf7..e4ef7355 100644
+--- a/src/shared/def.h
++++ b/src/shared/def.h
+@@ -27,6 +27,9 @@
+ #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
+ #define DEFAULT_CONFIRM_USEC (30*USEC_PER_SEC)
+ 
++#define DEFAULT_START_LIMIT_INTERVAL (10*USEC_PER_SEC)
++#define DEFAULT_START_LIMIT_BURST 5
++
+ #define DEFAULT_EXIT_USEC (5*USEC_PER_MINUTE)
+ 
+ #define SYSTEMD_CGROUP_CONTROLLER "name=systemd"

@@ -1,0 +1,1521 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 24 Dec 2013 16:39:37 +0100
+Subject: log: log_error() and friends add a newline after each line anyway,
+ so avoid including it in the log strings
+
+(cherry picked from commit 9f6445e34a57c270f013c9416c123e56261553dd)
+
+Conflicts:
+	src/bus-driverd/bus-driverd.c
+	src/bus-proxyd/bus-proxyd.c
+	src/shared/path-util.c
+	src/udev/net/link-config.c
+	src/udev/scsi_id/scsi_id.c
+	src/udev/scsi_id/scsi_serial.c
+	src/udev/udev-builtin-keyboard.c
+	src/udev/udev-event.c
+	src/udev/udev-rules.c
+	src/udev/udevadm-monitor.c
+	src/udev/udevadm-trigger.c
+	src/udev/udevd.c
+---
+ src/binfmt/binfmt.c                    |   2 +-
+ src/bootchart/bootchart.c              |   4 +-
+ src/journal/coredumpctl.c              |   2 +-
+ src/journal/journal-authenticate.c     |   2 +-
+ src/modules-load/modules-load.c        |   4 +-
+ src/sysctl/sysctl.c                    |   2 +-
+ src/test/test-udev.c                   |   8 +-
+ src/tmpfiles/tmpfiles.c                |   4 +-
+ src/udev/accelerometer/accelerometer.c |   2 +-
+ src/udev/ata_id/ata_id.c               |   6 +-
+ src/udev/cdrom_id/cdrom_id.c           | 160 ++++++++++++++++-----------------
+ src/udev/udev-builtin-blkid.c          |   2 +-
+ src/udev/udev-builtin-firmware.c       |  10 +--
+ src/udev/udev-builtin-input_id.c       |  14 +--
+ src/udev/udev-builtin-kmod.c           |  18 ++--
+ src/udev/udev-builtin-usb_id.c         |  22 ++---
+ src/udev/udev-ctrl.c                   |  22 ++---
+ src/udev/udev-node.c                   |  32 +++----
+ src/udev/udev-watch.c                  |  10 +--
+ src/udev/udevadm-hwdb.c                |  42 ++++-----
+ src/udev/udevadm-settle.c              |  16 ++--
+ src/udev/udevadm-test.c                |   4 +-
+ src/udev/udevadm.c                     |   2 +-
+ 23 files changed, 195 insertions(+), 195 deletions(-)
+
+diff --git a/src/binfmt/binfmt.c b/src/binfmt/binfmt.c
+index 5a42b3db..7ed1ae7b 100644
+--- a/src/binfmt/binfmt.c
++++ b/src/binfmt/binfmt.c
+@@ -94,7 +94,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
+                 return r;
+         }
+ 
+-        log_debug("apply: %s\n", path);
++        log_debug("apply: %s", path);
+         for (;;) {
+                 char l[LINE_MAX], *p;
+                 int k;
+diff --git a/src/bootchart/bootchart.c b/src/bootchart/bootchart.c
+index 14ccd3ef..9f99c1f6 100644
+--- a/src/bootchart/bootchart.c
++++ b/src/bootchart/bootchart.c
+@@ -262,12 +262,12 @@ static void do_journal_append(char *file)
+ 
+         f = open(file, O_RDONLY);
+         if (f < 0) {
+-                log_error("Failed to read bootchart data: %m\n");
++                log_error("Failed to read bootchart data: %m");
+                 return;
+         }
+         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
+         if (n < 0) {
+-                log_error("Failed to read bootchart data: %s\n", strerror(-n));
++                log_error("Failed to read bootchart data: %s", strerror(-n));
+                 close(f);
+                 return;
+         }
+diff --git a/src/journal/coredumpctl.c b/src/journal/coredumpctl.c
+index 75c96cc0..560a91b6 100644
+--- a/src/journal/coredumpctl.c
++++ b/src/journal/coredumpctl.c
+@@ -417,7 +417,7 @@ static int dump_core(sd_journal* j) {
+ 
+         r = sd_journal_previous(j);
+         if (r >= 0)
+-                log_warning("More than one entry matches, ignoring rest.\n");
++                log_warning("More than one entry matches, ignoring rest.");
+ 
+         return 0;
+ }
+diff --git a/src/journal/journal-authenticate.c b/src/journal/journal-authenticate.c
+index bd7100a8..f416b79a 100644
+--- a/src/journal/journal-authenticate.c
++++ b/src/journal/journal-authenticate.c
+@@ -60,7 +60,7 @@ int journal_file_append_tag(JournalFile *f) {
+         o->tag.seqnum = htole64(journal_file_tag_seqnum(f));
+         o->tag.epoch = htole64(FSPRG_GetEpoch(f->fsprg_state));
+ 
+-        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"\n",
++        log_debug("Writing tag %"PRIu64" for epoch %"PRIu64"",
+                   le64toh(o->tag.seqnum),
+                   FSPRG_GetEpoch(f->fsprg_state));
+ 
+diff --git a/src/modules-load/modules-load.c b/src/modules-load/modules-load.c
+index 49ee4203..9789398e 100644
+--- a/src/modules-load/modules-load.c
++++ b/src/modules-load/modules-load.c
+@@ -122,7 +122,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
+         struct kmod_list *itr, *modlist = NULL;
+         int r = 0;
+ 
+-        log_debug("load: %s\n", m);
++        log_debug("load: %s", m);
+ 
+         r = kmod_module_new_from_lookup(ctx, m, &modlist);
+         if (r < 0) {
+@@ -190,7 +190,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
+                 return r;
+         }
+ 
+-        log_debug("apply: %s\n", path);
++        log_debug("apply: %s", path);
+         for (;;) {
+                 char line[LINE_MAX], *l;
+                 int k;
+diff --git a/src/sysctl/sysctl.c b/src/sysctl/sysctl.c
+index b5670dbb..8fb0eb65 100644
+--- a/src/sysctl/sysctl.c
++++ b/src/sysctl/sysctl.c
+@@ -132,7 +132,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
+                 return r;
+         }
+ 
+-        log_debug("parse: %s\n", path);
++        log_debug("parse: %s", path);
+         while (!feof(f)) {
+                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
+                 void *v;
+diff --git a/src/test/test-udev.c b/src/test/test-udev.c
+index 17825f12..676669ba 100644
+--- a/src/test/test-udev.c
++++ b/src/test/test-udev.c
+@@ -101,20 +101,20 @@ int main(int argc, char *argv[])
+         if (udev == NULL)
+                 return EXIT_FAILURE;
+ 
+-        log_debug("version %s\n", VERSION);
++        log_debug("version %s", VERSION);
+         label_init("/dev");
+ 
+         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
+ 
+         action = argv[1];
+         if (action == NULL) {
+-                log_error("action missing\n");
++                log_error("action missing");
+                 goto out;
+         }
+ 
+         devpath = argv[2];
+         if (devpath == NULL) {
+-                log_error("devpath missing\n");
++                log_error("devpath missing");
+                 goto out;
+         }
+ 
+@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
+         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
+         dev = udev_device_new_from_syspath(udev, syspath);
+         if (dev == NULL) {
+-                log_debug("unknown device '%s'\n", devpath);
++                log_debug("unknown device '%s'", devpath);
+                 goto out;
+         }
+ 
+diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
+index e23847bb..00f74c25 100644
+--- a/src/tmpfiles/tmpfiles.c
++++ b/src/tmpfiles/tmpfiles.c
+@@ -359,7 +359,7 @@ static int dir_cleanup(
+                                 continue;
+ 
+                         if (i->type != IGNORE_DIRECTORY_PATH || !streq(dent->d_name, p)) {
+-                                log_debug("rmdir '%s'\n", sub_path);
++                                log_debug("rmdir '%s'", sub_path);
+ 
+                                 if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0) {
+                                         if (errno != ENOENT && errno != ENOTEMPTY) {
+@@ -407,7 +407,7 @@ static int dir_cleanup(
+                         if (age >= cutoff)
+                                 continue;
+ 
+-                        log_debug("unlink '%s'\n", sub_path);
++                        log_debug("unlink '%s'", sub_path);
+ 
+                         if (unlinkat(dirfd(d), dent->d_name, 0) < 0) {
+                                 if (errno != ENOENT) {
+diff --git a/src/udev/accelerometer/accelerometer.c b/src/udev/accelerometer/accelerometer.c
+index e611b48a..9610d7c2 100644
+--- a/src/udev/accelerometer/accelerometer.c
++++ b/src/udev/accelerometer/accelerometer.c
+@@ -334,7 +334,7 @@ int main (int argc, char** argv)
+                 return 0;
+         }
+ 
+-        log_debug("opening accelerometer device %s\n", devnode);
++        log_debug("opening accelerometer device %s", devnode);
+         test_orientation(udev, dev, devnode);
+         free(devnode);
+         log_close();
+diff --git a/src/udev/ata_id/ata_id.c b/src/udev/ata_id/ata_id.c
+index d375d434..5e55f8dc 100644
+--- a/src/udev/ata_id/ata_id.c
++++ b/src/udev/ata_id/ata_id.c
+@@ -462,14 +462,14 @@ int main(int argc, char *argv[])
+ 
+         node = argv[optind];
+         if (node == NULL) {
+-                log_error("no node specified\n");
++                log_error("no node specified");
+                 rc = 1;
+                 goto exit;
+         }
+ 
+         fd = open(node, O_RDONLY|O_NONBLOCK);
+         if (fd < 0) {
+-                log_error("unable to open '%s'\n", node);
++                log_error("unable to open '%s'", node);
+                 rc = 1;
+                 goto exit;
+         }
+@@ -501,7 +501,7 @@ int main(int argc, char *argv[])
+         } else {
+                 /* If this fails, then try HDIO_GET_IDENTITY */
+                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
+-                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
++                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m", node);
+                         rc = 2;
+                         goto close;
+                 }
+diff --git a/src/udev/cdrom_id/cdrom_id.c b/src/udev/cdrom_id/cdrom_id.c
+index 1ad04592..1fc0dfa3 100644
+--- a/src/udev/cdrom_id/cdrom_id.c
++++ b/src/udev/cdrom_id/cdrom_id.c
+@@ -137,10 +137,10 @@ static bool is_mounted(const char *device)
+ static void info_scsi_cmd_err(struct udev *udev, const char *cmd, int err)
+ {
+         if (err == -1) {
+-                log_debug("%s failed\n", cmd);
++                log_debug("%s failed", cmd);
+                 return;
+         }
+-        log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh\n", cmd, SK(err), ASC(err), ASCQ(err));
++        log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh", cmd, SK(err), ASC(err), ASCQ(err));
+ }
+ 
+ struct scsi_cmd {
+@@ -205,11 +205,11 @@ static int media_lock(struct udev *udev, int fd, bool lock)
+         /* disable the kernel's lock logic */
+         err = ioctl(fd, CDROM_CLEAR_OPTIONS, CDO_LOCK);
+         if (err < 0)
+-                log_debug("CDROM_CLEAR_OPTIONS, CDO_LOCK failed\n");
++                log_debug("CDROM_CLEAR_OPTIONS, CDO_LOCK failed");
+ 
+         err = ioctl(fd, CDROM_LOCKDOOR, lock ? 1 : 0);
+         if (err < 0)
+-                log_debug("CDROM_LOCKDOOR failed\n");
++                log_debug("CDROM_LOCKDOOR failed");
+ 
+         return err;
+ }
+@@ -237,7 +237,7 @@ static int cd_capability_compat(struct udev *udev, int fd)
+ 
+         capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
+         if (capability < 0) {
+-                log_debug("CDROM_GET_CAPABILITY failed\n");
++                log_debug("CDROM_GET_CAPABILITY failed");
+                 return -1;
+         }
+ 
+@@ -261,7 +261,7 @@ static int cd_capability_compat(struct udev *udev, int fd)
+ static int cd_media_compat(struct udev *udev, int fd)
+ {
+         if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
+-                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK\n");
++                log_debug("CDROM_DRIVE_STATUS != CDS_DISC_OK");
+                 return -1;
+         }
+         cd_media = 1;
+@@ -285,11 +285,11 @@ static int cd_inquiry(struct udev *udev, int fd)
+         }
+ 
+         if ((inq[0] & 0x1F) != 5) {
+-                log_debug("not an MMC unit\n");
++                log_debug("not an MMC unit");
+                 return -1;
+         }
+ 
+-        log_debug("INQUIRY: [%.8s][%.16s][%.4s]\n", inq + 8, inq + 16, inq + 32);
++        log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
+         return 0;
+ }
+ 
+@@ -299,105 +299,105 @@ static void feature_profile_media(struct udev *udev, int cur_profile)
+         case 0x03:
+         case 0x04:
+         case 0x05:
+-                log_debug("profile 0x%02x \n", cur_profile);
++                log_debug("profile 0x%02x ", cur_profile);
+                 cd_media = 1;
+                 cd_media_mo = 1;
+                 break;
+         case 0x08:
+-                log_debug("profile 0x%02x media_cd_rom\n", cur_profile);
++                log_debug("profile 0x%02x media_cd_rom", cur_profile);
+                 cd_media = 1;
+                 cd_media_cd_rom = 1;
+                 break;
+         case 0x09:
+-                log_debug("profile 0x%02x media_cd_r\n", cur_profile);
++                log_debug("profile 0x%02x media_cd_r", cur_profile);
+                 cd_media = 1;
+                 cd_media_cd_r = 1;
+                 break;
+         case 0x0a:
+-                log_debug("profile 0x%02x media_cd_rw\n", cur_profile);
++                log_debug("profile 0x%02x media_cd_rw", cur_profile);
+                 cd_media = 1;
+                 cd_media_cd_rw = 1;
+                 break;
+         case 0x10:
+-                log_debug("profile 0x%02x media_dvd_ro\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_ro", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_rom = 1;
+                 break;
+         case 0x11:
+-                log_debug("profile 0x%02x media_dvd_r\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_r", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_r = 1;
+                 break;
+         case 0x12:
+-                log_debug("profile 0x%02x media_dvd_ram\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_ram", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_ram = 1;
+                 break;
+         case 0x13:
+-                log_debug("profile 0x%02x media_dvd_rw_ro\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_rw_ro", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_rw = 1;
+                 cd_media_dvd_rw_ro = 1;
+                 break;
+         case 0x14:
+-                log_debug("profile 0x%02x media_dvd_rw_seq\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_rw_seq", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_rw = 1;
+                 cd_media_dvd_rw_seq = 1;
+                 break;
+         case 0x1B:
+-                log_debug("profile 0x%02x media_dvd_plus_r\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_plus_r", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_plus_r = 1;
+                 break;
+         case 0x1A:
+-                log_debug("profile 0x%02x media_dvd_plus_rw\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_plus_rw", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_plus_rw = 1;
+                 break;
+         case 0x2A:
+-                log_debug("profile 0x%02x media_dvd_plus_rw_dl\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_plus_rw_dl", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_plus_rw_dl = 1;
+                 break;
+         case 0x2B:
+-                log_debug("profile 0x%02x media_dvd_plus_r_dl\n", cur_profile);
++                log_debug("profile 0x%02x media_dvd_plus_r_dl", cur_profile);
+                 cd_media = 1;
+                 cd_media_dvd_plus_r_dl = 1;
+                 break;
+         case 0x40:
+-                log_debug("profile 0x%02x media_bd\n", cur_profile);
++                log_debug("profile 0x%02x media_bd", cur_profile);
+                 cd_media = 1;
+                 cd_media_bd = 1;
+                 break;
+         case 0x41:
+         case 0x42:
+-                log_debug("profile 0x%02x media_bd_r\n", cur_profile);
++                log_debug("profile 0x%02x media_bd_r", cur_profile);
+                 cd_media = 1;
+                 cd_media_bd_r = 1;
+                 break;
+         case 0x43:
+-                log_debug("profile 0x%02x media_bd_re\n", cur_profile);
++                log_debug("profile 0x%02x media_bd_re", cur_profile);
+                 cd_media = 1;
+                 cd_media_bd_re = 1;
+                 break;
+         case 0x50:
+-                log_debug("profile 0x%02x media_hddvd\n", cur_profile);
++                log_debug("profile 0x%02x media_hddvd", cur_profile);
+                 cd_media = 1;
+                 cd_media_hddvd = 1;
+                 break;
+         case 0x51:
+-                log_debug("profile 0x%02x media_hddvd_r\n", cur_profile);
++                log_debug("profile 0x%02x media_hddvd_r", cur_profile);
+                 cd_media = 1;
+                 cd_media_hddvd_r = 1;
+                 break;
+         case 0x52:
+-                log_debug("profile 0x%02x media_hddvd_rw\n", cur_profile);
++                log_debug("profile 0x%02x media_hddvd_rw", cur_profile);
+                 cd_media = 1;
+                 cd_media_hddvd_rw = 1;
+                 break;
+         default:
+-                log_debug("profile 0x%02x <ignored>\n", cur_profile);
++                log_debug("profile 0x%02x <ignored>", cur_profile);
+                 break;
+         }
+ }
+@@ -414,77 +414,77 @@ static int feature_profiles(struct udev *udev, const unsigned char *profiles, si
+                 case 0x03:
+                 case 0x04:
+                 case 0x05:
+-                        log_debug("profile 0x%02x mo\n", profile);
++                        log_debug("profile 0x%02x mo", profile);
+                         cd_mo = 1;
+                         break;
+                 case 0x08:
+-                        log_debug("profile 0x%02x cd_rom\n", profile);
++                        log_debug("profile 0x%02x cd_rom", profile);
+                         cd_cd_rom = 1;
+                         break;
+                 case 0x09:
+-                        log_debug("profile 0x%02x cd_r\n", profile);
++                        log_debug("profile 0x%02x cd_r", profile);
+                         cd_cd_r = 1;
+                         break;
+                 case 0x0A:
+-                        log_debug("profile 0x%02x cd_rw\n", profile);
++                        log_debug("profile 0x%02x cd_rw", profile);
+                         cd_cd_rw = 1;
+                         break;
+                 case 0x10:
+-                        log_debug("profile 0x%02x dvd_rom\n", profile);
++                        log_debug("profile 0x%02x dvd_rom", profile);
+                         cd_dvd_rom = 1;
+                         break;
+                 case 0x12:
+-                        log_debug("profile 0x%02x dvd_ram\n", profile);
++                        log_debug("profile 0x%02x dvd_ram", profile);
+                         cd_dvd_ram = 1;
+                         break;
+                 case 0x13:
+                 case 0x14:
+-                        log_debug("profile 0x%02x dvd_rw\n", profile);
++                        log_debug("profile 0x%02x dvd_rw", profile);
+                         cd_dvd_rw = 1;
+                         break;
+                 case 0x1B:
+-                        log_debug("profile 0x%02x dvd_plus_r\n", profile);
++                        log_debug("profile 0x%02x dvd_plus_r", profile);
+                         cd_dvd_plus_r = 1;
+                         break;
+                 case 0x1A:
+-                        log_debug("profile 0x%02x dvd_plus_rw\n", profile);
++                        log_debug("profile 0x%02x dvd_plus_rw", profile);
+                         cd_dvd_plus_rw = 1;
+                         break;
+                 case 0x2A:
+-                        log_debug("profile 0x%02x dvd_plus_rw_dl\n", profile);
++                        log_debug("profile 0x%02x dvd_plus_rw_dl", profile);
+                         cd_dvd_plus_rw_dl = 1;
+                         break;
+                 case 0x2B:
+-                        log_debug("profile 0x%02x dvd_plus_r_dl\n", profile);
++                        log_debug("profile 0x%02x dvd_plus_r_dl", profile);
+                         cd_dvd_plus_r_dl = 1;
+                         break;
+                 case 0x40:
+                         cd_bd = 1;
+-                        log_debug("profile 0x%02x bd\n", profile);
++                        log_debug("profile 0x%02x bd", profile);
+                         break;
+                 case 0x41:
+                 case 0x42:
+                         cd_bd_r = 1;
+-                        log_debug("profile 0x%02x bd_r\n", profile);
++                        log_debug("profile 0x%02x bd_r", profile);
+                         break;
+                 case 0x43:
+                         cd_bd_re = 1;
+-                        log_debug("profile 0x%02x bd_re\n", profile);
++                        log_debug("profile 0x%02x bd_re", profile);
+                         break;
+                 case 0x50:
+                         cd_hddvd = 1;
+-                        log_debug("profile 0x%02x hddvd\n", profile);
++                        log_debug("profile 0x%02x hddvd", profile);
+                         break;
+                 case 0x51:
+                         cd_hddvd_r = 1;
+-                        log_debug("profile 0x%02x hddvd_r\n", profile);
++                        log_debug("profile 0x%02x hddvd_r", profile);
+                         break;
+                 case 0x52:
+                         cd_hddvd_rw = 1;
+-                        log_debug("profile 0x%02x hddvd_rw\n", profile);
++                        log_debug("profile 0x%02x hddvd_rw", profile);
+                         break;
+                 default:
+-                        log_debug("profile 0x%02x <ignored>\n", profile);
++                        log_debug("profile 0x%02x <ignored>", profile);
+                         break;
+                 }
+         }
+@@ -507,13 +507,13 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
+         if ((err != 0)) {
+                 info_scsi_cmd_err(udev, "READ DISC INFORMATION", err);
+                 if (cd_media == 1) {
+-                        log_debug("no current profile, but disc is present; assuming CD-ROM\n");
++                        log_debug("no current profile, but disc is present; assuming CD-ROM");
+                         cd_media_cd_rom = 1;
+                         cd_media_track_count = 1;
+                         cd_media_track_count_data = 1;
+                         return 0;
+                 } else {
+-                        log_debug("no current profile, assuming no media\n");
++                        log_debug("no current profile, assuming no media");
+                         return -1;
+                 }
+         };
+@@ -522,13 +522,13 @@ static int cd_profiles_old_mmc(struct udev *udev, int fd)
+ 
+         if (header[2] & 16) {
+                 cd_media_cd_rw = 1;
+-                log_debug("profile 0x0a media_cd_rw\n");
++                log_debug("profile 0x0a media_cd_rw");
+         } else if ((header[2] & 3) < 2 && cd_cd_r) {
+                 cd_media_cd_r = 1;
+-                log_debug("profile 0x09 media_cd_r\n");
++                log_debug("profile 0x09 media_cd_r");
+         } else {
+                 cd_media_cd_rom = 1;
+-                log_debug("profile 0x08 media_cd_rom\n");
++                log_debug("profile 0x08 media_cd_rom");
+         }
+         return 0;
+ }
+@@ -556,8 +556,8 @@ static int cd_profiles(struct udev *udev, int fd)
+                 info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
+                 /* handle pre-MMC2 drives which do not support GET CONFIGURATION */
+                 if (SK(err) == 0x5 && ASC(err) == 0x20) {
+-                        log_debug("drive is pre-MMC2 and does not support 46h get configuration command\n");
+-                        log_debug("trying to work around the problem\n");
++                        log_debug("drive is pre-MMC2 and does not support 46h get configuration command");
++                        log_debug("trying to work around the problem");
+                         ret = cd_profiles_old_mmc(udev, fd);
+                 }
+                 goto out;
+@@ -565,18 +565,18 @@ static int cd_profiles(struct udev *udev, int fd)
+ 
+         cur_profile = features[6] << 8 | features[7];
+         if (cur_profile > 0) {
+-                log_debug("current profile 0x%02x\n", cur_profile);
++                log_debug("current profile 0x%02x", cur_profile);
+                 feature_profile_media (udev, cur_profile);
+                 ret = 0; /* we have media */
+         } else {
+-                log_debug("no current profile, assuming no media\n");
++                log_debug("no current profile, assuming no media");
+         }
+ 
+         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x\n", len);
++        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
+ 
+         if (len > sizeof(features)) {
+-                log_debug("can not get features in a single query, truncating\n");
++                log_debug("can not get features in a single query, truncating");
+                 len = sizeof(features);
+         } else if (len <= 8) {
+                 len = sizeof(features);
+@@ -596,10 +596,10 @@ static int cd_profiles(struct udev *udev, int fd)
+ 
+         /* parse the length once more, in case the drive decided to have other features suddenly :) */
+         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x\n", len);
++        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
+ 
+         if (len > sizeof(features)) {
+-                log_debug("can not get features in a single query, truncating\n");
++                log_debug("can not get features in a single query, truncating");
+                 len = sizeof(features);
+         }
+ 
+@@ -611,11 +611,11 @@ static int cd_profiles(struct udev *udev, int fd)
+ 
+                 switch (feature) {
+                 case 0x00:
+-                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries\n", features[i+3] / 4);
++                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
+                         feature_profiles(udev, &features[i]+4, features[i+3]);
+                         break;
+                 default:
+-                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes\n", feature, features[i+3]);
++                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
+                         break;
+                 }
+         }
+@@ -646,8 +646,8 @@ static int cd_media_info(struct udev *udev, int fd)
+         };
+ 
+         cd_media = 1;
+-        log_debug("disk type %02x\n", header[8]);
+-        log_debug("hardware reported media status: %s\n", media_status[header[2] & 3]);
++        log_debug("disk type %02x", header[8]);
++        log_debug("hardware reported media status: %s", media_status[header[2] & 3]);
+ 
+         /* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
+         if (!cd_media_cd_rom)
+@@ -685,7 +685,7 @@ static int cd_media_info(struct udev *udev, int fd)
+                         }
+                         if (dvdstruct[4] & 0x02) {
+                                 cd_media_state = media_status[2];
+-                                log_debug("write-protected DVD-RAM media inserted\n");
++                                log_debug("write-protected DVD-RAM media inserted");
+                                 goto determined;
+                         }
+ 
+@@ -702,13 +702,13 @@ static int cd_media_info(struct udev *udev, int fd)
+ 
+                         len = format[3];
+                         if (len & 7 || len < 16) {
+-                                log_debug("invalid format capacities length\n");
++                                log_debug("invalid format capacities length");
+                                 return -1;
+                         }
+ 
+                         switch(format[8] & 3) {
+                             case 1:
+-                                log_debug("unformatted DVD-RAM media inserted\n");
++                                log_debug("unformatted DVD-RAM media inserted");
+                                 /* This means that last format was interrupted
+                                  * or failed, blank dvd-ram discs are factory
+                                  * formatted. Take no action here as it takes
+@@ -717,12 +717,12 @@ static int cd_media_info(struct udev *udev, int fd)
+                                 goto determined;
+ 
+                             case 2:
+-                                log_debug("formatted DVD-RAM media inserted\n");
++                                log_debug("formatted DVD-RAM media inserted");
+                                 break;
+ 
+                             case 3:
+                                 cd_media = 0; //return no media
+-                                log_debug("format capacities returned no media\n");
++                                log_debug("format capacities returned no media");
+                                 return -1;
+                         }
+                 }
+@@ -758,9 +758,9 @@ static int cd_media_info(struct udev *udev, int fd)
+ 
+                 if (!result) {
+                         cd_media_state = media_status[0];
+-                        log_debug("no data in blocks 0 or 16, assuming blank\n");
++                        log_debug("no data in blocks 0 or 16, assuming blank");
+                 } else {
+-                        log_debug("data in blocks 0 or 16, assuming complete\n");
++                        log_debug("data in blocks 0 or 16, assuming complete");
+                 }
+         }
+ 
+@@ -796,7 +796,7 @@ static int cd_media_toc(struct udev *udev, int fd)
+         }
+ 
+         len = (header[0] << 8 | header[1]) + 2;
+-        log_debug("READ TOC: len: %d, start track: %d, end track: %d\n", len, header[2], header[3]);
++        log_debug("READ TOC: len: %d, start track: %d, end track: %d", len, header[2], header[3]);
+         if (len > sizeof(toc))
+                 return -1;
+         if (len < 2)
+@@ -830,7 +830,7 @@ static int cd_media_toc(struct udev *udev, int fd)
+                 is_data_track = (p[1] & 0x04) != 0;
+ 
+                 block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
+-                log_debug("track=%u info=0x%x(%s) start_block=%u\n",
++                log_debug("track=%u info=0x%x(%s) start_block=%u",
+                      p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
+ 
+                 if (is_data_track)
+@@ -850,7 +850,7 @@ static int cd_media_toc(struct udev *udev, int fd)
+                 return -1;
+         }
+         len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
+-        log_debug("last track %u starts at block %u\n", header[4+2], len);
++        log_debug("last track %u starts at block %u", header[4+2], len);
+         cd_media_session_last_offset = (unsigned long long int)len * 2048;
+         return 0;
+ }
+@@ -919,7 +919,7 @@ int main(int argc, char *argv[])
+ 
+         node = argv[optind];
+         if (!node) {
+-                log_error("no device\n");
++                log_error("no device");
+                 fprintf(stderr, "no device\n");
+                 rc = 1;
+                 goto exit;
+@@ -937,12 +937,12 @@ int main(int argc, char *argv[])
+                 nanosleep(&duration, NULL);
+         }
+         if (fd < 0) {
+-                log_debug("unable to open '%s'\n", node);
++                log_debug("unable to open '%s'", node);
+                 fprintf(stderr, "unable to open '%s'\n", node);
+                 rc = 1;
+                 goto exit;
+         }
+-        log_debug("probing: '%s'\n", node);
++        log_debug("probing: '%s'", node);
+ 
+         /* same data as original cdrom_id */
+         if (cd_capability_compat(udev, fd) < 0) {
+@@ -973,19 +973,19 @@ int main(int argc, char *argv[])
+ work:
+         /* lock the media, so we enable eject button events */
+         if (lock && cd_media) {
+-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)\n");
++                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
+                 media_lock(udev, fd, true);
+         }
+ 
+         if (unlock && cd_media) {
+-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
++                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
+                 media_lock(udev, fd, false);
+         }
+ 
+         if (eject) {
+-                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)\n");
++                log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
+                 media_lock(udev, fd, false);
+-                log_debug("START_STOP_UNIT (eject)\n");
++                log_debug("START_STOP_UNIT (eject)");
+                 media_eject(udev, fd);
+         }
+ 
+diff --git a/src/udev/udev-builtin-blkid.c b/src/udev/udev-builtin-blkid.c
+index b48dccc2..c806bd6a 100644
+--- a/src/udev/udev-builtin-blkid.c
++++ b/src/udev/udev-builtin-blkid.c
+@@ -190,7 +190,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
+         if (err < 0)
+                 goto out;
+ 
+-        log_debug("probe %s %sraid offset=%llu\n",
++        log_debug("probe %s %sraid offset=%llu",
+                   udev_device_get_devnode(dev),
+                   noraid ? "no" : "", (unsigned long long) offset);
+ 
+diff --git a/src/udev/udev-builtin-firmware.c b/src/udev/udev-builtin-firmware.c
+index b80940b6..8cfeed66 100644
+--- a/src/udev/udev-builtin-firmware.c
++++ b/src/udev/udev-builtin-firmware.c
+@@ -33,7 +33,7 @@ static bool set_loading(struct udev *udev, char *loadpath, const char *state)
+ 
+         ldfile = fopen(loadpath, "we");
+         if (ldfile == NULL) {
+-                log_error("error: can not open '%s'\n", loadpath);
++                log_error("error: can not open '%s'", loadpath);
+                 return false;
+         };
+         fprintf(ldfile, "%s\n", state);
+@@ -53,7 +53,7 @@ static bool copy_firmware(struct udev *udev, const char *source, const char *tar
+                 return false;
+         }
+ 
+-        log_debug("writing '%s' (%zi) to '%s'\n", source, size, target);
++        log_debug("writing '%s' (%zi) to '%s'", source, size, target);
+ 
+         fsource = fopen(source, "re");
+         if (fsource == NULL)
+@@ -90,7 +90,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
+ 
+         firmware = udev_device_get_property_value(dev, "FIRMWARE");
+         if (firmware == NULL) {
+-                log_error("firmware parameter missing\n\n");
++                log_error("firmware parameter missing");
+                 rc = EXIT_FAILURE;
+                 goto exit;
+         }
+@@ -112,7 +112,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
+         strscpyl(loadpath, sizeof(loadpath), udev_device_get_syspath(dev), "/loading", NULL);
+ 
+         if (fwfile == NULL) {
+-                log_debug("did not find firmware file '%s'\n", firmware);
++                log_debug("did not find firmware file '%s'", firmware);
+                 rc = EXIT_FAILURE;
+                 /*
+                  * Do not cancel the request in the initrd, the real root might have
+@@ -136,7 +136,7 @@ static int builtin_firmware(struct udev_device *dev, int argc, char *argv[], boo
+ 
+         strscpyl(datapath, sizeof(datapath), udev_device_get_syspath(dev), "/data", NULL);
+         if (!copy_firmware(udev, fwpath, datapath, statbuf.st_size)) {
+-                log_error("error sending firmware '%s' to device\n", firmware);
++                log_error("error sending firmware '%s' to device", firmware);
+                 set_loading(udev, loadpath, "-1");
+                 rc = EXIT_FAILURE;
+                 goto exit;
+diff --git a/src/udev/udev-builtin-input_id.c b/src/udev/udev-builtin-input_id.c
+index 445b602f..4691fc07 100644
+--- a/src/udev/udev-builtin-input_id.c
++++ b/src/udev/udev-builtin-input_id.c
+@@ -57,7 +57,7 @@ static void get_cap_mask(struct udev_device *dev,
+         unsigned long val;
+ 
+         snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
+-        log_debug("%s raw kernel attribute: %s\n", attr, text);
++        log_debug("%s raw kernel attribute: %s", attr, text);
+ 
+         memset (bitmask, 0, bitmask_size);
+         i = 0;
+@@ -66,7 +66,7 @@ static void get_cap_mask(struct udev_device *dev,
+                 if (i < bitmask_size/sizeof(unsigned long))
+                         bitmask[i] = val;
+                 else
+-                        log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
++                        log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+                 *word = '\0';
+                 ++i;
+         }
+@@ -74,12 +74,12 @@ static void get_cap_mask(struct udev_device *dev,
+         if (i < bitmask_size / sizeof(unsigned long))
+                 bitmask[i] = val;
+         else
+-                log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
++                log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
+ 
+         if (test) {
+                 /* printf pattern with the right unsigned long number of hex chars */
+                 snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
+-                log_debug("%s decoded bit map:\n", attr);
++                log_debug("%s decoded bit map:", attr);
+                 val = bitmask_size / sizeof (unsigned long);
+                 /* skip over leading zeros */
+                 while (bitmask[val-1] == 0 && val > 0)
+@@ -151,7 +151,7 @@ static void test_key (struct udev_device *dev,
+ 
+         /* do we have any KEY_* capability? */
+         if (!test_bit (EV_KEY, bitmask_ev)) {
+-                log_debug("test_key: no EV_KEY capability\n");
++                log_debug("test_key: no EV_KEY capability");
+                 return;
+         }
+ 
+@@ -159,13 +159,13 @@ static void test_key (struct udev_device *dev,
+         found = 0;
+         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
+                 found |= bitmask_key[i];
+-                log_debug("test_key: checking bit block %lu for any keys; found=%i\n", (unsigned long)i*BITS_PER_LONG, found > 0);
++                log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
+         }
+         /* If there are no keys in the lower block, check the higher block */
+         if (!found) {
+                 for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
+                         if (test_bit (i, bitmask_key)) {
+-                                log_debug("test_key: Found key %x in high block\n", i);
++                                log_debug("test_key: Found key %x in high block", i);
+                                 found = 1;
+                                 break;
+                         }
+diff --git a/src/udev/udev-builtin-kmod.c b/src/udev/udev-builtin-kmod.c
+index fc281212..097f8811 100644
+--- a/src/udev/udev-builtin-kmod.c
++++ b/src/udev/udev-builtin-kmod.c
+@@ -44,18 +44,18 @@ static int load_module(struct udev *udev, const char *alias)
+                 return err;
+ 
+         if (list == NULL)
+-                log_debug("no module matches '%s'\n", alias);
++                log_debug("no module matches '%s'", alias);
+ 
+         kmod_list_foreach(l, list) {
+                 struct kmod_module *mod = kmod_module_get_module(l);
+ 
+                 err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
+                 if (err == KMOD_PROBE_APPLY_BLACKLIST)
+-                        log_debug("module '%s' is blacklisted\n", kmod_module_get_name(mod));
++                        log_debug("module '%s' is blacklisted", kmod_module_get_name(mod));
+                 else if (err == 0)
+-                        log_debug("inserted '%s'\n", kmod_module_get_name(mod));
++                        log_debug("inserted '%s'", kmod_module_get_name(mod));
+                 else
+-                        log_debug("failed to insert '%s'\n", kmod_module_get_name(mod));
++                        log_debug("failed to insert '%s'", kmod_module_get_name(mod));
+ 
+                 kmod_module_unref(mod);
+         }
+@@ -79,12 +79,12 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
+                 return 0;
+ 
+         if (argc < 3 || !streq(argv[1], "load")) {
+-                log_error("expect: %s load <module>\n", argv[0]);
++                log_error("expect: %s load <module>", argv[0]);
+                 return EXIT_FAILURE;
+         }
+ 
+         for (i = 2; argv[i]; i++) {
+-                log_debug("execute '%s' '%s'\n", argv[1], argv[i]);
++                log_debug("execute '%s' '%s'", argv[1], argv[i]);
+                 load_module(udev, argv[i]);
+         }
+ 
+@@ -101,7 +101,7 @@ static int builtin_kmod_init(struct udev *udev)
+         if (!ctx)
+                 return -ENOMEM;
+ 
+-        log_debug("load module index\n");
++        log_debug("load module index");
+         kmod_set_log_fn(ctx, udev_kmod_log, udev);
+         kmod_load_resources(ctx);
+         return 0;
+@@ -110,14 +110,14 @@ static int builtin_kmod_init(struct udev *udev)
+ /* called on udev shutdown and reload request */
+ static void builtin_kmod_exit(struct udev *udev)
+ {
+-        log_debug("unload module index\n");
++        log_debug("unload module index");
+         ctx = kmod_unref(ctx);
+ }
+ 
+ /* called every couple of seconds during event activity; 'true' if config has changed */
+ static bool builtin_kmod_validate(struct udev *udev)
+ {
+-        log_debug("validate module index\n");
++        log_debug("validate module index");
+         if (!ctx)
+                 return false;
+         return (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK);
+diff --git a/src/udev/udev-builtin-usb_id.c b/src/udev/udev-builtin-usb_id.c
+index 3e2f43e1..1b9f8246 100644
+--- a/src/udev/udev-builtin-usb_id.c
++++ b/src/udev/udev-builtin-usb_id.c
+@@ -275,7 +275,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+         /* usb interface directory */
+         dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
+         if (dev_interface == NULL) {
+-                log_debug("unable to access usb_interface device of '%s'\n",
++                log_debug("unable to access usb_interface device of '%s'",
+                      udev_device_get_syspath(dev));
+                 return EXIT_FAILURE;
+         }
+@@ -285,7 +285,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+ 
+         if_class = udev_device_get_sysattr_value(dev_interface, "bInterfaceClass");
+         if (!if_class) {
+-                log_debug("%s: cannot get bInterfaceClass attribute\n",
++                log_debug("%s: cannot get bInterfaceClass attribute",
+                      udev_device_get_sysname(dev));
+                 return EXIT_FAILURE;
+         }
+@@ -300,13 +300,13 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+                 set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
+         }
+ 
+-        log_debug("%s: if_class %d protocol %d\n",
++        log_debug("%s: if_class %d protocol %d",
+              udev_device_get_syspath(dev_interface), if_class_num, protocol);
+ 
+         /* usb device directory */
+         dev_usb = udev_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device");
+         if (!dev_usb) {
+-                log_debug("unable to find parent 'usb' device of '%s'\n",
++                log_debug("unable to find parent 'usb' device of '%s'",
+                      udev_device_get_syspath(dev));
+                 return EXIT_FAILURE;
+         }
+@@ -323,19 +323,19 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+                 /* get scsi device */
+                 dev_scsi = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
+                 if (dev_scsi == NULL) {
+-                        log_debug("unable to find parent 'scsi' device of '%s'\n",
++                        log_debug("unable to find parent 'scsi' device of '%s'",
+                              udev_device_get_syspath(dev));
+                         goto fallback;
+                 }
+                 if (sscanf(udev_device_get_sysname(dev_scsi), "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
+-                        log_debug("invalid scsi device '%s'\n", udev_device_get_sysname(dev_scsi));
++                        log_debug("invalid scsi device '%s'", udev_device_get_sysname(dev_scsi));
+                         goto fallback;
+                 }
+ 
+                 /* Generic SPC-2 device */
+                 scsi_vendor = udev_device_get_sysattr_value(dev_scsi, "vendor");
+                 if (!scsi_vendor) {
+-                        log_debug("%s: cannot get SCSI vendor attribute\n",
++                        log_debug("%s: cannot get SCSI vendor attribute",
+                              udev_device_get_sysname(dev_scsi));
+                         goto fallback;
+                 }
+@@ -345,7 +345,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+ 
+                 scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
+                 if (!scsi_model) {
+-                        log_debug("%s: cannot get SCSI model attribute\n",
++                        log_debug("%s: cannot get SCSI model attribute",
+                              udev_device_get_sysname(dev_scsi));
+                         goto fallback;
+                 }
+@@ -355,7 +355,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+ 
+                 scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
+                 if (!scsi_type) {
+-                        log_debug("%s: cannot get SCSI type attribute\n",
++                        log_debug("%s: cannot get SCSI type attribute",
+                              udev_device_get_sysname(dev_scsi));
+                         goto fallback;
+                 }
+@@ -363,7 +363,7 @@ static int builtin_usb_id(struct udev_device *dev, int argc, char *argv[], bool
+ 
+                 scsi_rev = udev_device_get_sysattr_value(dev_scsi, "rev");
+                 if (!scsi_rev) {
+-                        log_debug("%s: cannot get SCSI revision attribute\n",
++                        log_debug("%s: cannot get SCSI revision attribute",
+                              udev_device_get_sysname(dev_scsi));
+                         goto fallback;
+                 }
+@@ -389,7 +389,7 @@ fallback:
+                 if (!usb_vendor)
+                         usb_vendor = vendor_id;
+                 if (!usb_vendor) {
+-                        log_debug("No USB vendor information available\n");
++                        log_debug("No USB vendor information available");
+                         return EXIT_FAILURE;
+                 }
+                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
+diff --git a/src/udev/udev-ctrl.c b/src/udev/udev-ctrl.c
+index e60da906..18986858 100644
+--- a/src/udev/udev-ctrl.c
++++ b/src/udev/udev-ctrl.c
+@@ -84,7 +84,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
+         if (fd < 0) {
+                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+                 if (uctrl->sock < 0) {
+-                        log_error("error getting socket: %m\n");
++                        log_error("error getting socket: %m");
+                         udev_ctrl_unref(uctrl);
+                         return NULL;
+                 }
+@@ -118,14 +118,14 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
+ 
+                 if (err < 0) {
+                         err = -errno;
+-                        log_error("bind failed: %m\n");
++                        log_error("bind failed: %m");
+                         return err;
+                 }
+ 
+                 err = listen(uctrl->sock, 0);
+                 if (err < 0) {
+                         err = -errno;
+-                        log_error("listen failed: %m\n");
++                        log_error("listen failed: %m");
+                         return err;
+                 }
+ 
+@@ -193,7 +193,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
+         conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
+         if (conn->sock < 0) {
+                 if (errno != EINTR)
+-                        log_error("unable to receive ctrl connection: %m\n");
++                        log_error("unable to receive ctrl connection: %m");
+                 goto err;
+         }
+ 
+@@ -204,7 +204,7 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
+                 goto err;
+         }
+         if (ucred.uid > 0) {
+-                log_error("sender uid=%i, message ignored\n", ucred.uid);
++                log_error("sender uid=%i, message ignored", ucred.uid);
+                 goto err;
+         }
+ 
+@@ -367,11 +367,11 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
+                                 continue;
+                         goto err;
+                 } else if (r == 0) {
+-                        log_error("timeout waiting for ctrl message\n");
++                        log_error("timeout waiting for ctrl message");
+                         goto err;
+                 } else {
+                         if (!(pfd[0].revents & POLLIN)) {
+-                                log_error("ctrl connection error: %m\n");
++                                log_error("ctrl connection error: %m");
+                                 goto err;
+                         }
+                 }
+@@ -388,24 +388,24 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
+         smsg.msg_controllen = sizeof(cred_msg);
+         size = recvmsg(conn->sock, &smsg, 0);
+         if (size <  0) {
+-                log_error("unable to receive ctrl message: %m\n");
++                log_error("unable to receive ctrl message: %m");
+                 goto err;
+         }
+         cmsg = CMSG_FIRSTHDR(&smsg);
+         cred = (struct ucred *) CMSG_DATA(cmsg);
+ 
+         if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+-                log_error("no sender credentials received, message ignored\n");
++                log_error("no sender credentials received, message ignored");
+                 goto err;
+         }
+ 
+         if (cred->uid != 0) {
+-                log_error("sender uid=%i, message ignored\n", cred->uid);
++                log_error("sender uid=%i, message ignored", cred->uid);
+                 goto err;
+         }
+ 
+         if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
+-                log_error("message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
++                log_error("message magic 0x%08x doesn't match, ignore it", uctrl_msg->ctrl_msg_wire.magic);
+                 goto err;
+         }
+ 
+diff --git a/src/udev/udev-node.c b/src/udev/udev-node.c
+index 1148a152..ca3d781f 100644
+--- a/src/udev/udev-node.c
++++ b/src/udev/udev-node.c
+@@ -65,7 +65,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
+         /* preserve link with correct target, do not replace node of other device */
+         if (lstat(slink, &stats) == 0) {
+                 if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
+-                        log_error("conflicting device node '%s' found, link to '%s' will not be created\n", slink, node);
++                        log_error("conflicting device node '%s' found, link to '%s' will not be created", slink, node);
+                         goto exit;
+                 } else if (S_ISLNK(stats.st_mode)) {
+                         char buf[UTIL_PATH_SIZE];
+@@ -75,7 +75,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
+                         if (len > 0 && len < (int)sizeof(buf)) {
+                                 buf[len] = '\0';
+                                 if (streq(target, buf)) {
+-                                        log_debug("preserve already existing symlink '%s' to '%s'\n", slink, target);
++                                        log_debug("preserve already existing symlink '%s' to '%s'", slink, target);
+                                         label_fix(slink, true, false);
+                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
+                                         goto exit;
+@@ -83,7 +83,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
+                         }
+                 }
+         } else {
+-                log_debug("creating symlink '%s' to '%s'\n", slink, target);
++                log_debug("creating symlink '%s' to '%s'", slink, target);
+                 do {
+                         err = mkdir_parents_label(slink, 0755);
+                         if (err != 0 && err != -ENOENT)
+@@ -98,7 +98,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
+                         goto exit;
+         }
+ 
+-        log_debug("atomically replace '%s'\n", slink);
++        log_debug("atomically replace '%s'", slink);
+         strscpyl(slink_tmp, sizeof(slink_tmp), slink, ".tmp-", udev_device_get_id_filename(dev), NULL);
+         unlink(slink_tmp);
+         do {
+@@ -112,12 +112,12 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
+                 label_context_clear();
+         } while (err == -ENOENT);
+         if (err != 0) {
+-                log_error("symlink '%s' '%s' failed: %m\n", target, slink_tmp);
++                log_error("symlink '%s' '%s' failed: %m", target, slink_tmp);
+                 goto exit;
+         }
+         err = rename(slink_tmp, slink);
+         if (err != 0) {
+-                log_error("rename '%s' '%s' failed: %m\n", slink_tmp, slink);
++                log_error("rename '%s' '%s' failed: %m", slink_tmp, slink);
+                 unlink(slink_tmp);
+         }
+ exit:
+@@ -151,7 +151,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
+                 if (dent->d_name[0] == '.')
+                         continue;
+ 
+-                log_debug("found '%s' claiming '%s'\n", dent->d_name, stackdir);
++                log_debug("found '%s' claiming '%s'", dent->d_name, stackdir);
+ 
+                 /* did we find ourself? */
+                 if (streq(dent->d_name, udev_device_get_id_filename(dev)))
+@@ -164,7 +164,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
+                         devnode = udev_device_get_devnode(dev_db);
+                         if (devnode != NULL) {
+                                 if (target == NULL || udev_device_get_devlink_priority(dev_db) > priority) {
+-                                        log_debug("'%s' claims priority %i for '%s'\n",
++                                        log_debug("'%s' claims priority %i for '%s'",
+                                                   udev_device_get_syspath(dev_db), udev_device_get_devlink_priority(dev_db), stackdir);
+                                         priority = udev_device_get_devlink_priority(dev_db);
+                                         strscpy(buf, bufsize, devnode);
+@@ -197,11 +197,11 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
+ 
+         target = link_find_prioritized(dev, add, dirname, buf, sizeof(buf));
+         if (target == NULL) {
+-                log_debug("no reference left, remove '%s'\n", slink);
++                log_debug("no reference left, remove '%s'", slink);
+                 if (unlink(slink) == 0)
+                         util_delete_path(udev, slink);
+         } else {
+-                log_debug("creating link '%s' to '%s'\n", slink, target);
++                log_debug("creating link '%s' to '%s'", slink, target);
+                 node_symlink(dev, target, slink);
+         }
+ 
+@@ -246,7 +246,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
+                 if (found)
+                         continue;
+ 
+-                log_debug("update old name, '%s' no longer belonging to '%s'\n",
++                log_debug("update old name, '%s' no longer belonging to '%s'",
+                      name, udev_device_get_devpath(dev));
+                 link_update(dev, name, false);
+         }
+@@ -266,24 +266,24 @@ static int node_permissions_apply(struct udev_device *dev, bool apply, mode_t mo
+ 
+         if (lstat(devnode, &stats) != 0) {
+                 err = -errno;
+-                log_debug("can not stat() node '%s' (%m)\n", devnode);
++                log_debug("can not stat() node '%s' (%m)", devnode);
+                 goto out;
+         }
+ 
+         if (((stats.st_mode & S_IFMT) != (mode & S_IFMT)) || (stats.st_rdev != devnum)) {
+                 err = -EEXIST;
+-                log_debug("found node '%s' with non-matching devnum %s, skip handling\n",
++                log_debug("found node '%s' with non-matching devnum %s, skip handling",
+                           udev_device_get_devnode(dev), udev_device_get_id_filename(dev));
+                 goto out;
+         }
+ 
+         if (apply) {
+                 if ((stats.st_mode & 0777) != (mode & 0777) || stats.st_uid != uid || stats.st_gid != gid) {
+-                        log_debug("set permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
++                        log_debug("set permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
+                         chmod(devnode, mode);
+                         chown(devnode, uid, gid);
+                 } else {
+-                        log_debug("preserve permissions %s, %#o, uid=%u, gid=%u\n", devnode, mode, uid, gid);
++                        log_debug("preserve permissions %s, %#o, uid=%u, gid=%u", devnode, mode, uid, gid);
+                 }
+                 label_fix(devnode, true, false);
+         }
+@@ -299,7 +299,7 @@ void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid,
+         char filename[UTIL_PATH_SIZE];
+         struct udev_list_entry *list_entry;
+ 
+-        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d\n",
++        log_debug("handling device node '%s', devnum=%s, mode=%#o, uid=%d, gid=%d",
+                   udev_device_get_devnode(dev), udev_device_get_id_filename(dev), mode, uid, gid);
+ 
+         if (node_permissions_apply(dev, apply, mode, uid, gid) < 0)
+diff --git a/src/udev/udev-watch.c b/src/udev/udev-watch.c
+index 9b694c66..cbe0c37a 100644
+--- a/src/udev/udev-watch.c
++++ b/src/udev/udev-watch.c
+@@ -40,7 +40,7 @@ int udev_watch_init(struct udev *udev)
+ {
+         inotify_fd = inotify_init1(IN_CLOEXEC);
+         if (inotify_fd < 0)
+-                log_error("inotify_init failed: %m\n");
++                log_error("inotify_init failed: %m");
+         return inotify_fd;
+ }
+ 
+@@ -79,7 +79,7 @@ void udev_watch_restore(struct udev *udev)
+                         if (dev == NULL)
+                                 goto unlink;
+ 
+-                        log_debug("restoring old watch on '%s'\n", udev_device_get_devnode(dev));
++                        log_debug("restoring old watch on '%s'", udev_device_get_devnode(dev));
+                         udev_watch_begin(udev, dev);
+                         udev_device_unref(dev);
+ unlink:
+@@ -103,10 +103,10 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
+         if (inotify_fd < 0)
+                 return;
+ 
+-        log_debug("adding watch on '%s'\n", udev_device_get_devnode(dev));
++        log_debug("adding watch on '%s'", udev_device_get_devnode(dev));
+         wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
+         if (wd < 0) {
+-                log_error("inotify_add_watch(%d, %s, %o) failed: %m\n",
++                log_error("inotify_add_watch(%d, %s, %o) failed: %m",
+                     inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
+                 return;
+         }
+@@ -133,7 +133,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
+         if (wd < 0)
+                 return;
+ 
+-        log_debug("removing watch on '%s'\n", udev_device_get_devnode(dev));
++        log_debug("removing watch on '%s'", udev_device_get_devnode(dev));
+         inotify_rm_watch(inotify_fd, wd);
+ 
+         snprintf(filename, sizeof(filename), "/run/udev/watch/%d", wd);
+diff --git a/src/udev/udevadm-hwdb.c b/src/udev/udevadm-hwdb.c
+index d9dc73bf..fe56758e 100644
+--- a/src/udev/udevadm-hwdb.c
++++ b/src/udev/udevadm-hwdb.c
+@@ -389,17 +389,17 @@ static int trie_store(struct trie *trie, const char *filename) {
+                 goto out;
+         }
+ 
+-        log_debug("=== trie on-disk ===\n");
+-        log_debug("size:             %8llu bytes\n", (unsigned long long)size);
+-        log_debug("header:           %8zu bytes\n", sizeof(struct trie_header_f));
+-        log_debug("nodes:            %8llu bytes (%8llu)\n",
++        log_debug("=== trie on-disk ===");
++        log_debug("size:             %8llu bytes", (unsigned long long)size);
++        log_debug("header:           %8zu bytes", sizeof(struct trie_header_f));
++        log_debug("nodes:            %8llu bytes (%8llu)",
+                   (unsigned long long)t.nodes_count * sizeof(struct trie_node_f), (unsigned long long)t.nodes_count);
+-        log_debug("child pointers:   %8llu bytes (%8llu)\n",
++        log_debug("child pointers:   %8llu bytes (%8llu)",
+                   (unsigned long long)t.children_count * sizeof(struct trie_child_entry_f), (unsigned long long)t.children_count);
+-        log_debug("value pointers:   %8llu bytes (%8llu)\n",
++        log_debug("value pointers:   %8llu bytes (%8llu)",
+                   (unsigned long long)t.values_count * sizeof(struct trie_value_entry_f), (unsigned long long)t.values_count);
+-        log_debug("string store:     %8llu bytes\n", (unsigned long long)trie->strings->len);
+-        log_debug("strings start:    %8llu\n", (unsigned long long) t.strings_off);
++        log_debug("string store:     %8llu bytes", (unsigned long long)trie->strings->len);
++        log_debug("strings start:    %8llu", (unsigned long long) t.strings_off);
+ out:
+         free(filename_tmp);
+         return err;
+@@ -412,7 +412,7 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
+ 
+         value = strchr(line, '=');
+         if (!value) {
+-                log_error("Error, key/value pair expected but got '%s' in '%s':\n", line, filename);
++                log_error("Error, key/value pair expected but got '%s' in '%s':", line, filename);
+                 return -EINVAL;
+         }
+ 
+@@ -420,7 +420,7 @@ static int insert_data(struct trie *trie, struct udev_list *match_list,
+         value++;
+ 
+         if (line[0] == '\0' || value[0] == '\0') {
+-                log_error("Error, empty key or value '%s' in '%s':\n", line, filename);
++                log_error("Error, empty key or value '%s' in '%s':", line, filename);
+                 return -EINVAL;
+         }
+ 
+@@ -471,7 +471,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
+                                 break;
+ 
+                         if (line[0] == ' ') {
+-                                log_error("Error, MATCH expected but got '%s' in '%s':\n", line, filename);
++                                log_error("Error, MATCH expected but got '%s' in '%s':", line, filename);
+                                 break;
+                         }
+ 
+@@ -482,7 +482,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
+ 
+                 case HW_MATCH:
+                         if (len == 0) {
+-                                log_error("Error, DATA expected but got empty line in '%s':\n", filename);
++                                log_error("Error, DATA expected but got empty line in '%s':", filename);
+                                 state = HW_NONE;
+                                 udev_list_cleanup(&match_list);
+                                 break;
+@@ -508,7 +508,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
+                         }
+ 
+                         if (line[0] != ' ') {
+-                                log_error("Error, DATA expected but got '%s' in '%s':\n", line, filename);
++                                log_error("Error, DATA expected but got '%s' in '%s':", line, filename);
+                                 state = HW_NONE;
+                                 udev_list_cleanup(&match_list);
+                                 break;
+@@ -602,7 +602,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+ 
+                 err = conf_files_list_strv(&files, ".hwdb", root, conf_file_dirs);
+                 if (err < 0) {
+-                        log_error("failed to enumerate hwdb files: %s\n", strerror(-err));
++                        log_error("failed to enumerate hwdb files: %s", strerror(-err));
+                         rc = EXIT_FAILURE;
+                         goto out;
+                 }
+@@ -614,18 +614,18 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+ 
+                 strbuf_complete(trie->strings);
+ 
+-                log_debug("=== trie in-memory ===\n");
+-                log_debug("nodes:            %8zu bytes (%8zu)\n",
++                log_debug("=== trie in-memory ===");
++                log_debug("nodes:            %8zu bytes (%8zu)",
+                           trie->nodes_count * sizeof(struct trie_node), trie->nodes_count);
+-                log_debug("children arrays:  %8zu bytes (%8zu)\n",
++                log_debug("children arrays:  %8zu bytes (%8zu)",
+                           trie->children_count * sizeof(struct trie_child_entry), trie->children_count);
+-                log_debug("values arrays:    %8zu bytes (%8zu)\n",
++                log_debug("values arrays:    %8zu bytes (%8zu)",
+                           trie->values_count * sizeof(struct trie_value_entry), trie->values_count);
+-                log_debug("strings:          %8zu bytes\n",
++                log_debug("strings:          %8zu bytes",
+                           trie->strings->len);
+-                log_debug("strings incoming: %8zu bytes (%8zu)\n",
++                log_debug("strings incoming: %8zu bytes (%8zu)",
+                           trie->strings->in_len, trie->strings->in_count);
+-                log_debug("strings dedup'ed: %8zu bytes (%8zu)\n",
++                log_debug("strings dedup'ed: %8zu bytes (%8zu)",
+                           trie->strings->dedup_len, trie->strings->dedup_count);
+ 
+                 if (asprintf(&hwdb_bin, "%s/etc/udev/hwdb.bin", root) < 0) {
+diff --git a/src/udev/udevadm-settle.c b/src/udev/udevadm-settle.c
+index c4fc4ee4..a131e3fb 100644
+--- a/src/udev/udevadm-settle.c
++++ b/src/udev/udevadm-settle.c
+@@ -113,20 +113,20 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
+                         end = udev_queue_get_kernel_seqnum(udev_queue);
+ 
+                 if (start > end) {
+-                        log_error("seq-start larger than seq-end, ignoring\n");
++                        log_error("seq-start larger than seq-end, ignoring");
+                         start = 0;
+                         end = 0;
+                 }
+ 
+                 if (start > kernel_seq || end > kernel_seq) {
+-                        log_error("seq-start or seq-end larger than current kernel value, ignoring\n");
++                        log_error("seq-start or seq-end larger than current kernel value, ignoring");
+                         start = 0;
+                         end = 0;
+                 }
+-                log_debug("start=%llu end=%llu current=%llu\n", (unsigned long long)start, (unsigned long long)end, kernel_seq);
++                log_debug("start=%llu end=%llu current=%llu", (unsigned long long)start, (unsigned long long)end, kernel_seq);
+         } else {
+                 if (end > 0) {
+-                        log_error("seq-end needs seq-start parameter, ignoring\n");
++                        log_error("seq-end needs seq-start parameter, ignoring");
+                         end = 0;
+                 }
+         }
+@@ -138,7 +138,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
+                 uctrl = udev_ctrl_new(udev);
+                 if (uctrl != NULL) {
+                         if (udev_ctrl_send_ping(uctrl, timeout) < 0) {
+-                                log_debug("no connection to daemon\n");
++                                log_debug("no connection to daemon");
+                                 udev_ctrl_unref(uctrl);
+                                 rc = EXIT_SUCCESS;
+                                 goto out;
+@@ -150,10 +150,10 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
+         pfd[0].events = POLLIN;
+         pfd[0].fd = inotify_init1(IN_CLOEXEC);
+         if (pfd[0].fd < 0) {
+-                log_error("inotify_init failed: %m\n");
++                log_error("inotify_init failed: %m");
+         } else {
+                 if (inotify_add_watch(pfd[0].fd, "/run/udev" , IN_MOVED_TO) < 0) {
+-                        log_error("watching /run/udev failed\n");
++                        log_error("watching /run/udev failed");
+                         close(pfd[0].fd);
+                         pfd[0].fd = -1;
+                 }
+@@ -206,7 +206,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
+                                 struct udev_list_entry *list_entry;
+ 
+                                 if (!quiet && udev_queue_get_queued_list_entry(udev_queue) != NULL) {
+-                                        log_debug("timeout waiting for udev queue\n");
++                                        log_debug("timeout waiting for udev queue");
+                                         printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
+                                         udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
+                                                 printf("  %s (%s)\n",
+diff --git a/src/udev/udevadm-test.c b/src/udev/udevadm-test.c
+index df1409bf..3aa3274b 100644
+--- a/src/udev/udevadm-test.c
++++ b/src/udev/udevadm-test.c
+@@ -52,7 +52,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
+                 {}
+         };
+ 
+-        log_debug("version %s\n", VERSION);
++        log_debug("version %s", VERSION);
+ 
+         for (;;) {
+                 int option;
+@@ -74,7 +74,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
+                                 resolve_names = -1;
+                         } else {
+                                 fprintf(stderr, "resolve-names must be early, late or never\n");
+-                                log_error("resolve-names must be early, late or never\n");
++                                log_error("resolve-names must be early, late or never");
+                                 exit(EXIT_FAILURE);
+                         }
+                         break;
+diff --git a/src/udev/udevadm.c b/src/udev/udevadm.c
+index e14b3ca2..dbca3690 100644
+--- a/src/udev/udevadm.c
++++ b/src/udev/udevadm.c
+@@ -79,7 +79,7 @@ static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int arg
+ {
+         if (cmd->debug)
+                 log_set_max_level(LOG_DEBUG);
+-        log_debug("calling: %s\n", cmd->name);
++        log_debug("calling: %s", cmd->name);
+         return cmd->cmd(udev, argc, argv);
+ }
+ 

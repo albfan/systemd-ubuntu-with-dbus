@@ -1,0 +1,27 @@
+From: Jose Ignacio Naranjo <joseignacio.naranjo@gmail.com>
+Date: Sun, 17 Nov 2013 21:11:34 +0100
+Subject: keymap: Add Toshiba Satellite U940
+
+Signed-off-by: Martin Pitt <martinpitt@gnome.org>
+---
+ hwdb/60-keyboard.hwdb | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index b497f924..d4d948d4 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -1031,6 +1031,13 @@ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:pvr*
+  KEYBOARD_KEY_a9=switchvideomode                        # switch display outputs
+  KEYBOARD_KEY_d4=wlan                                   # RF Switch Off
+ 
++# Satellite U940
++keyboard:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITEU940:pvr*
++ KEYBOARD_KEY_13c=brightnessdown
++ KEYBOARD_KEY_13d=brightnessup
++ KEYBOARD_KEY_13e=switchvideomode
++ KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
++
+ ###########################################################
+ # VIA
+ ###########################################################

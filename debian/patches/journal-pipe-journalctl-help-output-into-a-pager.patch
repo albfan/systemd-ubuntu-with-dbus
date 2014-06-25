@@ -1,0 +1,46 @@
+From: Djalal Harouni <tixxdz@opendz.org>
+Date: Thu, 12 Dec 2013 00:22:48 +0100
+Subject: journal: pipe journalctl help output into a pager
+
+journalctl help output might run off the screen, so be consistent
+as other systemd tools do and pipe it into a pager.
+
+(cherry picked from commit faf5077f891aa249270b2a3d9f0104c3eec02da6)
+---
+ src/journal/journalctl.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
+index a5c47794..71e28b0a 100644
+--- a/src/journal/journalctl.c
++++ b/src/journal/journalctl.c
+@@ -114,8 +114,18 @@ typedef struct boot_id_t {
+         uint64_t last;
+ } boot_id_t;
+ 
++static void pager_open_if_enabled(void) {
++
++        if (arg_no_pager)
++                return;
++
++        pager_open(arg_pager_end);
++}
++
+ static int help(void) {
+ 
++        pager_open_if_enabled();
++
+         printf("%s [OPTIONS...] [MATCHES...]\n\n"
+                "Query the journal.\n\n"
+                "Flags:\n"
+@@ -1635,8 +1645,8 @@ int main(int argc, char *argv[]) {
+                 return EXIT_FAILURE;
+         }
+ 
+-        if (!arg_no_pager && !arg_follow)
+-                pager_open(arg_pager_end);
++        if (!arg_follow)
++                pager_open_if_enabled();
+ 
+         if (!arg_quiet) {
+                 usec_t start, end;

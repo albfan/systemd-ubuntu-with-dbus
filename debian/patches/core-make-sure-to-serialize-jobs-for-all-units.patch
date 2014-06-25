@@ -1,0 +1,79 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 16 May 2014 01:15:03 +0200
+Subject: core: make sure to serialize jobs for all units
+
+Previously we wouldn't serialize jobs for units that themselves have
+nothing to serialize.
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-May/019051.html
+(cherry picked from commit 9bdb98c59451ed090f8d35d470a54710f389ce71)
+(cherry picked from commit 75ee3c9da1441e0f67d502e56e9167f0ef23201b)
+
+Conflicts:
+	src/core/unit.c
+---
+ src/core/manager.c |  3 ---
+ src/core/unit.c    | 22 ++++++++++------------
+ 2 files changed, 10 insertions(+), 15 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 1e7dc383..e75550bb 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -2166,9 +2166,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
+                 if (u->id != t)
+                         continue;
+ 
+-                if (!unit_can_serialize(u))
+-                        continue;
+-
+                 /* Start marker */
+                 fputs(u->id, f);
+                 fputc('\n', f);
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 29782aa6..52269635 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -2293,12 +2293,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+         assert(f);
+         assert(fds);
+ 
+-        if (!unit_can_serialize(u))
+-                return 0;
+-
+-        r = UNIT_VTABLE(u)->serialize(u, f, fds);
+-        if (r < 0)
+-                return r;
++        if (unit_can_serialize(u)) {
++                r = UNIT_VTABLE(u)->serialize(u, f, fds);
++                if (r < 0)
++                        return r;
++        }
+ 
+         dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
+         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
+@@ -2365,9 +2364,6 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+         assert(f);
+         assert(fds);
+ 
+-        if (!unit_can_serialize(u))
+-                return 0;
+-
+         for (;;) {
+                 char line[LINE_MAX], *l, *v;
+                 size_t k;
+@@ -2480,9 +2476,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+                         continue;
+                 }
+ 
+-                r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
+-                if (r < 0)
+-                        return r;
++                if (unit_can_serialize(u)) {
++                        r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
++                        if (r < 0)
++                                return r;
++                }
+         }
+ }
+ 

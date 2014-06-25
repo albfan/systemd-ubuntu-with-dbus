@@ -1,0 +1,23 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 20 Jun 2014 22:43:49 -0400
+Subject: util: treat fuse.sshfs as a network filesystem
+
+https://bugs.freedesktop.org/show_bug.cgi?id=73727
+(cherry picked from commit da92ca5eb506d513033e0c7a85daf25a7e1c9d0e)
+(cherry picked from commit e4798529d9ca623d360d6b012770bb0f9d8a5ea2)
+---
+ src/shared/util.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index 7aa3d027..e78e4e40 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -1629,6 +1629,7 @@ bool fstype_is_network(const char *fstype) {
+         static const char table[] =
+                 "cifs\0"
+                 "smbfs\0"
++                "sshfs\0"
+                 "ncpfs\0"
+                 "ncp\0"
+                 "nfs\0"

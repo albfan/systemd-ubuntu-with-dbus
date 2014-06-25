@@ -1,0 +1,22 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Sat, 30 Nov 2013 21:59:40 +0100
+Subject: sysfs-show.c: return negative error
+
+introduced in 1ca208fb4f93e5869704af1812cbff7130a2fc03
+---
+ src/login/sysfs-show.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/login/sysfs-show.c b/src/login/sysfs-show.c
+index 7c1adfaa..f7d11ddc 100644
+--- a/src/login/sysfs-show.c
++++ b/src/login/sysfs-show.c
+@@ -164,7 +164,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
+ 
+         e = udev_enumerate_new(udev);
+         if (!e)
+-                return ENOMEM;
++                return -ENOMEM;
+ 
+         if (!streq(seat, "seat0"))
+                 r = udev_enumerate_add_match_tag(e, seat);

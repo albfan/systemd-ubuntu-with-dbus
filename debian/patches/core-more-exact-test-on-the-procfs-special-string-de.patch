@@ -1,0 +1,25 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Sun, 16 Feb 2014 13:58:18 +0100
+Subject: core: more exact test on the procfs special string "(deleted)"
+
+In other parts of systemd, the code checks for " (deleted)",
+but in one instance, it did not (yet). Make it do the same.
+
+(cherry picked from commit a87f0f726ca6dc9fde11eea6591a244e77d2d182)
+---
+ src/core/umount.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/umount.c b/src/core/umount.c
+index 99dbe27c..fbd7e1c1 100644
+--- a/src/core/umount.c
++++ b/src/core/umount.c
+@@ -170,7 +170,7 @@ static int swap_list_get(MountPoint **head) {
+                         continue;
+                 }
+ 
+-                if (endswith(dev, "(deleted)")) {
++                if (endswith(dev, " (deleted)")) {
+                         free(dev);
+                         continue;
+                 }

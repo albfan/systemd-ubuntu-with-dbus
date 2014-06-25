@@ -1,0 +1,76 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 24 Feb 2014 03:59:50 +0100
+Subject: getty-generator: verify ttys before we make use of them
+
+The ttyS[0-3] devices are weird. They may be enumerated, but when one
+actually tries to open and use them they return EIO, because they don't
+actually exist. Because they may be enumerated they may be specified on
+the kernel command line as console=. And some people do that as default.
+As response to that we'll spawn a getty on the tty that will quickly
+fail, and we retry a couple of time before giving up. That is quite
+noisy.
+
+With this new change we will validate all serial terminals configured
+with console= on the kernel cmdline before adding gettys on them, and
+remove the invalid ones. THis should remove the noise later on.
+
+This should make Eric Paris happy!
+
+(cherry picked from commit 543407517e05688915128cfc544c5d7f97f240ef)
+---
+ src/getty-generator/getty-generator.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/src/getty-generator/getty-generator.c b/src/getty-generator/getty-generator.c
+index 40374b52..625a87e1 100644
+--- a/src/getty-generator/getty-generator.c
++++ b/src/getty-generator/getty-generator.c
+@@ -22,6 +22,7 @@
+ #include <string.h>
+ #include <errno.h>
+ #include <unistd.h>
++#include <fcntl.h>
+ 
+ #include "log.h"
+ #include "util.h"
+@@ -86,6 +87,30 @@ static int add_serial_getty(const char *tty) {
+         return r;
+ }
+ 
++static int verify_tty(const char *name) {
++        _cleanup_close_ int fd = -1;
++        const char *p;
++
++        /* Some TTYs are weird and have been enumerated but don't work
++         * when you try to use them, such as classic ttyS0 and
++         * friends. Let's check that and open the device and run
++         * isatty() on it. */
++
++        p = strappenda("/dev/", name);
++
++        /* O_NONBLOCK is essential here, to make sure we don't wait
++         * for DCD */
++        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
++        if (fd < 0)
++                return -errno;
++
++        errno = 0;
++        if (isatty(fd) <= 0)
++                return errno ? -errno : -EIO;
++
++        return 0;
++}
++
+ int main(int argc, char *argv[]) {
+ 
+         static const char virtualization_consoles[] =
+@@ -146,6 +171,9 @@ int main(int argc, char *argv[]) {
+                                 continue;
+                         }
+ 
++                        if (verify_tty(tty) < 0)
++                                continue;
++
+                         /* We assume that gettys on virtual terminals are
+                          * started via manual configuration and do this magic
+                          * only for non-VC terminals. */

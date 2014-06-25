@@ -1,0 +1,26 @@
+From: =?utf-8?q?=22J=C3=B3hann_B=2E_Gu=C3=B0mundsson=22?= <johannbg@gmail.com>
+Date: Sun, 2 Feb 2014 13:29:19 +0000
+Subject: udev: add zram to the list of devices inappropriate for symlinks
+
+udev seems to have a race condition with swapon to see which can open
+/dev/zram0 first, causing swapon to fail. Seems to be most noticeable
+on arm devices one out of every 7 times or something.
+
+(cherry picked from commit 99bd4af0c7034f425b4d334986b03e632ab71718)
+---
+ rules/60-persistent-storage.rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rules/60-persistent-storage.rules b/rules/60-persistent-storage.rules
+index a4d009ae..154ffd92 100644
+--- a/rules/60-persistent-storage.rules
++++ b/rules/60-persistent-storage.rules
+@@ -14,7 +14,7 @@ ACTION=="add", SUBSYSTEM=="module", KERNEL=="block", ATTR{parameters/events_dfl_
+ SUBSYSTEM!="block", GOTO="persistent_storage_end"
+ 
+ # skip rules for inappropriate block devices
+-KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*", GOTO="persistent_storage_end"
++KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*|zram*", GOTO="persistent_storage_end"
+ 
+ # ignore partitions that span the entire disk
+ TEST=="whole_disk", GOTO="persistent_storage_end"

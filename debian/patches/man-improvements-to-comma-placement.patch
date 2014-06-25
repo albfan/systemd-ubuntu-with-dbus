@@ -1,0 +1,506 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Thu, 26 Dec 2013 02:47:44 +0100
+Subject: man: improvements to comma placement
+
+This is a recurring submission and includes corrections to:
+comma placement.
+
+Conflicts:
+	man/sd_bus_message_get_cookie.xml
+	man/sd_bus_request_name.xml
+	man/sd_session_is_active.xml
+	man/sd_watchdog_enabled.xml
+	man/systemctl.xml
+	man/systemd.exec.xml
+	man/systemd.timer.xml
+	man/systemd.unit.xml
+---
+ man/halt.xml                           | 2 +-
+ man/hostnamectl.xml                    | 2 +-
+ man/sd-daemon.xml                      | 4 ++--
+ man/sd-readahead.xml                   | 2 +-
+ man/sd_booted.xml                      | 2 +-
+ man/sd_get_seats.xml                   | 2 +-
+ man/sd_is_fifo.xml                     | 2 +-
+ man/sd_listen_fds.xml                  | 2 +-
+ man/sd_login_monitor_new.xml           | 6 +++---
+ man/sd_notify.xml                      | 2 +-
+ man/sd_readahead.xml                   | 2 +-
+ man/sd_seat_get_active.xml             | 4 ++--
+ man/sd_uid_get_state.xml               | 4 ++--
+ man/shutdown.xml                       | 2 +-
+ man/systemd-analyze.xml                | 2 +-
+ man/systemd-ask-password.xml           | 2 +-
+ man/systemd-cat.xml                    | 2 +-
+ man/systemd-cgls.xml                   | 2 +-
+ man/systemd-cgtop.xml                  | 2 +-
+ man/systemd-coredumpctl.xml            | 2 +-
+ man/systemd-delta.xml                  | 2 +-
+ man/systemd-machine-id-setup.xml       | 2 +-
+ man/systemd-notify.xml                 | 2 +-
+ man/systemd-tmpfiles.xml               | 2 +-
+ man/systemd-tty-ask-password-agent.xml | 2 +-
+ man/systemd.device.xml                 | 2 +-
+ man/systemd.mount.xml                  | 2 +-
+ man/systemd.service.xml                | 2 +-
+ man/systemd.special.xml                | 2 +-
+ man/systemd.swap.xml                   | 2 +-
+ man/systemd.xml                        | 2 +-
+ man/telinit.xml                        | 2 +-
+ man/timedatectl.xml                    | 2 +-
+ 33 files changed, 38 insertions(+), 38 deletions(-)
+
+diff --git a/man/halt.xml b/man/halt.xml
+index 2a13d3c6..f54a8648 100644
+--- a/man/halt.xml
++++ b/man/halt.xml
+@@ -148,7 +148,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/hostnamectl.xml b/man/hostnamectl.xml
+index b39fb550..a0776f55 100644
+--- a/man/hostnamectl.xml
++++ b/man/hostnamectl.xml
+@@ -255,7 +255,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/sd-daemon.xml b/man/sd-daemon.xml
+index 84c1afa4..b48eac9f 100644
+--- a/man/sd-daemon.xml
++++ b/man/sd-daemon.xml
+@@ -83,7 +83,7 @@
+                 <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                 <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 for more information about the functions
+-                implemented. In addition to these functions a couple
++                implemented. In addition to these functions, a couple
+                 of logging prefixes are defined as macros:</para>
+ 
+                 <programlisting>#define SD_EMERG   "&lt;0&gt;"  /* system is unusable */
+@@ -135,7 +135,7 @@
+                 implementation. See the respective function man pages
+                 for details.</para>
+ 
+-                <para>In addition, for details about the algorithms
++                <para>In addition, for details about the algorithms,
+                 check the liberally licensed reference implementation
+                 sources:
+                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
+diff --git a/man/sd-readahead.xml b/man/sd-readahead.xml
+index f8a0a0b5..bcc46b24 100644
+--- a/man/sd-readahead.xml
++++ b/man/sd-readahead.xml
+@@ -83,7 +83,7 @@
+                 reference implementation. See the respective function
+                 man pages for details.</para>
+ 
+-                <para>In addition, for details about the algorithms
++                <para>In addition, for details about the algorithms,
+                 check the liberally licensed reference implementation
+                 sources:
+                 <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/readahead/sd-readahead.c"/>
+diff --git a/man/sd_booted.xml b/man/sd_booted.xml
+index 6f8cc95c..1e38d2ab 100644
+--- a/man/sd_booted.xml
++++ b/man/sd_booted.xml
+@@ -106,7 +106,7 @@
+                 file. Alternatively, applications consuming these APIs
+                 may copy the implementation into their source
+                 tree. For more details about the reference
+-                implementation see
++                implementation, see
+                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+ 
+                 <para>If the reference implementation is used as
+diff --git a/man/sd_get_seats.xml b/man/sd_get_seats.xml
+index 1e55af3b..f0e7655d 100644
+--- a/man/sd_get_seats.xml
++++ b/man/sd_get_seats.xml
+@@ -107,7 +107,7 @@
+         <refsect1>
+                 <title>Return Value</title>
+ 
+-                <para>On success <function>sd_get_seats()</function>,
++                <para>On success, <function>sd_get_seats()</function>,
+                 <function>sd_get_sessions()</function>,
+                 <function>sd_get_uids()</function> and
+                 <function>sd_get_machine_names()</function> return the
+diff --git a/man/sd_is_fifo.xml b/man/sd_is_fifo.xml
+index 5e79453c..4bb2236f 100644
+--- a/man/sd_is_fifo.xml
++++ b/man/sd_is_fifo.xml
+@@ -214,7 +214,7 @@
+                 file. Alternatively, applications consuming these APIs
+                 may copy the implementation into their source
+                 tree. For more details about the reference
+-                implementation see
++                implementation, see
+                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+ 
+                 <para>These functions continue to work as described,
+diff --git a/man/sd_listen_fds.xml b/man/sd_listen_fds.xml
+index aaabdbf3..6a9e0821 100644
+--- a/man/sd_listen_fds.xml
++++ b/man/sd_listen_fds.xml
+@@ -155,7 +155,7 @@
+                 file. Alternatively, applications consuming these APIs
+                 may copy the implementation into their source
+                 tree. For more details about the reference
+-                implementation see
++                implementation, see
+                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+ 
+                 <para>If the reference implementation is used as
+diff --git a/man/sd_login_monitor_new.xml b/man/sd_login_monitor_new.xml
+index f439d3e7..14ff241d 100644
+--- a/man/sd_login_monitor_new.xml
++++ b/man/sd_login_monitor_new.xml
+@@ -198,13 +198,13 @@ else {
+         <refsect1>
+                 <title>Return Value</title>
+ 
+-                <para>On success
++                <para>On success,
+                 <function>sd_login_monitor_new()</function>,
+                 <function>sd_login_monitor_flush()</function> and
+                 <function>sd_login_monitor_get_timeout()</function>
+-                return 0 or a positive integer. On success
++                return 0 or a positive integer. On success,
+                 <function>sd_login_monitor_get_fd()</function> returns
+-                a Unix file descriptor. On success
++                a Unix file descriptor. On success,
+                 <function>sd_login_monitor_get_events()</function>
+                 returns a combination of <constant>POLLIN</constant>,
+                 <constant>POLLOUT</constant> and suchlike. On failure,
+diff --git a/man/sd_notify.xml b/man/sd_notify.xml
+index e0781404..aae27a83 100644
+--- a/man/sd_notify.xml
++++ b/man/sd_notify.xml
+@@ -241,7 +241,7 @@
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+                 may copy the implementation into their source tree. For
+-                more details about the reference implementation see
++                more details about the reference implementation, see
+                 <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+ 
+                 <para>If the reference implementation is used as
+diff --git a/man/sd_readahead.xml b/man/sd_readahead.xml
+index bb01bcfd..98272997 100644
+--- a/man/sd_readahead.xml
++++ b/man/sd_readahead.xml
+@@ -139,7 +139,7 @@
+                 <filename>sd-readahead.h</filename> files. It is
+                 recommended that applications consuming this API copy
+                 the implementation into their source tree. For more
+-                details about the reference implementation see
++                details about the reference implementation, see
+                 <citerefentry><refentrytitle>sd-readahead</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
+ 
+                 <para>If -DDISABLE_SYSTEMD is set during compilation,
+diff --git a/man/sd_seat_get_active.xml b/man/sd_seat_get_active.xml
+index 23d582da..c64ba13c 100644
+--- a/man/sd_seat_get_active.xml
++++ b/man/sd_seat_get_active.xml
+@@ -143,9 +143,9 @@
+         <refsect1>
+                 <title>Return Value</title>
+ 
+-                <para> On success
++                <para> On success,
+                 <function>sd_seat_get_active()</function>
+-                returns 0 or a positive integer. On success
++                returns 0 or a positive integer. On success,
+                 <function>sd_seat_get_sessions()</function> returns
+                 the number of entries in the session identifier
+                 array. If the test succeeds,
+diff --git a/man/sd_uid_get_state.xml b/man/sd_uid_get_state.xml
+index 0faa7651..30b254c8 100644
+--- a/man/sd_uid_get_state.xml
++++ b/man/sd_uid_get_state.xml
+@@ -152,11 +152,11 @@
+         <refsect1>
+                 <title>Return Value</title>
+ 
+-                <para>On success
++                <para>On success,
+                 <function>sd_uid_get_state()</function> returns 0 or a
+                 positive integer. If the test succeeds,
+                 <function>sd_uid_is_on_seat()</function> returns a
+-                positive integer, if it fails
++                positive integer; if it fails,
+                 0. <function>sd_uid_get_sessions()</function> and
+                 <function>sd_uid_get_seats()</function> return the
+                 number of entries in the returned arrays. On failure,
+diff --git a/man/shutdown.xml b/man/shutdown.xml
+index 795fb663..27e7e87b 100644
+--- a/man/shutdown.xml
++++ b/man/shutdown.xml
+@@ -164,7 +164,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-analyze.xml b/man/systemd-analyze.xml
+index aefbfc8a..b7753f99 100644
+--- a/man/systemd-analyze.xml
++++ b/man/systemd-analyze.xml
+@@ -270,7 +270,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-ask-password.xml b/man/systemd-ask-password.xml
+index 8af328dc..79902cbd 100644
+--- a/man/systemd-ask-password.xml
++++ b/man/systemd-ask-password.xml
+@@ -167,7 +167,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-cat.xml b/man/systemd-cat.xml
+index ffb1dfd5..ba7a2cf0 100644
+--- a/man/systemd-cat.xml
++++ b/man/systemd-cat.xml
+@@ -158,7 +158,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-cgls.xml b/man/systemd-cgls.xml
+index 432706bc..152b8835 100644
+--- a/man/systemd-cgls.xml
++++ b/man/systemd-cgls.xml
+@@ -145,7 +145,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-cgtop.xml b/man/systemd-cgtop.xml
+index 7faedfbf..0e1f7c55 100644
+--- a/man/systemd-cgtop.xml
++++ b/man/systemd-cgtop.xml
+@@ -264,7 +264,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-coredumpctl.xml b/man/systemd-coredumpctl.xml
+index 9ccb67d1..67f75d1c 100644
+--- a/man/systemd-coredumpctl.xml
++++ b/man/systemd-coredumpctl.xml
+@@ -200,7 +200,7 @@
+ 
+         <refsect1>
+                 <title>Exit status</title>
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise. Not finding any matching coredumps is treated
+                 as failure.
+                 </para>
+diff --git a/man/systemd-delta.xml b/man/systemd-delta.xml
+index 4d3ab780..ebaa3492 100644
+--- a/man/systemd-delta.xml
++++ b/man/systemd-delta.xml
+@@ -223,7 +223,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-machine-id-setup.xml b/man/systemd-machine-id-setup.xml
+index bc38d551..7b3aa7e9 100644
+--- a/man/systemd-machine-id-setup.xml
++++ b/man/systemd-machine-id-setup.xml
+@@ -116,7 +116,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-notify.xml b/man/systemd-notify.xml
+index a7693464..e14977d0 100644
+--- a/man/systemd-notify.xml
++++ b/man/systemd-notify.xml
+@@ -172,7 +172,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-tmpfiles.xml b/man/systemd-tmpfiles.xml
+index 495247e1..c678031c 100644
+--- a/man/systemd-tmpfiles.xml
++++ b/man/systemd-tmpfiles.xml
+@@ -178,7 +178,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-tty-ask-password-agent.xml b/man/systemd-tty-ask-password-agent.xml
+index 31a18ba4..cb5fb43d 100644
+--- a/man/systemd-tty-ask-password-agent.xml
++++ b/man/systemd-tty-ask-password-agent.xml
+@@ -148,7 +148,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd.device.xml b/man/systemd.device.xml
+index 002b647f..586473c6 100644
+--- a/man/systemd.device.xml
++++ b/man/systemd.device.xml
+@@ -75,7 +75,7 @@
+                 udev tag (by default all block and network devices,
+                 and a few others). This may be used to define
+                 dependencies between devices and other units. To tag a
+-                udev device use <literal>TAG+="systemd"</literal> in
++                udev device, use <literal>TAG+="systemd"</literal> in
+                 the udev rules file, see
+                 <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                 for details.</para>
+diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
+index df5a79e2..6f9f70c3 100644
+--- a/man/systemd.mount.xml
++++ b/man/systemd.mount.xml
+@@ -94,7 +94,7 @@
+                 in a unit file
+                 <filename>home-lennart.mount</filename>. For details
+                 about the escaping logic used to convert a file system
+-                path to a unit name see
++                path to a unit name, see
+                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+ 
+                 <para>Optionally, a mount unit may be accompanied by
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 80a935d3..e869f950 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -441,7 +441,7 @@
+                                 <literal>one</literal> and
+                                 <literal>two two</literal>,
+                                 respectively. Since two commands are
+-                                specified
++                                specified,
+                                 <varname>Type=oneshot</varname> must
+                                 be used.</para>
+ 
+diff --git a/man/systemd.special.xml b/man/systemd.special.xml
+index 863a029f..76bb5cdc 100644
+--- a/man/systemd.special.xml
++++ b/man/systemd.special.xml
+@@ -996,7 +996,7 @@
+                 <filename>smartcard.target</filename>,
+                 <filename>sound.target</filename>.</para>
+ 
+-                <para>In addition the following special unit is
++                <para>In addition, the following special unit is
+                 understood only when systemd runs as service instance:</para>
+ 
+                 <variablelist>
+diff --git a/man/systemd.swap.xml b/man/systemd.swap.xml
+index 13f6c844..5e8b25fd 100644
+--- a/man/systemd.swap.xml
++++ b/man/systemd.swap.xml
+@@ -85,7 +85,7 @@
+                 <filename noindex='true'>/dev/sda5</filename> must be configured in a
+                 unit file <filename>dev-sda5.swap</filename>. For
+                 details about the escaping logic used to convert a
+-                file system path to a unit name see
++                file system path to a unit name, see
+                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+ 
+                 <para>All swap units automatically get the appropriate
+diff --git a/man/systemd.xml b/man/systemd.xml
+index 85c06d38..23a0c265 100644
+--- a/man/systemd.xml
++++ b/man/systemd.xml
+@@ -494,7 +494,7 @@
+                 <filename>/proc</filename>.</para>
+ 
+                 <para>For more information about the concepts and
+-                ideas behind systemd please refer to the <ulink
++                ideas behind systemd, please refer to the <ulink
+                 url="http://0pointer.de/blog/projects/systemd.html">Original
+                 Design Document</ulink>.</para>
+ 
+diff --git a/man/telinit.xml b/man/telinit.xml
+index bb809391..b20a60a4 100644
+--- a/man/telinit.xml
++++ b/man/telinit.xml
+@@ -171,7 +171,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 
+diff --git a/man/timedatectl.xml b/man/timedatectl.xml
+index be0ad3f0..f4975ce5 100644
+--- a/man/timedatectl.xml
++++ b/man/timedatectl.xml
+@@ -222,7 +222,7 @@
+         <refsect1>
+                 <title>Exit status</title>
+ 
+-                <para>On success 0 is returned, a non-zero failure
++                <para>On success, 0 is returned, a non-zero failure
+                 code otherwise.</para>
+         </refsect1>
+ 

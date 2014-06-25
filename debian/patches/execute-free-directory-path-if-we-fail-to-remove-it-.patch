@@ -1,0 +1,32 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Wed, 5 Mar 2014 00:44:23 -0500
+Subject: execute: free directory path if we fail to remove it because we
+ cannot allocate a thread
+
+Based on 98b47d54ce946ad3524f84eb38d2413498a333dc.
+---
+ src/core/execute.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/src/core/execute.c b/src/core/execute.c
+index 9b85379b..ee445d7c 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -1611,10 +1611,16 @@ void exec_context_tmp_dirs_done(ExecContext *c) {
+                         c->tmp_dir ? c->var_tmp_dir : NULL,
+                         NULL};
+         char **dirp;
++        int r;
+ 
+         for(dirp = dirs; *dirp; dirp++) {
+                 log_debug("Spawning thread to nuke %s", *dirp);
+-                asynchronous_job(remove_tmpdir_thread, *dirp);
++
++                r = asynchronous_job(remove_tmpdir_thread, *dirp);
++                if (r < 0) {
++                        log_warning("Failed to nuke %s: %s", *dirp, strerror(-r));
++                        free(*dirp);
++                }
+         }
+ 
+         c->tmp_dir = c->var_tmp_dir = NULL;

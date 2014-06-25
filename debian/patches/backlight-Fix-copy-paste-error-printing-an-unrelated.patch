@@ -1,0 +1,27 @@
+From: Josh Triplett <josh@joshtriplett.org>
+Date: Tue, 11 Mar 2014 21:09:04 -0700
+Subject: backlight: Fix copy/paste error printing an unrelated error code
+
+udev_device_get_sysattr_value returns NULL on failure, but doesn't
+provide an error code; thus, when printing an error from it, don't print
+an unrelated error code from a previous call.
+
+(cherry picked from commit cddc35f75ecff63b2ffd3f8e4c863d475e7b14ca)
+(cherry picked from commit b8b80c8aa1effecb9c224cd3be1e8acbf7a44745)
+---
+ src/backlight/backlight.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
+index e8cdad61..4b04a3a2 100644
+--- a/src/backlight/backlight.c
++++ b/src/backlight/backlight.c
+@@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {
+ 
+                 value = udev_device_get_sysattr_value(device, "brightness");
+                 if (!value) {
+-                        log_error("Failed to read system attribute: %s", strerror(-r));
++                        log_error("Failed to read system attribute");
+                         return EXIT_FAILURE;
+                 }
+ 

@@ -1,0 +1,54 @@
+From: "Jason St. John" <jstjohn@purdue.edu>
+Date: Mon, 17 Mar 2014 00:03:46 -0400
+Subject: man: improve wording of systemctl's --after/--before
+
+Commit 4a77ca7 was an attempt at fixing the wording of --after and --before,
+but the new wording was unclear.
+
+Split the combined --after/--before section into a separate section for
+each, explicitly state what each option does, and add information about
+how these lists are generated.
+
+Reported-by: Andrey Borzenkov <arvidjaar@gmail.com>
+Reported-by: Lennart Poettering <lennart@poettering.net>
+(cherry picked from commit 9029f64298cb70c12ecf638fddee7f41b056fcf1)
+(cherry picked from commit 7b6a54f75361fe4a166684c0a04db48c3de67504)
+---
+ man/systemctl.xml | 21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index 03f2bc5e..171a9bfa 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -173,12 +173,27 @@ systemctl start foo
+ 
+       <varlistentry>
+         <term><option>--after</option></term>
++
++        <listitem>
++          <para>With <command>list-dependencies</command>, show the
++          units that are ordered before the specified unit. In other
++          words, list the units that are in the <varname>After=</varname>
++          directive of the specified unit, have the specified unit in
++          their <varname>Before=</varname> directive, or are otherwise
++          implicit dependencies of the specified unit.</para>
++        </listitem>
++      </varlistentry>
++
++      <varlistentry>
+         <term><option>--before</option></term>
+ 
+         <listitem>
+-          <para>Show after (before) which units the specified unit is started
+-          with <command>list-dependencies</command>.
+-          </para>
++          <para>With <command>list-dependencies</command>, show the
++          units that are ordered after the specified unit. In other
++          words, list the units that are in the <varname>Before=</varname>
++          directive of the specified unit, have the specified unit in
++          their <varname>After=</varname> directive, or otherwise depend
++          on the specified unit.</para>
+         </listitem>
+       </varlistentry>
+ 

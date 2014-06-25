@@ -1,0 +1,43 @@
+From: Djalal Harouni <tixxdz@opendz.org>
+Date: Fri, 11 Apr 2014 01:45:52 +0100
+Subject: nspawn: allow to bind mount journal on top of a non empty container
+ journal dentry
+
+Currently if nspawn was called with --link-journal=host or
+--link-journal=auto and the right /var/log/journal/machine-id/ exists
+then the bind mount the subdirectory into the container might fail due
+to the ~/mycontainer/var/log/journal/machine-id/ of the container not
+being empty.
+
+There is no reason to check if the container journal subdir is empty
+since there will be a bind mount on top of it. The user asked for a bind
+mount so give it.
+
+Note: a next call with --link-journal=guest may fail due to the
+/var/log/journal/machine-id/ on the host not being empty.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=76193
+
+Reported-by: Tobias Hunger <tobias.hunger@gmail.com>
+(cherry picked from commit e6a4a517befe559adf6d1dbbadf425c3538849c9)
+(cherry picked from commit 8113d58e81f21d21cc44eda4381f56d5c4be9005)
+---
+ src/nspawn/nspawn.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index 028dbe33..d6450010 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -939,11 +939,6 @@ static int setup_journal(const char *directory) {
+         } else if (access(p, F_OK) < 0)
+                 return 0;
+ 
+-        if (dir_is_empty(q) == 0) {
+-                log_error("%s not empty.", q);
+-                return -ENOTEMPTY;
+-        }
+-
+         r = mkdir_p(q, 0755);
+         if (r < 0) {
+                 log_error("Failed to create %s: %m", q);

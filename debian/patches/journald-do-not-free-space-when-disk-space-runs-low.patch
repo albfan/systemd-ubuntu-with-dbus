@@ -1,0 +1,266 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Wed, 13 Nov 2013 00:42:22 -0500
+Subject: journald: do not free space when disk space runs low
+
+Before, journald would remove journal files until both MaxUse= and
+KeepFree= settings would be satisfied. The first one depends (if set
+automatically) on the size of the file system and is constant.  But
+the second one depends on current use of the file system, and a spike
+in disk usage would cause journald to delete journal files, trying to
+reach usage which would leave 15% of the disk free. This behaviour is
+surprising for the user who doesn't expect his logs to be purged when
+disk usage goes above 85%, which on a large disk could be some
+gigabytes from being full. In addition attempting to keep 15% free
+provides an attack vector where filling the disk sufficiently disposes
+of almost all logs.
+
+Instead, obey KeepFree= only as a limit on adding additional files.
+When replacing old files with new, ignore KeepFree=. This means that
+if journal disk usage reached some high point that at some later point
+start to violate the KeepFree= constraint, journald will not add files
+to go above this point, but it will stay (slightly) below it. When
+journald is restarted, it forgets the previous maximum usage value,
+and sets the limit based on the current usage, so if disk remains to
+be filled, journald might use one journal-file-size less on each
+restart, if restarts happen just after rotation. This seems like a
+reasonable compromise between implementation complexity and robustness.
+
+(cherry picked from commit 348ced909724a1331b85d57aede80a102a00e428)
+---
+ man/journald.conf.xml                   | 39 +++++++++++++++++++++++----------
+ src/journal/journal-file.h              |  1 +
+ src/journal/journal-vacuum.c            |  6 ++---
+ src/journal/journal-vacuum.h            |  2 +-
+ src/journal/journald-server.c           | 22 ++++++++++++++-----
+ src/journal/test-journal-interleaving.c |  4 ++--
+ src/journal/test-journal.c              |  4 ++--
+ src/shared/macro.h                      |  7 ++++++
+ 8 files changed, 58 insertions(+), 27 deletions(-)
+
+diff --git a/man/journald.conf.xml b/man/journald.conf.xml
+index b362c5de..e0796e1c 100644
+--- a/man/journald.conf.xml
++++ b/man/journald.conf.xml
+@@ -250,20 +250,35 @@
+                                 <para><varname>SystemMaxUse=</varname>
+                                 and <varname>RuntimeMaxUse=</varname>
+                                 control how much disk space the
+-                                journal may use up at
+-                                maximum. Defaults to 10% of the size
+-                                of the respective file
+-                                system. <varname>SystemKeepFree=</varname>
+-                                and
++                                journal may use up at maximum.
++                                <varname>SystemKeepFree=</varname> and
+                                 <varname>RuntimeKeepFree=</varname>
+                                 control how much disk space
+-                                systemd-journald shall always leave
+-                                free for other uses. Defaults to 15%
+-                                of the size of the respective file
+-                                system. systemd-journald will respect
+-                                both limits, i.e. use the smaller of
+-                                the two values.
+-                                <varname>SystemMaxFileSize=</varname>
++                                systemd-journald shall leave free for
++                                other uses.
++                                <command>systemd-journald</command>
++                                will respect both limits and use the
++                                smaller of the two values.</para>
++
++                                <para>The first pair defaults to 10%
++                                and the second to 15% of the size of
++                                the respective file system. If the
++                                file system is nearly full and either
++                                <varname>SystemKeepFree=</varname> or
++                                <varname>RuntimeKeepFree=</varname> is
++                                violated when systemd-journald is
++                                started, the value will be raised to
++                                percentage that is actually free. This
++                                means that if before there was enough
++                                free space and journal files were
++                                created, and subsequently something
++                                else causes the file system to fill
++                                up, journald will stop using more
++                                space, but it'll will not removing
++                                existing files to go reduce footprint
++                                either.</para>
++
++                                <para><varname>SystemMaxFileSize=</varname>
+                                 and
+                                 <varname>RuntimeMaxFileSize=</varname>
+                                 control how large individual journal
+diff --git a/src/journal/journal-file.h b/src/journal/journal-file.h
+index 0bd23f70..2e06b57d 100644
+--- a/src/journal/journal-file.h
++++ b/src/journal/journal-file.h
+@@ -37,6 +37,7 @@
+ 
+ typedef struct JournalMetrics {
+         uint64_t max_use;
++        uint64_t use;
+         uint64_t max_size;
+         uint64_t min_size;
+         uint64_t keep_free;
+diff --git a/src/journal/journal-vacuum.c b/src/journal/journal-vacuum.c
+index d4a1c6c9..8b07f659 100644
+--- a/src/journal/journal-vacuum.c
++++ b/src/journal/journal-vacuum.c
+@@ -150,7 +150,6 @@ static int journal_file_empty(int dir_fd, const char *name) {
+ int journal_directory_vacuum(
+                 const char *directory,
+                 uint64_t max_use,
+-                uint64_t min_free,
+                 usec_t max_retention_usec,
+                 usec_t *oldest_usec) {
+ 
+@@ -164,7 +163,7 @@ int journal_directory_vacuum(
+ 
+         assert(directory);
+ 
+-        if (max_use <= 0 && min_free <= 0 && max_retention_usec <= 0)
++        if (max_use <= 0 && max_retention_usec <= 0)
+                 return 0;
+ 
+         if (max_retention_usec > 0) {
+@@ -310,8 +309,7 @@ int journal_directory_vacuum(
+                 }
+ 
+                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
+-                    (max_use <= 0 || sum <= max_use) &&
+-                    (min_free <= 0 || (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free))
++                    (max_use <= 0 || sum <= max_use))
+                         break;
+ 
+                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
+diff --git a/src/journal/journal-vacuum.h b/src/journal/journal-vacuum.h
+index f5e3e529..bc30c3a1 100644
+--- a/src/journal/journal-vacuum.h
++++ b/src/journal/journal-vacuum.h
+@@ -23,4 +23,4 @@
+ 
+ #include <inttypes.h>
+ 
+-int journal_directory_vacuum(const char *directory, uint64_t max_use, uint64_t min_free, usec_t max_retention_usec, usec_t *oldest_usec);
++int journal_directory_vacuum(const char *directory, uint64_t max_use, usec_t max_retention_usec, usec_t *oldest_usec);
+diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
+index 1fcb3d57..cd2cfe9b 100644
+--- a/src/journal/journald-server.c
++++ b/src/journal/journald-server.c
+@@ -158,9 +158,18 @@ static uint64_t available_space(Server *s, bool verbose) {
+         }
+ 
+         ss_avail = ss.f_bsize * ss.f_bavail;
+-        avail = ss_avail > m->keep_free ? ss_avail - m->keep_free : 0;
+ 
+-        s->cached_available_space = MIN(m->max_use, avail) > sum ? MIN(m->max_use, avail) - sum : 0;
++        /* If we reached a high mark, we will always allow this much
++         * again, unless usage goes above max_use. This watermark
++         * value is cached so that we don't give up space on pressure,
++         * but hover below the maximum usage. */
++
++        if (m->use < sum)
++                m->use = sum;
++
++        avail = LESS_BY(ss_avail, m->keep_free);
++
++        s->cached_available_space = LESS_BY(MIN(m->max_use, avail), sum);
+         s->cached_available_space_timestamp = ts;
+ 
+         if (verbose) {
+@@ -168,13 +177,14 @@ static uint64_t available_space(Server *s, bool verbose) {
+                         fb4[FORMAT_BYTES_MAX], fb5[FORMAT_BYTES_MAX];
+ 
+                 server_driver_message(s, SD_MESSAGE_JOURNAL_USAGE,
+-                                      "%s journal is using %s (max %s, leaving %s of free %s, current limit %s).",
++                                      "%s journal is using %s (max allowed %s, "
++                                      "trying to leave %s free of %s available → current limit %s).",
+                                       s->system_journal ? "Permanent" : "Runtime",
+                                       format_bytes(fb1, sizeof(fb1), sum),
+                                       format_bytes(fb2, sizeof(fb2), m->max_use),
+                                       format_bytes(fb3, sizeof(fb3), m->keep_free),
+                                       format_bytes(fb4, sizeof(fb4), ss_avail),
+-                                      format_bytes(fb5, sizeof(fb5), MIN(m->max_use, avail)));
++                                      format_bytes(fb5, sizeof(fb5), s->cached_available_space + sum));
+         }
+ 
+         return s->cached_available_space;
+@@ -378,7 +388,7 @@ void server_vacuum(Server *s) {
+         if (s->system_journal) {
+                 char *p = strappenda("/var/log/journal/", ids);
+ 
+-                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->system_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
++                r = journal_directory_vacuum(p, s->system_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
+                 if (r < 0 && r != -ENOENT)
+                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
+         }
+@@ -386,7 +396,7 @@ void server_vacuum(Server *s) {
+         if (s->runtime_journal) {
+                 char *p = strappenda("/run/log/journal/", ids);
+ 
+-                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->runtime_metrics.keep_free, s->max_retention_usec, &s->oldest_file_usec);
++                r = journal_directory_vacuum(p, s->runtime_metrics.max_use, s->max_retention_usec, &s->oldest_file_usec);
+                 if (r < 0 && r != -ENOENT)
+                         log_error("Failed to vacuum %s: %s", p, strerror(-r));
+         }
+diff --git a/src/journal/test-journal-interleaving.c b/src/journal/test-journal-interleaving.c
+index 1a058eae..974fa3b2 100644
+--- a/src/journal/test-journal-interleaving.c
++++ b/src/journal/test-journal-interleaving.c
+@@ -194,7 +194,7 @@ static void test_skip(void (*setup)(void))
+         if (arg_keep)
+                 log_info("Not removing %s", t);
+         else {
+-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
++                journal_directory_vacuum(".", 3000000, 0, NULL);
+ 
+                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+         }
+@@ -279,7 +279,7 @@ static void test_sequence_numbers(void) {
+         if (arg_keep)
+                 log_info("Not removing %s", t);
+         else {
+-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
++                journal_directory_vacuum(".", 3000000, 0, NULL);
+ 
+                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+         }
+diff --git a/src/journal/test-journal.c b/src/journal/test-journal.c
+index 190c426e..3b8778d4 100644
+--- a/src/journal/test-journal.c
++++ b/src/journal/test-journal.c
+@@ -126,7 +126,7 @@ static void test_non_empty(void) {
+         if (arg_keep)
+                 log_info("Not removing %s", t);
+         else {
+-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
++                journal_directory_vacuum(".", 3000000, 0, NULL);
+ 
+                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+         }
+@@ -165,7 +165,7 @@ static void test_empty(void) {
+         if (arg_keep)
+                 log_info("Not removing %s", t);
+         else {
+-                journal_directory_vacuum(".", 3000000, 0, 0, NULL);
++                journal_directory_vacuum(".", 3000000, 0, NULL);
+ 
+                 assert_se(rm_rf_dangerous(t, false, true, false) >= 0);
+         }
+diff --git a/src/shared/macro.h b/src/shared/macro.h
+index d4f92b60..bc5b3c1d 100644
+--- a/src/shared/macro.h
++++ b/src/shared/macro.h
+@@ -114,6 +114,13 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
+                         _a < _b ? _a : _b;      \
+                 })
+ 
++#define LESS_BY(A,B)                            \
++        __extension__ ({                        \
++                        typeof(A) _A = (A);     \
++                        typeof(B) _B = (B);     \
++                        _A > _B ? _A - _B : 0;  \
++                })
++
+ #ifndef CLAMP
+ #define CLAMP(x, low, high)                                             \
+         __extension__ ({                                                \

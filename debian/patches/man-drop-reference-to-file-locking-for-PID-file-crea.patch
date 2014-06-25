@@ -1,0 +1,28 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 22 May 2014 16:15:56 +0900
+Subject: man: drop reference to file locking for PID file creation from
+ daemon(7)
+
+File locking is usually a bad idea, don't suggest using it.
+
+(cherry picked from commit c4b834a4adfa4f858ed9fd07b300588ec1c3e20e)
+(cherry picked from commit ab28d5c3ed99817a76607f88e99d6d60feaf22c2)
+---
+ man/daemon.xml | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/man/daemon.xml b/man/daemon.xml
+index 932de3b4..170949e7 100644
+--- a/man/daemon.xml
++++ b/man/daemon.xml
+@@ -158,9 +158,7 @@
+                                 it is verified at the same time that
+                                 the PID previously stored in the PID
+                                 file no longer exists or belongs to a
+-                                foreign process. Commonly, some kind of
+-                                file locking is employed to implement
+-                                this logic.</para></listitem>
++                                foreign process.</para></listitem>
+ 
+                                 <listitem><para>In the daemon process,
+                                 drop privileges, if possible and

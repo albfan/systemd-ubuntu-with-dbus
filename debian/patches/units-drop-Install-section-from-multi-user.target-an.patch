@@ -1,0 +1,39 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 17 Jan 2014 20:27:35 +0100
+Subject: units: drop [Install] section from multi-user.target and
+ graphical.target
+
+They were supposed to make it easy to make the default.target a symlink
+to these targets, but this was never advertised and we have a better
+command for this now in "systemctl set-default". Since the install
+section makes the output of "systemctl list-unit-files" confusing (since
+it makes the units appear as "disabled"), let's drop the sections.
+
+(cherry picked from commit 02ebe178a2bd6b2448d4fbfa4a1f7fa98e9e82b1)
+---
+ units/graphical.target  | 3 ---
+ units/multi-user.target | 3 ---
+ 2 files changed, 6 deletions(-)
+
+diff --git a/units/graphical.target b/units/graphical.target
+index 65f2521d..a2c4532e 100644
+--- a/units/graphical.target
++++ b/units/graphical.target
+@@ -13,6 +13,3 @@ After=multi-user.target
+ Conflicts=rescue.target
+ Wants=display-manager.service
+ AllowIsolate=yes
+-
+-[Install]
+-Alias=default.target
+diff --git a/units/multi-user.target b/units/multi-user.target
+index 998e0460..0f0e5e99 100644
+--- a/units/multi-user.target
++++ b/units/multi-user.target
+@@ -12,6 +12,3 @@ Requires=basic.target
+ Conflicts=rescue.service rescue.target
+ After=basic.target rescue.service rescue.target
+ AllowIsolate=yes
+-
+-[Install]
+-Alias=default.target

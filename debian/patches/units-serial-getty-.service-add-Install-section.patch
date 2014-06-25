@@ -1,0 +1,24 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 24 Feb 2014 08:02:28 -0500
+Subject: units/serial-getty@.service: add [Install] section
+
+This makes it easier to manually enable and disable
+specific gettys, and also mirrors getty@.service.
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-February/017329.html
+(cherry picked from commit 7143555ce8f94b002d06b9b058d7d90c3a4901a9)
+---
+ units/serial-getty@.service.m4 | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/units/serial-getty@.service.m4 b/units/serial-getty@.service.m4
+index e32c6b7a..aea078f4 100644
+--- a/units/serial-getty@.service.m4
++++ b/units/serial-getty@.service.m4
+@@ -33,3 +33,6 @@ TTYVHangup=yes
+ KillMode=process
+ IgnoreSIGPIPE=no
+ SendSIGHUP=yes
++
++[Install]
++WantedBy=getty.target

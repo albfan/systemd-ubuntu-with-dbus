@@ -1,0 +1,27 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 15 May 2014 18:30:07 +0200
+Subject: logind: bring polkit policy for hibernate in line with
+ suspend/poweroff/reboot
+
+THere's no reason why hibernate should be better protected then
+suspendor poweroff, so sync the policies.
+
+(cherry picked from commit 301f9684e6465df5d0590f6c571fe3229ded966d)
+(cherry picked from commit 219b39885311455d16fd03922e043f93d8c35595)
+---
+ src/login/org.freedesktop.login1.policy.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/login/org.freedesktop.login1.policy.in b/src/login/org.freedesktop.login1.policy.in
+index b96d32d5..b8e90f19 100644
+--- a/src/login/org.freedesktop.login1.policy.in
++++ b/src/login/org.freedesktop.login1.policy.in
+@@ -254,7 +254,7 @@
+                 <defaults>
+                         <allow_any>auth_admin_keep</allow_any>
+                         <allow_inactive>auth_admin_keep</allow_inactive>
+-                        <allow_active>auth_admin_keep</allow_active>
++                        <allow_active>yes</allow_active>
+                 </defaults>
+                 <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.hibernate</annotate>
+         </action>

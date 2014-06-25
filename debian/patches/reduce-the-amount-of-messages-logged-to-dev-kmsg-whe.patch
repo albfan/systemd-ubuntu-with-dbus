@@ -1,0 +1,37 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Sat, 5 Apr 2014 13:59:01 -0400
+Subject: reduce the amount of messages logged to /dev/kmsg when "debug" is
+ specified
+
+(cherry picked from commit b2103dccb354de3f38c49c14ccb637bdf665e40f)
+
+Conflicts:
+	src/core/main.c
+
+(cherry picked from commit c025499ceaf503d52f07a93fa8244f94fe6d6a73)
+
+Conflicts:
+	src/core/main.c
+---
+ src/core/main.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/src/core/main.c b/src/core/main.c
+index 935762f7..1ac1ba7a 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -411,12 +411,9 @@ static int parse_proc_cmdline_word(const char *word) {
+         } else if (streq(word, "quiet"))
+                 arg_show_status = false;
+         else if (streq(word, "debug")) {
+-                /* Log to kmsg, the journal socket will fill up before the
+-                 * journal is started and tools running during that time
+-                 * will block with every log message for for 60 seconds,
+-                 * before they give up. */
+                 log_set_max_level(LOG_DEBUG);
+-                log_set_target(LOG_TARGET_KMSG);
++                if (detect_container(NULL) > 0)
++                        log_set_target(LOG_TARGET_KMSG);
+         } else if (!in_initrd()) {
+                 unsigned i;
+ 

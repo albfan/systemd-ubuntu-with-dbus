@@ -1,0 +1,22 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 11 Nov 2013 19:53:59 -0500
+Subject: systemd-python: fix booted() and add two functions to docs
+
+For some reason sphinx doesn't want to show inherited C functions.
+---
+ src/python-systemd/_daemon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/python-systemd/_daemon.c b/src/python-systemd/_daemon.c
+index 6b84fb81..f0ab16f6 100644
+--- a/src/python-systemd/_daemon.c
++++ b/src/python-systemd/_daemon.c
+@@ -51,7 +51,7 @@ static PyObject* booted(PyObject *self, PyObject *args) {
+         assert(args == NULL);
+ 
+         r = sd_booted();
+-        if (set_error(r, NULL, NULL))
++        if (set_error(r, NULL, NULL) < 0)
+                 return NULL;
+ 
+         return PyBool_FromLong(r);

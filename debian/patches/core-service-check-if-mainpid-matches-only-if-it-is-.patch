@@ -1,0 +1,26 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 30 Dec 2013 11:21:56 -0500
+Subject: core/service: check if mainpid matches only if it is set
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1047304
+(cherry picked from commit da13d4d20f8ca12e86863abbae5ed47bca936828)
+
+Conflicts:
+	src/core/service.c
+---
+ src/core/service.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index 62ae8f01..f0acda10 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -3400,7 +3400,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
+                 return;
+         }
+ 
+-        if (s->notify_access == NOTIFY_MAIN && pid != s->main_pid) {
++        if (s->notify_access == NOTIFY_MAIN && s->main_pid != 0 && pid != s->main_pid) {
+                 log_warning_unit(u->id,
+                                  "%s: Got notification message from PID %lu, but reception only permitted for PID %lu",
+                                  u->id, (unsigned long) pid, (unsigned long) s->main_pid);

@@ -1,0 +1,98 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 24 Feb 2014 21:53:13 -0500
+Subject: Revert "journalctl: flip to --full by default"
+
+This reverts commit 9425c5d1440fe5ffaa8f56b0ef91f17d97475706.
+
+This is a user visible change and doesn't belong in stable series.
+---
+ man/journalctl.xml       | 15 +++------------
+ src/journal/journalctl.c | 12 +++---------
+ 2 files changed, 6 insertions(+), 21 deletions(-)
+
+diff --git a/man/journalctl.xml b/man/journalctl.xml
+index d1e841a5..d75c758d 100644
+--- a/man/journalctl.xml
++++ b/man/journalctl.xml
+@@ -152,20 +152,11 @@
+                         </varlistentry>
+ 
+                         <varlistentry>
+-                                <term><option>--no-full</option></term>
+-                                <term><option>--full</option></term>
+                                 <term><option>-l</option></term>
++                                <term><option>--full</option></term>
+ 
+-                                <listitem><para>Ellipsize fields when
+-                                they don't fit in available columns.
+-                                The default is to show full fields,
+-                                allowing them to wrap or be truncated
+-                                by the pager if one is used.</para>
+-
+-                                <para>Old options
+-                                <option>-l</option>/<option>--full</option>
+-                                not useful anymore, except to undo
+-                                <option>--no-full</option>.</para></listitem>
++                                <listitem><para>Show all (printable) fields in
++                                full.</para></listitem>
+                         </varlistentry>
+ 
+                         <varlistentry>
+diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
+index 1b5bdd3f..ccd96b22 100644
+--- a/src/journal/journalctl.c
++++ b/src/journal/journalctl.c
+@@ -64,7 +64,7 @@
+ static OutputMode arg_output = OUTPUT_SHORT;
+ static bool arg_pager_end = false;
+ static bool arg_follow = false;
+-static bool arg_full = true;
++static bool arg_full = false;
+ static bool arg_all = false;
+ static bool arg_no_pager = false;
+ static int arg_lines = -1;
+@@ -187,7 +187,7 @@ static int help(void) {
+                "                                   short-precise, short-monotonic, verbose,\n"
+                "                                   export, json, json-pretty, json-sse, cat)\n"
+                "  -x --catalog             Add message explanations where available\n"
+-               "     --no-full             Ellipsize fields\n"
++               "  -l --full                Do not ellipsize fields\n"
+                "  -a --all                 Show all fields, including long and unprintable\n"
+                "  -q --quiet               Do not show privilege warning\n"
+                "     --no-pager            Do not pipe output into a pager\n"
+@@ -224,7 +224,6 @@ static int parse_argv(int argc, char *argv[]) {
+         enum {
+                 ARG_VERSION = 0x100,
+                 ARG_NO_PAGER,
+-                ARG_NO_FULL,
+                 ARG_NO_TAIL,
+                 ARG_NEW_ID128,
+                 ARG_LIST_BOOTS,
+@@ -259,7 +258,6 @@ static int parse_argv(int argc, char *argv[]) {
+                 { "output",         required_argument, NULL, 'o'                },
+                 { "all",            no_argument,       NULL, 'a'                },
+                 { "full",           no_argument,       NULL, 'l'                },
+-                { "no-full",        no_argument,       NULL, ARG_NO_FULL        },
+                 { "lines",          optional_argument, NULL, 'n'                },
+                 { "no-tail",        no_argument,       NULL, ARG_NO_TAIL        },
+                 { "new-id128",      no_argument,       NULL, ARG_NEW_ID128      },
+@@ -351,10 +349,6 @@ static int parse_argv(int argc, char *argv[]) {
+                         arg_full = true;
+                         break;
+ 
+-                case ARG_NO_FULL:
+-                        arg_full = false;
+-                        break;
+-
+                 case 'a':
+                         arg_all = true;
+                         break;
+@@ -1742,7 +1736,7 @@ int main(int argc, char *argv[]) {
+ 
+                         flags =
+                                 arg_all * OUTPUT_SHOW_ALL |
+-                                arg_full * OUTPUT_FULL_WIDTH |
++                                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                                 on_tty() * OUTPUT_COLOR |
+                                 arg_catalog * OUTPUT_CATALOG;
+ 

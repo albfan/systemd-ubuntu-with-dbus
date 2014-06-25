@@ -1,0 +1,40 @@
+From: =?utf-8?q?V=C3=A1clav_Pavl=C3=ADn?= <vpavlin@redhat.com>
+Date: Thu, 3 Oct 2013 15:47:26 +0200
+Subject: man: Improve the description of parameter X in tmpfiles.d page
+
+---
+ man/tmpfiles.d.xml | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/man/tmpfiles.d.xml b/man/tmpfiles.d.xml
+index 9fc4b7cd..e8b630da 100644
+--- a/man/tmpfiles.d.xml
++++ b/man/tmpfiles.d.xml
+@@ -184,15 +184,18 @@ L    /tmp/foobar -    -    -    -   /dev/null</programlisting>
+                                 <varlistentry>
+                                         <term><varname>X</varname></term>
+                                         <listitem><para>Ignore a path
+-                                        during cleanup. Use this type
+-                                        to prevent path removal as
+-                                        controlled with the Age parameter.
+-                                        Note that if path is a directory,
+-                                        content of a directory is not
+-                                        excluded from clean-up, only
+-                                        directory itself. Lines of this
+-                                        type accept shell-style globs
+-                                        in place of normal path
++                                        during cleaning. Use this type
++                                        to exclude paths from clean-up
++                                        as controlled with the Age
++                                        parameter. Unlike x this
++                                        parameter will not exclude the
++                                        content if path is a directory,
++                                        but only directory itself.
++                                        Note that lines of this type do
++                                        not influence the effect of r
++                                        or R lines. Lines of this type
++                                        accept shell-style globs in
++                                        place of normal path
+                                         names.</para></listitem>
+                                 </varlistentry>
+ 

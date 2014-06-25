@@ -1,0 +1,28 @@
+From: Unai Uribarri <unaiur@gmail.com>
+Date: Sat, 11 Jan 2014 09:19:41 -0500
+Subject: hwdb: Add support for Toshiba Satellite P75-A7200 keyboard
+
+(cherry picked from commit 2a61aaac6607d998e981481c34ae06e3e3ace4fe)
+---
+ hwdb/60-keyboard.hwdb | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index 84a061f5..e3d1f02c 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -1012,6 +1012,14 @@ keyboard:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSATELLITEU940
+  KEYBOARD_KEY_13e=switchvideomode
+  KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
+ 
++# Satellite P75-A7200
++keyboard:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:pvr*
++ KEYBOARD_KEY_13c=brightnessdown
++ KEYBOARD_KEY_13d=brightnessup
++ KEYBOARD_KEY_13e=switchvideomode
++ KEYBOARD_KEY_13f=touchpad_toggle
++ KEYBOARD_KEY_9e=wlan
++
+ ###########################################################
+ # VIA
+ ###########################################################

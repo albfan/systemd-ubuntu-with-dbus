@@ -1,0 +1,37 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 11 Dec 2013 23:31:34 +0100
+Subject: units: don't run readahead done timers in containers
+
+We don't run the collector in the container either, hence we don't need
+to stop it either.
+
+(cherry picked from commit b3de50cb07bb49c4e24287002eca1e95c490f90d)
+---
+ units/systemd-readahead-done.service.in | 1 +
+ units/systemd-readahead-done.timer      | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/units/systemd-readahead-done.service.in b/units/systemd-readahead-done.service.in
+index c3b2ac50..e0d95794 100644
+--- a/units/systemd-readahead-done.service.in
++++ b/units/systemd-readahead-done.service.in
+@@ -12,6 +12,7 @@ DefaultDependencies=no
+ Conflicts=shutdown.target
+ After=default.target
+ Before=shutdown.target
++ConditionVirtualization=no
+ 
+ [Service]
+ Type=oneshot
+diff --git a/units/systemd-readahead-done.timer b/units/systemd-readahead-done.timer
+index 41bfb2bd..a9f6278f 100644
+--- a/units/systemd-readahead-done.timer
++++ b/units/systemd-readahead-done.timer
+@@ -12,6 +12,7 @@ DefaultDependencies=no
+ Conflicts=shutdown.target
+ After=default.target
+ Before=shutdown.target
++ConditionVirtualization=no
+ 
+ [Timer]
+ OnActiveSec=30s

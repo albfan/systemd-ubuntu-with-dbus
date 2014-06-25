@@ -1,3 +1,9 @@
+systemd (208-3) UNRELEASED; urgency=medium
+
+  * Add v208-stable patch series.
+
+ -- Jon Severinsson <jon@severinsson.net>  Wed, 25 Jun 2014 18:00:00 +0200
+
 systemd (208-2) experimental; urgency=medium
 
   [ Sjoerd Simons ]

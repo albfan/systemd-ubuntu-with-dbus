@@ -1,0 +1,596 @@
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Mon, 3 Mar 2014 15:37:49 +0100
+Subject: logind: rework session shutdown logic
+
+Simplify the shutdown logic a bit:
+
+- Keep the session FIFO around in the PAM module, even after the session
+  shutdown hook has been finished. This allows logind to track precisely
+  when the PAM handler goes away.
+
+- In the ReleaseSession() call start a timer, that will stop terminate
+  the session when elapsed.
+
+- Never fiddle with the KillMode of scopes to configure whether user
+  processes should be killed or not. Instead, simply leave the scope
+  units around when we terminate a session whose processes should not be
+  killed.
+
+- When killing is enabled, stop the session scope on FIFO EOF or after
+  the ReleaseSession() timeout. When killing is disabled, simply tell
+  PID 1 to abandon the scope.
+
+Because the scopes stay around and hence all processes are always member
+of a scope, the system shutdown logic should be more robust, as the
+scopes can be shutdown as part of the usual shutdown logic.
+
+Based-on: 5f41d1f10fd97e93517b6a762b1bec247f4d1171
+---
+ src/login/logind-dbus.c    |  51 +++++++++++-------
+ src/login/logind-session.c | 130 +++++++++++++++++++++++++++++++++++----------
+ src/login/logind-session.h |   4 ++
+ src/login/logind-user.c    |  23 +++++---
+ src/login/logind-user.h    |   1 +
+ src/login/logind.c         |  23 ++++++--
+ src/login/logind.h         |   4 +-
+ src/login/pam-module.c     |  11 ++--
+ 8 files changed, 182 insertions(+), 65 deletions(-)
+
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index 6f3e442e..63f0d3c7 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -1746,13 +1746,7 @@ static DBusHandlerResult manager_message_handler(
+                 if (!session)
+                         return bus_send_error_reply(connection, message, &error, -ENOENT);
+ 
+-                /* We use the FIFO to detect stray sessions where the
+-                process invoking PAM dies abnormally. We need to make
+-                sure that that process is not killed if at the clean
+-                end of the session it closes the FIFO. Hence, with
+-                this call explicitly turn off the FIFO logic, so that
+-                the PAM code can finish clean up on its own */
+-                session_remove_fifo(session);
++                session_release(session);
+ 
+                 reply = dbus_message_new_method_return(message);
+                 if (!reply)
+@@ -2550,7 +2544,6 @@ int manager_start_scope(
+                 const char *slice,
+                 const char *description,
+                 const char *after,
+-                const char *kill_mode,
+                 DBusError *error,
+                 char **job) {
+ 
+@@ -2622,18 +2615,6 @@ int manager_start_scope(
+                         return log_oom();
+         }
+ 
+-        if (!isempty(kill_mode)) {
+-                const char *kill_mode_property = "KillMode";
+-
+-                if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_STRUCT, NULL, &sub2) ||
+-                    !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &kill_mode_property) ||
+-                    !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, "s", &sub3) ||
+-                    !dbus_message_iter_append_basic(&sub3, DBUS_TYPE_STRING, &kill_mode) ||
+-                    !dbus_message_iter_close_container(&sub2, &sub3) ||
+-                    !dbus_message_iter_close_container(&sub, &sub2))
+-                        return log_oom();
+-        }
+-
+         /* cgroup empty notification is not available in containers
+          * currently. To make this less problematic, let's shorten the
+          * stop timeout for sessions, so that we don't wait
+@@ -2792,6 +2773,36 @@ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char
+         return 1;
+ }
+ 
++int manager_abandon_scope(Manager *manager, const char *scope, DBusError *error) {
++        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
++        _cleanup_free_ char *path = NULL;
++        int r;
++
++        assert(manager);
++        assert(scope);
++
++        path = unit_dbus_path_from_name(scope);
++        if (!path)
++                return -ENOMEM;
++
++        r = bus_method_call_with_reply(
++                manager->bus,
++                "org.freedesktop.systemd1",
++                path,
++                "org.freedesktop.systemd1.Scope",
++                "Abandon",
++                &reply,
++                error,
++                DBUS_TYPE_INVALID);
++
++        if (r < 0) {
++                log_error("Failed to abandon scope %s", scope);
++                return r;
++        }
++
++        return 1;
++}
++
+ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error) {
+         _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+         const char *w;
+diff --git a/src/login/logind-session.c b/src/login/logind-session.c
+index 27aa3351..78e6d74c 100644
+--- a/src/login/logind-session.c
++++ b/src/login/logind-session.c
+@@ -24,6 +24,7 @@
+ #include <unistd.h>
+ #include <sys/epoll.h>
+ #include <fcntl.h>
++#include <sys/timerfd.h>
+ 
+ #include <systemd/sd-id128.h>
+ #include <systemd/sd-messages.h>
+@@ -36,6 +37,8 @@
+ #include "dbus-common.h"
+ #include "logind-session.h"
+ 
++#define RELEASE_SEC 20
++
+ static unsigned devt_hash_func(const void *p) {
+         uint64_t u = *(const dev_t*)p;
+ 
+@@ -505,7 +508,6 @@ static int session_start_scope(Session *s) {
+ 
+         if (!s->scope) {
+                 _cleanup_free_ char *description = NULL;
+-                const char *kill_mode;
+                 char *scope, *job;
+ 
+                 description = strjoin("Session ", s->id, " of user ", s->user->name, NULL);
+@@ -516,9 +518,7 @@ static int session_start_scope(Session *s) {
+                 if (!scope)
+                         return log_oom();
+ 
+-                kill_mode = manager_shall_kill(s->manager, s->user->name) ? "control-group" : "none";
+-
+-                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-user-sessions.service", kill_mode, &error, &job);
++                r = manager_start_scope(s->manager, scope, s->leader, s->user->slice, description, "systemd-logind.service", &error, &job);
+                 if (r < 0) {
+                         log_error("Failed to start session scope %s: %s %s",
+                                   scope, bus_error(&error, r), error.name);
+@@ -579,23 +579,22 @@ int session_start(Session *s) {
+ 
+         s->started = true;
+ 
+-        /* Save session data */
++        /* Save data */
+         session_save(s);
+         user_save(s->user);
++        if (s->seat)
++                seat_save(s->seat);
+ 
++        /* Send signals */
+         session_send_signal(s, true);
+ 
+         if (s->seat) {
+-                seat_save(s->seat);
+-
+                 if (s->seat->active == s)
+                         seat_send_changed(s->seat, "Sessions\0ActiveSession\0");
+                 else
+                         seat_send_changed(s->seat, "Sessions\0");
+         }
+ 
+-        user_send_changed(s->user, "Sessions\0");
+-
+         return 0;
+ }
+ 
+@@ -611,15 +610,24 @@ static int session_stop_scope(Session *s) {
+         if (!s->scope)
+                 return 0;
+ 
+-        r = manager_stop_unit(s->manager, s->scope, &error, &job);
+-        if (r < 0) {
+-                log_error("Failed to stop session scope: %s", bus_error(&error, r));
+-                dbus_error_free(&error);
+-                return r;
+-        }
++        if (manager_shall_kill(s->manager, s->user->name)) {
++                r = manager_stop_unit(s->manager, s->scope, &error, &job);
++                if (r < 0) {
++                        log_error("Failed to stop session scope: %s", bus_error(&error, r));
++                        dbus_error_free(&error);
++                        return r;
++                }
+ 
+-        free(s->scope_job);
+-        s->scope_job = job;
++                free(s->scope_job);
++                s->scope_job = job;
++        } else {
++                r = manager_abandon_scope(s->manager, s->scope, &error);
++                if (r < 0) {
++                        log_error("Failed to abandon session scope: %s", bus_error(&error, r));
++                        dbus_error_free(&error);
++                        return r;
++                }
++        }
+ 
+         return 0;
+ }
+@@ -644,6 +652,19 @@ static int session_unlink_x11_socket(Session *s) {
+         return r < 0 ? -errno : 0;
+ }
+ 
++static void session_close_timer_fd(Session *s) {
++        assert(s);
++
++        if (s->timer_fd <= 0)
++                return;
++
++        hashmap_remove(s->manager->timer_fds, INT_TO_PTR(s->timer_fd + 1));
++        epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->timer_fd, NULL);
++
++        close_nointr(s->timer_fd);
++        s->timer_fd = -1;
++}
++
+ int session_stop(Session *s) {
+         int r;
+ 
+@@ -652,11 +673,18 @@ int session_stop(Session *s) {
+         if (!s->user)
+                 return -ESTALE;
+ 
++        session_close_timer_fd(s);
++
++        /* We are going down, don't care about FIFOs anymore */
++        session_remove_fifo(s);
++
+         /* Kill cgroup */
+         r = session_stop_scope(s);
+ 
+         session_save(s);
+ 
++        s->stopping = true;
++
+         return r;
+ }
+ 
+@@ -678,6 +706,8 @@ int session_finalize(Session *s) {
+                            "MESSAGE=Removed session %s.", s->id,
+                            NULL);
+ 
++        session_close_timer_fd(s);
++
+         /* Kill session devices */
+         while ((sd = hashmap_first(s->devices)))
+                 session_device_free(sd);
+@@ -698,16 +728,64 @@ int session_finalize(Session *s) {
+                 if (s->seat->active == s)
+                         seat_set_active(s->seat, NULL);
+ 
+-                seat_send_changed(s->seat, "Sessions\0");
+                 seat_save(s->seat);
++                seat_send_changed(s->seat, "Sessions\0");
+         }
+ 
+-        user_send_changed(s->user, "Sessions\0");
+         user_save(s->user);
++        user_send_changed(s->user, "Sessions\0");
+ 
+         return r;
+ }
+ 
++void session_release(Session *s) {
++        int r;
++
++        struct itimerspec its = { .it_value.tv_sec = RELEASE_SEC };
++        struct epoll_event ev = {};
++
++        assert(s);
++
++        if (!s->started || s->stopping)
++                return;
++
++        if (s->timer_fd >= 0)
++                return;
++
++        s->timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
++        if (s->timer_fd < 0) {
++                log_error("Failed to create session release timer fd");
++                goto out;
++        }
++
++        r = hashmap_put(s->manager->timer_fds, INT_TO_PTR(s->timer_fd + 1), s);
++        if (r < 0) {
++                log_error("Failed to store session release timer fd");
++                goto out;
++        }
++
++        ev.events = EPOLLONESHOT;
++        ev.data.u32 = FD_OTHER_BASE + s->timer_fd;
++
++        r = epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_ADD, s->timer_fd, &ev);
++        if (r < 0) {
++                log_error("Failed to add session release timer fd to epoll instance");
++                goto out;
++        }
++
++        r = timerfd_settime(s->timer_fd, TFD_TIMER_ABSTIME, &its, NULL);
++        if (r < 0) {
++                log_error("Failed to arm timer : %m");
++                goto out;
++        }
++
++out:
++        if (s->timer_fd >= 0) {
++                close_nointr(s->timer_fd);
++                s->timer_fd = -1;
++        }
++}
++
+ bool session_is_active(Session *s) {
+         assert(s);
+ 
+@@ -904,8 +982,6 @@ void session_remove_fifo(Session *s) {
+ }
+ 
+ int session_check_gc(Session *s, bool drop_not_started) {
+-        int r;
+-
+         assert(s);
+ 
+         if (drop_not_started && !s->started)
+@@ -915,11 +991,7 @@ int session_check_gc(Session *s, bool drop_not_started) {
+                 return 0;
+ 
+         if (s->fifo_fd >= 0) {
+-                r = pipe_eof(s->fifo_fd);
+-                if (r < 0)
+-                        return r;
+-
+-                if (r == 0)
++                if (pipe_eof(s->fifo_fd) <= 0)
+                         return 1;
+         }
+ 
+@@ -945,15 +1017,15 @@ void session_add_to_gc_queue(Session *s) {
+ SessionState session_get_state(Session *s) {
+         assert(s);
+ 
++        if (s->stopping || s->timer_fd >= 0)
++                return SESSION_CLOSING;
++
+         if (s->closing)
+                 return SESSION_CLOSING;
+ 
+         if (s->scope_job)
+                 return SESSION_OPENING;
+ 
+-        if (s->fifo_fd < 0)
+-                return SESSION_CLOSING;
+-
+         if (session_is_active(s))
+                 return SESSION_ACTIVE;
+ 
+diff --git a/src/login/logind-session.h b/src/login/logind-session.h
+index f175a899..9b76582c 100644
+--- a/src/login/logind-session.h
++++ b/src/login/logind-session.h
+@@ -98,11 +98,14 @@ struct Session {
+         int fifo_fd;
+         char *fifo_path;
+ 
++        int timer_fd;
++
+         bool idle_hint;
+         dual_timestamp idle_hint_timestamp;
+ 
+         bool in_gc_queue:1;
+         bool started:1;
++        bool stopping:1;
+         bool closing:1;
+ 
+         DBusMessage *create_message;
+@@ -130,6 +133,7 @@ void session_remove_fifo(Session *s);
+ int session_start(Session *s);
+ int session_stop(Session *s);
+ int session_finalize(Session *s);
++void session_release(Session *s);
+ int session_save(Session *s);
+ int session_load(Session *s);
+ int session_kill(Session *s, KillWho who, int signo);
+diff --git a/src/login/logind-user.c b/src/login/logind-user.c
+index ddf19eb0..3aeac136 100644
+--- a/src/login/logind-user.c
++++ b/src/login/logind-user.c
+@@ -529,6 +529,8 @@ int user_stop(User *u) {
+         if (k < 0)
+                 r = k;
+ 
++        u->stopping = true;
++
+         user_save(u);
+ 
+         return r;
+@@ -650,22 +652,27 @@ void user_add_to_gc_queue(User *u) {
+ 
+ UserState user_get_state(User *u) {
+         Session *i;
+-        bool all_closing = true;
+ 
+         assert(u);
+ 
++        if (u->stopping)
++                return USER_CLOSING;
++
+         if (u->slice_job || u->service_job)
+                 return USER_OPENING;
+ 
+-        LIST_FOREACH(sessions_by_user, i, u->sessions) {
+-                if (session_is_active(i))
+-                        return USER_ACTIVE;
+-                if (session_get_state(i) != SESSION_CLOSING)
+-                        all_closing = false;
+-        }
++        if (u->sessions) {
++                bool all_closing = true;
++
++                LIST_FOREACH(sessions_by_user, i, u->sessions) {
++                        if (session_is_active(i))
++                                return USER_ACTIVE;
++                        if (session_get_state(i) != SESSION_CLOSING)
++                                all_closing = false;
++                }
+ 
+-        if (u->sessions)
+                 return all_closing ? USER_CLOSING : USER_ONLINE;
++        }
+ 
+         if (user_check_linger_file(u) > 0)
+                 return USER_LINGERING;
+diff --git a/src/login/logind-user.h b/src/login/logind-user.h
+index a36f4565..a12532e2 100644
+--- a/src/login/logind-user.h
++++ b/src/login/logind-user.h
+@@ -61,6 +61,7 @@ struct User {
+ 
+         bool in_gc_queue:1;
+         bool started:1;
++        bool stopping:1;
+ 
+         LIST_HEAD(Session, sessions);
+         LIST_FIELDS(User, gc_queue);
+diff --git a/src/login/logind.c b/src/login/logind.c
+index 0628032a..5180be74 100644
+--- a/src/login/logind.c
++++ b/src/login/logind.c
+@@ -80,10 +80,11 @@ Manager *manager_new(void) {
+         m->session_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+         m->inhibitor_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+         m->button_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
++        m->timer_fds = hashmap_new(trivial_hash_func, trivial_compare_func);
+ 
+         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->busnames ||
+             !m->user_units || !m->session_units ||
+-            !m->session_fds || !m->inhibitor_fds || !m->button_fds) {
++            !m->session_fds || !m->inhibitor_fds || !m->button_fds || !m->timer_fds) {
+                 manager_free(m);
+                 return NULL;
+         }
+@@ -149,6 +150,7 @@ void manager_free(Manager *m) {
+         hashmap_free(m->session_fds);
+         hashmap_free(m->inhibitor_fds);
+         hashmap_free(m->button_fds);
++        hashmap_free(m->timer_fds);
+ 
+         if (m->console_active_fd >= 0)
+                 close_nointr_nofail(m->console_active_fd);
+@@ -620,6 +622,13 @@ static void manager_dispatch_other(Manager *m, int fd) {
+                 return;
+         }
+ 
++        s = hashmap_get(m->timer_fds, INT_TO_PTR(fd + 1));
++        if (s) {
++                assert(s->timer_fd == fd);
++                session_stop(s);
++                return;
++        }
++
+         i = hashmap_get(m->inhibitor_fds, INT_TO_PTR(fd + 1));
+         if (i) {
+                 assert(i->fifo_fd == fd);
+@@ -942,8 +951,12 @@ void manager_gc(Manager *m, bool drop_not_started) {
+                 LIST_REMOVE(Session, gc_queue, m->session_gc_queue, session);
+                 session->in_gc_queue = false;
+ 
+-                if (session_check_gc(session, drop_not_started) == 0) {
++                /* First, if we are not closing yet, initiate stopping */
++                if (!session_check_gc(session, drop_not_started) &&
++                    session_get_state(session) != SESSION_CLOSING)
+                         session_stop(session);
++
++                if (!session_check_gc(session, drop_not_started)) {
+                         session_finalize(session);
+                         session_free(session);
+                 }
+@@ -953,8 +966,11 @@ void manager_gc(Manager *m, bool drop_not_started) {
+                 LIST_REMOVE(User, gc_queue, m->user_gc_queue, user);
+                 user->in_gc_queue = false;
+ 
+-                if (user_check_gc(user, drop_not_started) == 0) {
++                if (!user_check_gc(user, drop_not_started) &&
++                    user_get_state(user) != USER_CLOSING)
+                         user_stop(user);
++
++                if (!user_check_gc(user, drop_not_started)) {
+                         user_finalize(user);
+                         user_free(user);
+                 }
+@@ -1032,6 +1048,7 @@ finish:
+ 
+         return r;
+ }
++
+ int manager_startup(Manager *m) {
+         int r;
+         Seat *seat;
+diff --git a/src/login/logind.h b/src/login/logind.h
+index 9e6296cb..0d2248fa 100644
+--- a/src/login/logind.h
++++ b/src/login/logind.h
+@@ -88,6 +88,7 @@ struct Manager {
+         Hashmap *session_fds;
+         Hashmap *inhibitor_fds;
+         Hashmap *button_fds;
++        Hashmap *timer_fds;
+ 
+         usec_t inhibit_delay_max;
+ 
+@@ -183,9 +184,10 @@ int manager_send_changed(Manager *manager, const char *properties);
+ 
+ int manager_dispatch_delayed(Manager *manager);
+ 
+-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *kill_mode, DBusError *error, char **job);
++int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, DBusError *error, char **job);
+ int manager_start_unit(Manager *manager, const char *unit, DBusError *error, char **job);
+ int manager_stop_unit(Manager *manager, const char *unit, DBusError *error, char **job);
++int manager_abandon_scope(Manager *manager, const char *scope, DBusError *error);
+ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, DBusError *error);
+ int manager_unit_is_active(Manager *manager, const char *unit);
+ 
+diff --git a/src/login/pam-module.c b/src/login/pam-module.c
+index 5baf1b73..62594500 100644
+--- a/src/login/pam-module.c
++++ b/src/login/pam-module.c
+@@ -489,7 +489,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
+                 int flags,
+                 int argc, const char **argv) {
+ 
+-        const void *p = NULL, *existing = NULL;
++        const void *existing = NULL;
+         const char *id;
+         DBusConnection *bus = NULL;
+         DBusMessage *m = NULL, *reply = NULL;
+@@ -546,12 +546,15 @@ _public_ PAM_EXTERN int pam_sm_close_session(
+                 }
+         }
+ 
++
++        /* Note that we are knowingly leaking the FIFO fd here. This
++         * way, logind can watch us die. If we closed it here it would
++         * not have any clue when that is completed. Given that one
++         * cannot really have multiple PAM sessions open from the same
++         * process this means we will leak one FD at max. */
+         r = PAM_SUCCESS;
+ 
+ finish:
+-        pam_get_data(handle, "systemd.session-fd", &p);
+-        if (p)
+-                close_nointr(PTR_TO_INT(p) - 1);
+ 
+         dbus_error_free(&error);
+ 

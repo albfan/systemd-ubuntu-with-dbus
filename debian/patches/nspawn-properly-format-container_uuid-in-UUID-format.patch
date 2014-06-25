@@ -1,0 +1,54 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 16 May 2014 19:37:19 +0200
+Subject: nspawn: properly format container_uuid in UUID format
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-April/018971.html
+(cherry picked from commit 9f24adc288de142d6606fde3c5a5971613f3b6b9)
+(cherry picked from commit e0036127752b25d87405e3ee508d4dbe41a23b7d)
+---
+ src/nspawn/nspawn.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index adc682d6..028dbe33 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -561,6 +561,15 @@ static int setup_resolv_conf(const char *dest) {
+         return 0;
+ }
+ 
++static char* id128_format_as_uuid(sd_id128_t id, char s[37]) {
++
++        snprintf(s, 37,
++                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
++                 SD_ID128_FORMAT_VAL(id));
++
++        return s;
++}
++
+ static int setup_boot_id(const char *dest) {
+         _cleanup_free_ char *from = NULL, *to = NULL;
+         sd_id128_t rnd;
+@@ -583,10 +592,7 @@ static int setup_boot_id(const char *dest) {
+                 return r;
+         }
+ 
+-        snprintf(as_uuid, sizeof(as_uuid),
+-                 "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+-                 SD_ID128_FORMAT_VAL(rnd));
+-        char_array_0(as_uuid);
++        id128_format_as_uuid(rnd, as_uuid);
+ 
+         r = write_string_file(from, as_uuid);
+         if (r < 0) {
+@@ -1446,7 +1452,9 @@ int main(int argc, char *argv[]) {
+                         }
+ 
+                         if (!sd_id128_equal(arg_uuid, SD_ID128_NULL)) {
+-                                if (asprintf((char**)(envp + n_env++), "container_uuid=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid)) < 0) {
++                                char as_uuid[37];
++
++                                if (asprintf((char**)(envp + n_env++), "container_uuid=%s", id128_format_as_uuid(arg_uuid, as_uuid)) < 0) {
+                                         log_oom();
+                                         goto child_fail;
+                                 }

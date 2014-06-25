@@ -1,0 +1,130 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Mon, 17 Feb 2014 02:49:45 +0100
+Subject: doc: choose different words to improve clarity
+
+I suggest the following changes to improve the way the text reads
+("flows").
+
+(cherry picked from commit dc968941bfc9be464e1df15afa05693dec3ec192)
+
+Conflicts:
+	man/crypttab.xml
+	man/sd_bus_creds_get_pid.xml
+	man/sd_bus_message_get_monotonic_usec.xml
+---
+ man/crypttab.xml                      |  4 +-
+ src/journal/systemd-journal-feeder.py | 83 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+), 2 deletions(-)
+ create mode 100644 src/journal/systemd-journal-feeder.py
+
+diff --git a/man/crypttab.xml b/man/crypttab.xml
+index 5f386e55..4b6d12ef 100644
+--- a/man/crypttab.xml
++++ b/man/crypttab.xml
+@@ -171,7 +171,7 @@
+                                 If the key slot does not match the given
+                                 passphrase or key, but another would, the
+                                 setup of the device will fail regardless.
+-                                This implies <varname>luks</varname>. See
++                                This option implies <varname>luks</varname>. See
+                                 <citerefentry><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                                 for possible values. The default is to try
+                                 all key slots in sequential order.</para></listitem>
+@@ -275,7 +275,7 @@
+                                 <term><varname>tcrypt-hidden</varname></term>
+ 
+                                 <listitem><para>Use the hidden TrueCrypt volume.
+-                                This implies <varname>tcrypt</varname>.</para>
++                                This option implies <varname>tcrypt</varname>.</para>
+ 
+                                 <para>This will map the hidden volume that is
+                                 inside of the volume provided in the second
+diff --git a/src/journal/systemd-journal-feeder.py b/src/journal/systemd-journal-feeder.py
+new file mode 100644
+index 00000000..5cfab82e
+--- /dev/null
++++ b/src/journal/systemd-journal-feeder.py
+@@ -0,0 +1,83 @@
++import argparse
++import subprocess
++import collections
++import struct
++from systemd import journal
++
++options = argparse.ArgumentParser()
++options.add_argument('-H', '--host', default='localhost')
++options.add_argument('-p', '--port', default=19531)
++options.add_argument('-b', '--boot', default='no',
++                     action='store_const', const='yes')
++options.add_argument('-f', '--follow', default='no',
++                     action='store_const', const='yes')
++options.add_argument('-s', '--submit', action='store_true')
++
++def spawn_curl(host, port, boot, follow):
++    "Spawn curl to get events from systemd-journal-gatewayd"
++    url = 'http://{host}:{port}/entries?follow={follow}&boot={boot}'.format(
++        host=host, port=port, follow=follow, boot=boot)
++    cmdline = ['curl', '-HAccept: application/vnd.fdo.journal',
++               '--silent', '--show-error',
++               url]
++    child = subprocess.Popen(cmdline,
++                             stdin=subprocess.DEVNULL,
++                             stdout=subprocess.PIPE)
++    return child
++
++def _read_one(inp):
++    fields = collections.OrderedDict()
++
++    while inp:
++        line = inp.readline()
++        line = line[:-1] # remove newline
++        if not line:
++            break
++        left, split, right = line.partition(b'=')
++        name = left.decode('ascii')
++        if split:
++            value = right.decode()
++        else:
++            flen_ = inp.read(8)
++            flen = struct.unpack('<lL', flen_)[0]
++            value = inp.read(flen)
++            newline = inp.read(1)
++            assert newline == b'\n', newline
++            name = name[:-1]
++        fields[name] = value
++
++    return fields
++
++def split_stream(stream):
++    "Parse journal events from stream"
++    while stream:
++        fields = _read_one(stream)
++        yield fields
++
++def cat_events(stream):
++    for event in split_stream(stream):
++        print('event MESSAGE=' + event.get('MESSAGE', '(no message)')
++              + ' ' + ','.join(event.keys()))
++
++def push_events(stream):
++    i = 0
++    for event in split_stream(stream):
++        #print(event)
++        v = [key.encode('utf-8') + b'=' + val
++             if isinstance(val, bytes)
++             else key + '=' + val
++             for key,val in event.items()]
++        print('\n'.join(v))
++        journal.sendv(*v)
++        i += 1
++        if i == 1:
++                break
++
++if __name__ == '__main__':
++    args = options.parse_args()
++    curl = spawn_curl(args.host, args.port,
++                      args.boot, args.follow)
++    if args.submit:
++        push_events(curl.stdout)
++    else:
++        cat_events(curl.stdout)

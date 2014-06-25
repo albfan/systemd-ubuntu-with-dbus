@@ -1,0 +1,101 @@
+From: Dave Reisner <dreisner@archlinux.org>
+Date: Sat, 19 Apr 2014 13:22:35 -0400
+Subject: implement a union to pad out file_handle
+
+Cases where name_to_handle_at is used allocated the full struct to be
+MAX_HANDLE_SZ, and assigned this size to handle_bytes. This is wrong
+since handle_bytes should describe the length of the flexible array
+member and not the whole struct.
+
+Define a union type which includes sufficient padding to allow
+assignment of MAX_HANDLE_SZ to be correct.
+
+(cherry picked from commit 370c860f748d149097710dc7952a64f627db9de7)
+
+Conflicts:
+	src/shared/util.h
+
+(cherry picked from commit 91795825a093331ef136be1d630c5fcad299dfe8)
+
+Conflicts:
+	src/libudev/libudev-monitor.c
+	src/shared/util.h
+---
+ src/readahead/readahead-common.c |  6 ++----
+ src/shared/util.h                |  6 ++++++
+ src/tmpfiles/tmpfiles.c          | 11 ++++-------
+ 3 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/src/readahead/readahead-common.c b/src/readahead/readahead-common.c
+index aea1fbee..1edf9cc3 100644
+--- a/src/readahead/readahead-common.c
++++ b/src/readahead/readahead-common.c
+@@ -75,7 +75,7 @@ int fs_on_ssd(const char *p) {
+         if (major(st.st_dev) == 0) {
+                 _cleanup_fclose_ FILE *f = NULL;
+                 int mount_id;
+-                struct file_handle *h;
++                union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
+ 
+                 /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
+                  *
+@@ -83,9 +83,7 @@ int fs_on_ssd(const char *p) {
+                  * and then lookup the mount ID in mountinfo to find
+                  * the mount options. */
+ 
+-                h = alloca(MAX_HANDLE_SZ);
+-                h->handle_bytes = MAX_HANDLE_SZ;
+-                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
++                r = name_to_handle_at(AT_FDCWD, p, &h.handle, &mount_id, AT_SYMLINK_FOLLOW);
+                 if (r < 0)
+                         return false;
+ 
+diff --git a/src/shared/util.h b/src/shared/util.h
+index 47a3dc91..a1738856 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -22,6 +22,7 @@
+ ***/
+ 
+ #include <alloca.h>
++#include <fcntl.h>
+ #include <inttypes.h>
+ #include <time.h>
+ #include <sys/time.h>
+@@ -776,3 +777,8 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
+                 qsort(base, nmemb, size, compar);
+         }
+ }
++
++union file_handle_union {
++  struct file_handle handle;
++  char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
++};
+diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
+index fb88acd7..98d01a13 100644
+--- a/src/tmpfiles/tmpfiles.c
++++ b/src/tmpfiles/tmpfiles.c
+@@ -215,19 +215,16 @@ static bool unix_socket_alive(const char *fn) {
+ }
+ 
+ static int dir_is_mount_point(DIR *d, const char *subdir) {
+-        struct file_handle *h;
++        union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ };
+         int mount_id_parent, mount_id;
+         int r_p, r;
+ 
+-        h = alloca(MAX_HANDLE_SZ);
+-
+-        h->handle_bytes = MAX_HANDLE_SZ;
+-        r_p = name_to_handle_at(dirfd(d), ".", h, &mount_id_parent, 0);
++        r_p = name_to_handle_at(dirfd(d), ".", &h.handle, &mount_id_parent, 0);
+         if (r_p < 0)
+                 r_p = -errno;
+ 
+-        h->handle_bytes = MAX_HANDLE_SZ;
+-        r = name_to_handle_at(dirfd(d), subdir, h, &mount_id, 0);
++        h.handle.handle_bytes = MAX_HANDLE_SZ;
++        r = name_to_handle_at(dirfd(d), subdir, &h.handle, &mount_id, 0);
+         if (r < 0)
+                 r = -errno;
+ 

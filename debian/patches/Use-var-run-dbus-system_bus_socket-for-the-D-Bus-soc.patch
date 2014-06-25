@@ -1,0 +1,45 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 25 Feb 2014 21:26:31 -0500
+Subject: Use /var/run/dbus/system_bus_socket for the D-Bus socket
+
+(cherry picked from commit 1ae383a8a3ae4824453e297352fda603d2d3fd5e)
+(cherry picked from commit d5194bbb174d0b9a87e81d465644624ab455bbf6)
+
+Conflicts:
+	man/systemd-bus-proxyd@.service.xml
+	src/libsystemd/sd-bus/PORTING-DBUS1
+	src/shared/def.h
+	units/systemd-bus-proxyd.socket
+---
+ src/libsystemd-bus/sd-bus.c     | 4 ++--
+ src/stdio-bridge/stdio-bridge.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/libsystemd-bus/sd-bus.c b/src/libsystemd-bus/sd-bus.c
+index db0880f2..8dc3f6e3 100644
+--- a/src/libsystemd-bus/sd-bus.c
++++ b/src/libsystemd-bus/sd-bus.c
+@@ -972,8 +972,8 @@ int sd_bus_open_system(sd_bus **ret) {
+                         goto fail;
+         } else {
+                 b->sockaddr.un.sun_family = AF_UNIX;
+-                strncpy(b->sockaddr.un.sun_path, "/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
+-                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + sizeof("/run/dbus/system_bus_socket") - 1;
++                strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
++                b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + strlen("/var/run/dbus/system_bus_socket");
+         }
+ 
+         b->bus_client = true;
+diff --git a/src/stdio-bridge/stdio-bridge.c b/src/stdio-bridge/stdio-bridge.c
+index ab1a43ab..f2a26c01 100644
+--- a/src/stdio-bridge/stdio-bridge.c
++++ b/src/stdio-bridge/stdio-bridge.c
+@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
+                 goto finish;
+         }
+ 
+-        r = sd_bus_set_address(a, "unix:path=/run/dbus/system_bus_socket");
++        r = sd_bus_set_address(a, "unix:path=/var/run/dbus/system_bus_socket");
+         if (r < 0) {
+                 log_error("Failed to set address to connect to: %s", strerror(-r));
+                 goto finish;

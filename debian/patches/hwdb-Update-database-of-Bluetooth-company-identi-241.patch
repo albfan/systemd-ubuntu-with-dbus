@@ -1,0 +1,35 @@
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Mon, 20 Jan 2014 17:53:16 -0800
+Subject: hwdb: Update database of Bluetooth company identifiers
+
+(cherry picked from commit 43d9c2b5848b1363b659c38443c1c94db57415fd)
+---
+ hwdb/20-bluetooth-vendor-product.hwdb | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/hwdb/20-bluetooth-vendor-product.hwdb b/hwdb/20-bluetooth-vendor-product.hwdb
+index 192b7150..6a9dc50e 100644
+--- a/hwdb/20-bluetooth-vendor-product.hwdb
++++ b/hwdb/20-bluetooth-vendor-product.hwdb
+@@ -851,3 +851,21 @@ bluetooth:v0119*
+ 
+ bluetooth:v011A*
+  ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
++
++bluetooth:v011B*
++ ID_VENDOR_FROM_DATABASE=Aruba Networks
++
++bluetooth:v011C*
++ ID_VENDOR_FROM_DATABASE=Baidu
++
++bluetooth:v011D*
++ ID_VENDOR_FROM_DATABASE=Arendi AG
++
++bluetooth:v011E*
++ ID_VENDOR_FROM_DATABASE=Skoda Auto a.s.
++
++bluetooth:v011F*
++ ID_VENDOR_FROM_DATABASE=Volkswagon AG
++
++bluetooth:v0120*
++ ID_VENDOR_FROM_DATABASE=Porsche AG

@@ -1,0 +1,87 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 9 Jan 2014 22:23:32 -0500
+Subject: man: mention which variables will be expanded in ExecStart
+
+(cherry picked from commit c5b37953b7835562348d71ad5514faefa4cfb10b)
+
+Conflicts:
+	man/systemd.service.xml
+---
+ man/systemd.exec.xml    |  6 ++++--
+ man/systemd.service.xml | 35 +++++++++++++++++++++++------------
+ 2 files changed, 27 insertions(+), 14 deletions(-)
+
+diff --git a/man/systemd.exec.xml b/man/systemd.exec.xml
+index e213ec4f..c8414d42 100644
+--- a/man/systemd.exec.xml
++++ b/man/systemd.exec.xml
+@@ -295,9 +295,11 @@
+                                 for the assignment.</para>
+ 
+                                 <para>Example:
+-                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>
++                                <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"</programlisting>
+                                 gives three variables <literal>VAR1</literal>,
+-                                <literal>VAR2</literal>, <literal>VAR3</literal>.
++                                <literal>VAR2</literal>, <literal>VAR3</literal>
++                                with the values <literal>word1 word2</literal>,
++                                <literal>word3</literal>, <literal>$word 5 6</literal>.
+                                 </para>
+ 
+                                 <para>
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index af3e0f23..4fb21ba7 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -392,16 +392,32 @@
+                                 replaced by the value of the
+                                 environment variable including all
+                                 whitespace it contains, resulting in a
+-                                single argument.  Use
++                                single argument. Use
+                                 <literal>$FOO</literal> as a separate
+                                 word on the command line, in which
+                                 case it will be replaced by the value
+-                                of the environment variable split up
+-                                at whitespace, resulting in zero or
+-                                more arguments. To pass literal dollar sign
+-                                use <literal>$$</literal>. Note that the first
+-                                argument (i.e. the program to execute)
+-                                may not be a variable.</para>
++                                of the environment variable split at
++                                whitespace, resulting in zero or more
++                                arguments. To pass a literal dollar
++                                sign, use <literal>$$</literal>.
++                                Variables whose value is not known at
++                                expansion time are treated as empty
++                                strings. Note that the first argument
++                                (i.e. the program to execute) may not
++                                be a variable.</para>
++
++                                <para>Variables to be used in this
++                                fashion may be defined through
++                                <varname>Environment=</varname> and
++                                <varname>EnvironmentFile=</varname>.
++                                In addition, variables listed in
++                                section "Environment variables in
++                                spawned processes" in
++                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
++                                which are considered "static
++                                configuration" may used (this includes
++                                e.g. <varname>$USER</varname>, but not
++                                <varname>$TERM</varname>).</para>
+ 
+                                 <para>Optionally, if the absolute file
+                                 name is prefixed with
+@@ -429,11 +445,6 @@
+                                 <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
+                                 </programlisting>
+ 
+-                                <para>Only select environment variables that
+-                                are set for executed commands. See
+-                                <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+-                                </para>
+-
+                                 <para>Example:</para>
+                                 <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"
+                                 </programlisting>

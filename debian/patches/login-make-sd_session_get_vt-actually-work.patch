@@ -9,7 +9,7 @@ an error.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/login/sd-login.c b/src/login/sd-login.c
-index 71d8c29..9bfe43c 100644
+index 6c27dfeb..7e25041f 100644
 --- a/src/login/sd-login.c
 +++ b/src/login/sd-login.c
 @@ -354,7 +354,7 @@ _public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {

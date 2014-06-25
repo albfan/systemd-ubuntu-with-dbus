@@ -1,0 +1,33 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 25 Mar 2014 00:26:09 +0100
+Subject: man: be more specific when EnvironmentFile= is read
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-March/018004.html
+(cherry picked from commit 905826156de95d173b26e7a57df29188a1020cd0)
+(cherry picked from commit 72e86f001d139f9a7deaa697e355e5df2cb31151)
+---
+ man/systemd.exec.xml | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/man/systemd.exec.xml b/man/systemd.exec.xml
+index d8dab36f..37b9c4d1 100644
+--- a/man/systemd.exec.xml
++++ b/man/systemd.exec.xml
+@@ -340,9 +340,14 @@
+ 
+                                 <para>The files listed with this
+                                 directive will be read shortly before
+-                                the process is executed. Settings from
+-                                these files override settings made
+-                                with
++                                the process is executed (more
++                                specifically, this means after all
++                                processes from a previous unit state
++                                terminated. This means you can
++                                generate these files in one unit
++                                state, and read it with this option in
++                                the next). Settings from these files
++                                override settings made with
+                                 <varname>Environment=</varname>. If
+                                 the same variable is set twice from
+                                 these files, the files will be read in

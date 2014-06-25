@@ -1,0 +1,20 @@
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Mon, 10 Mar 2014 18:11:45 +0100
+Subject: logind: add forgotten call to user_send_changed()
+
+---
+ src/login/logind-session.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/login/logind-session.c b/src/login/logind-session.c
+index f31961a9..e519d358 100644
+--- a/src/login/logind-session.c
++++ b/src/login/logind-session.c
+@@ -587,6 +587,7 @@ int session_start(Session *s) {
+ 
+         /* Send signals */
+         session_send_signal(s, true);
++        user_send_changed(s->user, "Sessions\0");
+ 
+         if (s->seat) {
+                 if (s->seat->active == s)

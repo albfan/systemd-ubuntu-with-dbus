@@ -1,0 +1,129 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Wed, 25 Dec 2013 23:20:57 -0500
+Subject: man: document fail/nofail, auto/noauto
+
+Also s/filesystem/file system/ in a few places.
+
+Conflicts:
+	TODO
+	man/systemd-fsck@.service.xml
+	man/systemd-fstab-generator.xml
+---
+ man/systemd-fsck@.service.xml   |  5 ++++-
+ man/systemd-fstab-generator.xml |  6 ++++++
+ man/systemd-halt.service.xml    |  2 +-
+ man/systemd.mount.xml           | 20 +++++++++++++++++++-
+ man/systemd.unit.xml            |  2 +-
+ man/udevadm.xml                 |  2 +-
+ 6 files changed, 32 insertions(+), 5 deletions(-)
+
+diff --git a/man/systemd-fsck@.service.xml b/man/systemd-fsck@.service.xml
+index e934352f..c653dc59 100644
+--- a/man/systemd-fsck@.service.xml
++++ b/man/systemd-fsck@.service.xml
+@@ -62,7 +62,10 @@
+                 system
+                 check. <filename>systemd-fsck-root.service</filename> is
+                 responsible for file system checks on the root
+-                file system.</para>
++                file system. The root file system check is performed
++                before the other file systems. Either service is enabled
++                at boot if passno in <filename>/etc/fstab</filename> for
++                the file system is set to a value greater than zero.</para>
+ 
+                 <para><filename>systemd-fsck</filename> will
+                 forward file system checking progress to the
+diff --git a/man/systemd-fstab-generator.xml b/man/systemd-fstab-generator.xml
+index 9ca16c7e..e3cf5d2b 100644
+--- a/man/systemd-fstab-generator.xml
++++ b/man/systemd-fstab-generator.xml
+@@ -61,6 +61,12 @@
+                 reloaded. This will instantiate mount and swap units
+                 as necessary.</para>
+ 
++                <para>The <varname>passno</varname> field is treated
++                like a simple boolean, and the ordering information is
++                discarded. However, if the root file system is
++                checked, it is checked before all the other
++                file systems.</para>
++
+                 <para>See
+                 <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                 and
+diff --git a/man/systemd-halt.service.xml b/man/systemd-halt.service.xml
+index 99457aa7..bec2e36a 100644
+--- a/man/systemd-halt.service.xml
++++ b/man/systemd-halt.service.xml
+@@ -86,7 +86,7 @@
+                 <para>It is necessary to have this code in a separate binary
+                 because otherwise rebooting after an upgrade might be broken —
+                 the running PID 1 could still depend on libraries which are not
+-                available any more, thus keeping the filesystem busy, which
++                available any more, thus keeping the file system busy, which
+                 then cannot be re-mounted read-only.</para>
+ 
+                 <para>Immediately before executing the actual system
+diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
+index 6f9f70c3..cadf9500 100644
+--- a/man/systemd.mount.xml
++++ b/man/systemd.mount.xml
+@@ -132,7 +132,10 @@
+                 for details). Mounts listed in
+                 <filename>/etc/fstab</filename> will be converted into
+                 native units dynamically at boot and when the
+-                configuration of the system manager is reloaded. See
++                configuration of the system manager is reloaded. In
++                general, configuring mount points through
++                <filename>/etc/fstab</filename> is the preferred
++                approach. See
+                 <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                 for details about the conversion.</para>
+ 
+@@ -159,6 +162,21 @@
+                 <literal>s</literal>, <literal>min</literal>,
+                 <literal>h</literal>, <literal>ms</literal>.</para>
+ 
++                <para>If <option>nofail</option> is given, this mount
++                will be only wanted, not required, by the
++                <filename>local-fs.target</filename>. This means that
++                the boot will continue even if this mount point is not
++                mounted successfully. Option <option>fail</option> has
++                the opposite meaning and is the default.</para>
++
++                <para>If <option>noauto</option> is given, this mount
++                will not be added as a dependency for
++                <filename>local-fs.target</filename>. This means that
++                it will not be mounted automatically during boot,
++                unless it is pulled in by some other unit. Option
++                <option>auto</option> has the opposite meaning and is
++                the default.</para>
++
+                 <para>If a mount point is configured in both
+                 <filename>/etc/fstab</filename> and a unit file that
+                 is stored below <filename>/usr</filename>, the former
+diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
+index f6b4b247..4704352e 100644
+--- a/man/systemd.unit.xml
++++ b/man/systemd.unit.xml
+@@ -232,7 +232,7 @@
+                 multiple units from a single configuration file. If
+                 systemd looks for a unit configuration file, it will
+                 first search for the literal unit name in the
+-                filesystem. If that yields no success and the unit
++                file system. If that yields no success and the unit
+                 name contains an <literal>@</literal> character, systemd will look for a
+                 unit template that shares the same name but with the
+                 instance string (i.e. the part between the <literal>@</literal> character
+diff --git a/man/udevadm.xml b/man/udevadm.xml
+index a1ffe421..ca3713f2 100644
+--- a/man/udevadm.xml
++++ b/man/udevadm.xml
+@@ -461,7 +461,7 @@
+         <varlistentry>
+           <term><option>--root=<replaceable>string</replaceable></option></term>
+           <listitem>
+-            <para>Alternative root path in the filesystem for reading and writing files.</para>
++            <para>Alternative root path in the file system for reading and writing files.</para>
+           </listitem>
+         </varlistentry>
+       </variablelist>
