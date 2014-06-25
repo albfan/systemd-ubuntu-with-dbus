@@ -1,0 +1,92 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 10 Jun 2014 22:48:56 +0200
+Subject: label: when clearing selinux context, don't mangle errno
+
+(cherry picked from commit 874f1947e33922f08c578696af5b628a0f67fec2)
+(cherry picked from commit 00d967b989929e176e940345bbf3ffa65832b15f)
+
+Conflicts:
+	src/tmpfiles/tmpfiles.c
+---
+ src/shared/label.c      |  4 ++++
+ src/tmpfiles/tmpfiles.c | 13 +++++--------
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/src/shared/label.c b/src/shared/label.c
+index fde39f22..3a18e31c 100644
+--- a/src/shared/label.c
++++ b/src/shared/label.c
+@@ -230,6 +230,8 @@ int label_socket_set(const char *label) {
+ void label_context_clear(void) {
+ 
+ #ifdef HAVE_SELINUX
++        PROTECT_ERRNO;
++
+         if (!use_selinux())
+                 return;
+ 
+@@ -240,6 +242,8 @@ void label_context_clear(void) {
+ void label_socket_clear(void) {
+ 
+ #ifdef HAVE_SELINUX
++        PROTECT_ERRNO;
++
+         if (!use_selinux())
+                 return;
+ 
+diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
+index 4244656a..be2115c6 100644
+--- a/src/tmpfiles/tmpfiles.c
++++ b/src/tmpfiles/tmpfiles.c
+@@ -460,18 +460,19 @@ static int item_set_perms(Item *i, const char *path) {
+ }
+ 
+ static int write_one_file(Item *i, const char *path) {
+-        int r, e, fd, flags;
++        int r, fd, flags;
+         struct stat st;
+ 
++        assert(i);
++        assert(path);
++
+         flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
+                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
+ 
+         RUN_WITH_UMASK(0) {
+                 label_context_set(path, S_IFREG);
+                 fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+-                e = errno;
+                 label_context_clear();
+-                errno = e;
+         }
+ 
+         if (fd < 0) {
+@@ -633,7 +634,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
+ }
+ 
+ static int create_item(Item *i) {
+-        int r, e;
++        int r;
+         struct stat st;
+ 
+         assert(i);
+@@ -728,9 +729,7 @@ static int create_item(Item *i) {
+ 
+                 label_context_set(i->path, S_IFLNK);
+                 r = symlink(i->argument, i->path);
+-                e = errno;
+                 label_context_clear();
+-                errno = e;
+ 
+                 if (r < 0 && errno != EEXIST) {
+                         log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+@@ -772,9 +771,7 @@ static int create_item(Item *i) {
+                 RUN_WITH_UMASK(0000) {
+                         label_context_set(i->path, file_type);
+                         r = mknod(i->path, i->mode | file_type, i->major_minor);
+-                        e = errno;
+                         label_context_clear();
+-                        errno = e;
+                 }
+ 
+                 if (r < 0 && errno != EEXIST) {

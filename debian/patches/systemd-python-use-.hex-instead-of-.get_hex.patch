@@ -1,0 +1,44 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 5 Apr 2014 13:23:25 -0400
+Subject: systemd-python: use .hex instead of .get_hex()
+
+It turns out the latter got removed in Python 3.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=77086
+(cherry picked from commit b532cf3722e04adb0bd075666eb9989a9390d0a2)
+(cherry picked from commit 3c230a853e32c1a5925e8fcff8c70666c1c5849f)
+---
+ src/python-systemd/journal.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/python-systemd/journal.py b/src/python-systemd/journal.py
+index 9c7e0045..dd1f2299 100644
+--- a/src/python-systemd/journal.py
++++ b/src/python-systemd/journal.py
+@@ -293,7 +293,7 @@ class Reader(_Reader):
+             monotonic = monotonic.totalseconds()
+         monotonic = int(monotonic * 1000000)
+         if isinstance(bootid, _uuid.UUID):
+-            bootid = bootid.get_hex()
++            bootid = bootid.hex
+         return super(Reader, self).seek_monotonic(monotonic, bootid)
+ 
+     def log_level(self, level):
+@@ -314,7 +314,7 @@ class Reader(_Reader):
+         Equivalent to add_match(MESSAGE_ID=`messageid`).
+         """
+         if isinstance(messageid, _uuid.UUID):
+-            messageid = messageid.get_hex()
++            messageid = messageid.hex
+         self.add_match(MESSAGE_ID=messageid)
+ 
+     def this_boot(self, bootid=None):
+@@ -346,7 +346,7 @@ class Reader(_Reader):
+ 
+ def get_catalog(mid):
+     if isinstance(mid, _uuid.UUID):
+-        mid = mid.get_hex()
++        mid = mid.hex
+     return _get_catalog(mid)
+ 
+ def _make_line(field, value):

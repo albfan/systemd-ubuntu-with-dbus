@@ -1,0 +1,25 @@
+From: Tom Gundersen <teg@jklm.no>
+Date: Thu, 6 Feb 2014 18:15:47 +0100
+Subject: zsh-completions: kernel-install - only show existing kernels for
+ 'remove'
+
+When we remove a kernel, we don't remove the modules, so don't look at the modules directory to find installed kernels.
+
+(cherry picked from commit d72143bad46b51fc0bbedf01ff92aea8b07afac6)
+---
+ shell-completion/zsh/_kernel-install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/shell-completion/zsh/_kernel-install b/shell-completion/zsh/_kernel-install
+index 06551883..4fdd3a4a 100644
+--- a/shell-completion/zsh/_kernel-install
++++ b/shell-completion/zsh/_kernel-install
+@@ -12,7 +12,7 @@ _kernels(){
+     read _MACHINE_ID < /etc/machine-id
+     _kernel=( /lib/modules/[0-9]* )
+     if [[ "$cmd" == "remove" && -n "$_MACHINE_ID" ]]; then
+-        _kernel=( /lib/modules/[0-9]* "/boot/$_MACHINE_ID"/[0-9]* )
++        _kernel=( "/boot/$_MACHINE_ID"/[0-9]* )
+     fi
+     _kernel=( ${_kernel##*/} )
+     _describe "installed kernels" _kernel

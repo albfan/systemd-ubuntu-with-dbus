@@ -1,0 +1,32 @@
+From: =?utf-8?q?Cristian_Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Date: Fri, 30 May 2014 13:16:56 -0400
+Subject: udev-builtin-keyboard: do tell on which device EVIOCSKEYCODE failed.
+
+I am getting
+
+"Error calling EVIOCSKEYCODE (scan code 0xc022d, key code 418): Invalid
+argument", the error message does not tell on which specific device the
+problem is, add that info.
+
+(cherry picked from commit a52ec8ed881537627869afa8f0486db7e20ce2db)
+(cherry picked from commit 55cf7f15b43583bbb17bbe7220aedefeeb39e141)
+
+Conflicts:
+	src/udev/udev-builtin-keyboard.c
+---
+ src/udev/udev-builtin-keyboard.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/udev-builtin-keyboard.c b/src/udev/udev-builtin-keyboard.c
+index 8f457ab4..6357931f 100644
+--- a/src/udev/udev-builtin-keyboard.c
++++ b/src/udev/udev-builtin-keyboard.c
+@@ -143,7 +143,7 @@ static int builtin_keyboard(struct udev_device *dev, int argc, char *argv[], boo
+                         log_debug("keyboard: mapping scan code %d (0x%x) to key code %d (0x%x)\n",
+                                   map[i].scan, map[i].scan, map[i].key, map[i].key);
+                         if (ioctl(fd, EVIOCSKEYCODE, &map[i]) < 0)
+-                                log_error("Error calling EVIOCSKEYCODE: %m\n");
++                                log_error("Error calling EVIOCSKEYCODE on device node '%s' (scan code 0x%x, key code %d): %m", node, map[i].scan, map[i].key);
+                 }
+ 
+                 /* install list of force-release codes */

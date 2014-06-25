@@ -1,0 +1,21 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Fri, 1 Nov 2013 20:46:49 +0100
+Subject: systemctl: fix typo in help text
+
+---
+ src/systemctl/systemctl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 036828b5..36040db1 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -4743,7 +4743,7 @@ static int systemctl_help(void) {
+                "  -f --force          When enabling unit files, override existing symlinks\n"
+                "                      When shutting down, execute action immediately\n"
+                "     --root=PATH      Enable unit files in the specified root directory\n"
+-               "  -n --lines=INTEGER  Numer of journal entries to show\n"
++               "  -n --lines=INTEGER  Number of journal entries to show\n"
+                "  -o --output=STRING  Change journal output mode (short, short-monotonic,\n"
+                "                      verbose, export, json, json-pretty, json-sse, cat)\n\n"
+                "Unit Commands:\n"

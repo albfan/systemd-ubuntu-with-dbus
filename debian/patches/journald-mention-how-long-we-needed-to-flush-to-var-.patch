@@ -1,0 +1,54 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 27 Nov 2013 01:54:25 +0100
+Subject: journald: mention how long we needed to flush to /var in the logs
+
+(cherry picked from commit fbb634117d0b0ebd5b105e65b141e75ae9af7f8f)
+---
+ src/journal/journald-server.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
+index e03e413a..a0a8e9c4 100644
+--- a/src/journal/journald-server.c
++++ b/src/journal/journald-server.c
+@@ -968,9 +968,12 @@ static int system_journal_open(Server *s) {
+ }
+ 
+ int server_flush_to_var(Server *s) {
+-        int r;
+         sd_id128_t machine;
+         sd_journal *j = NULL;
++        char ts[FORMAT_TIMESPAN_MAX];
++        usec_t start;
++        unsigned n = 0;
++        int r;
+ 
+         assert(s);
+ 
+@@ -988,6 +991,8 @@ int server_flush_to_var(Server *s) {
+ 
+         log_debug("Flushing to /var...");
+ 
++        start = now(CLOCK_MONOTONIC);
++
+         r = sd_id128_get_machine(&machine);
+         if (r < 0)
+                 return r;
+@@ -1007,6 +1012,8 @@ int server_flush_to_var(Server *s) {
+                 f = j->current_file;
+                 assert(f && f->current_offset > 0);
+ 
++                n++;
++
+                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
+                 if (r < 0) {
+                         log_error("Can't read entry: %s", strerror(-r));
+@@ -1050,6 +1057,8 @@ finish:
+ 
+         sd_journal_close(j);
+ 
++        server_driver_message(s, SD_ID128_NULL, "Time spent on flushing to /var is %s for %u entries.", format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0), n);
++
+         return r;
+ }
+ 

@@ -2,12 +2,13 @@ Building from source
 --------------------
 Install “git-buildpackage” and run the following steps:
 
-gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
-cd systemd
-git-buildpackage
+  gbp-clone git+ssh://git.debian.org/git/pkg-systemd/systemd.git
+  cd systemd
+  git-buildpackage
 
 We recommend you use pbuilder to make sure you build in a clean environment:
-git-buildpackage --git-pbuilder
+
+  git-buildpackage --git-pbuilder
 
 Patch handling
 --------------
@@ -22,7 +23,7 @@ which represents each quilt patch as git commit. You create this with
 Then you are in the patch-queue branch and can git log, commit, cherry-pick
 upstream commits, rebase, etc. there. After you are done, run
 
-  gbp-pq export --no-patch-numbers
+  gbp-pq export
 
 which will put you back into master and update debian/patches/ (including
 series). You need to git add etc. new patches, add a changelog and other
@@ -58,7 +59,9 @@ do:
 
 Now resolve all the conflicts, skip obsolete patches, etc. When you are done, run
 
-  gbp-pq export --no-patch-numbers
+  gbp-pq export
+
+Note that our debian/gbp.conf disables patch numbers.
 
 Cherry-picking upstream patches
 -------------------------------
@@ -66,8 +69,8 @@ You can add the systemd upstream branch as an additional remote to the Debian
 packaging branch. Call it "fdo" or "systemd" or similar to avoid confusing it
 with the already existing "upstream" branch from git-buildpackage:
 
-git remote add fdo git:://anongit.freedesktop.org/systemd/systemd
-git fetch fdo -n
+  git remote add fdo git://anongit.freedesktop.org/systemd/systemd
+  git fetch fdo -n
 
 Now you can look at the upstream log and cherry-pick patches into the
 patch-queue branch:

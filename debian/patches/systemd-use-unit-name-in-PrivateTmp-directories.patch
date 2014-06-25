@@ -1,0 +1,173 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 22 Oct 2013 20:39:18 -0400
+Subject: systemd: use unit name in PrivateTmp directories
+
+Unit name is used whole in the directory name, so that the unit name
+can be easily extracted from it, e.g. "/tmp/systemd-abcd.service-DEDBIF1".
+
+https://bugzilla.redhat.com/show_bug.cgi?id=957439
+---
+ Makefile.am               |  7 ++++++
+ src/core/execute.c        |  2 +-
+ src/core/namespace.c      | 15 ++++++++-----
+ src/core/namespace.h      |  5 ++++-
+ src/test/test-namespace.c | 56 +++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 77 insertions(+), 8 deletions(-)
+ create mode 100644 src/test/test-namespace.c
+
+diff --git a/Makefile.am b/Makefile.am
+index 8d9c5875..5e3e5d26 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1130,6 +1130,7 @@ tests += \
+ 	test-unit-file \
+ 	test-utf8 \
+ 	test-util \
++	test-namespace \
+ 	test-date \
+ 	test-sleep \
+ 	test-replace-var \
+@@ -1256,6 +1257,12 @@ test_util_CFLAGS = \
+ test_util_LDADD = \
+ 	libsystemd-core.la
+ 
++test_namespace_SOURCES = \
++	src/test/test-namespace.c
++
++test_namespace_LDADD = \
++	libsystemd-core.la
++
+ test_hashmap_SOURCES = \
+ 	src/test/test-hashmap.c
+ 
+diff --git a/src/core/execute.c b/src/core/execute.c
+index 3f7ca521..58be72a2 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -1089,7 +1089,7 @@ int exec_spawn(ExecCommand *command,
+         free(line);
+ 
+         if (context->private_tmp && !context->tmp_dir && !context->var_tmp_dir) {
+-                r = setup_tmpdirs(&context->tmp_dir, &context->var_tmp_dir);
++                r = setup_tmpdirs(unit_id, &context->tmp_dir, &context->var_tmp_dir);
+                 if (r < 0)
+                         return r;
+         }
+diff --git a/src/core/namespace.c b/src/core/namespace.c
+index 936f3683..b453f8dc 100644
+--- a/src/core/namespace.c
++++ b/src/core/namespace.c
+@@ -184,26 +184,29 @@ static int make_read_only(BindMount *m) {
+         return 0;
+ }
+ 
+-int setup_tmpdirs(char **tmp_dir,
++int setup_tmpdirs(const char *unit_id,
++                  char **tmp_dir,
+                   char **var_tmp_dir) {
+         int r = 0;
+-        char tmp_dir_template[] = "/tmp/systemd-private-XXXXXX",
+-             var_tmp_dir_template[] = "/var/tmp/systemd-private-XXXXXX";
++        _cleanup_free_ char *tmp = NULL, *var = NULL;
+ 
+         assert(tmp_dir);
+         assert(var_tmp_dir);
+ 
+-        r = create_tmp_dir(tmp_dir_template, tmp_dir);
++        tmp = strjoin("/tmp/systemd-", unit_id, "-XXXXXXX", NULL);
++        var = strjoin("/var/tmp/systemd-", unit_id, "-XXXXXXX", NULL);
++
++        r = create_tmp_dir(tmp, tmp_dir);
+         if (r < 0)
+                 return r;
+ 
+-        r = create_tmp_dir(var_tmp_dir_template, var_tmp_dir);
++        r = create_tmp_dir(var, var_tmp_dir);
+         if (r == 0)
+                 return 0;
+ 
+         /* failure */
+         rmdir(*tmp_dir);
+-        rmdir(tmp_dir_template);
++        rmdir(tmp);
+         free(*tmp_dir);
+         *tmp_dir = NULL;
+ 
+diff --git a/src/core/namespace.h b/src/core/namespace.h
+index ddb57946..ee7416b7 100644
+--- a/src/core/namespace.h
++++ b/src/core/namespace.h
+@@ -23,7 +23,10 @@
+ 
+ #include <stdbool.h>
+ 
+-int setup_tmpdirs(char **tmp_dir, char **var_tmp_dir);
++int setup_tmpdirs(const char *unit_id,
++                  char **tmp_dir,
++                  char **var_tmp_dir);
++
+ int setup_namespace(char **read_write_dirs,
+                     char **read_only_dirs,
+                     char **inaccessible_dirs,
+diff --git a/src/test/test-namespace.c b/src/test/test-namespace.c
+new file mode 100644
+index 00000000..1c04676c
+--- /dev/null
++++ b/src/test/test-namespace.c
+@@ -0,0 +1,56 @@
++/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
++
++/***
++  This file is part of systemd.
++
++  Copyright 2013 Zbigniew Jędrzejewski-Szmek
++
++  systemd is free software; you can redistribute it and/or modify it
++  under the terms of the GNU Lesser General Public License as published by
++  the Free Software Foundation; either version 2.1 of the License, or
++  (at your option) any later version.
++
++  systemd is distributed in the hope that it will be useful, but
++  WITHOUT ANY WARRANTY; without even the implied warranty of
++  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++  Lesser General Public License for more details.
++
++  You should have received a copy of the GNU Lesser General Public License
++  along with systemd; If not, see <http://www.gnu.org/licenses/>.
++***/
++
++#include <libgen.h>
++
++#include "namespace.h"
++#include "util.h"
++
++static void test_tmpdir(const char *id, const char *A, const char *B) {
++        _cleanup_free_ char *a, *b;
++
++        assert_se(setup_tmpdirs(id, &a, &b) == 0);
++        assert(startswith(a, A));
++        assert(startswith(b, B));
++        assert(access(a, F_OK) == 0);
++        assert(access(b, F_OK) == 0);
++
++        assert_se(rmdir(a) == 0);
++        assert_se(rmdir(b) == 0);
++
++        assert(endswith(a, "/tmp"));
++        assert(endswith(b, "/tmp"));
++
++        assert_se(rmdir(dirname(a)) == 0);
++        assert_se(rmdir(dirname(b)) == 0);
++}
++
++int main(int argc, char *argv[]) {
++        test_tmpdir("abcd.service",
++                    "/tmp/systemd-abcd.service-",
++                    "/var/tmp/systemd-abcd.service-");
++
++        test_tmpdir("sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device",
++                    "/tmp/systemd-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-",
++                    "/var/tmp/systemd-sys-devices-pci0000:00-0000:00:1a.0-usb3-3\\x2d1-3\\x2d1:1.0-bluetooth-hci0.device-");
++
++        return 0;
++}

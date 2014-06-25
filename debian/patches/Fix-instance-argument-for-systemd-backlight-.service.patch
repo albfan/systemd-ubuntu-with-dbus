@@ -1,0 +1,24 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 20 Jun 2014 08:10:36 -0400
+Subject: Fix instance argument for systemd-backlight@.service
+
+When backporting patches, I lost "backlight:" in the udev rule.
+---
+ rules/99-systemd.rules.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index dd6e7f15..713e0528 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -57,8 +57,8 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sy
+ # Pull in backlight save/restore for all backlight devices and
+ # keyboard backlights
+ 
+-SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
+-SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
++SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
++SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+ 
+ # Asynchronously mount file systems implemented by these modules as
+ # soon as they are loaded.

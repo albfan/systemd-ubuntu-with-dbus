@@ -1,0 +1,60 @@
+From: "Jason St. John" <jstjohn@purdue.edu>
+Date: Tue, 17 Dec 2013 19:40:02 -0500
+Subject: man: add DOI for refereed article on Forward Secure Sealing to
+ journald.conf(5)
+
+In journalctl(1), be more explicit about the reference to "Seal=" in
+journald.conf(5) and what information can be found there.
+
+(cherry picked from commit 06d9d3efa554ffc63b5977f1d86e393edeef8ad1)
+---
+ man/journalctl.xml    |  8 ++++++--
+ man/journald.conf.xml | 10 +++++-----
+ 2 files changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/man/journalctl.xml b/man/journalctl.xml
+index dced90fa..d75c758d 100644
+--- a/man/journalctl.xml
++++ b/man/journalctl.xml
+@@ -781,10 +781,14 @@
+                                 sealing key is stored in the journal
+                                 data directory and shall remain on the
+                                 host. The verification key should be
+-                                stored externally. Also see the
++                                stored externally. Refer to the
+                                 <option>Seal=</option> option in
+                                 <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+-                                for details.</para></listitem>
++                                for information on Forward Secure
++                                Sealing and for a link to a refereed
++                                scholarly paper detailing the
++                                cryptographic theory it is based on.
++                                </para></listitem>
+                         </varlistentry>
+ 
+                         <varlistentry>
+diff --git a/man/journald.conf.xml b/man/journald.conf.xml
+index 7aa2e78e..8e642a3f 100644
+--- a/man/journald.conf.xml
++++ b/man/journald.conf.xml
+@@ -130,15 +130,15 @@
+                                 by
+                                 <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+                                 <option>--setup-keys</option>
+-                                command), forward secure sealing (FSS)
++                                command), Forward Secure Sealing (FSS)
+                                 for all persistent journal files is
+                                 enabled. FSS is based on <ulink
+                                 url="https://eprint.iacr.org/2013/397">Seekable
+                                 Sequential Key Generators</ulink> by
+-                                G. A. Marson and B. Poettering and
+-                                may be used to protect journal files
+-                                from unnoticed
+-                                alteration.</para></listitem>
++                                G. A. Marson and B. Poettering
++                                (doi:10.1007/978-3-642-40203-6_7)
++                                and may be used to protect journal files
++                                from unnoticed alteration.</para></listitem>
+                         </varlistentry>
+ 
+                         <varlistentry>

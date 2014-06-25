@@ -1,0 +1,383 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 14 Feb 2014 22:00:06 -0500
+Subject: man: replace STDOUT with standard output, etc.
+
+Actually 'STDOUT' is something that doesn't appear anywhere: in the
+stdlib we have 'stdin', and there's only the constant STDOUT_FILENO,
+so there's no reason to use capitals. When refering to code,
+STDOUT/STDOUT/STDERR are replaced with stdin/stdout/stderr, and in
+other places they are replaced with normal phrases like standard
+output, etc.
+
+(cherry picked from commit 6db2742802b70938f0f2d373110ed734d4fb9813)
+
+Conflicts:
+	man/systemctl.xml
+	man/systemd-bus-proxyd.xml
+---
+ man/daemon.xml                   | 21 +++++++++++----------
+ man/sd-daemon.xml                |  2 +-
+ man/sd_journal_stream_fd.xml     |  4 ++--
+ man/systemctl.xml                | 27 +++++++++++++++------------
+ man/systemd-ask-password.xml     |  2 +-
+ man/systemd-cat.xml              | 14 +++++++-------
+ man/systemd-coredumpctl.xml      |  4 ++--
+ man/systemd-journald.service.xml | 16 ++++++++--------
+ man/systemd-udevd.service.xml    | 11 ++++++-----
+ man/systemd.exec.xml             | 10 +++++-----
+ man/systemd.service.xml          |  2 +-
+ man/systemd.socket.xml           |  4 ++--
+ man/udev.xml                     |  2 +-
+ man/udevadm.xml                  |  2 +-
+ 14 files changed, 63 insertions(+), 58 deletions(-)
+
+diff --git a/man/daemon.xml b/man/daemon.xml
+index 17d9dd6a..26ba6005 100644
+--- a/man/daemon.xml
++++ b/man/daemon.xml
+@@ -74,8 +74,8 @@
+ 
+                         <orderedlist>
+                                 <listitem><para>Close all open file
+-                                descriptors except STDIN, STDOUT,
+-                                STDERR (i.e. the first three file
++                                descriptors except stdin, stdout,
++                                stderr (i.e. the first three file
+                                 descriptors 0, 1, 2). This ensures
+                                 that no accidentally passed file
+                                 descriptor stays around in the daemon
+@@ -128,8 +128,8 @@
+ 
+                                 <listitem><para>In the daemon process,
+                                 connect <filename>/dev/null</filename>
+-                                to STDIN, STDOUT,
+-                                STDERR.</para></listitem>
++                                to standard input, output, and error.
++                                </para></listitem>
+ 
+                                 <listitem><para>In the daemon process,
+                                 reset the umask to 0, so that the file
+@@ -223,15 +223,16 @@
+                         service.</para>
+ 
+                         <para>Note that new-style init systems
+-                        guarantee execution of daemon processes in
+-                        a clean process context: it is guaranteed that
++                        guarantee execution of daemon processes in a
++                        clean process context: it is guaranteed that
+                         the environment block is sanitized, that the
+                         signal handlers and mask is reset and that no
+                         left-over file descriptors are passed. Daemons
+-                        will be executed in their own session, and
+-                        STDIN/STDOUT/STDERR connected to
++                        will be executed in their own session, with
++                        standard input/output/error connected to
+                         <filename>/dev/null</filename> unless
+-                        otherwise configured. The umask is reset.</para>
++                        otherwise configured. The umask is reset.
++                        </para>
+ 
+                         <para>It is recommended for new-style daemons
+                         to implement the following:</para>
+@@ -324,7 +325,7 @@
+                                 <listitem><para>Instead of using the
+                                 <function>syslog()</function> call to log directly to the
+                                 system syslog service, a new-style daemon may
+-                                choose to simply log to STDERR via
++                                choose to simply log to standard error via
+                                 <function>fprintf()</function>, which is then forwarded to
+                                 syslog by the init system. If log
+                                 priorities are necessary, these can be
+diff --git a/man/sd-daemon.xml b/man/sd-daemon.xml
+index b48eac9f..555d1ac2 100644
+--- a/man/sd-daemon.xml
++++ b/man/sd-daemon.xml
+@@ -96,7 +96,7 @@
+ #define SD_DEBUG   "&lt;7&gt;"  /* debug-level messages */</programlisting>
+ 
+                 <para>These prefixes are intended to be used in
+-                conjunction with STDERR-based logging as implemented
++                conjunction with stderr-based logging as implemented
+                 by systemd. If a systemd service definition file is
+                 configured with <varname>StandardError=syslog</varname>
+                 or <varname>StandardError=kmsg</varname>, these
+diff --git a/man/sd_journal_stream_fd.xml b/man/sd_journal_stream_fd.xml
+index a8dc8fd0..646fe158 100644
+--- a/man/sd_journal_stream_fd.xml
++++ b/man/sd_journal_stream_fd.xml
+@@ -69,8 +69,8 @@
+                 messages written to this file descriptor as simple
+                 newline-separated text strings are written to the
+                 journal. This file descriptor can be used internally
+-                by applications or be made STDOUT/STDERR of other
+-                processes executed.</para>
++                by applications or be made standard output or standard
++                error of other processes executed.</para>
+ 
+                 <para><function>sd_journal_stream_fd()</function>
+                 takes a short program identifier string as first
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index cde16941..d4048a88 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -666,21 +666,23 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+ 
+           <listitem>
+             <para>Check whether any of the specified units are active
+-            (i.e. running). Returns an exit code 0 if at least one is
+-            active, non-zero otherwise. Unless <option>--quiet</option>
+-            is specified, this will also print the current unit state to
+-            STDOUT.</para>
++            (i.e. running). Returns an exit code
++            <constant>0</constant> if at least one is active, or
++            non-zero otherwise. Unless <option>--quiet</option> is
++            specified, this will also print the current unit state to
++            standard output.</para>
+           </listitem>
+         </varlistentry>
+         <varlistentry>
+           <term><command>is-failed <replaceable>NAME</replaceable>...</command></term>
+ 
+           <listitem>
+-            <para>Check whether any of the specified units are in a "failed" state.
+-            Returns an exit code 0 if at least one has failed, non-zero
+-            otherwise. Unless <option>--quiet</option> is specified, this
+-            will also print the current unit state to
+-            STDOUT.</para>
++            <para>Check whether any of the specified units are in a
++            "failed" state. Returns an exit code
++            <constant>0</constant> if at least one has failed,
++            non-zero otherwise. Unless <option>--quiet</option> is
++            specified, this will also print the current unit state to
++            standard output.</para>
+           </listitem>
+         </varlistentry>
+         <varlistentry>
+@@ -1069,9 +1071,10 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+           <listitem>
+             <para>Create a snapshot. If a snapshot name is specified,
+             the new snapshot will be named after it. If none is
+-            specified, an automatic snapshot name is generated. In either
+-            case, the snapshot name used is printed to STDOUT, unless
+-            <option>--quiet</option> is specified.</para>
++            specified, an automatic snapshot name is generated. In
++            either case, the snapshot name used is printed to standard
++            output, unless <option>--quiet</option> is specified.
++            </para>
+ 
+             <para>A snapshot refers to a saved state of the systemd
+             manager. It is implemented itself as a unit that is
+diff --git a/man/systemd-ask-password.xml b/man/systemd-ask-password.xml
+index 79902cbd..db5cb20d 100644
+--- a/man/systemd-ask-password.xml
++++ b/man/systemd-ask-password.xml
+@@ -60,7 +60,7 @@
+                 used to query a system password or passphrase from the
+                 user, using a question message specified on the
+                 command line. When run from a TTY it will query a
+-                password on the TTY and print it to STDOUT. When run
++                password on the TTY and print it to standard output. When run
+                 with no TTY or with <option>--no-tty</option> it will
+                 query the password system-wide and allow active users
+                 to respond via several agents. The latter is
+diff --git a/man/systemd-cat.xml b/man/systemd-cat.xml
+index ba7a2cf0..16a8eb45 100644
+--- a/man/systemd-cat.xml
++++ b/man/systemd-cat.xml
+@@ -60,18 +60,18 @@
+                 <title>Description</title>
+ 
+                 <para><command>systemd-cat</command> may be used to
+-                connect STDOUT and STDERR of a process with the
++                connect the standard input and output of a process to the
+                 journal, or as a filter tool in a shell pipeline to
+                 pass the output the previous pipeline element
+                 generates to the journal.</para>
+ 
+                 <para>If no parameter is passed,
+                 <command>systemd-cat</command> will write
+-                everything it reads from standard input (STDIN) to the journal.</para>
++                everything it reads from standard input (stdin) to the journal.</para>
+ 
+                 <para>If parameters are passed, they are executed as
+-                command line with standard output (STDOUT) and standard
+-                error output (STDERR) connected to the journal, so
++                command line with standard output (stdout) and standard
++                error output (stderr) connected to the journal, so
+                 that all it writes is stored in the journal.</para>
+         </refsect1>
+ 
+@@ -169,7 +169,7 @@
+                         <title>Invoke a program</title>
+ 
+                         <para>This calls <filename noindex='true'>/bin/ls</filename>
+-                        with STDOUT/STDERR connected to the
++                        with standard output and error connected to the
+                         journal:</para>
+ 
+                         <programlisting># systemd-cat ls</programlisting>
+@@ -188,8 +188,8 @@
+ 
+                 <para>Even though the two examples have very similar
+                 effects the first is preferable since only one process
+-                is running at a time, and both STDOUT and STDERR are
+-                captured while in the second example only STDOUT is
++                is running at a time, and both stdout and stderr are
++                captured while in the second example only stdout is
+                 captured.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-coredumpctl.xml b/man/systemd-coredumpctl.xml
+index c096f6d7..286ff146 100644
+--- a/man/systemd-coredumpctl.xml
++++ b/man/systemd-coredumpctl.xml
+@@ -135,8 +135,8 @@
+ 
+                                 <listitem><para>Extract the last coredump
+                                 matching specified characteristics.
+-                                Coredump will be written on STDOUT, unless
+-                                an output file is specified with
++                                Coredump will be written on standard output,
++                                unless an output file is specified with
+                                 <option>-o/--output</option>.
+                                 </para></listitem>
+                         </varlistentry>
+diff --git a/man/systemd-journald.service.xml b/man/systemd-journald.service.xml
+index 2f877f56..0a20e211 100644
+--- a/man/systemd-journald.service.xml
++++ b/man/systemd-journald.service.xml
+@@ -59,15 +59,15 @@
+                 <title>Description</title>
+ 
+                 <para><filename>systemd-journald</filename> is a
+-                system service that collects and stores logging
+-                data. It creates and maintains structured, indexed
+-                journals based on logging information that is received
+-                from the kernel, from user processes via the libc
++                system service that collects and stores logging data.
++                It creates and maintains structured, indexed journals
++                based on logging information that is received from the
++                kernel, from user processes via the libc
+                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+-                call, from STDOUT/STDERR of system services or via its
+-                native API. It will implicitly collect numerous meta
+-                data fields for each log messages in a secure and
+-                unfakeable way. See
++                call, from standard input and standard error of system
++                services or via its native API. It will implicitly
++                collect numerous meta data fields for each log
++                messages in a secure and unfakeable way. See
+                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                 for more information about the collected meta data.
+                 </para>
+diff --git a/man/systemd-udevd.service.xml b/man/systemd-udevd.service.xml
+index 50a10764..b3bca2fe 100644
+--- a/man/systemd-udevd.service.xml
++++ b/man/systemd-udevd.service.xml
+@@ -70,7 +70,7 @@
+       <varlistentry>
+         <term><option>--debug</option></term>
+         <listitem>
+-          <para>Print debug messages to STDERR.</para>
++          <para>Print debug messages to standard error.</para>
+         </listitem>
+       </varlistentry>
+       <varlistentry>
+@@ -82,10 +82,11 @@
+       <varlistentry>
+         <term><option>--exec-delay=</option></term>
+         <listitem>
+-          <para>Delay the execution of RUN instruction by the given
+-          number of seconds. This option might be useful when
+-          debugging system crashes during coldplug caused by loading
+-          non-working kernel modules.</para>
++          <para>Delay the execution of <varname>RUN</varname>
++          instruction by the given number of seconds. This option
++          might be useful when debugging system crashes during
++          coldplug caused by loading non-working kernel
++          modules.</para>
+         </listitem>
+       </varlistentry>
+       <varlistentry>
+diff --git a/man/systemd.exec.xml b/man/systemd.exec.xml
+index 5ba1aac0..ae134f2d 100644
+--- a/man/systemd.exec.xml
++++ b/man/systemd.exec.xml
+@@ -472,9 +472,9 @@
+                         <varlistentry>
+                                 <term><varname>StandardError=</varname></term>
+                                 <listitem><para>Controls where file
+-                                descriptor 2 (STDERR) of the executed
+-                                processes is connected to. The
+-                                available options are identical to
++                                descriptor 2 (standard error) of the
++                                executed processes is connected to.
++                                The available options are identical to
+                                 those of
+                                 <varname>StandardOutput=</varname>,
+                                 with one exception: if set to
+@@ -491,8 +491,8 @@
+                         <varlistentry>
+                                 <term><varname>TTYPath=</varname></term>
+                                 <listitem><para>Sets the terminal
+-                                device node to use if STDIN, STDOUT,
+-                                or STDERR are connected to a
++                                device node to use if standard input, output,
++                                or error are connected to a
+                                 TTY (see above). Defaults to
+                                 <filename>/dev/console</filename>.</para></listitem>
+                         </varlistentry>
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index d23904ee..c116a9b6 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -858,7 +858,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+                                 for all file descriptors passed via
+                                 socket-based activation. If true, all
+                                 file descriptors >= 3 (i.e. all except
+-                                STDIN/STDOUT/STDERR) will have
++                                stdin, stdout, and stderr) will have
+                                 the <constant>O_NONBLOCK</constant> flag
+                                 set and hence are in
+                                 non-blocking mode. This option is only
+diff --git a/man/systemd.socket.xml b/man/systemd.socket.xml
+index 570a6fb1..da0f2aaf 100644
+--- a/man/systemd.socket.xml
++++ b/man/systemd.socket.xml
+@@ -144,8 +144,8 @@
+                 <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 for details) or via the traditional
+                 <citerefentry><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
+-                socket passing (i.e. sockets passed in via STDIN and
+-                STDOUT, using <varname>StandardInput=socket</varname>
++                socket passing (i.e. sockets passed in via standard input and
++                output, using <varname>StandardInput=socket</varname>
+                 in the service file).</para>
+         </refsect1>
+ 
+diff --git a/man/udev.xml b/man/udev.xml
+index 82e74787..25a3ea99 100644
+--- a/man/udev.xml
++++ b/man/udev.xml
+@@ -255,7 +255,7 @@
+             <para>Execute a program to determine whether there
+             is a match; the key is true if the program returns
+             successfully. The device properties are made available to the
+-            executed program in the environment. The program's STDOUT
++            executed program in the environment. The program's standard ouput
+             is available in the <varname>RESULT</varname> key.</para>
+             <para>This can only be used for very short-running foreground tasks. For details,
+             see <varname>RUN</varname>.</para>
+diff --git a/man/udevadm.xml b/man/udevadm.xml
+index 32bf4806..b172266a 100644
+--- a/man/udevadm.xml
++++ b/man/udevadm.xml
+@@ -72,7 +72,7 @@
+       <varlistentry>
+         <term><option>--debug</option></term>
+         <listitem>
+-          <para>Print debug messages to STDERR.</para>
++          <para>Print debug messages to standard error.</para>
+         </listitem>
+       </varlistentry>
+       <varlistentry>

@@ -1,0 +1,69 @@
+From: Harald Hoyer <harald@redhat.com>
+Date: Thu, 6 Mar 2014 09:12:57 +0100
+Subject: util: add files_same() helper function
+
+files_same() returns
+     1, if the files are the same
+     0, if the files have different inode/dev numbers
+ errno, for any stat error
+
+(cherry picked from commit 9d9951a460a90ef0e1e0384742cefdcf85193f8c)
+(cherry picked from commit ac0c2a0e3cd29f5f6d80bdb9ae4ffbd94e15707e)
+---
+ src/shared/util.c | 24 ++++++++++++++++--------
+ src/shared/util.h |  2 ++
+ 2 files changed, 18 insertions(+), 8 deletions(-)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index 6e97a6d6..1f83eb75 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -3333,19 +3333,27 @@ bool on_tty(void) {
+         return cached_on_tty;
+ }
+ 
+-int running_in_chroot(void) {
+-        struct stat a = {}, b = {};
++int files_same(const char *filea, const char *fileb) {
++        struct stat a, b;
+ 
+-        /* Only works as root */
+-        if (stat("/proc/1/root", &a) < 0)
++        if (stat(filea, &a) < 0)
+                 return -errno;
+ 
+-        if (stat("/", &b) < 0)
++        if (stat(fileb, &b) < 0)
+                 return -errno;
+ 
+-        return
+-                a.st_dev != b.st_dev ||
+-                a.st_ino != b.st_ino;
++        return a.st_dev == b.st_dev &&
++               a.st_ino == b.st_ino;
++}
++
++int running_in_chroot(void) {
++        int ret;
++
++        ret = files_same("/proc/1/root", "/");
++        if (ret < 0)
++                return ret;
++
++        return ret == 0;
+ }
+ 
+ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+diff --git a/src/shared/util.h b/src/shared/util.h
+index e83d2abf..20d81e5c 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -405,6 +405,8 @@ static inline const char *ansi_highlight_off(void) {
+         return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
+ }
+ 
++int files_same(const char *filea, const char *fileb);
++
+ int running_in_chroot(void);
+ 
+ char *ellipsize(const char *s, size_t length, unsigned percent);

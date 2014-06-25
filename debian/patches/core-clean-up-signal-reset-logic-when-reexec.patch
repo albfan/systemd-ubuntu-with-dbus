@@ -1,0 +1,49 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 20 Jun 2014 16:58:21 +0200
+Subject: core: clean-up signal reset logic when reexec
+
+There's no need to save the old sigmask, if we are going to die. Let's
+simplify this. Also, reset all the signal handlers, so that we don't
+leave SIG_IGN set for some of them across reexec.
+
+(cherry picked from commit 9bfcda9528636914aef3e0ab91191bb81654c83d)
+(cherry picked from commit 92254f72bbea94b8e640b829e2a0aef2a1aa4a36)
+---
+ src/core/main.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/core/main.c b/src/core/main.c
+index 2f454850..8c994a88 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -1748,7 +1748,7 @@ finish:
+         if (reexecute) {
+                 const char **args;
+                 unsigned i, args_size;
+-                sigset_t ss, o_ss;
++                sigset_t ss;
+ 
+                 /* Close and disarm the watchdog, so that the new
+                  * instance can reinitialize it, but doesn't get
+@@ -1834,8 +1834,10 @@ finish:
+ 
+                 /* reenable any blocked signals, especially important
+                  * if we switch from initial ramdisk to init=... */
+-                sigemptyset(&ss);
+-                sigprocmask(SIG_SETMASK, &ss, &o_ss);
++                reset_all_signal_handlers();
++
++                assert_se(sigemptyset(&ss) == 0);
++                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+ 
+                 if (switch_root_init) {
+                         args[0] = switch_root_init;
+@@ -1855,8 +1857,6 @@ finish:
+                         log_error("Failed to execute /bin/sh, giving up: %m");
+                 } else
+                         log_warning("Failed to execute /sbin/init, giving up: %m");
+-
+-                sigprocmask(SIG_SETMASK, &o_ss, NULL);
+         }
+ 
+         if (serialization)

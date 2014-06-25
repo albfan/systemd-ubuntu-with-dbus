@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
 Uploaders: Tollef Fog Heen <tfheen@debian.org>, Michael Biebl <biebl@debian.org>, Marco d'Itri <md@linux.it>, Michael Stapelberg <stapelberg@debian.org>
 Standards-Version: 3.9.5
-Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git -b debian
+Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-systemd/systemd.git;a=summary
 X-Python-Version: >= 2.7
 XS-Testsuite: autopkgtest
@@ -68,17 +68,19 @@ Description: system and service manager
  It also provides process supervision using cgroups and the ability to
  not only depend on other init script being started, but also
  availability of a given mount point or dbus service.
+ .
+ Installing the systemd package will not switch your init system unless you
+ boot with init=/bin/systemd or install systemd-sysv in addition.
 
 Package: systemd-sysv
 Architecture: linux-any
 Section: admin
 Priority: required
-Conflicts: sysvinit (<< 2.88dsf-44~),
-           upstart,
-           runit-run
+Conflicts: sysvinit-core,
+           upstart
 Replaces: sysvinit (<< 2.88dsf-44~),
-          sysvinit-core
-Breaks: sysvinit-core
+          sysvinit-core,
+          upstart
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version})
@@ -92,7 +94,8 @@ Description: system and service manager - SysV links
  availability of a given mount point or dbus service.
  .
  This package provides the manual pages and links needed for systemd
- to replace sysvinit.
+ to replace sysvinit. Installing systemd-sysv will overwrite /sbin/init with a
+ link to systemd.
 
 Package: libpam-systemd
 Architecture: linux-any

@@ -1,0 +1,41 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 13 Feb 2014 02:12:27 +0100
+Subject: core: make StopWhenUnneeded work in conjunction with units that fail
+ during their start job
+
+https://bugzilla.redhat.com/show_bug.cgi?id=997031
+(cherry picked from commit b33918c210a9b7a651e4e91cf7429967f1df6c25)
+---
+ src/core/unit.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 6c2c4a0e..49833d17 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1453,7 +1453,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
+          * sucessfully, since there's no change of state in that case. Which is
+          * why it is handled in service_set_state() */
+         if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+-                ExecContext *ec = unit_get_exec_context(u);
++                ExecContext *ec;
++
++                ec = unit_get_exec_context(u);
+                 if (ec && exec_context_may_touch_console(ec)) {
+                         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                 m->n_on_console --;
+@@ -1549,12 +1551,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
+                 }
+ 
+                 /* stop unneeded units regardless if going down was expected or not */
+-                if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
++                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                         check_unneeded_dependencies(u);
+ 
+                 if (ns != os && ns == UNIT_FAILED) {
+-                        log_notice_unit(u->id,
+-                                        "Unit %s entered failed state.", u->id);
++                        log_notice_unit(u->id, "Unit %s entered failed state.", u->id);
+                         unit_start_on_failure(u);
+                 }
+         }

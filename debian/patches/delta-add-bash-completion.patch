@@ -1,0 +1,90 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Tue, 18 Feb 2014 22:20:26 +0100
+Subject: delta: add bash completion
+
+(cherry picked from commit 0bc8e31b358a872ec2631874bd2109ba4e009ccf)
+---
+ Makefile.am                         |  1 +
+ shell-completion/bash/systemd-delta | 61 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 62 insertions(+)
+ create mode 100644 shell-completion/bash/systemd-delta
+
+diff --git a/Makefile.am b/Makefile.am
+index 033bbfa7..9049fedd 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -342,6 +342,7 @@ dist_bashcompletion_DATA = \
+ 	shell-completion/bash/journalctl \
+ 	shell-completion/bash/systemctl \
+ 	shell-completion/bash/systemd-analyze \
++	shell-completion/bash/systemd-delta \
+ 	shell-completion/bash/systemd-run \
+ 	shell-completion/bash/udevadm \
+ 	shell-completion/bash/kernel-install
+diff --git a/shell-completion/bash/systemd-delta b/shell-completion/bash/systemd-delta
+new file mode 100644
+index 00000000..cb173289
+--- /dev/null
++++ b/shell-completion/bash/systemd-delta
+@@ -0,0 +1,61 @@
++# systemd-delta(1) completion                      -*- shell-script -*-
++#
++# This file is part of systemd.
++#
++# Copyright 2014 Thomas H.P. Andersen
++#
++# systemd is free software; you can redistribute it and/or modify it
++# under the terms of the GNU Lesser General Public License as published by
++# the Free Software Foundation; either version 2.1 of the License, or
++# (at your option) any later version.
++#
++# systemd is distributed in the hope that it will be useful, but
++# WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++# General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public License
++# along with systemd; If not, see <http://www.gnu.org/licenses/>.
++
++__contains_word() {
++        local w word=$1; shift
++        for w in "$@"; do
++                [[ $w = "$word" ]] && return
++        done
++}
++
++_systemd-delta() {
++        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
++        local comps
++
++        local -A OPTS=(
++               [STANDALONE]='--help -h --no-pager --version'
++                      [ARG]='--diff --type -t'
++        )
++
++        _init_completion || return
++
++
++        if __contains_word "$prev" ${OPTS[ARG]}; then
++                case $prev in
++                        --diff)
++                                comps='yes no'
++                        ;;
++                        --type|-t)
++                                comps='masked equivalent redirected overridden unchanged extended default'
++                        ;;
++                esac
++                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
++                return 0
++        fi
++
++        if [[ "$cur" = -* ]]; then
++                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
++                return 0
++        fi
++
++        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
++        return 0
++}
++
++complete -F _systemd-delta systemd-delta

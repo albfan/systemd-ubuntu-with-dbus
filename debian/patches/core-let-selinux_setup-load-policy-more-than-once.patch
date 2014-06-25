@@ -1,0 +1,81 @@
+From: Will Woods <wwoods@redhat.com>
+Date: Fri, 25 Apr 2014 18:26:34 -0400
+Subject: core: let selinux_setup() load policy more than once
+
+When you switch-root into a new root that has SELinux policy, you're
+supposed to to run selinux_init_load_policy() to set up SELinux and load
+policy. Normally this gets handled by selinux_setup().
+
+But if SELinux was already initialized, selinux_setup() skips loading
+policy and returns 0. So if you load policy normally, and then you
+switch-root to a new root that has new policy, selinux_setup() never
+loads the new policy. What gives?
+
+As far as I can tell, this check is an artifact of how selinux_setup()
+worked when it was first written (see commit c4dcdb9 / systemd v12):
+
+  * when systemd starts, run selinux_setup()
+  * if selinux_setup() loads policy OK, restart systemd
+
+So the "if policy already loaded, skip load and return 0" check was
+there to prevent an infinite re-exec loop.
+
+Modern systemd only calls selinux_setup() on initial load and after
+switch-root, and selinux_setup() no longer restarts systemd, so we don't
+need that check to guard against the infinite loop anymore.
+
+So: this patch removes the "return 0", thus allowing selinux_setup() to
+actually perform SELinux setup after switch-root.
+
+We still want to check to see if SELinux is initialized, because if
+selinux_init_load_policy() fails *but* SELinux is initialized that means
+we still have (old) policy active. So we don't need to halt if
+enforce=1.
+
+(cherry picked from commit 68d3acaccbd26ecfbc5881fea75968fa4abcc565)
+(cherry picked from commit f5ad306cb9ea1dea38a934b6b07901de1257a3fa)
+---
+ src/core/selinux-setup.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/src/core/selinux-setup.c b/src/core/selinux-setup.c
+index 6d8bc899..b419a271 100644
+--- a/src/core/selinux-setup.c
++++ b/src/core/selinux-setup.c
+@@ -51,6 +51,7 @@ int selinux_setup(bool *loaded_policy) {
+         security_context_t con;
+         int r;
+         union selinux_callback cb;
++        bool initialized = false;
+ 
+         assert(loaded_policy);
+ 
+@@ -68,13 +69,8 @@ int selinux_setup(bool *loaded_policy) {
+         /* Already initialized by somebody else? */
+         r = getcon_raw(&con);
+         if (r == 0) {
+-                bool initialized;
+-
+                 initialized = !streq(con, "kernel");
+                 freecon(con);
+-
+-                if (initialized)
+-                        return 0;
+         }
+ 
+         /* Make sure we have no fds open while loading the policy and
+@@ -116,8 +112,12 @@ int selinux_setup(bool *loaded_policy) {
+                 log_open();
+ 
+                 if (enforce > 0) {
+-                        log_error("Failed to load SELinux policy. Freezing.");
+-                        return -EIO;
++                        if (!initialized) {
++                                log_error("Failed to load SELinux policy. Freezing.");
++                                return -EIO;
++                        }
++
++                        log_warning("Failed to load new SELinux policy. Continuing with old policy.");
+                 } else
+                         log_debug("Unable to load SELinux policy. Ignoring.");
+         }

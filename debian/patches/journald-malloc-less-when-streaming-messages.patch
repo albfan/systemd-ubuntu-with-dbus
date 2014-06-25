@@ -1,0 +1,110 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 10 Dec 2013 06:17:01 -0500
+Subject: journald: malloc less when streaming messages
+
+(cherry picked from commit e3bfb7be07d9b1f4ebb12eb22c4c8bcd2a988d51)
+---
+ src/journal/journald-stream.c | 23 ++++++++++++-----------
+ src/journal/journald-syslog.c |  4 ++--
+ src/journal/journald-syslog.h |  2 +-
+ 3 files changed, 15 insertions(+), 14 deletions(-)
+
+diff --git a/src/journal/journald-stream.c b/src/journal/journald-stream.c
+index 771a2bd8..aae381b4 100644
+--- a/src/journal/journald-stream.c
++++ b/src/journal/journald-stream.c
+@@ -75,9 +75,11 @@ struct StdoutStream {
+ 
+ static int stdout_stream_log(StdoutStream *s, const char *p) {
+         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
+-        _cleanup_free_ char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
+-        unsigned n = 0;
+         int priority;
++        char syslog_priority[] = "PRIORITY=\0";
++        char syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(priority)];
++        _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
++        unsigned n = 0;
+         char *label = NULL;
+         size_t label_len = 0;
+ 
+@@ -90,7 +92,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
+         priority = s->priority;
+ 
+         if (s->level_prefix)
+-                syslog_parse_priority((char**) &p, &priority, false);
++                syslog_parse_priority(&p, &priority, false);
+ 
+         if (s->forward_to_syslog || s->server->forward_to_syslog)
+                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
+@@ -103,12 +105,13 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
+ 
+         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
+ 
+-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
+-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
++        syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
++        IOVEC_SET_STRING(iovec[n++], syslog_priority);
+ 
+-        if (priority & LOG_FACMASK)
+-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
+-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
++        if (priority & LOG_FACMASK) {
++                snprintf(syslog_facility, sizeof(syslog_facility), "SYSLOG_FACILITY=%i", LOG_FAC(priority));
++                IOVEC_SET_STRING(iovec[n++], syslog_facility);
++        }
+ 
+         if (s->identifier) {
+                 syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
+@@ -408,7 +411,7 @@ fail:
+ 
+ int server_open_stdout_socket(Server *s) {
+         int r;
+-        struct epoll_event ev;
++        struct epoll_event ev = { .events = EPOLLIN };
+ 
+         assert(s);
+ 
+@@ -441,8 +444,6 @@ int server_open_stdout_socket(Server *s) {
+         } else
+                 fd_nonblock(s->stdout_fd, 1);
+ 
+-        zero(ev);
+-        ev.events = EPOLLIN;
+         ev.data.fd = s->stdout_fd;
+         if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->stdout_fd, &ev) < 0) {
+                 log_error("Failed to add stdout server fd to epoll object: %m");
+diff --git a/src/journal/journald-syslog.c b/src/journal/journald-syslog.c
+index c2770a53..5d9b6651 100644
+--- a/src/journal/journald-syslog.c
++++ b/src/journal/journald-syslog.c
+@@ -236,7 +236,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid)
+         return e;
+ }
+ 
+-void syslog_parse_priority(char **p, int *priority, bool with_facility) {
++void syslog_parse_priority(const char **p, int *priority, bool with_facility) {
+         int a = 0, b = 0, c = 0;
+         int k;
+ 
+@@ -365,7 +365,7 @@ void server_process_syslog_message(
+         assert(buf);
+ 
+         orig = buf;
+-        syslog_parse_priority((char**) &buf, &priority, true);
++        syslog_parse_priority(&buf, &priority, true);
+ 
+         if (s->forward_to_syslog)
+                 forward_syslog_raw(s, priority, orig, ucred, tv);
+diff --git a/src/journal/journald-syslog.h b/src/journal/journald-syslog.h
+index 8ccdb77a..057ea79d 100644
+--- a/src/journal/journald-syslog.h
++++ b/src/journal/journald-syslog.h
+@@ -25,7 +25,7 @@
+ 
+ int syslog_fixup_facility(int priority) _const_;
+ 
+-void syslog_parse_priority(char **p, int *priority, bool with_facility);
++void syslog_parse_priority(const char **p, int *priority, bool with_facility);
+ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);
+ 
+ void server_forward_syslog(Server *s, int priority, const char *identifier, const char *message, struct ucred *ucred, struct timeval *tv);

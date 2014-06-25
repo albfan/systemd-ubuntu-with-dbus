@@ -1,0 +1,40 @@
+From: Harald Hoyer <harald@redhat.com>
+Date: Thu, 6 Mar 2014 16:35:02 +0100
+Subject: Add strappenda3
+
+(cherry picked from commit f39d4a08e746e703d562076a0f622eb91dbdcd3e)
+
+For strappenda3, and it seems a good fix in general.
+
+(cherry picked from commit 4f0b9b433473d4f2b24675253064fd098d21e5a6)
+
+Conflicts:
+	src/systemctl/systemctl.c
+---
+ src/shared/util.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/shared/util.h b/src/shared/util.h
+index 20d81e5c..3f976633 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -728,6 +728,19 @@ int unlink_noerrno(const char *path);
+                 _c_;                                    \
+         })
+ 
++#define strappenda3(a, b, c)                                    \
++        ({                                                      \
++                const char *_a_ = (a), *_b_ = (b), *_c_ = (c);  \
++                char *_d_;                                      \
++                size_t _x_, _y_, _z_;                           \
++                _x_ = strlen(_a_);                              \
++                _y_ = strlen(_b_);                              \
++                _z_ = strlen(_c_);                              \
++                _d_ = alloca(_x_ + _y_ + _z_ + 1);              \
++                strcpy(stpcpy(stpcpy(_d_, _a_), _b_), _c_);     \
++                _d_;                                            \
++        })
++
+ #define procfs_file_alloca(pid, field)                                  \
+         ({                                                              \
+                 pid_t _pid_ = (pid);                                    \

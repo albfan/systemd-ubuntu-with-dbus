@@ -21,8 +21,8 @@ if dpkg --compare-versions "$REPORTBUG_VERSION" ge "6.5.0"; then
     echo "$DIR/systemd-delta.txt" >&3
 
     if [ -d /run/systemd/system ]; then
-        systemctl --no-pager dump >$DIR/systemctl-dump.txt
-        echo "$DIR/systemctl-dump.txt" >&3
+        systemd-analyze --no-pager dump >$DIR/systemd-analyze-dump.txt
+        echo "$DIR/systemd-analyze-dump.txt" >&3
     fi
 
     if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then
@@ -49,8 +49,8 @@ else
 
     if [ -d /run/systemd/system ]; then
         echo >&3
-        _header "systemctl dump"
-        systemctl --no-pager dump >&3
+        _header "systemd-analyze dump"
+        systemd-analyze --no-pager dump >&3
     fi
 
     if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then

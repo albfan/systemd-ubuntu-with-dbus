@@ -1,0 +1,50 @@
+From: Ruediger Oertel <ro@suse.de>
+Date: Fri, 13 Jun 2014 16:41:06 +0200
+Subject: Reset signal-mask on re-exec to init=..
+
+Process 1 (aka init) needs to be started with an empty signal mask.
+That includes the process 1 that's started after the initrd is finished.
+When the initrd is using systemd (as it does with dracut based initrds)
+then it is systemd that calls the real init.  Normally this is systemd
+again, except when the user uses for instance "init=/bin/bash" on the
+kernel command line.
+
+(cherry picked from commit 5a85ca1cb622fda4a39c8a6f00dccea7f8a1e82a)
+(cherry picked from commit 3eb31d88fd664d55251102d8504d05426a97d0b3)
+---
+ src/core/main.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/src/core/main.c b/src/core/main.c
+index 2a294c67..2f454850 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -1748,6 +1748,7 @@ finish:
+         if (reexecute) {
+                 const char **args;
+                 unsigned i, args_size;
++                sigset_t ss, o_ss;
+ 
+                 /* Close and disarm the watchdog, so that the new
+                  * instance can reinitialize it, but doesn't get
+@@ -1831,6 +1832,11 @@ finish:
+                 args[i++] = NULL;
+                 assert(i <= args_size);
+ 
++                /* reenable any blocked signals, especially important
++                 * if we switch from initial ramdisk to init=... */
++                sigemptyset(&ss);
++                sigprocmask(SIG_SETMASK, &ss, &o_ss);
++
+                 if (switch_root_init) {
+                         args[0] = switch_root_init;
+                         execv(args[0], (char* const*) args);
+@@ -1849,6 +1855,8 @@ finish:
+                         log_error("Failed to execute /bin/sh, giving up: %m");
+                 } else
+                         log_warning("Failed to execute /sbin/init, giving up: %m");
++
++                sigprocmask(SIG_SETMASK, &o_ss, NULL);
+         }
+ 
+         if (serialization)

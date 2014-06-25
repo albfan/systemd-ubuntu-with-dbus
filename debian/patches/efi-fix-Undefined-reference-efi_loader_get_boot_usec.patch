@@ -1,0 +1,25 @@
+From: =?utf-8?q?Cristian_Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Date: Tue, 11 Feb 2014 09:54:49 -0300
+Subject: efi: fix Undefined reference efi_loader_get_boot_usec when EFI
+ support is disabled
+
+(cherry picked from commit 70d9b9fc0a4fa1698ff00e364c61bb875244efa1)
+---
+ src/shared/boot-timestamps.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/shared/boot-timestamps.c b/src/shared/boot-timestamps.c
+index 94499658..d6566857 100644
+--- a/src/shared/boot-timestamps.c
++++ b/src/shared/boot-timestamps.c
+@@ -40,8 +40,10 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
+ 
+         r = acpi_get_boot_usec(&x, &y);
+         if (r < 0) {
++#ifdef ENABLE_EFI
+                 r = efi_loader_get_boot_usec(&x, &y);
+                 if (r < 0)
++#endif
+                         return r;
+         }
+ 

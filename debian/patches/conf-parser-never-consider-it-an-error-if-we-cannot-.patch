@@ -1,0 +1,28 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 22 May 2014 16:47:46 +0900
+Subject: conf-parser: never consider it an error if we cannot load a drop-in
+ file because it is missing
+
+After all, we want to be able to boot with /etc empty one day...
+
+(cherry picked from commit 9f43a07f10639c5b41b45448e551e43914eefe32)
+(cherry picked from commit 31dc5786e03bf8f00371d36ed702197ed842afe6)
+---
+ src/shared/conf-parser.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/shared/conf-parser.c b/src/shared/conf-parser.c
+index 4ac71ed3..e206b5b5 100644
+--- a/src/shared/conf-parser.c
++++ b/src/shared/conf-parser.c
+@@ -320,8 +320,8 @@ int config_parse(const char *unit,
+         if (!f) {
+                 f = ours = fopen(filename, "re");
+                 if (!f) {
+-                        log_error("Failed to open configuration file '%s': %m", filename);
+-                        return -errno;
++                        log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR, "Failed to open configuration file '%s': %m", filename);
++                        return errno == ENOENT ? 0 : -errno;
+                 }
+         }
+ 

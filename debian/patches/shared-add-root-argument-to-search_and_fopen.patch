@@ -1,0 +1,142 @@
+From: Michael Marineau <michael.marineau@coreos.com>
+Date: Thu, 13 Mar 2014 21:32:12 -0700
+Subject: shared: add root argument to search_and_fopen
+
+This adds the same root argument to search_and_fopen that
+conf_files_list already has. Tools that use those two functions as a
+pair can now be easily modified to load configuration files from an
+alternate root filesystem tree.
+
+(cherry picked from commit 4cf7ea556aa1e74f9b34d4467f36d46a1bb25da3)
+(cherry picked from commit 8d4847827db40b7148973558940f90495f5accba)
+
+Conflicts:
+	src/shared/util.h
+---
+ src/binfmt/binfmt.c             |  2 +-
+ src/modules-load/modules-load.c |  2 +-
+ src/shared/util.c               | 12 ++++++------
+ src/shared/util.h               |  4 ++--
+ src/sysctl/sysctl.c             |  2 +-
+ src/tmpfiles/tmpfiles.c         |  2 +-
+ 6 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/src/binfmt/binfmt.c b/src/binfmt/binfmt.c
+index 7ed1ae7b..e3a3d4f9 100644
+--- a/src/binfmt/binfmt.c
++++ b/src/binfmt/binfmt.c
+@@ -85,7 +85,7 @@ static int apply_file(const char *path, bool ignore_enoent) {
+ 
+         assert(path);
+ 
+-        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
++        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+         if (r < 0) {
+                 if (ignore_enoent && r == -ENOENT)
+                         return 0;
+diff --git a/src/modules-load/modules-load.c b/src/modules-load/modules-load.c
+index ba7d417b..bfb6e7e9 100644
+--- a/src/modules-load/modules-load.c
++++ b/src/modules-load/modules-load.c
+@@ -181,7 +181,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
+         assert(ctx);
+         assert(path);
+ 
+-        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
++        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+         if (r < 0) {
+                 if (ignore_enoent && r == -ENOENT)
+                         return 0;
+diff --git a/src/shared/util.c b/src/shared/util.c
+index f0341349..65a09d90 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -5687,14 +5687,14 @@ int on_ac_power(void) {
+         return found_online || !found_offline;
+ }
+ 
+-static int search_and_fopen_internal(const char *path, const char *mode, char **search, FILE **_f) {
++static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
+         char **i;
+ 
+         assert(path);
+         assert(mode);
+         assert(_f);
+ 
+-        if (!path_strv_canonicalize_absolute_uniq(search, NULL))
++        if (!path_strv_canonicalize_absolute_uniq(search, root))
+                 return -ENOMEM;
+ 
+         STRV_FOREACH(i, search) {
+@@ -5718,7 +5718,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, char **
+         return -ENOENT;
+ }
+ 
+-int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f) {
++int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f) {
+         _cleanup_strv_free_ char **copy = NULL;
+ 
+         assert(path);
+@@ -5741,10 +5741,10 @@ int search_and_fopen(const char *path, const char *mode, const char **search, FI
+         if (!copy)
+                 return -ENOMEM;
+ 
+-        return search_and_fopen_internal(path, mode, copy, _f);
++        return search_and_fopen_internal(path, mode, root, copy, _f);
+ }
+ 
+-int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f) {
++int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f) {
+         _cleanup_strv_free_ char **s = NULL;
+ 
+         if (path_is_absolute(path)) {
+@@ -5763,7 +5763,7 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *sear
+         if (!s)
+                 return -ENOMEM;
+ 
+-        return search_and_fopen_internal(path, mode, s, _f);
++        return search_and_fopen_internal(path, mode, root, s, _f);
+ }
+ 
+ int create_tmp_dir(char template[], char** dir_name) {
+diff --git a/src/shared/util.h b/src/shared/util.h
+index f358362a..b00395ca 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -629,8 +629,8 @@ char *strip_tab_ansi(char **p, size_t *l);
+ 
+ int on_ac_power(void);
+ 
+-int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f);
+-int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f);
++int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
++int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);
+ int create_tmp_dir(char template[], char** dir_name);
+ 
+ #define FOREACH_LINE(line, f, on_error)                         \
+diff --git a/src/sysctl/sysctl.c b/src/sysctl/sysctl.c
+index 70c4d89f..1b7b4824 100644
+--- a/src/sysctl/sysctl.c
++++ b/src/sysctl/sysctl.c
+@@ -137,7 +137,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
+ 
+         assert(path);
+ 
+-        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
++        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+         if (r < 0) {
+                 if (ignore_enoent && r == -ENOENT)
+                         return 0;
+diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
+index 6b0dfaf4..ca99bb4a 100644
+--- a/src/tmpfiles/tmpfiles.c
++++ b/src/tmpfiles/tmpfiles.c
+@@ -1364,7 +1364,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
+ 
+         assert(fn);
+ 
+-        r = search_and_fopen_nulstr(fn, "re", conf_file_dirs, &f);
++        r = search_and_fopen_nulstr(fn, "re", NULL, conf_file_dirs, &f);
+         if (r < 0) {
+                 if (ignore_enoent && r == -ENOENT)
+                         return 0;

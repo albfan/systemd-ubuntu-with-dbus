@@ -1,0 +1,21 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 30 Oct 2013 18:40:21 +0100
+Subject: nspawn: only pass in slice setting if it is set
+
+---
+ src/nspawn/nspawn.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index eb9605c3..9616dbf3 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -1202,7 +1202,7 @@ static int register_machine(void) {
+                         "container",
+                         (uint32_t) 0,
+                         strempty(arg_directory),
+-                        1, "Slice", "s", strempty(arg_slice));
++                        !isempty(arg_slice), "Slice", "s", arg_slice);
+         if (r < 0) {
+                 log_error("Failed to register machine: %s", error.message ? error.message : strerror(-r));
+                 return r;

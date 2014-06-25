@@ -11,13 +11,13 @@ Bug-Debian: http://bugs.debian.org/657948
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
-index 0b22d73..127da7e 100644
+index 8551f47a..09d8e614 100644
 --- a/rules/80-drivers.rules
 +++ b/rules/80-drivers.rules
-@@ -9,5 +9,6 @@ SUBSYSTEM=="memstick", RUN{builtin}="kmod load ms_block mspro_block"
- SUBSYSTEM=="i2o", RUN{builtin}="kmod load i2o_block"
- SUBSYSTEM=="module", KERNEL=="parport_pc", RUN{builtin}="kmod load ppdev"
- KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", RUN{builtin}="kmod load sm_ftl"
+@@ -9,5 +9,6 @@ SUBSYSTEM=="memstick", RUN{builtin}+="kmod load ms_block mspro_block"
+ SUBSYSTEM=="i2o", RUN{builtin}+="kmod load i2o_block"
+ SUBSYSTEM=="module", KERNEL=="parport_pc", RUN{builtin}+="kmod load ppdev"
+ KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", RUN{builtin}+="kmod load sm_ftl"
 +SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="kmod sg"
  
  LABEL="drivers_end"

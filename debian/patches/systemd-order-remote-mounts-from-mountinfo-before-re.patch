@@ -1,5 +1,5 @@
 From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
-Date: Fri, 4 Oct 2013 02:15:08 +0000
+Date: Thu, 3 Oct 2013 22:15:08 -0400
 Subject: systemd: order remote mounts from mountinfo before remote-fs.target
 
 Usually the network is stopped before filesystems are umounted.
@@ -12,7 +12,7 @@ https://bugs.freedesktop.org/show_bug.cgi?id=70002
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index 3d46557..93bfa99 100644
+index 3d46557f..93bfa99f 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
 @@ -1440,6 +1440,9 @@ static int mount_add_one(

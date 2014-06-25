@@ -1,0 +1,277 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Mon, 17 Feb 2014 03:37:13 +0100
+Subject: doc: update punctuation
+
+Resolve spotted issues related to missing or extraneous commas, dashes.
+
+(cherry picked from commit 73e231abde39f22097df50542c745e01de879836)
+
+Conflicts:
+	man/journalctl.xml
+	man/sd_bus_error.xml
+	man/sd_bus_new.xml
+	man/systemctl.xml
+	man/systemd-networkd.service.xml
+	man/systemd-nspawn.xml
+	man/systemd-system.conf.xml
+	man/systemd.exec.xml
+	man/systemd.kill.xml
+	man/systemd.service.xml
+	man/systemd.timer.xml
+	src/backlight/backlight.c
+	src/core/cgroup.c
+	src/libsystemd/sd-bus/bus-kernel.c
+---
+ man/journalctl.xml                |  1 +
+ man/systemd-cat.xml               |  2 +-
+ man/systemd-udevd.service.xml     |  6 +++---
+ man/systemd.service.xml           | 42 +++++++++++++++++++--------------------
+ man/systemd.socket.xml            |  6 +++---
+ man/systemd.special.xml           |  2 +-
+ man/systemd.xml                   |  2 +-
+ rules/60-persistent-storage.rules |  2 +-
+ src/journal/journalctl.c          |  2 +-
+ src/journal/sd-journal.c          |  4 ++--
+ src/shared/cgroup-util.c          |  4 ++--
+ src/udev/udev-builtin-usb_id.c    |  4 ++--
+ 12 files changed, 39 insertions(+), 38 deletions(-)
+
+diff --git a/man/journalctl.xml b/man/journalctl.xml
+index d75c758d..b695b3d6 100644
+--- a/man/journalctl.xml
++++ b/man/journalctl.xml
+@@ -509,6 +509,7 @@
+                                 and additional matches for messages
+                                 from systemd and messages about
+                                 coredumps for the specified unit.</para>
++
+                                 <para>This parameter can be specified multiple times.
+                                 </para></listitem>
+                         </varlistentry>
+diff --git a/man/systemd-cat.xml b/man/systemd-cat.xml
+index 16a8eb45..e61a6ac8 100644
+--- a/man/systemd-cat.xml
++++ b/man/systemd-cat.xml
+@@ -189,7 +189,7 @@
+                 <para>Even though the two examples have very similar
+                 effects the first is preferable since only one process
+                 is running at a time, and both stdout and stderr are
+-                captured while in the second example only stdout is
++                captured while in the second example, only stdout is
+                 captured.</para>
+         </refsect1>
+ 
+diff --git a/man/systemd-udevd.service.xml b/man/systemd-udevd.service.xml
+index b3bca2fe..0e49fa07 100644
+--- a/man/systemd-udevd.service.xml
++++ b/man/systemd-udevd.service.xml
+@@ -93,10 +93,10 @@
+         <term><option>--resolve-names=</option></term>
+         <listitem>
+           <para>Specify when systemd-udevd should resolve names of users and groups.
+-          When set to <option>early</option> (the default) names will be
++          When set to <option>early</option> (the default), names will be
+           resolved when the rules are parsed.  When set to
+-          <option>late</option> names will be resolved for every event.
+-          When set to <option>never</option> names will never be resolved
++          <option>late</option>, names will be resolved for every event.
++          When set to <option>never</option>, names will never be resolved
+           and all devices will be owned by root.</para>
+         </listitem>
+       </varlistentry>
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 0f4be719..4d672f0f 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -748,27 +748,27 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+                                 definitions can either be numeric exit
+                                 codes or termination signal names,
+                                 separated by spaces. For example:
+-				<programlisting>SuccessExitStatus=1 2 8 <constant>SIGKILL</constant></programlisting>
+-				ensures that exit codes 1, 2, 8 and
+-				the termination signal
+-				<constant>SIGKILL</constant> are
+-				considered clean service terminations.
+-			        </para>
+-
+-				<para>Note that if a process has a
+-				signal handler installed and exits by
+-				calling
+-				<citerefentry><refentrytitle>_exit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+-				in response to a signal, the
+-				information about the signal is lost.
+-				Programs should instead perform cleanup and kill themselves with the same signal instead. See
+-				<ulink url="http://www.cons.org/cracauer/sigint.html">Proper handling of SIGINT/SIGQUIT — How to be a proper program</ulink>.</para>
+-
+-				<para>This option may appear more than once
+-				in which case the list of successful
+-				exit statuses is merged. If the empty
+-				string is assigned to this option, the
+-				list is reset, all prior assignments
++                                <programlisting>SuccessExitStatus=1 2 8 <constant>SIGKILL</constant></programlisting>
++                                ensures that exit codes 1, 2, 8 and
++                                the termination signal
++                                <constant>SIGKILL</constant> are
++                                considered clean service terminations.
++                                </para>
++
++                                <para>Note that if a process has a
++                                signal handler installed and exits by
++                                calling
++                                <citerefentry><refentrytitle>_exit</refentrytitle><manvolnum>2</manvolnum></citerefentry>
++                                in response to a signal, the
++                                information about the signal is lost.
++                                Programs should instead perform cleanup and kill themselves with the same signal instead. See
++                                <ulink url="http://www.cons.org/cracauer/sigint.html">Proper handling of SIGINT/SIGQUIT — How to be a proper program</ulink>.</para>
++
++                                <para>This option may appear more than once,
++                                in which case the list of successful
++                                exit statuses is merged. If the empty
++                                string is assigned to this option, the
++                                list is reset, all prior assignments
+                                 of this option will have no
+                                 effect.</para></listitem>
+                         </varlistentry>
+diff --git a/man/systemd.socket.xml b/man/systemd.socket.xml
+index 39fba510..3e1dd885 100644
+--- a/man/systemd.socket.xml
++++ b/man/systemd.socket.xml
+@@ -84,7 +84,7 @@
+                 which configure resource control settings for the
+                 processes of the socket.</para>
+ 
+-                <para>For each socket file a matching service file
++                <para>For each socket file, a matching service file
+                 must exist, describing the service to start on
+                 incoming traffic on the socket (see
+                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+@@ -254,7 +254,7 @@
+                                 before the interface it is configured
+                                 on is up and running, and even
+                                 regardless of whether it will be up and
+-                                running at any point. To deal with this
++                                running at any point. To deal with this,
+                                 it is recommended to set the
+                                 <varname>FreeBind=</varname> option
+                                 described below.</para></listitem>
+@@ -720,7 +720,7 @@
+                                 <varname>Accept=no</varname>. It
+                                 defaults to the service that bears the
+                                 same name as the socket (with the
+-                                suffix replaced). In most cases it
++                                suffix replaced). In most cases, it
+                                 should not be necessary to use this
+                                 option.</para></listitem>
+                         </varlistentry>
+diff --git a/man/systemd.special.xml b/man/systemd.special.xml
+index 76bb5cdc..8ccccc27 100644
+--- a/man/systemd.special.xml
++++ b/man/systemd.special.xml
+@@ -820,7 +820,7 @@
+                 services. These targets are generally not part of the
+                 initial boot transaction, unless they are explicitly
+                 pulled in by one of the implementing services. Note
+-                specifically, that these <emphasis>passive</emphasis>
++                specifically that these <emphasis>passive</emphasis>
+                 target units are generally not pulled in by the
+                 consumer of a service, but by the provider of the
+                 service. This means: a consuming service should order
+diff --git a/man/systemd.xml b/man/systemd.xml
+index 23a0c265..76d977d4 100644
+--- a/man/systemd.xml
++++ b/man/systemd.xml
+@@ -407,7 +407,7 @@
+                 and ordering dependencies are placed between two
+                 units. Also note that the majority of dependencies are
+                 implicitly created and maintained by systemd. In most
+-                cases it should be unnecessary to declare additional
++                cases, it should be unnecessary to declare additional
+                 dependencies manually, however it is possible to do
+                 this.</para>
+ 
+diff --git a/rules/60-persistent-storage.rules b/rules/60-persistent-storage.rules
+index 154ffd92..4f7163da 100644
+--- a/rules/60-persistent-storage.rules
++++ b/rules/60-persistent-storage.rules
+@@ -33,7 +33,7 @@ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{type}==
+ 
+ # Run ata_id on non-removable USB Mass Storage (SATA/PATA disks in enclosures)
+ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", ATTR{removable}=="0", SUBSYSTEMS=="usb", IMPORT{program}="ata_id --export $devnode"
+-# Otherwise fall back to using usb_id for USB devices
++# Otherwise, fall back to using usb_id for USB devices
+ KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id"
+ 
+ # scsi devices
+diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
+index ccd96b22..5b0be271 100644
+--- a/src/journal/journalctl.c
++++ b/src/journal/journalctl.c
+@@ -715,7 +715,7 @@ static int add_matches(sd_journal *j, char **args) {
+                                         t = strappend("_COMM=", comm);
+ 
+                                         /* Append _EXE only if the interpreter is not a link.
+-                                           Otherwise it might be outdated often. */
++                                           Otherwise, it might be outdated often. */
+                                         if (lstat(interpreter, &st) == 0 &&
+                                             !S_ISLNK(st.st_mode)) {
+                                                 t2 = strappend("_EXE=", interpreter);
+diff --git a/src/journal/sd-journal.c b/src/journal/sd-journal.c
+index 46c3feb4..f4af1f66 100644
+--- a/src/journal/sd-journal.c
++++ b/src/journal/sd-journal.c
+@@ -472,7 +472,7 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
+ 
+         if (sd_id128_equal(ao->entry.boot_id, bo->entry.boot_id)) {
+ 
+-                /* If the boot id matches compare monotonic time */
++                /* If the boot id matches, compare monotonic time */
+                 a = le64toh(ao->entry.monotonic);
+                 b = le64toh(bo->entry.monotonic);
+ 
+@@ -482,7 +482,7 @@ static int compare_entry_order(JournalFile *af, Object *_ao,
+                         return 1;
+         }
+ 
+-        /* Otherwise compare UTC time */
++        /* Otherwise, compare UTC time */
+         a = le64toh(ao->entry.realtime);
+         b = le64toh(bo->entry.realtime);
+ 
+diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
+index 8a4eddab..3c64e628 100644
+--- a/src/shared/cgroup-util.c
++++ b/src/shared/cgroup-util.c
+@@ -1115,7 +1115,7 @@ int cg_mangle_path(const char *path, char **result) {
+         assert(path);
+         assert(result);
+ 
+-        /* First check if it already is a filesystem path */
++        /* First, check if it already is a filesystem path */
+         if (path_startswith(path, "/sys/fs/cgroup")) {
+ 
+                 t = strdup(path);
+@@ -1127,7 +1127,7 @@ int cg_mangle_path(const char *path, char **result) {
+                 return 0;
+         }
+ 
+-        /* Otherwise treat it as cg spec */
++        /* Otherwise, treat it as cg spec */
+         r = cg_split_spec(path, &c, &p);
+         if (r < 0)
+                 return r;
+diff --git a/src/udev/udev-builtin-usb_id.c b/src/udev/udev-builtin-usb_id.c
+index 1b9f8246..883e11eb 100644
+--- a/src/udev/udev-builtin-usb_id.c
++++ b/src/udev/udev-builtin-usb_id.c
+@@ -219,9 +219,9 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
+  * A unique USB identification is generated like this:
+  *
+  * 1.) Get the USB device type from InterfaceClass and InterfaceSubClass
+- * 2.) If the device type is 'Mass-Storage/SPC-2' or 'Mass-Storage/RBC'
++ * 2.) If the device type is 'Mass-Storage/SPC-2' or 'Mass-Storage/RBC',
+  *     use the SCSI vendor and model as USB-Vendor and USB-model.
+- * 3.) Otherwise use the USB manufacturer and product as
++ * 3.) Otherwise, use the USB manufacturer and product as
+  *     USB-Vendor and USB-model. Any non-printable characters
+  *     in those strings will be skipped; a slash '/' will be converted
+  *     into a full stop '.'.

@@ -1,0 +1,27 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 25 Mar 2014 00:10:41 +0100
+Subject: man: explain that the journal field SYSLOG_IDENTIFIER is usually
+ derived from program_invocation_short_name
+
+(cherry picked from commit d2753d220044892495769f7f9fca297cf86d01b9)
+(cherry picked from commit 265f023d76ad0be8cb830e8ee2c329e4ef8f1d40)
+---
+ man/systemd.journal-fields.xml | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/man/systemd.journal-fields.xml b/man/systemd.journal-fields.xml
+index b492aae0..42d209bf 100644
+--- a/man/systemd.journal-fields.xml
++++ b/man/systemd.journal-fields.xml
+@@ -156,7 +156,10 @@
+                                         (formatted as decimal string),
+                                         the identifier string
+                                         (i.e. "tag"), and the client
+-                                        PID.</para>
++                                        PID. (Note that the tag is
++                                        usually derived from glibc's
++                                        <varname>program_invocation_short_name</varname>
++                                        variable, see <citerefentry><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
+                                 </listitem>
+ 
+                         </varlistentry>

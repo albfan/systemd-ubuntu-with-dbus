@@ -1,0 +1,47 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 11 Nov 2013 03:03:17 +0100
+Subject: timer: consider (usec_t) -1 an invalid timestamp
+
+---
+ src/shared/time-util.c | 4 ++--
+ src/shared/time-util.h | 5 ++++-
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/src/shared/time-util.c b/src/shared/time-util.c
+index b8a6bd7f..81d4ede1 100644
+--- a/src/shared/time-util.c
++++ b/src/shared/time-util.c
+@@ -157,7 +157,7 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
+         assert(buf);
+         assert(l > 0);
+ 
+-        if (t <= 0)
++        if (t <= 0 || t == (usec_t) -1)
+                 return NULL;
+ 
+         sec = (time_t) (t / USEC_PER_SEC);
+@@ -175,7 +175,7 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+         assert(buf);
+         assert(l > 0);
+ 
+-        if (t <= 0)
++        if (t <= 0 || t == (usec_t) -1)
+                 return NULL;
+ 
+         sec = (time_t) (t / USEC_PER_SEC);
+diff --git a/src/shared/time-util.h b/src/shared/time-util.h
+index 7660fe18..bc10d223 100644
+--- a/src/shared/time-util.h
++++ b/src/shared/time-util.h
+@@ -64,7 +64,10 @@ dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
+ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
+ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
+ 
+-#define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
++static inline bool dual_timestamp_is_set(dual_timestamp *ts) {
++        return ((ts->realtime > 0 && ts->realtime != (usec_t) -1) ||
++                (ts->monotonic > 0 && ts->monotonic != (usec_t) -1));
++}
+ 
+ usec_t timespec_load(const struct timespec *ts) _pure_;
+ struct timespec *timespec_store(struct timespec *ts, usec_t u);

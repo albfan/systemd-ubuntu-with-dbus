@@ -1,0 +1,41 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 13 May 2014 23:22:13 +0200
+Subject: core: close socket fds asynchronously
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-April/018928.html
+(cherry picked from commit 574634bcacb01efe15ca2742effd461a5b7afb5f)
+(cherry picked from commit ea74f003b0cbc37e76a2ad72460bfb317b880147)
+---
+ src/core/service.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index f0df5fea..9fd58fab 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -25,6 +25,7 @@
+ #include <unistd.h>
+ #include <sys/reboot.h>
+ 
++#include "async.h"
+ #include "manager.h"
+ #include "unit.h"
+ #include "service.h"
+@@ -222,7 +223,7 @@ static void service_close_socket_fd(Service *s) {
+         if (s->socket_fd < 0)
+                 return;
+ 
+-        s->socket_fd = safe_close(s->socket_fd);
++        s->socket_fd = asynchronous_close(s->socket_fd);
+ }
+ 
+ static void service_connection_unref(Service *s) {
+@@ -2793,7 +2794,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
+                         log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
+                 else {
+ 
+-                        safe_close(s->socket_fd);
++                        asynchronous_close(s->socket_fd);
+                         s->socket_fd = fdset_remove(fds, fd);
+                 }
+         } else if (streq(key, "main-exec-status-pid")) {

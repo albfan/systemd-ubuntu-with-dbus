@@ -85,7 +85,7 @@ index 0000000..9d07505
 +.PHONY: all clean
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
 new file mode 100644
-index 0000000..5b4407e
+index 0000000..af5267c
 --- /dev/null
 +++ b/src/insserv-generator/insserv-generator.c
 @@ -0,0 +1,310 @@
@@ -273,7 +273,7 @@ index 0000000..5b4407e
 +                                        _cleanup_free_ char *dep = NULL;
 +
 +                                        /* targets should not pull in and activate other targets so skip them */
-+                                        if (*j[0] == '!')
++                                        if (*j[0] == '$')
 +                                                continue;
 +
 +                                        if (*j[0] == '+')

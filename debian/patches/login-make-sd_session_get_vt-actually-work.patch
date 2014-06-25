@@ -1,0 +1,23 @@
+From: David Herrmann <dh.herrmann@gmail.com>
+Date: Thu, 10 Oct 2013 13:11:27 +0200
+Subject: login: make sd_session_get_vt() actually work
+
+We use VTNR, not VTNr as key. Until now sd_session_get_vt() just returns
+an error.
+---
+ src/login/sd-login.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/login/sd-login.c b/src/login/sd-login.c
+index 6c27dfeb..7e25041f 100644
+--- a/src/login/sd-login.c
++++ b/src/login/sd-login.c
+@@ -354,7 +354,7 @@ _public_ int sd_session_get_vt(const char *session, unsigned *vtnr) {
+         unsigned u;
+         int r;
+ 
+-        r = session_get_string(session, "VTNr", &vtnr_string);
++        r = session_get_string(session, "VTNR", &vtnr_string);
+         if (r < 0)
+                 return r;
+ 

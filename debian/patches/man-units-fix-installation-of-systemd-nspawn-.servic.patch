@@ -1,0 +1,56 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 7 Nov 2013 23:57:19 -0500
+Subject: man,
+ units: fix installation of systemd-nspawn@.service and add example
+
+---
+ TODO                             |  1 +
+ man/systemd-nspawn.xml           | 12 ++++++++++++
+ units/systemd-nspawn@.service.in |  2 +-
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/TODO b/TODO
+index 425f6736..42ba0304 100644
+--- a/TODO
++++ b/TODO
+@@ -491,6 +491,7 @@ Features:
+   - nspawn: maybe add a way to drop additional caps, in addition to add additional caps
+   - nspawn: maybe explicitly reset loginuid?
+   - nspawn: make it work for dwalsh and shared /usr containers -- tmpfs mounts as command line parameters, selinux exec context
++  - refuses to boot containers without /etc/machine-id (OK?), and with empty /etc/machine-id (not OK).
+ 
+ * cryptsetup:
+   - cryptsetup-generator: allow specification of passwords in crypttab itself
+diff --git a/man/systemd-nspawn.xml b/man/systemd-nspawn.xml
+index 7d450f91..ba9e5168 100644
+--- a/man/systemd-nspawn.xml
++++ b/man/systemd-nspawn.xml
+@@ -428,6 +428,18 @@
+         </refsect1>
+ 
+         <refsect1>
++                <title>Example 4</title>
++
++                <programlisting># mv ~/arch-tree /var/lib/container/arch
++# systemctl enable systemd-nspawn@arch.service
++# systemctl start systemd-nspawn@arch.service</programlisting>
++
++                <para>This makes the Arch Linux container part of the
++                <filename>multi-user.target</filename> on the host.
++                </para>
++        </refsect1>
++
++        <refsect1>
+                 <title>Exit status</title>
+ 
+                 <para>The exit code of the program executed in the
+diff --git a/units/systemd-nspawn@.service.in b/units/systemd-nspawn@.service.in
+index eca62e3b..8e007364 100644
+--- a/units/systemd-nspawn@.service.in
++++ b/units/systemd-nspawn@.service.in
+@@ -14,4 +14,4 @@ ExecStart=@bindir@/systemd-nspawn -bjD /var/lib/container/%i
+ Type=notify
+ 
+ [Install]
+-Also=multi-user.target
++WantedBy=multi-user.target

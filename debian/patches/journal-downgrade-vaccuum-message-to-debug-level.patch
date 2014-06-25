@@ -1,0 +1,23 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Sun, 23 Feb 2014 17:05:37 +0100
+Subject: journal: downgrade vaccuum message to debug level
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1047148
+(cherry picked from commit 3bb621e1e66b704c0c2dcef31c66f7c646dd47f6)
+---
+ src/journal/journal-vacuum.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/journal/journal-vacuum.c b/src/journal/journal-vacuum.c
+index 8b07f659..695e5181 100644
+--- a/src/journal/journal-vacuum.c
++++ b/src/journal/journal-vacuum.c
+@@ -334,7 +334,7 @@ finish:
+                 free(list[i].filename);
+         free(list);
+ 
+-        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
++        log_debug("Vacuuming done, freed %"PRIu64" bytes", freed);
+ 
+         return r;
+ }

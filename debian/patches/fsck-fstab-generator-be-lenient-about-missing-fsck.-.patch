@@ -1,0 +1,177 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 12 Nov 2013 00:53:59 -0500
+Subject: fsck,fstab-generator: be lenient about missing fsck.<type>
+
+If fstab contains 1 for passno, treat this as an error, but only warn
+briefly. If fstab doesn't contain this information, don't complain at
+all.
+
+Patch is complicated a bit by the fact that we might have the fstype specified
+in fstab or on /proc/cmdline, in which case we can check if we have the appropriate
+fsck tool, or not specified, or specified as auto, in which case we have to look
+and check the type of the filesystem ourselves. It cannot be done before the
+device appears, so it is too early in the generator phase, and it must be done
+directly in fsck service.
+
+Conflicts:
+	src/fstab-generator/fstab-generator.c
+---
+ src/fsck/fsck.c                       | 40 +++++++++++++++++++++------
+ src/fstab-generator/fstab-generator.c | 51 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 83 insertions(+), 8 deletions(-)
+
+diff --git a/src/fsck/fsck.c b/src/fsck/fsck.c
+index 9b4e5558..1189fe76 100644
+--- a/src/fsck/fsck.c
++++ b/src/fsck/fsck.c
+@@ -244,10 +244,11 @@ int main(int argc, char *argv[]) {
+         siginfo_t status;
+         _cleanup_udev_unref_ struct udev *udev = NULL;
+         _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
+-        const char *device;
++        const char *device, *type;
+         bool root_directory;
+         int progress_pipe[2] = { -1, -1 };
+         char dash_c[2+10+1];
++        struct stat st;
+ 
+         if (argc > 2) {
+                 log_error("This program expects one or no arguments.");
+@@ -266,11 +267,27 @@ int main(int argc, char *argv[]) {
+         if (!arg_force && arg_skip)
+                 return 0;
+ 
++        udev = udev_new();
++        if (!udev) {
++                log_oom();
++                return EXIT_FAILURE;
++        }
++
+         if (argc > 1) {
+                 device = argv[1];
+                 root_directory = false;
++
++                if (stat(device, &st) < 0) {
++                        log_error("Failed to stat '%s': %m", device);
++                        return EXIT_FAILURE;
++                }
++
++                udev_device = udev_device_new_from_devnum(udev, 'b', st.st_rdev);
++                if (!udev_device) {
++                        log_error("Failed to detect device %s", device);
++                        return EXIT_FAILURE;
++                }
+         } else {
+-                struct stat st;
+                 struct timespec times[2];
+ 
+                 /* Find root device */
+@@ -292,12 +309,6 @@ int main(int argc, char *argv[]) {
+                         return EXIT_SUCCESS;
+                 }
+ 
+-                udev = udev_new();
+-                if (!udev) {
+-                        log_oom();
+-                        return EXIT_FAILURE;
+-                }
+-
+                 udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+                 if (!udev_device) {
+                         log_error("Failed to detect root device.");
+@@ -313,6 +324,19 @@ int main(int argc, char *argv[]) {
+                 root_directory = true;
+         }
+ 
++        type = udev_device_get_property_value(udev_device, "ID_FS_TYPE");
++        if (type) {
++                const char *checker = strappenda("/sbin/fsck.", type);
++                r = access(checker, X_OK);
++                if (r < 0) {
++                        if (errno == ENOENT) {
++                                log_info("%s doesn't exist, not checking file system.", checker);
++                                return EXIT_SUCCESS;
++                        } else
++                                log_warning("%s cannot be used: %m", checker);
++                }
++        }
++
+         if (arg_show_progress)
+                 if (pipe(progress_pipe) < 0) {
+                         log_error("pipe(): %m");
+diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
+index 9efccb98..795a24c9 100644
+--- a/src/fstab-generator/fstab-generator.c
++++ b/src/fstab-generator/fstab-generator.c
+@@ -147,6 +147,52 @@ static bool mount_in_initrd(struct mntent *me) {
+                 streq(me->mnt_dir, "/usr");
+ }
+ 
++static int add_fsck(FILE *f, const char *what, const char *where, const char *type, int passno) {
++        assert(f);
++
++        if (passno == 0)
++                return 0;
++
++        if (type && !streq(type, "auto")) {
++                int r;
++                const char *checker;
++
++                checker = strappenda("/sbin/fsck.", type);
++                r = access(checker, X_OK);
++                if (r < 0) {
++                        log_warning("Checking was requested for %s, but %s cannot be used: %m", what, checker);
++
++                        /* treat missing check as essentially OK */
++                        return errno == ENOENT ? 0 : -errno;
++                }
++        }
++
++        if (streq(where, "/")) {
++                char *lnk;
++
++                lnk = strappenda(arg_dest, "/" SPECIAL_LOCAL_FS_TARGET ".wants/systemd-fsck-root.service");
++                mkdir_parents_label(lnk, 0755);
++                if (symlink("systemd-fsck-root.service", lnk) < 0) {
++                        log_error("Failed to create symlink %s: %m", lnk);
++                        return -errno;
++                }
++        } else {
++                _cleanup_free_ char *fsck = NULL;
++
++                fsck = unit_name_from_path_instance("systemd-fsck", what, ".service");
++                if (!fsck)
++                        return log_oom();
++
++                fprintf(f,
++                        "Requires=%s\n"
++                        "After=%s\n",
++                        fsck,
++                        fsck);
++        }
++
++        return 0;
++}
++
+ static int add_mount(
+                 const char *what,
+                 const char *where,
+@@ -162,6 +208,7 @@ static int add_mount(
+                 *name = NULL, *unit = NULL, *lnk = NULL,
+                 *automount_name = NULL, *automount_unit = NULL;
+         _cleanup_fclose_ FILE *f = NULL;
++        int r;
+ 
+         assert(what);
+         assert(where);
+@@ -209,6 +256,10 @@ static int add_mount(
+                         "Before=%s\n",
+                         post);
+ 
++        r = add_fsck(f, what, where, type, passno);
++        if (r < 0)
++                return r;
++
+         fprintf(f,
+                 "\n"
+                 "[Mount]\n"
