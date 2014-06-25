@@ -1,3 +1,10 @@
+systemd (204-10ubuntu10) UNRELEASED; urgency=medium
+
+  * udev.postinst: Don't restart udev in a chroot or during debootstrap.
+    (LP: #1329684)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 25 Jun 2014 10:49:23 +0200
+
 systemd (204-10ubuntu9) utopic; urgency=medium
 
   * Fix various issues with the cgmanager integration (LP: #1309025):

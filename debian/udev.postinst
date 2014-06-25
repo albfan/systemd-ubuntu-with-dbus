@@ -5,12 +5,33 @@ update_hwdb() {
   udevadm hwdb --update || true
 }
 
+chrooted() {
+  if [ "$(stat -c %d/%i /)" = "$(stat -Lc %d/%i /proc/1/root 2>/dev/null)" ];
+  then
+    # the devicenumber/inode pair of / is the same as that of /sbin/init's
+    # root, so we're *not* in a chroot and hence return false.
+    return 1
+  fi
+  echo "A chroot environment has been detected, udev not started."
+  return 0
+}
+
+in_debootstrap() {
+  if [ -d /debootstrap/ ]; then
+    echo "Being installed by debootstrap, udev not started."
+    return 0
+  fi
+  return 1
+}
+
 case "$1" in
     configure)
         # update/create hwdb before we (re)start udev
         update_hwdb
 
-	invoke-rc.d udev restart
+        if ! chrooted && ! in_debootstrap; then
+            invoke-rc.d udev restart
+        fi
 	update-initramfs -u
 	;;
 
