@@ -1,3 +1,11 @@
+systemd (204-12) UNRELEASED; urgency=medium
+
+  * Change the sg loading rule (for Debian #657948) back to using modprobe.
+    kmod is too fast and then sg races with sd, causing the latter to not see
+    SCSI disks.  (Closes: #752591, #752605)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 25 Jun 2014 10:22:33 +0200
+
 systemd (204-11) unstable; urgency=medium
 
   [ Martin Pitt ]
