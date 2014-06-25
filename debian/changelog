@@ -1,5 +1,9 @@
-systemd (208-3) UNRELEASED; urgency=medium
+systemd (208-2tanglu1) staging; urgency=medium
 
+  * Merge with Debian experimental, remaining changes:
+    - Make systemd and systemd-sysv required packages
+    - Enable persistent journald logging
+    - Map SysV runlevel S to basic.target, not sysinit.target.
   * Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
 
