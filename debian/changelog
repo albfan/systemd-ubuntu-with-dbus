@@ -1,4 +1,4 @@
-systemd (204-12) UNRELEASED; urgency=medium
+systemd (204-12) unstable; urgency=medium
 
   [ Martin Pitt ]
   * Change the sg loading rule (for Debian #657948) back to using modprobe.
@@ -9,7 +9,7 @@ systemd (204-12) UNRELEASED; urgency=medium
   * Update udev bug-script to attach instead of paste extra info if a new
     enough reportbug version is available.
 
- -- Martin Pitt <mpitt@debian.org>  Wed, 25 Jun 2014 10:22:33 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 25 Jun 2014 10:55:12 +0200
 
 systemd (204-11) unstable; urgency=medium
 
