@@ -486,11 +486,9 @@ Also-redirect-to-update-rc.d-when-not-using-.service.patch
 systemctl-don-t-skip-native-units-when-enabling-disa.patch
 systemctl-call-update-rc.d-enable-disable-not-defaul.patch
 Run-update-rc.d-defaults-before-update-rc.d-enable-d.patch
-fix-systemctl-enable-disable-error-message-Failed-to.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
 fstab-generator-don-t-rely-on-usr-being-mounted-in-t.patch
-fix-remaining-reference-to-systemd-logind.conf.patch
 Make-hostnamed-localed-timedated-D-Bus-activatable.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
@@ -503,7 +501,6 @@ Make-99-systemd.rules-check-for-run-systemd-systemd-.patch
 Make-net.ifnames-opt-in-instead-of-opt-out.patch
 Don-t-move-libgudev-to-lib.patch
 Use-different-default-paths-for-various-binaries.patch
-pam-Check-XDG_RUNTIME_DIR-owner.patch
 Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch
 Avoid-reloading-services-when-shutting-down.patch
 Avoid-reload-and-re-start-requests-during-early-boot.patch
