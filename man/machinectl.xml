@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="machinectl" conditional='ENABLE_MACHINED'>
+<refentry id="machinectl" conditional='ENABLE_MACHINED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>machinectl</title>
@@ -72,21 +73,6 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
-
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--version</option></term>
-
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>-p</option></term>
                                 <term><option>--property=</option></term>
 
@@ -123,25 +109,10 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-ask-password</option></term>
-
-                                <listitem><para>Do not query the user
-                                for authentication for privileged
-                                operations.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
                                 <term><option>--kill-who=</option></term>
 
                                 <listitem><para>When used with
-                                <command>kill-machine</command>,
+                                <command>kill</command>,
                                 choose which processes to kill. Must
                                 be one of <option>leader</option>, or
                                 <option>all</option> to select whether
@@ -156,7 +127,7 @@
                                 <term><option>--signal=</option></term>
 
                                 <listitem><para>When used with
-                                <command>kill-machine</command>, choose
+                                <command>kill</command>, choose
                                 which signal to send to selected
                                 processes. Must be one of the
                                 well-known signal specifiers, such as
@@ -168,25 +139,19 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>-H</option></term>
-                                <term><option>--host</option></term>
+                                <term><option>--no-legend</option></term>
 
-                                <listitem><para>Execute operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by <literal>@</literal>,
-                                to connect to. This will use SSH to
-                                talk to the remote machine manager
-                                instance.</para></listitem>
+                                <listitem><para>Do not print the legend,
+                                        i.e. the column headers and the
+                                        footer.</para></listitem>
                         </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
+                        <xi:include href="user-system-options.xml" xpointer="host" />
+                        <xi:include href="user-system-options.xml" xpointer="machine" />
 
-                                <listitem><para>Acquire privileges via
-                                PolicyKit before executing the
-                                operation.</para></listitem>
-                        </varlistentry>
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                        <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -201,7 +166,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>status [ID...]</command></term>
+                                <term><command>status</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -214,7 +179,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show [ID...]</command></term>
+                                <term><command>show</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show properties of one
                                 or more registered virtual machines or
@@ -238,7 +203,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate [ID...]</command></term>
+                                <term><command>terminate</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Terminates a virtual
                                 machine or container. This kills all
@@ -249,7 +214,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill [ID...]</command></term>
+                                <term><command>kill</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Send a signal to one
                                 or more processes of the virtual
@@ -262,6 +227,31 @@
                                 <option>--signal=</option> to select
                                 the signal to send.</para></listitem>
                         </varlistentry>
+
+                        <varlistentry>
+                                <term><command>reboot</command> <replaceable>ID</replaceable>...</term>
+
+                                <listitem><para>Reboot one or more
+                                containers. This will trigger a reboot
+                                by sending SIGINT to the container's
+                                init process, which is roughly
+                                equivalent to pressing Ctrl+Alt+Del on
+                                a non-containerized
+                                system.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><command>login</command> <replaceable>ID</replaceable></term>
+
+                                <listitem><para>Open a terminal login
+                                session to a container. This will
+                                create a TTY connection to a specific
+                                container and asks for the execution of a
+                                getty on it. Note that this is only
+                                supported for containers running
+                                <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                as init system.</para></listitem>
+                        </varlistentry>
                 </variablelist>
 
         </refsect1>
@@ -273,28 +263,14 @@
                 code otherwise.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Environment</title>
-
-                <variablelist class='environment-variables'>
-                        <varlistentry>
-                                <term><varname>$SYSTEMD_PAGER</varname></term>
-                                <listitem><para>Pager to use when
-                                <option>--no-pager</option> is not given;
-                                overrides <varname>$PAGER</varname>.  Setting
-                                this to an empty string or the value
-                                <literal>cat</literal> is equivalent to passing
-                                <option>--no-pager</option>.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+        <xi:include href="less-variables.xml" />
 
         <refsect1>
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+                        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

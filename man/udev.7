@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEV" "7" "" "systemd 208" "udev"
+.TH "UDEV" "7" "" "systemd 209" "udev"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,10 +42,10 @@ and the local administration directory
 have the highest priority, files in
 /run
 take precedence over files with the same name in
-/lib\&. This can be used to override a system\-supplied rules file with a local file if needed; a symlink in
+/usr/lib\&. This can be used to override a system\-supplied rules file with a local file if needed; a symlink in
 /etc
 with the same name as a rules file in
-/lib, pointing to
+/usr/lib, pointing to
 /dev/null, disables the rules file entirely\&. Rule files must have the extension
 \&.rules; other extensions are ignored\&.
 .PP
@@ -167,15 +167,21 @@ Test the existence of a file\&. An octal mode mask can be specified if needed\&.
 .PP
 \fIPROGRAM\fR
 .RS 4
-Execute a program to determine whether there is a match; the key is true if the program returns successfully\&. The device properties are made available to the executed program in the environment\&. The program\*(Aqs stdout is available in the RESULT key\&.
+Execute a program to determine whether there is a match; the key is true if the program returns successfully\&. The device properties are made available to the executed program in the environment\&. The program\*(Aqs standard ouput is available in the
+\fIRESULT\fR
+key\&.
 .sp
-This can only be used for very short\-running foreground tasks\&. For details see
+This can only be used for very short\-running foreground tasks\&. For details, see
 \fIRUN\fR\&.
 .RE
 .PP
 \fIRESULT\fR
 .RS 4
-Match the returned string of the last PROGRAM call\&. This key can be used in the same or in any later rule after a PROGRAM call\&.
+Match the returned string of the last
+\fIPROGRAM\fR
+call\&. This key can be used in the same or in any later rule after a
+\fIPROGRAM\fR
+call\&.
 .RE
 .PP
 Most of the fields support shell glob pattern matching\&. The following pattern characters are supported:
@@ -199,7 +205,9 @@ would match either
 or
 "ttyR"\&. Ranges are also supported via the
 "\-"
-character\&. For example, to match on the range of all digits, the pattern [0\-9] could be used\&. If the first character following the
+character\&. For example, to match on the range of all digits, the pattern
+"[0\-9]"
+could be used\&. If the first character following the
 "["
 is a
 "!", any characters not enclosed are matched\&.
@@ -233,6 +241,11 @@ Symlink names must never conflict with the kernel\*(Aqs default device node name
 The permissions for the device node\&. Every specified value overrides the compiled\-in default value\&.
 .RE
 .PP
+\fISECLABEL{\fR\fI\fImodule\fR\fR\fI}\fR
+.RS 4
+Applies the specified Linux Security Module label to the device node\&.
+.RE
+.PP
 \fIATTR{\fR\fI\fIkey\fR\fR\fI}\fR
 .RS 4
 The value that should be written to a sysfs attribute of the event device\&.
@@ -242,7 +255,9 @@ The value that should be written to a sysfs attribute of the event device\&.
 .RS 4
 Set a device property value\&. Property names with a leading
 "\&."
-are neither stored in the database nor exported to events or external tools (run by, say, the PROGRAM match key)\&.
+are neither stored in the database nor exported to events or external tools (run by, for example, the
+\fIPROGRAM\fR
+match key)\&.
 .RE
 .PP
 \fITAG\fR
@@ -257,7 +272,8 @@ Add a program to the list of programs to be executed after processing all the ru
 .PP
 "program"
 .RS 4
-Execute an external program specified as the assigned value\&. If no absolute path is given, the program is expected to live in /usr/lib/udev, otherwise the absolute path must be specified\&.
+Execute an external program specified as the assigned value\&. If no absolute path is given, the program is expected to live in
+/usr/lib/udev; otherwise, the absolute path must be specified\&.
 .sp
 This is the default if no
 \fItype\fR
@@ -274,17 +290,21 @@ The program name and following arguments are separated by spaces\&. Single quote
 .sp
 This can only be used for very short\-running foreground tasks\&. Running an event process for a long period of time may block all further events for this or a dependent device\&.
 .sp
-Starting daemons or other long running processes is not appropriate for udev; the forked processes, detached or not, will be unconditionally killed after the event handling has finished\&.
+Starting daemons or other long\-running processes is not appropriate for udev; the forked processes, detached or not, will be unconditionally killed after the event handling has finished\&.
 .RE
 .PP
 \fILABEL\fR
 .RS 4
-A named label to which a GOTO may jump\&.
+A named label to which a
+\fIGOTO\fR
+may jump\&.
 .RE
 .PP
 \fIGOTO\fR
 .RS 4
-Jumps to the next LABEL with a matching name\&.
+Jumps to the next
+\fILABEL\fR
+with a matching name\&.
 .RE
 .PP
 \fIIMPORT{\fR\fI\fItype\fR\fR\fI}\fR
@@ -379,8 +399,7 @@ The
 \fIPROGRAM\fR,
 \fIOWNER\fR,
 \fIGROUP\fR,
-\fIMODE\fR
-and
+\fIMODE\fR, and
 \fIRUN\fR
 fields support simple string substitutions\&. The
 \fIRUN\fR
@@ -409,8 +428,7 @@ The devpath of the device\&.
 The name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
 \fBKERNELS\fR,
-\fBDRIVERS\fR
-and
+\fBDRIVERS\fR, and
 \fBATTRS\fR\&.
 .RE
 .PP
@@ -419,14 +437,18 @@ and
 The driver name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
 \fBKERNELS\fR,
-\fBDRIVERS\fR
-and
+\fBDRIVERS\fR, and
 \fBATTRS\fR\&.
 .RE
 .PP
 \fB$attr{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
 .RS 4
-The value of a sysfs attribute found at the device where all keys of the rule have matched\&. If the matching device does not have such an attribute, and a previous KERNELS, SUBSYSTEMS, DRIVERS, or ATTRS test selected a parent device, then the attribute from that parent device is used\&.
+The value of a sysfs attribute found at the device where all keys of the rule have matched\&. If the matching device does not have such an attribute, and a previous
+\fBKERNELS\fR,
+\fBSUBSYSTEMS\fR,
+\fBDRIVERS\fR, or
+\fBATTRS\fR
+test selected a parent device, then the attribute from that parent device is used\&.
 .sp
 If the attribute is a symlink, the last element of the symlink target is returned as the value\&.
 .RE
@@ -448,7 +470,8 @@ The kernel minor number for the device\&.
 .PP
 \fB$result\fR, \fB%c\fR
 .RS 4
-The string returned by the external program requested with PROGRAM\&. A single part of the string, separated by a space character, may be selected by specifying the part number as an attribute:
+The string returned by the external program requested with
+\fIPROGRAM\fR\&. A single part of the string, separated by a space character, may be selected by specifying the part number as an attribute:
 "%c{N}"\&. If the number is followed by the
 "+"
 character, this part plus all remaining parts of the result string are substituted:
@@ -509,10 +532,10 @@ and the local administration directory
 have the highest priority, files in
 /run
 take precedence over files with the same name in
-/lib\&. This can be used to override a system\-supplied hwdb file with a local file if needed; a symlink in
+/usr/lib\&. This can be used to override a system\-supplied hwdb file with a local file if needed; a symlink in
 /etc
 with the same name as a hwdb file in
-/lib, pointing to
+/usr/lib, pointing to
 /dev/null, disables the hwdb file entirely\&. hwdb files must have the extension
 \&.hwdb; other extensions are ignored\&.
 .PP
@@ -527,6 +550,225 @@ The content of all hwdb files is read by
 \fBudevadm\fR(8)
 and compiled to a binary database located at
 /etc/udev/hwdb\&.bin\&. During runtime only the binary database is used\&.
+.SH "NETWORK LINK CONFIGURATION"
+.PP
+Network link configuration is performed by the
+"net_setup_link"
+udev builtin\&.
+.PP
+The link files are read from the files located in the system network directory
+/usr/lib/systemd/network, the volatile runtime network directory
+/run/systemd/network
+and the local administration network directory
+/etc/systemd/network\&. Link files must have the extension
+\&.link; other extensions are ignored\&. All link files are collectively sorted and processed in lexical order, regardless of the directories in which they live\&. However, files with identical filenames replace each other\&. Files in
+/etc
+have the highest priority, files in
+/run
+take precedence over files with the same name in
+/usr/lib\&. This can be used to override a system\-supplied link file with a local file if needed; a symlink in
+/etc
+with the same name as a link file in
+/usr/lib, pointing to
+/dev/null, disables the link file entirely\&.
+.PP
+The link file contains a
+"[Match]"
+section, which determines if a given link file may be applied to a given device; and a
+"[Link]"
+section specifying how the device should be configured\&. The first (in lexical order) of the link files that matches a given device is applied\&.
+.PP
+A link file is said to match a device if each of the entries in the
+"[Match]"
+section matches, or if the section is empty\&. The following keys are accepted:
+.PP
+\fIMACAddress=\fR
+.RS 4
+The hardware address\&.
+.RE
+.PP
+\fIPath=\fR
+.RS 4
+The persistent path, as exposed by the udev property
+"ID_PATH"\&. May contain shell style globs\&.
+.RE
+.PP
+\fIDriver=\fR
+.RS 4
+The driver currently bound to the device, as exposed by the udev property
+"DRIVER"
+of its parent device, or if that is not set the driver as exposed by
+"ethtool \-i"
+of the device itself\&.
+.RE
+.PP
+\fIType=\fR
+.RS 4
+The device type, as exposed by the udev property
+"DEVTYPE"\&.
+.RE
+.PP
+\fIHost=\fR
+.RS 4
+Matches against the hostname or machine ID of the host\&. See
+"ConditionHost="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIVirtualization=\fR
+.RS 4
+Checks whether the system is executed in a virtualized environment and optionally test whether it is a specific implementation\&. See
+"ConditionVirtualization="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIKernelCommandLine=\fR
+.RS 4
+Checks whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. See
+"ConditionKernelCommandLine="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIArchitecture=\fR
+.RS 4
+Checks whether the system is running on a specific architecture\&. See
+"ConditionArchitecture="
+in
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+The
+"[Link]"
+section accepts the following keys:
+.PP
+\fIDescription=\fR
+.RS 4
+A description of the device\&.
+.RE
+.PP
+\fIAlias=\fR
+.RS 4
+The
+"ifalias"
+is set to this value\&.
+.RE
+.PP
+\fIMACAddressPolicy=\fR
+.RS 4
+The policy by which the MAC address should be set\&. The available policies are:
+.PP
+"persistent"
+.RS 4
+If the hardware has a persistent MAC address, as most hardware should, and this is used by the kernel, nothing is done\&. Otherwise, a new MAC address is generated which is guaranteed to be the same on every boot for the given machine and the given device, but which is otherwise random\&.
+.RE
+.PP
+"random"
+.RS 4
+If the kernel is using a random MAC address, nothing is done\&. Otherwise, a new address is randomly generated each time the device appears, typically at boot\&.
+.RE
+.RE
+.PP
+\fIMACAddress=\fR
+.RS 4
+The MAC address to use, if no
+"MACAddressPolicy="
+is specified\&.
+.RE
+.PP
+\fINamePolicy=\fR
+.RS 4
+An ordered, space\-separated list of policies by which the interface name should be set\&.
+"NamePolicy"
+may be disabled by specifying
+"net\&.ifnames=0"
+on the kernel commandline\&. Each of the policies may fail, and the first successful one is used\&. The name is not set directly, but is exported to udev as the property
+"ID_NET_NAME", which is, by default, used by a udev rule to set
+"NAME"\&. The available policies are:
+.PP
+"database"
+.RS 4
+The name is set based on entries in the Hardware Database with the key
+"ID_NET_NAME_FROM_DATABASE"\&.
+.RE
+.PP
+"onboard"
+.RS 4
+The name is set based on information given by the firmware for on\-board devices, as exported by the udev property
+"ID_NET_NAME_ONBOARD"\&.
+.RE
+.PP
+"slot"
+.RS 4
+The name is set based on information given by the firmware for hot\-plug devices, as exported by the udev property
+"ID_NET_NAME_SLOT"\&.
+.RE
+.PP
+"path"
+.RS 4
+The name is set based on the device\*(Aqs physical location, as exported by the udev property
+"ID_NET_NAME_PATH"\&.
+.RE
+.PP
+"mac"
+.RS 4
+The name is set based on the device\*(Aqs persistent MAC address, as exported by the udev property
+"ID_NET_NAME_MAC"\&.
+.RE
+.RE
+.PP
+\fIName=\fR
+.RS 4
+The interface name to use in case all the policies specified in
+\fINamePolicy=\fR
+fail, or in case
+\fINamePolicy=\fR
+is missing or disabled\&.
+.RE
+.PP
+\fIMTUBytes=\fR
+.RS 4
+The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&.
+.RE
+.PP
+\fIBitsPerSecond=\fR
+.RS 4
+The speed to set for the device, the value is rounded down to the nearest Mbps\&. The usual suffixes K, M, G, are supported and are understood to the base of 1000\&.
+.RE
+.PP
+\fIDuplex=\fR
+.RS 4
+The duplex mode to set for the device\&. The accepted values are
+"half"
+and
+"full"\&.
+.RE
+.PP
+\fIWakeOnLan=\fR
+.RS 4
+The Wake\-on\-LAN policy to set for the device\&. The supported values are:
+.PP
+"phy"
+.RS 4
+Wake on PHY activity\&.
+.RE
+.PP
+"magic"
+.RS 4
+Wake on receipt of a magic packet\&.
+.RE
+.PP
+"off"
+.RS 4
+Never wake\&.
+.RE
+.RE
 .SH "SEE ALSO"
 .PP
 \fBsystemd-udevd.service\fR(8),

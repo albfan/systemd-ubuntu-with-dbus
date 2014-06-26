@@ -64,7 +64,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
-    processes. Internally, this relies on the the Control Groups
+    processes. Internally, this relies on the Control Groups
     kernel concept for organizing processes in a hierarchial tree of
     named groups for the purpose of resource management.</para>
 
@@ -86,7 +86,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>See the <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
-    Control Group Interfaces</ulink> for an introduction how to make
+    Control Group Interfaces</ulink> for an introduction on how to make
     use of resource control APIs from programs.</para>
   </refsect1>
 
@@ -199,7 +199,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           path and a weight value to specify the device specific
           weight value, between 10 and 1000. (Example: "/dev/sda
           500"). The file path may be specified as path to a block
-          device node or as any other file in which case the backing
+          device node or as any other file, in which case the backing
           block device of the file system of the file is
           determined. This controls the
           <literal>blkio.weight_device</literal> control group
@@ -226,14 +226,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           case the backing block device of the file system of the file
           is used. If the bandwidth is suffixed with K, M, G, or T,
           the specified bandwidth is parsed as Kilobytes, Megabytes,
-          Gigabytes, or Terabytes, respectively (Example:
+          Gigabytes, or Terabytes, respectively, to the base of
+          1000. (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
           controls the <literal>blkio.read_bps_device</literal> and
           <literal>blkio.write_bps_device</literal> control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
-          group attributes, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
+          group attributes, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
           </para>
 
           <para>Implies
@@ -247,17 +248,31 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>Control access to specific device nodes by the
           executed processes. Takes two space-separated strings: a
-          device node path (such as <filename>/dev/null</filename>)
-          followed by a combination of <constant>r</constant>,
-          <constant>w</constant>, <constant>m</constant> to control
+          device node specifier followed by a combination of
+          <constant>r</constant>, <constant>w</constant>,
+          <constant>m</constant> to control
           <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creation of the specific device node by the unit
+          or creation of the specific device node(s) by the unit
           (<emphasis>m</emphasis>knod), respectively. This controls
           the <literal>devices.allow</literal> and
           <literal>devices.deny</literal> control group
-          attributes. For details about these control group attributes,
-          see <ulink
+          attributes. For details about these control group
+          attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para>
+
+          <para>The device node specifier is either a path to a device
+          node in the file system, starting with
+          <filename>/dev/</filename>, or a string starting with either
+          <literal>char-</literal> or <literal>block-</literal>
+          followed by a device group name, as listed in
+          <filename>/proc/devices</filename>. The latter is useful to
+          whitelist all current and future devices belonging to a
+          specific device group at once. Examples:
+          <filename>/dev/sda5</filename> is a path to a device node,
+          referring to an ATA or SCSI block
+          device. <literal>char-pts</literal> and
+          <literal>char-alsa</literal> are specifiers for all pseudo
+          TTYs and all ALSA sound devices, respectively.</para>
         </listitem>
       </varlistentry>
 

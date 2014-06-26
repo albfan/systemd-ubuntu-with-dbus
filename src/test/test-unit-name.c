@@ -63,7 +63,7 @@ static void test_replacements(void) {
                 puts(t);                                           \
                 k = unit_name_to_path(t);                          \
                 puts(k);                                           \
-                assert(streq(k, expected ? expected : path));     \
+                assert(streq(k, expected ? expected : path));      \
         }
 
         expect("/waldo", ".mount", NULL);
@@ -74,12 +74,12 @@ static void test_replacements(void) {
 
         puts("-------------------------------------------------");
 #undef expect
-#define expect(pattern, path, suffix, expected)                         \
-        {                                                               \
-                _cleanup_free_ char *t =                                \
+#define expect(pattern, path, suffix, expected)                              \
+        {                                                                    \
+                _cleanup_free_ char *t =                                     \
                         unit_name_from_path_instance(pattern, path, suffix); \
-                puts(t);                                                \
-                assert(streq(t, expected));                             \
+                puts(t);                                                     \
+                assert(streq(t, expected));                                  \
         }
 
         expect("waldo", "/waldo", ".mount", "waldo@waldo.mount");
@@ -89,13 +89,13 @@ static void test_replacements(void) {
 
         puts("-------------------------------------------------");
 #undef expect
-#define expect(pattern)                                                 \
-        {                                                               \
-                _cleanup_free_ char *k, *t;                             \
-                assert_se(t = unit_name_mangle(pattern));               \
-                assert_se(k = unit_name_mangle(t));                     \
-                puts(t);                                                \
-                assert_se(streq(t, k));                                 \
+#define expect(pattern)                                                     \
+        {                                                                   \
+                _cleanup_free_ char *k, *t;                                 \
+                assert_se(t = unit_name_mangle(pattern, MANGLE_NOGLOB));    \
+                assert_se(k = unit_name_mangle(t, MANGLE_NOGLOB));          \
+                puts(t);                                                    \
+                assert_se(streq(t, k));                                     \
         }
 
         expect("/home");
@@ -110,7 +110,7 @@ static void test_replacements(void) {
 }
 
 static int test_unit_printf(void) {
-        Manager *m;
+        Manager *m = NULL;
         Unit *u, *u2;
         int r;
 
@@ -124,8 +124,8 @@ static int test_unit_printf(void) {
         assert_se((root = getpwnam("root")));
         assert_se(asprintf(&root_uid, "%d", (int) root->pw_uid) > 0);
 
-        r = manager_new(SYSTEMD_USER, false, &m);
-        if (r == -EPERM || r == -EACCES) {
+        r = manager_new(SYSTEMD_USER, &m);
+        if (r == -EPERM || r == -EACCES || r == -EADDRINUSE) {
                 puts("manager_new: Permission denied. Skipping test.");
                 return EXIT_TEST_SKIP;
         }
@@ -161,11 +161,9 @@ static int test_unit_printf(void) {
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
         expect(u, "%i", "");
-        expect(u, "%I", "");
         expect(u, "%u", root->pw_name);
         expect(u, "%U", root_uid);
         expect(u, "%h", root->pw_dir);
-        expect(u, "%s", "/bin/sh");
         expect(u, "%m", mid);
         expect(u, "%b", bid);
         expect(u, "%H", host);
@@ -185,7 +183,6 @@ static int test_unit_printf(void) {
         expect(u2, "%u", root->pw_name);
         expect(u2, "%U", root_uid);
         expect(u2, "%h", root->pw_dir);
-        expect(u2, "%s", "/bin/sh");
         expect(u2, "%m", mid);
         expect(u2, "%b", bid);
         expect(u2, "%H", host);

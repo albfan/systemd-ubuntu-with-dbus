@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALECTL" "1" "" "systemd 208" "localectl"
+.TH "LOCALECTL" "1" "" "systemd 209" "localectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,21 +36,6 @@ The keyboard settings control the keyboard layout used on the text console and o
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
-.PP
 \fB\-\-no\-ask\-password\fR
 .RS 4
 Do not query the user for authentication for privileged operations\&.
@@ -61,12 +46,6 @@ Do not query the user for authentication for privileged operations\&.
 Acquire privileges via PolicyKit before executing the operation\&.
 .RE
 .PP
-\fB\-H\fR, \fB\-\-host\fR
-.RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to a remote system\&.
-.RE
-.PP
 \fB\-\-no\-convert\fR
 .RS 4
 If
@@ -74,6 +53,27 @@ If
 or
 \fBset\-x11\-keymap\fR
 is invoked and this option is passed, then the keymap will not be converted from the console to X11, or X11 to console, respectively\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
 .RE
 .PP
 The following commands are understood:
@@ -143,6 +143,13 @@ is not given; overrides
 "cat"
 is equivalent to passing
 \fB\-\-no\-pager\fR\&.
+.RE
+.PP
+\fI$SYSTEMD_LESS\fR
+.RS 4
+Override the default options passed to
+\fBless\fR
+("FRSXMK")\&.
 .RE
 .SH "SEE ALSO"
 .PP

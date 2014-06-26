@@ -27,9 +27,12 @@
 #include <unistd.h>
 #include <linux/vt.h>
 
-#include "logind.h"
-#include "dbus-common.h"
 #include "strv.h"
+#include "cgroup-util.h"
+#include "audit.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "logind.h"
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
@@ -213,14 +216,14 @@ int manager_watch_busname(Manager *m, const char *name) {
         assert(m);
         assert(name);
 
-        if (hashmap_get(m->busnames, name))
+        if (set_get(m->busnames, (char*) name))
                 return 0;
 
         n = strdup(name);
         if (!n)
                 return -ENOMEM;
 
-        r = hashmap_put(m->busnames, n, n);
+        r = set_put(m->busnames, n);
         if (r < 0) {
                 free(n);
                 return r;
@@ -232,22 +235,16 @@ int manager_watch_busname(Manager *m, const char *name) {
 void manager_drop_busname(Manager *m, const char *name) {
         Session *session;
         Iterator i;
-        char *key;
 
         assert(m);
         assert(name);
-
-        if (!hashmap_get(m->busnames, name))
-                return;
 
         /* keep it if the name still owns a controller */
         HASHMAP_FOREACH(session, m->sessions, i)
                 if (session_is_controller(session, name))
                         return;
 
-        key = hashmap_remove(m->busnames, name);
-        if (key)
-                free(key);
+        free(set_remove(m->busnames, (char*) name));
 }
 
 int manager_process_seat_device(Manager *m, struct udev_device *d) {
@@ -351,7 +348,7 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return r;
+                return 0;
 
         s = hashmap_get(m->session_units, unit);
         if (!s)
@@ -374,7 +371,7 @@ int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
-                return r;
+                return 0;
 
         u = hashmap_get(m->user_units, unit);
         if (!u)
@@ -392,7 +389,7 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
 
         assert(m);
 
-        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0);
+        idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0, NULL);
 
         HASHMAP_FOREACH(s, m->sessions, i) {
                 dual_timestamp k;
@@ -439,7 +436,7 @@ bool manager_shall_kill(Manager *m, const char *user) {
         return strv_contains(m->kill_only_users, user);
 }
 
-static int vt_is_busy(int vtnr) {
+static int vt_is_busy(unsigned int vtnr) {
         struct vt_stat vt_stat;
         int r = 0, fd;
 
@@ -465,19 +462,19 @@ static int vt_is_busy(int vtnr) {
         return r;
 }
 
-int manager_spawn_autovt(Manager *m, int vtnr) {
+int manager_spawn_autovt(Manager *m, unsigned int vtnr) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *name = NULL;
         int r;
-        char *name = NULL;
-        const char *mode = "fail";
 
         assert(m);
         assert(vtnr >= 1);
 
-        if ((unsigned) vtnr > m->n_autovts &&
-            (unsigned) vtnr != m->reserve_vt)
+        if (vtnr > m->n_autovts &&
+            vtnr != m->reserve_vt)
                 return 0;
 
-        if ((unsigned) vtnr != m->reserve_vt) {
+        if (vtnr != m->reserve_vt) {
                 /* If this is the reserved TTY, we'll start the getty
                  * on it in any case, but otherwise only if it is not
                  * busy. */
@@ -489,26 +486,31 @@ int manager_spawn_autovt(Manager *m, int vtnr) {
                         return -EBUSY;
         }
 
-        if (asprintf(&name, "autovt@tty%i.service", vtnr) < 0) {
-                log_error("Could not allocate service name.");
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (asprintf(&name, "autovt@tty%u.service", vtnr) < 0)
+                return log_oom();
 
-        r = bus_method_call_with_reply (
+        r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "StartUnit",
+                        &error,
                         NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &name,
-                        DBUS_TYPE_STRING, &mode,
-                        DBUS_TYPE_INVALID);
-
-finish:
-        free(name);
+                        "ss", name, "fail");
+        if (r < 0)
+                log_error("Failed to start %s: %s", name, bus_error_message(&error, r));
 
         return r;
+}
+
+bool manager_is_docked(Manager *m) {
+        Iterator i;
+        Button *b;
+
+        HASHMAP_FOREACH(b, m->buttons, i)
+                if (b->docked)
+                        return true;
+
+        return false;
 }

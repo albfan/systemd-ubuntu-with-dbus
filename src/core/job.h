@@ -27,7 +27,6 @@
 
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
-typedef struct JobBusClient JobBusClient;
 typedef enum JobType JobType;
 typedef enum JobState JobState;
 typedef enum JobMode JobMode;
@@ -83,8 +82,9 @@ enum JobState {
 enum JobMode {
         JOB_FAIL,                /* Fail if a conflicting job is already queued */
         JOB_REPLACE,             /* Replace an existing conflicting job */
-        JOB_REPLACE_IRREVERSIBLY, /* Like JOB_REPLACE + produce irreversible jobs */
+        JOB_REPLACE_IRREVERSIBLY,/* Like JOB_REPLACE + produce irreversible jobs */
         JOB_ISOLATE,             /* Start a unit, and stop all others */
+        JOB_FLUSH,               /* Flush out all other queued jobs when queing this one */
         JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         _JOB_MODE_MAX,
@@ -97,11 +97,13 @@ enum JobResult {
         JOB_TIMEOUT,             /* JobTimeout elapsed */
         JOB_FAILED,              /* Job failed */
         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
-        JOB_SKIPPED,             /* JOB_RELOAD of inactive unit; negative result of JOB_VERIFY_ACTIVE */
+        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
+        JOB_INVALID,             /* JOB_RELOAD of inactive unit */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -1
 };
 
+#include "sd-event.h"
 #include "manager.h"
 #include "unit.h"
 #include "hashmap.h"
@@ -118,13 +120,6 @@ struct JobDependency {
 
         bool matters;
         bool conflicts;
-};
-
-struct JobBusClient {
-        LIST_FIELDS(JobBusClient, client);
-        /* Note that this bus object is not ref counted here. */
-        DBusConnection *bus;
-        char name[0];
 };
 
 struct Job {
@@ -147,10 +142,11 @@ struct Job {
         JobType type;
         JobState state;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
+        usec_t begin_usec;
 
         /* There can be more than one client, because of job merging. */
-        LIST_HEAD(JobBusClient, bus_client_list);
+        Set *subscribed;
 
         JobResult result;
 
@@ -161,11 +157,8 @@ struct Job {
         bool in_dbus_queue:1;
         bool sent_dbus_new_signal:1;
         bool ignore_order:1;
-        bool forgot_bus_clients:1;
         bool irreversible:1;
 };
-
-JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name);
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
@@ -206,13 +199,10 @@ void job_type_collapse(JobType *t, Unit *u);
 
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u);
 
-bool job_is_runnable(Job *j);
-
 void job_add_to_run_queue(Job *j);
 void job_add_to_dbus_queue(Job *j);
 
 int job_start_timer(Job *j);
-void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w);
 
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive);
@@ -232,3 +222,5 @@ JobMode job_mode_from_string(const char *s) _pure_;
 
 const char* job_result_to_string(JobResult t) _const_;
 JobResult job_result_from_string(const char *s) _pure_;
+
+int job_get_timeout(Job *j, uint64_t *timeout) _pure_;

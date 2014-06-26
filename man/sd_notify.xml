@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_notify">
+<refentry id="sd_notify"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd_notify</title>
@@ -79,7 +80,7 @@
                 <para>If the <parameter>unset_environment</parameter>
                 parameter is non-zero, <function>sd_notify()</function>
                 will unset the <varname>$NOTIFY_SOCKET</varname>
-                environment variable before returning (regardless
+                environment variable before returning (regardless of
                 whether the function call itself succeeded or
                 not). Further calls to
                 <function>sd_notify()</function> will then fail, but
@@ -164,11 +165,15 @@
                                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                                 for details. It is recommended to send
                                 this message if the
-                                <varname>WATCHDOG_USEC=</varname>
-                                environment variable has been set for
-                                the service process, in every half the
-                                time interval that is specified in the
-                                variable.</para></listitem>
+                                <varname>$WATCHDOG_PID</varname>
+                                environment variable has been set to
+                                the PID of the service process, in
+                                every half the time interval that is
+                                specified in the
+                                <varname>$WATCHDOG_USEC</varname>
+                                environment variable. See
+                                <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -207,13 +212,7 @@
         <refsect1>
                 <title>Notes</title>
 
-                <para>These functions are provided by the reference
-                implementation of APIs for new-style daemons and
-                distributed with the systemd package. The algorithms
-                they implement are simple, and can easily be
-                reimplemented in daemons if it is important to support
-                this interface without using the reference
-                implementation.</para>
+                <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
                 <para>Internally, these functions send a single
                 datagram with the state string as payload to the
@@ -224,30 +223,6 @@
                 understood as Linux abstract namespace socket. The
                 datagram is accompanied by the process credentials of
                 the sending daemon, using SCM_CREDENTIALS.</para>
-
-                <para>For details about the algorithms check the
-                liberally licensed reference implementation sources:
-                <ulink url="http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c"/>
-                and <ulink
-                url="http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h"/></para>
-
-                <para><function>sd_notify()</function> and
-                <function>sd_notifyf()</function> are implemented in
-                the reference implementation's
-                <filename>sd-daemon.c</filename> and
-                <filename>sd-daemon.h</filename> files. These
-                interfaces are available as shared library, which can
-                be compiled and linked to with the
-                <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file. Alternatively, applications consuming these APIs
-                may copy the implementation into their source tree. For
-                more details about the reference implementation see
-                <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
-
-                <para>If the reference implementation is used as
-                drop-in files and -DDISABLE_SYSTEMD is set during
-                compilation, these functions will always return 0 and
-                otherwise become a NOP.</para>
         </refsect1>
 
         <refsect1>
@@ -311,7 +286,8 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 </para>
         </refsect1>
 

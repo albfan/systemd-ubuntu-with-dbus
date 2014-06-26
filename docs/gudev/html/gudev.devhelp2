@@ -53,6 +53,8 @@
     <keyword type="function" name="g_udev_device_get_property_as_double ()" link="GUdevDevice.html#g-udev-device-get-property-as-double"/>
     <keyword type="function" name="g_udev_device_get_property_as_boolean ()" link="GUdevDevice.html#g-udev-device-get-property-as-boolean"/>
     <keyword type="function" name="g_udev_device_get_property_as_strv ()" link="GUdevDevice.html#g-udev-device-get-property-as-strv"/>
+    <keyword type="function" name="g_udev_device_get_sysfs_attr_keys ()" link="GUdevDevice.html#g-udev-device-get-sysfs-attr-keys"/>
+    <keyword type="function" name="g_udev_device_has_sysfs_attr ()" link="GUdevDevice.html#g-udev-device-has-sysfs-attr"/>
     <keyword type="function" name="g_udev_device_get_sysfs_attr ()" link="GUdevDevice.html#g-udev-device-get-sysfs-attr"/>
     <keyword type="function" name="g_udev_device_get_sysfs_attr_as_int ()" link="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int"/>
     <keyword type="function" name="g_udev_device_get_sysfs_attr_as_uint64 ()" link="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-uint64"/>

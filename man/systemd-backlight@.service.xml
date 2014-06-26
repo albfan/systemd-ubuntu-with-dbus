@@ -56,11 +56,30 @@
 
                 <para><filename>systemd-backlight@.service</filename>
                 is a service that restores the display backlight
-                brightness at early-boot and saves it at shutdown. On
+                brightness at early boot and saves it at shutdown. On
                 disk, the backlight brightness is stored in
-                <filename>/var/lib/backlight/</filename>. Note that by
-                default, only firmware backlight devices are
-                saved/restored.</para>
+                <filename>/var/lib/systemd/backlight/</filename>.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>Kernel Command Line</title>
+
+                <para><filename>systemd-backlight</filename> understands
+                the following kernel command line parameter:</para>
+
+                <variablelist class='kernel-commandline-options'>
+                        <varlistentry>
+                                <term><varname>systemd.restore_state=</varname></term>
+
+                                <listitem><para>Takes a boolean
+                                argument. Defaults to
+                                <literal>1</literal>. If
+                                <literal>0</literal>, does not restore
+                                the backlight settings on boot. However,
+                                settings will still be stored on shutdown.
+                                </para></listitem>
+                        </varlistentry>
+                </variablelist>
         </refsect1>
 
         <refsect1>

@@ -118,8 +118,8 @@
 
                 <para>The <function>sd_id128_to_string()</function>
                 and <function>sd_id128_from_string()</function> interfaces are
-                available as shared library, which can be compiled and
-                linked to with the <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                available as a shared library, which can be compiled and
+                linked to with the <literal>libsystemd</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

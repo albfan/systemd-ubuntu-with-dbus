@@ -139,7 +139,7 @@
                 be returned and should be considered equivalent to an
                 empty array.</para>
 
-                <para>Similar, <function>sd_uid_get_seats()</function>
+                <para>Similarly, <function>sd_uid_get_seats()</function>
                 may be used to determine the list of seats on which
                 the user currently has sessions. Similar semantics
                 apply, however note that the user may have
@@ -152,11 +152,11 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para>On success
+                <para>On success,
                 <function>sd_uid_get_state()</function> returns 0 or a
                 positive integer. If the test succeeds,
                 <function>sd_uid_is_on_seat()</function> returns a
-                positive integer, if it fails
+                positive integer; if it fails,
                 0. <function>sd_uid_get_sessions()</function> and
                 <function>sd_uid_get_seats()</function> return the
                 number of entries in the returned arrays. On failure,
@@ -171,8 +171,8 @@
                 <function>sd_uid_is_on_seat()</function>,
                 <function>sd_uid_get_sessions()</function>, and
                 <function>sd_uid_get_seats()</function> interfaces are
-                available as shared library, which can be compiled and
-                linked to with the <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                available as a shared library, which can be compiled and
+                linked to with the <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

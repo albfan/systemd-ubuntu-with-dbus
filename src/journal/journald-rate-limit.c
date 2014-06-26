@@ -56,7 +56,7 @@ struct JournalRateLimitGroup {
 
         char *id;
         JournalRateLimitPool pools[POOLS_MAX];
-        unsigned hash;
+        unsigned long hash;
 
         LIST_FIELDS(JournalRateLimitGroup, bucket);
         LIST_FIELDS(JournalRateLimitGroup, lru);
@@ -70,6 +70,8 @@ struct JournalRateLimit {
         JournalRateLimitGroup *lru, *lru_tail;
 
         unsigned n_groups;
+
+        uint8_t hash_key[16];
 };
 
 JournalRateLimit *journal_rate_limit_new(usec_t interval, unsigned burst) {
@@ -84,6 +86,8 @@ JournalRateLimit *journal_rate_limit_new(usec_t interval, unsigned burst) {
         r->interval = interval;
         r->burst = burst;
 
+        random_bytes(r->hash_key, sizeof(r->hash_key));
+
         return r;
 }
 
@@ -96,8 +100,8 @@ static void journal_rate_limit_group_free(JournalRateLimitGroup *g) {
                 if (g->parent->lru_tail == g)
                         g->parent->lru_tail = g->lru_prev;
 
-                LIST_REMOVE(JournalRateLimitGroup, lru, g->parent->lru, g);
-                LIST_REMOVE(JournalRateLimitGroup, bucket, g->parent->buckets[g->hash % BUCKETS_MAX], g);
+                LIST_REMOVE(lru, g->parent->lru, g);
+                LIST_REMOVE(bucket, g->parent->buckets[g->hash % BUCKETS_MAX], g);
 
                 g->parent->n_groups --;
         }
@@ -152,12 +156,12 @@ static JournalRateLimitGroup* journal_rate_limit_group_new(JournalRateLimit *r, 
         if (!g->id)
                 goto fail;
 
-        g->hash = string_hash_func(g->id);
+        g->hash = string_hash_func(g->id, r->hash_key);
 
         journal_rate_limit_vacuum(r, ts);
 
-        LIST_PREPEND(JournalRateLimitGroup, bucket, r->buckets[g->hash % BUCKETS_MAX], g);
-        LIST_PREPEND(JournalRateLimitGroup, lru, r->lru, g);
+        LIST_PREPEND(bucket, r->buckets[g->hash % BUCKETS_MAX], g);
+        LIST_PREPEND(lru, r->lru, g);
         if (!g->lru_next)
                 r->lru_tail = g;
         r->n_groups ++;
@@ -199,7 +203,7 @@ static unsigned burst_modulate(unsigned burst, uint64_t available) {
 }
 
 int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, uint64_t available) {
-        unsigned h;
+        unsigned long h;
         JournalRateLimitGroup *g;
         JournalRateLimitPool *p;
         unsigned burst;
@@ -217,7 +221,7 @@ int journal_rate_limit_test(JournalRateLimit *r, const char *id, int priority, u
 
         ts = now(CLOCK_MONOTONIC);
 
-        h = string_hash_func(id);
+        h = string_hash_func(id, r->hash_key);
         g = r->buckets[h % BUCKETS_MAX];
 
         LIST_FOREACH(bucket, g, g)

@@ -41,7 +41,7 @@ void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
         assert(c);
         assert(a);
 
-        LIST_REMOVE(CGroupDeviceAllow, device_allow, c->device_allow, a);
+        LIST_REMOVE(device_allow, c->device_allow, a);
         free(a->path);
         free(a);
 }
@@ -50,7 +50,7 @@ void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODe
         assert(c);
         assert(w);
 
-        LIST_REMOVE(CGroupBlockIODeviceWeight, device_weights, c->blockio_device_weights, w);
+        LIST_REMOVE(device_weights, c->blockio_device_weights, w);
         free(w->path);
         free(w);
 }
@@ -59,7 +59,7 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
         assert(c);
         assert(b);
 
-        LIST_REMOVE(CGroupBlockIODeviceBandwidth, device_bandwidths, c->blockio_device_bandwidths, b);
+        LIST_REMOVE(device_bandwidths, c->blockio_device_bandwidths, b);
         free(b->path);
         free(b);
 }
@@ -191,7 +191,84 @@ static int whitelist_device(const char *path, const char *node, const char *acc)
         return r;
 }
 
+static int whitelist_major(const char *path, const char *name, char type, const char *acc) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
+        bool good = false;
+        int r;
+
+        assert(path);
+        assert(acc);
+        assert(type == 'b' || type == 'c');
+
+        f = fopen("/proc/devices", "re");
+        if (!f) {
+                log_warning("Cannot open /proc/devices to resolve %s (%c): %m", name, type);
+                return -errno;
+        }
+
+        FOREACH_LINE(line, f, goto fail) {
+                char buf[2+DECIMAL_STR_MAX(unsigned)+3+4], *p, *w;
+                unsigned maj;
+
+                truncate_nl(line);
+
+                if (type == 'c' && streq(line, "Character devices:")) {
+                        good = true;
+                        continue;
+                }
+
+                if (type == 'b' && streq(line, "Block devices:")) {
+                        good = true;
+                        continue;
+                }
+
+                if (isempty(line)) {
+                        good = false;
+                        continue;
+                }
+
+                if (!good)
+                        continue;
+
+                p = strstrip(line);
+
+                w = strpbrk(p, WHITESPACE);
+                if (!w)
+                        continue;
+                *w = 0;
+
+                r = safe_atou(p, &maj);
+                if (r < 0)
+                        continue;
+                if (maj <= 0)
+                        continue;
+
+                w++;
+                w += strspn(w, WHITESPACE);
+                if (!streq(w, name))
+                        continue;
+
+                sprintf(buf,
+                        "%c %u:* %s",
+                        type,
+                        maj,
+                        acc);
+
+                r = cg_set_attribute("devices", path, "devices.allow", buf);
+                if (r < 0)
+                        log_warning("Failed to set devices.allow on %s: %s", path, strerror(-r));
+        }
+
+        return 0;
+
+fail:
+        log_warning("Failed to read /proc/devices: %m");
+        return -errno;
+}
+
 void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path) {
+        bool is_root;
         int r;
 
         assert(c);
@@ -200,7 +277,11 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
         if (mask == 0)
                 return;
 
-        if (mask & CGROUP_CPU) {
+        /* Some cgroup attributes are not support on the root cgroup,
+         * hence silently ignore */
+        is_root = isempty(path) || path_equal(path, "/");
+
+        if ((mask & CGROUP_CPU) && !is_root) {
                 char buf[DECIMAL_STR_MAX(unsigned long) + 1];
 
                 sprintf(buf, "%lu\n", c->cpu_shares);
@@ -216,23 +297,25 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 CGroupBlockIODeviceWeight *w;
                 CGroupBlockIODeviceBandwidth *b;
 
-                sprintf(buf, "%lu\n", c->blockio_weight);
-                r = cg_set_attribute("blkio", path, "blkio.weight", buf);
-                if (r < 0)
-                        log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
-
-                /* FIXME: no way to reset this list */
-                LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
-                        dev_t dev;
-
-                        r = lookup_blkio_device(w->path, &dev);
+                if (!is_root) {
+                        sprintf(buf, "%lu\n", c->blockio_weight);
+                        r = cg_set_attribute("blkio", path, "blkio.weight", buf);
                         if (r < 0)
-                                continue;
+                                log_warning("Failed to set blkio.weight on %s: %s", path, strerror(-r));
 
-                        sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
-                        r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
-                        if (r < 0)
-                                log_error("Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
+                        /* FIXME: no way to reset this list */
+                        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
+                                dev_t dev;
+
+                                r = lookup_blkio_device(w->path, &dev);
+                                if (r < 0)
+                                        continue;
+
+                                sprintf(buf, "%u:%u %lu", major(dev), minor(dev), w->weight);
+                                r = cg_set_attribute("blkio", path, "blkio.weight_device", buf);
+                                if (r < 0)
+                                        log_error("Failed to set blkio.weight_device on %s: %s", path, strerror(-r));
+                        }
                 }
 
                 /* FIXME: no way to reset this list */
@@ -266,7 +349,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                         log_error("Failed to set memory.limit_in_bytes on %s: %s", path, strerror(-r));
         }
 
-        if (mask & CGROUP_DEVICE) {
+        if ((mask & CGROUP_DEVICE) && !is_root) {
                 CGroupDeviceAllow *a;
 
                 if (c->device_allow || c->device_policy != CGROUP_AUTO)
@@ -274,7 +357,7 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                 else
                         r = cg_set_attribute("devices", path, "devices.allow", "a");
                 if (r < 0)
-                        log_error("Failed to reset devices.list on %s: %s", path, strerror(-r));
+                        log_warning("Failed to reset devices.list on %s: %s", path, strerror(-r));
 
                 if (c->device_policy == CGROUP_CLOSED ||
                     (c->device_policy == CGROUP_AUTO && c->device_allow)) {
@@ -306,7 +389,15 @@ void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const cha
                                 continue;
 
                         acc[k++] = 0;
-                        whitelist_device(path, a->path, acc);
+
+                        if (startswith(a->path, "/dev/"))
+                                whitelist_device(path, a->path, acc);
+                        else if (startswith(a->path, "block-"))
+                                whitelist_major(path, a->path + 6, 'b', acc);
+                        else if (startswith(a->path, "char-"))
+                                whitelist_major(path, a->path + 5, 'c', acc);
+                        else
+                                log_debug("Ignoring device %s while writing cgroup attribute.", a->path);
                 }
         }
 }
@@ -335,7 +426,7 @@ CGroupControllerMask cgroup_context_get_mask(CGroupContext *c) {
         return mask;
 }
 
-static CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
+CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         CGroupContext *c;
 
         c = unit_get_cgroup_context(u);
@@ -345,104 +436,210 @@ static CGroupControllerMask unit_get_cgroup_mask(Unit *u) {
         return cgroup_context_get_mask(c);
 }
 
-static CGroupControllerMask unit_get_members_mask(Unit *u) {
-        CGroupControllerMask mask = 0;
-        Unit *m;
-        Iterator i;
+CGroupControllerMask unit_get_members_mask(Unit *u) {
+        assert(u);
+
+        if (u->cgroup_members_mask_valid)
+                return u->cgroup_members_mask;
+
+        u->cgroup_members_mask = 0;
+
+        if (u->type == UNIT_SLICE) {
+                Unit *member;
+                Iterator i;
+
+                SET_FOREACH(member, u->dependencies[UNIT_BEFORE], i) {
+
+                        if (member == u)
+                                continue;
+
+                        if (UNIT_DEREF(member->slice) != u)
+                                continue;
+
+                        u->cgroup_members_mask |=
+                                unit_get_cgroup_mask(member) |
+                                unit_get_members_mask(member);
+                }
+        }
+
+        u->cgroup_members_mask_valid = true;
+        return u->cgroup_members_mask;
+}
+
+CGroupControllerMask unit_get_siblings_mask(Unit *u) {
+        CGroupControllerMask m;
 
         assert(u);
 
-        SET_FOREACH(m, u->dependencies[UNIT_BEFORE], i) {
+        if (UNIT_ISSET(u->slice))
+                m = unit_get_members_mask(UNIT_DEREF(u->slice));
+        else
+                m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
 
-                if (UNIT_DEREF(m->slice) != u)
-                        continue;
+        /* Sibling propagation is only relevant for weight-based
+         * controllers, so let's mask out everything else */
+        return m & (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+}
 
-                mask |= unit_get_cgroup_mask(m) | unit_get_members_mask(m);
-        }
+CGroupControllerMask unit_get_target_mask(Unit *u) {
+        CGroupControllerMask mask;
+
+        mask = unit_get_cgroup_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
+        mask &= u->manager->cgroup_supported;
 
         return mask;
 }
 
-static CGroupControllerMask unit_get_siblings_mask(Unit *u) {
+/* Recurse from a unit up through its containing slices, propagating
+ * mask bits upward. A unit is also member of itself. */
+void unit_update_cgroup_members_masks(Unit *u) {
+        CGroupControllerMask m;
+        bool more;
+
         assert(u);
 
-        if (!UNIT_ISSET(u->slice))
-                return 0;
+        /* Calculate subtree mask */
+        m = unit_get_cgroup_mask(u) | unit_get_members_mask(u);
 
-        /* Sibling propagation is only relevant for weight-based
-         * controllers, so let's mask out everything else */
-        return unit_get_members_mask(UNIT_DEREF(u->slice)) &
-                (CGROUP_CPU|CGROUP_BLKIO|CGROUP_CPUACCT);
+        /* See if anything changed from the previous invocation. If
+         * not, we're done. */
+        if (u->cgroup_subtree_mask_valid && m == u->cgroup_subtree_mask)
+                return;
+
+        more =
+                u->cgroup_subtree_mask_valid &&
+                ((m & ~u->cgroup_subtree_mask) != 0) &&
+                ((~m & u->cgroup_subtree_mask) == 0);
+
+        u->cgroup_subtree_mask = m;
+        u->cgroup_subtree_mask_valid = true;
+
+        if (UNIT_ISSET(u->slice)) {
+                Unit *s = UNIT_DEREF(u->slice);
+
+                if (more)
+                        /* There's more set now than before. We
+                         * propagate the new mask to the parent's mask
+                         * (not caring if it actually was valid or
+                         * not). */
+
+                        s->cgroup_members_mask |= m;
+
+                else
+                        /* There's less set now than before (or we
+                         * don't know), we need to recalculate
+                         * everything, so let's invalidate the
+                         * parent's members mask */
+
+                        s->cgroup_members_mask_valid = false;
+
+                /* And now make sure that this change also hits our
+                 * grandparents */
+                unit_update_cgroup_members_masks(s);
+        }
+}
+
+static const char *migrate_callback(CGroupControllerMask mask, void *userdata) {
+        Unit *u = userdata;
+
+        assert(mask != 0);
+        assert(u);
+
+        while (u) {
+                if (u->cgroup_path &&
+                    u->cgroup_realized &&
+                    (u->cgroup_realized_mask & mask) == mask)
+                        return u->cgroup_path;
+
+                u = UNIT_DEREF(u->slice);
+        }
+
+        return NULL;
 }
 
 static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
-        char *path = NULL;
+        _cleanup_free_ char *path = NULL;
         int r;
-        bool is_in_hash = false;
 
         assert(u);
 
         path = unit_default_cgroup_path(u);
         if (!path)
-                return -ENOMEM;
+                return log_oom();
 
         r = hashmap_put(u->manager->cgroup_unit, path, u);
-        if (r == 0)
-                is_in_hash = true;
-
         if (r < 0) {
-                log_error("cgroup %s exists already: %s", path, strerror(-r));
-                free(path);
+                log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));
                 return r;
+        }
+        if (r > 0) {
+                u->cgroup_path = path;
+                path = NULL;
         }
 
         /* First, create our own group */
-        r = cg_create_everywhere(u->manager->cgroup_supported, mask, path);
-        if (r < 0)
-                log_error("Failed to create cgroup %s: %s", path, strerror(-r));
+        r = cg_create_everywhere(u->manager->cgroup_supported, mask, u->cgroup_path);
+        if (r < 0) {
+                log_error("Failed to create cgroup %s: %s", u->cgroup_path, strerror(-r));
+                return r;
+        }
+
+        /* Keep track that this is now realized */
+        u->cgroup_realized = true;
+        u->cgroup_realized_mask = mask;
 
         /* Then, possibly move things over */
-        if (u->cgroup_path) {
-                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, path);
-                if (r < 0)
-                        log_error("Failed to migrate cgroup %s: %s", path, strerror(-r));
-        }
-
-        if (!is_in_hash) {
-                /* And remember the new data */
-                free(u->cgroup_path);
-                u->cgroup_path = path;
-        }
-
-        u->cgroup_realized = true;
-        u->cgroup_mask = mask;
+        r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+        if (r < 0)
+                log_warning("Failed to migrate cgroup from to %s: %s", u->cgroup_path, strerror(-r));
 
         return 0;
 }
 
+static bool unit_has_mask_realized(Unit *u, CGroupControllerMask mask) {
+        assert(u);
+
+        return u->cgroup_realized && u->cgroup_realized_mask == mask;
+}
+
+/* Check if necessary controllers and attributes for a unit are in place.
+ *
+ * If so, do nothing.
+ * If not, create paths, move processes over, and set attributes.
+ *
+ * Returns 0 on success and < 0 on failure. */
 static int unit_realize_cgroup_now(Unit *u) {
         CGroupControllerMask mask;
+        int r;
 
         assert(u);
 
         if (u->in_cgroup_queue) {
-                LIST_REMOVE(Unit, cgroup_queue, u->manager->cgroup_queue, u);
+                LIST_REMOVE(cgroup_queue, u->manager->cgroup_queue, u);
                 u->in_cgroup_queue = false;
         }
 
-        mask = unit_get_cgroup_mask(u) | unit_get_members_mask(u) | unit_get_siblings_mask(u);
-        mask &= u->manager->cgroup_supported;
+        mask = unit_get_target_mask(u);
 
-        if (u->cgroup_realized &&
-            u->cgroup_mask == mask)
+        if (unit_has_mask_realized(u, mask))
                 return 0;
 
         /* First, realize parents */
-        if (UNIT_ISSET(u->slice))
-                unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+        if (UNIT_ISSET(u->slice)) {
+                r = unit_realize_cgroup_now(UNIT_DEREF(u->slice));
+                if (r < 0)
+                        return r;
+        }
 
         /* And then do the real work */
-        return unit_create_cgroups(u, mask);
+        r = unit_create_cgroups(u, mask);
+        if (r < 0)
+                return r;
+
+        /* Finally, apply the necessary attributes. */
+        cgroup_context_apply(unit_get_cgroup_context(u), mask, u->cgroup_path);
+
+        return 0;
 }
 
 static void unit_add_to_cgroup_queue(Unit *u) {
@@ -450,19 +647,21 @@ static void unit_add_to_cgroup_queue(Unit *u) {
         if (u->in_cgroup_queue)
                 return;
 
-        LIST_PREPEND(Unit, cgroup_queue, u->manager->cgroup_queue, u);
+        LIST_PREPEND(cgroup_queue, u->manager->cgroup_queue, u);
         u->in_cgroup_queue = true;
 }
 
 unsigned manager_dispatch_cgroup_queue(Manager *m) {
         Unit *i;
         unsigned n = 0;
+        int r;
 
         while ((i = m->cgroup_queue)) {
                 assert(i->in_cgroup_queue);
 
-                if (unit_realize_cgroup_now(i) >= 0)
-                        cgroup_context_apply(unit_get_cgroup_context(i), i->cgroup_mask, i->cgroup_path);
+                r = unit_realize_cgroup_now(i);
+                if (r < 0)
+                        log_warning("Failed to realize cgroups for queued unit %s: %s", i->id, strerror(-r));
 
                 n++;
         }
@@ -485,7 +684,20 @@ static void unit_queue_siblings(Unit *u) {
                         if (m == u)
                                 continue;
 
+                        /* Skip units that have a dependency on the slice
+                         * but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
+                                continue;
+
+                        /* No point in doing cgroup application for units
+                         * without active processes. */
+                        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
+                                continue;
+
+                        /* If the unit doesn't need any new controllers
+                         * and has current ones realized, it doesn't need
+                         * any changes. */
+                        if (unit_has_mask_realized(m, unit_get_target_mask(m)))
                                 continue;
 
                         unit_add_to_cgroup_queue(m);
@@ -497,7 +709,6 @@ static void unit_queue_siblings(Unit *u) {
 
 int unit_realize_cgroup(Unit *u) {
         CGroupContext *c;
-        int r;
 
         assert(u);
 
@@ -509,7 +720,7 @@ int unit_realize_cgroup(Unit *u) {
          * unit, we need to first create all parents, but there's more
          * actually: for the weight-based controllers we also need to
          * make sure that all our siblings (i.e. units that are in the
-         * same slice as we are) have cgroup too. Otherwise things
+         * same slice as we are) have cgroups, too. Otherwise, things
          * would become very uneven as each of their processes would
          * get as much resources as all our group together. This call
          * will synchronously create the parent cgroups, but will
@@ -519,14 +730,8 @@ int unit_realize_cgroup(Unit *u) {
         /* Add all sibling slices to the cgroup queue. */
         unit_queue_siblings(u);
 
-        /* And realize this one now */
-        r = unit_realize_cgroup_now(u);
-
-        /* And apply the values */
-        if (r >= 0)
-                cgroup_context_apply(c, u->cgroup_mask, u->cgroup_path);
-
-        return r;
+        /* And realize this one now (and apply the values) */
+        return unit_realize_cgroup_now(u);
 }
 
 void unit_destroy_cgroup(Unit *u) {
@@ -546,7 +751,7 @@ void unit_destroy_cgroup(Unit *u) {
         free(u->cgroup_path);
         u->cgroup_path = NULL;
         u->cgroup_realized = false;
-        u->cgroup_mask = 0;
+        u->cgroup_realized_mask = 0;
 
 }
 
@@ -589,8 +794,8 @@ pid_t unit_search_main_pid(Unit *u) {
 
 int manager_setup_cgroup(Manager *m) {
         _cleanup_free_ char *path = NULL;
+        char *e;
         int r;
-        char *e, *a;
 
         assert(m);
 
@@ -610,9 +815,13 @@ int manager_setup_cgroup(Manager *m) {
                 return r;
         }
 
-        /* Already in /system.slice? If so, let's cut this off again */
+        /* LEGACY: Already in /system.slice? If so, let's cut this
+         * off. This is to support live upgrades from older systemd
+         * versions where PID 1 was moved there. */
         if (m->running_as == SYSTEMD_SYSTEM) {
                 e = endswith(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
+                if (!e)
+                        e = endswith(m->cgroup_root, "/system");
                 if (e)
                         *e = 0;
         }
@@ -643,12 +852,8 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Release agent already installed.");
         }
 
-        /* 4. Realize the system slice and put us in there */
-        if (m->running_as == SYSTEMD_SYSTEM) {
-                a = strappenda(m->cgroup_root, "/" SPECIAL_SYSTEM_SLICE);
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, a, 0);
-        } else
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
+        /* 4. Make sure we are in the root cgroup */
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, 0);
         if (r < 0) {
                 log_error("Failed to create root cgroup hierarchy: %s", strerror(-r));
                 return r;

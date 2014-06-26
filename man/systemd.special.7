@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 208" "systemd.special"
+.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 209" "systemd.special"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -480,7 +480,7 @@ This may be used to pull in audio management daemons dynamically when audio hard
 .RE
 .SH "SPECIAL PASSIVE SYSTEM UNITS"
 .PP
-A number of special system targets are defined that can be used to properly order boot\-up of optional services\&. These targets are generally not part of the initial boot transaction, unless they are explicitly pulled in by one of the implementing services\&. Note specifically, that these
+A number of special system targets are defined that can be used to properly order boot\-up of optional services\&. These targets are generally not part of the initial boot transaction, unless they are explicitly pulled in by one of the implementing services\&. Note specifically that these
 \fIpassive\fR
 target units are generally not pulled in by the consumer of a service, but by the provider of the service\&. This means: a consuming service should order itself after these targets (as appropriate), but not pull it in\&. A providing service should order itself before these targets (as appropriate) and pull it in (via a
 \fIWants=\fR
@@ -575,7 +575,7 @@ printer\&.target,
 smartcard\&.target,
 sound\&.target\&.
 .PP
-In addition the following special unit is understood only when systemd runs as service instance:
+In addition, the following special unit is understood only when systemd runs as service instance:
 .PP
 exit\&.target
 .RS 4

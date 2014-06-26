@@ -39,4 +39,13 @@ void retest_selinux(void) {
         use_selinux_cached = -1;
 }
 
+#else
+
+bool use_selinux(void) {
+        return false;
+}
+
+void retest_selinux(void) {
+}
+
 #endif

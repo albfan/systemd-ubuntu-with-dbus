@@ -48,8 +48,7 @@
 /* libudev.c */
 void udev_log(struct udev *udev,
               int priority, const char *file, int line, const char *fn,
-              const char *format, ...)
-              __attribute__((format(printf, 6, 7)));
+              const char *format, ...) _printf_(6, 7);
 int udev_get_rules_path(struct udev *udev, char **path[], usec_t *ts_usec[]);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
@@ -61,7 +60,6 @@ uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
 gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
-int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
@@ -130,8 +128,6 @@ void udev_list_cleanup(struct udev_list *list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list *list);
 struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value);
 void udev_list_entry_delete(struct udev_list_entry *entry);
-void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list);
 int udev_list_entry_get_num(struct udev_list_entry *list_entry);
 void udev_list_entry_set_num(struct udev_list_entry *list_entry, int num);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
@@ -175,5 +171,6 @@ int util_delete_path(struct udev *udev, const char *path);
 uid_t util_lookup_user(struct udev *udev, const char *user);
 gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
-ssize_t print_kmsg(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+ssize_t print_kmsg(const char *fmt, ...) _printf_(1, 2);
+
 #endif

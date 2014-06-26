@@ -89,8 +89,8 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                lexicographic order, regardless in which of the
-                directories they reside. If multiple files specify the
+                lexicographic order, regardless of which of the
+                directories they reside in. If multiple files specify the
                 same variable name, the entry in the file with the
                 lexicographically latest name will be applied. It is
                 recommended to prefix all filenames with a two-digit
@@ -103,6 +103,16 @@
                 <filename>/dev/null</filename> in
                 <filename>/etc/sysctl.d/</filename> bearing the
                 same filename.</para>
+
+                <para>The settings configured with
+                <filename>sysctl.d</filename> files will be applied
+                early on boot. The network interface-specific options
+                will also be applied individually for each network
+                interface as it shows up in the system. (More
+                specifically, that is
+                <filename>net.ipv4.conf.*</filename>,
+                <filename>net.ipv6.conf.*</filename>,
+                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
         </refsect1>
 
         <refsect1>

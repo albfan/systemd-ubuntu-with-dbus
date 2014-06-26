@@ -71,6 +71,7 @@
 
 static int debug = 0;
 
+_printf_(6,0)
 static void log_fn(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
@@ -196,7 +197,7 @@ static void test_orientation(struct udev *udev,
 
         old = get_prev_orientation(dev);
 
-        fd = open(devpath, O_RDONLY);
+        fd = open(devpath, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return;
 
@@ -334,7 +335,7 @@ int main (int argc, char** argv)
                 return 0;
         }
 
-        log_debug("opening accelerometer device %s\n", devnode);
+        log_debug("opening accelerometer device %s", devnode);
         test_orientation(udev, dev, devnode);
         free(devnode);
         log_close();

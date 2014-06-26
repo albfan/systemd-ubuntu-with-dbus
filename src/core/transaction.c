@@ -22,9 +22,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "transaction.h"
 #include "bus-errors.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "transaction.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -222,7 +223,9 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *j) {
 
                         /* Ok, we can drop one, so let's do so. */
                         log_debug_unit(d->unit->id,
-                                       "Fixing conflicting jobs by deleting job %s/%s",
+                                       "Fixing conflicting jobs %s/%s,%s/%s by deleting job %s/%s",
+                                       j->unit->id, job_type_to_string(j->type),
+                                       k->unit->id, job_type_to_string(k->type),
                                        d->unit->id, job_type_to_string(d->type));
                         transaction_delete_job(tr, d, true);
                         return 0;
@@ -231,7 +234,7 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *j) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
+static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         Job *j;
         Iterator i;
         int r;
@@ -261,8 +264,9 @@ static int transaction_merge_jobs(Transaction *tr, DBusError *e) {
                                 return -EAGAIN;
 
                         /* We couldn't merge anything. Failure */
-                        dbus_set_error(e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING, "Transaction contains conflicting jobs '%s' and '%s' for %s. Probably contradicting requirement dependencies configured.",
-                                       job_type_to_string(t), job_type_to_string(k->type), k->unit->id);
+                        sd_bus_error_setf(
+                                        e, BUS_ERROR_TRANSACTION_JOBS_CONFLICTING, "Transaction contains conflicting jobs '%s' and '%s' for %s. Probably contradicting requirement dependencies configured.",
+                                        job_type_to_string(t), job_type_to_string(k->type), k->unit->id);
                         return r;
                 }
         }
@@ -334,7 +338,7 @@ _pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
         return false;
 }
 
-static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, DBusError *e) {
+static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
         Iterator i;
         Unit *u;
         int r;
@@ -405,8 +409,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
 
                 log_error("Unable to break cycle");
 
-                dbus_set_error(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
-                               "Transaction order is cyclic. See system logs for details.");
+                sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
+                                  "Transaction order is cyclic. See system logs for details.");
                 return -ENOEXEC;
         }
 
@@ -445,7 +449,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         return 0;
 }
 
-static int transaction_verify_order(Transaction *tr, unsigned *generation, DBusError *e) {
+static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bus_error *e) {
         Job *j;
         int r;
         Iterator i;
@@ -490,7 +494,7 @@ rescan:
         }
 }
 
-static int transaction_is_destructive(Transaction *tr, JobMode mode, DBusError *e) {
+static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_error *e) {
         Iterator i;
         Job *j;
 
@@ -508,7 +512,7 @@ static int transaction_is_destructive(Transaction *tr, JobMode mode, DBusError *
                 if (j->unit->job && (mode == JOB_FAIL || j->unit->job->irreversible) &&
                     !job_type_is_superset(j->type, j->unit->job->type)) {
 
-                        dbus_set_error(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
+                        sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE, "Transaction is destructive.");
                         return -EEXIST;
                 }
         }
@@ -576,7 +580,7 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
 
         /* Moves the transaction jobs to the set of active jobs */
 
-        if (mode == JOB_ISOLATE) {
+        if (mode == JOB_ISOLATE || mode == JOB_FLUSH) {
 
                 /* When isolating first kill all installed jobs which
                  * aren't part of the new transaction */
@@ -635,7 +639,7 @@ rollback:
         return r;
 }
 
-int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e) {
+int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error *e) {
         Iterator i;
         Job *j;
         int r;
@@ -677,7 +681,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error(e, r));
+                        log_warning("Requested transaction contains an unfixable cyclic ordering dependency: %s", bus_error_message(e, r));
                         return r;
                 }
 
@@ -694,7 +698,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
                         break;
 
                 if (r != -EAGAIN) {
-                        log_warning("Requested transaction contains unmergeable jobs: %s", bus_error(e, r));
+                        log_warning("Requested transaction contains unmergeable jobs: %s", bus_error_message(e, r));
                         return r;
                 }
 
@@ -713,7 +717,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, DBusError *e
         /* Ninth step: check whether we can actually apply this */
         r = transaction_is_destructive(tr, mode, e);
         if (r < 0) {
-                log_notice("Requested transaction contradicts existing jobs: %s", bus_error(e, r));
+                log_notice("Requested transaction contradicts existing jobs: %s", bus_error_message(e, r));
                 return r;
         }
 
@@ -775,10 +779,10 @@ static Job* transaction_add_one_job(Transaction *tr, JobType type, Unit *unit, b
         j->override = override;
         j->irreversible = tr->irreversible;
 
-        LIST_PREPEND(Job, transaction, f, j);
+        LIST_PREPEND(transaction, f, j);
 
         if (hashmap_replace(tr->jobs, unit, f) < 0) {
-                LIST_REMOVE(Job, transaction, f, j);
+                LIST_REMOVE(transaction, f, j);
                 job_free(j);
                 return NULL;
         }
@@ -835,7 +839,7 @@ int transaction_add_job_and_dependencies(
                 bool conflicts,
                 bool ignore_requirements,
                 bool ignore_order,
-                DBusError *e) {
+                sd_bus_error *e) {
         Job *ret;
         Iterator i;
         Unit *dep;
@@ -856,12 +860,12 @@ int transaction_add_job_and_dependencies(
             unit->load_state != UNIT_ERROR &&
             unit->load_state != UNIT_NOT_FOUND &&
             unit->load_state != UNIT_MASKED) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
                 return -EINVAL;
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
                                "Unit %s failed to load: %s. "
                                "See system logs and 'systemctl status %s' for details.",
                                unit->id,
@@ -871,7 +875,7 @@ int transaction_add_job_and_dependencies(
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_NOT_FOUND) {
-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+                sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
                                "Unit %s failed to load: %s.",
                                unit->id,
                                strerror(-unit->load_error));
@@ -879,12 +883,12 @@ int transaction_add_job_and_dependencies(
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_MASKED) {
-                dbus_set_error(e, BUS_ERROR_MASKED, "Unit %s is masked.", unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", unit->id);
                 return -EADDRNOTAVAIL;
         }
 
         if (!unit_job_is_applicable(unit, type)) {
-                dbus_set_error(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE, "Job type %s is not applicable for unit %s.", job_type_to_string(type), unit->id);
+                sd_bus_error_setf(e, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE, "Job type %s is not applicable for unit %s.", job_type_to_string(type), unit->id);
                 return -EBADR;
         }
 
@@ -916,10 +920,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_warning_unit(dep->id,
                                                          "Cannot add dependency job for unit %s, ignoring: %s",
-                                                         dep->id, bus_error(e, r));
+                                                         dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -935,7 +939,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -946,7 +950,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -955,10 +959,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_full_unit(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, dep->id,
                                                       "Cannot add dependency job for unit %s, ignoring: %s",
-                                                      dep->id, bus_error(e, r));
+                                                      dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -967,10 +971,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_full_unit(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, dep->id,
                                                       "Cannot add dependency job for unit %s, ignoring: %s",
-                                                      dep->id, bus_error(e, r));
+                                                      dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -981,7 +985,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -990,10 +994,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_full_unit(r == -EADDRNOTAVAIL ? LOG_DEBUG : LOG_WARNING, dep->id,
                                                       "Cannot add dependency job for unit %s, ignoring: %s",
-                                                      dep->id, bus_error(e, r));
+                                                      dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1004,7 +1008,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1013,10 +1017,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_warning_unit(dep->id,
                                                          "Cannot add dependency job for unit %s, ignoring: %s",
-                                                         dep->id, bus_error(e, r));
+                                                         dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1031,7 +1035,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1042,7 +1046,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1053,7 +1057,7 @@ int transaction_add_job_and_dependencies(
                                                 goto fail;
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
 
@@ -1066,10 +1070,10 @@ int transaction_add_job_and_dependencies(
                                 if (r < 0) {
                                         log_warning_unit(dep->id,
                                                          "Cannot add dependency reload job for unit %s, ignoring: %s",
-                                                         dep->id, bus_error(e, r));
+                                                         dep->id, bus_error_message(e, r));
 
                                         if (e)
-                                                dbus_error_free(e);
+                                                sd_bus_error_free(e);
                                 }
                         }
                 }

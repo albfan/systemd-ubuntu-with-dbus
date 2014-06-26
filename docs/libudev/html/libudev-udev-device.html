@@ -153,7 +153,7 @@ the resources of the device will be released.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>the passed udev device if it has still an active reference, or <span class="type">NULL</span> otherwise.</td>
+<td><span class="type">NULL</span></td>
 </tr>
 </tbody>
 </table></div>
@@ -378,9 +378,8 @@ Find the next parent device, and fill in information from the sys
 device and the udev database entry.
 </p>
 <p>
-The returned the device is not referenced. It is attached to the
-child device, and will be cleaned up when the child device
-is cleaned up.
+Returned device is not referenced. It is attached to the child
+device, and will be cleaned up when the child device is cleaned up.
 </p>
 <p>
 It is not necessarily just the upper level directory, empty or not
@@ -424,9 +423,8 @@ If devtype is <span class="type">NULL</span>, only subsystem is checked, and any
 match.
 </p>
 <p>
-The returned the device is not referenced. It is attached to the
-child device, and will be cleaned up when the child device
-is cleaned up.
+Returned device is not referenced. It is attached to the child
+device, and will be cleaned up when the child device is cleaned up.
 </p>
 <p>
 It can be called as many times as needed, without caring about

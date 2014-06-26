@@ -34,10 +34,6 @@
 #include "compress.h"
 #include "fsprg.h"
 
-/* Use six characters to cover the offsets common in smallish journal
- * files without adding to many zeros. */
-#define OFSfmt "%06"PRIx64
-
 static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o) {
         uint64_t i;
 
@@ -249,12 +245,12 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 for (i = 0; i < journal_file_entry_array_n_items(o); i++)
-                        if (o->entry_array.items[i] != 0 &&
-                            !VALID64(o->entry_array.items[i])) {
+                        if (le64toh(o->entry_array.items[i]) != 0 &&
+                            !VALID64(le64toh(o->entry_array.items[i]))) {
                                 log_error(OFSfmt": invalid object entry array item (%"PRIu64"/%"PRIu64"): "OFSfmt,
                                           offset,
                                           i, journal_file_entry_array_n_items(o),
-                                          o->entry_array.items[i]);
+                                          le64toh(o->entry_array.items[i]));
                                 return -EBADMSG;
                         }
 
@@ -789,9 +785,6 @@ int journal_file_verify(
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
         int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
-        char data_path[] = "/var/tmp/journal-data-XXXXXX",
-                entry_path[] = "/var/tmp/journal-entry-XXXXXX",
-                entry_array_path[] = "/var/tmp/journal-entry-array-XXXXXX";
         unsigned i;
         bool found_last;
 #ifdef HAVE_GCRYPT
@@ -812,29 +805,26 @@ int journal_file_verify(
         } else if (f->seal)
                 return -ENOKEY;
 
-        data_fd = mkostemp(data_path, O_CLOEXEC);
+        data_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (data_fd < 0) {
                 log_error("Failed to create data file: %m");
                 r = -errno;
                 goto fail;
         }
-        unlink(data_path);
 
-        entry_fd = mkostemp(entry_path, O_CLOEXEC);
+        entry_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_fd < 0) {
                 log_error("Failed to create entry file: %m");
                 r = -errno;
                 goto fail;
         }
-        unlink(entry_path);
 
-        entry_array_fd = mkostemp(entry_array_path, O_CLOEXEC);
+        entry_array_fd = open_tmpfile("/var/tmp", O_RDWR | O_CLOEXEC);
         if (entry_array_fd < 0) {
                 log_error("Failed to create entry array file: %m");
                 r = -errno;
                 goto fail;
         }
-        unlink(entry_array_path);
 
 #ifdef HAVE_GCRYPT
         if ((le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_SEALED) != 0)

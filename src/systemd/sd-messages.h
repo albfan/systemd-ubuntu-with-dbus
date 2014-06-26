@@ -22,11 +22,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <systemd/sd-id128.h>
+#include "sd-id128.h"
+#include "_sd-common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_SD_BEGIN_DECLARATIONS;
 
 /* Hey! If you add a new message here, you *must* also update the
  * message catalog with an appropriate explanation */
@@ -76,6 +75,8 @@ extern "C" {
 
 #define SD_MESSAGE_LID_OPENED       SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,6f)
 #define SD_MESSAGE_LID_CLOSED       SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,70)
+#define SD_MESSAGE_SYSTEM_DOCKED    SD_ID128_MAKE(f5,f4,16,b8,62,07,4b,28,92,7a,48,c3,ba,7d,51,ff)
+#define SD_MESSAGE_SYSTEM_UNDOCKED  SD_ID128_MAKE(51,e1,71,bd,58,52,48,56,81,10,14,4c,51,7c,ca,53)
 #define SD_MESSAGE_POWER_KEY        SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,71)
 #define SD_MESSAGE_SUSPEND_KEY      SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,72)
 #define SD_MESSAGE_HIBERNATE_KEY    SD_ID128_MAKE(b7,2e,a4,a2,88,15,45,a0,b5,0e,20,0e,55,b9,b0,73)
@@ -84,8 +85,6 @@ extern "C" {
 
 #define SD_MESSAGE_BOOTCHART        SD_ID128_MAKE(9f,26,aa,56,2c,f4,40,c2,b1,6c,77,3d,04,79,b5,18)
 
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

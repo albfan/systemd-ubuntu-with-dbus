@@ -19,17 +19,17 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
       <code class="filename"><em class="replaceable"><code>slice</code></em>.slice</code>,
       <code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code>,
       <code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
       <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
       <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
       <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code>
-    </p></div><div class="refsect1"><a name="idm274688709760"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
+    </p></div><div class="refsect1"><a name="idm214178894112"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
-    processes. Internally, this relies on the the Control Groups
+    processes. Internally, this relies on the Control Groups
     kernel concept for organizing processes in a hierarchial tree of
     named groups for the purpose of resource management.</p><p>This man page lists the configuration options shared by
     those six unit types. See
@@ -46,8 +46,8 @@
     resource control configuration options are configured in the
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</p><p>See the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/" target="_top">New
-    Control Group Interfaces</a> for an introduction how to make
-    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm274688700592"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
+    Control Group Interfaces</a> for an introduction on how to make
+    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm214178884944"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
     for resource control configuration:</p><div class="variablelist"><dl class="variablelist"><dt id="CPUAccounting="><span class="term"><code class="varname">CPUAccounting=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAccounting=">¶</a></dt><dd><p>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
           one unit might also implicitly turn it on for all units
@@ -89,7 +89,7 @@
           path and a weight value to specify the device specific
           weight value, between 10 and 1000. (Example: "/dev/sda
           500"). The file path may be specified as path to a block
-          device node or as any other file in which case the backing
+          device node or as any other file, in which case the backing
           block device of the file system of the file is
           determined. This controls the
           "<code class="literal">blkio.weight_device</code>" control group
@@ -104,27 +104,39 @@
           case the backing block device of the file system of the file
           is used. If the bandwidth is suffixed with K, M, G, or T,
           the specified bandwidth is parsed as Kilobytes, Megabytes,
-          Gigabytes, or Terabytes, respectively (Example:
+          Gigabytes, or Terabytes, respectively, to the base of
+          1000. (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
           controls the "<code class="literal">blkio.read_bps_device</code>" and
           "<code class="literal">blkio.write_bps_device</code>" control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
-          group attributes, see
-          <a class="ulink" href="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt" target="_top">blkio-controller.txt</a>.
+          group attributes, see <a class="ulink" href="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt" target="_top">blkio-controller.txt</a>.
           </p><p>Implies
           "<code class="literal">BlockIOAccounting=true</code>".</p></dd><dt id="DeviceAllow="><span class="term"><code class="varname">DeviceAllow=</code></span><a class="headerlink" title="Permalink to this term" href="#DeviceAllow=">¶</a></dt><dd><p>Control access to specific device nodes by the
           executed processes. Takes two space-separated strings: a
-          device node path (such as <code class="filename">/dev/null</code>)
-          followed by a combination of <code class="constant">r</code>,
-          <code class="constant">w</code>, <code class="constant">m</code> to control
+          device node specifier followed by a combination of
+          <code class="constant">r</code>, <code class="constant">w</code>,
+          <code class="constant">m</code> to control
           <span class="emphasis"><em>r</em></span>eading, <span class="emphasis"><em>w</em></span>riting,
-          or creation of the specific device node by the unit
+          or creation of the specific device node(s) by the unit
           (<span class="emphasis"><em>m</em></span>knod), respectively. This controls
           the "<code class="literal">devices.allow</code>" and
           "<code class="literal">devices.deny</code>" control group
-          attributes. For details about these control group attributes,
-          see <a class="ulink" href="https://www.kernel.org/doc/Documentation/cgroups/devices.txt" target="_top">devices.txt</a>.</p></dd><dt id="DevicePolicy=auto|closed|strict"><span class="term"><code class="varname">DevicePolicy=auto|closed|strict</code></span><a class="headerlink" title="Permalink to this term" href="#DevicePolicy=auto%7Cclosed%7Cstrict">¶</a></dt><dd><p>
+          attributes. For details about these control group
+          attributes, see <a class="ulink" href="https://www.kernel.org/doc/Documentation/cgroups/devices.txt" target="_top">devices.txt</a>.</p><p>The device node specifier is either a path to a device
+          node in the file system, starting with
+          <code class="filename">/dev/</code>, or a string starting with either
+          "<code class="literal">char-</code>" or "<code class="literal">block-</code>"
+          followed by a device group name, as listed in
+          <code class="filename">/proc/devices</code>. The latter is useful to
+          whitelist all current and future devices belonging to a
+          specific device group at once. Examples:
+          <code class="filename">/dev/sda5</code> is a path to a device node,
+          referring to an ATA or SCSI block
+          device. "<code class="literal">char-pts</code>" and
+          "<code class="literal">char-alsa</code>" are specifiers for all pseudo
+          TTYs and all ALSA sound devices, respectively.</p></dd><dt id="DevicePolicy=auto|closed|strict"><span class="term"><code class="varname">DevicePolicy=auto|closed|strict</code></span><a class="headerlink" title="Permalink to this term" href="#DevicePolicy=auto%7Cclosed%7Cstrict">¶</a></dt><dd><p>
             Control the policy for allowing device access:
           </p><div class="variablelist"><dl class="variablelist"><dt id="strict"><span class="term"><code class="option">strict</code></span><a class="headerlink" title="Permalink to this term" href="#strict">¶</a></dt><dd><p>means to only allow types of access that are
                 explicitly specified.</p></dd><dt id="closed"><span class="term"><code class="option">closed</code></span><a class="headerlink" title="Permalink to this term" href="#closed">¶</a></dt><dd><p>in addition, allows access to standard pseudo
@@ -148,7 +160,7 @@
           settings applied.</p><p>For units of type slice, the only accepted value for
           this setting is the parent slice. Since the name of a slice
           unit implies the parent slice, it is hence redundant to ever
-          set this parameter directly for slice units.</p></dd></dl></div></div><div class="refsect1"><a name="idm274687623264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+          set this parameter directly for slice units.</p></dd></dl></div></div><div class="refsect1"><a name="idm214177803904"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
       <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,

@@ -28,11 +28,14 @@
 #include "strv.h"
 #include "util.h"
 
-int parse_sleep_config(const char *verb, char ***modes, char ***states) {
+#define USE(x, y) do{ (x) = (y); (y) = NULL; } while(0)
+
+int parse_sleep_config(const char *verb, char ***_modes, char ***_states) {
         _cleanup_strv_free_ char
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
+        char **modes, **states;
 
         const ConfigTableItem items[] = {
                 { "Sleep",   "SuspendMode",      config_parse_strv,  0, &suspend_mode  },
@@ -59,47 +62,46 @@ int parse_sleep_config(const char *verb, char ***modes, char ***states) {
 
         if (streq(verb, "suspend")) {
                 /* empty by default */
-                *modes = suspend_mode;
+                USE(modes, suspend_mode);
 
                 if (suspend_state)
-                        *states = suspend_state;
+                        USE(states, suspend_state);
                 else
-                        *states = strv_split_nulstr("mem\0standby\0freeze\0");
+                        states = strv_new("mem", "standby", "freeze", NULL);
 
-                suspend_mode = suspend_state = NULL;
         } else if (streq(verb, "hibernate")) {
                 if (hibernate_mode)
-                        *modes = hibernate_mode;
+                        USE(modes, hibernate_mode);
                 else
-                        *modes = strv_split_nulstr("platform\0shutdown\0");
+                        modes = strv_new("platform", "shutdown", NULL);
 
                 if (hibernate_state)
-                        *states = hibernate_state;
+                        USE(states, hibernate_state);
                 else
-                        *states = strv_split_nulstr("disk\0");
+                        states = strv_new("disk", NULL);
 
-                hibernate_mode = hibernate_state = NULL;
         } else if (streq(verb, "hybrid-sleep")) {
                 if (hybrid_mode)
-                        *modes = hybrid_mode;
+                        USE(modes, hybrid_mode);
                 else
-                        *modes = strv_split_nulstr("suspend\0platform\0shutdown\0");
+                        modes = strv_new("suspend", "platform", "shutdown", NULL);
 
                 if (hybrid_state)
-                        *states = hybrid_state;
+                        USE(states, hybrid_state);
                 else
-                        *states = strv_split_nulstr("disk\0");
+                        states = strv_new("disk", NULL);
 
-                hybrid_mode = hybrid_state = NULL;
         } else
                 assert_not_reached("what verb");
 
-        if (!modes || !states) {
-                strv_free(*modes);
-                strv_free(*states);
+        if ((!modes && !streq(verb, "suspend")) || !states) {
+                strv_free(modes);
+                strv_free(states);
                 return log_oom();
         }
 
+        *_modes = modes;
+        *_states = states;
         return 0;
 }
 
@@ -172,7 +174,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         assert(size);
         assert(used);
 
-        f = fopen("/proc/swaps", "r");
+        f = fopen("/proc/swaps", "re");
         if (!f) {
                 log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                          "Failed to retrieve open /proc/swaps: %m");
@@ -183,7 +185,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev = NULL, *d = NULL, *type = NULL;
+                _cleanup_free_ char *dev = NULL, *type = NULL;
                 size_t size_field, used_field;
                 int k;
 
@@ -202,12 +204,8 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                         continue;
                 }
 
-                d = cunescape(dev);
-                if (!d)
-                        return -ENOMEM;
-
-                if (!streq(type, "partition")) {
-                        log_debug("Partition %s has type %s, ignoring.", d, type);
+                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
+                        log_warning("Ignoring deleted swapfile '%s'.", dev);
                         continue;
                 }
 
@@ -222,8 +220,8 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
 
 static bool enough_memory_for_hibernation(void) {
         _cleanup_free_ char *active = NULL;
-        unsigned long long act;
-        size_t size, used;
+        unsigned long long act = 0;
+        size_t size = 0, used = 0;
         int r;
 
         r = hibernation_partition_size(&size, &used);

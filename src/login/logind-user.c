@@ -25,13 +25,13 @@
 
 #include "util.h"
 #include "mkdir.h"
-#include "cgroup-util.h"
 #include "hashmap.h"
 #include "strv.h"
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "logind-user.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
@@ -72,7 +72,7 @@ void user_free(User *u) {
         assert(u);
 
         if (u->in_gc_queue)
-                LIST_REMOVE(User, gc_queue, u->manager->user_gc_queue, u);
+                LIST_REMOVE(gc_queue, u->manager->user_gc_queue, u);
 
         while (u->sessions)
                 session_free(u->sessions);
@@ -145,10 +145,10 @@ int user_save(User *u) {
 
         if (dual_timestamp_is_set(&u->timestamp))
                 fprintf(f,
-                        "REALTIME=%llu\n"
-                        "MONOTONIC=%llu\n",
-                        (unsigned long long) u->timestamp.realtime,
-                        (unsigned long long) u->timestamp.monotonic);
+                        "REALTIME="USEC_FMT"\n"
+                        "MONOTONIC="USEC_FMT"\n",
+                        u->timestamp.realtime,
+                        u->timestamp.monotonic);
 
         if (u->sessions) {
                 Session *i;
@@ -247,7 +247,7 @@ int user_save(User *u) {
 
 finish:
         if (r < 0)
-                log_error("Failed to save user data for %s: %s", u->name, strerror(-r));
+                log_error("Failed to save user data %s: %s", u->state_file, strerror(-r));
 
         return r;
 }
@@ -329,15 +329,13 @@ static int user_mkdir_runtime_path(User *u) {
 }
 
 static int user_start_slice(User *u) {
-        DBusError error;
         char *job;
         int r;
 
         assert(u);
 
-        dbus_error_init(&error);
-
         if (!u->slice) {
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char lu[DECIMAL_STR_MAX(unsigned long) + 1], *slice;
                 sprintf(lu, "%lu", (unsigned long) u->uid);
 
@@ -347,9 +345,7 @@ static int user_start_slice(User *u) {
 
                 r = manager_start_unit(u->manager, slice, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user slice: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start user slice: %s", bus_error_message(&error, r));
                         free(slice);
                 } else {
                         u->slice = slice;
@@ -366,13 +362,11 @@ static int user_start_slice(User *u) {
 }
 
 static int user_start_service(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->service) {
                 char lu[DECIMAL_STR_MAX(unsigned long) + 1], *service;
@@ -384,9 +378,7 @@ static int user_start_service(User *u) {
 
                 r = manager_start_unit(u->manager, service, &error, &job);
                 if (r < 0) {
-                        log_error("Failed to start user service: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start user service: %s", bus_error_message(&error, r));
                         free(service);
                 } else {
                         u->service = service;
@@ -441,21 +433,18 @@ int user_start(User *u) {
 }
 
 static int user_stop_slice(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->slice)
                 return 0;
 
         r = manager_stop_unit(u->manager, u->slice, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user slice: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop user slice: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -466,21 +455,18 @@ static int user_stop_slice(User *u) {
 }
 
 static int user_stop_service(User *u) {
-        DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
         int r;
 
         assert(u);
-
-        dbus_error_init(&error);
 
         if (!u->service)
                 return 0;
 
         r = manager_stop_unit(u->manager, u->service, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop user service: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop user service: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -508,13 +494,19 @@ static int user_remove_runtime_path(User *u) {
         return r;
 }
 
-int user_stop(User *u) {
+int user_stop(User *u, bool force) {
         Session *s;
         int r = 0, k;
         assert(u);
 
+        /* Stop jobs have already been queued */
+        if (u->stopping) {
+                user_save(u);
+                return r;
+        }
+
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                k = session_stop(s);
+                k = session_stop(s, force);
                 if (k < 0)
                         r = k;
         }
@@ -528,6 +520,8 @@ int user_stop(User *u) {
         k = user_stop_slice(u);
         if (k < 0)
                 r = k;
+
+        u->stopping = true;
 
         user_save(u);
 
@@ -601,41 +595,38 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
         return idle_hint;
 }
 
-static int user_check_linger_file(User *u) {
-        char *p;
-        int r;
+int user_check_linger_file(User *u) {
+        _cleanup_free_ char *cc = NULL;
+        char *p = NULL;
 
-        if (asprintf(&p, "/var/lib/systemd/linger/%s", u->name) < 0)
+        cc = cescape(u->name);
+        if (!cc)
                 return -ENOMEM;
 
-        r = access(p, F_OK) >= 0;
-        free(p);
+        p = strappenda("/var/lib/systemd/linger/", cc);
 
-        return r;
+        return access(p, F_OK) >= 0;
 }
 
-int user_check_gc(User *u, bool drop_not_started) {
+bool user_check_gc(User *u, bool drop_not_started) {
         assert(u);
 
         if (drop_not_started && !u->started)
-                return 0;
+                return false;
 
         if (u->sessions)
-                return 1;
+                return true;
 
         if (user_check_linger_file(u) > 0)
-                return 1;
+                return true;
 
-        if (u->slice_job || u->service_job)
-                return 1;
+        if (u->slice_job && manager_job_is_active(u->manager, u->slice_job))
+                return true;
 
-        if (u->slice && manager_unit_is_active(u->manager, u->slice) != 0)
-                return 1;
+        if (u->service_job && manager_job_is_active(u->manager, u->service_job))
+                return true;
 
-        if (u->service && manager_unit_is_active(u->manager, u->service) != 0)
-                return 1;
-
-        return 0;
+        return false;
 }
 
 void user_add_to_gc_queue(User *u) {
@@ -644,31 +635,36 @@ void user_add_to_gc_queue(User *u) {
         if (u->in_gc_queue)
                 return;
 
-        LIST_PREPEND(User, gc_queue, u->manager->user_gc_queue, u);
+        LIST_PREPEND(gc_queue, u->manager->user_gc_queue, u);
         u->in_gc_queue = true;
 }
 
 UserState user_get_state(User *u) {
         Session *i;
-        bool all_closing = true;
 
         assert(u);
 
-        if (u->closing)
+        if (u->stopping)
                 return USER_CLOSING;
 
         if (u->slice_job || u->service_job)
                 return USER_OPENING;
 
-        LIST_FOREACH(sessions_by_user, i, u->sessions) {
-                if (session_is_active(i))
-                        return USER_ACTIVE;
-                if (session_get_state(i) != SESSION_CLOSING)
-                        all_closing = false;
-        }
+        if (u->sessions) {
+                bool all_closing = true;
 
-        if (u->sessions)
+                LIST_FOREACH(sessions_by_user, i, u->sessions) {
+                        SessionState state;
+
+                        state = session_get_state(i);
+                        if (state == SESSION_ACTIVE)
+                                return USER_ACTIVE;
+                        if (state != SESSION_CLOSING)
+                                all_closing = false;
+                }
+
                 return all_closing ? USER_CLOSING : USER_ONLINE;
+        }
 
         if (user_check_linger_file(u) > 0)
                 return USER_LINGERING;

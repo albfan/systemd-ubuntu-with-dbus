@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_PRINT" "3" "" "systemd 208" "sd_journal_print"
+.TH "SD_JOURNAL_PRINT" "3" "" "systemd 209" "sd_journal_print"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -123,7 +123,7 @@ and
 \fBsd_journal_print()\fR
 may largely be used interchangeably functionality\-wise\&. However, note that log messages logged via the former take a different path to the journal server than the later, and hence global chronological ordering between the two streams cannot be guaranteed\&. Using
 \fBsd_journal_print()\fR
-has the benefit of logging source code line, filenames, and functions as meta data along all entries, and guaranteeing chronological ordering with structured log entries that are generated via
+has the benefit of logging source code line, filenames, and functions as metadata along all entries, and guaranteeing chronological ordering with structured log entries that are generated via
 \fBsd_journal_send()\fR\&. Using
 \fBsyslog()\fR
 has the benefit of being more portable\&.
@@ -132,6 +132,17 @@ has the benefit of being more portable\&.
 The four calls return 0 on success or a negative errno\-style error code\&. The
 \fBerrno\fR(3)
 variable itself is not altered\&.
+.SH "ASYNC SIGNAL SAFETY"
+.PP
+\fBsd_journal_sendv()\fR
+is "async signal safe" in the meaning of
+\fBsignal\fR(7)\&.
+.PP
+\fBsd_journal_print\fR,
+\fBsd_journal_printv\fR,
+\fBsd_journal_send\fR, and
+\fBsd_journal_perror\fR
+are not async signal safe\&.
 .SH "NOTES"
 .PP
 The
@@ -140,8 +151,8 @@ The
 \fBsd_journal_send()\fR
 and
 \fBsd_journal_sendv()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP
@@ -151,4 +162,6 @@ file\&.
 \fBsyslog\fR(3),
 \fBperror\fR(3),
 \fBerrno\fR(3),
-\fBsystemd.journal-fields\fR(7)
+\fBsystemd.journal-fields\fR(7),
+\fBsignal\fR(7),
+\fBsocket\fR(7)

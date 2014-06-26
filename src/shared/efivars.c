@@ -37,7 +37,7 @@ bool is_efi_boot(void) {
 
 static int read_flag(const char *varname) {
         int r;
-        void *v;
+        _cleanup_free_ void *v = NULL;
         size_t s;
         uint8_t b;
 
@@ -45,15 +45,11 @@ static int read_flag(const char *varname) {
         if (r < 0)
                 return r;
 
-        if (s != 1) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (s != 1)
+                return -EINVAL;
 
         b = *(uint8_t *)v;
         r = b > 0;
-finish:
-        free(v);
         return r;
 }
 
@@ -134,7 +130,7 @@ int efi_get_variable(
 
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
         _cleanup_free_ void *s = NULL;
-        size_t ss;
+        size_t ss = 0;
         int r;
         char *x;
 
@@ -384,7 +380,7 @@ int efi_get_boot_options(uint16_t **options) {
                 list[count ++] = id;
         }
 
-        qsort(list, count, sizeof(uint16_t), cmp_uint16);
+        qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
 
         *options = list;
         return count;
@@ -397,7 +393,7 @@ fail:
 static int read_usec(sd_id128_t vendor, const char *name, usec_t *u) {
         _cleanup_free_ char *j = NULL;
         int r;
-        uint64_t x;
+        uint64_t x = 0;
 
         assert(name);
         assert(u);

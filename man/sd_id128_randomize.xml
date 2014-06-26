@@ -95,9 +95,9 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_id128_randomize()</function> interface
-                is available as shared library, which can be compiled
+                is available as a shared library, which can be compiled
                 and linked to with the
-                <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <literal>libsystemd</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

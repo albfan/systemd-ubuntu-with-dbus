@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-DETECT\-VIRT" "1" "" "systemd 208" "systemd-detect-virt"
+.TH "SYSTEMD\-DETECT\-VIRT" "1" "" "systemd 209" "systemd-detect-virt"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -53,16 +53,6 @@ is passed)\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-c\fR, \fB\-\-container\fR
 .RS 4
 Only detects container virtualization (i\&.e\&. shared kernel virtualization)\&.
@@ -76,6 +66,16 @@ Only detects VM virtualization (i\&.e\&. full hardware virtualization)\&.
 \fB\-q\fR, \fB\-\-quiet\fR
 .RS 4
 Suppress output of the virtualization technology identifier\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "EXIT STATUS"
 .PP

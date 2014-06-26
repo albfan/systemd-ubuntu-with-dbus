@@ -42,10 +42,8 @@
 #include "missing.h"
 #include "virt.h"
 #include "efivars.h"
-
-#ifndef TTY_GID
-#define TTY_GID 5
-#endif
+#include "smack-util.h"
+#include "def.h"
 
 typedef enum MountMode {
         MNT_NONE  =        0,
@@ -77,12 +75,20 @@ static const MountPoint mount_table[] = {
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "securityfs", "/sys/kernel/security",      "securityfs", NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,       MNT_NONE },
+#ifdef HAVE_SMACK
         { "smackfs",    "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          NULL,       MNT_NONE },
+          use_smack,  MNT_FATAL },
+        { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          use_smack,  MNT_FATAL },
+#endif
         { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "devpts",     "/dev/pts",                  "devpts",     "mode=620,gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
           NULL,       MNT_IN_CONTAINER },
+#ifdef HAVE_SMACK
+        { "tmpfs",      "/run",                      "tmpfs",      "mode=755,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+          use_smack,  MNT_FATAL },
+#endif
         { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
         { "tmpfs",      "/sys/fs/cgroup",            "tmpfs",      "mode=755", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
@@ -179,7 +185,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %s", p->where, strerror(errno));
+                log_full((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, "Failed to mount %s: %m", p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 

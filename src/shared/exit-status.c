@@ -130,6 +130,15 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) {
 
                 case EXIT_SECCOMP:
                         return "SECCOMP";
+
+                case EXIT_SELINUX_CONTEXT:
+                        return "SELINUX_CONTEXT";
+
+                case EXIT_PERSONALITY:
+                        return "PERSONALITY";
+
+                case EXIT_APPARMOR_PROFILE:
+                        return "APPARMOR";
                 }
         }
 
@@ -189,4 +198,21 @@ bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status) {
         return
                 code == CLD_EXITED &&
                 (status == EXIT_NOTINSTALLED || status == EXIT_NOTCONFIGURED);
+}
+
+int parse_show_status(const char *v, ShowStatus *ret) {
+        int r;
+
+        assert(v);
+        assert(ret);
+
+        if (streq(v, "auto")) {
+                *ret = SHOW_STATUS_AUTO;
+                return 0;
+        }
+        r = parse_boolean(v);
+        if (r < 0)
+                return r;
+        *ret = r ? SHOW_STATUS_YES : SHOW_STATUS_NO;
+        return 0;
 }

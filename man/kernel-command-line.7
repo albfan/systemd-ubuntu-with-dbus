@@ -1,5 +1,5 @@
 '\" t
-.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 208" "kernel-command-line"
+.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 209" "kernel-command-line"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,6 +43,14 @@ Parameters understood by the system and service manager to control system behavi
 \fBsystemd\fR(1)\&.
 .RE
 .PP
+\fIsystemd\&.restore_state=\fR
+.RS 4
+This parameter is understood by several system tools to control whether or not they should restore system state from the previous boot\&. For details, see
+\fBsystemd-backlight@.service\fR(8)
+and
+\fBsystemd-rfkill@.service\fR(8)\&.
+.RE
+.PP
 \fIquiet\fR
 .RS 4
 Parameter understood by both the kernel and the system and service manager to control console log verbosity\&. For details, see
@@ -55,7 +63,7 @@ Parameter understood by both the kernel and the system and service manager to co
 \fBsystemd\fR(1)\&.
 .RE
 .PP
-\fIemergency\fR, \fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR, \fI2\fR, \fI3\fR, \fI4\fR, \fI5\fR
+\fI\-b\fR, \fIemergency\fR, \fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR, \fI2\fR, \fI3\fR, \fI4\fR, \fI5\fR
 .RS 4
 Parameters understood by the system and service manager, as compatibility options\&. For details, see
 \fBsystemd\fR(1)\&.
@@ -135,7 +143,7 @@ Load a specific kernel module early at boot\&. For details, see
 \fBplymouth\fR(8),
 \fBsystemd-cryptsetup-generator\fR(8),
 \fBsystemd-fstab-generator\fR(8),
-\fBsystemd-modules-load.service\fR(8)
+\fBsystemd-modules-load.service\fR(8)\fBsystemd-backlight@.service\fR(8)\fBsystemd-rfkill@.service\fR(8)
 .SH "NOTES"
 .IP " 1." 4
 kernel-parameters.txt

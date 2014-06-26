@@ -54,13 +54,6 @@ typedef enum MountExecCommand {
         _MOUNT_EXEC_COMMAND_INVALID = -1
 } MountExecCommand;
 
-typedef struct MountParameters {
-        char *what;
-        char *options;
-        char *fstype;
-        int passno;
-} MountParameters;
-
 typedef enum MountResult {
         MOUNT_SUCCESS,
         MOUNT_FAILURE_RESOURCES,
@@ -71,6 +64,12 @@ typedef enum MountResult {
         _MOUNT_RESULT_MAX,
         _MOUNT_RESULT_INVALID = -1
 } MountResult;
+
+typedef struct MountParameters {
+        char *what;
+        char *options;
+        char *fstype;
+} MountParameters;
 
 struct Mount {
         Unit meta;
@@ -102,13 +101,15 @@ struct Mount {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
+        ExecRuntime *exec_runtime;
+
         MountState state, deserialized_state;
 
         ExecCommand* control_command;
         MountExecCommand control_command_id;
         pid_t control_pid;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 };
 
 extern const UnitVTable mount_vtable;

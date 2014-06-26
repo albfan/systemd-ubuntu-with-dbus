@@ -30,6 +30,7 @@
 #include <sys/syscall.h>
 #include <limits.h>
 #include <linux/fs.h>
+#include <sys/file.h>
 
 #include "strv.h"
 #include "util.h"
@@ -37,6 +38,10 @@
 #include "namespace.h"
 #include "missing.h"
 #include "execute.h"
+#include "loopback-setup.h"
+#include "mkdir.h"
+#include "dev-setup.h"
+#include "def.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */
@@ -44,6 +49,7 @@ typedef enum MountMode {
         READONLY,
         PRIVATE_TMP,
         PRIVATE_VAR_TMP,
+        PRIVATE_DEV,
         READWRITE
 } MountMode;
 
@@ -56,6 +62,8 @@ typedef struct BindMount {
 
 static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         char **i;
+
+        assert(p);
 
         STRV_FOREACH(i, strv) {
 
@@ -125,6 +133,77 @@ static void drop_duplicates(BindMount *m, unsigned *n) {
         *n = t - m;
 }
 
+static int mount_dev(BindMount *m) {
+        static const char devnodes[] =
+                "/dev/null\0"
+                "/dev/zero\0"
+                "/dev/full\0"
+                "/dev/random\0"
+                "/dev/urandom\0"
+                "/dev/tty\0";
+
+        struct stat devnodes_stat[6] = {};
+        const char *d;
+        unsigned n = 0;
+        _cleanup_umask_ mode_t u;
+        int r;
+
+        assert(m);
+
+        u = umask(0000);
+
+        /* First: record device mode_t and dev_t */
+        NULSTR_FOREACH(d, devnodes) {
+                r = stat(d, &devnodes_stat[n]);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                } else {
+                        if (!S_ISBLK(devnodes_stat[n].st_mode) &&
+                            !S_ISCHR(devnodes_stat[n].st_mode))
+                                return -EINVAL;
+                }
+
+                n++;
+        }
+
+        assert(n == ELEMENTSOF(devnodes_stat));
+
+        r = mount("tmpfs", "/dev", "tmpfs", MS_NOSUID|MS_STRICTATIME, "mode=755");
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+
+        mkdir_p("/dev/pts", 0755);
+
+        r = mount("devpts", "/dev/pts", "devpts", MS_NOSUID|MS_NOEXEC, "newinstance,ptmxmode=0666,mode=620,gid=" STRINGIFY(TTY_GID));
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+        mkdir_p("/dev/shm", 0755);
+
+        r = mount("tmpfs", "/dev/shm", "tmpfs", MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=1777");
+        if (r < 0)
+                return m->ignore ? 0 : -errno;
+
+        /* Second: actually create it */
+        n = 0;
+        NULSTR_FOREACH(d, devnodes) {
+                if (devnodes_stat[n].st_rdev == 0)
+                        continue;
+
+                r = mknod(d, devnodes_stat[n].st_mode, devnodes_stat[n].st_rdev);
+                if (r < 0)
+                        return m->ignore ? 0 : -errno;
+
+                n++;
+        }
+
+        dev_setup(NULL);
+
+        return 0;
+}
+
 static int apply_mount(
                 BindMount *m,
                 const char *tmp_dir,
@@ -136,6 +215,9 @@ static int apply_mount(
         assert(m);
 
         switch (m->mode) {
+
+        case PRIVATE_DEV:
+                return mount_dev(m);
 
         case INACCESSIBLE:
                 what = "/run/systemd/inaccessible";
@@ -184,73 +266,68 @@ static int make_read_only(BindMount *m) {
         return 0;
 }
 
-int setup_tmpdirs(char **tmp_dir,
-                  char **var_tmp_dir) {
-        int r = 0;
-        char tmp_dir_template[] = "/tmp/systemd-private-XXXXXX",
-             var_tmp_dir_template[] = "/var/tmp/systemd-private-XXXXXX";
+int setup_namespace(
+                char** read_write_dirs,
+                char** read_only_dirs,
+                char** inaccessible_dirs,
+                char* tmp_dir,
+                char* var_tmp_dir,
+                bool private_dev,
+                unsigned mount_flags) {
 
-        assert(tmp_dir);
-        assert(var_tmp_dir);
-
-        r = create_tmp_dir(tmp_dir_template, tmp_dir);
-        if (r < 0)
-                return r;
-
-        r = create_tmp_dir(var_tmp_dir_template, var_tmp_dir);
-        if (r == 0)
-                return 0;
-
-        /* failure */
-        rmdir(*tmp_dir);
-        rmdir(tmp_dir_template);
-        free(*tmp_dir);
-        *tmp_dir = NULL;
-
-        return r;
-}
-
-int setup_namespace(char** read_write_dirs,
-                    char** read_only_dirs,
-                    char** inaccessible_dirs,
-                    char* tmp_dir,
-                    char* var_tmp_dir,
-                    bool private_tmp,
-                    unsigned mount_flags) {
-
-        unsigned n = strv_length(read_write_dirs) +
-                     strv_length(read_only_dirs) +
-                     strv_length(inaccessible_dirs) +
-                     (private_tmp ? 2 : 0);
-        BindMount *m, *mounts;
+        BindMount *m, *mounts = NULL;
+        unsigned n;
         int r = 0;
 
-        if (!mount_flags)
+        if (mount_flags == 0)
                 mount_flags = MS_SHARED;
 
         if (unshare(CLONE_NEWNS) < 0)
                 return -errno;
 
-        m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
-        if ((r = append_mounts(&m, read_write_dirs, READWRITE)) < 0 ||
-                (r = append_mounts(&m, read_only_dirs, READONLY)) < 0 ||
-                (r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE)) < 0)
-                return r;
+        n = !!tmp_dir + !!var_tmp_dir +
+                strv_length(read_write_dirs) +
+                strv_length(read_only_dirs) +
+                strv_length(inaccessible_dirs) +
+                private_dev;
 
-        if (private_tmp) {
-                m->path = "/tmp";
-                m->mode = PRIVATE_TMP;
-                m++;
+        if (n > 0) {
+                m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
+                r = append_mounts(&m, read_write_dirs, READWRITE);
+                if (r < 0)
+                        return r;
 
-                m->path = "/var/tmp";
-                m->mode = PRIVATE_VAR_TMP;
-                m++;
+                r = append_mounts(&m, read_only_dirs, READONLY);
+                if (r < 0)
+                        return r;
+
+                r = append_mounts(&m, inaccessible_dirs, INACCESSIBLE);
+                if (r < 0)
+                        return r;
+
+                if (tmp_dir) {
+                        m->path = "/tmp";
+                        m->mode = PRIVATE_TMP;
+                        m++;
+                }
+
+                if (var_tmp_dir) {
+                        m->path = "/var/tmp";
+                        m->mode = PRIVATE_VAR_TMP;
+                        m++;
+                }
+
+                if (private_dev) {
+                        m->path = "/dev";
+                        m->mode = PRIVATE_DEV;
+                        m++;
+                }
+
+                assert(mounts + n == m);
+
+                qsort(mounts, n, sizeof(BindMount), mount_path_compare);
+                drop_duplicates(mounts, &n);
         }
-
-        assert(mounts + n == m);
-
-        qsort(mounts, n, sizeof(BindMount), mount_path_compare);
-        drop_duplicates(mounts, &n);
 
         /* Remount / as SLAVE so that nothing now mounted in the namespace
            shows up in the parent */
@@ -260,28 +337,183 @@ int setup_namespace(char** read_write_dirs,
         for (m = mounts; m < mounts + n; ++m) {
                 r = apply_mount(m, tmp_dir, var_tmp_dir);
                 if (r < 0)
-                        goto undo_mounts;
+                        goto fail;
         }
 
         for (m = mounts; m < mounts + n; ++m) {
                 r = make_read_only(m);
                 if (r < 0)
-                        goto undo_mounts;
+                        goto fail;
         }
 
         /* Remount / as the desired mode */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
                 r = -errno;
-                goto undo_mounts;
+                goto fail;
         }
 
         return 0;
 
-undo_mounts:
-        for (m = mounts; m < mounts + n; ++m) {
+fail:
+        for (m = mounts; m < mounts + n; ++m)
                 if (m->done)
                         umount2(m->path, MNT_DETACH);
+
+        return r;
+}
+
+static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
+        _cleanup_free_ char *x = NULL;
+        char bid[SD_ID128_STRING_MAX];
+        sd_id128_t boot_id;
+        int r;
+
+        assert(id);
+        assert(prefix);
+        assert(path);
+
+        /* We include the boot id in the directory so that after a
+         * reboot we can easily identify obsolete directories. */
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return r;
+
+        x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX", NULL);
+        if (!x)
+                return -ENOMEM;
+
+        RUN_WITH_UMASK(0077)
+                if (!mkdtemp(x))
+                        return -errno;
+
+        RUN_WITH_UMASK(0000) {
+                char *y;
+
+                y = strappenda(x, "/tmp");
+
+                if (mkdir(y, 0777 | S_ISVTX) < 0)
+                        return -errno;
         }
+
+        *path = x;
+        x = NULL;
+
+        return 0;
+}
+
+int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
+        char *a, *b;
+        int r;
+
+        assert(id);
+        assert(tmp_dir);
+        assert(var_tmp_dir);
+
+        r = setup_one_tmp_dir(id, "/tmp", &a);
+        if (r < 0)
+                return r;
+
+        r = setup_one_tmp_dir(id, "/var/tmp", &b);
+        if (r < 0) {
+                char *t;
+
+                t = strappenda(a, "/tmp");
+                rmdir(t);
+                rmdir(a);
+
+                free(a);
+                return r;
+        }
+
+        *tmp_dir = a;
+        *var_tmp_dir = b;
+
+        return 0;
+}
+
+int setup_netns(int netns_storage_socket[2]) {
+        _cleanup_close_ int netns = -1;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        int r;
+
+        assert(netns_storage_socket);
+        assert(netns_storage_socket[0] >= 0);
+        assert(netns_storage_socket[1] >= 0);
+
+        /* We use the passed socketpair as a storage buffer for our
+         * namespace reference fd. Whatever process runs this first
+         * shall create a new namespace, all others should just join
+         * it. To serialize that we use a file lock on the socket
+         * pair.
+         *
+         * It's a bit crazy, but hey, works great! */
+
+        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+                return -errno;
+
+        if (recvmsg(netns_storage_socket[0], &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC) < 0) {
+                if (errno != EAGAIN) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                /* Nothing stored yet, so let's create a new namespace */
+
+                if (unshare(CLONE_NEWNET) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                loopback_setup();
+
+                netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (netns < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                r = 1;
+        } else {
+                /* Yay, found something, so let's join the namespace */
+
+                for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg)) {
+                        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                                assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+                                netns = *(int*) CMSG_DATA(cmsg);
+                        }
+                }
+
+                if (setns(netns, CLONE_NEWNET) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                r = 0;
+        }
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &netns, sizeof(int));
+        mh.msg_controllen = cmsg->cmsg_len;
+
+        if (sendmsg(netns_storage_socket[1], &mh, MSG_DONTWAIT|MSG_NOSIGNAL) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+fail:
+        lockf(netns_storage_socket[0], F_ULOCK, 0);
 
         return r;
 }

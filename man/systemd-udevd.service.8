@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 208" "systemd-udevd.service"
+.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 209" "systemd-udevd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,7 +47,7 @@ Detach and run in the background\&.
 .PP
 \fB\-\-debug\fR
 .RS 4
-Print debug messages to stderr\&.
+Print debug messages to standard error\&.
 .RE
 .PP
 \fB\-\-children\-max=\fR
@@ -57,28 +57,28 @@ Limit the number of events executed in parallel\&.
 .PP
 \fB\-\-exec\-delay=\fR
 .RS 4
-Delay the execution of RUN instruction by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
+Delay the execution of
+\fIRUN\fR
+instructions by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
 .RE
 .PP
 \fB\-\-resolve\-names=\fR
 .RS 4
 Specify when systemd\-udevd should resolve names of users and groups\&. When set to
 \fBearly\fR
-(the default) names will be resolved when the rules are parsed\&. When set to
-\fBlate\fR
-names will be resolved for every event\&. When set to
-\fBnever\fR
-names will never be resolved and all devices will be owned by root\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Print version number\&.
+(the default), names will be resolved when the rules are parsed\&. When set to
+\fBlate\fR, names will be resolved for every event\&. When set to
+\fBnever\fR, names will never be resolved and all devices will be owned by root\&.
 .RE
 .PP
 \fB\-\-help\fR
 .RS 4
-Print help text\&.
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "ENVIRONMENT"
 .PP
@@ -104,12 +104,14 @@ Limit the number of events executed in parallel\&.
 .PP
 \fIudev\&.exec\-delay=\fR, \fIrd\&.udev\&.exec\-delay=\fR
 .RS 4
-Delay the execution of RUN instruction by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
+Delay the execution of
+\fIRUN\fR
+instructions by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
 .RE
 .PP
 \fInet\&.ifnames=\fR
 .RS 4
-Network interfaces are renamed to give them predictable names when possible\&. It is enabled by default, specifying 0 disables it\&.
+Network interfaces are renamed to give them predictable names when possible\&. It is enabled by default; specifying 0 disables it\&.
 .RE
 .SH "CONFIGURATION FILE"
 .PP

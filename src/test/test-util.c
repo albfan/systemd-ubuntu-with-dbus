@@ -28,6 +28,8 @@
 
 #include "util.h"
 #include "strv.h"
+#include "def.h"
+#include "fileio.h"
 
 static void test_streq_ptr(void) {
         assert_se(streq_ptr(NULL, NULL));
@@ -54,9 +56,9 @@ static void test_close_many(void) {
         char name1[] = "/tmp/test-close-many.XXXXXX";
         char name2[] = "/tmp/test-close-many.XXXXXX";
 
-        fds[0] = mkstemp(name0);
-        fds[1] = mkstemp(name1);
-        fds[2] = mkstemp(name2);
+        fds[0] = mkostemp_safe(name0, O_RDWR|O_CLOEXEC);
+        fds[1] = mkostemp_safe(name1, O_RDWR|O_CLOEXEC);
+        fds[2] = mkostemp_safe(name2, O_RDWR|O_CLOEXEC);
 
         close_many(fds, 2);
 
@@ -351,29 +353,6 @@ static void test_memdup_multiply(void) {
         free(dup);
 }
 
-static void test_bus_path_escape_one(const char *a, const char *b) {
-        _cleanup_free_ char *t = NULL, *x = NULL, *y = NULL;
-
-        assert_se(t = bus_path_escape(a));
-        assert_se(streq(t, b));
-
-        assert_se(x = bus_path_unescape(t));
-        assert_se(streq(a, x));
-
-        assert_se(y = bus_path_unescape(b));
-        assert_se(streq(a, y));
-}
-
-static void test_bus_path_escape(void) {
-        test_bus_path_escape_one("foo123bar", "foo123bar");
-        test_bus_path_escape_one("foo.bar", "foo_2ebar");
-        test_bus_path_escape_one("foo_2ebar", "foo_5f2ebar");
-        test_bus_path_escape_one("", "_");
-        test_bus_path_escape_one("_", "_5f");
-        test_bus_path_escape_one("1", "_31");
-        test_bus_path_escape_one(":1", "_3a1");
-}
-
 static void test_hostname_is_valid(void) {
         assert(hostname_is_valid("foobar"));
         assert(hostname_is_valid("foobar.com"));
@@ -456,42 +435,42 @@ static void test_protect_errno(void) {
         assert(errno == 12);
 }
 
-static void test_parse_bytes(void) {
+static void test_parse_size(void) {
         off_t bytes;
 
-        assert_se(parse_bytes("111", &bytes) == 0);
+        assert_se(parse_size("111", 1024, &bytes) == 0);
         assert_se(bytes == 111);
 
-        assert_se(parse_bytes(" 112 B", &bytes) == 0);
+        assert_se(parse_size(" 112 B", 1024, &bytes) == 0);
         assert_se(bytes == 112);
 
-        assert_se(parse_bytes("3 K", &bytes) == 0);
+        assert_se(parse_size("3 K", 1024, &bytes) == 0);
         assert_se(bytes == 3*1024);
 
-        assert_se(parse_bytes(" 4 M 11K", &bytes) == 0);
+        assert_se(parse_size(" 4 M 11K", 1024, &bytes) == 0);
         assert_se(bytes == 4*1024*1024 + 11 * 1024);
 
-        assert_se(parse_bytes("3B3G", &bytes) == 0);
+        assert_se(parse_size("3B3G", 1024, &bytes) == 0);
         assert_se(bytes == 3ULL*1024*1024*1024 + 3);
 
-        assert_se(parse_bytes("3B3G4T", &bytes) == 0);
+        assert_se(parse_size("3B3G4T", 1024, &bytes) == 0);
         assert_se(bytes == (4ULL*1024 + 3)*1024*1024*1024 + 3);
 
-        assert_se(parse_bytes("12P", &bytes) == 0);
+        assert_se(parse_size("12P", 1024, &bytes) == 0);
         assert_se(bytes == 12ULL * 1024*1024*1024*1024*1024);
 
-        assert_se(parse_bytes("3E 2P", &bytes) == 0);
+        assert_se(parse_size("3E 2P", 1024, &bytes) == 0);
         assert_se(bytes == (3 * 1024 + 2ULL) * 1024*1024*1024*1024*1024);
 
-        assert_se(parse_bytes("12X", &bytes) == -EINVAL);
+        assert_se(parse_size("12X", 1024, &bytes) == -EINVAL);
 
-        assert_se(parse_bytes("1024E", &bytes) == -ERANGE);
-        assert_se(parse_bytes("-1", &bytes) == -ERANGE);
-        assert_se(parse_bytes("-1024E", &bytes) == -ERANGE);
+        assert_se(parse_size("1024E", 1024, &bytes) == -ERANGE);
+        assert_se(parse_size("-1", 1024, &bytes) == -ERANGE);
+        assert_se(parse_size("-1024E", 1024, &bytes) == -ERANGE);
 
-        assert_se(parse_bytes("-1024P", &bytes) == -ERANGE);
+        assert_se(parse_size("-1024P", 1024, &bytes) == -ERANGE);
 
-        assert_se(parse_bytes("-10B 20K", &bytes) == -ERANGE);
+        assert_se(parse_size("-10B 20K", 1024, &bytes) == -ERANGE);
 }
 
 static void test_strextend(void) {
@@ -509,21 +488,6 @@ static void test_strrep(void) {
         assert_se(streq(one, "waldo"));
         assert_se(streq(three, "waldowaldowaldo"));
         assert_se(streq(zero, ""));
-}
-
-static void test_parse_user_at_host(void) {
-        _cleanup_free_ char *both = strdup("waldo@waldoscomputer");
-        _cleanup_free_ char *onlyhost = strdup("mikescomputer");
-        char *user = NULL, *host = NULL;
-
-        parse_user_at_host(both, &user, &host);
-        assert_se(streq(user, "waldo"));
-        assert_se(streq(host, "waldoscomputer"));
-
-        user = host = NULL;
-        parse_user_at_host(onlyhost, &user, &host);
-        assert_se(user == NULL);
-        assert_se(streq(host, "mikescomputer"));
 }
 
 static void test_split_pair(void) {
@@ -587,8 +551,41 @@ static void test_get_files_in_directory(void) {
         _cleanup_strv_free_ char **l = NULL, **t = NULL;
 
         assert_se(get_files_in_directory("/tmp", &l) >= 0);
-        assert_se(get_files_in_directory(".", &l) >= 0);
+        assert_se(get_files_in_directory(".", &t) >= 0);
         assert_se(get_files_in_directory(".", NULL) >= 0);
+}
+
+static void test_in_set(void) {
+        assert_se(IN_SET(1, 1));
+        assert_se(IN_SET(1, 1, 2, 3, 4));
+        assert_se(IN_SET(2, 1, 2, 3, 4));
+        assert_se(IN_SET(3, 1, 2, 3, 4));
+        assert_se(IN_SET(4, 1, 2, 3, 4));
+        assert_se(!IN_SET(0, 1));
+        assert_se(!IN_SET(0, 1, 2, 3, 4));
+}
+
+static void test_writing_tmpfile(void) {
+        char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
+        _cleanup_free_ char *contents = NULL;
+        size_t size;
+        int fd, r;
+        struct iovec iov[3];
+
+        IOVEC_SET_STRING(iov[0], "abc\n");
+        IOVEC_SET_STRING(iov[1], ALPHANUMERICAL "\n");
+        IOVEC_SET_STRING(iov[2], "");
+
+        fd = mkostemp_safe(name, O_RDWR|O_CLOEXEC);
+        printf("tmpfile: %s", name);
+
+        r = writev(fd, iov, 3);
+        assert(r >= 0);
+
+        r = read_full_file(name, &contents, &size);
+        assert(r == 0);
+        printf("contents: %s", contents);
+        assert(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
 }
 
 int main(int argc, char *argv[]) {
@@ -616,18 +613,18 @@ int main(int argc, char *argv[]) {
         test_foreach_word_quoted();
         test_default_term_for_tty();
         test_memdup_multiply();
-        test_bus_path_escape();
         test_hostname_is_valid();
         test_u64log2();
         test_get_process_comm();
         test_protect_errno();
-        test_parse_bytes();
+        test_parse_size();
         test_strextend();
         test_strrep();
-        test_parse_user_at_host();
         test_split_pair();
         test_fstab_node_to_udev_node();
         test_get_files_in_directory();
+        test_in_set();
+        test_writing_tmpfile();
 
         return 0;
 }
