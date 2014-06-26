@@ -1,9 +1,72 @@
-systemd (204-10ubuntu10) UNRELEASED; urgency=medium
+systemd (204-12ubuntu1) UNRELEASED; urgency=medium
 
+  * Merge with Debian unstable. See 204-10ubuntu1 for remaining Ubuntu
+    changes.
   * udev.postinst: Don't restart udev in a chroot or during debootstrap.
     (LP: #1329684)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 25 Jun 2014 10:49:23 +0200
+
+systemd (204-12) unstable; urgency=medium
+
+  [ Martin Pitt ]
+  * Change the sg loading rule (for Debian #657948) back to using modprobe.
+    kmod is too fast and then sg races with sd, causing the latter to not see
+    SCSI disks.  (Closes: #752591, #752605)
+
+  [ Michael Biebl ]
+  * Update udev bug-script to attach instead of paste extra info if a new
+    enough reportbug version is available.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 25 Jun 2014 10:55:12 +0200
+
+systemd (204-11) unstable; urgency=medium
+
+  [ Martin Pitt ]
+  * Explain patch management in debian/README.source. (Closes: #739113)
+  * Replace "Always probe cpu support drivers" patch with cherry-picked
+    upstream fix which is more general.
+  * Advertise hibernation only if there's enough free swap. Patches backported
+    from current upstream. (LP: #1313522)
+  * Fix typo in sg loading rule to make it actually work.
+
+  [ Michael Biebl ]
+  * Make no-patch-numbers the default for gbp-pq.
+  * Cherry-pick upstream fix to properly handle multiline syslog messages.
+    (Closes: #746351)
+  * Cherry-pick upstream fix for libudev which fixes a memleak in
+    parent_add_child().
+  * Drop "-b debian" from Vcs-Git since we use the master branch for
+    packaging now.
+  * Drop Conflicts: sysvinit (<< 2.88dsf-44~) from systemd-sysv since this
+    breaks dist-upgrades from wheezy when switching from sysvinit to
+    systemd-sysv as default init. While downgrading the Pre-Depends in
+    sysvinit would have been an alternative, dropping the Conflicts and only
+    keeping the Replaces was deemed the lesser evil. (Closes: #748355)
+  * Use Conflicts instead of Breaks against sysvinit-core. This avoids
+    /sbin/init going missing when switching from systemd-sysv to sysvinit.
+    While at it, add a Replaces: upstart. (Closes: #751589)
+  * Make the SysV compat tools try both /run/initctl and /dev/initctl. This
+    makes them usable under sysvinit as PID 1 without requiring any symlinks.
+  * Various ifupdown integration fixes
+    - Use DefaultDependencies=no in ifup@.service so the service can be
+      started as early as possible.
+    - Create the ifupdown runtime directory in ifup@.service as we can no
+      longer rely on the networking service to do that for us.
+    - Don't stop ifup@.service on shutdown but let the networking service take
+      care of stopping all hotplugged interfaces.
+    - Only start ifup@.service for interfaces configured as allow-hotplug.
+
+  [ Michael Stapelberg ]
+  * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
+    (Closes: #747741)
+
+  [ Ansgar Burchardt ]
+  * Don't use "set +e; set +u" unconditionally in the lsb init-functions hook
+    as this might change the behaviour of existing SysV init scripts.
+    (Closes: #751472)
+
+ -- Michael Biebl <biebl@debian.org>  Tue, 24 Jun 2014 17:03:43 +0200
 
 systemd (204-10ubuntu9) utopic; urgency=medium
 
@@ -52,25 +115,6 @@ systemd (204-10ubuntu4) utopic; urgency=medium
   * Pull latest keymaps from upstream.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 25 May 2014 12:24:21 +0200
-
-systemd (204-11) UNRELEASED; urgency=medium
-
-  [ Martin Pitt ]
-  * Explain patch management in debian/README.source. (Closes: #739113)
-  * Replace "Always probe cpu support drivers" patch with cherry-picked
-    upstream fix which is more general.
-  * Advertise hibernation only if there's enough free swap. Patches backported
-    from current upstream. (LP: #1313522)
-  * Fix typo in sg loading rule to make it actually work.
-
-  [ Michael Biebl ]
-  * Make no-patch-numbers the default for gbp-pq.
-
-  [ Michael Stapelberg ]
-  * Clarify that “systemd” does not influence init whereas “systemd-sysv” does
-    (Closes: #747741)
-
- -- Martin Pitt <mpitt@debian.org>  Sun, 27 Apr 2014 12:51:55 +0200
 
 systemd (204-10ubuntu3) utopic; urgency=medium
 

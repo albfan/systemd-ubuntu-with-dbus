@@ -10,10 +10,8 @@ Bug-Ubuntu: https://launchpad.net/bugs/1313522
  src/shared/fileio.c       |  34 +++++++++++++
  src/shared/fileio.h       |   2 +
  src/shared/sleep-config.c | 126 +++++++++++++++++++++++++++++++++++++++-------
- src/shared/util.c         |   1 -
  src/test/test-fileio.c    |  24 +++++++++
- src/test/test-sleep.c     |  16 +++---
- 6 files changed, 175 insertions(+), 28 deletions(-)
+ 4 files changed, 167 insertions(+), 19 deletions(-)
 
 diff --git a/src/shared/fileio.c b/src/shared/fileio.c
 index ad068bf..9af284d 100644

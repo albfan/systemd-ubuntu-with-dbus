@@ -1,9 +1,13 @@
 [Unit]
 Description=ifup for %I
 After=local-fs.target
-BindTo=sys-subsystem-net-devices-%i.device
+Before=network.target
+BindsTo=sys-subsystem-net-devices-%i.device
+DefaultDependencies=no
 
 [Service]
+ExecStartPre=-/bin/mkdir -p /run/network
+ExecStartPre=-/bin/chown root:netdev /run/network
 ExecStart=/sbin/ifup --allow=hotplug %I
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true

@@ -5,19 +5,22 @@ Subject: Load sg module from 80-drivers.rules
 Taken from the Debian specific rules, this is the remaining difference over the
 upstream 80-drivers.rules.
 
+Note: DON'T use the kmod builtin here! It's too fast and then races with sd,
+causing the latter to not see SCSI disks. (https://bugs.debian.org/752591)
+
 Bug-Debian: http://bugs.debian.org/657948
 ---
  rules/80-drivers.rules | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
-index 50523e4..01760ef 100644
+index 50523e4..9222fb9 100644
 --- a/rules/80-drivers.rules
 +++ b/rules/80-drivers.rules
 @@ -9,5 +9,6 @@ SUBSYSTEM=="memstick", RUN{builtin}="kmod load ms_block mspro_block"
  SUBSYSTEM=="i2o", RUN{builtin}="kmod load i2o_block"
  SUBSYSTEM=="module", KERNEL=="parport_pc", RUN{builtin}="kmod load ppdev"
  KERNEL=="mtd*ro", ENV{MTD_FTL}=="smartmedia", RUN{builtin}="kmod load sm_ftl"
-+SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN{builtin}="kmod load sg"
++SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -b sg"
  
  LABEL="drivers_end"

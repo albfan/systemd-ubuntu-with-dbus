@@ -5,7 +5,7 @@ Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian systemd Maintainers <pkg-systemd-maintainers@lists.alioth.debian.org>
 Uploaders: Tollef Fog Heen <tfheen@debian.org>, Michael Biebl <biebl@debian.org>, Marco d'Itri <md@linux.it>, Michael Stapelberg <stapelberg@debian.org>
 Standards-Version: 3.9.5
-Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git -b debian
+Vcs-Git: git://anonscm.debian.org/pkg-systemd/systemd.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-systemd/systemd.git;a=summary
 X-Python-Version: >= 2.7
 XS-Testsuite: autopkgtest
@@ -80,12 +80,11 @@ Package: systemd-sysv
 Architecture: linux-any
 Section: admin
 Priority: extra
-Conflicts: sysvinit (<< 2.88dsf-44~),
-           upstart,
-           runit-run
+Conflicts: sysvinit-core,
+           upstart
 Replaces: sysvinit (<< 2.88dsf-44~),
-          sysvinit-core
-Breaks: sysvinit-core
+          sysvinit-core,
+          upstart
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version})

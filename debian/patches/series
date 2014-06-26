@@ -55,6 +55,11 @@ Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 rules-drivers-always-call-kmod-even-when-a-driver-is.patch
 Advertise-hibernation-only-if-there-s-enough-free-sw.patch
+journal-handle-multiline-syslog-messages.patch
+libudev-fix-memleak-when-enumerating-childs.patch
+Add-run-initctl-support-to-SysV-compat-tools.patch
+
+# Ubuntu patches:
 Add-cgmanager-support-to-logind.patch
 Add-env-variable-for-machine-ID-path.patch
 Disable-tests-which-fail-on-buildds.patch
