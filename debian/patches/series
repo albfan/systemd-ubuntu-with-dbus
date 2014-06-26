@@ -39,7 +39,6 @@ logind-if-a-user-is-sitting-in-front-of-the-computer.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
-Always-probe-cpu-support-drivers.patch
 Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 login-Don-t-stop-a-running-user-manager-from-garbage.patch
