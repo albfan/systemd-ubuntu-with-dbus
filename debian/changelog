@@ -1,11 +1,11 @@
-systemd (204-12ubuntu1) UNRELEASED; urgency=medium
+systemd (204-12ubuntu1) utopic; urgency=medium
 
   * Merge with Debian unstable. See 204-10ubuntu1 for remaining Ubuntu
     changes.
   * udev.postinst: Don't restart udev in a chroot or during debootstrap.
     (LP: #1329684)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 25 Jun 2014 10:49:23 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 26 Jun 2014 11:21:23 +0200
 
 systemd (204-12) unstable; urgency=medium
 
