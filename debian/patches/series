@@ -61,6 +61,7 @@ sysv-generator-fix-incorect-ordering-of-Wants.patch
 core-transaction-fix-cycle-break-attempts-outside-tr.patch
 units-conditionalize-static-device-node-logic-on-CAP.patch
 build-sys-don-t-move-libgudev-to-lib.patch
+shared-include-stdbool.h-in-mkdir.h.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

@@ -7,6 +7,11 @@ systemd (214-1) UNRELEASED; urgency=medium
     - Rebase remaining Debian patches on top of v214-stable.
     - Drop modifications to the now-removed built-in sysvinit support.
 
+  [ Sjoerd Simons ]
+  * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
+    + Added. Include stdbool before using bool in function prototypes. Fixes
+      build of the insserv generator
+
  -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
 
 systemd (208-6) unstable; urgency=medium
