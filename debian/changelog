@@ -1,6 +1,9 @@
 systemd (208-4) UNRELEASED; urgency=medium
 
   * Merge changes from unstable branch.
+  * Drop alternative dependency on systemd-shim in libpam-systemd. The
+    systemd-shim package no longer provides an environment to run
+    systemd-logind standalone. See #752939 for further details.
 
  -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 00:41:25 +0200
 

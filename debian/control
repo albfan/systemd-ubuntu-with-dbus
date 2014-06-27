@@ -107,7 +107,7 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version}),
          libpam-runtime (>= 1.0.1-6),
-         systemd-sysv | systemd-shim
+         systemd-sysv
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
