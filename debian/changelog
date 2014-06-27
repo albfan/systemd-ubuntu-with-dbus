@@ -1,3 +1,13 @@
+systemd (204-13) UNRELEASED; urgency=medium
+
+  * Switch back to load the sg module via the kmod builtin. The problem was
+    not that the kmod builtin is faster then modprobe but rather the incorrect
+    usage of the "=" assignment operator. We need to use "+=" here, so the sg
+    module is loaded in addition to other scsi modules, which are loaded via
+    the modalias rule. Thanks to Tommaso Colombo for the analysis.
+
+ -- Michael Biebl <biebl@debian.org>  Fri, 27 Jun 2014 22:37:23 +0200
+
 systemd (204-12) unstable; urgency=medium
 
   [ Martin Pitt ]
