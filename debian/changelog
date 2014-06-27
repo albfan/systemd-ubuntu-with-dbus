@@ -5,6 +5,8 @@ systemd (204-13) UNRELEASED; urgency=medium
     usage of the "=" assignment operator. We need to use "+=" here, so the sg
     module is loaded in addition to other scsi modules, which are loaded via
     the modalias rule. Thanks to Tommaso Colombo for the analysis.
+  * Cherry-pick upstream fix which prevents systemd from entering an infinite
+    loop when trying to break an ordering cycle. (Closes: #752259)
 
  -- Michael Biebl <biebl@debian.org>  Fri, 27 Jun 2014 22:37:23 +0200
 
