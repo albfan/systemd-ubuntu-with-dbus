@@ -49,11 +49,6 @@ can_start_udevd() {
     return 1
   fi
 
-  if [ ! -e /sys/kernel/uevent_helper ]; then
-    echo "udev requires hotplug support, not started."
-    return 1
-  fi
-
   if ! ps --no-headers --format args ax | egrep -q '^\['; then
     echo "udev does not support containers, not started."
     return 1

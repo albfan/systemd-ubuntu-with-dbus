@@ -9,6 +9,11 @@ systemd (204-13) UNRELEASED; urgency=medium
     loop when trying to break an ordering cycle. (Closes: #752259)
   * Update insserv generator to not create any drop-in files for services
     where the corresponding SysV init script does not exist.
+  * Drop the check for /sys/kernel/uevent_helper from postinst and the SysV
+    init script and do not unconditionally overwrite it in the initramfs hook.
+    Since a long time now udev has been using the netlink interface to
+    communicate with the kernel and with Linux 3.16 it is possible to disable
+    CONFIG_UEVENT_HELPER completely. (Closes: #752742)
 
  -- Michael Biebl <biebl@debian.org>  Fri, 27 Jun 2014 22:37:23 +0200
 
