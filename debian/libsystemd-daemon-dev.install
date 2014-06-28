@@ -20,4 +20,5 @@ usr/share/man/man3/sd_is_fifo.3
 usr/share/man/man3/sd_is_socket.3
 usr/share/man/man3/sd_is_socket_inet.3
 usr/share/man/man3/sd_is_socket_unix.3
+usr/share/man/man3/sd_is_special.3
 usr/share/man/man3/sd_is_mq.3

@@ -29,4 +29,6 @@ usr/share/man/man3/sd_uid_get_sessions.3
 usr/share/man/man3/sd_uid_get_seats.3
 usr/share/man/man3/sd_seat_get_active.3
 usr/share/man/man3/sd_seat_get_sessions.3
+usr/share/man/man3/sd_seat_can_graphical.3
 usr/share/man/man3/sd_seat_can_multi_session.3
+usr/share/man/man3/sd_seat_can_tty.3
