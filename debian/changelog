@@ -1,9 +1,30 @@
-systemd (208-3) UNRELEASED; urgency=medium
+systemd (208-6) UNRELEASED; urgency=medium
 
   * Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
 
- -- Jon Severinsson <jon@severinsson.net>  Wed, 25 Jun 2014 18:00:00 +0200
+ -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
+
+systemd (208-5) experimental; urgency=medium
+
+  * Merge changes from unstable branch.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 13:41:32 +0200
+
+systemd (208-4) experimental; urgency=medium
+
+  * Merge changes from unstable branch.
+  * Drop alternative dependency on systemd-shim in libpam-systemd. The
+    systemd-shim package no longer provides an environment to run
+    systemd-logind standalone. See #752939 for further details.
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 01:22:11 +0200
+
+systemd (208-3) experimental; urgency=medium
+
+  * Merge changes from unstable branch.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 25 Jun 2014 11:29:07 +0200
 
 systemd (208-2) experimental; urgency=medium
 
@@ -52,6 +73,46 @@ systemd (208-1) experimental; urgency=medium
   * Explain patch management in debian/README.source.
 
  -- Michael Biebl <biebl@debian.org>  Mon, 28 Apr 2014 00:22:57 +0200
+
+systemd (204-14) unstable; urgency=medium
+
+  * Fix SIGABRT in insserv generator caused by incorrect usage of strcat().
+    (Closes: #752992)
+  * Mark -dev packages as Multi-Arch: same. (Closes: #720017)
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 13:22:43 +0200
+
+systemd (204-13) unstable; urgency=medium
+
+  * Switch back to load the sg module via the kmod builtin. The problem was
+    not that the kmod builtin is faster then modprobe but rather the incorrect
+    usage of the "=" assignment operator. We need to use "+=" here, so the sg
+    module is loaded in addition to other scsi modules, which are loaded via
+    the modalias rule. Thanks to Tommaso Colombo for the analysis.
+  * Cherry-pick upstream fix which prevents systemd from entering an infinite
+    loop when trying to break an ordering cycle. (Closes: #752259)
+  * Update insserv generator to not create any drop-in files for services
+    where the corresponding SysV init script does not exist.
+  * Drop the check for /sys/kernel/uevent_helper from postinst and the SysV
+    init script and do not unconditionally overwrite it in the initramfs hook.
+    Since a long time now udev has been using the netlink interface to
+    communicate with the kernel and with Linux 3.16 it is possible to disable
+    CONFIG_UEVENT_HELPER completely. (Closes: #752742)
+
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 00:01:16 +0200
+
+systemd (204-12) unstable; urgency=medium
+
+  [ Martin Pitt ]
+  * Change the sg loading rule (for Debian #657948) back to using modprobe.
+    kmod is too fast and then sg races with sd, causing the latter to not see
+    SCSI disks.  (Closes: #752591, #752605)
+
+  [ Michael Biebl ]
+  * Update udev bug-script to attach instead of paste extra info if a new
+    enough reportbug version is available.
+
+ -- Michael Biebl <biebl@debian.org>  Wed, 25 Jun 2014 10:55:12 +0200
 
 systemd (204-11) unstable; urgency=medium
 
