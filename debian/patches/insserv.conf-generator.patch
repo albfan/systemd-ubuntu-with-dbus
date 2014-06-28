@@ -17,8 +17,8 @@ It has the following modifications:
 ---
  Makefile.am                               |   9 +
  src/insserv-generator/Makefile            |  28 +++
- src/insserv-generator/insserv-generator.c | 321 ++++++++++++++++++++++++++++++
- 3 files changed, 358 insertions(+)
+ src/insserv-generator/insserv-generator.c | 324 ++++++++++++++++++++++++++++++
+ 3 files changed, 361 insertions(+)
  create mode 100644 src/insserv-generator/Makefile
  create mode 100644 src/insserv-generator/insserv-generator.c
 
@@ -85,10 +85,10 @@ index 0000000..9d07505
 +.PHONY: all clean
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
 new file mode 100644
-index 0000000..904e8cb
+index 0000000..d86ee29
 --- /dev/null
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -0,0 +1,321 @@
+@@ -0,0 +1,324 @@
 +/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 +
 +/***
@@ -288,8 +288,11 @@ index 0000000..904e8cb
 +                                         * corresponding SysV init script does not exist */
 +                                        initscript = strjoin("/etc/init.d/", name, NULL);
 +                                        if (access(initscript, F_OK) < 0) {
-+                                                strcat(initscript, ".sh");
-+                                                if (access(initscript, F_OK) < 0) {
++                                                _cleanup_free_ char *initscript_sh = NULL;
++
++                                                /* Try *.sh source'able init scripts */
++                                                initscript_sh = strjoin(initscript, ".sh", NULL);
++                                                if (access(initscript_sh, F_OK) < 0) {
 +                                                        continue;
 +                                                }
 +                                        }
