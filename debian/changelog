@@ -3,6 +3,7 @@ systemd (208-6) UNRELEASED; urgency=medium
   * Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
     - Move new manpages to libsystemd-*-dev as appropriate.
+  * Remove pre-generated rules and unit files in debian/rules clean target.
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 
