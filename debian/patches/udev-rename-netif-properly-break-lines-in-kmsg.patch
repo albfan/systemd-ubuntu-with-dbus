@@ -1,0 +1,33 @@
+From: Tom Gundersen <teg@jklm.no>
+Date: Tue, 13 May 2014 12:23:14 +0200
+Subject: udev: rename netif - properly break lines in kmsg
+
+Before:
+
+30,997,4553484,-;systemd-udevd[439]: renamed network interface wwan0 to wwp0s20u4i6systemd-udevd[439]: renamed network interface wlan0 to wlp3s0
+30,998,1175077801,c;systemd-udevd[2345]: renamed network interface wwan0 to wwp0s20u4i6
+
+After:
+
+30,834,4553484,-;systemd-udevd[439]: renamed network interface wwan0 to wwp0s20u4i6
+30,835,4732949,-;systemd-udevd[439]: renamed network interface wlan0 to wlp3s0
+30,988,1175077801,-;systemd-udevd[2345]: renamed network interface wwan0 to wwp0s20u4i6
+
+(cherry picked from commit 1514d70819246df8d1cd1388216ef91d8276fd52)
+---
+ src/udev/udev-event.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/udev-event.c b/src/udev/udev-event.c
+index 5998be2f..2cab42bb 100644
+--- a/src/udev/udev-event.c
++++ b/src/udev/udev-event.c
+@@ -771,7 +771,7 @@ static int rename_netif(struct udev_event *event)
+                 log_error("error changing net interface name %s to %s: %s",
+                           oldname, name, strerror(-r));
+         else
+-                print_kmsg("renamed network interface %s to %s", oldname, name);
++                print_kmsg("renamed network interface %s to %s\n", oldname, name);
+ 
+         return r;
+ }

@@ -1,0 +1,32 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 24 Apr 2014 08:11:39 +0200
+Subject: errno: make sure to handle the 3 errnos that are aliases for others
+ properly
+
+(cherry picked from commit 0d522a7a0547982eae9ab1b5971e4bed9c2fbc7c)
+---
+ Makefile.am | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index e8f2687c..69cea75c 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1072,7 +1072,7 @@ BUILT_SOURCES += \
+ 
+ src/shared/errno-list.txt:
+ 	$(AM_V_at)$(MKDIR_P) $(dir $@)
+-	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+[0-9]/ { print $$2; }'  > $@
++	$(AM_V_GEN)$(CPP) $(CFLAGS) $(AM_CPPFLAGS) $(CPPFLAGS) -dM -include errno.h - < /dev/null | $(AWK) '/^#define[ \t]+E[^ _]+[ \t]+/ { print $$2; }'  > $@
+ 
+ src/shared/errno-from-name.gperf: src/shared/errno-list.txt
+ 	$(AM_V_at)$(MKDIR_P) $(dir $@)
+@@ -1084,7 +1084,7 @@ src/shared/errno-from-name.h: src/shared/errno-from-name.gperf
+ 
+ src/shared/errno-to-name.h: src/shared/errno-list.txt
+ 	$(AM_V_at)$(MKDIR_P) $(dir $@)
+-	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
++	$(AM_V_GEN)$(AWK) 'BEGIN{ print "static const char* const errno_names[] = { "} !/EDEADLOCK/ && !/EWOULDBLOCK/ && !/ENOTSUP/ { printf "[%s] = \"%s\",\n", $$1, $$1 } END{print "};"}' < $< > $@
+ 
+ # ------------------------------------------------------------------------------
+ systemd_SOURCES = \

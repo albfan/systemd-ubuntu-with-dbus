@@ -1,0 +1,21 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 10 Mar 2014 21:19:23 -0400
+Subject: journald: remove stray reset of error return value
+
+(cherry picked from commit 2fc74bf4336eb7a7e40c0b355d19966cd97d4b3c)
+---
+ src/journal/journald.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/journal/journald.c b/src/journal/journald.c
+index 37896d05..c8c0801f 100644
+--- a/src/journal/journald.c
++++ b/src/journal/journald.c
+@@ -110,7 +110,6 @@ int main(int argc, char *argv[]) {
+                 r = sd_event_run(server.event, t);
+                 if (r < 0) {
+                         log_error("Failed to run event loop: %s", strerror(-r));
+-                        r = -errno;
+                         goto finish;
+                 }
+ 

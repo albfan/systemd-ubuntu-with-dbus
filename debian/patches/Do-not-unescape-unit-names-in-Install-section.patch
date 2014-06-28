@@ -4,16 +4,15 @@ Subject: Do not unescape unit names in [Install] section
 
 https://bugs.freedesktop.org/show_bug.cgi?id=49316
 (cherry picked from commit 000f6e5667eb4f73e137cbd0d7395a9f9db7728a)
-(cherry picked from commit 6a5aa37d144cf0d2be355324e78ff320556628a5)
 ---
  src/shared/conf-parser.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/shared/conf-parser.c b/src/shared/conf-parser.c
-index e206b5b5..348a5407 100644
+index 65535aa9..92c1497d 100644
 --- a/src/shared/conf-parser.c
 +++ b/src/shared/conf-parser.c
-@@ -669,7 +669,7 @@ int config_parse_strv(const char *unit,
+@@ -719,7 +719,7 @@ int config_parse_strv(const char *unit,
          FOREACH_WORD_QUOTED(w, l, rvalue, state) {
                  _cleanup_free_ char *n;
  

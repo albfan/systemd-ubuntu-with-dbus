@@ -6,7 +6,6 @@ In "export" format, newlines are significant, and messages containing
 newlines must be exported as "binary".
 
 (cherry picked from commit 0ade5ffe2778e7b238bba8d979ca4d53dee1e702)
-(cherry picked from commit 0fa79586f73bddf872b8e3bb5af4c9926cb84d41)
 ---
  src/shared/logs-show.c | 7 ++++---
  src/shared/utf8.c      | 5 +++--
@@ -14,10 +13,10 @@ newlines must be exported as "binary".
  3 files changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/src/shared/logs-show.c b/src/shared/logs-show.c
-index 91eefb32..00e6d11b 100644
+index 12d4a1ca..f9fa978e 100644
 --- a/src/shared/logs-show.c
 +++ b/src/shared/logs-show.c
-@@ -544,7 +544,9 @@ static int output_export(
+@@ -547,7 +547,9 @@ static int output_export(
                      startswith(data, "_BOOT_ID="))
                          continue;
  
@@ -28,7 +27,7 @@ index 91eefb32..00e6d11b 100644
                          const char *c;
                          uint64_t le64;
  
-@@ -559,8 +561,7 @@ static int output_export(
+@@ -562,8 +564,7 @@ static int output_export(
                          le64 = htole64(length - (c - (const char*) data) - 1);
                          fwrite(&le64, sizeof(le64), 1, f);
                          fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
@@ -39,10 +38,10 @@ index 91eefb32..00e6d11b 100644
                  fputc('\n', f);
          }
 diff --git a/src/shared/utf8.c b/src/shared/utf8.c
-index 2b70d45e..15605e60 100644
+index 0b524d8a..c559c136 100644
 --- a/src/shared/utf8.c
 +++ b/src/shared/utf8.c
-@@ -136,7 +136,7 @@ static int utf8_encoded_to_unichar(const char *str) {
+@@ -136,7 +136,7 @@ int utf8_encoded_to_unichar(const char *str) {
          return unichar;
  }
  
@@ -62,7 +61,7 @@ index 2b70d45e..15605e60 100644
  
                  length -= encoded_len;
 diff --git a/src/shared/utf8.h b/src/shared/utf8.h
-index f93dfb86..b14709ae 100644
+index c0eb73a2..c0879959 100644
 --- a/src/shared/utf8.h
 +++ b/src/shared/utf8.h
 @@ -31,7 +31,10 @@ const char *utf8_is_valid(const char *s) _pure_;
@@ -75,5 +74,5 @@ index f93dfb86..b14709ae 100644
 +        return utf8_is_printable_newline(str, length, true);
 +}
  
- char *ascii_filter(const char *s);
+ char *utf16_to_utf8(const void *s, size_t length);
  

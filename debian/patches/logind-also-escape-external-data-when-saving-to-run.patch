@@ -5,19 +5,15 @@ Subject: logind: also escape external data when saving to /run
 Better be safe than sorry...
 
 (cherry picked from commit 558c6490b1df7f82a63d0a747fda7412c4d28b0c)
-(cherry picked from commit 1be1ff309f703b077bf87020d520469d33546e03)
-
-Conflicts:
-	src/login/logind-session.c
 ---
- src/login/logind-session.c | 40 +++++++++++++++++++++++++++++++++-------
- 1 file changed, 33 insertions(+), 7 deletions(-)
+ src/login/logind-session.c | 54 ++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 45 insertions(+), 9 deletions(-)
 
 diff --git a/src/login/logind-session.c b/src/login/logind-session.c
-index 13de549d..9c87e432 100644
+index 97b77283..4873497a 100644
 --- a/src/login/logind-session.c
 +++ b/src/login/logind-session.c
-@@ -202,7 +202,6 @@ int session_save(Session *s) {
+@@ -213,7 +213,6 @@ int session_save(Session *s) {
  
          if (s->scope)
                  fprintf(f, "SCOPE=%s\n", s->scope);
@@ -25,7 +21,7 @@ index 13de549d..9c87e432 100644
          if (s->scope_job)
                  fprintf(f, "SCOPE_JOB=%s\n", s->scope_job);
  
-@@ -218,14 +217,41 @@ int session_save(Session *s) {
+@@ -229,17 +228,54 @@ int session_save(Session *s) {
          if (s->display)
                  fprintf(f, "DISPLAY=%s\n", s->display);
  
@@ -39,9 +35,7 @@ index 13de549d..9c87e432 100644
 +                        r = -ENOMEM;
 +                        goto finish;
 +                }
- 
--        if (s->remote_user)
--                fprintf(f, "REMOTE_USER=%s\n", s->remote_user);
++
 +                fprintf(f, "REMOTE_HOST=%s\n", escaped);
 +        }
 +
@@ -53,15 +47,15 @@ index 13de549d..9c87e432 100644
 +                        r = -ENOMEM;
 +                        goto finish;
 +                }
- 
--        if (s->service)
--                fprintf(f, "SERVICE=%s\n", s->service);
++
 +                fprintf(f, "REMOTE_USER=%s\n", escaped);
 +        }
 +
 +        if (s->service) {
 +                _cleanup_free_ char *escaped;
-+
+ 
+-        if (s->remote_user)
+-                fprintf(f, "REMOTE_USER=%s\n", s->remote_user);
 +                escaped = cescape(s->service);
 +                if (!escaped) {
 +                        r = -ENOMEM;
@@ -71,5 +65,22 @@ index 13de549d..9c87e432 100644
 +                fprintf(f, "SERVICE=%s\n", escaped);
 +        }
  
+-        if (s->service)
+-                fprintf(f, "SERVICE=%s\n", s->service);
++        if (s->desktop) {
++                _cleanup_free_ char *escaped;
+ 
+-        if (s->desktop)
+-                fprintf(f, "DESKTOP=%s\n", s->desktop);
++
++                escaped = cescape(s->desktop);
++                if (!escaped) {
++                        r = -ENOMEM;
++                        goto finish;
++                }
++
++                fprintf(f, "DESKTOP=%s\n", escaped);
++        }
+ 
          if (s->seat && seat_has_vts(s->seat))
-                 fprintf(f, "VTNR=%i\n", s->vtnr);
+                 fprintf(f, "VTNR=%u\n", s->vtnr);

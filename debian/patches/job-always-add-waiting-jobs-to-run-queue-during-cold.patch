@@ -1,0 +1,40 @@
+From: Michael Marineau <michael.marineau@coreos.com>
+Date: Mon, 12 May 2014 09:26:16 +0200
+Subject: job: always add waiting jobs to run queue during coldplug
+
+commit 20a83d7bf was not equivalent to the original bug fix proposed by
+Michal Sekletar <msekleta@redhat.com>. The committed version only added
+the job to the run queue if the job had a timeout, which most jobs do
+not have. Just re-ordering the code gets us the intended functionality
+
+(cherry picked from commit 1727a595225132eb73ec134b6979d9c713b42e8c)
+
+Conflicts:
+	src/core/job.c
+---
+ src/core/job.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/core/job.c b/src/core/job.c
+index 6f99c9bf..c219dc0c 100644
+--- a/src/core/job.c
++++ b/src/core/job.c
+@@ -1051,15 +1051,15 @@ int job_coldplug(Job *j) {
+ 
+         assert(j);
+ 
++        if (j->state == JOB_WAITING)
++                job_add_to_run_queue(j);
++
+         if (j->begin_usec == 0 || j->unit->job_timeout == 0)
+                 return 0;
+ 
+         if (j->timer_event_source)
+                 j->timer_event_source = sd_event_source_unref(j->timer_event_source);
+ 
+-        if (j->state == JOB_WAITING)
+-                job_add_to_run_queue(j);
+-
+         r = sd_event_add_monotonic(j->manager->event, &j->timer_event_source, j->begin_usec + j->unit->job_timeout, 0, job_dispatch_timer, j);
+         if (r < 0)
+                 log_debug("Failed to restart timeout for job: %s", strerror(-r));

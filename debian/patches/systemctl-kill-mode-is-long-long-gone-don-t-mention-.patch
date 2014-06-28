@@ -4,17 +4,16 @@ Subject: systemctl: --kill-mode is long long gone,
  don't mention it in the man page
 
 (cherry picked from commit 0088d63151e088d62104d88f866e9eb049091c22)
-(cherry picked from commit 12a170a49538c7e28daa18a23800067e6a5e1f93)
 ---
  man/systemctl.xml               | 5 ++---
  shell-completion/bash/systemctl | 5 +----
  2 files changed, 3 insertions(+), 7 deletions(-)
 
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index 171a9bfa..816586c3 100644
+index 1fb77ae8..e7ae3093 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
-@@ -671,9 +671,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+@@ -652,9 +652,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
            <listitem>
              <para>Send a signal to one or more processes of the
              unit. Use <option>--kill-who=</option> to select which
@@ -27,7 +26,7 @@ index 171a9bfa..816586c3 100644
          </varlistentry>
          <varlistentry>
 diff --git a/shell-completion/bash/systemctl b/shell-completion/bash/systemctl
-index a5f10b4f..857552d5 100644
+index dc7ef668..0dfc868b 100644
 --- a/shell-completion/bash/systemctl
 +++ b/shell-completion/bash/systemctl
 @@ -74,7 +74,7 @@ _systemctl () {

@@ -3,7 +3,6 @@ Date: Wed, 18 Jun 2014 03:37:32 +0200
 Subject: rules: add loop-control and btrfs-control to "disk" group
 
 (cherry picked from commit 27e7c26268bd4c16edb92f2b8a8626b00c6f2dad)
-(cherry picked from commit cc1e6e5c1432bdeef730bfdfb09cc61d750b748d)
 ---
  rules/50-udev-default.rules | 2 ++
  1 file changed, 2 insertions(+)

@@ -1,0 +1,56 @@
+From: Djalal Harouni <tixxdz@opendz.org>
+Date: Wed, 19 Feb 2014 23:17:45 +0100
+Subject: logind: add a debug message in case the session already exists
+
+If the session already exists then the only way to log it is to set the
+debug option of pam_systemd. There are no debug messages in the login
+service that permits to log if the session already exists.
+
+So just add it, and while we are it add the "uid" field to the debug
+message that indicates that the session was created.
+
+(cherry picked from commit 236af516b866473c22f980b556a2d7535cef4d9b)
+---
+ src/login/logind-dbus.c         | 11 +++++++++++
+ src/login/logind-session-dbus.c |  4 +++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index 18d4a568..4bd04e05 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -594,6 +594,17 @@ static int method_create_session(sd_bus *bus, sd_bus_message *message, void *use
+                 if (!path)
+                         return -ENOMEM;
+ 
++                log_debug("Sending reply about an existing session: "
++                          "id=%s object_path=%s uid=%u runtime_path=%s "
++                          "session_fd=%d seat=%s vtnr=%u",
++                          session->id,
++                          path,
++                          (uint32_t) session->user->uid,
++                          session->user->runtime_path,
++                          fifo_fd,
++                          session->seat ? session->seat->id : "",
++                          (uint32_t) session->vtnr);
++
+                 return sd_bus_reply_method_return(
+                                 message, "soshusub",
+                                 session->id,
+diff --git a/src/login/logind-session-dbus.c b/src/login/logind-session-dbus.c
+index f9305ddb..d5d7c247 100644
+--- a/src/login/logind-session-dbus.c
++++ b/src/login/logind-session-dbus.c
+@@ -677,9 +677,11 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
+                 return -ENOMEM;
+ 
+         log_debug("Sending reply about created session: "
+-                  "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u",
++                  "id=%s object_path=%s uid=%u runtime_path=%s "
++                  "session_fd=%d seat=%s vtnr=%u",
+                   s->id,
+                   p,
++                  (uint32_t) s->user->uid,
+                   s->user->runtime_path,
+                   fifo_fd,
+                   s->seat ? s->seat->id : "",

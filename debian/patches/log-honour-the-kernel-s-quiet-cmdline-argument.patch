@@ -1,0 +1,27 @@
+From: Ronny Chevalier <chevalier.ronny@gmail.com>
+Date: Tue, 3 Jun 2014 19:44:03 +0200
+Subject: log: honour the kernel's quiet cmdline argument
+
+It was forgotten in b1e90ec515408aec2702522f6f68c4920b56375b
+
+See https://bugs.freedesktop.org/show_bug.cgi?id=79582
+
+(cherry picked from commit e683212f049ac5d3f95fb17300cfa2fd971f78f3)
+---
+ src/shared/log.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/shared/log.c b/src/shared/log.c
+index f4d7a0e3..b10990b7 100644
+--- a/src/shared/log.c
++++ b/src/shared/log.c
+@@ -878,6 +878,9 @@ void log_parse_environment(void) {
+                         if (l == 5 && startswith(w, "debug")) {
+                                 log_set_max_level(LOG_DEBUG);
+                                 break;
++                        } else if (l == 5 && startswith(w, "quiet")) {
++                                log_set_max_level(LOG_WARNING);
++                                break;
+                         }
+                 }
+         }

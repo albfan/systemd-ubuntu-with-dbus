@@ -20,16 +20,15 @@ See: <https://bugzilla.gnome.org/show_bug.cgi?id=728965>
 Cc: Pavel Šimerda <psimerda@redhat.com>
 Cc: Michal Sekletar <msekleta@redhat.com>
 (cherry picked from commit 0404c609f399b2092a3de52eef9d75b0dc12e94c)
-(cherry picked from commit 81d4159e6eadb34c25a5643ad95730da2f6f2d69)
 ---
  src/core/service.c | 8 ++++++--
  1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/src/core/service.c b/src/core/service.c
-index c8dbbeff..3bda9a37 100644
+index c55bf2d6..60798816 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -359,7 +359,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -386,7 +386,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
          static const char * const table[] = {
                  /* LSB defined facilities */
                  "local_fs",             NULL,
@@ -38,7 +37,7 @@ index c8dbbeff..3bda9a37 100644
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
                  "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
-@@ -828,7 +828,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
+@@ -855,7 +855,11 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                          if (r == 0)
                                                  continue;
  

@@ -1,35 +1,70 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Date: Tue, 10 Dec 2013 03:17:39 -0800
+Date: Fri, 16 May 2014 15:57:35 -0700
 Subject: hwdb: Update database of Bluetooth company identifiers
 
-(cherry picked from commit 0234c599218518b1eb478d64d9883ba46e4ce5d8)
+(cherry picked from commit 24e29480bd800d3acdb3087e5863440bd0dd1d80)
 ---
- hwdb/20-bluetooth-vendor-product.hwdb | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+ hwdb/20-bluetooth-vendor-product.hwdb | 53 ++++++++++++++++++++++++++++++++++-
+ 1 file changed, 52 insertions(+), 1 deletion(-)
 
 diff --git a/hwdb/20-bluetooth-vendor-product.hwdb b/hwdb/20-bluetooth-vendor-product.hwdb
-index dcc25bb4..6f8301f2 100644
+index 28aa2a71..a65c7db3 100644
 --- a/hwdb/20-bluetooth-vendor-product.hwdb
 +++ b/hwdb/20-bluetooth-vendor-product.hwdb
-@@ -821,3 +821,21 @@ bluetooth:v010F*
+@@ -961,4 +961,55 @@ bluetooth:v013D*
+  ID_VENDOR_FROM_DATABASE=WirelessWERX
  
- bluetooth:v0110*
-  ID_VENDOR_FROM_DATABASE=Nippon Seiki Co., Ltd.
+ bluetooth:v013E*
+- ID_VENDOR_FROM_DATABASE=nimai
++ ID_VENDOR_FROM_DATABASE=Nod, Inc.
 +
-+bluetooth:v0111*
-+ ID_VENDOR_FROM_DATABASE=Steelseries ApS
++bluetooth:v013F*
++ ID_VENDOR_FROM_DATABASE=B&B Manufacturing Company
 +
-+bluetooth:v0112*
-+ ID_VENDOR_FROM_DATABASE=vyzybl Inc.
++bluetooth:v0140*
++ ID_VENDOR_FROM_DATABASE=Alpine Electronics (China) Co., Ltd
 +
-+bluetooth:v0113*
-+ ID_VENDOR_FROM_DATABASE=Openbrain Technologies, Co., Ltd.
++bluetooth:v0141*
++ ID_VENDOR_FROM_DATABASE=FedEx Services
 +
-+bluetooth:v0114*
-+ ID_VENDOR_FROM_DATABASE=Xensr
++bluetooth:v0142*
++ ID_VENDOR_FROM_DATABASE=Grape Systems Inc.
 +
-+bluetooth:v0115*
-+ ID_VENDOR_FROM_DATABASE=e.solutions
++bluetooth:v0143*
++ ID_VENDOR_FROM_DATABASE=Bkon Connect
 +
-+bluetooth:v0116*
-+ ID_VENDOR_FROM_DATABASE=1OAK Technologies
++bluetooth:v0144*
++ ID_VENDOR_FROM_DATABASE=Lintech GmbH
++
++bluetooth:v0145*
++ ID_VENDOR_FROM_DATABASE=Novatel Wireless
++
++bluetooth:v0146*
++ ID_VENDOR_FROM_DATABASE=Ciright
++
++bluetooth:v0147*
++ ID_VENDOR_FROM_DATABASE=Mighty Cast, Inc.
++
++bluetooth:v0148*
++ ID_VENDOR_FROM_DATABASE=Ambimat Electronics
++
++bluetooth:v0149*
++ ID_VENDOR_FROM_DATABASE=Perytons Ltd.
++
++bluetooth:v014A*
++ ID_VENDOR_FROM_DATABASE=Tivoli Audio, LLC
++
++bluetooth:v014B*
++ ID_VENDOR_FROM_DATABASE=Master Lock
++
++bluetooth:v014C*
++ ID_VENDOR_FROM_DATABASE=Mesh-Net Ltd
++
++bluetooth:v014D*
++ ID_VENDOR_FROM_DATABASE=HUIZHOU DESAY SV AUTOMOTIVE CO., LTD.
++
++bluetooth:v014E*
++ ID_VENDOR_FROM_DATABASE=Tangerine, Inc.
++
++bluetooth:v014F*
++ ID_VENDOR_FROM_DATABASE=B&W Group Ltd.

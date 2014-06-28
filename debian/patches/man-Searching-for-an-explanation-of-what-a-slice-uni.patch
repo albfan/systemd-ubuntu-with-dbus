@@ -4,7 +4,6 @@ Subject: man: Searching for an explanation of what a "slice unit" was,
  found this, felt compelled to send in fixes for the obvious typos
 
 (cherry picked from commit 299a55075d1bf478b9190191caefd5c1b934340d)
-(cherry picked from commit e3d71d5dc2872bef8dbd20b29be5f6ba444a171f)
 ---
  man/systemd.slice.xml | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)

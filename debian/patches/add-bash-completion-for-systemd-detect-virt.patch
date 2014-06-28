@@ -10,10 +10,10 @@ Subject: add bash completion for systemd-detect-virt
  create mode 100644 shell-completion/bash/systemd-detect-virt
 
 diff --git a/Makefile.am b/Makefile.am
-index 64d44ce5..dafc428b 100644
+index bc5e719a..834ed6f7 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -345,6 +345,7 @@ dist_bashcompletion_DATA = \
+@@ -355,6 +355,7 @@ dist_bashcompletion_DATA = \
  	shell-completion/bash/systemd-cgls \
  	shell-completion/bash/systemd-cgtop \
  	shell-completion/bash/systemd-delta \

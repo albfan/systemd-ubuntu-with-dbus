@@ -1,0 +1,77 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Mon, 17 Mar 2014 21:59:43 +0100
+Subject: systemd-run: extend bash completion
+
+--system
+-H --host
+-M --machine
+--service-type (options: simple forking oneshot dbus notify idle)
+--uid
+--gid
+--nice
+--setenv
+-p --property (options read from bus_append_unit_property_assignment)
+
+(cherry picked from commit 761a7c71b649b5e926c28c703a11fbdc22dd6df1)
+
+[zj: remove -p/--property]
+---
+ shell-completion/bash/systemd-run | 29 +++++++++++++++++++++++++++--
+ 1 file changed, 27 insertions(+), 2 deletions(-)
+
+diff --git a/shell-completion/bash/systemd-run b/shell-completion/bash/systemd-run
+index ab552742..d1e790a8 100644
+--- a/shell-completion/bash/systemd-run
++++ b/shell-completion/bash/systemd-run
+@@ -25,9 +25,16 @@ __systemctl() {
+ __get_slice_units () { __systemctl $1 list-units --all -t slice \
+         | { while read -r a b c d; do echo " $a"; done; }; }
+ 
++__get_machines() {
++        local a b
++        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
++}
++
+ _systemd_run() {
+     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+-    local OPTS='-h --help --version --user --scope --unit --description --slice -r --remain-after-exit --send-sighup'
++    local OPTS='-h --help --version --user --system --scope --unit --description --slice
++                -r --remain-after-exit --send-sighup -H --host -M --machine --service-type
++                --uid --gid --nice --setenv'
+ 
+     local mode=--system
+     local i
+@@ -40,7 +47,7 @@ _systemd_run() {
+ 
+         [[ ${COMP_WORDS[i]} == "--user" ]] && mode=--user
+ 
+-        [[ $i -lt $COMP_CWORD && ${COMP_WORDS[i]} == @(--unit|--description|--slice) ]] && ((i++))
++        [[ $i -lt $COMP_CWORD && ${COMP_WORDS[i]} == @(--unit|--description|--slice|--service-type|-H|--host|-M|--machine) ]] && ((i++))
+     done
+ 
+     case "$prev" in
+@@ -54,6 +61,24 @@ _systemd_run() {
+             COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+             return 0
+             ;;
++        --service-type)
++            local comps='simple forking oneshot dbus notify idle'
++
++            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
++            return 0
++            ;;
++        -H|--host)
++            local comps=$(compgen -A hostname)
++
++            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
++            return 0
++            ;;
++        -M|--machine)
++            local comps=$( __get_machines )
++
++            COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
++            return 0
++            ;;
+     esac
+ 
+     COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )

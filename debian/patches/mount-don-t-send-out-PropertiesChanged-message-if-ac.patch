@@ -4,38 +4,32 @@ Subject: mount: don't send out PropertiesChanged message if actually nothing
  got changed
 
 (cherry picked from commit ff5f34d08c191c326c41a083745522383ac86cae)
-
-Conflicts:
-	src/core/mount.c
 ---
- src/core/mount.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ src/core/mount.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index c0445a61..0a0ef82f 100644
+index a0cea1e7..75b133bc 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
-@@ -1412,9 +1412,10 @@ static int mount_add_one(
-                 const char *fstype,
-                 int passno,
-                 bool set_flags) {
-+
-         int r;
-         Unit *u;
+@@ -1388,7 +1388,7 @@ static int mount_add_one(
+         _cleanup_free_ char *e = NULL, *w = NULL, *o = NULL, *f = NULL;
+         bool load_extras = false;
+         MountParameters *p;
 -        bool delete;
 +        bool delete, changed = false;
-         char *e, *w = NULL, *o = NULL, *f = NULL;
-         MountParameters *p;
-         bool load_extras = false;
-@@ -1483,6 +1484,7 @@ static int mount_add_one(
+         Unit *u;
+         int r;
+ 
+@@ -1456,6 +1456,7 @@ static int mount_add_one(
                  }
  
                  unit_add_to_load_queue(u);
 +                changed = true;
          } else {
                  delete = false;
-                 free(e);
-@@ -1502,6 +1504,7 @@ static int mount_add_one(
+ 
+@@ -1474,6 +1475,7 @@ static int mount_add_one(
                          /* Load in the extras later on, after we
                           * finished initialization of the unit */
                          load_extras = true;
@@ -43,7 +37,7 @@ index c0445a61..0a0ef82f 100644
                  }
          }
  
-@@ -1513,10 +1516,16 @@ static int mount_add_one(
+@@ -1485,10 +1487,16 @@ static int mount_add_one(
          }
  
          p = &MOUNT(u)->parameters_proc_self_mountinfo;
@@ -61,7 +55,7 @@ index c0445a61..0a0ef82f 100644
          }
  
          MOUNT(u)->from_proc_self_mountinfo = true;
-@@ -1538,7 +1547,8 @@ static int mount_add_one(
+@@ -1511,7 +1519,8 @@ static int mount_add_one(
                          goto fail;
          }
  

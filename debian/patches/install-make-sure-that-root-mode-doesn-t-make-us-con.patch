@@ -4,7 +4,6 @@ Subject: install: make sure that --root= mode doesn't make us consider all
  units outside of search path
 
 (cherry picked from commit 8f294b45cbb627d31342f6a79444be59ce7e2274)
-(cherry picked from commit 9139b554df671481a7e03e928d661420bffb8774)
 ---
  src/shared/install.c | 41 +++++++++++++++++++++++++++++++++++++----
  src/shared/util.c    | 16 ----------------
@@ -12,11 +11,11 @@ Subject: install: make sure that --root= mode doesn't make us consider all
  3 files changed, 37 insertions(+), 21 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index e772c450..5d93a2ea 100644
+index defcf46a..625725af 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
 @@ -47,6 +47,37 @@ typedef struct {
- #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+ 
  #define _cleanup_install_context_done_ _cleanup_(install_context_done)
  
 +static int in_search_path(const char *path, char **search, const char *root_dir) {
@@ -53,7 +52,7 @@ index e772c450..5d93a2ea 100644
  static int lookup_paths_init_from_scope(LookupPaths *paths,
                                          UnitFileScope scope,
                                          const char *root_dir) {
-@@ -759,7 +790,7 @@ int unit_file_link(
+@@ -757,7 +788,7 @@ int unit_file_link(
                          continue;
                  }
  
@@ -106,10 +105,10 @@ index e772c450..5d93a2ea 100644
                          r = q;
          }
 diff --git a/src/shared/util.c b/src/shared/util.c
-index 1f83eb75..f0341349 100644
+index 64680561..fa57e249 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -4520,22 +4520,6 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
+@@ -4461,22 +4461,6 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
          return 0;
  }
  
@@ -133,10 +132,10 @@ index 1f83eb75..f0341349 100644
          _cleanup_closedir_ DIR *d = NULL;
          size_t bufsize = 0, n = 0;
 diff --git a/src/shared/util.h b/src/shared/util.h
-index 3f976633..f358362a 100644
+index d573e4b0..696bf4cb 100644
 --- a/src/shared/util.h
 +++ b/src/shared/util.h
-@@ -477,7 +477,6 @@ int glob_extend(char ***strv, const char *path);
+@@ -518,7 +518,6 @@ int glob_extend(char ***strv, const char *path);
  
  int dirent_ensure_type(DIR *d, struct dirent *de);
  

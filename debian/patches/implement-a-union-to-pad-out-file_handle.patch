@@ -14,18 +14,35 @@ assignment of MAX_HANDLE_SZ to be correct.
 
 Conflicts:
 	src/shared/util.h
-
-(cherry picked from commit 91795825a093331ef136be1d630c5fcad299dfe8)
-
-Conflicts:
-	src/libudev/libudev-monitor.c
-	src/shared/util.h
 ---
+ src/libudev/libudev-monitor.c    |  6 ++----
  src/readahead/readahead-common.c |  6 ++----
  src/shared/util.h                |  6 ++++++
  src/tmpfiles/tmpfiles.c          | 11 ++++-------
- 3 files changed, 12 insertions(+), 11 deletions(-)
+ 4 files changed, 14 insertions(+), 15 deletions(-)
 
+diff --git a/src/libudev/libudev-monitor.c b/src/libudev/libudev-monitor.c
+index ba1b04d4..85b1e408 100644
+--- a/src/libudev/libudev-monitor.c
++++ b/src/libudev/libudev-monitor.c
+@@ -108,15 +108,13 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
+ 
+ /* we consider udev running when /dev is on devtmpfs */
+ static bool udev_has_devtmpfs(struct udev *udev) {
+-        struct file_handle *h;
++        union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
+         int mount_id;
+         _cleanup_fclose_ FILE *f = NULL;
+         char line[LINE_MAX], *e;
+         int r;
+ 
+-        h = alloca(MAX_HANDLE_SZ);
+-        h->handle_bytes = MAX_HANDLE_SZ;
+-        r = name_to_handle_at(AT_FDCWD, "/dev", h, &mount_id, 0);
++        r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
+         if (r < 0)
+                 return false;
+ 
 diff --git a/src/readahead/readahead-common.c b/src/readahead/readahead-common.c
 index aea1fbee..1edf9cc3 100644
 --- a/src/readahead/readahead-common.c
@@ -51,7 +68,7 @@ index aea1fbee..1edf9cc3 100644
                          return false;
  
 diff --git a/src/shared/util.h b/src/shared/util.h
-index 47a3dc91..a1738856 100644
+index aeb359b3..98a74855 100644
 --- a/src/shared/util.h
 +++ b/src/shared/util.h
 @@ -22,6 +22,7 @@
@@ -62,20 +79,20 @@ index 47a3dc91..a1738856 100644
  #include <inttypes.h>
  #include <time.h>
  #include <sys/time.h>
-@@ -776,3 +777,8 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size,
-                 qsort(base, nmemb, size, compar);
-         }
- }
+@@ -883,3 +884,8 @@ int fd_warn_permissions(const char *path, int fd);
+ 
+ unsigned long personality_from_string(const char *p);
+ const char *personality_to_string(unsigned long);
 +
 +union file_handle_union {
 +  struct file_handle handle;
 +  char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
 +};
 diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
-index fb88acd7..98d01a13 100644
+index 6e36dc79..8211ff4f 100644
 --- a/src/tmpfiles/tmpfiles.c
 +++ b/src/tmpfiles/tmpfiles.c
-@@ -215,19 +215,16 @@ static bool unix_socket_alive(const char *fn) {
+@@ -216,19 +216,16 @@ static bool unix_socket_alive(const char *fn) {
  }
  
  static int dir_is_mount_point(DIR *d, const char *subdir) {

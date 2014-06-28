@@ -1,0 +1,43 @@
+From: =?utf-8?q?Thomas_B=C3=A4chler?= <thomas@archlinux.org>
+Date: Fri, 21 Feb 2014 11:55:24 +0100
+Subject: analyze/run: use bus_open_transport_systemd instead of
+ bus_open_transport
+
+Both systemd-analyze and systemd-run only access org.freedesktop.systemd1
+on the bus. This patch allows using systemd-run --user and systemd-analyze
+--user even if the user session's bus is not properly integrated with the
+systemd user unit.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=79252 and other reports...
+(cherry picked from commit 1f89214e6e990a0b552f6854f87f8514ca384956)
+---
+ src/analyze/analyze.c | 2 +-
+ src/run/run.c         | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/analyze/analyze.c b/src/analyze/analyze.c
+index b82060d3..6717d1a0 100644
+--- a/src/analyze/analyze.c
++++ b/src/analyze/analyze.c
+@@ -1274,7 +1274,7 @@ int main(int argc, char *argv[]) {
+         if (r <= 0)
+                 goto finish;
+ 
+-        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
++        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+         if (r < 0) {
+                 log_error("Failed to create bus connection: %s", strerror(-r));
+                 goto finish;
+diff --git a/src/run/run.c b/src/run/run.c
+index 7f08c41b..0a87df39 100644
+--- a/src/run/run.c
++++ b/src/run/run.c
+@@ -490,7 +490,7 @@ int main(int argc, char* argv[]) {
+                 arg_description = description;
+         }
+ 
+-        r = bus_open_transport(arg_transport, arg_host, arg_user, &bus);
++        r = bus_open_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+         if (r < 0) {
+                 log_error("Failed to create bus connection: %s", strerror(-r));
+                 goto finish;

@@ -3,77 +3,45 @@ Date: Thu, 6 Mar 2014 02:19:06 +0100
 Subject: util: add timeout to generator execution
 
 (cherry picked from commit aa62a8936f5983770e90b791083d55107659f7a1)
-(cherry picked from commit d66226bce64620543d21675ae610ecfeb9395e2a
-                and commit 5e2f14e62b43f713bade20dd9f55db525ac43859)
-
-Conflicts:
-	src/core/manager.c
 ---
- src/core/manager.c   |   5 +-
- src/core/shutdown.c  |   2 +-
- src/shared/hashmap.h |   8 +++
- src/shared/util.c    | 162 +++++++++++++++++++++++++++------------------------
- src/shared/util.h    |   2 +-
- src/sleep/sleep.c    |  14 +++--
- 6 files changed, 108 insertions(+), 85 deletions(-)
+ src/core/manager.c  |   2 +-
+ src/core/shutdown.c |   2 +-
+ src/shared/util.c   | 162 ++++++++++++++++++++++++++++------------------------
+ src/shared/util.h   |   2 +-
+ src/sleep/sleep.c   |  14 +++--
+ 5 files changed, 99 insertions(+), 83 deletions(-)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 58c17ab3..3a38fab6 100644
+index f5801b47..7c7f0882 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -2661,9 +2661,8 @@ void manager_run_generators(Manager *m) {
-         argv[3] = m->generator_unit_path_late;
+@@ -2654,7 +2654,7 @@ void manager_run_generators(Manager *m) {
          argv[4] = NULL;
  
--        RUN_WITH_UMASK(0022) {
+         RUN_WITH_UMASK(0022)
 -                execute_directory(generator_path, d, (char**) argv);
--        }
-+        RUN_WITH_UMASK(0022)
 +                execute_directory(generator_path, d, DEFAULT_TIMEOUT_USEC, (char**) argv);
  
+ finish:
          trim_generator_dir(m, &m->generator_unit_path);
-         trim_generator_dir(m, &m->generator_unit_path_early);
 diff --git a/src/core/shutdown.c b/src/core/shutdown.c
-index 5e0f3ce9..68960b1a 100644
+index c7510304..7ef671ad 100644
 --- a/src/core/shutdown.c
 +++ b/src/core/shutdown.c
-@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
+@@ -368,7 +368,7 @@ int main(int argc, char *argv[]) {
          arguments[0] = NULL;
-         arguments[1] = argv[1];
+         arguments[1] = arg_verb;
          arguments[2] = NULL;
 -        execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, arguments);
 +        execute_directory(SYSTEM_SHUTDOWN_PATH, NULL, DEFAULT_TIMEOUT_USEC, arguments);
  
          if (!in_container && !in_initrd() &&
              access("/run/initramfs/shutdown", X_OK) == 0) {
-diff --git a/src/shared/hashmap.h b/src/shared/hashmap.h
-index 3d4f6721..b912af8d 100644
---- a/src/shared/hashmap.h
-+++ b/src/shared/hashmap.h
-@@ -24,6 +24,7 @@
- #include <stdbool.h>
- 
- #include "macro.h"
-+#include "util.h"
- 
- /* Pretty straightforward hash table implementation. As a minor
-  * optimization a NULL hashmap object will be treated as empty hashmap
-@@ -104,3 +105,10 @@ char **hashmap_get_strv(Hashmap *h);
- 
- #define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
-         for ((i) = ITERATOR_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
-+
-+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
-+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);
-+DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free_free);
-+#define _cleanup_hashmap_free_ _cleanup_(hashmap_freep)
-+#define _cleanup_hashmap_free_free_ _cleanup_(hashmap_free_freep)
-+#define _cleanup_hashmap_free_free_free_ _cleanup_(hashmap_free_free_freep)
 diff --git a/src/shared/util.c b/src/shared/util.c
-index 13298545..bec339b8 100644
+index 3164515a..0d64ede1 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -3740,111 +3740,123 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
+@@ -3681,111 +3681,123 @@ bool dirent_is_file_with_suffix(const struct dirent *de, const char *suffix) {
          return endswith(de->d_name, suffix);
  }
  
@@ -217,7 +185,7 @@ index 13298545..bec339b8 100644
  
 -                        if (errno == EINTR)
 -                                continue;
-+                        log_debug("Spawned %s as %lu.", path, (long unsigned) pid);
++                        log_debug("Spawned %s as " PID_FMT ".", path, pid);
  
 -                        log_error("waitid() failed: %m");
 -                        goto finish;
@@ -273,10 +241,10 @@ index 13298545..bec339b8 100644
  
  int kill_and_sigcont(pid_t pid, int sig) {
 diff --git a/src/shared/util.h b/src/shared/util.h
-index 02621a7e..47a3dc91 100644
+index 78b14447..aeb359b3 100644
 --- a/src/shared/util.h
 +++ b/src/shared/util.h
-@@ -432,7 +432,7 @@ bool tty_is_console(const char *tty) _pure_;
+@@ -473,7 +473,7 @@ bool tty_is_console(const char *tty) _pure_;
  int vtnr_from_tty(const char *tty);
  const char *default_term_for_tty(const char *tty);
  
@@ -286,7 +254,7 @@ index 02621a7e..47a3dc91 100644
  int kill_and_sigcont(pid_t pid, int sig);
  
 diff --git a/src/sleep/sleep.c b/src/sleep/sleep.c
-index c228cb66..8e847db6 100644
+index 8da050cd..94bcb294 100644
 --- a/src/sleep/sleep.c
 +++ b/src/sleep/sleep.c
 @@ -25,14 +25,15 @@

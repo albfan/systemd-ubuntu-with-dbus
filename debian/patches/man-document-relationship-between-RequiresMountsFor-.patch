@@ -4,16 +4,15 @@ Subject: man: document relationship between RequiresMountsFor and noauto
 
 https://bugzilla.redhat.com/show_bug.cgi?id=1088057
 (cherry picked from commit 5d2abc04fc95f5c5f6d0eaf2f9b06c70d504019f)
-(cherry picked from commit b23daada46f67ae16bcf3686096dce186539f445)
 ---
  man/systemd.unit.xml | 25 +++++++++++++++++++------
  1 file changed, 19 insertions(+), 6 deletions(-)
 
 diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
-index 4704352e..eb8b13de 100644
+index bcd4ba8e..30b6ea16 100644
 --- a/man/systemd.unit.xml
 +++ b/man/systemd.unit.xml
-@@ -675,13 +675,26 @@
+@@ -705,13 +705,26 @@
                          <varlistentry>
                                  <term><varname>RequiresMountsFor=</varname></term>
  

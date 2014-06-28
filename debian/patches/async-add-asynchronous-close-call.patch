@@ -3,7 +3,6 @@ Date: Fri, 2 May 2014 17:56:05 +0200
 Subject: async: add asynchronous close() call
 
 (cherry picked from commit 8a474b0c04a5a3608dda53edc1ddaa932ba177bf)
-(cherry picked from commit 43f1b28bc457c92f85332dda752d5426cde466ae)
 ---
  src/core/async.c | 22 ++++++++++++++++++++++
  src/core/async.h |  2 ++

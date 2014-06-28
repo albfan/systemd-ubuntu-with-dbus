@@ -10,13 +10,12 @@ hand out dynamic ACLs to the user.
 
 https://bugs.freedesktop.org/show_bug.cgi?id=70734
 (cherry picked from commit 2658624399b22a9c4a345a22c69886dc9417f801)
-(cherry picked from commit 33fc27712a13b7502804a2a3016ce490a89e000d)
 ---
  src/udev/udev-builtin-input_id.c | 19 +++++++++++++++----
  1 file changed, 15 insertions(+), 4 deletions(-)
 
 diff --git a/src/udev/udev-builtin-input_id.c b/src/udev/udev-builtin-input_id.c
-index 4691fc07..33c8075a 100644
+index 828b349d..3b2e8975 100644
 --- a/src/udev/udev-builtin-input_id.c
 +++ b/src/udev/udev-builtin-input_id.c
 @@ -116,16 +116,27 @@ static void test_pointers (struct udev_device *dev,

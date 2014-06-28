@@ -9,16 +9,15 @@ a compiler optimization may be the culprit.
 
 https://github.com/archlinuxarm/PKGBUILDs/issues/815
 (cherry picked from commit a213b7e977221ca96bbc1b19a5a879c912ba2488)
-(cherry picked from commit 6e150a59cacafbb2c339e0854f449d63ef919a4f)
 ---
- src/analyze/systemd-analyze.c | 2 +-
+ src/analyze/analyze.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/src/analyze/systemd-analyze.c b/src/analyze/systemd-analyze.c
-index 317baf9c..25f8ad61 100644
---- a/src/analyze/systemd-analyze.c
-+++ b/src/analyze/systemd-analyze.c
-@@ -41,7 +41,7 @@
+diff --git a/src/analyze/analyze.c b/src/analyze/analyze.c
+index 3d2d08f6..b82060d3 100644
+--- a/src/analyze/analyze.c
++++ b/src/analyze/analyze.c
+@@ -43,7 +43,7 @@
  #include "pager.h"
  
  #define SCALE_X (0.1 / 1000.0)   /* pixels per us */

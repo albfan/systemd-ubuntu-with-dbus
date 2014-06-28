@@ -9,16 +9,15 @@ finishes (which it does directly after the error is returned from
 get_config_path(...)).
 
 (cherry picked from commit 223217749e57996336d5730b0a28716cca56d45d)
-(cherry picked from commit bcb667c211614b38870aced0703c6f93b0d198eb)
 ---
  src/shared/install.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 241e0008..c9c785a4 100644
+index 71392f36..9972fd7e 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
-@@ -567,7 +567,7 @@ int unit_file_mask(
+@@ -565,7 +565,7 @@ int unit_file_mask(
                  unsigned *n_changes) {
  
          char **i;

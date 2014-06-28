@@ -1,0 +1,47 @@
+From: Wieland Hoffmann <themineo@gmail.com>
+Date: Mon, 10 Mar 2014 15:17:31 +0100
+Subject: zsh completion: Install _sd_machines with _machinectl
+
+_machinectl uses _sd_machines to provide a list of all available
+machines.
+
+(cherry picked from commit d895500c478c6ad7904905bb4c08176d5a6c0763)
+---
+ Makefile.am                       |  3 ++-
+ shell-completion/zsh/_sd_machines | 13 +++++++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+ create mode 100644 shell-completion/zsh/_sd_machines
+
+diff --git a/Makefile.am b/Makefile.am
+index 80935261..2fd146e0 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -3976,7 +3976,8 @@ dist_dbuspolicy_DATA += \
+ 	src/machine/org.freedesktop.machine1.conf
+ 
+ dist_zshcompletion_DATA += \
+-	shell-completion/zsh/_machinectl
++	shell-completion/zsh/_machinectl \
++	shell-completion/zsh/_sd_machines
+ 
+ SYSTEM_UNIT_ALIASES += \
+ 	systemd-machined.service dbus-org.freedesktop.machine1.service
+diff --git a/shell-completion/zsh/_sd_machines b/shell-completion/zsh/_sd_machines
+new file mode 100644
+index 00000000..1d64d13b
+--- /dev/null
++++ b/shell-completion/zsh/_sd_machines
+@@ -0,0 +1,13 @@
++#autoload
++__get_machines () {
++        machinectl --full --no-pager list | {while read -r a b; do echo $a; done;};
++}
++
++local -a _machines
++_machines=("${(fo)$(__get_machines)}")
++typeset -U _machines
++if [[ -n "$_machines" ]]; then
++        _describe 'machines' _machines
++else
++        _message 'no machines'
++fi

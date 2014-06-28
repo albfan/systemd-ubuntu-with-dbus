@@ -6,13 +6,12 @@ Subject: man: drop reference to file locking for PID file creation from
 File locking is usually a bad idea, don't suggest using it.
 
 (cherry picked from commit c4b834a4adfa4f858ed9fd07b300588ec1c3e20e)
-(cherry picked from commit ab28d5c3ed99817a76607f88e99d6d60feaf22c2)
 ---
  man/daemon.xml | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/man/daemon.xml b/man/daemon.xml
-index 932de3b4..170949e7 100644
+index ab58d08a..b772aa97 100644
 --- a/man/daemon.xml
 +++ b/man/daemon.xml
 @@ -158,9 +158,7 @@

@@ -1,0 +1,42 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 17 Apr 2014 22:12:25 -0400
+Subject: Make sure that keys are properly removed from hashmap
+
+This is a speculative fix for https://bugzilla.redhat.com/show_bug.cgi?id=1088865.
+Even though I cannot find a code path that where this would be
+an issue, for consistency, if we assume that cgroup_path might have
+been set before we got to unit_deserialize, we should make sure that
+the unit is removed from the hashmap before we free the key. This seems
+to be the only place where the key could be prematurely freed, leading to
+hashmap corruption.
+
+(cherry picked from commit 4e595329a93ed190795c2e24bf132d5028ec6a72)
+---
+ src/core/unit.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 5e6e2ca5..f3a6def6 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -2431,10 +2431,18 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+                         if (!s)
+                                 return -ENOMEM;
+ 
+-                        free(u->cgroup_path);
+-                        u->cgroup_path = s;
++                        if (u->cgroup_path) {
++                                void *p;
++
++                                p = hashmap_remove(u->manager->cgroup_unit, u->cgroup_path);
++                                log_info("Removing cgroup_path %s from hashmap (%p)",
++                                         u->cgroup_path, p);
++                                free(u->cgroup_path);
++                        }
+ 
++                        u->cgroup_path = s;
+                         assert(hashmap_put(u->manager->cgroup_unit, s, u) == 1);
++
+                         continue;
+                 }
+ 

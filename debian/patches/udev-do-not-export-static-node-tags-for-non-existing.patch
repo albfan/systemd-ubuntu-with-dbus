@@ -3,16 +3,15 @@ Date: Wed, 2 Apr 2014 15:47:09 +0200
 Subject: udev: do not export "static node" tags for non-existing devices
 
 (cherry picked from commit ca2bb1606a170ce2e45de1345b0119bd220f4f0d)
-(cherry picked from commit 47d8687d524f67a392d6a8cb189d2ad90c464347)
 ---
  src/udev/udev-rules.c | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/src/udev/udev-rules.c b/src/udev/udev-rules.c
-index c9817733..392ae86f 100644
+index 47bde618..0bed570d 100644
 --- a/src/udev/udev-rules.c
 +++ b/src/udev/udev-rules.c
-@@ -2572,10 +2572,15 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
+@@ -2555,10 +2555,15 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                          struct stat stats;
  
                          /* we assure, that the permissions tokens are sorted before the static token */
@@ -28,7 +27,7 @@ index c9817733..392ae86f 100644
  
                          /* export the tags to a directory as symlinks, allowing otherwise dead nodes to be tagged */
                          if (tags) {
-@@ -2605,11 +2610,6 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
+@@ -2588,11 +2593,6 @@ int udev_rules_apply_static_dev_perms(struct udev_rules *rules)
                          if (mode == 0 && uid == 0 && gid == 0)
                                  break;
  

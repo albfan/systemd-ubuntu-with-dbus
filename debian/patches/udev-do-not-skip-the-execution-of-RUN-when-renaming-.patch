@@ -4,40 +4,97 @@ Subject: udev: do not skip the execution of RUN when renaming a network
  device fails
 
 (cherry picked from commit 1ea972174baba40dbc80c51cbfc4edc49764b59b)
-(cherry picked from commit 59c91436bbadecec9f49dba82735ea1347316c70)
 ---
- src/test/test-udev.c    |  3 +--
+ src/test/test-udev.c    |  5 ++---
+ src/udev/udev-event.c   | 11 +++++------
+ src/udev/udev.h         |  2 +-
  src/udev/udevadm-test.c | 13 +++++--------
- src/udev/udevd.c        |  7 +++----
- 3 files changed, 9 insertions(+), 14 deletions(-)
+ src/udev/udevd.c        |  5 ++---
+ 5 files changed, 15 insertions(+), 21 deletions(-)
 
 diff --git a/src/test/test-udev.c b/src/test/test-udev.c
-index 676669ba..c59aab11 100644
+index b0647441..b057cc8c 100644
 --- a/src/test/test-udev.c
 +++ b/src/test/test-udev.c
-@@ -157,8 +157,7 @@ int main(int argc, char *argv[])
+@@ -155,9 +155,8 @@ int main(int argc, char *argv[]) {
+                 }
          }
  
-         err = udev_event_execute_rules(event, rules, &sigmask_orig);
+-        err = udev_event_execute_rules(event, rules, &sigmask_orig);
 -        if (err == 0)
 -                udev_event_execute_run(event, NULL);
++        udev_event_execute_rules(event, rules, &sigmask_orig);
 +        udev_event_execute_run(event, NULL);
  out:
          if (event != NULL && event->fd_signal >= 0)
                  close(event->fd_signal);
+diff --git a/src/udev/udev-event.c b/src/udev/udev-event.c
+index 2cab42bb..5213a4ab 100644
+--- a/src/udev/udev-event.c
++++ b/src/udev/udev-event.c
+@@ -776,13 +776,12 @@ static int rename_netif(struct udev_event *event)
+         return r;
+ }
+ 
+-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
++void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigmask)
+ {
+         struct udev_device *dev = event->dev;
+-        int err = 0;
+ 
+         if (udev_device_get_subsystem(dev) == NULL)
+-                return -1;
++                return;
+ 
+         if (streq(udev_device_get_action(dev), "remove")) {
+                 udev_device_read_db(dev, NULL);
+@@ -816,9 +815,10 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
+                     event->name != NULL && !streq(event->name, udev_device_get_sysname(dev))) {
+                         char syspath[UTIL_PATH_SIZE];
+                         char *pos;
++                        int r;
+ 
+-                        err = rename_netif(event);
+-                        if (err == 0) {
++                        r = rename_netif(event);
++                        if (r >= 0) {
+                                 log_debug("renamed netif to '%s'", event->name);
+ 
+                                 /* remember old name */
+@@ -881,7 +881,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules,
+                 udev_device_unref(event->dev_db);
+                 event->dev_db = NULL;
+         }
+-        return err;
+ }
+ 
+ void udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
+diff --git a/src/udev/udev.h b/src/udev/udev.h
+index 936adfbf..62538bcb 100644
+--- a/src/udev/udev.h
++++ b/src/udev/udev.h
+@@ -84,7 +84,7 @@ int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
+ int udev_event_spawn(struct udev_event *event,
+                      const char *cmd, char **envp, const sigset_t *sigmask,
+                      char *result, size_t ressize);
+-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
++void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
+ void udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
+ int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
+ 
 diff --git a/src/udev/udevadm-test.c b/src/udev/udevadm-test.c
-index 3aa3274b..46108235 100644
+index 6cd311b2..6a2f5489 100644
 --- a/src/udev/udevadm-test.c
 +++ b/src/udev/udevadm-test.c
-@@ -42,7 +42,6 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
-         struct udev_rules *rules = NULL;
-         struct udev_list_entry *entry;
+@@ -43,7 +43,6 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
+         _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+         _cleanup_udev_event_unref_ struct udev_event *event = NULL;
          sigset_t mask, sigmask_orig;
 -        int err;
-         int rc = 0;
+         int rc = 0, c;
  
          static const struct option options[] = {
-@@ -141,18 +140,16 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
+@@ -139,18 +138,16 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                  goto out;
          }
  
@@ -62,10 +119,10 @@ index 3aa3274b..46108235 100644
  out:
          if (event != NULL && event->fd_signal >= 0)
 diff --git a/src/udev/udevd.c b/src/udev/udevd.c
-index 7c6c5d6a..5235cbd2 100644
+index f21c227d..93afca11 100644
 --- a/src/udev/udevd.c
 +++ b/src/udev/udevd.c
-@@ -288,13 +288,12 @@ static void worker_new(struct event *event)
+@@ -288,10 +288,9 @@ static void worker_new(struct event *event)
                                  udev_event->exec_delay = exec_delay;
  
                          /* apply rules, create node, symlinks */
@@ -77,8 +134,4 @@ index 7c6c5d6a..5235cbd2 100644
 +                        udev_event_execute_run(udev_event, &sigmask_orig);
  
                          /* apply/restore inotify watch */
--                        if (err == 0 && udev_event->inotify_watch) {
-+                        if (udev_event->inotify_watch) {
-                                 udev_watch_begin(udev, dev);
-                                 udev_device_update_db(dev);
-                         }
+                         if (err == 0 && udev_event->inotify_watch) {

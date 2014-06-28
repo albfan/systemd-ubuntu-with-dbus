@@ -9,10 +9,10 @@ Subject: mount: don't fire PropertiesChanged signals for mounts that are
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/src/core/mount.c b/src/core/mount.c
-index 0a0ef82f..65ea3f90 100644
+index 75b133bc..68b2e837 100644
 --- a/src/core/mount.c
 +++ b/src/core/mount.c
-@@ -1691,20 +1691,20 @@ void mount_fd_event(Manager *m, int events) {
+@@ -1676,20 +1676,20 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                  Mount *mount = MOUNT(u);
  
                  if (!mount->is_mounted) {
@@ -36,7 +36,7 @@ index 0a0ef82f..65ea3f90 100644
                          }
  
                  } else if (mount->just_mounted || mount->just_changed) {
-@@ -1715,6 +1715,9 @@ void mount_fd_event(Manager *m, int events) {
+@@ -1700,6 +1700,9 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
  
                          case MOUNT_DEAD:
                          case MOUNT_FAILED:

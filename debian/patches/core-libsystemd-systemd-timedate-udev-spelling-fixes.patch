@@ -1,0 +1,115 @@
+From: Miklos Vajna <vmiklos@vmiklos.hu>
+Date: Fri, 14 Mar 2014 21:13:38 +0100
+Subject: core, libsystemd, systemd, timedate, udev: spelling fixes
+
+(cherry picked from commit 6f285378aa6e4b5b23c939d1fea16f9ab0a57efb)
+---
+ src/core/service.c                  | 2 +-
+ src/core/unit.c                     | 2 +-
+ src/libsystemd/sd-bus/bus-message.c | 2 +-
+ src/libsystemd/sd-bus/sd-bus.c      | 4 ++--
+ src/systemd/sd-resolve.h            | 2 +-
+ src/timedate/timedated.c            | 2 +-
+ src/udev/udevadm-settle.c           | 2 +-
+ 7 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index ca71788d..c55bf2d6 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -3414,7 +3414,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags) {
+                         free(t);
+         }
+ 
+-        /* Interpet WATCHDOG= */
++        /* Interpret WATCHDOG= */
+         if (strv_find(tags, "WATCHDOG=1")) {
+                 log_debug_unit(u->id, "%s: got WATCHDOG=1", u->id);
+                 service_reset_watchdog(s);
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 5a5592c8..5e6e2ca5 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1526,7 +1526,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
+                 unit_destroy_cgroup(u);
+ 
+         /* Note that this doesn't apply to RemainAfterExit services exiting
+-         * sucessfully, since there's no change of state in that case. Which is
++         * successfully, since there's no change of state in that case. Which is
+          * why it is handled in service_set_state() */
+         if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                 ExecContext *ec;
+diff --git a/src/libsystemd/sd-bus/bus-message.c b/src/libsystemd/sd-bus/bus-message.c
+index b9d7f6db..e32f2b82 100644
+--- a/src/libsystemd/sd-bus/bus-message.c
++++ b/src/libsystemd/sd-bus/bus-message.c
+@@ -4215,7 +4215,7 @@ static int message_read_ap(
+          * in a single stackframe. We hence implement our own
+          * home-grown stack in an array. */
+ 
+-        n_array = (unsigned) -1; /* lenght of current array entries */
++        n_array = (unsigned) -1; /* length of current array entries */
+         n_struct = strlen(types); /* length of current struct contents signature */
+ 
+         for (;;) {
+diff --git a/src/libsystemd/sd-bus/sd-bus.c b/src/libsystemd/sd-bus/sd-bus.c
+index f8ec2178..e0a276b4 100644
+--- a/src/libsystemd/sd-bus/sd-bus.c
++++ b/src/libsystemd/sd-bus/sd-bus.c
+@@ -1444,7 +1444,7 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
+ static int bus_remarshal_message(sd_bus *b, sd_bus_message **m) {
+         assert(b);
+ 
+-        /* Do packet version and endianess already match? */
++        /* Do packet version and endianness already match? */
+         if ((b->message_version == 0 || b->message_version == (*m)->header->version) &&
+             (b->message_endian == 0 || b->message_endian == (*m)->header->endian))
+                 return 0;
+@@ -1461,7 +1461,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
+          * hence let's fill something in for synthetic messages. Since
+          * synthetic messages might have a fake sender and we don't
+          * want to interfere with the real sender's serial numbers we
+-         * pick a fixed, artifical one. We use (uint32_t) -1 rather
++         * pick a fixed, artificial one. We use (uint32_t) -1 rather
+          * than (uint64_t) -1 since dbus1 only had 32bit identifiers,
+          * even though kdbus can do 64bit. */
+ 
+diff --git a/src/systemd/sd-resolve.h b/src/systemd/sd-resolve.h
+index df69e4b8..3c1d4823 100644
+--- a/src/systemd/sd-resolve.h
++++ b/src/systemd/sd-resolve.h
+@@ -129,7 +129,7 @@ int sd_resolve_get_next(sd_resolve *resolve, sd_resolve_query **q);
+ int sd_resolve_get_n_queries(sd_resolve *resolve);
+ 
+ /** Cancel a currently running query. q is is destroyed by this call
+- * and may not be used any futher. */
++ * and may not be used any further. */
+ int sd_resolve_cancel(sd_resolve_query* q);
+ 
+ /** Returns non-zero when the query operation specified by q has been completed */
+diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
+index d85ce573..c4a797ac 100644
+--- a/src/timedate/timedated.c
++++ b/src/timedate/timedated.c
+@@ -468,7 +468,7 @@ static int property_get_rtc_time(
+         zero(tm);
+         r = hwclock_get_time(&tm);
+         if (r == -EBUSY) {
+-                log_warning("/dev/rtc is busy, is somebody keeping it open continously? That's not a good idea... Returning a bogus RTC timestamp.");
++                log_warning("/dev/rtc is busy, is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
+                 t = 0;
+         } else if (r == -ENOENT) {
+                 log_debug("Not /dev/rtc found.");
+diff --git a/src/udev/udevadm-settle.c b/src/udev/udevadm-settle.c
+index b0261556..927ea2a7 100644
+--- a/src/udev/udevadm-settle.c
++++ b/src/udev/udevadm-settle.c
+@@ -100,7 +100,7 @@ static int adm_settle(struct udev *udev, int argc, char *argv[])
+                 case '?':
+                         exit(EXIT_FAILURE);
+                 default:
+-                        assert_not_reached("Unkown argument");
++                        assert_not_reached("Unknown argument");
+                 }
+ 
+         if (optind < argc) {

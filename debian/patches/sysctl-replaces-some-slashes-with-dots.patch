@@ -7,7 +7,6 @@ It turns out that plain sysctl understands a.b/c syntax to write to
 
 https://bugs.freedesktop.org/show_bug.cgi?id=77466
 (cherry picked from commit 2e573fcf8754fdfe0db0a783b1631ec1679b063a)
-(cherry picked from commit 19333d3a75eae318e5d123a9d23d498e1b6138c7)
 ---
  man/sysctl.d.xml    | 29 +++++++++++++++++++++--------
  src/sysctl/sysctl.c | 18 ++++++++++++++++--
@@ -61,7 +60,7 @@ index 00a857b1..db53b495 100644
                  <filename>net.ipv6.conf.*</filename>,
                  <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
 diff --git a/src/sysctl/sysctl.c b/src/sysctl/sysctl.c
-index 8fb0eb65..70c4d89f 100644
+index 76efacb1..8f940c32 100644
 --- a/src/sysctl/sysctl.c
 +++ b/src/sysctl/sysctl.c
 @@ -48,12 +48,26 @@ static const char conf_file_dirs[] =

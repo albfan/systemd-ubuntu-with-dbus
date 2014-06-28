@@ -3,7 +3,6 @@ Date: Tue, 10 Jun 2014 18:52:28 +0200
 Subject: man: updates to the passive target section
 
 (cherry picked from commit 51cb9d734a182c4892a6b31f58d75489a2ca432b)
-(cherry picked from commit 1f98d3636de425d9c49cd0dcb889865fbb996924)
 ---
  man/systemd.special.xml | 58 ++++++++++++++++++++++++++++++++++++-------------
  1 file changed, 43 insertions(+), 15 deletions(-)

@@ -1,0 +1,48 @@
+From: Djalal Harouni <tixxdz@opendz.org>
+Date: Mon, 14 Apr 2014 01:07:52 +0100
+Subject: systemctl: allow to change the default target without the --force
+ switch
+
+Currently "systemctl set-default" will fail to change the default target
+due to the 'default.target' being a symlink which is always the case.
+
+To work around this, the user must specify the "--force" switch to be
+able to overwrite the existing symlink.
+
+This is clearly a regression that was introduced by commit  718db96199e
+since it worked before without the "--force" switch and the man pages do
+not mention that you need to specify it. It is expected that this is a
+symlink.
+
+So just explicity set the force flag to make it work again.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=76623
+
+Reported-by: <code@progandy.de>
+(cherry picked from commit a1484a216e79da1fa7e2323095fb1b7203fb7a17)
+---
+ src/systemctl/systemctl.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index d44e6606..9ae8ab78 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -1505,7 +1505,7 @@ static int set_default(sd_bus *bus, char **args) {
+                 return log_oom();
+ 
+         if (!bus || avoid_bus()) {
+-                r = unit_file_set_default(arg_scope, arg_root, unit, arg_force, &changes, &n_changes);
++                r = unit_file_set_default(arg_scope, arg_root, unit, true, &changes, &n_changes);
+                 if (r < 0) {
+                         log_error("Failed to set default target: %s", strerror(-r));
+                         return r;
+@@ -1527,7 +1527,7 @@ static int set_default(sd_bus *bus, char **args) {
+                                 "SetDefaultTarget",
+                                 &error,
+                                 &reply,
+-                                "sb", unit, arg_force);
++                                "sb", unit, true);
+                 if (r < 0) {
+                         log_error("Failed to set default target: %s", bus_error_message(&error, -r));
+                         return r;

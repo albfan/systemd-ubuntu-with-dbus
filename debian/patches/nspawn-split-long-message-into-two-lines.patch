@@ -1,0 +1,31 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Wed, 28 May 2014 12:39:38 -0400
+Subject: nspawn: split long message into two lines
+
+For names like /var/lib/container/something, the message
+becomes quite long. Better to split it.
+
+Also reword the message not to suggest that ^]^]^] only works
+in the beginning.
+
+(cherry picked from commit 45f1386c9adf0e2892306e8949ca71f4a52a8d36)
+
+Conflicts:
+	src/nspawn/nspawn.c
+---
+ src/nspawn/nspawn.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index 6b1d0bb5..8ed68d18 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -1757,7 +1757,7 @@ int main(int argc, char *argv[]) {
+         }
+ 
+         if (!arg_quiet)
+-                log_info("Spawning container %s on %s. Press ^] three times within 1s to abort execution.", arg_machine, arg_directory);
++                log_info("Spawning container %s on %s.\nPress ^] three times within 1s to kill container.", arg_machine, arg_directory);
+ 
+         if (unlockpt(master) < 0) {
+                 log_error("Failed to unlock tty: %m");

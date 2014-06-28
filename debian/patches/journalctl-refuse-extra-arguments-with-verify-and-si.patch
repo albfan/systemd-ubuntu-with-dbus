@@ -11,10 +11,10 @@ For other actions, complain instead of ignoring them silently.
  1 file changed, 5 insertions(+)
 
 diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
-index 5b0be271..6f524670 100644
+index a328ba11..0619b256 100644
 --- a/src/journal/journalctl.c
 +++ b/src/journal/journalctl.c
-@@ -646,6 +646,11 @@ static int parse_argv(int argc, char *argv[]) {
+@@ -658,6 +658,11 @@ static int parse_argv(int argc, char *argv[]) {
                  return -EINVAL;
          }
  

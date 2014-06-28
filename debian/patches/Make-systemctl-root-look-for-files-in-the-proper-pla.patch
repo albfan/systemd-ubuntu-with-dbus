@@ -24,25 +24,20 @@ memory leak on error.
 
 Conflicts:
 	TODO
-
-(cherry picked from commit fd516dfa0612d2a169158bbed6f8994f47f3e6ce)
-
-Conflicts:
-	src/shared/install.c
 ---
  src/core/manager.c        |  2 ++
- src/shared/install.c      | 34 +++++++++++++++++++++-----------
+ src/shared/install.c      | 30 ++++++++++++++++++-----------
  src/shared/path-lookup.c  | 12 ++++--------
  src/shared/path-lookup.h  |  8 +++++++-
  src/shared/path-util.c    | 49 ++++++++++++++++++++++++++++++++++++-----------
  src/systemctl/systemctl.c |  2 +-
- 6 files changed, 75 insertions(+), 32 deletions(-)
+ 6 files changed, 71 insertions(+), 32 deletions(-)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 28f4d72e..1baa8631 100644
+index fed0a454..5689e606 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -890,6 +890,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+@@ -952,6 +952,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
  
          r = lookup_paths_init(
                          &m->lookup_paths, m->running_as, true,
@@ -50,7 +45,7 @@ index 28f4d72e..1baa8631 100644
                          m->generator_unit_path,
                          m->generator_unit_path_early,
                          m->generator_unit_path_late);
-@@ -2390,6 +2391,7 @@ int manager_reload(Manager *m) {
+@@ -2364,6 +2365,7 @@ int manager_reload(Manager *m) {
  
          q = lookup_paths_init(
                          &m->lookup_paths, m->running_as, true,
@@ -59,11 +54,11 @@ index 28f4d72e..1baa8631 100644
                          m->generator_unit_path_early,
                          m->generator_unit_path_late);
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 9f34ac5a..cb079475 100644
+index 5f6f280a..94ca7320 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
 @@ -47,7 +47,9 @@ typedef struct {
- #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+ 
  #define _cleanup_install_context_done_ _cleanup_(install_context_done)
  
 -static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope) {
@@ -81,7 +76,7 @@ index 9f34ac5a..cb079475 100644
                                   NULL, NULL, NULL);
  }
  
-@@ -705,7 +708,7 @@ int unit_file_link(
+@@ -703,7 +706,7 @@ int unit_file_link(
          assert(scope >= 0);
          assert(scope < _UNIT_FILE_SCOPE_MAX);
  
@@ -108,7 +103,7 @@ index 9f34ac5a..cb079475 100644
          if (r < 0)
                  return r;
  
-@@ -1577,7 +1580,7 @@ int unit_file_set_default(
+@@ -1579,7 +1582,7 @@ int unit_file_set_default(
          if (unit_name_to_type(file) != UNIT_TARGET)
                  return -EINVAL;
  
@@ -117,21 +112,17 @@ index 9f34ac5a..cb079475 100644
          if (r < 0)
                  return r;
  
-@@ -1612,7 +1615,11 @@ int unit_file_get_default(
-         char **p;
-         int r;
+@@ -1619,7 +1622,7 @@ int unit_file_get_default(
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+         assert(name);
  
 -        r = lookup_paths_init_from_scope(&paths, scope);
-+        assert(scope >= 0);
-+        assert(scope < _UNIT_FILE_SCOPE_MAX);
-+        assert(name);
-+
 +        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
          if (r < 0)
                  return r;
  
-@@ -1664,12 +1671,13 @@ UnitFileState unit_file_get_state(
-         if (!unit_name_is_valid(name, true))
+@@ -1677,12 +1680,13 @@ UnitFileState unit_file_get_state(
+         if (!unit_name_is_valid(name, TEMPLATE_VALID))
                  return -EINVAL;
  
 -        r = lookup_paths_init_from_scope(&paths, scope);
@@ -145,7 +136,7 @@ index 9f34ac5a..cb079475 100644
  
                  free(path);
                  path = NULL;
-@@ -1678,10 +1686,14 @@ UnitFileState unit_file_get_state(
+@@ -1691,10 +1695,14 @@ UnitFileState unit_file_get_state(
                          asprintf(&path, "%s/%s/%s", root_dir, *i, name);
                  else
                          asprintf(&path, "%s/%s", *i, name);
@@ -161,7 +152,7 @@ index 9f34ac5a..cb079475 100644
                  /*
                   * Search for a unit file in our default paths, to
                   * be sure, that there are no broken symlinks.
-@@ -1713,7 +1725,7 @@ UnitFileState unit_file_get_state(
+@@ -1726,7 +1734,7 @@ UnitFileState unit_file_get_state(
                  else if (r > 0)
                          return state;
  
@@ -170,7 +161,7 @@ index 9f34ac5a..cb079475 100644
                  if (r < 0 && errno != ENOENT)
                          return r;
                  else if (r > 0)
-@@ -1821,7 +1833,7 @@ int unit_file_preset(
+@@ -1834,7 +1842,7 @@ int unit_file_preset(
          assert(scope >= 0);
          assert(scope < _UNIT_FILE_SCOPE_MAX);
  
@@ -179,7 +170,7 @@ index 9f34ac5a..cb079475 100644
          if (r < 0)
                  return r;
  
-@@ -1890,7 +1902,7 @@ int unit_file_get_list(
+@@ -1904,7 +1912,7 @@ int unit_file_get_list(
          if (root_dir && scope != UNIT_FILE_SYSTEM)
                  return -EINVAL;
  
@@ -189,10 +180,10 @@ index 9f34ac5a..cb079475 100644
                  return r;
  
 diff --git a/src/shared/path-lookup.c b/src/shared/path-lookup.c
-index 03c13800..b62f3024 100644
+index 63af43cd..c6b4ba1e 100644
 --- a/src/shared/path-lookup.c
 +++ b/src/shared/path-lookup.c
-@@ -239,6 +239,7 @@ int lookup_paths_init(
+@@ -198,6 +198,7 @@ int lookup_paths_init(
                  LookupPaths *p,
                  SystemdRunningAs running_as,
                  bool personal,
@@ -200,7 +191,7 @@ index 03c13800..b62f3024 100644
                  const char *generator,
                  const char *generator_early,
                  const char *generator_late) {
-@@ -316,11 +317,9 @@ int lookup_paths_init(
+@@ -275,11 +276,9 @@ int lookup_paths_init(
                  }
          }
  
@@ -213,7 +204,7 @@ index 03c13800..b62f3024 100644
          if (!strv_isempty(p->unit_path)) {
                  _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
                  if (!t)
-@@ -372,15 +371,12 @@ int lookup_paths_init(
+@@ -331,15 +330,12 @@ int lookup_paths_init(
                                  return -ENOMEM;
                  }
  
@@ -232,10 +223,10 @@ index 03c13800..b62f3024 100644
                          _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");
                          if (!t)
 diff --git a/src/shared/path-lookup.h b/src/shared/path-lookup.h
-index 9dee85f9..0db9bfb2 100644
+index a3ef824a..847a52f2 100644
 --- a/src/shared/path-lookup.h
 +++ b/src/shared/path-lookup.h
-@@ -41,5 +41,11 @@ SystemdRunningAs systemd_running_as_from_string(const char *s) _pure_;
+@@ -43,5 +43,11 @@ SystemdRunningAs systemd_running_as_from_string(const char *s) _pure_;
  
  int user_config_home(char **config_home);
  
@@ -249,10 +240,10 @@ index 9dee85f9..0db9bfb2 100644
 +                      const char *generator_late);
  void lookup_paths_free(LookupPaths *p);
 diff --git a/src/shared/path-util.c b/src/shared/path-util.c
-index 36542cdb..5c0bf931 100644
+index c3ccf615..ffdb754f 100644
 --- a/src/shared/path-util.c
 +++ b/src/shared/path-util.c
-@@ -179,36 +179,63 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
+@@ -167,36 +167,63 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
  
          STRV_FOREACH(s, l) {
                  char *t, *u;
@@ -328,10 +319,10 @@ index 36542cdb..5c0bf931 100644
                          free(t);
  
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index da49da7c..517257b7 100644
+index b35cb0cd..9cd18671 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4239,7 +4239,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -4616,7 +4616,7 @@ static int enable_sysv_units(const char *verb, char **args) {
          /* Processes all SysV units, and reshuffles the array so that
           * afterwards only the native units remain */
  

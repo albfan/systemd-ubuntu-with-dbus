@@ -4,13 +4,12 @@ Subject: man: sd_journal_send does nothing when journald is not available
 
 https://bugzilla.redhat.com/show_bug.cgi?id=1096067
 (cherry picked from commit bdf9fc1a940e342afb7a78075984419cb3bc3135)
-(cherry picked from commit 1b616bb22308aafb2a45b7f964cd7d485211b323)
 ---
  man/sd_journal_print.xml | 5 +++++
  1 file changed, 5 insertions(+)
 
 diff --git a/man/sd_journal_print.xml b/man/sd_journal_print.xml
-index 871baff8..5ae10bf5 100644
+index c6f204b8..8aac68f4 100644
 --- a/man/sd_journal_print.xml
 +++ b/man/sd_journal_print.xml
 @@ -218,6 +218,11 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(

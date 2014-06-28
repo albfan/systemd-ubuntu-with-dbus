@@ -18,10 +18,10 @@ Conflicts:
  4 files changed, 17 insertions(+), 15 deletions(-)
 
 diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
-index f01843d6..d6ac4f64 100644
+index 82aed1eb..027ec5fa 100644
 --- a/src/core/load-fragment.c
 +++ b/src/core/load-fragment.c
-@@ -515,9 +515,7 @@ int config_parse_exec(const char *unit,
+@@ -535,9 +535,7 @@ int config_parse_exec(const char *unit,
                                  }
  
                                  if (!utf8_is_valid(path)) {
@@ -32,7 +32,7 @@ index f01843d6..d6ac4f64 100644
                                          r = 0;
                                          goto fail;
                                  }
-@@ -532,9 +530,7 @@ int config_parse_exec(const char *unit,
+@@ -552,9 +550,7 @@ int config_parse_exec(const char *unit,
                                  }
  
                                  if (!utf8_is_valid(c)) {
@@ -43,7 +43,7 @@ index f01843d6..d6ac4f64 100644
                                          r = 0;
                                          goto fail;
                                  }
-@@ -1803,8 +1799,7 @@ int config_parse_unit_requires_mounts_for(
+@@ -1959,8 +1955,7 @@ int config_parse_unit_requires_mounts_for(
                          return log_oom();
  
                  if (!utf8_is_valid(n)) {
@@ -54,10 +54,10 @@ index f01843d6..d6ac4f64 100644
                  }
  
 diff --git a/src/shared/conf-parser.c b/src/shared/conf-parser.c
-index 6085d333..4ac71ed3 100644
+index cfa669b1..b6aa8563 100644
 --- a/src/shared/conf-parser.c
 +++ b/src/shared/conf-parser.c
-@@ -607,8 +607,7 @@ int config_parse_path(const char *unit,
+@@ -656,8 +656,7 @@ int config_parse_path(const char *unit,
          assert(data);
  
          if (!utf8_is_valid(rvalue)) {
@@ -67,7 +67,7 @@ index 6085d333..4ac71ed3 100644
                  return 0;
          }
  
-@@ -675,8 +674,7 @@ int config_parse_strv(const char *unit,
+@@ -725,8 +724,7 @@ int config_parse_strv(const char *unit,
                          return log_oom();
  
                  if (!utf8_is_valid(n)) {
@@ -78,10 +78,10 @@ index 6085d333..4ac71ed3 100644
                  }
  
 diff --git a/src/shared/conf-parser.h b/src/shared/conf-parser.h
-index 08428a51..247e562e 100644
+index 4ccdaddd..7e1c4933 100644
 --- a/src/shared/conf-parser.h
 +++ b/src/shared/conf-parser.h
-@@ -122,6 +122,12 @@ int log_syntax_internal(const char *unit, int level,
+@@ -124,6 +124,12 @@ int log_syntax_internal(const char *unit, int level,
                              config_file, config_line,                   \
                              error, __VA_ARGS__)
  
@@ -95,10 +95,10 @@ index 08428a51..247e562e 100644
          int function(const char *unit,                                  \
                       const char *filename,                              \
 diff --git a/src/shared/fileio.c b/src/shared/fileio.c
-index 121cd571..0586e330 100644
+index 0d3f2e90..fcd1b8af 100644
 --- a/src/shared/fileio.c
 +++ b/src/shared/fileio.c
-@@ -526,15 +526,18 @@ static int load_env_file_push(const char *filename, unsigned line,
+@@ -598,15 +598,18 @@ static int load_env_file_push(const char *filename, unsigned line,
          int r;
  
          if (!utf8_is_valid(key)) {

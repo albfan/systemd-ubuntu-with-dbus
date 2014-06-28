@@ -1,0 +1,145 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 19 May 2014 09:03:20 +0900
+Subject: logind: fix Display property of user objects
+
+When we dropped support for creating a per-user to the "main" X11
+display we stopped returning useful data in the "Display" user property.
+With this change this is fixed and we again expose an appropriate
+(graphical session) in the property that is useful as the "main" one, if
+one is needed.
+
+(cherry picked from commit 952d32609f9bceee444fa2690afb4d28539b4b92)
+---
+ src/login/logind-session.c   |  8 ++++++--
+ src/login/logind-session.h   |  2 ++
+ src/login/logind-user-dbus.c |  2 +-
+ src/login/logind-user.c      | 37 +++++++++++++++++++++++++++++++++++++
+ src/login/logind-user.h      |  1 +
+ 5 files changed, 47 insertions(+), 3 deletions(-)
+
+diff --git a/src/login/logind-session.c b/src/login/logind-session.c
+index b14fadd8..97b77283 100644
+--- a/src/login/logind-session.c
++++ b/src/login/logind-session.c
+@@ -545,6 +545,8 @@ int session_start(Session *s) {
+ 
+         s->started = true;
+ 
++        user_elect_display(s->user);
++
+         /* Save data */
+         session_save(s);
+         user_save(s->user);
+@@ -553,7 +555,7 @@ int session_start(Session *s) {
+ 
+         /* Send signals */
+         session_send_signal(s, true);
+-        user_send_changed(s->user, "Sessions", NULL);
++        user_send_changed(s->user, "Sessions", "Display", NULL);
+         if (s->seat) {
+                 if (s->seat->active == s)
+                         seat_send_changed(s->seat, "Sessions", "ActiveSession", NULL);
+@@ -612,6 +614,8 @@ int session_stop(Session *s, bool force) {
+ 
+         s->stopping = true;
+ 
++        user_elect_display(s->user);
++
+         session_save(s);
+         user_save(s->user);
+ 
+@@ -660,7 +664,7 @@ int session_finalize(Session *s) {
+         }
+ 
+         user_save(s->user);
+-        user_send_changed(s->user, "Sessions", NULL);
++        user_send_changed(s->user, "Sessions", "Display", NULL);
+ 
+         return r;
+ }
+diff --git a/src/login/logind-session.h b/src/login/logind-session.h
+index c9af5ebe..5eee8bd0 100644
+--- a/src/login/logind-session.h
++++ b/src/login/logind-session.h
+@@ -59,6 +59,8 @@ typedef enum SessionType {
+         _SESSION_TYPE_INVALID = -1
+ } SessionType;
+ 
++#define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND)
++
+ enum KillWho {
+         KILL_LEADER,
+         KILL_ALL,
+diff --git a/src/login/logind-user-dbus.c b/src/login/logind-user-dbus.c
+index 18eea897..fa010306 100644
+--- a/src/login/logind-user-dbus.c
++++ b/src/login/logind-user-dbus.c
+@@ -220,7 +220,7 @@ const sd_bus_vtable user_vtable[] = {
+         SD_BUS_PROPERTY("RuntimePath", "s", NULL, offsetof(User, runtime_path), SD_BUS_VTABLE_PROPERTY_CONST),
+         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(User, service), SD_BUS_VTABLE_PROPERTY_CONST),
+         SD_BUS_PROPERTY("Slice", "s", NULL, offsetof(User, slice), SD_BUS_VTABLE_PROPERTY_CONST),
+-        SD_BUS_PROPERTY("Display", "(so)", property_get_display, 0, SD_BUS_VTABLE_PROPERTY_CONST),
++        SD_BUS_PROPERTY("Display", "(so)", property_get_display, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+         SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
+         SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+         SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+diff --git a/src/login/logind-user.c b/src/login/logind-user.c
+index 4af0e90c..fa31e77e 100644
+--- a/src/login/logind-user.c
++++ b/src/login/logind-user.c
+@@ -681,6 +681,43 @@ int user_kill(User *u, int signo) {
+         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
+ }
+ 
++void user_elect_display(User *u) {
++        Session *graphical = NULL, *text = NULL, *s;
++
++        assert(u);
++
++        /* This elects a primary session for each user, which we call
++         * the "display". We try to keep the assignment stable, but we
++         * "upgrade" to better choices. */
++
++        LIST_FOREACH(sessions_by_user, s, u->sessions) {
++
++                if (s->class != SESSION_USER)
++                        continue;
++
++                if (s->stopping)
++                        continue;
++
++                if (SESSION_TYPE_IS_GRAPHICAL(s->type))
++                        graphical = s;
++                else
++                        text = s;
++        }
++
++        if (graphical &&
++            (!u->display ||
++             u->display->class != SESSION_USER ||
++             u->display->stopping ||
++             !SESSION_TYPE_IS_GRAPHICAL(u->display->type)))
++                u->display = graphical;
++
++        if (text &&
++            (!u->display ||
++             u->display->class != SESSION_USER ||
++             u->display->stopping))
++                u->display = text;
++}
++
+ static const char* const user_state_table[_USER_STATE_MAX] = {
+         [USER_OFFLINE] = "offline",
+         [USER_OPENING] = "opening",
+diff --git a/src/login/logind-user.h b/src/login/logind-user.h
+index f237d2a6..4e0568fe 100644
+--- a/src/login/logind-user.h
++++ b/src/login/logind-user.h
+@@ -80,6 +80,7 @@ int user_save(User *u);
+ int user_load(User *u);
+ int user_kill(User *u, int signo);
+ int user_check_linger_file(User *u);
++void user_elect_display(User *u);
+ 
+ extern const sd_bus_vtable user_vtable[];
+ int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);

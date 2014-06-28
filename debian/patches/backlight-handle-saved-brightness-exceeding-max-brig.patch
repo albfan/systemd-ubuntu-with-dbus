@@ -19,13 +19,12 @@ and the absolute maximum.
 
 https://bugs.freedesktop.org/show_bug.cgi?id=78200
 (cherry picked from commit 0c9d8f1d4b5018199cb5a9b57580dc1480a7f915)
-(cherry picked from commit d4666a88938d3d671f7796ce650fa29ad47579cf)
 ---
  src/backlight/backlight.c | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
-index 34c01d91..77ae48c2 100644
+index 754a646c..e67032e4 100644
 --- a/src/backlight/backlight.c
 +++ b/src/backlight/backlight.c
 @@ -225,7 +225,7 @@ static unsigned get_max_brightness(struct udev_device *device) {

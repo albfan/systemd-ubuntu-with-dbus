@@ -18,13 +18,12 @@ Thank you for explanation, this sounds very reasonable to me. Please,
 see updated patch:
 
 (cherry picked from commit 4cd2b2cf8ca585d15ebc859701b346658262b5bb)
-(cherry picked from commit 385d2ab37b1a00b513edf5c3888b91d91ad3aae3)
 ---
  src/backlight/backlight.c | 13 ++++++++++---
  1 file changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
-index 77ae48c2..e944f574 100644
+index e67032e4..df3db2a4 100644
 --- a/src/backlight/backlight.c
 +++ b/src/backlight/backlight.c
 @@ -221,11 +221,13 @@ static unsigned get_max_brightness(struct udev_device *device) {

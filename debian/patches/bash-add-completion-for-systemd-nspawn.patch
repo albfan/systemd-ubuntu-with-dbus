@@ -4,16 +4,16 @@ Subject: bash: add completion for systemd-nspawn
 
 (cherry picked from commit 0d6883b6a870b66c8c70e43695d22de96aab68e7)
 ---
- Makefile.am                          |  1 +
- shell-completion/bash/systemd-nspawn | 90 ++++++++++++++++++++++++++++++++++++
- 2 files changed, 91 insertions(+)
+ Makefile.am                          |   1 +
+ shell-completion/bash/systemd-nspawn | 112 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 113 insertions(+)
  create mode 100644 shell-completion/bash/systemd-nspawn
 
 diff --git a/Makefile.am b/Makefile.am
-index 703925a4..03a1f91b 100644
+index 529b5258..8e6c3927 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -343,6 +343,7 @@ dist_bashcompletion_DATA = \
+@@ -353,6 +353,7 @@ dist_bashcompletion_DATA = \
  	shell-completion/bash/systemctl \
  	shell-completion/bash/systemd-analyze \
  	shell-completion/bash/systemd-delta \
@@ -23,10 +23,10 @@ index 703925a4..03a1f91b 100644
  	shell-completion/bash/kernel-install
 diff --git a/shell-completion/bash/systemd-nspawn b/shell-completion/bash/systemd-nspawn
 new file mode 100644
-index 00000000..0e8a30cb
+index 00000000..5b2ac821
 --- /dev/null
 +++ b/shell-completion/bash/systemd-nspawn
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,112 @@
 +# systemd-nspawn(1) completion                  -*- shell-script -*-
 +#
 +# This file is part of systemd.
@@ -70,7 +70,8 @@ index 00000000..0e8a30cb
 +        local -A OPTS=(
 +               [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system --keep-unit --network-veth -j'
 +                      [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
-+                             -S --slice'
++                             -S --slice --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
++                             --personality'
 +        )
 +
 +        _init_completion || return
@@ -107,6 +108,27 @@ index 00000000..0e8a30cb
 +                        ;;
 +                        --slice|-S)
 +                                comps=$( __get_slices )
++                        ;;
++                        --setenv)
++                                comps=''
++                        ;;
++                        --selinux-context|-Z)
++                                comps=''
++                        ;;
++                        --selinux-apifs-context|-L)
++                                comps=''
++                        ;;
++                        --register)
++                                comps='yes no'
++                        ;;
++                        --network-interface)
++                                comps=''
++                        ;;
++                        --network-bridge)
++                                comps=''
++                        ;;
++                        --personality)
++                                comps='x86 x86-64'
 +                        ;;
 +                esac
 +                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

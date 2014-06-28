@@ -3,17 +3,16 @@ Date: Mon, 10 Mar 2014 08:25:15 -0400
 Subject: logind: fix policykit checks
 
 (cherry picked from commit 055d406624cb9e01963558767420b71e5f75d2d3)
-(cherry picked from commit 10ff861167dc4b03ad9e515141f535845fcfd38a)
 ---
  src/login/logind-dbus.c | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
-index e1f0c9a0..a5ab19cd 100644
+index fc895315..18d4a568 100644
 --- a/src/login/logind-dbus.c
 +++ b/src/login/logind-dbus.c
-@@ -1302,18 +1302,24 @@ static int bus_manager_do_shutdown_or_sleep(
-                 r = verify_polkit(connection, message, action_multiple_sessions, interactive, NULL, error);
+@@ -1477,6 +1477,8 @@ static int method_do_shutdown_or_sleep(
+                                             action_multiple_sessions, interactive, error, method, m);
                  if (r < 0)
                          return r;
 +                if (r == 0)
@@ -21,7 +20,8 @@ index e1f0c9a0..a5ab19cd 100644
          }
  
          if (blocked) {
-                 r = verify_polkit(connection, message, action_ignore_inhibit, interactive, NULL, error);
+@@ -1484,6 +1486,8 @@ static int method_do_shutdown_or_sleep(
+                                             action_ignore_inhibit, interactive, error, method, m);
                  if (r < 0)
                          return r;
 +                if (r == 0)
@@ -29,7 +29,8 @@ index e1f0c9a0..a5ab19cd 100644
          }
  
          if (!multiple_sessions && !blocked) {
-                 r = verify_polkit(connection, message, action, interactive, NULL, error);
+@@ -1491,6 +1495,8 @@ static int method_do_shutdown_or_sleep(
+                                             action, interactive, error, method, m);
                  if (r < 0)
                          return r;
 +                if (r == 0)

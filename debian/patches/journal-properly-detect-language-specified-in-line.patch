@@ -1,0 +1,97 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 11 Apr 2014 20:57:27 -0400
+Subject: journal: properly detect language specified in line
+
+... it turns out that the duplicates in our own catalog were not real
+duplicates, but translations.
+
+(cherry picked from commit baf167ee0a2953f98e4e7d4c35752ef737832674)
+---
+ TODO                  |  2 ++
+ src/journal/catalog.c | 53 +++++++++++++++++++++++++++++++++------------------
+ 2 files changed, 36 insertions(+), 19 deletions(-)
+
+diff --git a/TODO b/TODO
+index 7d331bcd..c9966373 100644
+--- a/TODO
++++ b/TODO
+@@ -721,6 +721,8 @@ External:
+ 
+ * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
+ 
++* register catalog database signature as file magic
++
+ Regularly:
+ 
+ * look for close() vs. close_nointr() vs. close_nointr_nofail()
+diff --git a/src/journal/catalog.c b/src/journal/catalog.c
+index 1a56becf..469719a2 100644
+--- a/src/journal/catalog.c
++++ b/src/journal/catalog.c
+@@ -159,6 +159,37 @@ int catalog_file_lang(const char* filename, char **lang) {
+         return 1;
+ }
+ 
++static int catalog_entry_lang(const char* filename, int line,
++                              const char* t, const char* deflang, char **lang) {
++        size_t c;
++
++        c = strlen(t);
++        if (c == 0) {
++                log_error("[%s:%u] Language too short.", filename, line);
++                return -EINVAL;
++        }
++        if (c > 31) {
++                log_error("[%s:%u] language too long.", filename, line);
++                return -EINVAL;
++        }
++
++        if (deflang) {
++                if (streq(t, deflang)) {
++                        log_warning("[%s:%u] language specified unnecessarily",
++                                    filename, line);
++                        return 0;
++                } else
++                        log_warning("[%s:%u] language differs from default for file",
++                                    filename, line);
++        }
++
++        *lang = strdup(t);
++        if (!*lang)
++                        return -ENOMEM;
++
++        return 0;
++}
++
+ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
+         _cleanup_fclose_ FILE *f = NULL;
+         _cleanup_free_ char *payload = NULL;
+@@ -238,25 +269,9 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
+                                 if (with_language) {
+                                         t = strstrip(line + 2 + 1 + 32 + 1);
+ 
+-                                        c = strlen(t);
+-                                        if (c <= 0) {
+-                                                log_error("[%s:%u] Language too short.", path, n);
+-                                                return -EINVAL;
+-                                        }
+-                                        if (c > 31) {
+-                                                log_error("[%s:%u] language too long.", path, n);
+-                                                return -EINVAL;
+-                                        }
+-
+-                                        if (deflang) {
+-                                                log_warning("[%s:%u] language %s", path, n,
+-                                                            streq(t, deflang) ?
+-                                                            "specified unnecessarily" :
+-                                                            "differs from default for file");
+-                                                lang = strdup(t);
+-                                                if (!lang)
+-                                                        return -ENOMEM;
+-                                        }
++                                        r = catalog_entry_lang(path, n, t, deflang, &lang);
++                                        if (r < 0)
++                                                return r;
+                                 }
+ 
+                                 got_id = true;

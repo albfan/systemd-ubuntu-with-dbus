@@ -1,0 +1,80 @@
+From: Hendrik Brueckner <brueckner@redhat.com>
+Date: Tue, 11 Mar 2014 18:41:09 +0100
+Subject: getty: Start getty on 3270 terminals available on Linux on System z
+
+Add the first 3270 terminal device that is associated with the Linux preferred
+console to the list of virtualization consoles.  This is required to
+automatically start a getty if the conmode=3270 kernel parameter is specified
+for Linux on z/VM instances.  Note that a queued upstream patch also enable
+the 3270 terminal device if it is associated with the Linux preferred console.
+How
+
+To successfully start agetty on a 3270 terminal, a change in the agetty
+parameter order is required.  Previously, agetty would started like this:
+
+    /sbin/agetty --keep-baud 3270/tty1 115200,38400,9600 TERM
+
+The agetty program interprets the "3270/tty1" as baud rate and fails to start
+with the "bad speed: 3270/tty1" error message.  Fixing this in agetty is more
+complex rather than reordering the command line parameters like this:
+
+    /sbin/agetty --keep-baud 115200,38400,9600 3270/tty1 TERM
+
+According to agetty sources and "agetty --help", agetty accepts the "tty",
+"baudrate tty", and "tty baudrate" specifications.
+
+P.S. The "tty: Set correct tty name in 'active' sysfs attribute" introduces
+     a change to display the terminal device which is associated with the
+     Linux preferred console.  This change helps to let systemd handle this
+     particular case only.  Without the changes of this commit, no additional
+     3270 terminal device can be managed by systemd.
+
+     https://git.kernel.org/cgit/linux/kernel/git/gregkh/tty.git/commit/?id=723abd87f6e536f1353c8f64f621520bc29523a3
+
+(cherry picked from commit fc6c7fe9becdd70ae6b671c396f2ad2db0b71cd7)
+---
+ rules/99-systemd.rules.in             | 2 +-
+ src/getty-generator/getty-generator.c | 3 ++-
+ units/serial-getty@.service.m4        | 2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index 04a59c46..db72373c 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -7,7 +7,7 @@
+ 
+ ACTION=="remove", GOTO="systemd_end"
+ 
+-SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*", TAG+="systemd"
++SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270/tty[0-9]*", TAG+="systemd"
+ 
+ KERNEL=="vport*", TAG+="systemd"
+ 
+diff --git a/src/getty-generator/getty-generator.c b/src/getty-generator/getty-generator.c
+index 08b3b1e7..6a4aa2c1 100644
+--- a/src/getty-generator/getty-generator.c
++++ b/src/getty-generator/getty-generator.c
+@@ -124,7 +124,8 @@ int main(int argc, char *argv[]) {
+                 "xvc0\0"
+                 "hvsi0\0"
+                 "sclp_line0\0"
+-                "ttysclp0\0";
++                "ttysclp0\0"
++                "3270!tty1\0";
+ 
+         _cleanup_free_ char *active = NULL;
+         const char *j;
+diff --git a/units/serial-getty@.service.m4 b/units/serial-getty@.service.m4
+index e94cdb4a..4ac51e76 100644
+--- a/units/serial-getty@.service.m4
++++ b/units/serial-getty@.service.m4
+@@ -22,7 +22,7 @@ Before=getty.target
+ IgnoreOnIsolate=yes
+ 
+ [Service]
+-ExecStart=-/sbin/agetty --keep-baud %I 115200,38400,9600 $TERM
++ExecStart=-/sbin/agetty --keep-baud 115200,38400,9600 %I $TERM
+ Type=idle
+ Restart=always
+ RestartSec=0

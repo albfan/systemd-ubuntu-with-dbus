@@ -15,7 +15,7 @@ https://bugzilla.redhat.com/show_bug.cgi?id=1047039
  1 file changed, 20 insertions(+), 6 deletions(-)
 
 diff --git a/src/journal/journal-file.c b/src/journal/journal-file.c
-index 4d9787a1..57ded0ab 100644
+index 23c4d28e..c27289c9 100644
 --- a/src/journal/journal-file.c
 +++ b/src/journal/journal-file.c
 @@ -1359,7 +1359,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st

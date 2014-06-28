@@ -7,13 +7,12 @@ provide an error code; thus, when printing an error from it, don't print
 an unrelated error code from a previous call.
 
 (cherry picked from commit cddc35f75ecff63b2ffd3f8e4c863d475e7b14ca)
-(cherry picked from commit b8b80c8aa1effecb9c224cd3be1e8acbf7a44745)
 ---
  src/backlight/backlight.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
-index e8cdad61..4b04a3a2 100644
+index 86f10cc0..81470b3f 100644
 --- a/src/backlight/backlight.c
 +++ b/src/backlight/backlight.c
 @@ -322,7 +322,7 @@ int main(int argc, char *argv[]) {

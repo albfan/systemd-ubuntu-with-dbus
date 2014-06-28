@@ -7,25 +7,19 @@ so use the F21 convention.
 
 https://bugs.freedesktop.org/show_bug.cgi?id=72807
 (cherry picked from commit e55edb22a71e67f01534d28f91c6aa27bba48fc1)
-(cherry picked from commit 970e92893ea9aff1df21ad5e9a19f7d1c0fdedbe)
-
-Conflicts:
-	hwdb/60-keyboard.hwdb
 ---
- hwdb/60-keyboard.hwdb | 3 +++
- 1 file changed, 3 insertions(+)
+ hwdb/60-keyboard.hwdb | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
-index c320c218..b4079491 100644
+index f23305d4..5bbf0f12 100644
 --- a/hwdb/60-keyboard.hwdb
 +++ b/hwdb/60-keyboard.hwdb
-@@ -140,6 +140,9 @@ keyboard:dmi:bvn*:bvr*:bd*:svnASUS:pn*
- keyboard:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
-  KEYBOARD_KEY_6b=f21		# Touchpad Toggle
+@@ -138,6 +138,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnASUS:pn*
+  KEYBOARD_KEY_ef=mute
  
+ keyboard:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
 +keyboard:name:Eee PC WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:pvr*
-+ KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
-+
- ###########################################################
- # BenQ
+  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
+ 
  ###########################################################

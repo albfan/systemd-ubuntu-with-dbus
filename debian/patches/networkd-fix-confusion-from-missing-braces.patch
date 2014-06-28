@@ -1,0 +1,35 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 8 Mar 2014 11:57:28 -0500
+Subject: networkd: fix confusion from missing braces
+
+Fixup for 76800848f281c3 'networkd: link - degrade failed UP to warning'.
+
+(cherry picked from commit 58b129170ca6acacffd853b6c8fbec9fce2c2163)
+---
+ src/network/networkd-link.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/src/network/networkd-link.c b/src/network/networkd-link.c
+index 5831d831..305ce239 100644
+--- a/src/network/networkd-link.c
++++ b/src/network/networkd-link.c
+@@ -790,16 +790,14 @@ static int link_up_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
+                 return 1;
+ 
+         r = sd_rtnl_message_get_errno(m);
+-        if (r < 0)
++        if (r >= 0)
++                link_update_flags(link, link->flags | IFF_UP);
++        else
+                 log_struct_link(LOG_WARNING, link,
+                                 "MESSAGE=%s: could not bring up interface: %s",
+                                 link->ifname, strerror(-r),
+                                 "ERRNO=%d", -r,
+                                 NULL);
+-                return 1;
+-
+-        link_update_flags(link, link->flags | IFF_UP);
+-
+         return 1;
+ }
+ 

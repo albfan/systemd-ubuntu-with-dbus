@@ -1,0 +1,69 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 10 May 2014 03:44:25 +0200
+Subject: systemctl: return an error code is status fails
+
+This got lost in the refactoring in f74294c1dabb4.
+
+Also make sure that the return code corresponds to the *first* failure,
+not the last.
+
+https://lists.fedoraproject.org/pipermail/devel/2014-May/199080.html
+(cherry picked from commit 5bb75bc745557d5141066dee796b329507b0c634)
+---
+ src/systemctl/systemctl.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 12432ddf..b35cb0cd 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -3824,7 +3824,7 @@ static int show_all(
+         _cleanup_free_ UnitInfo *unit_infos = NULL;
+         const UnitInfo *u;
+         unsigned c;
+-        int r;
++        int r, ret = 0;
+ 
+         r = get_unit_list(bus, &reply, &unit_infos, NULL);
+         if (r < 0)
+@@ -3846,9 +3846,11 @@ static int show_all(
+                 r = show_one(verb, bus, p, show_properties, new_line, ellipsized);
+                 if (r != 0)
+                         return r;
++                else if (r > 0 && ret == 0)
++                        ret = r;
+         }
+ 
+-        return 0;
++        return ret;
+ }
+ 
+ static int cat(sd_bus *bus, char **args) {
+@@ -3993,7 +3995,12 @@ static int show(sd_bus *bus, char **args) {
+                                 }
+                         }
+ 
+-                        show_one(args[0], bus, unit, show_properties, &new_line, &ellipsized);
++                        r = show_one(args[0], bus, unit, show_properties,
++                                     &new_line, &ellipsized);
++                        if (r < 0)
++                                return r;
++                        else if (r > 0 && ret == 0)
++                                ret = r;
+                 }
+ 
+                 if (!strv_isempty(patterns)) {
+@@ -4010,7 +4017,12 @@ static int show(sd_bus *bus, char **args) {
+                                 if (!unit)
+                                         return log_oom();
+ 
+-                                show_one(args[0], bus, unit, show_properties, &new_line, &ellipsized);
++                                r = show_one(args[0], bus, unit, show_properties,
++                                             &new_line, &ellipsized);
++                                if (r < 0)
++                                        return r;
++                                else if (r > 0 && ret == 0)
++                                        ret = r;
+                         }
+                 }
+         }

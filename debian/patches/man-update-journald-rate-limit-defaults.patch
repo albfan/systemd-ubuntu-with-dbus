@@ -5,13 +5,12 @@ Subject: man: update journald rate limit defaults
 This brings the man page back into sync with the actual code.
 
 (cherry picked from commit 8f18f550e7023948f199616fdfbb0f09711fd615)
-(cherry picked from commit 430015550fe479455aeba7b4362bfa578cf75e2b)
 ---
  man/journald.conf.xml | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/journald.conf.xml b/man/journald.conf.xml
-index 27c326e9..77ecd5d3 100644
+index a814ec1e..0e38e739 100644
 --- a/man/journald.conf.xml
 +++ b/man/journald.conf.xml
 @@ -190,8 +190,8 @@

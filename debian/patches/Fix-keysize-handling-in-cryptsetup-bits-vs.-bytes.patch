@@ -13,14 +13,12 @@ it's no new limitation.
 
 Conflicts:
 	src/cryptsetup/cryptsetup.c
-
-(cherry picked from commit 19ef179118bcf92b7290669edf7e38e12f1a80d6)
 ---
  src/cryptsetup/cryptsetup.c | 11 +++++++++--
  1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/src/cryptsetup/cryptsetup.c b/src/cryptsetup/cryptsetup.c
-index 6a76d21c..12114337 100644
+index 033c0cdb..72f23b9f 100644
 --- a/src/cryptsetup/cryptsetup.c
 +++ b/src/cryptsetup/cryptsetup.c
 @@ -88,6 +88,13 @@ static int parse_one_option(const char *option) {
@@ -37,7 +35,7 @@ index 6a76d21c..12114337 100644
          } else if (startswith(option, "key-slot=")) {
  
                  opt_type = CRYPT_LUKS1;
-@@ -414,7 +421,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
+@@ -407,7 +414,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
                  /* for CRYPT_PLAIN limit reads
                   * from keyfile to key length, and
                   * ignore keyfile-size */
@@ -46,7 +44,7 @@ index 6a76d21c..12114337 100644
  
                  /* In contrast to what the name
                   * crypt_setup() might suggest this
-@@ -577,7 +584,7 @@ int main(int argc, char *argv[]) {
+@@ -570,7 +577,7 @@ int main(int argc, char *argv[]) {
                  else
                          until = 0;
  

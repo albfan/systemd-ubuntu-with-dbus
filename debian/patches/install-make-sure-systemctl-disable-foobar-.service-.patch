@@ -7,17 +7,15 @@ Subject: install: make sure "systemctl disable foobar@.service" actually
 
 Conflicts:
 	src/shared/install.c
-
-(cherry picked from commit b83e096610a05b7bb3b096cebd634ef3717c4b2c)
 ---
  src/shared/install.c | 21 +++++++++++++++++----
  1 file changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 00a6a77e..e772c450 100644
+index 136e894f..defcf46a 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
-@@ -267,8 +267,21 @@ static int remove_marked_symlinks_fd(
+@@ -266,8 +266,21 @@ static int remove_marked_symlinks_fd(
  
                          if (unit_name_is_instance(de->d_name) &&
                              instance_whitelist &&
@@ -41,7 +39,7 @@ index 00a6a77e..e772c450 100644
  
                          p = path_make_absolute(de->d_name, path);
                          if (!p)
-@@ -297,10 +310,10 @@ static int remove_marked_symlinks_fd(
+@@ -296,10 +309,10 @@ static int remove_marked_symlinks_fd(
                                          continue;
                                  }
  

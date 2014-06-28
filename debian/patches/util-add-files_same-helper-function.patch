@@ -8,17 +8,16 @@ files_same() returns
  errno, for any stat error
 
 (cherry picked from commit 9d9951a460a90ef0e1e0384742cefdcf85193f8c)
-(cherry picked from commit ac0c2a0e3cd29f5f6d80bdb9ae4ffbd94e15707e)
 ---
  src/shared/util.c | 24 ++++++++++++++++--------
  src/shared/util.h |  2 ++
  2 files changed, 18 insertions(+), 8 deletions(-)
 
 diff --git a/src/shared/util.c b/src/shared/util.c
-index 6e97a6d6..1f83eb75 100644
+index c3f1ed24..64680561 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -3333,19 +3333,27 @@ bool on_tty(void) {
+@@ -3204,19 +3204,27 @@ bool on_tty(void) {
          return cached_on_tty;
  }
  
@@ -53,12 +52,12 @@ index 6e97a6d6..1f83eb75 100644
 +        return ret == 0;
  }
  
- char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
+ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
 diff --git a/src/shared/util.h b/src/shared/util.h
-index e83d2abf..20d81e5c 100644
+index 38d64940..5d2bbfb4 100644
 --- a/src/shared/util.h
 +++ b/src/shared/util.h
-@@ -405,6 +405,8 @@ static inline const char *ansi_highlight_off(void) {
+@@ -445,6 +445,8 @@ static inline const char *ansi_highlight_off(void) {
          return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
  }
  

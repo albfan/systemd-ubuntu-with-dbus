@@ -4,21 +4,17 @@ Subject: keymap: Add Lenovo Enhanced USB Keyboard
 
 https://bugs.freedesktop.org/show_bug.cgi?id=77234
 (cherry picked from commit d258d4967eb24122c2b1014d4e873f61b633f1d2)
-(cherry picked from commit f36ed0204ee1f917f8eadc37bb655324b1e4157a)
-
-Conflicts:
-	hwdb/60-keyboard.hwdb
 ---
- hwdb/60-keyboard.hwdb | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ hwdb/60-keyboard.hwdb | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
 diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
-index fdab8273..c320c218 100644
+index 4e07a52b..f23305d4 100644
 --- a/hwdb/60-keyboard.hwdb
 +++ b/hwdb/60-keyboard.hwdb
-@@ -576,6 +576,17 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
+@@ -579,6 +579,18 @@ keyboard:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
+ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
   KEYBOARD_KEY_f1=f21
-  KEYBOARD_KEY_ce=f20
  
 +# enhanced USB keyboard
 +keyboard:usb:v04B3p301B*
@@ -30,6 +26,7 @@ index fdab8273..c320c218 100644
 + KEYBOARD_KEY_90006=calc
 + KEYBOARD_KEY_90007=mail
 + KEYBOARD_KEY_90008=www
++
 +
  ###########################################################
  # Logitech

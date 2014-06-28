@@ -6,23 +6,18 @@ Subject: man: readahead: fix cmdline switch inconsistency between readahead.c
 Source code has "files-max" and XML has --max-files.
 
 (cherry picked from commit 332bc31992acffc6f32e194c0122e01607bd0e27)
-(cherry picked from commit 78db70d9c7da6ad48291047bad1ab2f4e80795e7)
-
-Conflicts:
-	man/systemd-readahead-replay.service.xml
-	src/readahead/readahead.c
 ---
  man/systemd-readahead-replay.service.xml | 2 +-
  src/readahead/readahead.c                | 2 +-
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/systemd-readahead-replay.service.xml b/man/systemd-readahead-replay.service.xml
-index 806d4609..8a1f47a9 100644
+index 67b41f5b..669fe789 100644
 --- a/man/systemd-readahead-replay.service.xml
 +++ b/man/systemd-readahead-replay.service.xml
-@@ -124,7 +124,7 @@
-                         </varlistentry>
+@@ -117,7 +117,7 @@
  
+                 <variablelist>
                          <varlistentry>
 -                                <term><option>--max-files=</option></term>
 +                                <term><option>--files-max=</option></term>
@@ -30,13 +25,13 @@ index 806d4609..8a1f47a9 100644
                                  <listitem><para>Maximum number of
                                  files to read ahead. Only valid
 diff --git a/src/readahead/readahead.c b/src/readahead/readahead.c
-index 29255c9f..78bf8378 100644
+index d6729ec9..73cf5380 100644
 --- a/src/readahead/readahead.c
 +++ b/src/readahead/readahead.c
-@@ -40,7 +40,7 @@ static int help(void) {
-         printf("%s [OPTIONS...] collect [DIRECTORY]\n\n"
+@@ -42,7 +42,7 @@ static int help(void) {
                 "Collect read-ahead data on early boot.\n\n"
                 "  -h --help                 Show this help\n"
+                "     --version              Show package version\n"
 -               "     --max-files=INT        Maximum number of files to read ahead\n"
 +               "     --files-max=INT        Maximum number of files to read ahead\n"
                 "     --file-size-max=BYTES  Maximum size of files to read ahead\n"

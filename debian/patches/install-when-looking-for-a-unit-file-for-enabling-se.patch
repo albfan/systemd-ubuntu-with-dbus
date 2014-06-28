@@ -7,13 +7,12 @@ Let's always make sure to look in all search directories for the full
 unit names first, before looking for templates for them.
 
 (cherry picked from commit e50bd775163cd96be1888943a8785a436be710e8)
-(cherry picked from commit ce314469055164cdc83d73c9e006ec703bc515b7)
 ---
  src/shared/install.c | 74 +++++++++++++++++++++++++++-------------------------
  1 file changed, 38 insertions(+), 36 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index ff0a2a4d..00a6a77e 100644
+index 5eee0fa1..136e894f 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
 @@ -1048,67 +1048,69 @@ static int unit_file_search(

@@ -3,16 +3,15 @@ Date: Wed, 26 Mar 2014 18:48:13 -0700
 Subject: Add hwdb entry for Samsung Series 7 Ultra
 
 (cherry picked from commit 15f392394e75ffb7f318920008fd1bbe4e82b488)
-(cherry picked from commit cc76be2f760478eb32b9645ba6cb84cc1b791a52)
 ---
  hwdb/60-keyboard.hwdb | 8 ++++++++
  1 file changed, 8 insertions(+)
 
 diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
-index f9084e4a..fdab8273 100644
+index edfa842d..4e07a52b 100644
 --- a/hwdb/60-keyboard.hwdb
 +++ b/hwdb/60-keyboard.hwdb
-@@ -921,6 +921,14 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
+@@ -924,6 +924,14 @@ keyboard:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*90X3A*:pvr*
   KEYBOARD_KEY_96=!kbdillumup                            # Fn+F8 keyboard backlight up
   KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 Wi-Fi toggle
  

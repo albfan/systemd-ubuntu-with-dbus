@@ -33,7 +33,6 @@ we still have (old) policy active. So we don't need to halt if
 enforce=1.
 
 (cherry picked from commit 68d3acaccbd26ecfbc5881fea75968fa4abcc565)
-(cherry picked from commit f5ad306cb9ea1dea38a934b6b07901de1257a3fa)
 ---
  src/core/selinux-setup.c | 14 +++++++-------
  1 file changed, 7 insertions(+), 7 deletions(-)
