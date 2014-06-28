@@ -32,15 +32,18 @@
 
 static pid_t pager_pid = 0;
 
-_noreturn_ static void pager_fallback(void) {
+noreturn static void pager_fallback(void) {
         ssize_t n;
+
         do {
                 n = splice(STDIN_FILENO, NULL, STDOUT_FILENO, NULL, 64*1024, 0);
         } while (n > 0);
+
         if (n < 0) {
                 log_error("Internal pager failed: %m");
                 _exit(EXIT_FAILURE);
         }
+
         _exit(EXIT_SUCCESS);
 }
 
@@ -81,14 +84,17 @@ int pager_open(bool jump_to_end) {
 
         /* In the child start the pager */
         if (pager_pid == 0) {
+                const char* less_opts;
 
                 dup2(fd[0], STDIN_FILENO);
                 close_pipe(fd);
 
+                less_opts = getenv("SYSTEMD_LESS");
+                if (!less_opts)
+                        less_opts = "FRSXMK";
                 if (jump_to_end)
-                        setenv("LESS", "FRSXMK+G", 1);
-                else
-                        setenv("LESS", "FRSXMK", 1);
+                        less_opts = strappenda(less_opts, " +G");
+                setenv("LESS", less_opts, 1);
 
                 /* Make sure the pager goes away when the parent dies */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)

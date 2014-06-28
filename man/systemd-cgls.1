@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-CGLS" "1" "" "systemd 208" "systemd-cgls"
+.TH "SYSTEMD\-CGLS" "1" "" "systemd 209" "systemd-cgls"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,21 +35,6 @@ By default, empty control groups are not shown\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
-.PP
 \fB\-\-all\fR
 .RS 4
 Do not hide empty control groups in the output\&.
@@ -65,14 +50,29 @@ Do not ellipsize process tree members\&.
 Include kernel threads in output\&.
 .RE
 .PP
-\fB\-m \fR\fB\fIMACHINE\fR\fR, \fB\-\-machine=\fR\fB\fIMACHINE\fR\fR
+\fB\-M \fR\fB\fIMACHINE\fR\fR, \fB\-\-machine=\fR\fB\fIMACHINE\fR\fR
 .RS 4
 Limit control groups shown to the part corresponding to the container
 \fIMACHINE\fR\&.
 .RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

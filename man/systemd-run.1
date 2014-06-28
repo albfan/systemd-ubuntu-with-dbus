@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RUN" "1" "" "systemd 208" "systemd-run"
+.TH "SYSTEMD\-RUN" "1" "" "systemd 209" "systemd-run"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -27,7 +27,7 @@ systemd-run \- Run programs in transient scope or service units
 .SH "DESCRIPTION"
 .PP
 \fBsystemd\-run\fR
-may be used create and start a transient
+may be used to create and start a transient
 \&.service
 or a
 \&.scope
@@ -48,21 +48,6 @@ and thus inherit the execution environment of the caller\&. It is however manage
 .SH "OPTIONS"
 .PP
 The following options are understood:
-.PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-user\fR
-.RS 4
-Talk to the service manager of the calling user, rather than the service manager of the system\&.
-.RE
 .PP
 \fB\-\-scope\fR
 .RS 4
@@ -112,6 +97,37 @@ in
 \fBsystemd.kill\fR(5)\&.
 .RE
 .PP
+\fB\-\-user\fR
+.RS 4
+Talk to the service manager of the calling user, rather than the service manager of the system\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Talk to the service manager of the system\&. This is the implied default\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
 All command\-line arguments after the first non\-option argument become part of the commandline of the launched process\&. If a command is run as service unit, its first argument needs to be an absolute binary path\&.
 .SH "EXIT STATUS"
 .PP
@@ -132,7 +148,6 @@ Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env\&.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US\&.UTF\-8
 Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz\-3\&.11\&.0\-0\&.rc5\&.git6\&.2\&.fc20\&.x86_64
-    
 .fi
 .if n \{\
 .RE
@@ -144,4 +159,5 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz\-3\&.11\&.0\-0\&.rc5\&.gi
 \fBsystemd.unit\fR(5),
 \fBsystemd.service\fR(5),
 \fBsystemd.scope\fR(5),
-\fBsystemd.slice\fR(5)\&.
+\fBsystemd.slice\fR(5),
+\fBmachinectl\fR(1)

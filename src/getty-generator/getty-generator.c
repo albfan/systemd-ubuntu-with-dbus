@@ -22,6 +22,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "log.h"
 #include "util.h"
@@ -29,23 +30,24 @@
 #include "unit-name.h"
 #include "virt.h"
 #include "fileio.h"
+#include "path-util.h"
 
 static const char *arg_dest = "/tmp";
 
 static int add_symlink(const char *fservice, const char *tservice) {
-        char *from = NULL, *to = NULL;
+        _cleanup_free_ char *from = NULL, *to = NULL;
         int r;
 
         assert(fservice);
         assert(tservice);
 
         from = strappend(SYSTEM_DATA_UNIT_PATH "/", fservice);
-        to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
+        if (!from)
+                return log_oom();
 
-        if (!from || !to) {
-                r = log_oom();
-                goto finish;
-        }
+        to = strjoin(arg_dest,"/getty.target.wants/", tservice, NULL);
+        if (!to)
+                return log_oom();
 
         mkdir_parents_label(to, 0755);
 
@@ -53,24 +55,18 @@ static int add_symlink(const char *fservice, const char *tservice) {
         if (r < 0) {
                 if (errno == EEXIST)
                         /* In case console=hvc0 is passed this will very likely result in EEXIST */
-                        r = 0;
+                        return 0;
                 else {
                         log_error("Failed to create symlink %s: %m", to);
-                        r = -errno;
+                        return -errno;
                 }
         }
 
-finish:
-
-        free(from);
-        free(to);
-
-        return r;
+        return 0;
 }
 
 static int add_serial_getty(const char *tty) {
-        char *n;
-        int r;
+        _cleanup_free_ char *n = NULL;
 
         assert(tty);
 
@@ -80,10 +76,45 @@ static int add_serial_getty(const char *tty) {
         if (!n)
                 return log_oom();
 
-        r = add_symlink("serial-getty@.service", n);
-        free(n);
+        return add_symlink("serial-getty@.service", n);
+}
 
-        return r;
+static int add_container_getty(const char *tty) {
+        _cleanup_free_ char *n = NULL;
+
+        assert(tty);
+
+        log_debug("Automatically adding container getty for /dev/pts/%s.", tty);
+
+        n = unit_name_replace_instance("container-getty@.service", tty);
+        if (!n)
+                return log_oom();
+
+        return add_symlink("container-getty@.service", n);
+}
+
+static int verify_tty(const char *name) {
+        _cleanup_close_ int fd = -1;
+        const char *p;
+
+        /* Some TTYs are weird and have been enumerated but don't work
+         * when you try to use them, such as classic ttyS0 and
+         * friends. Let's check that and open the device and run
+         * isatty() on it. */
+
+        p = strappenda("/dev/", name);
+
+        /* O_NONBLOCK is essential here, to make sure we don't wait
+         * for DCD */
+        fd = open(p, O_RDWR|O_NONBLOCK|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        errno = 0;
+        if (isatty(fd) <= 0)
+                return errno ? -errno : -EIO;
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -91,11 +122,13 @@ int main(int argc, char *argv[]) {
         static const char virtualization_consoles[] =
                 "hvc0\0"
                 "xvc0\0"
-                "hvsi0\0";
+                "hvsi0\0"
+                "sclp_line0\0"
+                "ttysclp0\0";
 
-        int r = EXIT_SUCCESS;
-        char *active;
+        _cleanup_free_ char *active = NULL;
         const char *j;
+        int r;
 
         if (argc > 1 && argc != 4) {
                 log_error("This program takes three or no arguments.");
@@ -112,13 +145,46 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
         if (detect_container(NULL) > 0) {
+                _cleanup_free_ char *container_ttys = NULL;
+
                 log_debug("Automatically adding console shell.");
 
                 if (add_symlink("console-getty.service", "console-getty.service") < 0)
-                        r = EXIT_FAILURE;
+                        return EXIT_FAILURE;
+
+                /* When $container_ttys is set for PID 1, spawn
+                 * gettys on all ptys named therein. Note that despite
+                 * the variable name we only support ptys here. */
+
+                r = getenv_for_pid(1, "container_ttys", &container_ttys);
+                if (r > 0) {
+                        char *w, *state;
+                        size_t l;
+
+                        FOREACH_WORD(w, l, container_ttys, state) {
+                                const char *t;
+                                char tty[l + 1];
+
+                                memcpy(tty, w, l);
+                                tty[l] = 0;
+
+                                /* First strip off /dev/ if it is specified */
+                                t = path_startswith(tty, "/dev/");
+                                if (!t)
+                                        t = tty;
+
+                                /* Then, make sure it's actually a pty */
+                                t = path_startswith(t, "pts/");
+                                if (!t)
+                                        continue;
+
+                                if (add_container_getty(t) < 0)
+                                        return EXIT_FAILURE;
+                        }
+                }
 
                 /* Don't add any further magic if we are in a container */
-                goto finish;
+                return EXIT_SUCCESS;
         }
 
         if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
@@ -128,63 +194,46 @@ int main(int argc, char *argv[]) {
                 /* Automatically add in a serial getty on all active
                  * kernel consoles */
                 FOREACH_WORD(w, l, active, state) {
-                        char *tty;
-                        int k;
+                        _cleanup_free_ char *tty = NULL;
 
                         tty = strndup(w, l);
                         if (!tty) {
-                            log_oom();
-                            free(active);
-                            r = EXIT_FAILURE;
-                            goto finish;
+                                log_oom();
+                                return EXIT_FAILURE;
                         }
 
-                        if (isempty(tty) || tty_is_vc(tty)) {
-                                free(tty);
+                        if (isempty(tty) || tty_is_vc(tty))
                                 continue;
-                        }
+
+                        if (verify_tty(tty) < 0)
+                                continue;
 
                         /* We assume that gettys on virtual terminals are
                          * started via manual configuration and do this magic
                          * only for non-VC terminals. */
 
-                        k = add_serial_getty(tty);
-
-                        if (k < 0) {
-                                free(tty);
-                                free(active);
-                                r = EXIT_FAILURE;
-                                goto finish;
-                        }
+                        if (add_serial_getty(tty) < 0)
+                                return EXIT_FAILURE;
                 }
-                free(active);
         }
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
         NULSTR_FOREACH(j, virtualization_consoles) {
-                char *p;
-                int k;
+                _cleanup_free_ char *p = NULL;
 
-                if (asprintf(&p, "/sys/class/tty/%s", j) < 0) {
+                p = strappend("/sys/class/tty/", j);
+                if (!p) {
                         log_oom();
-                        r = EXIT_FAILURE;
-                        goto finish;
+                        return EXIT_FAILURE;
                 }
 
-                k = access(p, F_OK);
-                free(p);
-
-                if (k < 0)
+                if (access(p, F_OK) < 0)
                         continue;
 
-                k = add_serial_getty(j);
-                if (k < 0) {
-                        r = EXIT_FAILURE;
-                        goto finish;
-                }
+                if (add_serial_getty(j) < 0)
+                        return EXIT_FAILURE;
         }
 
-finish:
-        return r;
+        return EXIT_SUCCESS;
 }

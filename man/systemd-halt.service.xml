@@ -65,7 +65,7 @@
                 <para><filename>systemd-halt.service</filename> is a
                 system service that is pulled in by
                 <filename>halt.target</filename> and is responsible
-                for the actual system halt. Similar,
+                for the actual system halt. Similarly,
                 <filename>systemd-poweroff.service</filename> is
                 pulled in by <filename>poweroff.target</filename>,
                 <filename>systemd-reboot.service</filename> by
@@ -74,14 +74,20 @@
                 <filename>kexec.target</filename> to execute the
                 respective actions.</para>
 
-                <para>When these services are run they ensure that PID
+                <para>When these services are run, they ensure that PID
                 1 is replaced by the
                 <filename>/usr/lib/systemd/systemd-shutdown</filename>
                 tool which is then responsible for the actual
-                shutdown. Before shutting down this binary will try to
+                shutdown. Before shutting down, this binary will try to
                 unmount all remaining file systems, disable all
                 remaining swap devices, detach all remaining storage
                 devices and kill all remaining processes.</para>
+
+                <para>It is necessary to have this code in a separate binary
+                because otherwise rebooting after an upgrade might be broken —
+                the running PID 1 could still depend on libraries which are not
+                available any more, thus keeping the file system busy, which
+                then cannot be re-mounted read-only.</para>
 
                 <para>Immediately before executing the actual system
                 halt/poweroff/reboot/kexec

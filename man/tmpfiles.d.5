@@ -1,5 +1,5 @@
 '\" t
-.TH "TMPFILES\&.D" "5" "" "systemd 208" "tmpfiles.d"
+.TH "TMPFILES\&.D" "5" "" "systemd 209" "tmpfiles.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,18 +38,22 @@ or
 .SH "CONFIGURATION FORMAT"
 .PP
 Each configuration file shall be named in the style of
-<package>\&.conf\&. Files in
-/etc/
+\fIpackage\fR\&.conf
+or
+\fIpackage\fR\-\fIpart\fR\&.conf\&. The second variant should be used when it is desirable to make it easy to override just this part of configuration\&.
+.PP
+Files in
+/etc/tmpfiles\&.d
 override files with the same name in
-/usr/lib/
+/usr/lib/tmpfiles\&.d
 and
-/run/\&. Files in
-/run/
+/run/tmpfiles\&.d\&. Files in
+/run/tmpfiles\&.d
 override files with the same name in
-/usr/lib/\&. Packages should install their configuration files in
-/usr/lib/\&. Files in
-/etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries logged as errors\&.
+/usr/lib/tmpfiles\&.d\&. Packages should install their configuration files in
+/usr/lib/tmpfiles\&.d\&. Files in
+/etc/tmpfiles\&.d
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries logged as errors\&.
 .PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
@@ -57,13 +61,13 @@ in
 /etc/tmpfiles\&.d/
 bearing the same filename\&.
 .PP
-The configuration format is one line per path containing action, path, mode, ownership, age and argument fields:
+The configuration format is one line per path containing type, path, mode, ownership, age, and argument fields:
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-Type Path        Mode UID  GID  Age Argument
+#Type Path        Mode UID  GID  Age Argument
 d    /run/user   0755 root root 10d \-
 L    /tmp/foobar \-    \-    \-    \-   /dev/null
 .fi
@@ -72,16 +76,18 @@ L    /tmp/foobar \-    \-    \-    \-   /dev/null
 .\}
 .SS "Type"
 .PP
+The type consists of a single letter and optionally an exclamation mark\&.
+.PP
 The following line types are understood:
 .PP
 \fIf\fR
 .RS 4
-Create a file if it does not exist yet (optionally writing a short string into it, if the argument parameter is passed)
+Create a file if it does not exist yet\&. If the argument parameter is given, it will be written to the file\&.
 .RE
 .PP
 \fIF\fR
 .RS 4
-Create or truncate a file (optionally writing a short string into it, if the argument parameter is passed)
+Create or truncate a file\&. If the argument parameter is given, it will be written to the file\&.
 .RE
 .PP
 \fIw\fR
@@ -91,52 +97,63 @@ Write the argument parameter to a file, if the file exists\&. Lines of this type
 .PP
 \fId\fR
 .RS 4
-Create a directory if it does not exist yet
+Create a directory if it does not exist yet\&.
 .RE
 .PP
 \fID\fR
 .RS 4
-Create or empty a directory
+Create or empty a directory\&.
 .RE
 .PP
 \fIp\fR
 .RS 4
-Create a named pipe (FIFO) if it does not exist yet
+Create a named pipe (FIFO) if it does not exist yet\&.
 .RE
 .PP
 \fIL\fR
 .RS 4
-Create a symlink if it does not exist yet
+Create a symlink if it does not exist yet\&.
 .RE
 .PP
 \fIc\fR
 .RS 4
-Create a character device node if it does not exist yet
+Create a character device node if it does not exist yet\&.
 .RE
 .PP
 \fIb\fR
 .RS 4
-Create a block device node if it does not exist yet
+Create a block device node if it does not exist yet\&.
 .RE
 .PP
 \fIm\fR
 .RS 4
-If the specified file path exists adjust its access mode, group and user to the specified values and reset the SELinux label\&. If it doesn\*(Aqt exist do nothing\&.
+If the specified file path exists, adjust its access mode, group and user to the specified values and reset the SELinux security context\&. If it does not exist, do nothing\&.
 .RE
 .PP
 \fIx\fR
 .RS 4
-Ignore a path during cleaning\&. Use this type to exclude paths from clean\-up as controlled with the Age parameter\&. Note that lines of this type do not influence the effect of r or R lines\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Ignore a path during cleaning\&. Use this type to exclude paths from clean\-up as controlled with the Age parameter\&. Note that lines of this type do not influence the effect of
+\fIr\fR
+or
+\fIR\fR
+lines\&. Lines of this type accept shell\-style globs in place of normal path names\&.
 .RE
 .PP
 \fIX\fR
 .RS 4
-Ignore a path during cleanup\&. Use this type to prevent path removal as controlled with the Age parameter\&. Note that if path is a directory, content of a directory is not excluded from clean\-up, only directory itself\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Ignore a path during cleaning\&. Use this type to exclude paths from clean\-up as controlled with the Age parameter\&. Unlike
+\fIx\fR, this parameter will not exclude the content if path is a directory, but only directory itself\&. Note that lines of this type do not influence the effect of
+\fIr\fR
+or
+\fIR\fR
+lines\&. Lines of this type accept shell\-style globs in place of normal path names\&.
 .RE
 .PP
 \fIr\fR
 .RS 4
-Remove a file or directory if it exists\&. This may not be used to remove non\-empty directories, use R for that\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Remove a file or directory if it exists\&. This may not be used to remove non\-empty directories, use
+\fIR\fR
+for that\&. Lines of this type accept shell\-style globs in place of normal path names\&.
 .RE
 .PP
 \fIR\fR
@@ -146,13 +163,38 @@ Recursively remove a path and all its subdirectories (if it is a directory)\&. L
 .PP
 \fIz\fR
 .RS 4
-Restore SELinux security context label and set ownership and access mode of a file or directory if it exists\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Restore SELinux security context and set ownership and access mode of a file or directory if it exists\&. Lines of this type accept shell\-style globs in place of normal path names\&.
 .RE
 .PP
 \fIZ\fR
 .RS 4
-Recursively restore SELinux security context label and set ownership and access mode of a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
+Recursively restore SELinux security context and set ownership and access mode of a path and all its subdirectories (if it is a directory)\&. Lines of this type accept shell\-style globs in place of normal path names\&.
 .RE
+.PP
+If the exclamation mark is used, this line is only safe of execute during boot, and can break a running system\&. Lines without the exclamation mark are presumed to be safe to execute at any time, e\&.g\&. on package upgrades\&.
+\fBsystemd\-tmpfiles\fR
+will execute line with an exclamation mark only if option
+\fB\-\-boot\fR
+is given\&.
+.PP
+For example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Make sure these are created by default so that nobody else can
+d /tmp/\&.X11\-unix 1777 root root 10d
+
+# Unlink the X11 lock files
+r! /tmp/\&.X[0\-9]*\-lock
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+The second line in contrast to the first one would break a running system, and will only be executed with
+\fB\-\-boot\fR\&.
 .SS "Path"
 .PP
 The file system path specification supports simple specifier expansion\&. The following expansions are understood:
@@ -217,10 +259,28 @@ T}
 .sp 1
 .SS "Mode"
 .PP
-The file access mode to use when creating this file or directory\&. If omitted or when set to \-, the default is used: 0755 for directories, 0644 for all other file objects\&. For z, Z lines, if omitted or when set to \-, the file access mode will not be modified\&. This parameter is ignored for x, r, R, L lines\&.
+The file access mode to use when creating this file or directory\&. If omitted or when set to \-, the default is used: 0755 for directories, 0644 for all other file objects\&. For
+\fIz\fR,
+\fIZ\fR
+lines, if omitted or when set to
+"\-", the file access mode will not be modified\&. This parameter is ignored for
+\fIx\fR,
+\fIr\fR,
+\fIR\fR,
+\fIL\fR
+lines\&.
 .SS "UID, GID"
 .PP
-The user and group to use for this file or directory\&. This may either be a numeric user/group ID or a user or group name\&. If omitted or when set to \-, the default 0 (root) is used\&. For z, Z lines, when omitted or when set to \-, the file ownership will not be modified\&. These parameters are ignored for x, r, R, L lines\&.
+The user and group to use for this file or directory\&. This may either be a numeric user/group ID or a user or group name\&. If omitted or when set to
+"\-", the default 0 (root) is used\&. For
+\fIz\fR,
+\fIZ\fR
+lines, when omitted or when set to \-, the file ownership will not be modified\&. These parameters are ignored for
+\fIx\fR,
+\fIr\fR,
+\fIR\fR,
+\fIL\fR
+lines\&.
 .SS "Age"
 .PP
 The date field, when set, is used to decide what files to delete when cleaning\&. If a file or directory is older than the current time minus the age field, it is deleted\&. The field format is a series of integers each followed by one of the following postfixes for the respective time units:
@@ -233,12 +293,28 @@ If multiple integers and units are specified, the time values are summed up\&. I
 .PP
 When the age is set to zero, the files are cleaned unconditionally\&.
 .PP
-The age field only applies to lines starting with d, D and x\&. If omitted or set to \-, no automatic clean\-up is done\&.
+The age field only applies to lines starting with
+\fId\fR,
+\fID\fR, and
+\fIx\fR\&. If omitted or set to
+"\-", no automatic clean\-up is done\&.
 .PP
-If the age field starts with a tilde character (~), the clean\-up is only applied to files and directories one level inside the directory specified, but not the files and directories immediately inside it\&.
+If the age field starts with a tilde character
+"~", the clean\-up is only applied to files and directories one level inside the directory specified, but not the files and directories immediately inside it\&.
 .SS "Argument"
 .PP
-For L lines determines the destination path of the symlink\&. For c, b determines the major/minor of the device node, with major and minor formatted as integers, separated by :, e\&.g\&. "1:3"\&. For f, F, w may be used to specify a short string that is written to the file, suffixed by a newline\&. Ignored for all other lines\&.
+For
+\fIL\fR
+lines determines the destination path of the symlink\&. For
+\fIc\fR,
+\fIb\fR
+determines the major/minor of the device node, with major and minor formatted as integers, separated by
+":", e\&.g\&.
+"1:3"\&. For
+\fIf\fR,
+\fIF\fR, and
+\fIw\fR
+may be used to specify a short string that is written to the file, suffixed by a newline\&. Ignored for all other lines\&.
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/tmpfiles.d/screen.conf example\fR

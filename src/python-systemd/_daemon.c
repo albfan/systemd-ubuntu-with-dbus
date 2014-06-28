@@ -31,6 +31,7 @@
 
 #include <systemd/sd-daemon.h>
 #include "pyutil.h"
+#include "macro.h"
 
 PyDoc_STRVAR(module__doc__,
         "Python interface to the libsystemd-daemon library.\n\n"
@@ -51,7 +52,7 @@ static PyObject* booted(PyObject *self, PyObject *args) {
         assert(args == NULL);
 
         r = sd_booted();
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -88,7 +89,7 @@ static PyObject* notify(PyObject *self, PyObject *args, PyObject *keywds) {
 #endif
 
         r = sd_notify(unset, msg);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -114,7 +115,7 @@ static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
 #else
         PyObject *obj = NULL;
         if (!PyArg_ParseTupleAndKeywords(args, keywds, "|O:_listen_fds",
-                                         (char**) kwlist, &unset, &obj))
+                                         (char**) kwlist, &obj))
                 return NULL;
         if (obj != NULL)
                 unset = PyObject_IsTrue(obj);
@@ -123,7 +124,7 @@ static PyObject* listen_fds(PyObject *self, PyObject *args, PyObject *keywds) {
 #endif
 
         r = sd_listen_fds(unset);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return long_FromLong(r);
@@ -151,7 +152,7 @@ static PyObject* is_fifo(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_fifo(fd, path);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -179,7 +180,7 @@ static PyObject* is_mq(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_mq(fd, path);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -203,7 +204,7 @@ static PyObject* is_socket(PyObject *self, PyObject *args) {
                 return NULL;
 
         r = sd_is_socket(fd, family, type, listening);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -230,7 +231,7 @@ static PyObject* is_socket_inet(PyObject *self, PyObject *args) {
         }
 
         r = sd_is_socket_inet(fd, family, type, listening, (uint16_t) port);
-        if (set_error(r, NULL, NULL))
+        if (set_error(r, NULL, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -265,7 +266,7 @@ static PyObject* is_socket_unix(PyObject *self, PyObject *args) {
 #endif
 
         r = sd_is_socket_unix(fd, type, listening, path, length);
-        if (set_error(r, path, NULL))
+        if (set_error(r, path, NULL) < 0)
                 return NULL;
 
         return PyBool_FromLong(r);
@@ -284,11 +285,9 @@ static PyMethodDef methods[] = {
         { NULL, NULL, 0, NULL }        /* Sentinel */
 };
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-prototypes"
-
 #if PY_MAJOR_VERSION < 3
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC init_daemon(void) {
         PyObject *m;
 
@@ -299,6 +298,7 @@ PyMODINIT_FUNC init_daemon(void) {
         PyModule_AddIntConstant(m, "LISTEN_FDS_START", SD_LISTEN_FDS_START);
         PyModule_AddStringConstant(m, "__version__", PACKAGE_VERSION);
 }
+REENABLE_WARNING;
 
 #else
 
@@ -310,6 +310,7 @@ static struct PyModuleDef module = {
         methods
 };
 
+DISABLE_WARNING_MISSING_PROTOTYPES;
 PyMODINIT_FUNC PyInit__daemon(void) {
         PyObject *m;
 
@@ -325,7 +326,6 @@ PyMODINIT_FUNC PyInit__daemon(void) {
 
         return m;
 }
+REENABLE_WARNING;
 
 #endif
-
-#pragma GCC diagnostic pop

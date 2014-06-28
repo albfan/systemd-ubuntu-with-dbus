@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_LISTEN_FDS" "3" "" "systemd 208" "sd_listen_fds"
+.TH "SD_LISTEN_FDS" "3" "" "systemd 209" "sd_listen_fds"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,7 +47,7 @@ parameter is non\-zero,
 \fBsd_listen_fds()\fR
 will unset the
 \fI$LISTEN_FDS\fR/\fI$LISTEN_PID\fR
-environment variables before returning (regardless whether the function call itself succeeded or not)\&. Further calls to
+environment variables before returning (regardless of whether the function call itself succeeded or not)\&. Further calls to
 \fBsd_listen_fds()\fR
 will then fail, but the variables are no longer inherited by child processes\&.
 .PP
@@ -66,30 +66,15 @@ On failure, this call returns a negative errno\-style error code\&. If
 was not set or was not correctly set for this daemon and hence no file descriptors were received, 0 is returned\&. Otherwise, the number of file descriptors passed is returned\&. The application may find them starting with file descriptor SD_LISTEN_FDS_START, i\&.e\&. file descriptor 3\&.
 .SH "NOTES"
 .PP
-This function is provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithm it implements is simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&.
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
 .PP
 Internally, this function checks whether the
 \fI$LISTEN_PID\fR
 environment variable equals the daemon PID\&. If not, it returns immediately\&. Otherwise, it parses the number passed in the
 \fI$LISTEN_FDS\fR
 environment variable, then sets the FD_CLOEXEC flag for the parsed number of file descriptors starting from SD_LISTEN_FDS_START\&. Finally, it returns the parsed number\&.
-.PP
-For details about the algorithm check the liberally licensed reference implementation sources:
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
-and
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
-.PP
-\fBsd_listen_fds()\fR
-is implemented in the reference implementation\*(Aqs
-sd\-daemon\&.c
-and
-sd\-daemon\&.h
-files\&. These interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
-file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree\&. For more details about the reference implementation see
-\fBsd-daemon\fR(3)\&.
-.PP
-If the reference implementation is used as drop\-in files and \-DDISABLE_SYSTEMD is set during compilation, this function will always return 0 and otherwise become a NOP\&.
 .SH "ENVIRONMENT"
 .PP
 \fI$LISTEN_PID\fR, \fI$LISTEN_FDS\fR

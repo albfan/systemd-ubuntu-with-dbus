@@ -24,6 +24,7 @@
 typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
+typedef struct ExecRuntime ExecRuntime;
 
 #include <linux/types.h>
 #include <sys/time.h>
@@ -32,11 +33,15 @@ typedef struct ExecContext ExecContext;
 #include <stdbool.h>
 #include <stdio.h>
 #include <sched.h>
+#ifdef HAVE_SECCOMP
+#include <seccomp.h>
+
+#include "set.h"
+#endif
 
 #include "list.h"
 #include "util.h"
-
-typedef struct Unit Unit;
+#include "fdset.h"
 
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
@@ -77,6 +82,15 @@ struct ExecCommand {
         ExecStatus exec_status;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
         bool ignore;
+};
+
+struct ExecRuntime {
+        int n_ref;
+
+        char *tmp_dir;
+        char *var_tmp_dir;
+
+        int netns_storage_socket[2];
 };
 
 struct ExecContext {
@@ -124,6 +138,12 @@ struct ExecContext {
 
         char *utmp_id;
 
+        bool selinux_context_ignore;
+        char *selinux_context;
+
+        bool apparmor_profile_ignore;
+        char *apparmor_profile;
+
         char **read_write_dirs, **read_only_dirs, **inaccessible_dirs;
         unsigned long mount_flags;
 
@@ -140,8 +160,7 @@ struct ExecContext {
         bool non_blocking;
         bool private_tmp;
         bool private_network;
-        char *tmp_dir;
-        char *var_tmp_dir;
+        bool private_devices;
 
         bool no_new_privileges;
 
@@ -152,7 +171,12 @@ struct ExecContext {
          * don't enter a trigger loop. */
         bool same_pgrp;
 
-        uint32_t *syscall_filter;
+        unsigned long personality;
+
+        Set *syscall_filter;
+        Set *syscall_archs;
+        int syscall_errno;
+        bool syscall_whitelist:1;
 
         bool oom_score_adjust_set:1;
         bool nice_set:1;
@@ -174,7 +198,9 @@ int exec_spawn(ExecCommand *command,
                CGroupControllerMask cgroup_mask,
                const char *cgroup_path,
                const char *unit_id,
+               usec_t watchdog_usec,
                int pipe_fd[2],
+               ExecRuntime *runtime,
                pid_t *ret);
 
 void exec_command_done(ExecCommand *c);
@@ -191,19 +217,25 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
 
 void exec_context_init(ExecContext *c);
-void exec_context_done(ExecContext *c, bool reloading_or_reexecuting);
-void exec_context_tmp_dirs_done(ExecContext *c);
+void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
-void exec_context_tty_reset(const ExecContext *context);
 
 int exec_context_load_environment(const ExecContext *c, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
-void exec_context_serialize(const ExecContext *c, Unit *u, FILE *f);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
+
+int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id);
+ExecRuntime *exec_runtime_ref(ExecRuntime *r);
+ExecRuntime *exec_runtime_unref(ExecRuntime *r);
+
+int exec_runtime_serialize(ExecRuntime *rt, Unit *u, FILE *f, FDSet *fds);
+int exec_runtime_deserialize_item(ExecRuntime **rt, Unit *u, const char *key, const char *value, FDSet *fds);
+
+void exec_runtime_destroy(ExecRuntime *rt);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

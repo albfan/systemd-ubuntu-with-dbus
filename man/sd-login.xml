@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd-login" conditional='HAVE_PAM'>
+<refentry id="sd-login" conditional='HAVE_PAM'
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd-login</title>
@@ -54,7 +55,7 @@
                 </funcsynopsis>
 
                 <cmdsynopsis>
-                        <command>pkg-config --cflags --libs libsystemd-login</command>
+                        <command>pkg-config --cflags --libs libsystemd</command>
                 </cmdsynopsis>
         </refsynopsisdiv>
 
@@ -99,7 +100,7 @@
                 caller with the libc
                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 call after use, including the strings referenced
-                therein. Similar, individual strings returned need to
+                therein. Similarly, individual strings returned need to
                 be freed, as well.</para>
 
                 <para>As a special exception, instead of an empty
@@ -117,14 +118,7 @@
                 implemented.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
-
-                <para>These APIs are implemented as shared library,
-                which can be compiled and linked to with the
-                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
-        </refsect1>
+        <xi:include href="libsystemd-pkgconfig.xml" />
 
         <refsect1>
                 <title>See Also</title>

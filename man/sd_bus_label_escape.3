@@ -1,0 +1,64 @@
+'\" t
+.TH "SD_BUS_LABEL_ESCAPE" "3" "" "systemd 209" "sd_bus_label_escape"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sd_bus_label_escape, sd_bus_label_unescape \- Escape D\-Bus object path special characters
+.SH "SYNOPSIS"
+.sp
+.ft B
+.nf
+#include <systemd/sd\-bus\&.h>
+.fi
+.ft
+.HP \w'char\ *sd_bus_label_escape('u
+.BI "char *sd_bus_label_escape(const\ char\ *" "s" ");"
+.HP \w'char\ *sd_bus_label_unescape('u
+.BI "char *sd_bus_label_unescape(const\ char\ *" "f" ");"
+.SH "DESCRIPTION"
+.PP
+\fBsd_bus_label_escape()\fR
+takes a
+\fBNUL\fR\-terminated string as a argument\&. It will replace all characters which are invalid in a D\-Bus object path by
+"_"
+and a hexadecimal number\&. As a special case, the empty string will be replaced by a lone
+"_"\&.
+\fBsd_bus_label_unescape()\fR
+can be used to reverse this process\&.
+.SH "RETURN VALUE"
+.PP
+On success, a new
+\fBNUL\fR\-terminated string will be returned\&. It must be
+\fBfree\fR(3)d by the caller\&. If a memory allocation failure occurs,
+\fBNULL\fR
+will be returned\&.
+.SH "NOTES"
+.PP
+\fBsd_bus_label_escape()\fR
+and
+\fBsd_bus_label_unescape()\fR
+are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsd-bus\fR(3),
+\fBfree\fR(3)

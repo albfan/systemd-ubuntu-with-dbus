@@ -19,12 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="machinectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machinectl — Control the systemd machine manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">machinectl</code>  [OPTIONS...] {COMMAND} [NAME...]</p></div></div><div class="refsect1"><a name="idm274680855120"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>machinectl</strong></span> may be used to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="machinectl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>machinectl — Control the systemd machine manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">machinectl</code>  [OPTIONS...] {COMMAND} [NAME...]</p></div></div><div class="refsect1"><a name="idm214183340448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>machinectl</strong></span> may be used to
                 introspect and control the state of the
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
-                virtual machine and container registration manager <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm274678658656"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
-                                text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a short version
-                                string and exits.</p></dd><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing
+                virtual machine and container registration manager <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214183336976"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-p"><span class="term"><code class="option">-p</code>, </span><span class="term"><code class="option">--property=</code></span><a class="headerlink" title="Permalink to this term" href="#-p">¶</a></dt><dd><p>When showing
                                 machine properties, limit the
                                 output to certain properties as
                                 specified by the argument. If not
@@ -38,11 +36,8 @@
                                 machine properties, show all
                                 properties regardless of whether they are
                                 set or not.</p></dd><dt id="-l"><span class="term"><code class="option">-l</code>, </span><span class="term"><code class="option">--full</code></span><a class="headerlink" title="Permalink to this term" href="#-l">¶</a></dt><dd><p>Do not ellipsize
-                                process tree entries.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a
-                                pager.</p></dd><dt id="--no-ask-password"><span class="term"><code class="option">--no-ask-password</code></span><a class="headerlink" title="Permalink to this term" href="#--no-ask-password">¶</a></dt><dd><p>Do not query the user
-                                for authentication for privileged
-                                operations.</p></dd><dt id="--kill-who="><span class="term"><code class="option">--kill-who=</code></span><a class="headerlink" title="Permalink to this term" href="#--kill-who=">¶</a></dt><dd><p>When used with
-                                <span class="command"><strong>kill-machine</strong></span>,
+                                process tree entries.</p></dd><dt id="--kill-who="><span class="term"><code class="option">--kill-who=</code></span><a class="headerlink" title="Permalink to this term" href="#--kill-who=">¶</a></dt><dd><p>When used with
+                                <span class="command"><strong>kill</strong></span>,
                                 choose which processes to kill. Must
                                 be one of <code class="option">leader</code>, or
                                 <code class="option">all</code> to select whether
@@ -50,7 +45,7 @@
                                 machine or all processes of the
                                 machine. If omitted, defaults to
                                 <code class="option">all</code>.</p></dd><dt id="-s"><span class="term"><code class="option">-s</code>, </span><span class="term"><code class="option">--signal=</code></span><a class="headerlink" title="Permalink to this term" href="#-s">¶</a></dt><dd><p>When used with
-                                <span class="command"><strong>kill-machine</strong></span>, choose
+                                <span class="command"><strong>kill</strong></span>, choose
                                 which signal to send to selected
                                 processes. Must be one of the
                                 well-known signal specifiers, such as
@@ -58,23 +53,23 @@
                                 <code class="constant">SIGINT</code> or
                                 <code class="constant">SIGSTOP</code>. If
                                 omitted, defaults to
-                                <code class="constant">SIGTERM</code>.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p>Execute operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by "<code class="literal">@</code>",
-                                to connect to. This will use SSH to
-                                talk to the remote machine manager
-                                instance.</p></dd><dt id="-P"><span class="term"><code class="option">-P</code>, </span><span class="term"><code class="option">--privileged</code></span><a class="headerlink" title="Permalink to this term" href="#-P">¶</a></dt><dd><p>Acquire privileges via
-                                PolicyKit before executing the
-                                operation.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>List currently running
+                                <code class="constant">SIGTERM</code>.</p></dd><dt id="--no-legend"><span class="term"><code class="option">--no-legend</code></span><a class="headerlink" title="Permalink to this term" href="#--no-legend">¶</a></dt><dd><p>Do not print the legend,
+                                        i.e. the column headers and the
+                                        footer.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host=</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p><a name="host-text"></a>Execute the operation remotely. Specify a hostname, or
+      username and hostname separated by "<code class="literal">@</code>", to
+      connect to. This will use SSH to talk to the remote machine
+      manager instance.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
+      container name to connect to.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>List currently running
                                 virtual machines and containers.
-                                </p></dd><dt id="status [ID...]"><span class="term"><span class="command"><strong>status [ID...]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#status%20%5BID...%5D">¶</a></dt><dd><p>Show terse runtime
+                                </p></dd><dt id="status ID..."><span class="term"><span class="command"><strong>status</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#status%20ID...">¶</a></dt><dd><p>Show terse runtime
                                 status information about one or more
                                 virtual machines and containers. This
                                 function is intended to generate
                                 human-readable output. If you are
                                 looking for computer-parsable output,
                                 use <span class="command"><strong>show</strong></span> instead.
-                                </p></dd><dt id="show [ID...]"><span class="term"><span class="command"><strong>show [ID...]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#show%20%5BID...%5D">¶</a></dt><dd><p>Show properties of one
+                                </p></dd><dt id="show ID..."><span class="term"><span class="command"><strong>show</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#show%20ID...">¶</a></dt><dd><p>Show properties of one
                                 or more registered virtual machines or
                                 containers or the manager itself. If
                                 no argument is specified, properties
@@ -92,12 +87,12 @@
                                 required. Use
                                 <span class="command"><strong>status</strong></span> if you are
                                 looking for formatted human-readable
-                                output.</p></dd><dt id="terminate [ID...]"><span class="term"><span class="command"><strong>terminate [ID...]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#terminate%20%5BID...%5D">¶</a></dt><dd><p>Terminates a virtual
+                                output.</p></dd><dt id="terminate ID..."><span class="term"><span class="command"><strong>terminate</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#terminate%20ID...">¶</a></dt><dd><p>Terminates a virtual
                                 machine or container. This kills all
                                 processes of the virtual machine or
                                 container and deallocates all
                                 resources attached to that
-                                instance.</p></dd><dt id="kill [ID...]"><span class="term"><span class="command"><strong>kill [ID...]</strong></span></span><a class="headerlink" title="Permalink to this term" href="#kill%20%5BID...%5D">¶</a></dt><dd><p>Send a signal to one
+                                instance.</p></dd><dt id="kill ID..."><span class="term"><span class="command"><strong>kill</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#kill%20ID...">¶</a></dt><dd><p>Send a signal to one
                                 or more processes of the virtual
                                 machine or container. This means
                                 processes as seen by the host, not the
@@ -106,14 +101,30 @@
                                 Use <code class="option">--kill-who=</code> to
                                 select which process to kill. Use
                                 <code class="option">--signal=</code> to select
-                                the signal to send.</p></dd></dl></div></div><div class="refsect1"><a name="idm274679440960"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm274680901760"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
-                                <code class="option">--no-pager</code> is not given;
-                                overrides <code class="varname">$PAGER</code>.  Setting
-                                this to an empty string or the value
-                                "<code class="literal">cat</code>" is equivalent to passing
-                                <code class="option">--no-pager</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm274680044672"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                the signal to send.</p></dd><dt id="reboot ID..."><span class="term"><span class="command"><strong>reboot</strong></span> <em class="replaceable"><code>ID</code></em>...</span><a class="headerlink" title="Permalink to this term" href="#reboot%20ID...">¶</a></dt><dd><p>Reboot one or more
+                                containers. This will trigger a reboot
+                                by sending SIGINT to the container's
+                                init process, which is roughly
+                                equivalent to pressing Ctrl+Alt+Del on
+                                a non-containerized
+                                system.</p></dd><dt id="login ID"><span class="term"><span class="command"><strong>login</strong></span> <em class="replaceable"><code>ID</code></em></span><a class="headerlink" title="Permalink to this term" href="#login%20ID">¶</a></dt><dd><p>Open a terminal login
+                                session to a container. This will
+                                create a TTY connection to a specific
+                                container and asks for the execution of a
+                                getty on it. Note that this is only
+                                supported for containers running
+                                <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
+                                as init system.</p></dd></dl></div></div><div class="refsect1"><a name="idm214183359264"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm214166609072"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+                        <code class="option">--no-pager</code> is not given;
+                        overrides <code class="varname">$PAGER</code>.  Setting
+                        this to an empty string or the value
+                        "<code class="literal">cat</code>" is equivalent to passing
+                        <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
+                        options passed to
+                        <span class="command"><strong>less</strong></span>
+                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm214183357552"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>,
-                        <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
-                        <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>.
+                        <a href="systemd-nspawn.html"><span class="citerefentry"><span class="refentrytitle">systemd-nspawn</span>(1)</span></a>,
+                        <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>
                 </p></div></div></body></html>

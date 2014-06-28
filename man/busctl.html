@@ -1,0 +1,60 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>busctl</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="busctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>busctl — Introspect the bus</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">busctl</code>  [OPTIONS...] [COMMAND] [<em class="replaceable"><code>NAME</code></em>...]</p></div></div><div class="refsect1"><a name="idm214172331104"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>busctl</strong></span> may be used to
+    introspect and monitor the D-Bus bus.</p></div><div class="refsect1"><a name="idm214172329360"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--address=ADDRESS"><span class="term"><code class="option">--address=<em class="replaceable"><code>ADDRESS</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--address=ADDRESS">¶</a></dt><dd><p>Connect to the bus specified by
+          <em class="replaceable"><code>ADDRESS</code></em> instead of using suitable
+          defaults for either the system or user bus (see
+          <code class="option">--system</code> and <code class="option">--user</code>
+          options).</p></dd><dt id="--show-machine"><span class="term"><code class="option">--show-machine</code></span><a class="headerlink" title="Permalink to this term" href="#--show-machine">¶</a></dt><dd><p>When showing the list of endpoints, show a
+          column containing the names of containers they belong to.
+          See
+          <a href="systemd-machined.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-machined.service</span>(8)</span></a>.
+          </p></dd><dt id="--unique"><span class="term"><code class="option">--unique</code></span><a class="headerlink" title="Permalink to this term" href="#--unique">¶</a></dt><dd><p>When showing the list of endpoints, show
+          only "unique" names (of the form
+          "<code class="literal">:<em class="replaceable"><code>number</code></em>.<em class="replaceable"><code>number</code></em></code>").
+          </p></dd><dt id="--acquired"><span class="term"><code class="option">--acquired</code></span><a class="headerlink" title="Permalink to this term" href="#--acquired">¶</a></dt><dd><p>The opposite of <code class="option">--unique</code> —
+          only "well-known" names will be shown.</p></dd><dt id="--activatable"><span class="term"><code class="option">--activatable</code></span><a class="headerlink" title="Permalink to this term" href="#--activatable">¶</a></dt><dd><p>When showing the list of endpoints, show
+          only endpoints which have actually not been activated yet,
+          but may be started automatically if accessed.</p></dd><dt id="--match=MATCH"><span class="term"><code class="option">--match=<em class="replaceable"><code>MATCH</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--match=MATCH">¶</a></dt><dd><p>When showing messages being exchanged, show only the
+          subset matching <em class="replaceable"><code>MATCH</code></em>.</p></dd><dt id="--no-legend"><span class="term"><code class="option">--no-legend</code></span><a class="headerlink" title="Permalink to this term" href="#--no-legend">¶</a></dt><dd><p>Do not print the legend,
+          i.e. the column headers and the
+          footer.</p></dd><dt id="--user"><span class="term"><code class="option">--user</code></span><a class="headerlink" title="Permalink to this term" href="#--user">¶</a></dt><dd><p><a name="user-text"></a>Talk to the service manager of the calling user,
+      rather than the service manager of the system.</p></dd><dt id="--system"><span class="term"><code class="option">--system</code></span><a class="headerlink" title="Permalink to this term" href="#--system">¶</a></dt><dd><p><a name="system-text"></a>Talk to the service manager of the system. This is the
+      implied default.</p></dd><dt id="-H"><span class="term"><code class="option">-H</code>, </span><span class="term"><code class="option">--host=</code></span><a class="headerlink" title="Permalink to this term" href="#-H">¶</a></dt><dd><p><a name="host-text"></a>Execute the operation remotely. Specify a hostname, or
+      username and hostname separated by "<code class="literal">@</code>", to
+      connect to. This will use SSH to talk to the remote machine
+      manager instance.</p></dd><dt id="-M"><span class="term"><code class="option">-M</code>, </span><span class="term"><code class="option">--machine=</code></span><a class="headerlink" title="Permalink to this term" href="#-M">¶</a></dt><dd><p><a name="machine-text"></a>Execute operation on a local container. Specify a
+      container name to connect to.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm214176257120"></a><h2 id="Commands">Commands<a class="headerlink" title="Permalink to this headline" href="#Commands">¶</a></h2><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>Show endpoints attached to the bus. This is
+        the default if no command is specified.</p></dd><dt id="monitor  NAME"><span class="term"><span class="command"><strong>monitor</strong></span>   [<em class="replaceable"><code>NAME</code></em>...]</span><a class="headerlink" title="Permalink to this term" href="#monitor%20%20NAME">¶</a></dt><dd><p>Dump messages being exchanged. If
+        <em class="replaceable"><code>NAME</code></em> is specified, show messages
+        to or from this endpoint. Otherwise, show all messages on the
+        bus.</p></dd><dt id="status  NAME"><span class="term"><span class="command"><strong>status</strong></span>    <em class="replaceable"><code>NAME</code></em> </span><a class="headerlink" title="Permalink to this term" href="#status%20%20NAME">¶</a></dt><dd><p>Show process information and credentials of a
+        bus endpoint.</p></dd><dt id="help"><span class="term"><span class="command"><strong>help</strong></span></span><a class="headerlink" title="Permalink to this term" href="#help">¶</a></dt><dd><p>Show command syntax help.</p></dd></dl></div></div><div class="refsect1"><a name="idm214176238560"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+      <a href="dbus-daemon.html"><span class="citerefentry"><span class="refentrytitle">dbus-daemon</span>(1)</span></a>,
+      <a class="ulink" href="http://freedesktop.org/wiki/Software/dbus" target="_top">D-Bus</a>,
+      <a class="ulink" href="https://code.google.com/p/d-bus/" target="_top">kdbus</a>,
+      <a href="sd-bus.html"><span class="citerefentry"><span class="refentrytitle">sd-bus</span>(3)</span></a>,
+      <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+      <a href="systemd-bus-proxyd.html"><span class="citerefentry"><span class="refentrytitle">systemd-bus-proxyd</span>(8)</span></a>,
+      <a href="machinectl.html"><span class="citerefentry"><span class="refentrytitle">machinectl</span>(1)</span></a>
+    </p></div></div></body></html>

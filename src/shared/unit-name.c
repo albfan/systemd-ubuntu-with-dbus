@@ -24,6 +24,7 @@
 #include <assert.h>
 
 #include "path-util.h"
+#include "bus-label.h"
 #include "util.h"
 #include "unit-name.h"
 #include "def.h"
@@ -35,13 +36,14 @@
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_SOCKET] = "socket",
+        [UNIT_BUSNAME] = "busname",
         [UNIT_TARGET] = "target",
+        [UNIT_SNAPSHOT] = "snapshot",
         [UNIT_DEVICE] = "device",
         [UNIT_MOUNT] = "mount",
         [UNIT_AUTOMOUNT] = "automount",
-        [UNIT_SNAPSHOT] = "snapshot",
-        [UNIT_TIMER] = "timer",
         [UNIT_SWAP] = "swap",
+        [UNIT_TIMER] = "timer",
         [UNIT_PATH] = "path",
         [UNIT_SLICE] = "slice",
         [UNIT_SCOPE] = "scope"
@@ -60,7 +62,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 
-bool unit_name_is_valid(const char *n, bool template_ok) {
+bool unit_name_is_valid(const char *n, enum template_valid template_ok) {
         const char *e, *i, *at;
 
         /* Valid formats:
@@ -70,6 +72,7 @@ bool unit_name_is_valid(const char *n, bool template_ok) {
          */
 
         assert(n);
+        assert(IN_SET(template_ok, TEMPLATE_VALID, TEMPLATE_INVALID));
 
         if (strlen(n) >= UNIT_NAME_MAX)
                 return false;
@@ -94,7 +97,7 @@ bool unit_name_is_valid(const char *n, bool template_ok) {
                 if (at == n)
                         return false;
 
-                if (!template_ok && at+1 == e)
+                if (!template_ok == TEMPLATE_VALID && at+1 == e)
                         return false;
         }
 
@@ -184,7 +187,7 @@ char *unit_name_change_suffix(const char *n, const char *suffix) {
         size_t a, b;
 
         assert(n);
-        assert(unit_name_is_valid(n, true));
+        assert(unit_name_is_valid(n, TEMPLATE_VALID));
         assert(suffix);
         assert(suffix[0] == '.');
 
@@ -440,7 +443,7 @@ char *unit_name_from_path_instance(const char *prefix, const char *path, const c
 }
 
 char *unit_name_to_path(const char *name) {
-        char *w, *e;
+        _cleanup_free_ char *w = NULL;
 
         assert(name);
 
@@ -448,10 +451,7 @@ char *unit_name_to_path(const char *name) {
         if (!w)
                 return NULL;
 
-        e = unit_name_path_unescape(w);
-        free(w);
-
-        return e;
+        return unit_name_path_unescape(w);
 }
 
 char *unit_dbus_path_from_name(const char *name) {
@@ -459,7 +459,7 @@ char *unit_dbus_path_from_name(const char *name) {
 
         assert(name);
 
-        e = bus_path_escape(name);
+        e = bus_label_escape(name);
         if (!e)
                 return NULL;
 
@@ -474,7 +474,7 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         if (!e)
                 return -EINVAL;
 
-        n = bus_path_unescape(e);
+        n = bus_label_unescape(e);
         if (!n)
                 return -ENOMEM;
 
@@ -482,14 +482,18 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         return 0;
 }
 
-char *unit_name_mangle(const char *name) {
+
+/**
+ *  Try to turn a string that might not be a unit name into a
+ *  sensible unit name.
+ */
+char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs) {
         char *r, *t;
         const char *f;
+        const char* valid_chars = allow_globs == MANGLE_GLOB ? "@" VALID_CHARS "[]!-*?" : "@" VALID_CHARS;
 
         assert(name);
-
-        /* Try to turn a string that might not be a unit name into a
-         * sensible unit name. */
+        assert(IN_SET(allow_globs, MANGLE_GLOB, MANGLE_NOGLOB));
 
         if (is_device_path(name))
                 return unit_name_from_path(name, ".device");
@@ -507,7 +511,7 @@ char *unit_name_mangle(const char *name) {
         for (f = name, t = r; *f; f++) {
                 if (*f == '/')
                         *(t++) = '-';
-                else if (!strchr("@" VALID_CHARS, *f))
+                else if (!strchr(valid_chars, *f))
                         t = do_escape_char(*f, t);
                 else
                         *(t++) = *f;
@@ -521,16 +525,18 @@ char *unit_name_mangle(const char *name) {
         return r;
 }
 
-char *unit_name_mangle_with_suffix(const char *name, const char *suffix) {
+
+/**
+ *  Similar to unit_name_mangle(), but is called when we know
+ *  that this is about a specific unit type.
+ */
+char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix) {
         char *r, *t;
         const char *f;
 
         assert(name);
         assert(suffix);
         assert(suffix[0] == '.');
-
-        /* Similar to unit_name_mangle(), but is called when we know
-         * that this is about snapshot units. */
 
         r = new(char, strlen(name) * 4 + strlen(suffix) + 1);
         if (!r)

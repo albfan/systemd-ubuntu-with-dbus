@@ -26,6 +26,14 @@
 
 #include <inttypes.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef _sd_packed_
+#  define _sd_packed_ __attribute__((packed))
+#endif
+
 typedef enum sd_shutdown_mode {
         SD_SHUTDOWN_NONE = 0,
         SD_SHUTDOWN_REBOOT = 'r',
@@ -55,7 +63,7 @@ struct sd_shutdown_command {
         /* The wall message to send around. Leave empty for the
          * default wall message */
         char wall_message[];
-} __attribute__((packed));
+} _sd_packed_;
 
 /* The scheme is very simple:
  *
@@ -104,5 +112,9 @@ struct sd_shutdown_command {
  * but the directory may be watched and the file in it read by
  * anybody.
  */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

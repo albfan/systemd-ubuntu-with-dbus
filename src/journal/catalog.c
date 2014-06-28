@@ -39,6 +39,7 @@
 #include "conf-files.h"
 #include "mkdir.h"
 #include "catalog.h"
+#include "siphash24.h"
 
 const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
@@ -63,28 +64,21 @@ typedef struct CatalogItem {
         le64_t offset;
 } CatalogItem;
 
-unsigned catalog_hash_func(const void *p) {
+unsigned long catalog_hash_func(const void *p, const uint8_t hash_key[HASH_KEY_SIZE]) {
         const CatalogItem *i = p;
+        uint64_t u;
+        size_t l, sz;
+        void *v;
 
-        assert_cc(sizeof(unsigned) == sizeof(uint8_t)*4);
+        l = strlen(i->language);
+        sz = sizeof(i->id) + l;
+        v = alloca(sz);
 
-        return (((unsigned) i->id.bytes[0] << 24) |
-                ((unsigned) i->id.bytes[1] << 16) |
-                ((unsigned) i->id.bytes[2] << 8) |
-                ((unsigned) i->id.bytes[3])) ^
-               (((unsigned) i->id.bytes[4] << 24) |
-                ((unsigned) i->id.bytes[5] << 16) |
-                ((unsigned) i->id.bytes[6] << 8) |
-                ((unsigned) i->id.bytes[7])) ^
-               (((unsigned) i->id.bytes[8] << 24) |
-                ((unsigned) i->id.bytes[9] << 16) |
-                ((unsigned) i->id.bytes[10] << 8) |
-                ((unsigned) i->id.bytes[11])) ^
-               (((unsigned) i->id.bytes[12] << 24) |
-                ((unsigned) i->id.bytes[13] << 16) |
-                ((unsigned) i->id.bytes[14] << 8) |
-                ((unsigned) i->id.bytes[15])) ^
-                string_hash_func(i->language);
+        memcpy(mempcpy(v, &i->id, sizeof(i->id)), i->language, l);
+
+        siphash24((uint8_t*) &u, v, sz, hash_key);
+
+        return (unsigned long) u;
 }
 
 int catalog_compare_func(const void *a, const void *b) {
@@ -125,7 +119,10 @@ static int finish_item(
                 return log_oom();
 
         i->id = id;
-        strscpy(i->language, sizeof(i->language), language);
+        if (language) {
+                assert(strlen(language) > 1 && strlen(language) < 32);
+                strcpy(i->language, language);
+        }
         i->offset = htole64((uint64_t) offset);
 
         r = hashmap_put(h, i, i);
@@ -139,12 +136,34 @@ static int finish_item(
         return 0;
 }
 
+int catalog_file_lang(const char* filename, char **lang) {
+        char *beg, *end, *_lang;
+
+        end = endswith(filename, ".catalog");
+        if (!end)
+                return 0;
+
+        beg = end - 1;
+        while (beg > filename && *beg != '.' && *beg != '/' && end - beg < 32)
+                beg --;
+
+        if (*beg != '.' || end <= beg + 1)
+                return 0;
+
+        _lang = strndup(beg + 1, end - beg - 1);
+        if (!_lang)
+                return -ENOMEM;
+
+        *lang = _lang;
+        return 1;
+}
+
 int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         unsigned n = 0;
         sd_id128_t id;
-        char language[32];
+        _cleanup_free_ char *deflang = NULL, *lang = NULL;
         bool got_id = false, empty_line = true;
         int r;
 
@@ -157,6 +176,12 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                 log_error("Failed to open file %s: %m", path);
                 return -errno;
         }
+
+        r = catalog_file_lang(path, &deflang);
+        if (r < 0)
+                log_error("Failed to determine language for file %s: %m", path);
+        if (r == 1)
+                log_debug("File %s has language %s.", path, deflang);
 
         for (;;) {
                 char line[LINE_MAX];
@@ -201,9 +226,12 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                         if (sd_id128_from_string(line + 2 + 1, &jd) >= 0) {
 
                                 if (got_id) {
-                                        r = finish_item(h, sb, id, language, payload);
+                                        r = finish_item(h, sb, id, lang ?: deflang, payload);
                                         if (r < 0)
                                                 return r;
+
+                                        free(lang);
+                                        lang = NULL;
                                 }
 
                                 if (with_language) {
@@ -214,14 +242,21 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
                                                 log_error("[%s:%u] Language too short.", path, n);
                                                 return -EINVAL;
                                         }
-                                        if (c > sizeof(language) - 1) {
+                                        if (c > 31) {
                                                 log_error("[%s:%u] language too long.", path, n);
                                                 return -EINVAL;
                                         }
 
-                                        strscpy(language, sizeof(language), t);
-                                } else
-                                        language[0] = '\0';
+                                        if (deflang) {
+                                                log_warning("[%s:%u] language %s", path, n,
+                                                            streq(t, deflang) ?
+                                                            "specified unnecessarily" :
+                                                            "differs from default for file");
+                                                lang = strdup(t);
+                                                if (!lang)
+                                                        return -ENOMEM;
+                                        }
+                                }
 
                                 got_id = true;
                                 empty_line = false;
@@ -264,7 +299,7 @@ int catalog_import_file(Hashmap *h, struct strbuf *sb, const char *path) {
         }
 
         if (got_id) {
-                r = finish_item(h, sb, id, language, payload);
+                r = finish_item(h, sb, id, lang ?: deflang, payload);
                 if (r < 0)
                         return r;
         }
@@ -399,7 +434,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         }
 
         assert(n == hashmap_size(h));
-        qsort(items, n, sizeof(CatalogItem), catalog_compare_func);
+        qsort_safe(items, n, sizeof(CatalogItem), catalog_compare_func);
 
         r = write_catalog(database, h, sb, items, n);
         if (r < 0)

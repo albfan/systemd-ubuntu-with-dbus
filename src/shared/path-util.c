@@ -45,18 +45,6 @@ bool is_path(const char *p) {
         return !!strchr(p, '/');
 }
 
-char *path_get_file_name(const char *p) {
-        char *r;
-
-        assert(p);
-
-        r = strrchr(p, '/');
-        if (r)
-                return r + 1;
-
-        return (char*) p;
-}
-
 int path_get_parent(const char *path, char **_r) {
         const char *e, *a = NULL, *b = NULL, *p;
         char *r;
@@ -165,7 +153,7 @@ char **path_strv_make_absolute_cwd(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize(char **l) {
+char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
         char **s;
         unsigned k = 0;
         bool enomem = false;
@@ -180,13 +168,21 @@ char **path_strv_canonicalize(char **l) {
         STRV_FOREACH(s, l) {
                 char *t, *u;
 
-                t = path_make_absolute_cwd(*s);
-                free(*s);
-                *s = NULL;
-
-                if (!t) {
-                        enomem = true;
+                if (!path_is_absolute(*s))
                         continue;
+
+                if (prefix) {
+                        t = strappend(prefix, *s);
+                        free(*s);
+                        *s = NULL;
+
+                        if (!t) {
+                                enomem = true;
+                                continue;
+                        }
+                } else {
+                        t = *s;
+                        *s = NULL;
                 }
 
                 errno = 0;
@@ -196,7 +192,7 @@ char **path_strv_canonicalize(char **l) {
                                 u = t;
                         else {
                                 free(t);
-                                if (errno == ENOMEM || !errno)
+                                if (errno == ENOMEM || errno == 0)
                                         enomem = true;
 
                                 continue;
@@ -215,11 +211,12 @@ char **path_strv_canonicalize(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize_uniq(char **l) {
+char **path_strv_canonicalize_absolute_uniq(char **l, const char *prefix) {
+
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_canonicalize(l))
+        if (!path_strv_canonicalize_absolute(l, prefix))
                 return NULL;
 
         return strv_uniq(l);
@@ -428,6 +425,8 @@ int path_is_os_tree(const char *path) {
 
 int find_binary(const char *name, char **filename) {
         assert(name);
+        assert(filename);
+
         if (strchr(name, '/')) {
                 char *p;
 
@@ -472,4 +471,39 @@ int find_binary(const char *name, char **filename) {
 
                 return -ENOENT;
         }
+}
+
+bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
+        bool changed = false;
+        const char* const* i;
+
+        assert(timestamp);
+
+        if (paths == NULL)
+                return false;
+
+        STRV_FOREACH(i, paths) {
+                struct stat stats;
+                usec_t u;
+
+                if (stat(*i, &stats) < 0)
+                        continue;
+
+                u = timespec_load(&stats.st_mtim);
+
+                /* first check */
+                if (*timestamp >= u)
+                        continue;
+
+                log_debug("timestamp of '%s' changed", *i);
+
+                /* update timestamp */
+                if (update) {
+                        *timestamp = u;
+                        changed = true;
+                } else
+                        return true;
+        }
+
+        return changed;
 }

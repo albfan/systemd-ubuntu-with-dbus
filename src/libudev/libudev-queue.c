@@ -69,7 +69,7 @@ _public_ struct udev_queue *udev_queue_new(struct udev *udev)
         if (udev == NULL)
                 return NULL;
 
-        udev_queue = calloc(1, sizeof(struct udev_queue));
+        udev_queue = new0(struct udev_queue, 1);
         if (udev_queue == NULL)
                 return NULL;
         udev_queue->refcount = 1;
@@ -101,7 +101,7 @@ _public_ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
  * Drop a reference of a udev queue context. If the refcount reaches zero,
  * the resources of the queue context will be released.
  *
- * Returns: the passed queue context if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
 {
@@ -109,7 +109,7 @@ _public_ struct udev_queue *udev_queue_unref(struct udev_queue *udev_queue)
                 return NULL;
         udev_queue->refcount--;
         if (udev_queue->refcount > 0)
-                return udev_queue;
+                return NULL;
         udev_list_cleanup(&udev_queue->queue_list);
         free(udev_queue);
         return NULL;

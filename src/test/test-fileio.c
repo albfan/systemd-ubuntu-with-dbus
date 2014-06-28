@@ -41,9 +41,11 @@ static void test_parse_env_file(void) {
         char **i;
         unsigned k;
 
-        assert_se(mktemp(p));
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");
@@ -76,16 +78,16 @@ static void test_parse_env_file(void) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(streq(a[0], "one=BAR"));
-        assert_se(streq(a[1], "two=bar"));
-        assert_se(streq(a[2], "three=333\nxxxx"));
-        assert_se(streq(a[3], "four=44\"44"));
-        assert_se(streq(a[4], "five=55\'55FIVEcinco"));
-        assert_se(streq(a[5], "six=seis sechs sis"));
-        assert_se(streq(a[6], "seven=sevenval#nocomment"));
-        assert_se(streq(a[7], "eight=eightval #nocomment"));
-        assert_se(streq(a[8], "export nine=nineval"));
-        assert_se(streq(a[9], "ten="));
+        assert_se(streq_ptr(a[0], "one=BAR"));
+        assert_se(streq_ptr(a[1], "two=bar"));
+        assert_se(streq_ptr(a[2], "three=333\nxxxx"));
+        assert_se(streq_ptr(a[3], "four=44\"44"));
+        assert_se(streq_ptr(a[4], "five=55\'55FIVEcinco"));
+        assert_se(streq_ptr(a[5], "six=seis sechs sis"));
+        assert_se(streq_ptr(a[6], "seven=sevenval#nocomment"));
+        assert_se(streq_ptr(a[7], "eight=eightval #nocomment"));
+        assert_se(streq_ptr(a[8], "export nine=nineval"));
+        assert_se(streq_ptr(a[9], "ten="));
         assert_se(a[10] == NULL);
 
         strv_env_clean_log(a, "test");
@@ -152,9 +154,11 @@ static void test_parse_multiline_env_file(void) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
         char **i;
 
-        assert_se(mktemp(p));
+        fd = mkostemp_safe(p, O_RDWR|O_CLOEXEC);
+        assert_se(fd >= 0);
+        close(fd);
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");
@@ -181,9 +185,9 @@ static void test_parse_multiline_env_file(void) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(streq(a[0], "one=BAR    VAR\tGAR"));
-        assert_se(streq(a[1], "two=bar    var\tgar"));
-        assert_se(streq(a[2], "tri=bar     var \tgar "));
+        assert_se(streq_ptr(a[0], "one=BAR    VAR\tGAR"));
+        assert_se(streq_ptr(a[1], "two=bar    var\tgar"));
+        assert_se(streq_ptr(a[2], "tri=bar     var \tgar "));
         assert_se(a[3] == NULL);
 
         r = write_env_file(p, a);
@@ -203,7 +207,7 @@ static void test_executable_is_script(void) {
         FILE *f;
         char *command;
 
-        fd = mkostemp(t, O_CLOEXEC);
+        fd = mkostemp_safe(t, O_RDWR|O_CLOEXEC);
         assert_se(fd >= 0);
 
         f = fdopen(fd, "w");

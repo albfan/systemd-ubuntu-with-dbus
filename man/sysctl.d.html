@@ -19,12 +19,12 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm274685470848"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm214195583456"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
                 <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>
                 reads configuration files from the above directories
                 to configure
                 <a href="sysctl.html"><span class="citerefentry"><span class="refentrytitle">sysctl</span>(8)</span></a>
-                kernel parameters.</p></div><div class="refsect1"><a name="idm274685467792"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
+                kernel parameters.</p></div><div class="refsect1"><a name="idm214195580448"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
                 variable assignments, separated by newlines. Empty
                 lines and lines whose first non-whitespace character
                 is # or ; are ignored.</p><p>Note that both / and . are accepted as label
@@ -44,8 +44,8 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                lexicographic order, regardless in which of the
-                directories they reside. If multiple files specify the
+                lexicographic order, regardless of which of the
+                directories they reside in. If multiple files specify the
                 same variable name, the entry in the file with the
                 lexicographically latest name will be applied. It is
                 recommended to prefix all filenames with a two-digit
@@ -55,8 +55,16 @@
                 recommended way is to place a symlink to
                 <code class="filename">/dev/null</code> in
                 <code class="filename">/etc/sysctl.d/</code> bearing the
-                same filename.</p></div><div class="refsect1"><a name="idm274689353296"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm274689352624"></a><p class="title"><b>Example 1. /etc/sysctl.d/domain-name.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Set kernel YP domain name
-kernel.domainname=example.com</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm274689351024"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                same filename.</p><p>The settings configured with
+                <code class="filename">sysctl.d</code> files will be applied
+                early on boot. The network interface-specific options
+                will also be applied individually for each network
+                interface as it shows up in the system. (More
+                specifically, that is
+                <code class="filename">net.ipv4.conf.*</code>,
+                <code class="filename">net.ipv6.conf.*</code>,
+                <code class="filename">net.ipv4.neigh.*</code> and <code class="filename">net.ipv6.neigh.*</code>)</p></div><div class="refsect1"><a name="idm214195639088"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm214195638416"></a><p class="title"><b>Example 1. /etc/sysctl.d/domain-name.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Set kernel YP domain name
+kernel.domainname=example.com</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214195636768"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,

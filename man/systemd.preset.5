@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.PRESET" "5" "" "systemd 208" "systemd.preset"
+.TH "SYSTEMD\&.PRESET" "5" "" "systemd 209" "systemd.preset"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -80,7 +80,7 @@ override files with the same name in
 /usr/lib/\&. Packages should install their preset files in
 /usr/lib/\&. Files in
 /etc/
-are reserved for the local administrator, who may use this logic to override the preset files installed by vendor packages\&. All preset files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same unit name, the entry in the file with the lexicographically earliest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+are reserved for the local administrator, who may use this logic to override the preset files installed by vendor packages\&. All preset files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same unit name, the entry in the file with the lexicographically earliest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
 .PP
 If the administrator wants to disable a preset file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null

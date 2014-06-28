@@ -125,6 +125,8 @@ ACL_LIBS = @ACL_LIBS@
 ALL_LINGUAS = @ALL_LINGUAS@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+APPARMOR_CFLAGS = @APPARMOR_CFLAGS@
+APPARMOR_LIBS = @APPARMOR_LIBS@
 AR = @AR@
 AUDIT_LIBS = @AUDIT_LIBS@
 AUTOCONF = @AUTOCONF@
@@ -215,6 +217,7 @@ LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 M4 = @M4@
 M4_DEFINES = @M4_DEFINES@
+MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MICROHTTPD_CFLAGS = @MICROHTTPD_CFLAGS@
@@ -224,7 +227,6 @@ MSGFMT = @MSGFMT@
 MSGMERGE = @MSGMERGE@
 NM = @NM@
 NMEDIT = @NMEDIT@
-OBJCOPY = @OBJCOPY@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OTOOL = @OTOOL@
@@ -260,6 +262,8 @@ RANLIB = @RANLIB@
 RC_LOCAL_SCRIPT_PATH_START = @RC_LOCAL_SCRIPT_PATH_START@
 RC_LOCAL_SCRIPT_PATH_STOP = @RC_LOCAL_SCRIPT_PATH_STOP@
 RT_LIBS = @RT_LIBS@
+SECCOMP_CFLAGS = @SECCOMP_CFLAGS@
+SECCOMP_LIBS = @SECCOMP_LIBS@
 SED = @SED@
 SELINUX_CFLAGS = @SELINUX_CFLAGS@
 SELINUX_LIBS = @SELINUX_LIBS@
@@ -510,7 +514,7 @@ GTK_DOC_V_PDF_0 = @echo "  DOC   Building PDF";
 all: all-am
 
 .SUFFIXES:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(top_srcdir)/docs/gtk-doc.make $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/docs/gtk-doc.make $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -536,9 +540,9 @@ $(top_srcdir)/docs/gtk-doc.make:
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 version.xml: $(top_builddir)/config.status $(srcdir)/version.xml.in

@@ -82,6 +82,9 @@ const <span class="returnvalue">gchar</span> *       <a class="link" href="GUdev
 const <span class="returnvalue">gchar</span> * const * <a class="link" href="GUdevDevice.html#g-udev-device-get-property-as-strv" title="g_udev_device_get_property_as_strv ()">g_udev_device_get_property_as_strv</a>
                                                         (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
                                                          <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);
+const <span class="returnvalue">gchar</span> * const * <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-keys" title="g_udev_device_get_sysfs_attr_keys ()">g_udev_device_get_sysfs_attr_keys</a> (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>);
+<span class="returnvalue">gboolean</span>            <a class="link" href="GUdevDevice.html#g-udev-device-has-sysfs-attr" title="g_udev_device_has_sysfs_attr ()">g_udev_device_has_sysfs_attr</a>        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
+                                                         <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);
 const <span class="returnvalue">gchar</span> *       <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr" title="g_udev_device_get_sysfs_attr ()">g_udev_device_get_sysfs_attr</a>        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
                                                          <em class="parameter"><code>const <span class="type">gchar</span> *name</code></em>);
 <span class="returnvalue">gint</span>                <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int" title="g_udev_device_get_sysfs_attr_as_int ()">g_udev_device_get_sysfs_attr_as_int</a> (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
@@ -142,6 +145,8 @@ To access udev properties for the device, use
 </p>
 <p>
 To access sysfs attributes for the device, use
+<a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-keys" title="g_udev_device_get_sysfs_attr_keys ()"><code class="function">g_udev_device_get_sysfs_attr_keys()</code></a>,
+<a class="link" href="GUdevDevice.html#g-udev-device-has-sysfs-attr" title="g_udev_device_has_sysfs_attr ()"><code class="function">g_udev_device_has_sysfs_attr()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr" title="g_udev_device_get_sysfs_attr ()"><code class="function">g_udev_device_get_sysfs_attr()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int" title="g_udev_device_get_sysfs_attr_as_int ()"><code class="function">g_udev_device_get_sysfs_attr_as_int()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-uint64" title="g_udev_device_get_sysfs_attr_as_uint64 ()"><code class="function">g_udev_device_get_sysfs_attr_as_uint64()</code></a>,
@@ -874,6 +879,17 @@ locale is not taken into account).
 </tr>
 </tbody>
 </table></div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="g-udev-device-get-sysfs-attr-keys"></a><h3>g_udev_device_get_sysfs_attr_keys ()</h3>
+<pre class="programlisting">const <span class="returnvalue">gchar</span> * const * g_udev_device_get_sysfs_attr_keys (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>);</pre>
+</div>
+<hr>
+<div class="refsect2">
+<a name="g-udev-device-has-sysfs-attr"></a><h3>g_udev_device_has_sysfs_attr ()</h3>
+<pre class="programlisting"><span class="returnvalue">gboolean</span>            g_udev_device_has_sysfs_attr        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
+                                                         <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);</pre>
 </div>
 <hr>
 <div class="refsect2">

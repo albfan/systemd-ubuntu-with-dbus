@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_NEXT" "3" "" "systemd 208" "sd_journal_next"
+.TH "SD_JOURNAL_NEXT" "3" "" "systemd 209" "sd_journal_next"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,7 +47,7 @@ advances the read pointer into the journal by one entry\&. The only argument tak
 \fBsd_journal_open\fR(3)\&. After successful invocation the entry may be read with functions such as
 \fBsd_journal_get_data\fR(3)\&.
 .PP
-Similar,
+Similarly,
 \fBsd_journal_previous()\fR
 sets the read pointer back one entry\&.
 .PP
@@ -72,7 +72,7 @@ macro may be used as a wrapper around
 \fBsd_journal_seek_head\fR(3)
 and
 \fBsd_journal_next()\fR
-in order to make iterating through the journal easier\&. See below for an example\&. Similar,
+in order to make iterating through the journal easier\&. See below for an example\&. Similarly,
 \fBSD_JOURNAL_FOREACH_BACKWARDS()\fR
 may be used for iterating the journal in reverse order\&.
 .SH "RETURN VALUE"
@@ -90,8 +90,8 @@ The
 \fBsd_journal_next_skip()\fR
 and
 \fBsd_journal_previous_skip()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "EXAMPLES"
 .PP

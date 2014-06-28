@@ -69,8 +69,8 @@
                 messages written to this file descriptor as simple
                 newline-separated text strings are written to the
                 journal. This file descriptor can be used internally
-                by applications or be made STDOUT/STDERR of other
-                processes executed.</para>
+                by applications or be made standard output or standard
+                error of other processes executed.</para>
 
                 <para><function>sd_journal_stream_fd()</function>
                 takes a short program identifier string as first
@@ -112,9 +112,9 @@
                 <title>Notes</title>
 
                 <para>The <function>sd_journal_stream_fd()</function>
-                interface is available as shared library, which can
+                interface is available as a shared library, which can
                 be compiled and linked to with the
-                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

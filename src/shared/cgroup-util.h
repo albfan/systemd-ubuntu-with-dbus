@@ -60,14 +60,12 @@ int cg_read_subgroup(DIR *d, char **fn);
 
 int cg_kill(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, Set *s);
 int cg_kill_recursive(const char *controller, const char *path, int sig, bool sigcont, bool ignore_self, bool remove, Set *s);
-int cg_kill_recursive_and_wait(const char *controller, const char *path, bool remove);
 
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self);
 int cg_migrate_recursive(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool remove);
 int cg_migrate_recursive_fallback(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self, bool rem);
 
 int cg_split_spec(const char *spec, char **controller, char **path);
-int cg_join_spec(const char *controller, const char *path, char **spec);
 int cg_mangle_path(const char *path, char **result);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
@@ -94,7 +92,6 @@ int cg_install_release_agent(const char *controller, const char *agent);
 int cg_uninstall_release_agent(const char *controller);
 
 int cg_is_empty(const char *controller, const char *path, bool ignore_self);
-int cg_is_empty_by_spec(const char *spec, bool ignore_self);
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self);
 
 int cg_get_root_path(char **path);
@@ -106,7 +103,8 @@ int cg_path_get_user_unit(const char *path, char **unit);
 int cg_path_get_machine_name(const char *path, char **machine);
 int cg_path_get_slice(const char *path, char **slice);
 
-int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup);
+int cg_shift_path(const char *cgroup, const char *cached_root, const char **shifted);
+int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **cgroup);
 
 int cg_pid_get_session(pid_t pid, char **session);
 int cg_pid_get_owner_uid(pid_t pid, uid_t *uid);
@@ -117,10 +115,6 @@ int cg_pid_get_slice(pid_t pid, char **slice);
 
 int cg_path_decode_unit(const char *cgroup, char **unit);
 
-char **cg_shorten_controllers(char **controllers);
-
-int cg_controller_from_attr(const char *attr, char **controller);
-
 char *cg_escape(const char *p);
 char *cg_unescape(const char *p) _pure_;
 
@@ -128,10 +122,12 @@ bool cg_controller_is_valid(const char *p, bool allow_named);
 
 int cg_slice_to_path(const char *unit, char **ret);
 
+typedef const char* (*cg_migrate_callback_t)(CGroupControllerMask mask, void *userdata);
+
 int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
 int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid);
 int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids);
-int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to);
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
 int cg_trim_everywhere(CGroupControllerMask supported, const char *path, bool delete_root);
 
 CGroupControllerMask cg_mask_supported(void);

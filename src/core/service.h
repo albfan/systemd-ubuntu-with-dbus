@@ -26,7 +26,6 @@ typedef struct Service Service;
 #include "unit.h"
 #include "path.h"
 #include "ratelimit.h"
-#include "service.h"
 #include "kill.h"
 #include "exit-status.h"
 
@@ -130,7 +129,7 @@ struct Service {
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
-        Watch watchdog_watch;
+        sd_event_source *watchdog_event_source;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
@@ -154,10 +153,11 @@ struct Service {
         /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
 
+        /* Runtime data of the execution context */
+        ExecRuntime *exec_runtime;
+
         pid_t main_pid, control_pid;
         int socket_fd;
-
-        int fsck_passno;
 
         bool permissions_start_only;
         bool root_directory_start_only;
@@ -172,7 +172,6 @@ struct Service {
         bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
-        bool got_socket_fd:1;
         bool start_timeout_defined:1;
 #ifdef HAVE_SYSV_COMPAT
         bool is_sysv:1;
@@ -193,7 +192,7 @@ struct Service {
 
         UnitRef accept_socket;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;

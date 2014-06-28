@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <systemd/sd-messages.h>
+#include "sd-messages.h"
 
 #include "util.h"
 #include "mkdir.h"
@@ -32,8 +32,9 @@
 #include "fileio.h"
 #include "special.h"
 #include "unit-name.h"
-#include "dbus-common.h"
 #include "machine.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 Machine* machine_new(Manager *manager, const char *name) {
         Machine *m;
@@ -73,19 +74,21 @@ void machine_free(Machine *m) {
         assert(m);
 
         if (m->in_gc_queue)
-                LIST_REMOVE(Machine, gc_queue, m->manager->machine_gc_queue, m);
+                LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
 
-        if (m->scope) {
-                hashmap_remove(m->manager->machine_units, m->scope);
-                free(m->scope);
+        if (m->unit) {
+                hashmap_remove(m->manager->machine_units, m->unit);
+                free(m->unit);
         }
 
         free(m->scope_job);
 
         hashmap_remove(m->manager->machines, m->name);
 
-        if (m->create_message)
-                dbus_message_unref(m->create_message);
+        if (m->leader > 0)
+                hashmap_remove_value(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+
+        sd_bus_message_unref(m->create_message);
 
         free(m->name);
         free(m->state_file);
@@ -120,8 +123,8 @@ int machine_save(Machine *m) {
                 "NAME=%s\n",
                 m->name);
 
-        if (m->scope)
-                fprintf(f, "SCOPE=%s\n", m->scope);
+        if (m->unit)
+                fprintf(f, "SCOPE=%s\n", m->unit); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
 
         if (m->scope_job)
                 fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
@@ -136,17 +139,17 @@ int machine_save(Machine *m) {
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
         if (m->leader != 0)
-                fprintf(f, "LEADER=%lu\n", (unsigned long) m->leader);
+                fprintf(f, "LEADER="PID_FMT"\n", m->leader);
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
 
         if (dual_timestamp_is_set(&m->timestamp))
                 fprintf(f,
-                        "REALTIME=%llu\n"
-                        "MONOTONIC=%llu\n",
-                        (unsigned long long) m->timestamp.realtime,
-                        (unsigned long long) m->timestamp.monotonic);
+                        "REALTIME="USEC_FMT"\n"
+                        "MONOTONIC="USEC_FMT"\n",
+                        m->timestamp.realtime,
+                        m->timestamp.monotonic);
 
         fflush(f);
 
@@ -156,11 +159,36 @@ int machine_save(Machine *m) {
                 unlink(temp_path);
         }
 
+        if (m->unit) {
+                char *sl;
+
+                /* Create a symlink from the unit name to the machine
+                 * name, so that we can quickly find the machine for
+                 * each given unit */
+                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                symlink(m->name, sl);
+        }
+
 finish:
         if (r < 0)
-                log_error("Failed to save machine data for %s: %s", m->name, strerror(-r));
+                log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
 
         return r;
+}
+
+static void machine_unlink(Machine *m) {
+        assert(m);
+
+        if (m->unit) {
+
+                char *sl;
+
+                sl = strappenda("/run/systemd/machines/unit:", m->unit);
+                unlink(sl);
+        }
+
+        if (m->state_file)
+                unlink(m->state_file);
 }
 
 int machine_load(Machine *m) {
@@ -170,7 +198,7 @@ int machine_load(Machine *m) {
         assert(m);
 
         r = parse_env_file(m->state_file, NEWLINE,
-                           "SCOPE",     &m->scope,
+                           "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
                            "ROOT",      &m->root_directory,
@@ -217,19 +245,14 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
-        _cleanup_free_ char *description = NULL;
-        DBusError error;
-        char *job;
+static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r = 0;
 
         assert(m);
 
-        dbus_error_init(&error);
-
-        if (!m->scope) {
+        if (!m->unit) {
                 _cleanup_free_ char *escaped = NULL;
-                char *scope;
+                char *scope, *description, *job = NULL;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
@@ -239,30 +262,28 @@ static int machine_start_scope(Machine *m, DBusMessageIter *iter) {
                 if (!scope)
                         return log_oom();
 
-                description = strappend(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
+                description = strappenda(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, iter, &error, &job);
+                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
                 if (r < 0) {
-                        log_error("Failed to start machine scope: %s", bus_error(&error, r));
-                        dbus_error_free(&error);
-
+                        log_error("Failed to start machine scope: %s", bus_error_message(error, r));
                         free(scope);
                         return r;
                 } else {
-                        m->scope = scope;
+                        m->unit = scope;
 
                         free(m->scope_job);
                         m->scope_job = job;
                 }
         }
 
-        if (m->scope)
-                hashmap_put(m->manager->machine_units, m->scope, m);
+        if (m->unit)
+                hashmap_put(m->manager->machine_units, m->unit, m);
 
         return r;
 }
 
-int machine_start(Machine *m, DBusMessageIter *iter) {
+int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         int r;
 
         assert(m);
@@ -270,8 +291,12 @@ int machine_start(Machine *m, DBusMessageIter *iter) {
         if (m->started)
                 return 0;
 
+        r = hashmap_put(m->manager->machine_leaders, UINT_TO_PTR(m->leader), m);
+        if (r < 0)
+                return r;
+
         /* Create cgroup */
-        r = machine_start_scope(m, iter);
+        r = machine_start_scope(m, properties, error);
         if (r < 0)
                 return r;
 
@@ -296,21 +321,18 @@ int machine_start(Machine *m, DBusMessageIter *iter) {
 }
 
 static int machine_stop_scope(Machine *m) {
-        DBusError error;
-        char *job;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        char *job = NULL;
         int r;
 
         assert(m);
 
-        dbus_error_init(&error);
-
-        if (!m->scope)
+        if (!m->unit)
                 return 0;
 
-        r = manager_stop_unit(m->manager, m->scope, &error, &job);
+        r = manager_stop_unit(m->manager, m->unit, &error, &job);
         if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
                 return r;
         }
 
@@ -337,7 +359,7 @@ int machine_stop(Machine *m) {
         if (k < 0)
                 r = k;
 
-        unlink(m->state_file);
+        machine_unlink(m);
         machine_add_to_gc_queue(m);
 
         if (m->started)
@@ -348,19 +370,19 @@ int machine_stop(Machine *m) {
         return r;
 }
 
-int machine_check_gc(Machine *m, bool drop_not_started) {
+bool machine_check_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (drop_not_started && !m->started)
-                return 0;
+                return false;
 
-        if (m->scope_job)
-                return 1;
+        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+                return true;
 
-        if (m->scope)
-                return manager_unit_is_active(m->manager, m->scope) != 0;
+        if (m->unit && manager_unit_is_active(m->manager, m->unit))
+                return true;
 
-        return 0;
+        return false;
 }
 
 void machine_add_to_gc_queue(Machine *m) {
@@ -369,7 +391,7 @@ void machine_add_to_gc_queue(Machine *m) {
         if (m->in_gc_queue)
                 return;
 
-        LIST_PREPEND(Machine, gc_queue, m->manager->machine_gc_queue, m);
+        LIST_PREPEND(gc_queue, m->manager->machine_gc_queue, m);
         m->in_gc_queue = true;
 }
 
@@ -385,10 +407,10 @@ MachineState machine_get_state(Machine *s) {
 int machine_kill(Machine *m, KillWho who, int signo) {
         assert(m);
 
-        if (!m->scope)
+        if (!m->unit)
                 return -ESRCH;
 
-        return manager_kill_unit(m->manager, m->scope, who, signo, NULL);
+        return manager_kill_unit(m->manager, m->unit, who, signo, NULL);
 }
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {

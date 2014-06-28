@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-ANALYZE" "1" "" "systemd 208" "systemd-analyze"
+.TH "SYSTEMD\-ANALYZE" "1" "" "systemd 209" "systemd-analyze"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -86,14 +86,14 @@ is implied\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
 \fB\-\-user\fR
 .RS 4
 Shows performance data of user sessions instead of the system manager\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Shows performance data of the system manager\&. This is the implied default\&.
 .RE
 .PP
 \fB\-\-order\fR, \fB\-\-require\fR
@@ -139,13 +139,34 @@ earlier, than the latest unit in the same level\&. The unit of
 is seconds unless specified with a different unit, e\&.g\&. "50ms"\&.
 .RE
 .PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
 \fB\-\-no\-pager\fR
 .RS 4
 Do not pipe output into a pager\&.
 .RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "EXAMPLES"
 .PP
 This plots all dependencies of any unit whose name starts with
@@ -185,6 +206,13 @@ is not given; overrides
 "cat"
 is equivalent to passing
 \fB\-\-no\-pager\fR\&.
+.RE
+.PP
+\fI$SYSTEMD_LESS\fR
+.RS 4
+Override the default options passed to
+\fBless\fR
+("FRSXMK")\&.
 .RE
 .SH "SEE ALSO"
 .PP

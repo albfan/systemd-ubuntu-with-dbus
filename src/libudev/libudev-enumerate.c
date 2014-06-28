@@ -83,7 +83,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 
         if (udev == NULL)
                 return NULL;
-        udev_enumerate = calloc(1, sizeof(struct udev_enumerate));
+        udev_enumerate = new0(struct udev_enumerate, 1);
         if (udev_enumerate == NULL)
                 return NULL;
         udev_enumerate->refcount = 1;
@@ -122,7 +122,7 @@ _public_ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_e
  * Drop a reference of an enumeration context. If the refcount reaches zero,
  * all resources of the enumeration context will be released.
  *
- * Returns: the passed enumeration context if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
@@ -132,7 +132,7 @@ _public_ struct udev_enumerate *udev_enumerate_unref(struct udev_enumerate *udev
                 return NULL;
         udev_enumerate->refcount--;
         if (udev_enumerate->refcount > 0)
-                return udev_enumerate;
+                return NULL;
         udev_list_cleanup(&udev_enumerate->sysattr_match_list);
         udev_list_cleanup(&udev_enumerate->sysattr_nomatch_list);
         udev_list_cleanup(&udev_enumerate->subsystem_match_list);
@@ -276,7 +276,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                 size_t move_later_prefix = 0;
 
                 udev_list_cleanup(&udev_enumerate->devices_list);
-                qsort(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
+                qsort_safe(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
 
                 max = udev_enumerate->devices_cur;
                 for (i = 0; i < max; i++) {

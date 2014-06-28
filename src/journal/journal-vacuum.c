@@ -150,7 +150,6 @@ static int journal_file_empty(int dir_fd, const char *name) {
 int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
-                uint64_t min_free,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec) {
 
@@ -164,7 +163,7 @@ int journal_directory_vacuum(
 
         assert(directory);
 
-        if (max_use <= 0 && min_free <= 0 && max_retention_usec <= 0)
+        if (max_use <= 0 && max_retention_usec <= 0)
                 return 0;
 
         if (max_retention_usec > 0) {
@@ -180,9 +179,7 @@ int journal_directory_vacuum(
                 return -errno;
 
         for (;;) {
-                int k;
                 struct dirent *de;
-                union dirent_storage buf;
                 size_t q;
                 struct stat st;
                 char *p;
@@ -190,9 +187,10 @@ int journal_directory_vacuum(
                 sd_id128_t seqnum_id;
                 bool have_seqnum;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        r = -errno;
                         goto finish;
                 }
 
@@ -278,6 +276,8 @@ int journal_directory_vacuum(
                         } else if (errno != ENOENT)
                                 log_warning("Failed to delete %s/%s: %m", directory, p);
 
+                        free(p);
+
                         continue;
                 }
 
@@ -297,8 +297,7 @@ int journal_directory_vacuum(
                 n_list ++;
         }
 
-        if (n_list > 0)
-                qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
                 struct statvfs ss;
@@ -309,8 +308,7 @@ int journal_directory_vacuum(
                 }
 
                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
-                    (max_use <= 0 || sum <= max_use) &&
-                    (min_free <= 0 || (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free))
+                    (max_use <= 0 || sum <= max_use))
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
@@ -335,7 +333,7 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
+        log_debug("Vacuuming done, freed %"PRIu64" bytes", freed);
 
         return r;
 }

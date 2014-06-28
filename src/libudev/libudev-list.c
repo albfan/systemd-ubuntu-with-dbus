@@ -95,14 +95,14 @@ static inline struct udev_list_entry *list_node_to_entry(struct udev_list_node *
 
 void udev_list_init(struct udev *udev, struct udev_list *list, bool unique)
 {
-        memset(list, 0x00, sizeof(struct udev_list));
+        memzero(list, sizeof(struct udev_list));
         list->udev = udev;
         list->unique = unique;
         udev_list_node_init(&list->node);
 }
 
 /* insert entry into a list as the last element  */
-void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
+static void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 {
         /* inserting before the list head make the node the last node in the list */
         udev_list_node_insert_between(&new->node, list->node.prev, &list->node);
@@ -110,7 +110,7 @@ void udev_list_entry_append(struct udev_list_entry *new, struct udev_list *list)
 }
 
 /* insert entry into a list, before a given existing entry */
-void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
+static void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
 {
         udev_list_node_insert_between(&new->node, entry->node.prev, &entry->node);
         new->list = entry->list;
@@ -165,7 +165,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
         }
 
         /* add new name */
-        entry = calloc(1, sizeof(struct udev_list_entry));
+        entry = new0(struct udev_list_entry, 1);
         if (entry == NULL)
                 return NULL;
         entry->name = strdup(name);

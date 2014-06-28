@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="halt">
+<refentry id="halt"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>halt</title>
@@ -80,8 +81,7 @@
                         <varlistentry>
                                 <term><option>--help</option></term>
 
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
+                                <xi:include href="standard-options.xml" xpointer="help-text" />
                         </varlistentry>
 
                         <varlistentry>
@@ -148,7 +148,7 @@
         <refsect1>
                 <title>Exit status</title>
 
-                <para>On success 0 is returned, a non-zero failure
+                <para>On success, 0 is returned, a non-zero failure
                 code otherwise.</para>
         </refsect1>
 

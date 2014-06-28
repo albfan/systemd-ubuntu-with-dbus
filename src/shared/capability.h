@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foocapabilityhfoo
-#define foocapabilityhfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -24,10 +23,20 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <sys/capability.h>
+
+#include "util.h"
 
 unsigned long cap_last_cap(void);
 int have_effective_cap(int value);
 int capability_bounding_set_drop(uint64_t drop, bool right_now);
 int capability_bounding_set_drop_usermode(uint64_t drop);
 
-#endif
+DEFINE_TRIVIAL_CLEANUP_FUNC(cap_t, cap_free);
+#define _cleanup_cap_free_ _cleanup_(cap_freep)
+
+static inline void cap_free_charpp(char **p) {
+        if (*p)
+                cap_free(*p);
+}
+#define _cleanup_cap_free_charp_ _cleanup_(cap_free_charpp)
