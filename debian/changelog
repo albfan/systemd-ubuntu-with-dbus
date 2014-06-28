@@ -1,10 +1,10 @@
-systemd (204-14) UNRELEASED; urgency=medium
+systemd (204-14) unstable; urgency=medium
 
   * Fix SIGABRT in insserv generator caused by incorrect usage of strcat().
     (Closes: #752992)
   * Mark -dev packages as Multi-Arch: same. (Closes: #720017)
 
- -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 12:53:43 +0200
+ -- Michael Biebl <biebl@debian.org>  Sat, 28 Jun 2014 13:22:43 +0200
 
 systemd (204-13) unstable; urgency=medium
 
