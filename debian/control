@@ -138,6 +138,7 @@ Description: systemd login utility library
 
 Package: libsystemd-login-dev
 Architecture: linux-any
+Multi-Arch: same
 Section: libdevel
 Priority: optional
 Depends: ${shlibs:Depends},
@@ -165,6 +166,7 @@ Description: systemd utility library
 
 Package: libsystemd-daemon-dev
 Architecture: linux-any
+Multi-Arch: same
 Section: libdevel
 Priority: optional
 Depends: ${shlibs:Depends},
@@ -192,6 +194,7 @@ Description: systemd journal utility library
 
 Package: libsystemd-journal-dev
 Architecture: linux-any
+Multi-Arch: same
 Section: libdevel
 Priority: optional
 Depends: ${shlibs:Depends},
@@ -220,6 +223,7 @@ Description: systemd 128 bit ID utility library
 
 Package: libsystemd-id128-dev
 Architecture: linux-any
+Multi-Arch: same
 Section: libdevel
 Priority: optional
 Depends: ${shlibs:Depends},
@@ -266,6 +270,7 @@ Package: libudev-dev
 Section: libdevel
 Priority: optional
 Architecture: linux-any
+Multi-Arch: same
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libudev1 (= ${binary:Version})
