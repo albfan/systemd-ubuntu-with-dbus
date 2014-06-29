@@ -11,7 +11,7 @@ activatable via D-Bus.
  3 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/src/hostname/org.freedesktop.hostname1.service b/src/hostname/org.freedesktop.hostname1.service
-index 6041ed6..7d923a5 100644
+index 6041ed60..7d923a56 100644
 --- a/src/hostname/org.freedesktop.hostname1.service
 +++ b/src/hostname/org.freedesktop.hostname1.service
 @@ -7,6 +7,6 @@
@@ -23,7 +23,7 @@ index 6041ed6..7d923a5 100644
  User=root
  SystemdService=dbus-org.freedesktop.hostname1.service
 diff --git a/src/locale/org.freedesktop.locale1.service b/src/locale/org.freedesktop.locale1.service
-index 025f9a0..8abbbfe 100644
+index 025f9a0f..8abbbfec 100644
 --- a/src/locale/org.freedesktop.locale1.service
 +++ b/src/locale/org.freedesktop.locale1.service
 @@ -7,6 +7,6 @@
@@ -35,7 +35,7 @@ index 025f9a0..8abbbfe 100644
  User=root
  SystemdService=dbus-org.freedesktop.locale1.service
 diff --git a/src/timedate/org.freedesktop.timedate1.service b/src/timedate/org.freedesktop.timedate1.service
-index 875f4be..198777d 100644
+index 875f4bec..198777d2 100644
 --- a/src/timedate/org.freedesktop.timedate1.service
 +++ b/src/timedate/org.freedesktop.timedate1.service
 @@ -7,6 +7,6 @@

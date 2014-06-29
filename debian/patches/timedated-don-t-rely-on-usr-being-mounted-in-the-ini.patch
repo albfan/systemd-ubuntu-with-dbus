@@ -14,14 +14,24 @@ necessary, for now.
 
 Closes: #726256
 ---
- src/timedate/timedated.c | 90 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 89 insertions(+), 1 deletion(-)
+ src/timedate/timedated.c | 93 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 92 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 863adba..eb6a6d8 100644
+index 8900babd..d1d620e8 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -153,6 +153,94 @@ static bool valid_timezone(const char *name) {
+@@ -22,6 +22,9 @@
+ #include <errno.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
+ 
+ #include "sd-id128.h"
+ #include "sd-messages.h"
+@@ -115,6 +118,94 @@ static bool valid_timezone(const char *name) {
          return true;
  }
  
@@ -49,7 +59,7 @@ index 863adba..eb6a6d8 100644
 +                free(pf);
 +                free(pt);
 +
-+                return copy_file(from, to);
++                return copy_file(from, to, O_EXCL);
 +        }
 +
 +        if (symlink(from, to) < 0) {
@@ -70,7 +80,7 @@ index 863adba..eb6a6d8 100644
 +        char *t, *x;
 +        const char *fn;
 +        size_t k;
-+        unsigned long long ull;
++        uint64_t u;
 +        unsigned i;
 +        int r;
 +
@@ -81,16 +91,16 @@ index 863adba..eb6a6d8 100644
 +        if (!t)
 +                return -ENOMEM;
 +
-+        fn = path_get_file_name(to);
++        fn = basename(to);
 +        k = fn-to;
 +        memcpy(t, to, k);
 +        t[k] = '.';
 +        x = stpcpy(t+k+1, fn);
 +
-+        ull = random_ull();
++        u = random_u64();
 +        for (i = 0; i < 16; i++) {
-+                *(x++) = hexchar(ull & 0xF);
-+                ull >>= 4;
++                *(x++) = hexchar(u & 0xF);
++                u >>= 4;
 +        }
 +
 +        *x = 0;
@@ -113,10 +123,10 @@ index 863adba..eb6a6d8 100644
 +        return r;
 +}
 +
- static int read_data(void) {
-         int r;
+ static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
-@@ -220,7 +308,7 @@ static int write_data_timezone(void) {
+         int r;
+@@ -185,7 +276,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  

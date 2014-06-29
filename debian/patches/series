@@ -219,10 +219,8 @@ util-treat-fuse.sshfs-as-a-network-filesystem.patch
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
 Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
-change-the-log_info-line-in-systemctl-to-reflect-rea.patch
 Also-redirect-to-update-rc.d-when-not-using-.service.patch
 systemctl-don-t-skip-native-units-when-enabling-disa.patch
-systemctl-call-update-rc.d-enable-disable-not-defaul.patch
 Run-update-rc.d-defaults-before-update-rc.d-enable-d.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch

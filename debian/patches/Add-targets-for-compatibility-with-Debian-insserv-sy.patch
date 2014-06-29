@@ -11,10 +11,10 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/x-display-manager.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 1bd4e99..78ae428 100644
+index 04aa1203..509b51f3 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -457,6 +457,12 @@ nodist_systemunit_DATA = \
+@@ -477,6 +477,12 @@ nodist_systemunit_DATA = \
  	units/initrd-switch-root.service \
  	units/systemd-nspawn@.service
  
@@ -25,11 +25,11 @@ index 1bd4e99..78ae428 100644
 +endif
 +
  dist_userunit_DATA = \
+ 	units/user/basic.target \
  	units/user/default.target \
- 	units/user/exit.target
 diff --git a/units/mail-transport-agent.target b/units/mail-transport-agent.target
 new file mode 100644
-index 0000000..4d74ec7
+index 00000000..4d74ec7f
 --- /dev/null
 +++ b/units/mail-transport-agent.target
 @@ -0,0 +1,12 @@
@@ -47,7 +47,7 @@ index 0000000..4d74ec7
 +RefuseManualStart=yes
 diff --git a/units/x-display-manager.target b/units/x-display-manager.target
 new file mode 100644
-index 0000000..a528dff
+index 00000000..a528dff9
 --- /dev/null
 +++ b/units/x-display-manager.target
 @@ -0,0 +1,12 @@

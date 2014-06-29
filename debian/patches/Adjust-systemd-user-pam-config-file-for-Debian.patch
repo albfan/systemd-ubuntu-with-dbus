@@ -9,7 +9,7 @@ launching systemd user instances.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/src/login/systemd-user b/src/login/systemd-user
-index 7b57dbf..f87d560 100644
+index 7b57dbf7..f87d560f 100644
 --- a/src/login/systemd-user
 +++ b/src/login/systemd-user
 @@ -2,7 +2,7 @@

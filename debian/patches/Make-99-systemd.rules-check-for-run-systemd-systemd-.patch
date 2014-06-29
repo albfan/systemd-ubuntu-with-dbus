@@ -8,7 +8,7 @@ Subject: Make 99-systemd.rules check for /run/systemd/systemd instead of the
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
-index 713e0528..8d3b3068 100644
+index db72373c..2546f0e7 100644
 --- a/rules/99-systemd.rules.in
 +++ b/rules/99-systemd.rules.in
 @@ -6,6 +6,7 @@
@@ -17,5 +17,5 @@ index 713e0528..8d3b3068 100644
  ACTION=="remove", GOTO="systemd_end"
 +TEST!="/run/systemd/system", GOTO="systemd_end"
  
- SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*", TAG+="systemd"
+ SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*|3270/tty[0-9]*", TAG+="systemd"
  
