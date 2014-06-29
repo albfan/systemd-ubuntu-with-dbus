@@ -1,6 +1,1 @@
-usr/lib/*/libsystemd-id128.so
 usr/lib/*/pkgconfig/libsystemd-id128.pc
-usr/include/systemd/sd-id128.h
-usr/share/man/man3/sd-id128.3
-usr/share/man/man3/sd_id128*
-usr/share/man/man3/SD_ID128*

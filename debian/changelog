@@ -4,6 +4,10 @@ systemd (210-1) UNRELEASED; urgency=medium
     - Replace v208-stable patch series with v210-stable patch series.
     - Update Debian patches to apply on top of v210-stable.
   * Add python-lxml to Build-Depends.
+  * Install the new combined libsystemd0 library, this library combines all
+    functionality of the various libsystemd-* libraries.
+  * Depreate libsystemd-* libraries as they've been bundled into libsystemd.
+    The various -dev files now just carry a transitional .pc file
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 
