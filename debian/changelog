@@ -1,4 +1,4 @@
-systemd (210-1) UNRELEASED; urgency=medium
+systemd (210-0tanglu2) staging; urgency=medium
 
   * New upstream release v210.
     - Replace v208-stable patch series with v210-stable patch series.
@@ -12,7 +12,7 @@ systemd (210-1) UNRELEASED; urgency=medium
   * Install new busctl binary in the systemd package.
   * Install new *.mo files in the systemd package.
 
- -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
+ -- Jon Severinsson <jon@severinsson.net>  Sun, 29 Jun 2014 10:00:00 +0200
 
 systemd (208-5tanglu3) staging; urgency=medium
 
