@@ -144,12 +144,12 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd0 (= ${binary:Version})
-Breaks: systemd (<< 204-8),
+Breaks: systemd (<< 208-5tanglu2),
         libsystemd-login-dev (<< 210),
         libsystemd-daemon-dev (<< 210),
         libsystemd-journal-dev (<< 210),
         libsystemd-id128-dev (<< 210),
-Replaces: systemd (<< 204-8),
+Replaces: systemd (<< 208-5tanglu2),
           libsystemd-login-dev (<< 210),
           libsystemd-daemon-dev (<< 210),
           libsystemd-journal-dev (<< 210),
@@ -181,6 +181,8 @@ Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
          libsystemd-dev (>= ${binary:Version})
+Breaks: libsystemd-dev (<< 210-0tanglu2)
+Replaces: libsystemd-dev (<< 210-0tanglu2)
 Description: systemd login utility library (transitional package)
  The libsystemd-login library provides an interface for the
  systemd-logind service which is used to track user sessions and seats.
@@ -209,6 +211,8 @@ Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
          libsystemd-dev (>= ${binary:Version})
+Breaks: libsystemd-dev (<< 210-0tanglu2)
+Replaces: libsystemd-dev (<< 210-0tanglu2)
 Description: systemd utility library (transitional package)
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.
@@ -237,6 +241,8 @@ Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
          libsystemd-dev (>= ${binary:Version})
+Breaks: libsystemd-dev (<< 210-0tanglu2)
+Replaces: libsystemd-dev (<< 210-0tanglu2)
 Description: systemd journal utility library (transitional package)
  The libsystemd-journal library provides an interface for the
  systemd journal service.
@@ -265,6 +271,8 @@ Section: oldlibs
 Priority: extra
 Depends: ${misc:Depends},
          libsystemd-dev (>= ${binary:Version})
+Breaks: libsystemd-dev (<< 210-0tanglu2)
+Replaces: libsystemd-dev (<< 210-0tanglu2)
 Description: systemd 128 bit ID utility library (transitional package)
  The libsystemd-id128 library provides utility functions for generating
  128 bit IDs.
