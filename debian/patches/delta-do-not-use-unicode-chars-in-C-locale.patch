@@ -4,13 +4,12 @@ Subject: delta: do not use unicode chars in C locale
 
 https://bugzilla.redhat.com/show_bug.cgi?id=1088418
 (cherry picked from commit 00a5cc3a63c125633e822f39efd9c32223169f62)
-(cherry picked from commit 1ba98e163ed872d8744ff644e3d255b4be171bc6)
 ---
  src/delta/delta.c | 40 +++++++++++++++++++++++++---------------
  1 file changed, 25 insertions(+), 15 deletions(-)
 
 diff --git a/src/delta/delta.c b/src/delta/delta.c
-index a8dd57e4..f1aea804 100644
+index 369f8f86..8fc37c55 100644
 --- a/src/delta/delta.c
 +++ b/src/delta/delta.c
 @@ -85,6 +85,10 @@ static void pager_open_if_enabled(void) {

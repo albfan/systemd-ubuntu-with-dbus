@@ -1,5 +1,5 @@
 '\" t
-.TH "SD\-DAEMON" "3" "" "systemd 208" "sd-daemon"
+.TH "SD\-DAEMON" "3" "" "systemd 209" "sd-daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, SD_DEBUG \- Reference implementation of APIs for new\-style daemons
+sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, SD_DEBUG \- APIs for new\-style daemons
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -28,14 +28,12 @@ sd-daemon, SD_EMERG, SD_ALERT, SD_CRIT, SD_ERR, SD_WARNING, SD_NOTICE, SD_INFO, 
 #include <systemd/sd\-daemon\&.h>
 .fi
 .ft
-.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\-daemon\fR\ 'u
-\fBpkg\-config \-\-cflags \-\-libs libsystemd\-daemon\fR
+.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\fR\ 'u
+\fBpkg\-config \-\-cflags \-\-libs libsystemd\fR
 .SH "DESCRIPTION"
 .PP
-sd\-daemon\&.c
-and
 sd\-daemon\&.h
-provide a reference implementation of various APIs for new\-style daemons, as implemented by the
+provide APIs for new\-style daemons, as implemented by the
 \fBsystemd\fR(1)
 init system\&.
 .PP
@@ -43,8 +41,9 @@ See
 \fBsd_listen_fds\fR(3),
 \fBsd_notify\fR(3),
 \fBsd_booted\fR(3),
-\fBsd_is_fifo\fR(3)
-for more information about the functions implemented\&. In addition to these functions a couple of logging prefixes are defined as macros:
+\fBsd_is_fifo\fR(3),
+\fBsd_watchdog_enabled\fR(3)
+for more information about the functions implemented\&. In addition to these functions, a couple of logging prefixes are defined as macros:
 .sp
 .if n \{\
 .RS 4
@@ -63,7 +62,7 @@ for more information about the functions implemented\&. In addition to these fun
 .RE
 .\}
 .PP
-These prefixes are intended to be used in conjunction with STDERR\-based logging as implemented by systemd\&. If a systemd service definition file is configured with
+These prefixes are intended to be used in conjunction with stderr\-based logging as implemented by systemd\&. If a systemd service definition file is configured with
 \fIStandardError=syslog\fR
 or
 \fIStandardError=kmsg\fR, these prefixes can be used to encode a log level in lines printed\&. This is similar to the kernel
@@ -89,24 +88,9 @@ fprintf(stderr, SD_NOTICE "Hello World!\en");
 .\}
 .SH "NOTES"
 .PP
-These interfaces are provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithms they implement are simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&. See the respective function man pages for details\&.
-.PP
-In addition, for details about the algorithms check the liberally licensed reference implementation sources:
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
-and
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
-.PP
-These APIs are implemented in the reference implementation\*(Aqs
-sd\-daemon\&.c
-and
-sd\-daemon\&.h
-files\&. These interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
-file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree, either verbatim or in excerpts\&.
-.PP
-The functions directly related to new\-style daemons become NOPs when \-DDISABLE_SYSTEMD is set during compilation and the reference implementation is used as drop\-in files\&. In addition, if
-sd\-daemon\&.c
-is compiled on non\-Linux systems they become NOPs\&.
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -114,6 +98,7 @@ is compiled on non\-Linux systems they become NOPs\&.
 \fBsd_notify\fR(3),
 \fBsd_booted\fR(3),
 \fBsd_is_fifo\fR(3),
+\fBsd_watchdog_enabled\fR(3),
 \fBdaemon\fR(7),
 \fBsystemd.service\fR(5),
 \fBsystemd.socket\fR(5),

@@ -8,7 +8,6 @@ This results in the following error message on Asus boards:
   Failed to get backlight or LED device 'backlight:eeepc/wmi': No such file or directory
 
 (cherry picked from commit 6c49212741253dae05b89d22374186f092ef1e5a)
-(cherry picked from commit 50ab7a793277bd976ea68c1d74b999ce483af50b)
 ---
  units/systemd-backlight@.service.in | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

@@ -1,0 +1,22 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 24 Mar 2014 23:54:14 +0100
+Subject: sd-daemon: fix incorrect variable access
+
+(cherry picked from commit 56dc9aec21ab23f76fadf45585adf88e71aa8078)
+---
+ src/libsystemd/sd-daemon/sd-daemon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libsystemd/sd-daemon/sd-daemon.c b/src/libsystemd/sd-daemon/sd-daemon.c
+index 21fb346b..b013438d 100644
+--- a/src/libsystemd/sd-daemon/sd-daemon.c
++++ b/src/libsystemd/sd-daemon/sd-daemon.c
+@@ -517,7 +517,7 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
+                 r = -errno;
+                 goto finish;
+         }
+-        if (!p || p == e || *p || l <= 0) {
++        if (!p || p == e || *p || ll <= 0) {
+                 r = -EINVAL;
+                 goto finish;
+         }

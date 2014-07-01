@@ -13,7 +13,7 @@ Bug-Ubuntu: https://launchpad.net/bugs/890592
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/60-persistent-storage.rules b/rules/60-persistent-storage.rules
-index a4d009a..566796c 100644
+index 4f7163da..3fa75b67 100644
 --- a/rules/60-persistent-storage.rules
 +++ b/rules/60-persistent-storage.rules
 @@ -10,6 +10,7 @@ ACTION=="remove", GOTO="persistent_storage_end"

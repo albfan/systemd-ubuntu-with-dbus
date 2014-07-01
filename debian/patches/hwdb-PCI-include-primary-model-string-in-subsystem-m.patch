@@ -11,7 +11,6 @@ Try to make the best out of this mess and concatenate both
 strings to describe the hardware.
 
 (cherry picked from commit d060b62fcb4746d3758c567e9379c6728a035b66)
-(cherry picked from commit 85f27e3b37972c7e123651d64abd8a305822d662)
 ---
  hwdb/20-pci-vendor-model.hwdb | 21356 ++++++++++++++++++++--------------------
  1 file changed, 10678 insertions(+), 10678 deletions(-)

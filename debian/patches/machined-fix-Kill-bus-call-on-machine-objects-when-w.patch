@@ -1,0 +1,67 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 18 Mar 2014 04:43:08 +0100
+Subject: machined: fix Kill() bus call on machine objects when "what" is
+ specified as "leader"
+
+(cherry picked from commit de58a50e24a0d55e3bbcc77f8f6170a7322acf52)
+---
+ src/machine/machine.c       | 10 +++++++++-
+ src/machine/machined-dbus.c |  4 ++--
+ src/machine/machined.h      |  2 +-
+ 3 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/src/machine/machine.c b/src/machine/machine.c
+index 4596a808..9a5cc9a6 100644
+--- a/src/machine/machine.c
++++ b/src/machine/machine.c
+@@ -410,7 +410,15 @@ int machine_kill(Machine *m, KillWho who, int signo) {
+         if (!m->unit)
+                 return -ESRCH;
+ 
+-        return manager_kill_unit(m->manager, m->unit, who, signo, NULL);
++        if (who == KILL_LEADER) {
++                /* If we shall simply kill the leader, do so directly */
++
++                if (kill(m->leader, signo) < 0)
++                        return -errno;
++        }
++
++        /* Otherwise make PID 1 do it for us, for the entire cgroup */
++        return manager_kill_unit(m->manager, m->unit, signo, NULL);
+ }
+ 
+ static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
+diff --git a/src/machine/machined-dbus.c b/src/machine/machined-dbus.c
+index 09d28bbb..94731054 100644
+--- a/src/machine/machined-dbus.c
++++ b/src/machine/machined-dbus.c
+@@ -655,7 +655,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
+         return 1;
+ }
+ 
+-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
++int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error) {
+         assert(manager);
+         assert(unit);
+ 
+@@ -667,7 +667,7 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
+                         "KillUnit",
+                         error,
+                         NULL,
+-                        "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
++                        "ssi", unit, "all", signo);
+ }
+ 
+ int manager_unit_is_active(Manager *manager, const char *unit) {
+diff --git a/src/machine/machined.h b/src/machine/machined.h
+index d4b581be..2dba303d 100644
+--- a/src/machine/machined.h
++++ b/src/machine/machined.h
+@@ -67,6 +67,6 @@ int match_job_removed(sd_bus *bus, sd_bus_message *message, void *userdata, sd_b
+ 
+ int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, sd_bus_message *more_properties, sd_bus_error *error, char **job);
+ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
+-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
++int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_error *error);
+ int manager_unit_is_active(Manager *manager, const char *unit);
+ int manager_job_is_active(Manager *manager, const char *path);

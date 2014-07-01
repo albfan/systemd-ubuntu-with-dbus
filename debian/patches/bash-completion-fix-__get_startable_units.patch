@@ -3,13 +3,12 @@ Date: Sun, 13 Apr 2014 18:06:13 +0300
 Subject: bash completion: fix __get_startable_units
 
 (cherry picked from commit a163b64c4b08e8a4ad39a9a295acf3d1634024a3)
-(cherry picked from commit cc9db03683d794e2894bb1a682724fb3493e0bf5)
 ---
  shell-completion/bash/systemctl | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/shell-completion/bash/systemctl b/shell-completion/bash/systemctl
-index 857552d5..1e4d07ac 100644
+index 0dfc868b..a53149c7 100644
 --- a/shell-completion/bash/systemctl
 +++ b/shell-completion/bash/systemctl
 @@ -56,7 +56,7 @@ __get_all_units      () { __systemctl $1 list-units --all \

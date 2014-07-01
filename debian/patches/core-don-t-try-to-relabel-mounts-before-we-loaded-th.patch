@@ -3,16 +3,15 @@ Date: Mon, 24 Mar 2014 21:04:02 +0100
 Subject: core: don't try to relabel mounts before we loaded the policy
 
 (cherry picked from commit c4bfd1691f4d3e26d6d7f34dbca941e119956e8a)
-(cherry picked from commit 75f801a9efc45dab52286bab678c0baa1c9a386b)
 ---
  src/core/mount-setup.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
-index 679f2897..cff83d39 100644
+index c6d3f4bb..8331480b 100644
 --- a/src/core/mount-setup.c
 +++ b/src/core/mount-setup.c
-@@ -166,7 +166,10 @@ static int mount_one(const MountPoint *p, bool relabel) {
+@@ -172,7 +172,10 @@ static int mount_one(const MountPoint *p, bool relabel) {
  
          /* The access mode here doesn't really matter too much, since
           * the mounted file system will take precedence anyway. */

@@ -1,3 +1,19 @@
+systemd (210-1) UNRELEASED; urgency=medium
+
+  * New upstream release v210.
+    - Replace v208-stable patch series with v210-stable patch series.
+    - Update Debian patches to apply on top of v210-stable.
+  * Add python-lxml to Build-Depends.
+  * Install the new combined libsystemd0 library, this library combines all
+    functionality of the various libsystemd-* libraries.
+  * Depreate libsystemd-* libraries as they've been bundled into libsystemd.
+    The various -dev files now just carry a transitional .pc file
+    - Add new symbols file for libsystemd0.
+  * Install new busctl binary in the systemd package.
+  * Install new *.mo files in the systemd package.
+
+ -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
+
 systemd (208-5tanglu1) staging; urgency=medium
 
   * Merge from Debian experimental, remaining changes:
@@ -6,6 +22,8 @@ systemd (208-5tanglu1) staging; urgency=medium
     - Map SysV runlevel S to basic.target, not sysinit.target.
     - Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
+    - Move new manpages to libsystemd-*-dev as appropriate.
+  * Remove pre-generated rules and unit files in debian/rules clean target.
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 

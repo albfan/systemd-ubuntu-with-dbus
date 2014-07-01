@@ -1,0 +1,117 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Mon, 14 Apr 2014 19:16:56 +0200
+Subject: timedatectl: avoid using uninitialized var
+
+sec is not set if have_time is false so avoid using it. have_time
+was introduced in 9ff09bcb86fb125768667aca9bc0b10b1745370a but only
+the first uses for sec were covered
+
+Found with scan-build
+
+(cherry picked from commit 2667cc25896a15f82f9f1583e80d416beb1316e1)
+
+Conflicts:
+	src/timedate/timedatectl.c
+---
+ src/timedate/timedatectl.c | 81 ++++++++++++++++++++++++----------------------
+ 1 file changed, 43 insertions(+), 38 deletions(-)
+
+diff --git a/src/timedate/timedatectl.c b/src/timedate/timedatectl.c
+index 089a5fe3..e58721bc 100644
+--- a/src/timedate/timedatectl.c
++++ b/src/timedate/timedatectl.c
+@@ -148,51 +148,56 @@ static void print_status_info(const StatusInfo *i) {
+         } else
+                 printf("        RTC time: %s\n", "n/a");
+ 
+-        zero(tm);
+-        assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
+-        char_array_0(a);
+-        printf("        Timezone: %s (%s)\n"
++        if (have_time) {
++                zero(tm);
++                assert_se(strftime(a, sizeof(a), "%Z, %z", localtime_r(&sec, &tm)) > 0);
++                char_array_0(a);
++        }
++
++        printf("       Time zone: %s (%s)\n"
+                "     NTP enabled: %s\n"
+                "NTP synchronized: %s\n"
+                " RTC in local TZ: %s\n",
+-               strna(i->timezone), a,
++               strna(i->timezone), have_time ? a : "n/a",
+                i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
+                yes_no(i->ntp_synced),
+                yes_no(i->rtc_local));
+ 
+-        r = time_get_dst(sec, "/etc/localtime",
+-                         &tc, &zc, &is_dstc,
+-                         &tn, &dn, &zn, &is_dstn);
+-        if (r < 0)
+-                printf("      DST active: %s\n", "n/a");
+-        else if (have_time) {
+-                printf("      DST active: %s\n", yes_no(is_dstc));
+-
+-                t = tc - 1;
+-                zero(tm);
+-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+-                char_array_0(a);
+-
+-                zero(tm);
+-                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
+-                char_array_0(b);
+-                printf(" Last DST change: DST %s at\n"
+-                       "                  %s\n"
+-                       "                  %s\n",
+-                       is_dstc ? "began" : "ended", a, b);
+-
+-                t = tn - 1;
+-                zero(tm);
+-                assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
+-                char_array_0(a);
+-
+-                zero(tm);
+-                assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
+-                char_array_0(b);
+-                printf(" Next DST change: DST %s (the clock jumps %s) at\n"
+-                       "                  %s\n"
+-                       "                  %s\n",
+-                       is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
++        if (have_time) {
++                r = time_get_dst(sec, "/etc/localtime",
++                                 &tc, &zc, &is_dstc,
++                                 &tn, &dn, &zn, &is_dstn);
++                if (r < 0)
++                        printf("      DST active: %s\n", "n/a");
++                else {
++                        printf("      DST active: %s\n", yes_no(is_dstc));
++
++                        t = tc - 1;
++                        zero(tm);
++                        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
++                        char_array_0(a);
++
++                        zero(tm);
++                        assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tc, &tm)) > 0);
++                        char_array_0(b);
++                        printf(" Last DST change: DST %s at\n"
++                               "                  %s\n"
++                               "                  %s\n",
++                               is_dstc ? "began" : "ended", a, b);
++
++                        t = tn - 1;
++                        zero(tm);
++                        assert_se(strftime(a, sizeof(a), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&t, &tm)) > 0);
++                        char_array_0(a);
++
++                        zero(tm);
++                        assert_se(strftime(b, sizeof(b), "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&tn, &tm)) > 0);
++                        char_array_0(b);
++                        printf(" Next DST change: DST %s (the clock jumps %s) at\n"
++                               "                  %s\n"
++                               "                  %s\n",
++                               is_dstn ? "begins" : "ends", jump_str(dn, s, sizeof(s)), a, b);
++                }
+         } else
+                 printf("      DST active: %s\n", yes_no(is_dstc));
+ 

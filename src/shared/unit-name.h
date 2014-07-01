@@ -33,13 +33,14 @@ typedef enum UnitLoadState UnitLoadState;
 enum UnitType {
         UNIT_SERVICE = 0,
         UNIT_SOCKET,
+        UNIT_BUSNAME,
         UNIT_TARGET,
+        UNIT_SNAPSHOT,
         UNIT_DEVICE,
         UNIT_MOUNT,
         UNIT_AUTOMOUNT,
-        UNIT_SNAPSHOT,
-        UNIT_TIMER,
         UNIT_SWAP,
+        UNIT_TIMER,
         UNIT_PATH,
         UNIT_SLICE,
         UNIT_SCOPE,
@@ -68,7 +69,12 @@ int unit_name_to_instance(const char *n, char **instance);
 char* unit_name_to_prefix(const char *n);
 char* unit_name_to_prefix_and_instance(const char *n);
 
-bool unit_name_is_valid(const char *n, bool template_ok) _pure_;
+enum template_valid {
+        TEMPLATE_INVALID,
+        TEMPLATE_VALID,
+};
+
+bool unit_name_is_valid(const char *n, enum template_valid template_ok) _pure_;
 bool unit_prefix_is_valid(const char *p) _pure_;
 bool unit_instance_is_valid(const char *i) _pure_;
 
@@ -97,7 +103,12 @@ char *unit_name_to_path(const char *name);
 char *unit_dbus_path_from_name(const char *name);
 int unit_name_from_dbus_path(const char *path, char **name);
 
-char *unit_name_mangle(const char *name);
-char *unit_name_mangle_with_suffix(const char *name, const char *suffix);
+enum unit_name_mangle {
+        MANGLE_NOGLOB,
+        MANGLE_GLOB,
+};
+
+char *unit_name_mangle(const char *name, enum unit_name_mangle allow_globs);
+char *unit_name_mangle_with_suffix(const char *name, enum unit_name_mangle allow_globs, const char *suffix);
 
 int build_subslice(const char *slice, const char*name, char **subslice);

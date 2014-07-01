@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-run">
+<refentry id="systemd-run"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-run</title>
@@ -60,7 +61,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-run</command> may be used create and start
+    <para><command>systemd-run</command> may be used to create and start
     a transient <filename>.service</filename> or a
     <filename>.scope</filename> unit and run the specified
     <replaceable>COMMAND</replaceable> in it.</para>
@@ -88,30 +89,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The following options are understood:</para>
 
     <variablelist>
-      <varlistentry>
-        <term><option>-h</option></term>
-        <term><option>--help</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Prints a short version
-        string and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--user</option></term>
-
-        <listitem>
-          <para>Talk to the service manager of the calling user,
-          rather than the service manager of the system.</para>
-        </listitem>
-      </varlistentry>
-
       <varlistentry>
         <term><option>--scope</option></term>
 
@@ -172,6 +149,14 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         </para>
         </listitem>
       </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="user" />
+      <xi:include href="user-system-options.xml" xpointer="system" />
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
 
     <para>All command-line arguments after the first non-option
@@ -200,8 +185,7 @@ Sep 08 07:37:21 bupkis systemd[1]: Starting /usr/bin/env...
 Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US.UTF-8
-Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64
-    </programlisting>
+Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.x86_64</programlisting>
   </refsect1>
 
   <refsect1>
@@ -212,7 +196,8 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz-3.11.0-0.rc5.git6.2.fc20.
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

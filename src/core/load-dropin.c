@@ -63,12 +63,13 @@ static int iterate_dir(
 
         for (;;) {
                 struct dirent *de;
-                union dirent_storage buf;
                 _cleanup_free_ char *f = NULL;
                 int k;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        k = errno;
                         log_error("Failed to read directory %s: %s", path, strerror(k));
                         return -k;
                 }
@@ -99,8 +100,8 @@ static int process_dir(
                 UnitDependency dependency,
                 char ***strv) {
 
+        _cleanup_free_ char *path = NULL;
         int r;
-        char *path;
 
         assert(u);
         assert(unit_path);
@@ -111,39 +112,29 @@ static int process_dir(
         if (!path)
                 return log_oom();
 
-        if (u->manager->unit_path_cache &&
-            !set_get(u->manager->unit_path_cache, path))
-                r = 0;
-        else
+        if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, path)) {
                 r = iterate_dir(u, path, dependency, strv);
-        free(path);
-
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+        }
 
         if (u->instance) {
-                char *template;
+                _cleanup_free_ char *template = NULL, *p = NULL;
                 /* Also try the template dir */
 
                 template = unit_name_template(name);
                 if (!template)
                         return log_oom();
 
-                path = strjoin(unit_path, "/", template, suffix, NULL);
-                free(template);
-
-                if (!path)
+                p = strjoin(unit_path, "/", template, suffix, NULL);
+                if (!p)
                         return log_oom();
 
-                if (u->manager->unit_path_cache &&
-                    !set_get(u->manager->unit_path_cache, path))
-                        r = 0;
-                else
-                        r = iterate_dir(u, path, dependency, strv);
-                free(path);
-
-                if (r < 0)
-                        return r;
+                if (!u->manager->unit_path_cache || set_get(u->manager->unit_path_cache, p)) {
+                        r = iterate_dir(u, p, dependency, strv);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;

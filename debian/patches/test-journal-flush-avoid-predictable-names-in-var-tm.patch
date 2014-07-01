@@ -1,0 +1,38 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 25 Apr 2014 19:58:21 -0400
+Subject: test-journal-flush: avoid predictable names in /var/tmp
+
+(cherry picked from commit dfd9cf7f0b257d38f5527989dd9315e767fbe41b)
+---
+ src/journal/test-journal-flush.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/journal/test-journal-flush.c b/src/journal/test-journal-flush.c
+index e61e87af..0ca24e0c 100644
+--- a/src/journal/test-journal-flush.c
++++ b/src/journal/test-journal-flush.c
+@@ -27,13 +27,14 @@
+ 
+ int main(int argc, char *argv[]) {
+ 
+-        char fn[sizeof("/var/tmp/test-journal-flush-")-1 + DECIMAL_STR_MAX(pid_t) + sizeof(".journal")];
++        char dn[] = "/var/tmp/test-journal-flush.XXXXXX", *fn;
+         JournalFile *new_journal = NULL;
+         sd_journal *j = NULL;
+         unsigned n = 0;
+         int r;
+ 
+-        sprintf(fn, "/var/tmp/test-journal-flush-%lu.journal", (unsigned long) getpid());
++        assert_se(mkdtemp(dn));
++        fn = strappend(dn, "/test.journal");
+ 
+         r = journal_file_open(fn, O_CREAT|O_RDWR, 0644, false, false, NULL, NULL, NULL, &new_journal);
+         assert_se(r >= 0);
+@@ -67,5 +68,7 @@ int main(int argc, char *argv[]) {
+ 
+         journal_file_close(new_journal);
+ 
++        assert_se(rmdir(dn) == 0);
++
+         return 0;
+ }

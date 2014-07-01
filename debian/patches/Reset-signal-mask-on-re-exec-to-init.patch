@@ -10,16 +10,15 @@ again, except when the user uses for instance "init=/bin/bash" on the
 kernel command line.
 
 (cherry picked from commit 5a85ca1cb622fda4a39c8a6f00dccea7f8a1e82a)
-(cherry picked from commit 3eb31d88fd664d55251102d8504d05426a97d0b3)
 ---
  src/core/main.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
 diff --git a/src/core/main.c b/src/core/main.c
-index 2a294c67..2f454850 100644
+index 8417e7a2..62f8140e 100644
 --- a/src/core/main.c
 +++ b/src/core/main.c
-@@ -1748,6 +1748,7 @@ finish:
+@@ -1780,6 +1780,7 @@ finish:
          if (reexecute) {
                  const char **args;
                  unsigned i, args_size;
@@ -27,7 +26,7 @@ index 2a294c67..2f454850 100644
  
                  /* Close and disarm the watchdog, so that the new
                   * instance can reinitialize it, but doesn't get
-@@ -1831,6 +1832,11 @@ finish:
+@@ -1863,6 +1864,11 @@ finish:
                  args[i++] = NULL;
                  assert(i <= args_size);
  
@@ -39,7 +38,7 @@ index 2a294c67..2f454850 100644
                  if (switch_root_init) {
                          args[0] = switch_root_init;
                          execv(args[0], (char* const*) args);
-@@ -1849,6 +1855,8 @@ finish:
+@@ -1881,6 +1887,8 @@ finish:
                          log_error("Failed to execute /bin/sh, giving up: %m");
                  } else
                          log_warning("Failed to execute /sbin/init, giving up: %m");
@@ -47,4 +46,4 @@ index 2a294c67..2f454850 100644
 +                sigprocmask(SIG_SETMASK, &o_ss, NULL);
          }
  
-         if (serialization)
+         if (arg_serialization) {

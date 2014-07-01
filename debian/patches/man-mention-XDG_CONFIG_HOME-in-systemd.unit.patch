@@ -1,0 +1,37 @@
+From: Tanu Kaskinen <tanu.kaskinen@linux.intel.com>
+Date: Sat, 12 Apr 2014 08:37:38 +0300
+Subject: man: mention XDG_CONFIG_HOME in systemd.unit
+
+(cherry picked from commit 05a2f6fefedd7254fd799502191d025d2908cf74)
+---
+ man/systemd.unit.xml | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
+index 07a73fd9..bcd4ba8e 100644
+--- a/man/systemd.unit.xml
++++ b/man/systemd.unit.xml
+@@ -70,7 +70,8 @@
+ <filename>...</filename>
+                 </literallayout></para>
+ 
+-                <para><literallayout><filename>$HOME/.config/systemd/user/*</filename>
++                <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
++<filename>$HOME/.config/systemd/user/*</filename>
+ <filename>/etc/systemd/user/*</filename>
+ <filename>/run/systemd/user/*</filename>
+ <filename>/usr/lib/systemd/user/*</filename>
+@@ -320,8 +321,12 @@
+                     </thead>
+                     <tbody>
+                       <row>
++                        <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
++                        <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
++                      </row>
++                      <row>
+                         <entry><filename>$HOME/.config/systemd/user</filename></entry>
+-                        <entry>User configuration</entry>
++                        <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
+                       </row>
+                       <row>
+                         <entry><filename>/etc/systemd/user</filename></entry>

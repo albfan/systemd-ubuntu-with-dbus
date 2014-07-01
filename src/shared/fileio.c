@@ -20,6 +20,7 @@
 ***/
 
 #include <unistd.h>
+#include <sys/sendfile.h>
 #include "fileio.h"
 #include "util.h"
 #include "strv.h"
@@ -117,6 +118,77 @@ int read_one_line_file(const char *fn, char **line) {
         return 0;
 }
 
+ssize_t sendfile_full(int out_fd, const char *fn) {
+        _cleanup_fclose_ FILE *f;
+        struct stat st;
+        int r;
+        ssize_t s;
+
+        size_t n, l;
+        _cleanup_free_ char *buf = NULL;
+
+        assert(out_fd > 0);
+        assert(fn);
+
+        f = fopen(fn, "re");
+        if (!f)
+                return -errno;
+
+        r = fstat(fileno(f), &st);
+        if (r < 0)
+                return -errno;
+
+        s = sendfile(out_fd, fileno(f), NULL, st.st_size);
+        if (s < 0)
+                if (errno == EINVAL || errno == ENOSYS) {
+                        /* continue below */
+                } else
+                        return -errno;
+        else
+                return s;
+
+        /* sendfile() failed, fall back to read/write */
+
+        /* Safety check */
+        if (st.st_size > 4*1024*1024)
+                return -E2BIG;
+
+        n = st.st_size > 0 ? st.st_size : LINE_MAX;
+        l = 0;
+
+        while (true) {
+                char *t;
+                size_t k;
+
+                t = realloc(buf, n);
+                if (!t)
+                        return -ENOMEM;
+
+                buf = t;
+                k = fread(buf + l, 1, n - l, f);
+
+                if (k <= 0) {
+                        if (ferror(f))
+                                return -errno;
+
+                        break;
+                }
+
+                l += k;
+                n *= 2;
+
+                /* Safety check */
+                if (n > 4*1024*1024)
+                        return -E2BIG;
+        }
+
+        r = write(out_fd, buf, l);
+        if (r < 0)
+                return -errno;
+
+        return (ssize_t) l;
+}
+
 int read_full_file(const char *fn, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
         size_t n, l;
@@ -168,7 +240,7 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
 
         buf[l] = 0;
         *contents = buf;
-        buf = NULL;
+        buf = NULL; /* do not free */
 
         if (size)
                 *size = l;
@@ -462,35 +534,42 @@ fail:
 
 static int parse_env_file_push(const char *filename, unsigned line,
                                const char *key, char *value, void *userdata) {
-        assert(utf8_is_valid(key));
 
-        if (value && !utf8_is_valid(value))
-                /* FIXME: filter UTF-8 */
-                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
-                          filename, line, key, value);
-        else {
-                const char *k;
-                va_list* ap = (va_list*) userdata;
-                va_list aq;
+        const char *k;
+        va_list aq, *ap = userdata;
 
-                va_copy(aq, *ap);
+        if (!utf8_is_valid(key)) {
+                _cleanup_free_ char *p = utf8_escape_invalid(key);
 
-                while ((k = va_arg(aq, const char *))) {
-                        char **v;
-
-                        v = va_arg(aq, char **);
-
-                        if (streq(key, k)) {
-                                va_end(aq);
-                                free(*v);
-                                *v = value;
-                                return 1;
-                        }
-                }
-
-                va_end(aq);
+                log_error("%s:%u: invalid UTF-8 in key '%s', ignoring.",
+                          filename, line, p);
+                return -EINVAL;
         }
 
+        if (value && !utf8_is_valid(value)) {
+                _cleanup_free_ char *p = utf8_escape_invalid(value);
+
+                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
+                          filename, line, key, p);
+                return -EINVAL;
+        }
+
+        va_copy(aq, *ap);
+
+        while ((k = va_arg(aq, const char *))) {
+                char **v;
+
+                v = va_arg(aq, char **);
+
+                if (streq(key, k)) {
+                        va_end(aq);
+                        free(*v);
+                        *v = value;
+                        return 1;
+                }
+        }
+
+        va_end(aq);
         free(value);
         return 0;
 }
@@ -514,26 +593,31 @@ int parse_env_file(
 
 static int load_env_file_push(const char *filename, unsigned line,
                               const char *key, char *value, void *userdata) {
-        assert(utf8_is_valid(key));
+        char ***m = userdata;
+        char *p;
+        int r;
 
-        if (value && !utf8_is_valid(value))
+        if (!utf8_is_valid(key)) {
+                log_error("%s:%u: invalid UTF-8 for key '%s', ignoring.",
+                          filename, line, key);
+                return -EINVAL;
+        }
+
+        if (value && !utf8_is_valid(value)) {
                 /* FIXME: filter UTF-8 */
-                log_error("%s:%u: invalid UTF-8 for key %s: '%s', ignoring.",
+                log_error("%s:%u: invalid UTF-8 value for key %s: '%s', ignoring.",
                           filename, line, key, value);
-        else {
-                char ***m = userdata;
-                char *p;
-                int r;
+                return -EINVAL;
+        }
 
-                p = strjoin(key, "=", strempty(value), NULL);
-                if (!p)
-                        return -ENOMEM;
+        p = strjoin(key, "=", strempty(value), NULL);
+        if (!p)
+                return -ENOMEM;
 
-                r = strv_push(m, p);
-                if (r < 0) {
-                        free(p);
-                        return r;
-                }
+        r = strv_push(m, p);
+        if (r < 0) {
+                free(p);
+                return r;
         }
 
         free(value);
@@ -662,6 +746,7 @@ int get_status_field(const char *filename, const char *pattern, char **field) {
         int r;
 
         assert(filename);
+        assert(pattern);
         assert(field);
 
         r = read_full_file(filename, &status, NULL);

@@ -6,7 +6,6 @@ It turns out the latter got removed in Python 3.
 
 https://bugs.freedesktop.org/show_bug.cgi?id=77086
 (cherry picked from commit b532cf3722e04adb0bd075666eb9989a9390d0a2)
-(cherry picked from commit 3c230a853e32c1a5925e8fcff8c70666c1c5849f)
 ---
  src/python-systemd/journal.py | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

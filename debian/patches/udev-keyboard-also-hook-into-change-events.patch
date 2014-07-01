@@ -7,7 +7,6 @@ Re-apply the keymaps when "udevadm trigger" is called. Hooking into
 instead of applying the new config.
 
 (cherry picked from commit 49804365ea1242456c9763058a59cf68479e07ea)
-(cherry picked from commit 8d9518eb8f0dbf20e0abfb3b97845ff1f22d8dc3)
 ---
  rules/60-keyboard.rules | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

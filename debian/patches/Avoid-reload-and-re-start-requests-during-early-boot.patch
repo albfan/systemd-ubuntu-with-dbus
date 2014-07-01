@@ -5,17 +5,18 @@ Subject: Avoid reload and (re)start requests during early boot which can lead
 
 Closes: #624599
 ---
- src/core/manager.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ src/core/manager.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index c573a72..c56027f 100644
+index dfa654b7..13f12407 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -976,6 +976,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
-                                 dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
+@@ -1047,6 +1047,22 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+                                 sd_bus_error_setf(e, BUS_ERROR_SHUTTING_DOWN, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
                                  return -EINVAL;
                          }
++
 +                        /* Trying to reload services from multi-user.target
 +                         * during the early boot stage can lead to deadlocks.
 +                         * An example is samba being reloaded by the dhcp hook
@@ -28,7 +29,7 @@ index c573a72..c56027f 100644
 +                         * See http://bugs.debian.org/624599 */
 +                        if (strcmp(j->unit->id, "sysinit.target") == 0 && unit->default_dependencies) {
 +                                log_debug("sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-+                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
++                                sd_bus_error_setf(e, SD_BUS_ERROR_ACCESS_DENIED, "sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
 +                                return -EINVAL;
 +                        }
                  }

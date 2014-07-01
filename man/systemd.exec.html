@@ -19,10 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
                 <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
                 <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm274706676192"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214191900608"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
                 mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</p><p>This man page lists the configuration options
@@ -39,7 +39,7 @@
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
-                type.</p></div><div class="refsect1"><a name="idm274706543616"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
+                type.</p></div><div class="refsect1"><a name="idm214191894128"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
                                 not set, defaults to the root directory
@@ -133,7 +133,7 @@
                                 for details. Defaults to false.</p></dd><dt id="CPUAffinity="><span class="term"><code class="varname">CPUAffinity=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAffinity=">¶</a></dt><dd><p>Controls the CPU
                                 affinity of the executed
                                 processes. Takes a space-separated
-                                list of CPU indexes. This option may
+                                list of CPU indices. This option may
                                 be specified more than once in which
                                 case the specificed CPU affinity masks
                                 are merged. If the empty string is
@@ -166,9 +166,11 @@
                                 If you need to assign a value containing spaces
                                 to a variable, use double quotes (")
                                 for the assignment.</p><p>Example:
-                                </p><pre class="programlisting">Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</pre><p>
+                                </p><pre class="programlisting">Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"</pre><p>
                                 gives three variables "<code class="literal">VAR1</code>",
-                                "<code class="literal">VAR2</code>", "<code class="literal">VAR3</code>".
+                                "<code class="literal">VAR2</code>", "<code class="literal">VAR3</code>"
+                                with the values "<code class="literal">word1 word2</code>",
+                                "<code class="literal">word3</code>", "<code class="literal">$word 5 6</code>".
                                 </p><p>
                                 See
                                 <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
@@ -318,9 +320,9 @@
                                 <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
                                 which defaults to
                                 <code class="option">journal</code>.</p></dd><dt id="StandardError="><span class="term"><code class="varname">StandardError=</code></span><a class="headerlink" title="Permalink to this term" href="#StandardError=">¶</a></dt><dd><p>Controls where file
-                                descriptor 2 (STDERR) of the executed
-                                processes is connected to. The
-                                available options are identical to
+                                descriptor 2 (STDERR) of the
+                                executed processes is connected to.
+                                The available options are identical to
                                 those of
                                 <code class="varname">StandardOutput=</code>,
                                 with one exception: if set to
@@ -333,8 +335,8 @@
                                 <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
                                 which defaults to
                                 <code class="option">inherit</code>.</p></dd><dt id="TTYPath="><span class="term"><code class="varname">TTYPath=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYPath=">¶</a></dt><dd><p>Sets the terminal
-                                device node to use if standard input,
-                                output or stderr are connected to a
+                                device node to use if standard input, output,
+                                or error are connected to a
                                 TTY (see above). Defaults to
                                 <code class="filename">/dev/console</code>.</p></dd><dt id="TTYReset="><span class="term"><code class="varname">TTYReset=</code></span><a class="headerlink" title="Permalink to this term" href="#TTYReset=">¶</a></dt><dd><p>Reset the terminal
                                 device specified with
@@ -595,9 +597,9 @@
                                 system namespace for the executed
                                 processes and mounts private
                                 <code class="filename">/tmp</code> and
-                                <code class="filename">/var/tmp</code> directories
-                                inside it, that are not shared by
-                                processes outside of the
+                                <code class="filename">/var/tmp</code>
+                                directories inside it that is not
+                                shared by processes outside of the
                                 namespace. This is useful to secure
                                 access to temporary files of the
                                 process, but makes sharing between
@@ -605,9 +607,17 @@
                                 <code class="filename">/tmp</code> or
                                 <code class="filename">/var/tmp</code>
                                 impossible. All temporary data created
-                                by service will be removed after service
-                                is stopped. Defaults to
-                                false.</p></dd><dt id="PrivateNetwork="><span class="term"><code class="varname">PrivateNetwork=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateNetwork=">¶</a></dt><dd><p>Takes a boolean
+                                by service will be removed after
+                                the service is stopped. Defaults to
+                                false. Note that it is possible to run
+                                two or more units within the same
+                                private <code class="filename">/tmp</code> and
+                                <code class="filename">/var/tmp</code>
+                                namespace by using the
+                                <code class="varname">JoinsNamespaceOf=</code>
+                                directive, see
+                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                for details.</p></dd><dt id="PrivateNetwork="><span class="term"><code class="varname">PrivateNetwork=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateNetwork=">¶</a></dt><dd><p>Takes a boolean
                                 argument. If true, sets up a new
                                 network namespace for the executed
                                 processes and configures only the
@@ -617,6 +627,24 @@
                                 available to the executed process.
                                 This is useful to securely turn off
                                 network access by the executed
+                                process. Defaults to false. Note that
+                                it is possible to run two or more
+                                units within the same private network
+                                namespace by using the
+                                <code class="varname">JoinsNamespaceOf=</code>
+                                directive, see
+                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                for details.</p></dd><dt id="PrivateDevices="><span class="term"><code class="varname">PrivateDevices=</code></span><a class="headerlink" title="Permalink to this term" href="#PrivateDevices=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If true, sets up a new /dev
+                                namespace for the executed processes
+                                and only adds API pseudo devices such
+                                as <code class="filename">/dev/null</code>,
+                                <code class="filename">/dev/zero</code> or
+                                <code class="filename">/dev/random</code> to
+                                it, but no physical devices such as
+                                <code class="filename">/dev/sda</code>. This is
+                                useful to securely turn off physical
+                                device access by the executed
                                 process. Defaults to
                                 false.</p></dd><dt id="MountFlags="><span class="term"><code class="varname">MountFlags=</code></span><a class="headerlink" title="Permalink to this term" href="#MountFlags=">¶</a></dt><dd><p>Takes a mount
                                 propagation flag:
@@ -644,7 +672,25 @@
                                 string replacements. This setting is
                                 unset by default, i.e. no utmp/wtmp
                                 entries are created or cleaned up for
-                                this service.</p></dd><dt id="IgnoreSIGPIPE="><span class="term"><code class="varname">IgnoreSIGPIPE=</code></span><a class="headerlink" title="Permalink to this term" href="#IgnoreSIGPIPE=">¶</a></dt><dd><p>Takes a boolean
+                                this service.</p></dd><dt id="SELinuxContext="><span class="term"><code class="varname">SELinuxContext=</code></span><a class="headerlink" title="Permalink to this term" href="#SELinuxContext=">¶</a></dt><dd><p>Set the SELinux
+                                security context of the executed
+                                process. If set, this will override
+                                the automated domain
+                                transition. However, the policy still
+                                needs to autorize the transition. This
+                                directive is ignored if SELinux is
+                                disabled. If prefixed by
+                                "<code class="literal">-</code>", all errors will
+                                be ignored. See
+                                <a href="setexeccon.html"><span class="citerefentry"><span class="refentrytitle">setexeccon</span>(3)</span></a>
+                                for details.</p></dd><dt id="AppArmorProfile="><span class="term"><code class="varname">AppArmorProfile=</code></span><a class="headerlink" title="Permalink to this term" href="#AppArmorProfile=">¶</a></dt><dd><p>Take a profile name as argument.
+                                The process executed by the unit will switch to
+                                this profile when started. Profiles must already
+                                be loaded in the kernel, or the unit will fail.
+                                This result in a non operation if AppArmor is not
+                                enabled. If prefixed by "<code class="literal">-</code>", all errors
+                                will be ignored.
+                                </p></dd><dt id="IgnoreSIGPIPE="><span class="term"><code class="varname">IgnoreSIGPIPE=</code></span><a class="headerlink" title="Permalink to this term" href="#IgnoreSIGPIPE=">¶</a></dt><dd><p>Takes a boolean
                                 argument. If true, causes <code class="constant">SIGPIPE</code> to be
                                 ignored in the executed
                                 process. Defaults to true because
@@ -663,7 +709,7 @@
                                 list of system call
                                 names. If this setting is used, all
                                 system calls executed by the unit
-                                process except for the listed ones
+                                processes except for the listed ones
                                 will result in immediate process
                                 termination with the
                                 <code class="constant">SIGSYS</code> signal
@@ -691,7 +737,81 @@
                                 merged. If the empty string is
                                 assigned, the filter is reset, all
                                 prior assignments will have no
-                                effect.</p></dd></dl></div></div><div class="refsect1"><a name="idm274701565696"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
+                                effect.</p><p>If you specify both types of
+                                this option (i.e. whitelisting and
+                                blacklisting), the first encountered
+                                will take precedence and will dictate
+                                the default action (termination or
+                                approval of a system call). Then the
+                                next occurrences of this option will
+                                add or delete the listed system calls
+                                from the set of the filtered system
+                                calls, depending of its type and the
+                                default action. (For example, if you have started
+                                with a whitelisting of
+                                <code class="function">read</code> and
+                                <code class="function">write</code>, and right
+                                after it add a blacklisting of
+                                <code class="function">write</code>, then
+                                <code class="function">write</code> will be
+                                removed from the set.)
+                                </p></dd><dt id="SystemCallErrorNumber="><span class="term"><code class="varname">SystemCallErrorNumber=</code></span><a class="headerlink" title="Permalink to this term" href="#SystemCallErrorNumber=">¶</a></dt><dd><p>Takes an
+                                "<code class="literal">errno</code>" error number
+                                name to return when the system call
+                                filter configured with
+                                <code class="varname">SystemCallFilter=</code>
+                                is triggered, instead of terminating
+                                the process immediately. Takes an
+                                error name such as
+                                <code class="constant">EPERM</code>,
+                                <code class="constant">EACCES</code> or
+                                <code class="constant">EUCLEAN</code>. When this
+                                setting is not used, or when the empty
+                                string is assigned, the process will be
+                                terminated immediately when the filter
+                                is triggered.</p></dd><dt id="SystemCallArchitectures="><span class="term"><code class="varname">SystemCallArchitectures=</code></span><a class="headerlink" title="Permalink to this term" href="#SystemCallArchitectures=">¶</a></dt><dd><p>Takes a space
+                                separated list of architecture
+                                identifiers to include in the system
+                                call filter. The known architecture
+                                identifiers are
+                                <code class="constant">x86</code>,
+                                <code class="constant">x86-64</code>,
+                                <code class="constant">x32</code>,
+                                <code class="constant">arm</code> as well as the
+                                special identifier
+                                <code class="constant">native</code>. Only system
+                                calls of the specified architectures
+                                will be permitted to processes of this
+                                unit. This is an effective way to
+                                disable compatibility with non-native
+                                architectures for processes, for
+                                example to prohibit execution of
+                                32-bit x86 binaries on 64-bit x86-64
+                                systems. The special
+                                <code class="constant">native</code> identifier
+                                implicitly maps to the native
+                                architecture of the system (or more
+                                strictly: to the architecture the
+                                system manager is compiled for). Note
+                                that setting this option to a
+                                non-empty list implies that
+                                <code class="constant">native</code> is included
+                                too. By default, this option is set to
+                                the empty list, i.e. no architecture
+                                system call filtering is
+                                applied.</p></dd><dt id="Personality="><span class="term"><code class="varname">Personality=</code></span><a class="headerlink" title="Permalink to this term" href="#Personality=">¶</a></dt><dd><p>Controls which
+                                kernel architecture
+                                <a href="uname.html"><span class="citerefentry"><span class="refentrytitle">uname</span>(2)</span></a>
+                                shall report, when invoked by unit
+                                processes. Takes one of
+                                <code class="constant">x86</code> and
+                                <code class="constant">x86-64</code>. This is
+                                useful when running 32bit services on
+                                a 64bit host system. If not specified
+                                the personality is left unmodified and
+                                thus reflects the personality of the
+                                host system's
+                                kernel.</p></dd></dl></div></div><div class="refsect1"><a name="idm214190630752"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
                 a clean environment in which select variables
                 listed below are set. System processes started by systemd
                 do not inherit variables from PID 1, but processes
@@ -708,8 +828,9 @@
                                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
                                 and
                                 <a href="kernel-command-line.html"><span class="citerefentry"><span class="refentrytitle">kernel-command-line</span>(7)</span></a>).
-                                </p></dd><dt id="$USER"><span class="term"><code class="varname">$USER</code>, </span><span class="term"><code class="varname">$HOME</code></span><a class="headerlink" title="Permalink to this term" href="#%24USER">¶</a></dt><dd><p>User name and home
-                                directory.  Set for the units which
+                                </p></dd><dt id="$USER"><span class="term"><code class="varname">$USER</code>, </span><span class="term"><code class="varname">$LOGNAME</code>, </span><span class="term"><code class="varname">$HOME</code>, </span><span class="term"><code class="varname">$SHELL</code></span><a class="headerlink" title="Permalink to this term" href="#%24USER">¶</a></dt><dd><p>User name (twice), home
+                                directory, and the login shell.
+                                The variables are set for the units that
                                 have <code class="varname">User=</code> set,
                                 which includes user
                                 <span class="command"><strong>systemd</strong></span> instances.
@@ -721,21 +842,34 @@
                                 See
                                 <a href="pam_systemd.html"><span class="citerefentry"><span class="refentrytitle">pam_systemd</span>(8)</span></a>.
                                 </p></dd><dt id="$XDG_SESSION_ID"><span class="term"><code class="varname">$XDG_SESSION_ID</code>, </span><span class="term"><code class="varname">$XDG_SEAT</code>, </span><span class="term"><code class="varname">$XDG_VTNR</code></span><a class="headerlink" title="Permalink to this term" href="#%24XDG_SESSION_ID">¶</a></dt><dd><p>The identifier of the
-                                session, and the seat name, and
+                                session, the seat name, and
                                 virtual terminal of the session. Set
                                 by
                                 <a href="pam_systemd.html"><span class="citerefentry"><span class="refentrytitle">pam_systemd</span>(8)</span></a>
                                 for login sessions.
                                 <code class="varname">$XDG_SEAT</code> and
-                                <code class="varname">$XDG_VTNR</code> will be
-                                only set when attached to a seat and a
-                                tty.</p></dd><dt id="$MANAGERPID"><span class="term"><code class="varname">$MANAGERPID</code></span><a class="headerlink" title="Permalink to this term" href="#%24MANAGERPID">¶</a></dt><dd><p>The PID of the user
+                                <code class="varname">$XDG_VTNR</code> will
+                                only be set when attached to a seat and a
+                                tty.</p></dd><dt id="$MAINPID"><span class="term"><code class="varname">$MAINPID</code></span><a class="headerlink" title="Permalink to this term" href="#%24MAINPID">¶</a></dt><dd><p>The PID of the units
+                                main process if it is known. This is
+                                only set for control processes as
+                                invoked by
+                                <code class="varname">ExecReload=</code> and
+                                similar.  </p></dd><dt id="$MANAGERPID"><span class="term"><code class="varname">$MANAGERPID</code></span><a class="headerlink" title="Permalink to this term" href="#%24MANAGERPID">¶</a></dt><dd><p>The PID of the user
                                 <span class="command"><strong>systemd</strong></span> instance,
                                 set for processes spawned by it.
                                 </p></dd><dt id="$LISTEN_FDS"><span class="term"><code class="varname">$LISTEN_FDS</code>, </span><span class="term"><code class="varname">$LISTEN_PID</code></span><a class="headerlink" title="Permalink to this term" href="#%24LISTEN_FDS">¶</a></dt><dd><p>Information about file
                                 descriptors passed to a service for
                                 socket activation.  See
                                 <a href="sd_listen_fds.html"><span class="citerefentry"><span class="refentrytitle">sd_listen_fds</span>(3)</span></a>.
+                                </p></dd><dt id="$TERM"><span class="term"><code class="varname">$TERM</code></span><a class="headerlink" title="Permalink to this term" href="#%24TERM">¶</a></dt><dd><p>Terminal type, set
+                                only for units connected to a terminal
+                                (<code class="varname">StandardInput=tty</code>,
+                                <code class="varname">StandardOutput=tty</code>,
+                                or
+                                <code class="varname">StandardError=tty</code>).
+                                See
+                                <a href="termcap.html"><span class="citerefentry"><span class="refentrytitle">termcap</span>(5)</span></a>.
                                 </p></dd></dl></div><p>Additional variables may be configured by the
                 following means: for processes spawned in specific
                 units, use the <code class="varname">Environment=</code> and
@@ -747,7 +881,7 @@
                 <code class="varname">systemd.setenv=</code> (see
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>). Additional
                 variables may also be set through PAM,
-                c.f. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm274701532960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                c.f. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214190591264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,

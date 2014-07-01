@@ -39,21 +39,34 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <locale.h>
+#include <mntent.h>
+#include <sys/socket.h>
+
+#if SIZEOF_PID_T == 4
+#  define PID_FMT "%" PRIu32
+#elif SIZEOF_PID_T == 2
+#  define PID_FMT "%" PRIu16
+#else
+#  error Unknown pid_t size
+#endif
+
+#if SIZEOF_UID_T == 4
+#  define UID_FMT "%" PRIu32
+#elif SIZEOF_UID_T == 2
+#  define UID_FMT "%" PRIu16
+#else
+#  error Unknown uid_t size
+#endif
 
 #include "macro.h"
 #include "time-util.h"
 
-union dirent_storage {
-        struct dirent de;
-        uint8_t storage[offsetof(struct dirent, d_name) +
-                        ((NAME_MAX + 1 + sizeof(long)) & ~(sizeof(long) - 1))];
-};
-
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
-#define NEWLINE "\n\r"
-#define QUOTES "\"\'"
-#define COMMENTS "#;"
+#define NEWLINE    "\n\r"
+#define QUOTES     "\"\'"
+#define COMMENTS   "#;"
+#define GLOB_CHARS "*?["
 
 #define FORMAT_BYTES_MAX 8
 
@@ -63,6 +76,7 @@ union dirent_storage {
 #define ANSI_GREEN_ON "\x1B[32m"
 #define ANSI_HIGHLIGHT_GREEN_ON "\x1B[1;32m"
 #define ANSI_HIGHLIGHT_YELLOW_ON "\x1B[1;33m"
+#define ANSI_HIGHLIGHT_BLUE_ON "\x1B[1;34m"
 #define ANSI_HIGHLIGHT_OFF "\x1B[0m"
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
@@ -88,6 +102,10 @@ bool streq_ptr(const char *a, const char *b) _pure_;
 
 static inline const char* yes_no(bool b) {
         return b ? "yes" : "no";
+}
+
+static inline const char* true_false(bool b) {
+        return b ? "true" : "false";
 }
 
 static inline const char* strempty(const char *s) {
@@ -126,8 +144,9 @@ int close_nointr(int fd);
 void close_nointr_nofail(int fd);
 void close_many(const int fds[], unsigned n_fd);
 
+int parse_size(const char *t, off_t base, off_t *size);
+
 int parse_boolean(const char *v) _pure_;
-int parse_bytes(const char *t, off_t *bytes);
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_uid(const char *s, uid_t* ret_uid);
 #define parse_gid(s, ret_uid) parse_uid(s, ret_uid)
@@ -180,17 +199,22 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
-char *split(const char *c, size_t *l, const char *separator, char **state);
-char *split_quoted(const char *c, size_t *l, char **state);
+char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        for ((state) = NULL, (word) = split((s), &(length), WHITESPACE, &(state)); (word); (word) = split((s), &(length), WHITESPACE, &(state)))
+        _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
 
 #define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        for ((state) = NULL, (word) = split((s), &(length), (separator), &(state)); (word); (word) = split((s), &(length), (separator), &(state)))
+        _FOREACH_WORD(word, length, s, separator, false, state)
 
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
-        for ((state) = NULL, (word) = split_quoted((s), &(length), &(state)); (word); (word) = split_quoted((s), &(length), &(state)))
+        _FOREACH_WORD(word, length, s, WHITESPACE, true, state)
+
+#define FOREACH_WORD_SEPARATOR_QUOTED(word, length, s, separator, state)       \
+        _FOREACH_WORD(word, length, s, separator, true, state)
+
+#define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
+        for ((state) = NULL, (word) = split((s), &(length), (separator), (quoted), &(state)); (word); (word) = split((s), &(length), (separator), (quoted), &(state)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
@@ -215,6 +239,7 @@ char *file_in_same_dir(const char *path, const char *filename);
 
 int rmdir_parents(const char *path, const char *stop);
 
+int get_process_state(pid_t pid);
 int get_process_comm(pid_t pid, char **name);
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line);
 int get_process_exe(pid_t pid, char **name);
@@ -236,9 +261,6 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
 char *xescape(const char *s, const char *bad);
 
-char *bus_path_escape(const char *s);
-char *bus_path_unescape(const char *s);
-
 char *ascii_strlower(char *path);
 
 bool dirent_is_file(const struct dirent *de) _pure_;
@@ -252,8 +274,20 @@ int make_stdio(int fd);
 int make_null_stdio(void);
 int make_console_stdio(void);
 
-unsigned long long random_ull(void);
-unsigned random_u(void);
+int dev_urandom(void *p, size_t n);
+void random_bytes(void *p, size_t n);
+
+static inline uint64_t random_u64(void) {
+        uint64_t u;
+        random_bytes(&u, sizeof(u));
+        return u;
+}
+
+static inline uint32_t random_u32(void) {
+        uint32_t u;
+        random_bytes(&u, sizeof(u));
+        return u;
+}
 
 /* For basic lookup tables with strictly enumerated entries */
 #define __DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                   \
@@ -264,7 +298,8 @@ unsigned random_u(void);
         }                                                               \
         scope type name##_from_string(const char *s) {                  \
                 type i;                                                 \
-                assert(s);                                              \
+                if (!s)                                                 \
+                        return (type) -1;                               \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
                         if (name##_table[i] &&                          \
                             streq(name##_table[i], s))                  \
@@ -319,7 +354,7 @@ bool fstype_is_network(const char *fstype);
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
-int ask(char *ret, const char *replies, const char *text, ...) _printf_attr_(3, 4);
+int ask(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
@@ -373,9 +408,8 @@ int pipe_eof(int fd);
 
 cpu_set_t* cpu_set_malloc(unsigned *ncpus);
 
-int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) _printf_attr_(4,0);
-int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) _printf_attr_(4,5);
-int status_welcome(void);
+int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char *format, va_list ap) _printf_(4,0);
+int status_printf(const char *status, bool ellipse, bool ephemeral, const char *format, ...) _printf_(4,5);
 
 int fd_columns(int fd);
 unsigned columns(void);
@@ -397,6 +431,14 @@ static inline const char *ansi_highlight_green(void) {
         return on_tty() ? ANSI_HIGHLIGHT_GREEN_ON : "";
 }
 
+static inline const char *ansi_highlight_yellow(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_YELLOW_ON : "";
+}
+
+static inline const char *ansi_highlight_blue(void) {
+        return on_tty() ? ANSI_HIGHLIGHT_BLUE_ON : "";
+}
+
 static inline const char *ansi_highlight_off(void) {
         return on_tty() ? ANSI_HIGHLIGHT_OFF : "";
 }
@@ -404,6 +446,7 @@ static inline const char *ansi_highlight_off(void) {
 int running_in_chroot(void);
 
 char *ellipsize(const char *s, size_t length, unsigned percent);
+                                   /* bytes                 columns */
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent);
 
 int touch(const char *path);
@@ -414,7 +457,7 @@ char *normalize_env_assignment(const char *s);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 int wait_for_terminate_and_warn(const char *name, pid_t pid);
 
-_noreturn_ void freeze(void);
+noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
@@ -448,7 +491,7 @@ int terminal_vhangup(const char *name);
 
 int vt_disallocate(const char *name);
 
-int copy_file(const char *from, const char *to);
+int copy_file(const char *from, const char *to, int flags);
 
 int symlink_atomic(const char *from, const char *to);
 
@@ -549,42 +592,46 @@ bool in_initrd(void);
 void warn_melody(void);
 
 int get_home_dir(char **ret);
+int get_shell(char **_ret);
 
 static inline void freep(void *p) {
         free(*(void**) p);
 }
 
-static inline void fclosep(FILE **f) {
-        if (*f)
-                fclose(*f);
-}
-
-static inline void pclosep(FILE **f) {
-        if (*f)
-                pclose(*f);
-}
+#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        func(*p);                               \
+        }                                                       \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
 static inline void closep(int *fd) {
         if (*fd >= 0)
                 close_nointr_nofail(*fd);
 }
 
-static inline void closedirp(DIR **d) {
-        if (*d)
-                closedir(*d);
-}
-
 static inline void umaskp(mode_t *u) {
         umask(*u);
 }
 
+static inline void close_pipep(int (*p)[2]) {
+        close_pipe(*p);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, fclose);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, pclose);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
+DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
+
 #define _cleanup_free_ _cleanup_(freep)
-#define _cleanup_fclose_ _cleanup_(fclosep)
-#define _cleanup_pclose_ _cleanup_(pclosep)
 #define _cleanup_close_ _cleanup_(closep)
-#define _cleanup_closedir_ _cleanup_(closedirp)
 #define _cleanup_umask_ _cleanup_(umaskp)
 #define _cleanup_globfree_ _cleanup_(globfree)
+#define _cleanup_fclose_ _cleanup_(fclosep)
+#define _cleanup_pclose_ _cleanup_(pclosep)
+#define _cleanup_closedir_ _cleanup_(closedirp)
+#define _cleanup_endmntent_ _cleanup_(endmntentp)
+#define _cleanup_close_pipe_ _cleanup_(close_pipep)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
         if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
@@ -605,6 +652,13 @@ bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
 bool string_has_cc(const char *p) _pure_;
 
+/**
+ * Check if a string contains any glob patterns.
+ */
+_pure_ static inline bool string_is_glob(const char *p) {
+        return !!strpbrk(p, GLOB_CHARS);
+}
+
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  int (*compar) (const void *, const void *, void *),
                  void *arg);
@@ -617,6 +671,7 @@ typedef enum DrawSpecialChar {
         DRAW_TREE_RIGHT,
         DRAW_TREE_SPACE,
         DRAW_TRIANGULAR_BULLET,
+        DRAW_BLACK_CIRCLE,
         _DRAW_SPECIAL_CHAR_MAX
 } DrawSpecialChar;
 const char *draw_special_char(DrawSpecialChar ch);
@@ -629,7 +684,6 @@ int on_ac_power(void);
 
 int search_and_fopen(const char *path, const char *mode, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *search, FILE **_f);
-int create_tmp_dir(char template[], char** dir_name);
 
 #define FOREACH_LINE(line, f, on_error)                         \
         for (;;)                                                \
@@ -663,8 +717,11 @@ char *strextend(char **x, ...) _sentinel_;
 char *strrep(const char *s, unsigned n);
 
 void* greedy_realloc(void **p, size_t *allocated, size_t need);
+void* greedy_realloc0(void **p, size_t *allocated, size_t need);
 #define GREEDY_REALLOC(array, allocated, need) \
         greedy_realloc((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
+#define GREEDY_REALLOC0(array, allocated, need) \
+        greedy_realloc0((void**) &(array), &(allocated), sizeof((array)[0]) * (need))
 
 static inline void _reset_errno_(int *saved_errno) {
         errno = *saved_errno;
@@ -687,7 +744,19 @@ static inline void _reset_umask_(struct _umask_struct_ *s) {
              _saved_umask_.quit = true)
 
 static inline unsigned u64log2(uint64_t n) {
-        return (n > 1) ? __builtin_clzll(n) ^ 63U : 0;
+#if __SIZEOF_LONG_LONG__ == 8
+        return (n > 1) ? (unsigned) __builtin_clzll(n) ^ 63U : 0;
+#else
+#error "Wut?"
+#endif
+}
+
+static inline unsigned u32ctz(uint32_t n) {
+#if __SIZEOF_INT__ == 4
+        return __builtin_ctz(n);
+#else
+#error "Wut?"
+#endif
 }
 
 static inline bool logind_running(void) {
@@ -728,9 +797,13 @@ int unlink_noerrno(const char *path);
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
                 pid_t _pid_ = (pid);                                    \
-                char *_r_;                                              \
-                _r_ = alloca(sizeof("/proc/") -1 + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                sprintf(_r_, "/proc/%lu/" field, (unsigned long) _pid_); \
+                const char *_r_;                                        \
+                if (_pid_ == 0) {                                       \
+                        _r_ = ("/proc/self/" field);                    \
+                } else {                                                \
+                        _r_ = alloca(strlen("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
+                }                                                       \
                 _r_;                                                    \
         })
 
@@ -761,6 +834,43 @@ static inline void _reset_locale_(struct _locale_struct_ *s) {
              _saved_locale_.quit = true)
 
 bool id128_is_valid(const char *s) _pure_;
-void parse_user_at_host(char *arg, char **user, char **host);
 
 int split_pair(const char *s, const char *sep, char **l, char **r);
+
+int shall_restore_state(void);
+
+/**
+ * Normal qsort requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void qsort_safe(void *base, size_t nmemb, size_t size,
+                              int (*compar)(const void *, const void *)) {
+        if (nmemb) {
+                assert(base);
+                qsort(base, nmemb, size, compar);
+        }
+}
+
+int proc_cmdline(char **ret);
+int parse_proc_cmdline(int (*parse_word)(const char *word));
+
+int container_get_leader(const char *machine, pid_t *pid);
+
+int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *root_fd);
+int namespace_enter(int pidns_fd, int mntns_fd, int root_fd);
+
+bool pid_is_alive(pid_t pid);
+bool pid_is_unwaited(pid_t pid);
+
+int getpeercred(int fd, struct ucred *ucred);
+int getpeersec(int fd, char **ret);
+
+int writev_safe(int fd, const struct iovec *w, int j);
+
+int mkostemp_safe(char *pattern, int flags);
+int open_tmpfile(const char *path, int flags);
+
+int fd_warn_permissions(const char *path, int fd);
+
+unsigned long personality_from_string(const char *p);
+const char *personality_to_string(unsigned long);

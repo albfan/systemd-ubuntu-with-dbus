@@ -7,14 +7,12 @@ Subject: machine-id: only look into KVM uuid when we are not running in a
 
 Conflicts:
 	src/core/machine-id-setup.c
-
-(cherry picked from commit 0ade4b119d9d00252ce51f85b9b9019d0717c183)
 ---
  src/core/machine-id-setup.c | 47 +++++++++++++++++++++++----------------------
  1 file changed, 24 insertions(+), 23 deletions(-)
 
 diff --git a/src/core/machine-id-setup.c b/src/core/machine-id-setup.c
-index 18e015fe..dcd16308 100644
+index 1b55da7e..602be3be 100644
 --- a/src/core/machine-id-setup.c
 +++ b/src/core/machine-id-setup.c
 @@ -88,29 +88,6 @@ static int generate(char id[34]) {

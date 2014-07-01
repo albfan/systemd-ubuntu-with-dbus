@@ -11,16 +11,15 @@ After:
   Startup finished in 122ms (userspace) = 122ms
 
 (cherry picked from commit 530a9662aa3d291555e5b3f6eb43199e1b04f63c)
-(cherry picked from commit ba3942b4892023483422c7efdbfd29c58d2ac24b)
 ---
  src/core/manager.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 3a38fab6..28f4d72e 100644
+index ee92f1b3..fed0a454 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -495,7 +495,7 @@ int manager_new(SystemdRunningAs running_as, bool reexecuting, Manager **_m) {
+@@ -419,7 +419,7 @@ int manager_new(SystemdRunningAs running_as, Manager **_m) {
                  return -ENOMEM;
  
  #ifdef ENABLE_EFI

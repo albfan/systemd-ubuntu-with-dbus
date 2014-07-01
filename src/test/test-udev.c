@@ -34,6 +34,7 @@
 
 #include "missing.h"
 #include "udev.h"
+#include "udev-util.h"
 
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
@@ -80,12 +81,11 @@ out:
 }
 
 
-int main(int argc, char *argv[])
-{
-        struct udev *udev;
-        struct udev_event *event = NULL;
-        struct udev_device *dev = NULL;
-        struct udev_rules *rules = NULL;
+int main(int argc, char *argv[]) {
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;
@@ -98,21 +98,22 @@ int main(int argc, char *argv[])
 
         udev = udev_new();
         if (udev == NULL)
-                exit(EXIT_FAILURE);
-        log_debug("version %s\n", VERSION);
+                return EXIT_FAILURE;
+
+        log_debug("version %s", VERSION);
         label_init("/dev");
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
         action = argv[1];
         if (action == NULL) {
-                log_error("action missing\n");
+                log_error("action missing");
                 goto out;
         }
 
         devpath = argv[2];
         if (devpath == NULL) {
-                log_error("devpath missing\n");
+                log_error("devpath missing");
                 goto out;
         }
 
@@ -121,7 +122,7 @@ int main(int argc, char *argv[])
         strscpyl(syspath, sizeof(syspath), "/sys", devpath, NULL);
         dev = udev_device_new_from_syspath(udev, syspath);
         if (dev == NULL) {
-                log_debug("unknown device '%s'\n", devpath);
+                log_debug("unknown device '%s'", devpath);
                 goto out;
         }
 
@@ -160,12 +161,7 @@ int main(int argc, char *argv[])
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);
-        udev_event_unref(event);
-        udev_device_unref(dev);
-        udev_rules_unref(rules);
         label_finish();
-        udev_unref(udev);
-        if (err != 0)
-                return EXIT_FAILURE;
-        return EXIT_SUCCESS;
+
+        return err ? EXIT_FAILURE : EXIT_SUCCESS;
 }

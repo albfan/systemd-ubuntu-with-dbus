@@ -1,0 +1,24 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 14 Mar 2014 21:12:36 +0100
+Subject: sd-bus: don't access invalid memory if a signal matcher was freed
+ from its own callback
+
+(cherry picked from commit bbb6ff0216a7c081a2e63e01b1f121592b0165bb)
+---
+ src/libsystemd/sd-bus/bus-match.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/libsystemd/sd-bus/bus-match.c b/src/libsystemd/sd-bus/bus-match.c
+index 82804880..c54ca8d7 100644
+--- a/src/libsystemd/sd-bus/bus-match.c
++++ b/src/libsystemd/sd-bus/bus-match.c
+@@ -293,6 +293,9 @@ int bus_match_run(
+                         r = bus_maybe_reply_error(m, r, &error_buffer);
+                         if (r != 0)
+                                 return r;
++
++                        if (bus && bus->match_callbacks_modified)
++                                return 0;
+                 }
+ 
+                 return bus_match_run(bus, node->next, m);

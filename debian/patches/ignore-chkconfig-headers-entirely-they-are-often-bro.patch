@@ -4,14 +4,14 @@ Subject: ignore chkconfig headers entirely, they are often broken in Debian
 
 Closes: #634472
 ---
- src/core/service.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ src/core/service.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/src/core/service.c b/src/core/service.c
-index e11c413..96874f9 100644
+index f586e9b5..f7a1a627 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -636,6 +636,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
+@@ -662,6 +662,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
  
                          /* Try to parse Red Hat style chkconfig headers */
  
@@ -21,15 +21,14 @@ index e11c413..96874f9 100644
                          if (startswith_no_case(t, "chkconfig:")) {
                                  int start_priority;
                                  char runlevels[16], *k;
-@@ -677,7 +680,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
+@@ -703,7 +706,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                          s->sysv_runlevels = d;
                                  }
  
 -                        } else if (startswith_no_case(t, "description:")) {
 +                        } else
 +#endif
-+
-+if (startswith_no_case(t, "description:")) {
++                        if (startswith_no_case(t, "description:")) {
  
                                  size_t k = strlen(t);
                                  char *d;

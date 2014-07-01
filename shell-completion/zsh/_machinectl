@@ -19,12 +19,7 @@
       case $cmd in
         list) msg="no options" ;;
         *)
-          _machines=( "${(foa)$(machinectl list | awk '{print $1}')}" )
-          if [[ -n "$_machines" ]]; then
-            _describe 'machines' _machines
-          else
-            _message 'no machines'
-          fi
+          _sd_machines
       esac
     else
       _message "no more options"
@@ -42,6 +37,6 @@ _arguments \
   '--no-ask-password[Do not ask for system passwords]' \
   '--kill-who=[Who to send signal to]:killwho:(leader all)' \
   {-s+,--signal=}'[Which signal to send]:signal:_signals' \
-  {-H+,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
+  {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
   {-P,--privileged}'[Acquire privileges before execution]' \
   '*::machinectl command:_machinectl_command'

@@ -3,18 +3,17 @@ Date: Wed, 18 Jun 2014 20:34:52 +0200
 Subject: socket: check return from exec_spawn
 
 (cherry picked from commit cee288adf88844acd880e4c0da5ed550c85cdd1a)
-(cherry picked from commit ca5fd86c375e44194154c3204ae0f42fd49a2b2f)
 ---
  src/core/socket.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/src/core/socket.c b/src/core/socket.c
-index b811a61d..8e02c036 100644
+index cc384b20..8df64ee8 100644
 --- a/src/core/socket.c
 +++ b/src/core/socket.c
-@@ -1208,6 +1208,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
-                        UNIT(s)->id,
+@@ -1249,6 +1249,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                         NULL,
+                        s->exec_runtime,
                         &pid);
 +        if (r < 0)
 +                goto fail;

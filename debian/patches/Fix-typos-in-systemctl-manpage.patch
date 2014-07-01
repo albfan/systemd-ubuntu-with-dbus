@@ -1,0 +1,40 @@
+From: Eelco Dolstra <eelco.dolstra@logicblox.com>
+Date: Thu, 15 May 2014 13:11:00 +0200
+Subject: Fix typos in systemctl manpage
+
+(cherry picked from commit 1e89266b761a80da2cfc1b6e7a2a80a1855dcf7a)
+---
+ man/systemctl.xml | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index 43ad4b1d..43823420 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -423,7 +423,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+           safe option to request an immediate reboot. If
+           <option>--force</option> is specified twice for these
+           operations, they will be executed immediately without
+-          terminating any processes or umounting any file
++          terminating any processes or unmounting any file
+           systems. Warning: specifying <option>--force</option> twice
+           with any of these operations might result in data
+           loss.</para>
+@@ -1032,7 +1032,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+             activation of the unit, including manual activation. Use
+             this option with care. This honors the
+             <option>--runtime</option> option to only mask temporarily
+-            until the next reoobt of the system.</para>
++            until the next reboot of the system.</para>
+           </listitem>
+         </varlistentry>
+ 
+@@ -1394,7 +1394,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
+     <refsect2>
+       <title>Parameter Syntax</title>
+ 
+-      <para>Unit ommands listed above take either a single unit name
++      <para>Unit commands listed above take either a single unit name
+       (designated as <replaceable>NAME</replaceable>), or multiple
+       unit specifications (designated as
+       <replaceable>PATTERN</replaceable>...). In the first case, the

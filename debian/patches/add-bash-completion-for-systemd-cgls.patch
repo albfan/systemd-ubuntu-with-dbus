@@ -10,10 +10,10 @@ Subject: add bash completion for systemd-cgls
  create mode 100644 shell-completion/bash/systemd-cgls
 
 diff --git a/Makefile.am b/Makefile.am
-index 03a1f91b..d4a65e7f 100644
+index 8e6c3927..0b838238 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -342,6 +342,7 @@ dist_bashcompletion_DATA = \
+@@ -352,6 +352,7 @@ dist_bashcompletion_DATA = \
  	shell-completion/bash/journalctl \
  	shell-completion/bash/systemctl \
  	shell-completion/bash/systemd-analyze \

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-JOURNAL\-GATEWAYD\&.SERVICE" "8" "" "systemd 208" "systemd-journal-gatewayd.service"
+.TH "SYSTEMD\-JOURNAL\-GATEWAYD\&.SERVICE" "8" "" "systemd 209" "systemd-journal-gatewayd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,16 +46,6 @@ to have it started on boot\&.
 .PP
 The following options are understood:
 .PP
-\fB\-\-help\fR, \fB\-h\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-\-cert=\fR
 .RS 4
 Specify the path to a file containing a server certificate in PEM format\&. This option switches
@@ -68,6 +58,16 @@ into HTTPS mode and must be used together with
 .RS 4
 Specify the path to a file containing a server key in PEM format corresponding to the certificate specified with
 \fB\-\-cert=\fR\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "SUPPORTED URLS"
 .PP
@@ -109,7 +109,6 @@ Example:
   "os_pretty_name" : "Fedora 19 (Rawhide)",
   "virtualization" : "kvm",
   \&.\&.\&.}
-        
 .fi
 .if n \{\
 .RE
@@ -206,7 +205,6 @@ Retrieve events from this boot from local journal in
 .nf
 curl \-\-silent \-H\*(AqAccept: application/vnd\&.fdo\&.journal\*(Aq \e
        \*(Aqhttp://localhost:19531/entries?boot\*(Aq
-    
 .fi
 .if n \{\
 .RE
@@ -219,7 +217,6 @@ Listen for core dumps:
 .\}
 .nf
 curl \*(Aqhttp://localhost:19531/entries?follow&MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1\*(Aq
-    
 .fi
 .if n \{\
 .RE

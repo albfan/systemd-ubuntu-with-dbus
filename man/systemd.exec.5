@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 208" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 209" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -127,7 +127,7 @@ for details\&. Defaults to false\&.
 .PP
 \fICPUAffinity=\fR
 .RS 4
-Controls the CPU affinity of the executed processes\&. Takes a space\-separated list of CPU indexes\&. This option may be specified more than once in which case the specificed CPU affinity masks are merged\&. If the empty string is assigned, the mask is reset, all assignments prior to this will have no effect\&. See
+Controls the CPU affinity of the executed processes\&. Takes a space\-separated list of CPU indices\&. This option may be specified more than once in which case the specificed CPU affinity masks are merged\&. If the empty string is assigned, the mask is reset, all assignments prior to this will have no effect\&. See
 \fBsched_setaffinity\fR(2)
 for details\&.
 .RE
@@ -149,7 +149,7 @@ Example:
 .RS 4
 .\}
 .nf
-Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"
+Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"
 .fi
 .if n \{\
 .RE
@@ -158,7 +158,11 @@ Environment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"
 gives three variables
 "VAR1",
 "VAR2",
-"VAR3"\&.
+"VAR3"
+with the values
+"word1 word2",
+"word3",
+"$word 5 6"\&.
 .sp
 See
 \fBenviron\fR(7)
@@ -267,7 +271,7 @@ in
 .PP
 \fITTYPath=\fR
 .RS 4
-Sets the terminal device node to use if standard input, output or stderr are connected to a TTY (see above)\&. Defaults to
+Sets the terminal device node to use if standard input, output, or error are connected to a TTY (see above)\&. Defaults to
 /dev/console\&.
 .RE
 .PP
@@ -478,18 +482,41 @@ Takes a boolean argument\&. If true, sets up a new file system namespace for the
 /tmp
 and
 /var/tmp
-directories inside it, that are not shared by processes outside of the namespace\&. This is useful to secure access to temporary files of the process, but makes sharing between processes via
+directories inside it that is not shared by processes outside of the namespace\&. This is useful to secure access to temporary files of the process, but makes sharing between processes via
 /tmp
 or
 /var/tmp
-impossible\&. All temporary data created by service will be removed after service is stopped\&. Defaults to false\&.
+impossible\&. All temporary data created by service will be removed after the service is stopped\&. Defaults to false\&. Note that it is possible to run two or more units within the same private
+/tmp
+and
+/var/tmp
+namespace by using the
+\fIJoinsNamespaceOf=\fR
+directive, see
+\fBsystemd.unit\fR(5)
+for details\&.
 .RE
 .PP
 \fIPrivateNetwork=\fR
 .RS 4
 Takes a boolean argument\&. If true, sets up a new network namespace for the executed processes and configures only the loopback network device
 "lo"
-inside it\&. No other network devices will be available to the executed process\&. This is useful to securely turn off network access by the executed process\&. Defaults to false\&.
+inside it\&. No other network devices will be available to the executed process\&. This is useful to securely turn off network access by the executed process\&. Defaults to false\&. Note that it is possible to run two or more units within the same private network namespace by using the
+\fIJoinsNamespaceOf=\fR
+directive, see
+\fBsystemd.unit\fR(5)
+for details\&.
+.RE
+.PP
+\fIPrivateDevices=\fR
+.RS 4
+Takes a boolean argument\&. If true, sets up a new /dev namespace for the executed processes and only adds API pseudo devices such as
+/dev/null,
+/dev/zero
+or
+/dev/random
+to it, but no physical devices such as
+/dev/sda\&. This is useful to securely turn off physical device access by the executed process\&. Defaults to false\&.
 .RE
 .PP
 \fIMountFlags=\fR
@@ -511,6 +538,20 @@ Takes a four character identifier string for an utmp/wtmp entry for this service
 implementations where utmp/wtmp entries must be created and cleared before and after execution\&. If the configured string is longer than four characters, it is truncated and the terminal four characters are used\&. This setting interprets %I style string replacements\&. This setting is unset by default, i\&.e\&. no utmp/wtmp entries are created or cleaned up for this service\&.
 .RE
 .PP
+\fISELinuxContext=\fR
+.RS 4
+Set the SELinux security context of the executed process\&. If set, this will override the automated domain transition\&. However, the policy still needs to autorize the transition\&. This directive is ignored if SELinux is disabled\&. If prefixed by
+"\-", all errors will be ignored\&. See
+\fBsetexeccon\fR(3)
+for details\&.
+.RE
+.PP
+\fIAppArmorProfile=\fR
+.RS 4
+Take a profile name as argument\&. The process executed by the unit will switch to this profile when started\&. Profiles must already be loaded in the kernel, or the unit will fail\&. This result in a non operation if AppArmor is not enabled\&. If prefixed by
+"\-", all errors will be ignored\&.
+.RE
+.PP
 \fIIgnoreSIGPIPE=\fR
 .RS 4
 Takes a boolean argument\&. If true, causes
@@ -527,7 +568,7 @@ Takes a boolean argument\&. If true, ensures that the service process and all it
 .PP
 \fISystemCallFilter=\fR
 .RS 4
-Takes a space\-separated list of system call names\&. If this setting is used, all system calls executed by the unit process except for the listed ones will result in immediate process termination with the
+Takes a space\-separated list of system call names\&. If this setting is used, all system calls executed by the unit processes except for the listed ones will result in immediate process termination with the
 \fBSIGSYS\fR
 signal (whitelisting)\&. If the first character of the list is
 "~", the effect is inverted: only the listed system calls will result in immediate process termination (blacklisting)\&. If this option is used,
@@ -539,6 +580,52 @@ is implied\&. This feature makes use of the Secure Computing Mode 2 interfaces o
 \fBexit_group\fR,
 \fBexit\fR
 system calls are implicitly whitelisted and do not need to be listed explicitly\&. This option may be specified more than once in which case the filter masks are merged\&. If the empty string is assigned, the filter is reset, all prior assignments will have no effect\&.
+.sp
+If you specify both types of this option (i\&.e\&. whitelisting and blacklisting), the first encountered will take precedence and will dictate the default action (termination or approval of a system call)\&. Then the next occurrences of this option will add or delete the listed system calls from the set of the filtered system calls, depending of its type and the default action\&. (For example, if you have started with a whitelisting of
+\fBread\fR
+and
+\fBwrite\fR, and right after it add a blacklisting of
+\fBwrite\fR, then
+\fBwrite\fR
+will be removed from the set\&.)
+.RE
+.PP
+\fISystemCallErrorNumber=\fR
+.RS 4
+Takes an
+"errno"
+error number name to return when the system call filter configured with
+\fISystemCallFilter=\fR
+is triggered, instead of terminating the process immediately\&. Takes an error name such as
+\fBEPERM\fR,
+\fBEACCES\fR
+or
+\fBEUCLEAN\fR\&. When this setting is not used, or when the empty string is assigned, the process will be terminated immediately when the filter is triggered\&.
+.RE
+.PP
+\fISystemCallArchitectures=\fR
+.RS 4
+Takes a space separated list of architecture identifiers to include in the system call filter\&. The known architecture identifiers are
+\fBx86\fR,
+\fBx86\-64\fR,
+\fBx32\fR,
+\fBarm\fR
+as well as the special identifier
+\fBnative\fR\&. Only system calls of the specified architectures will be permitted to processes of this unit\&. This is an effective way to disable compatibility with non\-native architectures for processes, for example to prohibit execution of 32\-bit x86 binaries on 64\-bit x86\-64 systems\&. The special
+\fBnative\fR
+identifier implicitly maps to the native architecture of the system (or more strictly: to the architecture the system manager is compiled for)\&. Note that setting this option to a non\-empty list implies that
+\fBnative\fR
+is included too\&. By default, this option is set to the empty list, i\&.e\&. no architecture system call filtering is applied\&.
+.RE
+.PP
+\fIPersonality=\fR
+.RS 4
+Controls which kernel architecture
+\fBuname\fR(2)
+shall report, when invoked by unit processes\&. Takes one of
+\fBx86\fR
+and
+\fBx86\-64\fR\&. This is useful when running 32bit services on a 64bit host system\&. If not specified the personality is left unmodified and thus reflects the personality of the host system\*(Aqs kernel\&.
 .RE
 .SH "ENVIRONMENT VARIABLES IN SPAWNED PROCESSES"
 .PP
@@ -560,9 +647,9 @@ and
 \fBkernel-command-line\fR(7))\&.
 .RE
 .PP
-\fI$USER\fR, \fI$HOME\fR
+\fI$USER\fR, \fI$LOGNAME\fR, \fI$HOME\fR, \fI$SHELL\fR
 .RS 4
-User name and home directory\&. Set for the units which have
+User name (twice), home directory, and the login shell\&. The variables are set for the units that have
 \fIUser=\fR
 set, which includes user
 \fBsystemd\fR
@@ -580,13 +667,20 @@ instance, and also in user sessions\&. See
 .PP
 \fI$XDG_SESSION_ID\fR, \fI$XDG_SEAT\fR, \fI$XDG_VTNR\fR
 .RS 4
-The identifier of the session, and the seat name, and virtual terminal of the session\&. Set by
+The identifier of the session, the seat name, and virtual terminal of the session\&. Set by
 \fBpam_systemd\fR(8)
 for login sessions\&.
 \fI$XDG_SEAT\fR
 and
 \fI$XDG_VTNR\fR
-will be only set when attached to a seat and a tty\&.
+will only be set when attached to a seat and a tty\&.
+.RE
+.PP
+\fI$MAINPID\fR
+.RS 4
+The PID of the units main process if it is known\&. This is only set for control processes as invoked by
+\fIExecReload=\fR
+and similar\&.
 .RE
 .PP
 \fI$MANAGERPID\fR
@@ -600,6 +694,14 @@ instance, set for processes spawned by it\&.
 .RS 4
 Information about file descriptors passed to a service for socket activation\&. See
 \fBsd_listen_fds\fR(3)\&.
+.RE
+.PP
+\fI$TERM\fR
+.RS 4
+Terminal type, set only for units connected to a terminal (\fIStandardInput=tty\fR,
+\fIStandardOutput=tty\fR, or
+\fIStandardError=tty\fR)\&. See
+\fBtermcap\fR(5)\&.
 .RE
 .PP
 Additional variables may be configured by the following means: for processes spawned in specific units, use the

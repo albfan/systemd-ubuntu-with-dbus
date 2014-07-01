@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 208" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 209" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,8 +29,14 @@ systemd.index \- List all manpages from the systemd project
 \fBbootchart.conf\fR(5)
 \-\- Boot performance analysis graphing tool configuration file
 .br
+\fBbootctl\fR(1)
+\-\- Control the firmware and boot manager settings
+.br
 \fBbootup\fR(7)
 \-\- System bootup process
+.br
+\fBbusctl\fR(1)
+\-\- Introspect the bus
 .br
 
 .SH "C"
@@ -147,7 +153,7 @@ systemd.index \- List all manpages from the systemd project
 .SH "S"
 .PP
 \fBsd-daemon\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBsd-id128\fR(3)
 \-\- APIs for processing 128\-bit IDs
@@ -162,22 +168,190 @@ systemd.index \- List all manpages from the systemd project
 \-\- Reference implementation of APIs for controlling boot\-time read\-ahead
 .br
 \fBSD_ALERT\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBsd_booted\fR(3)
 \-\- Test whether the system is running the systemd init system
 .br
+\fBsd_bus_creds_get_audit_login_uid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_audit_session_id\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_cgroup\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_cmdline\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_comm\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_exe\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_gid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_mask\fR(3)
+\-\- Retrieve credentials object for the specified PID
+.br
+\fBsd_bus_creds_get_owner_uid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_pid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_pid_starttime\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_selinux_context\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_session\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_slice\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_tid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_tid_comm\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_uid\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_unique_name\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_unit\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_user_unit\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_well_known_names\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_has_bounding_cap\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_has_effective_cap\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_has_inheritable_cap\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_has_permitted_cap\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_new_from_pid\fR(3)
+\-\- Retrieve credentials object for the specified PID
+.br
+\fBsd_bus_creds_ref\fR(3)
+\-\- Retrieve credentials object for the specified PID
+.br
+\fBsd_bus_creds_unref\fR(3)
+\-\- Retrieve credentials object for the specified PID
+.br
+\fBsd_bus_default_system\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_default_user\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_error\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_copy\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_free\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_get_errno\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_has_name\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_is_set\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_set\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_set_const\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_set_errno\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_error_set_errnof\fR(3)
+\-\- sd\-bus error handling
+.br
+\fBsd_bus_label_escape\fR(3)
+\-\- Escape D\-Bus object path special characters
+.br
+\fBsd_bus_label_unescape\fR(3)
+\-\- Escape D\-Bus object path special characters
+.br
+\fBsd_bus_message_get_cookie\fR(3)
+\-\- Returns the transaction cookie of a message
+.br
+\fBsd_bus_message_get_monotonic_usec\fR(3)
+\-\- Retrieve the sender timestamps and sequence number of a message
+.br
+\fBsd_bus_message_get_realtime_usec\fR(3)
+\-\- Retrieve the sender timestamps and sequence number of a message
+.br
+\fBsd_bus_message_get_reply_cookie\fR(3)
+\-\- Returns the transaction cookie of a message
+.br
+\fBsd_bus_message_get_seqnum\fR(3)
+\-\- Retrieve the sender timestamps and sequence number of a message
+.br
+\fBsd_bus_new\fR(3)
+\-\- Create a new bus object and create or destroy references to it
+.br
+\fBsd_bus_open_system\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_open_system_container\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_open_system_remote\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_open_user\fR(3)
+\-\- Open a connection to the system or user bus
+.br
+\fBsd_bus_ref\fR(3)
+\-\- Create a new bus object and create or destroy references to it
+.br
+\fBsd_bus_release_name\fR(3)
+\-\- Request or release a well\-known name on a bus
+.br
+\fBsd_bus_request_name\fR(3)
+\-\- Request or release a well\-known name on a bus
+.br
+\fBsd_bus_unref\fR(3)
+\-\- Create a new bus object and create or destroy references to it
+.br
 \fBSD_CRIT\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBSD_DEBUG\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBSD_EMERG\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBSD_ERR\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBsd_get_machine_names\fR(3)
 \-\- Determine available seats, sessions, logged in users and virtual machines/containers
@@ -225,7 +399,7 @@ systemd.index \- List all manpages from the systemd project
 \-\- Format or parse 128\-bit IDs as strings
 .br
 \fBSD_INFO\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBsd_is_fifo\fR(3)
 \-\- Check the type of a file descriptor
@@ -240,6 +414,9 @@ systemd.index \- List all manpages from the systemd project
 \-\- Check the type of a file descriptor
 .br
 \fBsd_is_socket_unix\fR(3)
+\-\- Check the type of a file descriptor
+.br
+\fBsd_is_special\fR(3)
 \-\- Check the type of a file descriptor
 .br
 \fBsd_journal\fR(3)
@@ -339,6 +516,9 @@ systemd.index \- List all manpages from the systemd project
 \-\- Journal change notification interface
 .br
 \fBsd_journal_open\fR(3)
+\-\- Open the system journal for reading
+.br
+\fBsd_journal_open_container\fR(3)
 \-\- Open the system journal for reading
 .br
 \fBsd_journal_open_directory\fR(3)
@@ -447,7 +627,7 @@ systemd.index \- List all manpages from the systemd project
 \-\- Monitor login sessions, seats, users and virtual machines/containers
 .br
 \fBSD_NOTICE\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
 .br
 \fBsd_notify\fR(3)
 \-\- Notify service manager about start\-up completion and other daemon status changes
@@ -476,7 +656,13 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_readahead\fR(3)
 \-\- Control ongoing disk boot\-time read\-ahead operations
 .br
+\fBsd_seat_can_graphical\fR(3)
+\-\- Determine state of a specific seat
+.br
 \fBsd_seat_can_multi_session\fR(3)
+\-\- Determine state of a specific seat
+.br
+\fBsd_seat_can_tty\fR(3)
 \-\- Determine state of a specific seat
 .br
 \fBsd_seat_get_active\fR(3)
@@ -489,6 +675,12 @@ systemd.index \- List all manpages from the systemd project
 \-\- Determine state of a specific session
 .br
 \fBsd_session_get_display\fR(3)
+\-\- Determine state of a specific session
+.br
+\fBsd_session_get_remote_host\fR(3)
+\-\- Determine state of a specific session
+.br
+\fBsd_session_get_remote_user\fR(3)
 \-\- Determine state of a specific session
 .br
 \fBsd_session_get_seat\fR(3)
@@ -515,6 +707,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_session_is_active\fR(3)
 \-\- Determine state of a specific session
 .br
+\fBsd_session_is_remote\fR(3)
+\-\- Determine state of a specific session
+.br
 \fBsd_uid_get_seats\fR(3)
 \-\- Determine login state of a specific Unix user ID
 .br
@@ -528,7 +723,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- Determine login state of a specific Unix user ID
 .br
 \fBSD_WARNING\fR(3)
-\-\- Reference implementation of APIs for new\-style daemons
+\-\- APIs for new\-style daemons
+.br
+\fBsd_watchdog_enabled\fR(3)
+\-\- Check whether the service manager expects watchdog keep\-alive notifications from a service
 .br
 \fBshutdown\fR(8)
 \-\- Halt, power\-off or reboot the machine
@@ -577,6 +775,15 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-bootchart\fR(1)
 \-\- Boot performance graphing tool
+.br
+\fBsystemd-bus-proxyd\fR(8)
+\-\- Connect STDIO or a socket to a given bus address
+.br
+\fBsystemd-bus-proxyd.socket\fR(8)
+\-\- Proxy classic D\-Bus clients to kdbus
+.br
+\fBsystemd-bus-proxyd@.service\fR(8)
+\-\- Proxy classic D\-Bus clients to kdbus
 .br
 \fBsystemd-cat\fR(1)
 \-\- Connect a pipeline or program\*(Aqs output with the journal
@@ -701,6 +908,12 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-modules-load.service\fR(8)
 \-\- Configure kernel modules to load at boot
 .br
+\fBsystemd-networkd\fR(8)
+\-\- Network manager
+.br
+\fBsystemd-networkd.service\fR(8)
+\-\- Network manager
+.br
 \fBsystemd-notify\fR(1)
 \-\- Notify service manager about start\-up completion and other daemon status changes
 .br
@@ -746,6 +959,12 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-remount-fs.service\fR(8)
 \-\- Remount root and kernel file systems
 .br
+\fBsystemd-rfkill\fR(8)
+\-\- Load and save the RF kill switch state at boot and shutdown
+.br
+\fBsystemd-rfkill@.service\fR(8)
+\-\- Load and save the RF kill switch state at boot and shutdown
+.br
 \fBsystemd-run\fR(1)
 \-\- Run programs in transient scope or service units
 .br
@@ -766,6 +985,9 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-sleep.conf\fR(5)
 \-\- Suspend and hibernation configuration file
+.br
+\fBsystemd-socket-proxyd\fR(8)
+\-\- Bidirectionally proxy local sockets to another (possibly remote) socket\&.
 .br
 \fBsystemd-suspend.service\fR(8)
 \-\- System sleep state logic
@@ -858,7 +1080,7 @@ systemd.index \- List all manpages from the systemd project
 \-\- Special journal fields
 .br
 \fBsystemd.kill\fR(5)
-\-\- Kill environment configuration
+\-\- Process killing procedure configuration
 .br
 \fBsystemd.mount\fR(5)
 \-\- Mount unit configuration
@@ -937,4 +1159,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 287 entries, referring to 140 individual manual pages\&.
+This index contains 361 entries, referring to 157 individual manual pages\&.

@@ -12,16 +12,15 @@ how these lists are generated.
 Reported-by: Andrey Borzenkov <arvidjaar@gmail.com>
 Reported-by: Lennart Poettering <lennart@poettering.net>
 (cherry picked from commit 9029f64298cb70c12ecf638fddee7f41b056fcf1)
-(cherry picked from commit 7b6a54f75361fe4a166684c0a04db48c3de67504)
 ---
  man/systemctl.xml | 21 ++++++++++++++++++---
  1 file changed, 18 insertions(+), 3 deletions(-)
 
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index 03f2bc5e..171a9bfa 100644
+index fef95789..1fb77ae8 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
-@@ -173,12 +173,27 @@ systemctl start foo
+@@ -145,12 +145,27 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
  
        <varlistentry>
          <term><option>--after</option></term>

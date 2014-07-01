@@ -4,13 +4,12 @@ Subject: man: be more specific when EnvironmentFile= is read
 
 http://lists.freedesktop.org/archives/systemd-devel/2014-March/018004.html
 (cherry picked from commit 905826156de95d173b26e7a57df29188a1020cd0)
-(cherry picked from commit 72e86f001d139f9a7deaa697e355e5df2cb31151)
 ---
  man/systemd.exec.xml | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/man/systemd.exec.xml b/man/systemd.exec.xml
-index d8dab36f..37b9c4d1 100644
+index 19839937..aefd4609 100644
 --- a/man/systemd.exec.xml
 +++ b/man/systemd.exec.xml
 @@ -340,9 +340,14 @@

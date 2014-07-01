@@ -7,20 +7,16 @@ nothing to serialize.
 
 http://lists.freedesktop.org/archives/systemd-devel/2014-May/019051.html
 (cherry picked from commit 9bdb98c59451ed090f8d35d470a54710f389ce71)
-(cherry picked from commit 75ee3c9da1441e0f67d502e56e9167f0ef23201b)
-
-Conflicts:
-	src/core/unit.c
 ---
  src/core/manager.c |  3 ---
- src/core/unit.c    | 22 ++++++++++------------
- 2 files changed, 10 insertions(+), 15 deletions(-)
+ src/core/unit.c    | 43 +++++++++++++++++++++----------------------
+ 2 files changed, 21 insertions(+), 25 deletions(-)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 1e7dc383..e75550bb 100644
+index 2f9ea1fd..c62af406 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -2166,9 +2166,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
+@@ -2109,9 +2109,6 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                  if (u->id != t)
                          continue;
  
@@ -31,10 +27,17 @@ index 1e7dc383..e75550bb 100644
                  fputs(u->id, f);
                  fputc('\n', f);
 diff --git a/src/core/unit.c b/src/core/unit.c
-index 29782aa6..52269635 100644
+index f3a6def6..31a8815d 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
-@@ -2293,12 +2293,11 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+@@ -2231,25 +2231,25 @@ bool unit_can_serialize(Unit *u) {
+ }
+ 
+ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
+-        ExecRuntime *rt;
+         int r;
+ 
+         assert(u);
          assert(f);
          assert(fds);
  
@@ -45,35 +48,68 @@ index 29782aa6..52269635 100644
 -        if (r < 0)
 -                return r;
 +        if (unit_can_serialize(u)) {
++                ExecRuntime *rt;
+ 
+-        rt = unit_get_exec_runtime(u);
+-        if (rt) {
+-                r = exec_runtime_serialize(rt, u, f, fds);
 +                r = UNIT_VTABLE(u)->serialize(u, f, fds);
-+                if (r < 0)
-+                        return r;
-+        }
+                 if (r < 0)
+                         return r;
++
++                rt = unit_get_exec_runtime(u);
++                if (rt) {
++                        r = exec_runtime_serialize(rt, u, f, fds);
++                        if (r < 0)
++                                return r;
++                }
+         }
  
          dual_timestamp_serialize(f, "inactive-exit-timestamp", &u->inactive_exit_timestamp);
-         dual_timestamp_serialize(f, "active-enter-timestamp", &u->active_enter_timestamp);
-@@ -2365,9 +2364,6 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+@@ -2311,17 +2311,14 @@ void unit_serialize_item(Unit *u, FILE *f, const char *key, const char *value) {
+ }
+ 
+ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+-        size_t offset;
+         ExecRuntime **rt = NULL;
++        size_t offset;
+         int r;
+ 
+         assert(u);
          assert(f);
          assert(fds);
  
 -        if (!unit_can_serialize(u))
 -                return 0;
 -
-         for (;;) {
-                 char line[LINE_MAX], *l, *v;
-                 size_t k;
-@@ -2480,9 +2476,11 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+         offset = UNIT_VTABLE(u)->exec_runtime_offset;
+         if (offset > 0)
+                 rt = (ExecRuntime**) ((uint8_t*) u + offset);
+@@ -2446,17 +2443,19 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                          continue;
                  }
  
+-                if (rt) {
+-                        r = exec_runtime_deserialize_item(rt, u, l, v, fds);
++                if (unit_can_serialize(u)) {
++                        if (rt) {
++                                r = exec_runtime_deserialize_item(rt, u, l, v, fds);
++                                if (r < 0)
++                                        return r;
++                                if (r > 0)
++                                        continue;
++                        }
++
++                        r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
+                         if (r < 0)
+                                 return r;
+-                        if (r > 0)
+-                                continue;
+                 }
+-
 -                r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
 -                if (r < 0)
 -                        return r;
-+                if (unit_can_serialize(u)) {
-+                        r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
-+                        if (r < 0)
-+                                return r;
-+                }
          }
  }
  

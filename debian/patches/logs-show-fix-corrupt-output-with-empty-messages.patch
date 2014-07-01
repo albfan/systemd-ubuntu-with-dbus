@@ -22,10 +22,10 @@ Feb 09 21:16:17 glyph NetworkManager[788]: <info> (enp4s2): DHCPv4 state changed
  1 file changed, 5 insertions(+)
 
 diff --git a/src/shared/logs-show.c b/src/shared/logs-show.c
-index 7bb19b40..91eefb32 100644
+index 61c3652b..12d4a1ca 100644
 --- a/src/shared/logs-show.c
 +++ b/src/shared/logs-show.c
-@@ -121,6 +121,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
+@@ -124,6 +124,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                  }
          }
  

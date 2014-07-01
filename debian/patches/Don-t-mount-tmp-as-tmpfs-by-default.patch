@@ -18,21 +18,21 @@ anymore afterwards).
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 8d9c587..7d1f408 100644
+index 919cac71..d6395f19 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -4413,8 +4413,7 @@ SYSINIT_TARGET_WANTS += \
+@@ -4770,8 +4770,7 @@ endif
+ SYSINIT_TARGET_WANTS += \
  	systemd-update-utmp.service
  LOCAL_FS_TARGET_WANTS += \
- 	systemd-remount-fs.service \
--	systemd-fsck-root.service \
+-	systemd-remount-fs.service \
 -	tmp.mount
-+	systemd-fsck-root.service
++	systemd-remount-fs.service
  MULTI_USER_TARGET_WANTS += \
  	getty.target \
  	systemd-ask-password-wall.path
 diff --git a/units/tmp.mount b/units/tmp.mount
-index 99a3ba3..3b4d6f8 100644
+index 99a3ba3f..3b4d6f81 100644
 --- a/units/tmp.mount
 +++ b/units/tmp.mount
 @@ -18,3 +18,6 @@ What=tmpfs

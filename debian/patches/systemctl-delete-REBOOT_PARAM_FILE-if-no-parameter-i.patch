@@ -1,0 +1,76 @@
+From: Michael Olbrich <m.olbrich@pengutronix.de>
+Date: Tue, 25 Mar 2014 14:15:44 +0100
+Subject: systemctl: delete REBOOT_PARAM_FILE if no parameter is specified
+
+And move it to sperate function.
+
+(cherry picked from commit c5220a940d00fc2520c702104939d0a4cf637254)
+
+Conflicts:
+	src/shared/util.c
+---
+ src/shared/util.c         | 16 ++++++++++++++++
+ src/shared/util.h         |  6 ++++--
+ src/systemctl/systemctl.c |  9 +++------
+ 3 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index a01de198..a1363555 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -6308,3 +6308,19 @@ const char* personality_to_string(unsigned long p) {
+ 
+         return NULL;
+ }
++
++int update_reboot_param_file(const char *param)
++{
++        int r = 0;
++
++        if (param) {
++
++                r = write_string_file(REBOOT_PARAM_FILE, param);
++                if (r < 0)
++                        log_error("Failed to write reboot param to "
++                                  REBOOT_PARAM_FILE": %s", strerror(-r));
++        } else
++                unlink(REBOOT_PARAM_FILE);
++
++        return r;
++}
+diff --git a/src/shared/util.h b/src/shared/util.h
+index 98a74855..8dff0bcd 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -886,6 +886,8 @@ unsigned long personality_from_string(const char *p);
+ const char *personality_to_string(unsigned long);
+ 
+ union file_handle_union {
+-  struct file_handle handle;
+-  char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
++        struct file_handle handle;
++        char padding[sizeof(struct file_handle) + MAX_HANDLE_SZ];
+ };
++
++int update_reboot_param_file(const char *param);
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 9ae8ab78..12432ddf 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -5621,13 +5621,10 @@ static int halt_parse_argv(int argc, char *argv[]) {
+                 }
+         }
+ 
+-        if (arg_action == ACTION_REBOOT && argc == optind + 1) {
+-                r = write_string_file(REBOOT_PARAM_FILE, argv[optind]);
+-                if (r < 0) {
+-                        log_error("Failed to write reboot param to "
+-                                  REBOOT_PARAM_FILE": %s", strerror(-r));
++        if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
++                r = update_reboot_param_file(argc == optind + 1 ? argv[optind] : NULL);
++                if (r < 0)
+                         return r;
+-                }
+         } else if (optind < argc) {
+                 log_error("Too many arguments.");
+                 return -EINVAL;

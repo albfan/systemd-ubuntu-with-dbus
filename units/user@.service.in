@@ -6,14 +6,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User Manager for %I
+Description=User Manager for UID %i
 After=systemd-user-sessions.service
 
 [Service]
-User=%I
+User=%i
 PAMName=systemd-user
 Type=notify
-Environment=SHELL=%s
 ExecStart=-@rootlibexecdir@/systemd --user
-Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%I/dbus/user_bus_socket
 Slice=user-%i.slice
+KillMode=mixed

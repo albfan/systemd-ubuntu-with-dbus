@@ -4,24 +4,20 @@ Subject: build-sys: at configure check for verifying that ln supports
  --relative
 
 (cherry picked from commit 446883528524429283626208928b51f49f28f810)
-(cherry picked from commit 3d3e1a52a3636ea38dcf6c7ac3eed0b444dfb054)
-
-Conflicts:
-	configure.ac
 ---
  configure.ac | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/configure.ac b/configure.ac
-index 9af56ab1..9605b386 100644
+index b275ccb3..b70c57df 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -78,6 +78,8 @@ AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
+@@ -76,6 +76,8 @@ AC_PATH_PROG([KMOD], [kmod], [/usr/bin/kmod], [$PATH:/usr/sbin:/sbin])
  
  AC_PATH_PROG([KEXEC], [kexec], [/usr/sbin/kexec], [$PATH:/usr/sbin:/sbin])
  
 +AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
 +
+ M4_DEFINES=
+ 
  # gtkdocize greps for '^GTK_DOC_CHECK', so it needs to be on its own line
- m4_ifdef([GTK_DOC_CHECK], [
- GTK_DOC_CHECK([1.18],[--flavour no-tmpl])],

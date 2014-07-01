@@ -13,13 +13,12 @@ max_brightness is 0 before performing any action. This affects
 both the load and save actions.
 
 (cherry picked from commit 3cadce7d33e263ec7a6a83c00c11144930258b22)
-(cherry picked from commit 555853f8ad1b1db461c45843310bc324bca394de)
 ---
  src/backlight/backlight.c | 44 ++++++++++++++++++++++++++++++--------------
  1 file changed, 30 insertions(+), 14 deletions(-)
 
 diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
-index 2740b80d..84bf51dc 100644
+index abf8bcf0..ce0385b0 100644
 --- a/src/backlight/backlight.c
 +++ b/src/backlight/backlight.c
 @@ -192,30 +192,37 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {

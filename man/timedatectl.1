@@ -1,5 +1,5 @@
 '\" t
-.TH "TIMEDATECTL" "1" "" "systemd 208" "timedatectl"
+.TH "TIMEDATECTL" "1" "" "systemd 209" "timedatectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,35 +32,9 @@ may be used to query and change the system clock and its settings\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
-.PP
 \fB\-\-no\-ask\-password\fR
 .RS 4
 Do not query the user for authentication for privileged operations\&.
-.RE
-.PP
-\fB\-P\fR, \fB\-\-privileged\fR
-.RS 4
-Acquire privileges via PolicyKit before executing the operation\&.
-.RE
-.PP
-\fB\-H\fR, \fB\-\-host\fR
-.RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to a remote system\&.
 .RE
 .PP
 \fB\-\-adjust\-system\-clock\fR
@@ -68,6 +42,32 @@ Execute the operation remotely\&. Specify a hostname, or username and hostname s
 If
 \fBset\-local\-rtc\fR
 is invoked and this option is passed, the system clock is synchronized from the RTC again, taking the new setting into account\&. Otherwise, the RTC is synchronized from the system clock\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
 .RE
 .PP
 The following commands are understood:
@@ -115,7 +115,7 @@ Takes a boolean argument\&. Controls whether NTP based network time synchronizat
 .RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "ENVIRONMENT"
 .PP
 \fI$SYSTEMD_PAGER\fR
@@ -127,6 +127,13 @@ is not given; overrides
 "cat"
 is equivalent to passing
 \fB\-\-no\-pager\fR\&.
+.RE
+.PP
+\fI$SYSTEMD_LESS\fR
+.RS 4
+Override the default options passed to
+\fBless\fR
+("FRSXMK")\&.
 .RE
 .SH "EXAMPLES"
 .PP
@@ -153,7 +160,6 @@ NTP synchronized: no
                   the clock will jump one hour forward
                   Sun, 2013\-03\-31 01:59:59 CET
                   Sun, 2013\-03\-31 03:00:00 CEST
-                
 .fi
 .if n \{\
 .RE
@@ -171,7 +177,6 @@ Authentication is required to control whether network time synchronization shall
 Authenticating as: user
 Password: ********
 ==== AUTHENTICATION COMPLETE ===
-                
 .fi
 .if n \{\
 .RE
@@ -186,7 +191,6 @@ chronyd\&.service \- NTP client/server
           Loaded: loaded (/usr/lib/systemd/system/chronyd\&.service; enabled)
           Active: active (running) since Fri, 2012\-11\-02 09:36:25 CET; 5s ago
 \&.\&.\&.
-                
 .fi
 .if n \{\
 .RE

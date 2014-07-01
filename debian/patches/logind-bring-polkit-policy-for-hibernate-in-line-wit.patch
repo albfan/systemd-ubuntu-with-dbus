@@ -7,7 +7,6 @@ THere's no reason why hibernate should be better protected then
 suspendor poweroff, so sync the policies.
 
 (cherry picked from commit 301f9684e6465df5d0590f6c571fe3229ded966d)
-(cherry picked from commit 219b39885311455d16fd03922e043f93d8c35595)
 ---
  src/login/org.freedesktop.login1.policy.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

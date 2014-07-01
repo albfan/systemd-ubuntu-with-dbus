@@ -11,8 +11,6 @@ after network.target to avoid any ambiguities.
 
 Conflicts:
 	units/systemd-networkd-wait-online.service.in
-
-(cherry picked from commit 406be70b2f9adaa7dc4168dd51ac8e3cfe41bcb3)
 ---
  units/network-online.target | 1 +
  1 file changed, 1 insertion(+)

@@ -1,0 +1,36 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 13 May 2014 16:40:53 +0200
+Subject: replace more dup() by F_DUPFD_CLOEXEC
+
+(cherry picked from commit ead349509e325aad720bb0349521a9e56e2ac7c0)
+---
+ src/login/inhibit.c  | 2 +-
+ src/shared/install.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/login/inhibit.c b/src/login/inhibit.c
+index 48c2ec40..ae3afdf9 100644
+--- a/src/login/inhibit.c
++++ b/src/login/inhibit.c
+@@ -64,7 +64,7 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
+         if (r < 0)
+                 return r;
+ 
+-        r = dup(fd);
++        r = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+         if (r < 0)
+                 return -errno;
+ 
+diff --git a/src/shared/install.c b/src/shared/install.c
+index 92811b5b..f7822d44 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -332,7 +332,7 @@ static int remove_marked_symlinks(
+                 int q, cfd;
+                 deleted = false;
+ 
+-                cfd = dup(fd);
++                cfd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                 if (cfd < 0) {
+                         r = -errno;
+                         break;

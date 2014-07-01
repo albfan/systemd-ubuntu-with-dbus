@@ -22,8 +22,8 @@
 #include <assert.h>
 #include <string.h>
 
-#include "logind-device.h"
 #include "util.h"
+#include "logind-device.h"
 
 Device* device_new(Manager *m, const char *sysfs, bool master) {
         Device *d;
@@ -54,20 +54,10 @@ Device* device_new(Manager *m, const char *sysfs, bool master) {
         return d;
 }
 
-void device_free(Device *d) {
-        assert(d);
-
-        device_detach(d);
-
-        hashmap_remove(d->manager->devices, d->sysfs);
-
-        free(d->sysfs);
-        free(d);
-}
-
-void device_detach(Device *d) {
+static void device_detach(Device *d) {
         Seat *s;
         SessionDevice *sd;
+
         assert(d);
 
         if (!d->seat)
@@ -77,13 +67,24 @@ void device_detach(Device *d) {
                 session_device_free(sd);
 
         s = d->seat;
-        LIST_REMOVE(Device, devices, d->seat->devices, d);
+        LIST_REMOVE(devices, d->seat->devices, d);
         d->seat = NULL;
 
         if (!seat_has_master_device(s)) {
                 seat_add_to_gc_queue(s);
-                seat_send_changed(s, "CanGraphical\0");
+                seat_send_changed(s, "CanGraphical", NULL);
         }
+}
+
+void device_free(Device *d) {
+        assert(d);
+
+        device_detach(d);
+
+        hashmap_remove(d->manager->devices, d->sysfs);
+
+        free(d->sysfs);
+        free(d);
 }
 
 void device_attach(Device *d, Seat *s) {
@@ -110,16 +111,16 @@ void device_attach(Device *d, Seat *s) {
          * per seat, so we iterate only a few times. */
 
         if (d->master || !s->devices)
-                LIST_PREPEND(Device, devices, s->devices, d);
+                LIST_PREPEND(devices, s->devices, d);
         else {
                 LIST_FOREACH(devices, i, s->devices) {
                         if (!i->devices_next || !i->master) {
-                                LIST_INSERT_AFTER(Device, devices, s->devices, i, d);
+                                LIST_INSERT_AFTER(devices, s->devices, i, d);
                                 break;
                         }
                 }
         }
 
         if (!had_master && d->master)
-                seat_send_changed(s, "CanGraphical\0");
+                seat_send_changed(s, "CanGraphical", NULL);
 }

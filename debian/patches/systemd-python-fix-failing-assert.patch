@@ -1,0 +1,24 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 5 Apr 2014 13:29:50 -0400
+Subject: systemd-python: fix failing assert
+
+A parameter which was always null before, now get's set to
+the module.
+
+(cherry picked from commit b65f24238b0627143916a9c7f8315483a9666676)
+---
+ src/python-systemd/_reader.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/python-systemd/_reader.c b/src/python-systemd/_reader.c
+index 059b904d..9a19a102 100644
+--- a/src/python-systemd/_reader.c
++++ b/src/python-systemd/_reader.c
+@@ -902,7 +902,6 @@ static PyObject* get_catalog(PyObject *self, PyObject *args) {
+         sd_id128_t id;
+         _cleanup_free_ char *msg = NULL;
+ 
+-        assert(!self);
+         assert(args);
+ 
+         if (!PyArg_ParseTuple(args, "z:get_catalog", &id_))

@@ -4,16 +4,15 @@ Subject: systemctl: add more verbose explanation of --kill-who and what
  control/main processes are
 
 (cherry picked from commit af7424af70d063412c09b0125f4d4a39865210dc)
-(cherry picked from commit e28c1308c99a4172d99304d927d675e29d0b7fa5)
 ---
  man/systemctl.xml | 35 ++++++++++++++++++++++++++++++-----
  1 file changed, 30 insertions(+), 5 deletions(-)
 
 diff --git a/man/systemctl.xml b/man/systemctl.xml
-index 816586c3..6492b0ef 100644
+index e7ae3093..43ad4b1d 100644
 --- a/man/systemctl.xml
 +++ b/man/systemctl.xml
-@@ -389,11 +389,36 @@ systemctl start foo
+@@ -359,11 +359,36 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
  
          <listitem>
            <para>When used with <command>kill</command>, choose which

@@ -1,0 +1,28 @@
+From: Andreas Henriksson <andreas@fatal.se>
+Date: Fri, 13 Jun 2014 18:48:21 +0200
+Subject: udev: fix invalid free() in enable_name_policy()
+
+static bool enable_name_policy(...) in ./src/udev/net/link-config.c
+calls proc_cmdline(...) to get "line" initialized, but
+proc_cmdline(...) does not guarantee that atleast when both
+conditions (detect_container(NULL) > 0) and
+read_full_file(...) returned < 0.
+
+(cherry picked from commit f8a0bb5285024b6ce372c3157e761e6543ebdcd2)
+---
+ src/udev/net/link-config.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
+index 133926f4..d58a81ee 100644
+--- a/src/udev/net/link-config.c
++++ b/src/udev/net/link-config.c
+@@ -184,7 +184,7 @@ failure:
+ }
+ 
+ static bool enable_name_policy(void) {
+-        _cleanup_free_ char *line;
++        _cleanup_free_ char *line = NULL;
+         char *w, *state;
+         int r;
+         size_t l;

@@ -27,17 +27,19 @@
 #include <net/if.h>
 #include <asm/types.h>
 #include <linux/netlink.h>
+#include <linux/if_packet.h>
 
 #include "macro.h"
 #include "util.h"
 
 union sockaddr_union {
         struct sockaddr sa;
-        struct sockaddr_in in4;
+        struct sockaddr_in in;
         struct sockaddr_in6 in6;
         struct sockaddr_un un;
         struct sockaddr_nl nl;
         struct sockaddr_storage storage;
+        struct sockaddr_ll ll;
 };
 
 typedef struct SocketAddress {
@@ -73,6 +75,7 @@ bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
 int socket_address_listen(
                 const SocketAddress *a,
+                int flags,
                 int backlog,
                 SocketAddressBindIPv6Only only,
                 const char *bind_to_device,
@@ -80,24 +83,25 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label,
-                int *ret);
+                const char *label);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
 
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
-int make_socket_fd(const char* address, int flags);
-
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
 
 const char* socket_address_get_path(const SocketAddress *a);
+
+bool socket_ipv6_is_supported(void);
+
+int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, char **ret);
+int getpeername_pretty(int fd, char **ret);
+int getsockname_pretty(int fd, char **ret);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
 
 int netlink_family_to_string_alloc(int b, char **s);
-int netlink_family_from_string(const char *s);
-
-bool socket_ipv6_is_supported(void);
+int netlink_family_from_string(const char *s) _pure_;

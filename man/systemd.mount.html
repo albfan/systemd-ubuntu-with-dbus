@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm274692535648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm214171804160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.mount</code>" encodes information about
                 a file system mount point controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -53,7 +53,7 @@
                 in a unit file
                 <code class="filename">home-lennart.mount</code>. For details
                 about the escaping logic used to convert a file system
-                path to a unit name see
+                path to a unit name, see
                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.</p><p>Optionally, a mount unit may be accompanied by
                 an automount unit, to allow on-demand or parallelized
                 mounting. See
@@ -70,13 +70,16 @@
                 userspace-to-userpace interfaces. Some of them may not
                 be changed via mount units, and cannot be disabled.
                 For a longer discussion see <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems" target="_top">API
-                File Systems</a>.</p></div><div class="refsect1"><a name="idm274692592320"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
+                File Systems</a>.</p></div><div class="refsect1"><a name="idm214175685968"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
                 files, or via <code class="filename">/etc/fstab</code> (see
                 <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
                 for details). Mounts listed in
                 <code class="filename">/etc/fstab</code> will be converted into
                 native units dynamically at boot and when the
-                configuration of the system manager is reloaded. See
+                configuration of the system manager is reloaded. In
+                general, configuring mount points through
+                <code class="filename">/etc/fstab</code> is the preferred
+                approach. See
                 <a href="systemd-fstab-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-fstab-generator</span>(8)</span></a>
                 for details about the conversion.</p><p>When reading <code class="filename">/etc/fstab</code> a
                 few special mount options are understood by systemd
@@ -99,7 +102,18 @@
                 <code class="filename">/etc/fstab</code>. Specify a time in
                 seconds or explicitly specify a unit as
                 "<code class="literal">s</code>", "<code class="literal">min</code>",
-                "<code class="literal">h</code>", "<code class="literal">ms</code>".</p><p>If a mount point is configured in both
+                "<code class="literal">h</code>", "<code class="literal">ms</code>".</p><p>If <code class="option">nofail</code> is given, this mount
+                will be only wanted, not required, by the
+                <code class="filename">local-fs.target</code>. This means that
+                the boot will continue even if this mount point is not
+                mounted successfully. Option <code class="option">fail</code> has
+                the opposite meaning and is the default.</p><p>If <code class="option">noauto</code> is given, this mount
+                will not be added as a dependency for
+                <code class="filename">local-fs.target</code>. This means that
+                it will not be mounted automatically during boot,
+                unless it is pulled in by some other unit. Option
+                <code class="option">auto</code> has the opposite meaning and is
+                the default.</p><p>If a mount point is configured in both
                 <code class="filename">/etc/fstab</code> and a unit file that
                 is stored below <code class="filename">/usr</code>, the former
                 will take precedence. If the unit file is stored below
@@ -109,7 +123,7 @@
                 this is superseded by the rule that configuration in
                 <code class="filename">/etc</code> will always take precedence
                 over configuration in
-                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm274692566288"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
+                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm214175654736"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
                 which carries information about the file system mount points it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -162,20 +176,12 @@
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to
-                                90s.</p></dd></dl></div><p>Check
+                                logic. The default value is set from the manager configuration
+                                file's <code class="varname">DefaultTimeoutStart=</code> variable.</p></dd></dl></div><p>Check
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm274687630032"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following option is also available in the
-                "<code class="literal">[Mount]</code>" section, but exists purely
-                for compatibility reasons and should not be used in
-                newly written mount files.</p><div class="variablelist"><dl class="variablelist"><dt id="FsckPassNo="><span class="term"><code class="varname">FsckPassNo=</code></span><a class="headerlink" title="Permalink to this term" href="#FsckPassNo=">¶</a></dt><dd><p>The pass number for
-                                the file system checking service for
-                                this mount. See
-                                <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
-                                for more information on this setting.
-                                </p></dd></dl></div></div><div class="refsect1"><a name="idm274687624992"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm214170716688"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

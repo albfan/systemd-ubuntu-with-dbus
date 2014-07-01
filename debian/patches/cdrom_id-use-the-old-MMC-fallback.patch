@@ -37,10 +37,10 @@ Suggested-by:Luca Miccini <lmiccini@redhat.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/udev/cdrom_id/cdrom_id.c b/src/udev/cdrom_id/cdrom_id.c
-index 1fc0dfa3..dac35a64 100644
+index 93467c2d..33b2bc33 100644
 --- a/src/udev/cdrom_id/cdrom_id.c
 +++ b/src/udev/cdrom_id/cdrom_id.c
-@@ -555,7 +555,7 @@ static int cd_profiles(struct udev *udev, int fd)
+@@ -556,7 +556,7 @@ static int cd_profiles(struct udev *udev, int fd)
          if ((err != 0)) {
                  info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
                  /* handle pre-MMC2 drives which do not support GET CONFIGURATION */

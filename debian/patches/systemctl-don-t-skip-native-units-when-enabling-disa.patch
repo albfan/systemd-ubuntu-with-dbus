@@ -4,14 +4,24 @@ Subject: =?utf-8?q?systemctl=3A_don=E2=80=99t_skip_native_units_when_enabl?=
  =?utf-8?q?ing/disabling_sysv_units?=
 
 ---
- src/systemctl/systemctl.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ src/systemctl/systemctl.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index ea36b48..863129d 100644
+index c136e5de..8d72c580 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4293,8 +4293,10 @@ static int enable_sysv_units(char **args) {
+@@ -4670,9 +4670,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+                                 break;
+                 }
+ 
+-                if (found_native)
+-                        continue;
+-
+                 if (!isempty(arg_root))
+                         asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
+                 else
+@@ -4689,10 +4686,12 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
@@ -22,5 +32,8 @@ index ea36b48..863129d 100644
 +                        args[f] = (char*) "";
 +                }
  
-                 log_info("Synchronizing state for %s with sysvinit using update-rc.d...", name);
+-                log_info("%s is not a native service, redirecting to /usr/sbin/update-rc.d.", name);
++                log_info("Synchronizing state for %s with sysvinit using update-rc.d...", name);
  
+                 if (!isempty(arg_root) && !streq(arg_root, "/")) {
+                     log_error("Can not run update-rc.d when a root directory other than / is specified");

@@ -11,7 +11,7 @@ Bug-Debian: http://bugs.debian.org/657948
  1 file changed, 1 insertion(+)
 
 diff --git a/rules/80-drivers.rules b/rules/80-drivers.rules
-index 8551f47a..09d8e614 100644
+index 8551f47a..f7640750 100644
 --- a/rules/80-drivers.rules
 +++ b/rules/80-drivers.rules
 @@ -9,5 +9,6 @@ SUBSYSTEM=="memstick", RUN{builtin}+="kmod load ms_block mspro_block"

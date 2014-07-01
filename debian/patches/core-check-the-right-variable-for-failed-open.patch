@@ -3,16 +3,15 @@ Date: Thu, 8 May 2014 12:57:26 +0200
 Subject: core: check the right variable for failed open()
 
 (cherry picked from commit cd7affaeea16d3904354b810a292e594dfef25dd)
-(cherry picked from commit d7c1de4f3635830d28d6c61f3d1cae2a9474ffd8)
 ---
  src/core/cgroup.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index 32e2599a..c215a86a 100644
+index 13274865..e762bbfe 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -661,7 +661,7 @@ int manager_setup_cgroup(Manager *m) {
+@@ -864,7 +864,7 @@ int manager_setup_cgroup(Manager *m) {
                  close_nointr_nofail(m->pin_cgroupfs_fd);
  
          m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);

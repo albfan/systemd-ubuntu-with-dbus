@@ -2,17 +2,16 @@ From: Lennart Poettering <lennart@poettering.net>
 Date: Thu, 6 Mar 2014 02:19:42 +0100
 Subject: core: correctly unregister PIDs from PID hashtables
 
-Conflicts:
-	src/core/unit.c
+(cherry picked from commit bd44e61b0480712ec5585ff7b0295362a5f9dd36)
 ---
- src/core/unit.c | 41 ++++++++++++++++++-----------------------
- 1 file changed, 18 insertions(+), 23 deletions(-)
+ src/core/unit.c | 42 ++++++++++++++++++------------------------
+ 1 file changed, 18 insertions(+), 24 deletions(-)
 
 diff --git a/src/core/unit.c b/src/core/unit.c
-index dc888623..9a7720da 100644
+index 1bbcb39d..5a5592c8 100644
 --- a/src/core/unit.c
 +++ b/src/core/unit.c
-@@ -1666,11 +1666,11 @@ int unit_watch_pid(Unit *u, pid_t pid) {
+@@ -1703,11 +1703,11 @@ int unit_watch_pid(Unit *u, pid_t pid) {
          /* Watch a specific PID. We only support one or two units
           * watching each PID for now, not more. */
  
@@ -26,7 +25,7 @@ index dc888623..9a7720da 100644
          if (r < 0)
                  return r;
  
-@@ -1699,7 +1699,17 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
+@@ -1736,7 +1736,17 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
          set_remove(u->pids, LONG_TO_PTR(pid));
  }
  
@@ -45,7 +44,7 @@ index dc888623..9a7720da 100644
          _cleanup_closedir_ DIR *d = NULL;
          _cleanup_fclose_ FILE *f = NULL;
          int ret = 0, r;
-@@ -1737,7 +1747,7 @@ static int watch_pids_in_path(Unit *u, const char *path) {
+@@ -1774,7 +1784,7 @@ static int watch_pids_in_path(Unit *u, const char *path) {
                          if (!p)
                                  return -ENOMEM;
  
@@ -54,7 +53,11 @@ index dc888623..9a7720da 100644
                          if (r < 0 && ret >= 0)
                                  ret = r;
                  }
-@@ -1754,27 +1764,12 @@ static int watch_pids_in_path(Unit *u, const char *path) {
+@@ -1787,31 +1797,15 @@ static int watch_pids_in_path(Unit *u, const char *path) {
+         return ret;
+ }
+ 
+-
  int unit_watch_all_pids(Unit *u) {
          assert(u);
  
@@ -85,10 +88,10 @@ index dc888623..9a7720da 100644
  }
  
  void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
-@@ -1792,7 +1787,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
+@@ -1829,7 +1823,7 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
                          continue;
  
-                 if (kill(pid, 0) < 0 && errno == ESRCH)
+                 if (!pid_is_unwaited(pid))
 -                        set_remove(u->pids, e);
 +                        unit_unwatch_pid(u, pid);
          }

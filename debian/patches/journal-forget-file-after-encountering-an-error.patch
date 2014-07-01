@@ -13,10 +13,10 @@ or sd_journal_previous that happens afterwards.
  1 file changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/src/journal/sd-journal.c b/src/journal/sd-journal.c
-index b1bd61fc..661257b2 100644
+index 3740a9a8..2dbfda03 100644
 --- a/src/journal/sd-journal.c
 +++ b/src/journal/sd-journal.c
-@@ -50,6 +50,8 @@
+@@ -51,6 +51,8 @@
  
  #define DEFAULT_DATA_THRESHOLD (64*1024)
  
@@ -25,7 +25,7 @@ index b1bd61fc..661257b2 100644
  static bool journal_pid_changed(sd_journal *j) {
          assert(j);
  
-@@ -895,6 +897,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
+@@ -885,6 +887,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                  r = next_beyond_location(j, f, direction, &o, &p);
                  if (r < 0) {
                          log_debug("Can't iterate through %s, ignoring: %s", f->path, strerror(-r));
@@ -33,7 +33,7 @@ index b1bd61fc..661257b2 100644
                          continue;
                  } else if (r == 0)
                          continue;
-@@ -1368,7 +1371,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
+@@ -1339,7 +1342,7 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
  }
  
  static int remove_file(sd_journal *j, const char *prefix, const char *filename) {
@@ -42,7 +42,7 @@ index b1bd61fc..661257b2 100644
          JournalFile *f;
  
          assert(j);
-@@ -1380,10 +1383,17 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename)
+@@ -1351,10 +1354,17 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename)
                  return -ENOMEM;
  
          f = hashmap_get(j->files, path);
@@ -61,7 +61,7 @@ index b1bd61fc..661257b2 100644
          hashmap_remove(j->files, f->path);
  
          log_debug("File %s removed.", f->path);
-@@ -1401,8 +1411,6 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename)
+@@ -1372,8 +1382,6 @@ static int remove_file(sd_journal *j, const char *prefix, const char *filename)
          journal_file_close(f);
  
          j->current_invalidate_counter ++;

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD" "1" "" "systemd 208" "systemd"
+.TH "SYSTEMD" "1" "" "systemd 209" "systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -51,16 +51,6 @@ for more information\&.
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a systemd version identifier and exits\&.
-.RE
-.PP
 \fB\-\-test\fR
 .RS 4
 Determine startup sequence, dump it and exit\&. This is an option useful for debugging only\&.
@@ -69,11 +59,6 @@ Determine startup sequence, dump it and exit\&. This is an option useful for deb
 \fB\-\-dump\-configuration\-items\fR
 .RS 4
 Dump understood unit configuration items\&. This outputs a terse but complete list of configuration items understood in unit definition files\&.
-.RE
-.PP
-\fB\-\-introspect=\fR
-.RS 4
-Extract D\-Bus interface introspection data\&. This is mostly useful at install time to generate data suitable for the D\-Bus interfaces repository\&. Optionally the interface name for the introspection data may be specified\&. If omitted, the introspection data for all interfaces is dumped\&.
 .RE
 .PP
 \fB\-\-unit=\fR
@@ -180,6 +165,16 @@ and
 \fB\-\-default\-standard\-error=\fR
 to
 \fBinherit\fR\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "CONCEPTS"
 .PP
@@ -347,7 +342,7 @@ requires
 bar\&.service), but no ordering dependency (e\&.g\&.
 foo\&.service
 after
-bar\&.service) and both are requested to start, they will be started in parallel\&. It is a common pattern that both requirement and ordering dependencies are placed between two units\&. Also note that the majority of dependencies are implicitly created and maintained by systemd\&. In most cases it should be unnecessary to declare additional dependencies manually, however it is possible to do this\&.
+bar\&.service) and both are requested to start, they will be started in parallel\&. It is a common pattern that both requirement and ordering dependencies are placed between two units\&. Also note that the majority of dependencies are implicitly created and maintained by systemd\&. In most cases, it should be unnecessary to declare additional dependencies manually, however it is possible to do this\&.
 .PP
 Application programs and units (via dependencies) may request state changes of units\&. In systemd, these requests are encapsulated as \*(Aqjobs\*(Aq and maintained in a job queue\&. Jobs may succeed or can fail, their execution is ordered based on the ordering dependencies of the units they have been scheduled for\&.
 .PP
@@ -384,7 +379,7 @@ Systemd contains native implementations of various tasks that need to be execute
 or
 /proc\&.
 .PP
-For more information about the concepts and ideas behind systemd please refer to the
+For more information about the concepts and ideas behind systemd, please refer to the
 \m[blue]\fBOriginal Design Document\fR\m[]\&\s-2\u[2]\d\s+2\&.
 .PP
 Note that some but not all interfaces provided by systemd are covered by the
@@ -747,12 +742,17 @@ Takes a boolean argument\&. If
 .PP
 \fIsystemd\&.show_status=\fR
 .RS 4
-Takes a boolean argument\&. If
-\fBtrue\fR, shows terse service status updates on the console during bootup\&. Defaults to
+Takes a boolean argument or the constant
+\fBauto\fR\&. If
+\fBtrue\fR, shows terse service status updates on the console during bootup\&.
+\fBauto\fR
+behaves like
+\fBfalse\fR
+until a service fails or there is a significant delay in boot\&. Defaults to
 \fBtrue\fR, unless
 \fBquiet\fR
 is passed as kernel command line option in which case it defaults to
-\fBfalse\fR\&.
+\fBauto\fR\&.
 .RE
 .PP
 \fIsystemd\&.log_target=\fR, \fIsystemd\&.log_level=\fR, \fIsystemd\&.log_color=\fR, \fIsystemd\&.log_location=\fR
@@ -792,7 +792,7 @@ Turn on debugging output\&. This is equivalent to
 \fIsystemd\&.log_level=debug\fR\&. Note that this option is also read by the kernel itself and enables kernel debug output\&. Passing this option hence turns on the debug output from both the system manager and the kernel\&.
 .RE
 .PP
-\fIemergency\fR
+\fI\-b\fR, \fIemergency\fR
 .RS 4
 Boot into emergency mode\&. This is equivalent to
 \fIsystemd\&.unit=emergency\&.target\fR

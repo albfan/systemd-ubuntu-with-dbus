@@ -4,13 +4,12 @@ Subject: man: update URL refernce in daemon(7)
 
 http://lists.freedesktop.org/archives/systemd-devel/2014-May/019410.html
 (cherry picked from commit 0afedd300cbe53bd5a54aefc81cede1eae9a9ab8)
-(cherry picked from commit 13fc6c9bfacdca10d3e7eb73cd96515cae760734)
 ---
  man/daemon.xml | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/man/daemon.xml b/man/daemon.xml
-index 170949e7..543468ef 100644
+index b772aa97..f1756066 100644
 --- a/man/daemon.xml
 +++ b/man/daemon.xml
 @@ -352,7 +352,7 @@

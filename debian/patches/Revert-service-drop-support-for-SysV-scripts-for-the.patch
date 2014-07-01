@@ -9,14 +9,14 @@ We still have 100+ packages shipping SysV init scripts in rcS so it's
 too early to drop support for that. We eventually might use a separate
 generator for that, as this would be cleaner. But for now that will do.
 ---
- src/core/service.c | 22 ++++++++++++++++++----
- 1 file changed, 18 insertions(+), 4 deletions(-)
+ src/core/service.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/src/core/service.c b/src/core/service.c
-index 47587d0..e11c413 100644
+index 7acd4d04..f586e9b5 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -51,7 +51,8 @@
+@@ -53,7 +53,8 @@
  
  typedef enum RunlevelType {
          RUNLEVEL_UP,
@@ -26,7 +26,7 @@ index 47587d0..e11c413 100644
  } RunlevelType;
  
  static const struct {
-@@ -66,6 +67,9 @@ static const struct {
+@@ -68,6 +69,9 @@ static const struct {
          { "rc4.d",  SPECIAL_RUNLEVEL4_TARGET, RUNLEVEL_UP },
          { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
  
@@ -36,7 +36,7 @@ index 47587d0..e11c413 100644
          /* Standard SysV runlevels for shutdown */
          { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },
          { "rc6.d",  SPECIAL_REBOOT_TARGET,    RUNLEVEL_DOWN }
-@@ -74,10 +78,12 @@ static const struct {
+@@ -76,10 +80,11 @@ static const struct {
             directories in this order, and we want to make sure that
             sysv_start_priority is known when we first load the
             unit. And that value we only know from S links. Hence
@@ -45,12 +45,11 @@ index 47587d0..e11c413 100644
  };
  
  #define RUNLEVELS_UP "12345"
-+/* #define RUNLEVELS_DOWN "06" */
 +#define RUNLEVELS_BOOT "bBsS"
  #endif
  
  static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
-@@ -915,6 +921,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
+@@ -946,6 +951,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
  
          if ((r = sysv_exec_commands(s, supports_reload)) < 0)
                  goto finish;
@@ -64,7 +63,7 @@ index 47587d0..e11c413 100644
  
          if (s->sysv_runlevels && !chars_intersect(RUNLEVELS_UP, s->sysv_runlevels)) {
                  /* If there a runlevels configured for this service
-@@ -3541,7 +3554,7 @@ static int service_enumerate(Manager *m) {
+@@ -3530,7 +3542,7 @@ static int service_enumerate(Manager *m) {
  
                                  if (de->d_name[0] == 'S')  {
  
@@ -73,7 +72,7 @@ index 47587d0..e11c413 100644
                                                  SERVICE(service)->sysv_start_priority_from_rcnd =
                                                          MAX(a*10 + b, SERVICE(service)->sysv_start_priority_from_rcnd);
  
-@@ -3558,7 +3571,8 @@ static int service_enumerate(Manager *m) {
+@@ -3547,7 +3559,8 @@ static int service_enumerate(Manager *m) {
                                                  goto finish;
  
                                  } else if (de->d_name[0] == 'K' &&

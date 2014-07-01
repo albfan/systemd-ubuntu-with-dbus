@@ -10,7 +10,7 @@ depends on $local_fs.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/units/remote-fs.target b/units/remote-fs.target
-index 43ffa5c..655621f 100644
+index 43ffa5c1..655621f0 100644
 --- a/units/remote-fs.target
 +++ b/units/remote-fs.target
 @@ -8,7 +8,7 @@

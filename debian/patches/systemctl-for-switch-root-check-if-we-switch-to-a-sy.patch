@@ -1,0 +1,102 @@
+From: Harald Hoyer <harald@redhat.com>
+Date: Thu, 6 Mar 2014 16:35:02 +0100
+Subject: systemctl: for switch-root check, if we switch to a systemd init
+
+If "systemctl switch-root" is called with a specific "INIT" or
+/proc/cmdline contains "init=", then systemd would not serialize
+itsself.
+
+Let systemctl check, if the new init is in the standard systemd
+installation path and if so, clear the INIT parameter,
+to let systemd serialize itsself.
+
+(cherry picked from commit f39d4a08e746e703d562076a0f622eb91dbdcd3e)
+
+For strappenda3, and it seems a good fix in general.
+---
+ src/shared/util.h         | 13 +++++++++++++
+ src/systemctl/systemctl.c | 35 ++++++++++++++++++++++++-----------
+ 2 files changed, 37 insertions(+), 11 deletions(-)
+
+diff --git a/src/shared/util.h b/src/shared/util.h
+index 5d2bbfb4..d573e4b0 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -806,6 +806,19 @@ int unlink_noerrno(const char *path);
+                 _c_;                                    \
+         })
+ 
++#define strappenda3(a, b, c)                                    \
++        ({                                                      \
++                const char *_a_ = (a), *_b_ = (b), *_c_ = (c);  \
++                char *_d_;                                      \
++                size_t _x_, _y_, _z_;                           \
++                _x_ = strlen(_a_);                              \
++                _y_ = strlen(_b_);                              \
++                _z_ = strlen(_c_);                              \
++                _d_ = alloca(_x_ + _y_ + _z_ + 1);              \
++                strcpy(stpcpy(stpcpy(_d_, _a_), _b_), _c_);     \
++                _d_;                                            \
++        })
++
+ #define procfs_file_alloca(pid, field)                                  \
+         ({                                                              \
+                 pid_t _pid_ = (pid);                                    \
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 9cd18671..d4a93347 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -4453,8 +4453,8 @@ static int show_environment(sd_bus *bus, char **args) {
+ 
+ static int switch_root(sd_bus *bus, char **args) {
+         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+-        _cleanup_free_ char *init = NULL;
+-        const char *root;
++        _cleanup_free_ char *cmdline_init = NULL;
++        const char *root, *init;
+         unsigned l;
+         int r;
+ 
+@@ -4467,20 +4467,33 @@ static int switch_root(sd_bus *bus, char **args) {
+         root = args[1];
+ 
+         if (l >= 3)
+-                init = strdup(args[2]);
++                init = args[2];
+         else {
+-                parse_env_file("/proc/cmdline", WHITESPACE,
+-                               "init", &init,
+-                               NULL);
++                r = parse_env_file("/proc/cmdline", WHITESPACE,
++                                   "init", &cmdline_init,
++                                   NULL);
++                if (r < 0)
++                        log_debug("Failed to parse /proc/cmdline: %s", strerror(-r));
+ 
+-                if (!init)
+-                        init = strdup("");
++                init = cmdline_init;
+         }
+ 
+-        if (!init)
+-                return log_oom();
++        if (isempty(init))
++                init = NULL;
++
++        if (init) {
++                const char *root_systemd_path = NULL, *root_init_path = NULL;
++
++                root_systemd_path = strappenda(root, "/" SYSTEMD_BINARY_PATH);
++                root_init_path = strappenda3(root, "/", init);
++
++                /* If the passed init is actually the same as the
++                 * systemd binary, then let's suppress it. */
++                if (files_same(root_init_path, root_systemd_path) > 0)
++                        init = NULL;
++        }
+ 
+-        log_debug("switching root - root: %s; init: %s", root, init);
++        log_debug("Switching root - root: %s; init: %s", root, strna(init));
+ 
+         r = sd_bus_call_method(
+                         bus,

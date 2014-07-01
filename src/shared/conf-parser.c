@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <netinet/ether.h>
 
 #include "conf-parser.h"
 #include "util.h"
@@ -155,6 +156,7 @@ static int next_assignment(const char *unit,
                            ConfigItemLookup lookup,
                            void *table,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            const char *rvalue,
                            bool relaxed,
@@ -177,8 +179,8 @@ static int next_assignment(const char *unit,
 
         if (r > 0) {
                 if (func)
-                        return func(unit, filename, line, section, lvalue, ltype,
-                                    rvalue, data, userdata);
+                        return func(unit, filename, line, section, section_line,
+                                    lvalue, ltype, rvalue, data, userdata);
 
                 return 0;
         }
@@ -201,6 +203,7 @@ static int parse_line(const char* unit,
                       bool relaxed,
                       bool allow_include,
                       char **section,
+                      unsigned *section_line,
                       char *l,
                       void *userdata) {
 
@@ -221,6 +224,15 @@ static int parse_line(const char* unit,
 
         if (startswith(l, ".include ")) {
                 _cleanup_free_ char *fn = NULL;
+
+                /* .includes are a bad idea, we only support them here
+                 * for historical reasons. They create cyclic include
+                 * problems and make it difficult to detect
+                 * configuration file changes with an easy
+                 * stat(). Better approaches, such as .d/ drop-in
+                 * snippets exist.
+                 *
+                 * Support for them should be eventually removed. */
 
                 if (!allow_include) {
                         log_syntax(unit, LOG_ERR, filename, line, EBADMSG,
@@ -259,10 +271,13 @@ static int parse_line(const char* unit,
                                            "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
+                        free(*section);
                         *section = NULL;
+                        *section_line = 0;
                 } else {
                         free(*section);
                         *section = n;
+                        *section_line = line;
                 }
 
                 return 0;
@@ -292,6 +307,7 @@ static int parse_line(const char* unit,
                                lookup,
                                table,
                                *section,
+                               *section_line,
                                strstrip(l),
                                strstrip(e),
                                relaxed,
@@ -311,7 +327,7 @@ int config_parse(const char *unit,
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
-        unsigned line = 0;
+        unsigned line = 0, section_line = 0;
         int r;
 
         assert(filename);
@@ -324,6 +340,8 @@ int config_parse(const char *unit,
                         return -errno;
                 }
         }
+
+        fd_warn_permissions(filename, fileno(f));
 
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *c = NULL, *e;
@@ -380,6 +398,7 @@ int config_parse(const char *unit,
                                relaxed,
                                allow_include,
                                &section,
+                               &section_line,
                                p,
                                userdata);
                 free(c);
@@ -396,6 +415,7 @@ int config_parse(const char *unit,
                                 const char *filename,                   \
                                 unsigned line,                          \
                                 const char *section,                    \
+                                unsigned section_line,                  \
                                 const char *lvalue,                     \
                                 int ltype,                              \
                                 const char *rvalue,                     \
@@ -427,11 +447,11 @@ DEFINE_PARSER(double, double, safe_atod)
 DEFINE_PARSER(nsec, nsec_t, parse_nsec)
 DEFINE_PARSER(sec, usec_t, parse_sec)
 
-
-int config_parse_bytes_size(const char* unit,
+int config_parse_iec_size(const char* unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
+                            unsigned section_line,
                             const char *lvalue,
                             int ltype,
                             const char *rvalue,
@@ -447,10 +467,9 @@ int config_parse_bytes_size(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_bytes(rvalue, &o);
+        r = parse_size(rvalue, 1024, &o);
         if (r < 0 || (off_t) (size_t) o != o) {
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse byte value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -458,11 +477,41 @@ int config_parse_bytes_size(const char* unit,
         return 0;
 }
 
+int config_parse_si_size(const char* unit,
+                            const char *filename,
+                            unsigned line,
+                            const char *section,
+                            unsigned section_line,
+                            const char *lvalue,
+                            int ltype,
+                            const char *rvalue,
+                            void *data,
+                            void *userdata) {
 
-int config_parse_bytes_off(const char* unit,
+        size_t *sz = data;
+        off_t o;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_size(rvalue, 1000, &o);
+        if (r < 0 || (off_t) (size_t) o != o) {
+                log_syntax(unit, LOG_ERR, filename, line, r < 0 ? -r : ERANGE, "Failed to parse size value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *sz = (size_t) o;
+        return 0;
+}
+
+int config_parse_iec_off(const char* unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            int ltype,
                            const char *rvalue,
@@ -479,10 +528,9 @@ int config_parse_bytes_off(const char* unit,
 
         assert_cc(sizeof(off_t) == sizeof(uint64_t));
 
-        r = parse_bytes(rvalue, bytes);
+        r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, -r,
-                           "Failed to parse bytes value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, -r, "Failed to parse size value, ignoring: %s", rvalue);
 
         return 0;
 }
@@ -491,6 +539,7 @@ int config_parse_bool(const char* unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -516,34 +565,32 @@ int config_parse_bool(const char* unit,
         return 0;
 }
 
-int config_parse_tristate(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_show_status(const char* unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
 
         int k;
-        int *b = data;
+        ShowStatus *b = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        /* Tristates are like booleans, but can also take the 'default' value, i.e. "-1" */
-
-        k = parse_boolean(rvalue);
+        k = parse_show_status(rvalue, b);
         if (k < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, -k,
-                           "Failed to parse boolean value, ignoring: %s", rvalue);
+                           "Failed to parse show status setting, ignoring: %s", rvalue);
                 return 0;
         }
 
-        *b = !!k;
         return 0;
 }
 
@@ -551,6 +598,7 @@ int config_parse_string(const char *unit,
                         const char *filename,
                         unsigned line,
                         const char *section,
+                        unsigned section_line,
                         const char *lvalue,
                         int ltype,
                         const char *rvalue,
@@ -591,6 +639,7 @@ int config_parse_path(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -636,6 +685,7 @@ int config_parse_strv(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -692,6 +742,7 @@ int config_parse_path_strv(const char *unit,
                            const char *filename,
                            unsigned line,
                            const char *section,
+                           unsigned section_line,
                            const char *lvalue,
                            int ltype,
                            const char *rvalue,
@@ -749,6 +800,7 @@ int config_parse_mode(const char *unit,
                       const char *filename,
                       unsigned line,
                       const char *section,
+                      unsigned section_line,
                       const char *lvalue,
                       int ltype,
                       const char *rvalue,
@@ -786,6 +838,7 @@ int config_parse_facility(const char *unit,
                           const char *filename,
                           unsigned line,
                           const char *section,
+                          unsigned section_line,
                           const char *lvalue,
                           int ltype,
                           const char *rvalue,
@@ -816,6 +869,7 @@ int config_parse_level(const char *unit,
                        const char *filename,
                        unsigned line,
                        const char *section,
+                       unsigned section_line,
                        const char *lvalue,
                        int ltype,
                        const char *rvalue,
@@ -845,6 +899,7 @@ int config_parse_set_status(const char *unit,
                             const char *filename,
                             unsigned line,
                             const char *section,
+                            unsigned section_line,
                             const char *lvalue,
                             int ltype,
                             const char *rvalue,

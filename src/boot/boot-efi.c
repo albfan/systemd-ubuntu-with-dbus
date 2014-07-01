@@ -50,7 +50,7 @@ static char *tilt_slashes(char *s) {
 }
 
 static int get_boot_entries(struct boot_info *info) {
-        uint16_t *list;
+        uint16_t *list = NULL;
         int i, n;
         int err = 0;
 
@@ -69,7 +69,7 @@ static int get_boot_entries(struct boot_info *info) {
                 info->fw_entries = e;
 
                 e = &info->fw_entries[info->fw_entries_count];
-                memset(e, 0, sizeof(struct boot_info_entry));
+                memzero(e, sizeof(struct boot_info_entry));
                 e->order = -1;
 
                 err = efi_get_boot_option(list[i], &e->title, &e->part_uuid, &e->path);
@@ -95,7 +95,7 @@ static int find_active_entry(struct boot_info *info) {
         void *buf;
         size_t l;
         size_t i;
-        int err = -ENOENT;
+        int err;
 
         err = efi_get_variable(EFI_VENDOR_GLOBAL, "BootCurrent", NULL, &buf, &l);
         if (err < 0)

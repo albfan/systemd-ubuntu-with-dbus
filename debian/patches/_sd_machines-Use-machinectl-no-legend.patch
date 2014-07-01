@@ -1,0 +1,24 @@
+From: Wieland Hoffmann <themineo@gmail.com>
+Date: Mon, 10 Mar 2014 15:17:32 +0100
+Subject: _sd_machines: Use machinectl --no-legend
+
+Otherwise bogus entries from the header and footer would show up in the
+completion list.
+
+(cherry picked from commit 3a450ec5c6adf3057bcedd6cc19c10617abc35a5)
+---
+ shell-completion/zsh/_sd_machines | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/shell-completion/zsh/_sd_machines b/shell-completion/zsh/_sd_machines
+index 1d64d13b..a0039ee0 100644
+--- a/shell-completion/zsh/_sd_machines
++++ b/shell-completion/zsh/_sd_machines
+@@ -1,6 +1,6 @@
+ #autoload
+ __get_machines () {
+-        machinectl --full --no-pager list | {while read -r a b; do echo $a; done;};
++        machinectl --full --no-legend --no-pager list |  {while read -r a b; do echo $a; done;};
+ }
+ 
+ local -a _machines

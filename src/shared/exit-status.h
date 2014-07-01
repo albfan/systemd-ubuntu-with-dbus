@@ -67,7 +67,10 @@ typedef enum ExitStatus {
         EXIT_NETWORK,
         EXIT_NAMESPACE,
         EXIT_NO_NEW_PRIVILEGES,
-        EXIT_SECCOMP
+        EXIT_SECCOMP,
+        EXIT_SELINUX_CONTEXT,
+        EXIT_PERSONALITY,  /* 230 */
+        EXIT_APPARMOR_PROFILE
 } ExitStatus;
 
 typedef enum ExitStatusLevel {
@@ -86,3 +89,15 @@ const char* exit_status_to_string(ExitStatus status, ExitStatusLevel level) _con
 
 bool is_clean_exit(int code, int status, ExitStatusSet *success_status);
 bool is_clean_exit_lsb(int code, int status, ExitStatusSet *success_status);
+
+/* Manager status */
+
+typedef enum ShowStatus {
+        _SHOW_STATUS_UNSET = -2,
+        SHOW_STATUS_AUTO = -1,
+        SHOW_STATUS_NO = 0,
+        SHOW_STATUS_YES = 1,
+        SHOW_STATUS_TEMPORARY = 2,
+} ShowStatus;
+
+int parse_show_status(const char *v, ShowStatus *ret);

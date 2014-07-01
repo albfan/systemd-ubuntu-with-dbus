@@ -1,7 +1,1 @@
-usr/lib/*/libsystemd-journal.so
 usr/lib/*/pkgconfig/libsystemd-journal.pc
-usr/include/systemd/sd-journal.h
-usr/include/systemd/sd-messages.h
-usr/share/man/man3/sd_journal*
-usr/share/man/man3/sd-journal*
-usr/share/man/man3/SD_JOURNAL*

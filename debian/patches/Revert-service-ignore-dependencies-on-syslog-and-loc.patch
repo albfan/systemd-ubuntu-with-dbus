@@ -10,19 +10,19 @@ $local_fs, too.
 ---
  Makefile.am                   |  1 +
  man/systemd.special.xml       | 35 +++++++++++++++++++++++++++++++++++
- src/core/service.c            | 12 +++++-------
- src/core/special.h            |  3 ++-
+ src/core/service.c            |  4 ++--
+ src/shared/special.h          |  3 ++-
  units/syslog.socket           |  5 ++++-
  units/syslog.target           | 19 +++++++++++++++++++
  units/systemd-journald.socket |  2 +-
- 7 files changed, 67 insertions(+), 10 deletions(-)
+ 7 files changed, 64 insertions(+), 5 deletions(-)
  create mode 100644 units/syslog.target
 
 diff --git a/Makefile.am b/Makefile.am
-index df2bdf53..23056d97 100644
+index 20480df9..ad1ade6b 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -423,6 +423,7 @@ dist_systemunit_DATA = \
+@@ -434,6 +434,7 @@ dist_systemunit_DATA = \
  	units/smartcard.target \
  	units/systemd-ask-password-wall.path \
  	units/systemd-ask-password-console.path \
@@ -91,20 +91,10 @@ index 4dd7d970..a7302c06 100644
                                  <listitem>
                                          <para>A special target unit
 diff --git a/src/core/service.c b/src/core/service.c
-index 9fd58fab..fbe04280 100644
+index 1971e3ca..7acd4d04 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -334,8 +334,7 @@ static void service_done(Unit *u) {
- static char *sysv_translate_name(const char *name) {
-         char *r;
- 
--        r = new(char, strlen(name) + sizeof(".service"));
--        if (!r)
-+        if (!(r = new(char, strlen(name) + sizeof(".service"))))
-                 return NULL;
- 
-         if (endswith(name, ".sh"))
-@@ -358,12 +357,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -385,12 +385,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
@@ -119,24 +109,12 @@ index 9fd58fab..fbe04280 100644
                  "time",                 SPECIAL_TIME_SYNC_TARGET,
          };
  
-@@ -384,9 +383,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
-                 if (!table[i+1])
-                         return 0;
- 
--                r = strdup(table[i+1]);
--                if (!r)
--                        return log_oom();
-+                if (!(r = strdup(table[i+1])))
-+                        return -ENOMEM;
- 
-                 goto finish;
-         }
-diff --git a/src/core/special.h b/src/core/special.h
-index 6d252e7b..28be074c 100644
---- a/src/core/special.h
-+++ b/src/core/special.h
-@@ -48,7 +48,7 @@
- #define SPECIAL_SOCKETS_TARGET "sockets.target"
+diff --git a/src/shared/special.h b/src/shared/special.h
+index 2fe5db55..d6901b76 100644
+--- a/src/shared/special.h
++++ b/src/shared/special.h
+@@ -49,7 +49,7 @@
+ #define SPECIAL_BUSNAMES_TARGET "busnames.target"
  #define SPECIAL_TIMERS_TARGET "timers.target"
  #define SPECIAL_PATHS_TARGET "paths.target"
 -#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
@@ -144,7 +122,7 @@ index 6d252e7b..28be074c 100644
  #define SPECIAL_LOCAL_FS_PRE_TARGET "local-fs-pre.target"
  #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
  #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
-@@ -62,6 +62,7 @@
+@@ -63,6 +63,7 @@
  #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
  #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
  #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */

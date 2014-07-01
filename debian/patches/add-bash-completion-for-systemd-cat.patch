@@ -10,10 +10,10 @@ Subject: add bash completion for systemd-cat
  create mode 100644 shell-completion/bash/systemd-cat
 
 diff --git a/Makefile.am b/Makefile.am
-index dafc428b..df476ce6 100644
+index 834ed6f7..7187b8dd 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -342,6 +342,7 @@ dist_bashcompletion_DATA = \
+@@ -352,6 +352,7 @@ dist_bashcompletion_DATA = \
  	shell-completion/bash/journalctl \
  	shell-completion/bash/systemctl \
  	shell-completion/bash/systemd-analyze \

@@ -12,10 +12,10 @@ paths.  Closes: #721347
  1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 9605b386..b7f8a744 100644
+index b70c57df..adb04690 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -67,16 +67,16 @@ AC_PROG_GCC_TRADITIONAL
+@@ -65,16 +65,16 @@ AC_PROG_CC_C99
  AC_PATH_PROG([M4], [m4])
  AC_PATH_PROG([XSLTPROC], [xsltproc])
  
@@ -38,7 +38,7 @@ index 9605b386..b7f8a744 100644
  
  AS_IF([! ln --relative --help > /dev/null 2>&1], [AC_MSG_ERROR([*** ln doesn't support --relative ***])])
  
-@@ -792,13 +792,13 @@ AC_ARG_WITH(kbd-loadkeys,
+@@ -899,13 +899,13 @@ AC_ARG_WITH(kbd-loadkeys,
          AS_HELP_STRING([--with-kbd-loadkeys=PATH],
                  [Path to loadkeys]),
          [KBD_LOADKEYS="$withval"],

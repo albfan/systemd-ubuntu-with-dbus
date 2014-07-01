@@ -10,14 +10,12 @@ a check that will never fail.
 
 Conflicts:
 	src/udev/udevd.c
-
-(cherry picked from commit 6c160b0f7a5581e2c5ae76f57e9e8a6dd0db0ceb)
 ---
- src/udev/udevd.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ src/udev/udevd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/src/udev/udevd.c b/src/udev/udevd.c
-index 5235cbd2..bbca5d5b 100644
+index 93afca11..73afa6f9 100644
 --- a/src/udev/udevd.c
 +++ b/src/udev/udevd.c
 @@ -272,7 +272,7 @@ static void worker_new(struct event *event)
@@ -27,5 +25,14 @@ index 5235cbd2..bbca5d5b 100644
 -                        int err;
 +                        int err = 0;
  
-                         log_debug("seq %llu running\n", udev_device_get_seqnum(dev));
+                         log_debug("seq %llu running", udev_device_get_seqnum(dev));
                          udev_event = udev_event_new(dev);
+@@ -293,7 +293,7 @@ static void worker_new(struct event *event)
+                         udev_event_execute_run(udev_event, &sigmask_orig);
+ 
+                         /* apply/restore inotify watch */
+-                        if (err == 0 && udev_event->inotify_watch) {
++                        if (udev_event->inotify_watch) {
+                                 udev_watch_begin(udev, dev);
+                                 udev_device_update_db(dev);
+                         }

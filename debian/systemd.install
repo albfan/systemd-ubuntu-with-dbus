@@ -25,9 +25,9 @@ usr/bin/systemd-delta
 usr/bin/systemd-run
 usr/bin/timedatectl
 usr/bin/localectl
+usr/bin/busctl
 usr/bin/hostnamectl
 usr/share/man/man1/
-usr/share/man/man3/
 usr/share/man/man5/
 usr/share/man/man7/
 usr/share/man/man8/
@@ -38,6 +38,7 @@ usr/share/doc/
 usr/share/pkgconfig/systemd.pc
 usr/share/polkit-1/
 usr/share/systemd/kbd-model-map
+usr/share/locale/*/LC_MESSAGES/systemd.mo
 usr/lib/binfmt.d/
 usr/lib/modules-load.d/
 usr/lib/sysctl.d/

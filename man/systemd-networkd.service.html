@@ -1,0 +1,132 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd-networkd.service</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 209</span><hr><div class="refentry"><a name="systemd-networkd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-networkd.service, systemd-networkd — Network manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-networkd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-networkd</code></p></div><div class="refsect1"><a name="idm214199737152"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-networkd</strong></span> is a system
+                service that manages networks. It detects and configures
+                network devices as they appear, as well as creating virtual
+                network devices.</p><p>To configure low-level link settings independently of
+                networks, see
+                <a href="udev.html"><span class="citerefentry"><span class="refentrytitle">udev</span>(7)</span></a>
+                .</p><p>Network configurations applied before networkd is started
+                are not removed, and static configuration applied by networkd
+                is not removed when networkd exits. This ensures restarting
+                networkd does not cut the network connection, and, in particular,
+                that it is safe to transition between the initrd and the real root,
+                and back.</p></div><div class="refsect1"><a name="idm214199733024"></a><h2 id="Configuration Files">Configuration Files<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Files">¶</a></h2><p>The configuration files are read from the files located in the
+                system network directory <code class="filename">/usr/lib/systemd/network</code>,
+                the volatile runtime network directory
+                <code class="filename">/run/systemd/network</code> and the local administration
+                network directory <code class="filename">/etc/systemd/network</code>.
+                All configuration files are collectively sorted and processed in lexical order,
+                regardless of the directories in which they live. However, files with
+                identical filenames replace each other. Files in
+                <code class="filename">/etc</code> have the highest priority, files in
+                <code class="filename">/run</code> take precedence over files with the same
+                name in <code class="filename">/usr/lib</code>. This can be used to override a
+                system-supplied configuration file with a local file if needed; a symlink in
+                <code class="filename">/etc</code> with the same name as a configuration file in
+                <code class="filename">/usr/lib</code>, pointing to <code class="filename">/dev/null</code>,
+                disables the configuration file entirely.</p><div class="refsect2"><a name="idm214199717744"></a><h3 id="Virtual Network Devices">Virtual Network Devices<a class="headerlink" title="Permalink to this headline" href="#Virtual%20Network%20Devices">¶</a></h3><p>Virtual Network Device files must have the extension
+                        <code class="filename">.netdev</code>; other extensions are ignored. Virtual
+                        network devices are created as soon as networkd is started.</p><p>A virtual network device is only created if the
+                        "<code class="literal">[Match]</code>" section matches the current
+                        environment, or if the section is empty. The following keys are accepted:</p><div class="variablelist"><dl class="variablelist"><dt id="Host="><span class="term"><code class="varname">Host=</code></span><a class="headerlink" title="Permalink to this term" href="#Host=">¶</a></dt><dd><p>Matches against the hostname or machine ID of the
+                                                host. See "<code class="literal">ConditionHost=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="Virtualization="><span class="term"><code class="varname">Virtualization=</code></span><a class="headerlink" title="Permalink to this term" href="#Virtualization=">¶</a></dt><dd><p>Checks whether the system is executed in a virtualized
+                                                environment and optionally test whether it is a specific
+                                                implementation. See "<code class="literal">ConditionVirtualization=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="KernelCommandLine="><span class="term"><code class="varname">KernelCommandLine=</code></span><a class="headerlink" title="Permalink to this term" href="#KernelCommandLine=">¶</a></dt><dd><p>Checks whether a specific kernel command line option is
+                                                set (or if prefixed with the exclamation mark unset). See
+                                                "<code class="literal">ConditionKernelCommandLine=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="Architecture="><span class="term"><code class="varname">Architecture=</code></span><a class="headerlink" title="Permalink to this term" href="#Architecture=">¶</a></dt><dd><p>Checks whether the system is running on a specific
+                                                architecture. See "<code class="literal">ConditionArchitecture=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd></dl></div><p>The "<code class="literal">[NetDev]</code>" section accepts the following
+                        keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Name="><span class="term"><code class="varname">Name=</code></span><a class="headerlink" title="Permalink to this term" href="#Name=">¶</a></dt><dd><p>The interface name used when creating the
+                                                netdev. This option is compulsory.</p></dd><dt id="Kind="><span class="term"><code class="varname">Kind=</code></span><a class="headerlink" title="Permalink to this term" href="#Kind=">¶</a></dt><dd><p>The netdev kind. Currently, "<code class="literal">bridge</code>",
+                                                "<code class="literal">bond</code>" and "<code class="literal">vlan</code>"
+                                                are supported. This option is compulsory.</p></dd></dl></div><p>The "<code class="literal">[VLAN]</code>" section only applies for netdevs of kind "<code class="literal">vlan</code>",
+                        and accepts the following key:</p><div class="variablelist"><dl class="variablelist"><dt id="Id="><span class="term"><code class="varname">Id=</code></span><a class="headerlink" title="Permalink to this term" href="#Id=">¶</a></dt><dd><p>The VLAN ID to use. An integer in the range 0–4094.
+                                                This option is compulsory.</p></dd></dl></div></div><div class="refsect2"><a name="idm214199764544"></a><h3 id="Networks">Networks<a class="headerlink" title="Permalink to this headline" href="#Networks">¶</a></h3><p>Network files must have the extension <code class="filename">.network</code>;
+                        other extensions are ignored. Networks are applied to links whenever the links
+                        appear.</p><p>The network file contains a "<code class="literal">[Match]</code>" section,
+                        which determines if a given network file may be applied to a given device;
+                        and a "<code class="literal">[Network]</code>" section specifying how the device should
+                        be configured. The first (in lexical order) of the network files that
+                        matches a given device is applied.</p><p>A network file is said to match a device if each of the entries in the
+                        "<code class="literal">[Match]</code>" section matches, or if the section is empty.
+                        The following keys are accepted:</p><div class="variablelist"><dl class="variablelist"><dt id="MACAddress="><span class="term"><code class="varname">MACAddress=</code></span><a class="headerlink" title="Permalink to this term" href="#MACAddress=">¶</a></dt><dd><p>The hardware address.</p></dd><dt id="Path="><span class="term"><code class="varname">Path=</code></span><a class="headerlink" title="Permalink to this term" href="#Path=">¶</a></dt><dd><p>The persistent path, as exposed by the udev
+                                                property "<code class="literal">ID_PATH</code>". May contain shell
+                                                style globs.</p></dd><dt id="Driver="><span class="term"><code class="varname">Driver=</code></span><a class="headerlink" title="Permalink to this term" href="#Driver=">¶</a></dt><dd><p>The driver currently bound to the device, as
+                                                exposed by the udev property "<code class="literal">DRIVER</code>"
+                                                of its parent device, or if that is not set the driver
+                                                as exposed by "<code class="literal">ethtool -i</code>" of the
+                                                device itself.</p></dd><dt id="Type="><span class="term"><code class="varname">Type=</code></span><a class="headerlink" title="Permalink to this term" href="#Type=">¶</a></dt><dd><p>The device type, as exposed by the udev property
+                                                "<code class="literal">DEVTYPE</code>".</p></dd><dt id="Name="><span class="term"><code class="varname">Name=</code></span><a class="headerlink" title="Permalink to this term" href="#Name=">¶</a></dt><dd><p>The device name, as exposed by the udev property
+                                                "<code class="literal">INTERFACE</code>". May contain shell style
+                                                globs.</p></dd><dt id="Host="><span class="term"><code class="varname">Host=</code></span><a class="headerlink" title="Permalink to this term" href="#Host=">¶</a></dt><dd><p>Matches against the hostname or machine ID of the
+                                                host. See "<code class="literal">ConditionHost=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="Virtualization="><span class="term"><code class="varname">Virtualization=</code></span><a class="headerlink" title="Permalink to this term" href="#Virtualization=">¶</a></dt><dd><p>Checks whether the system is executed in a virtualized
+                                                environment and optionally test whether it is a specific
+                                                implementation. See "<code class="literal">ConditionVirtualization=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="KernelCommandLine="><span class="term"><code class="varname">KernelCommandLine=</code></span><a class="headerlink" title="Permalink to this term" href="#KernelCommandLine=">¶</a></dt><dd><p>Checks whether a specific kernel command line option is
+                                                set (or if prefixed with the exclamation mark unset). See
+                                                "<code class="literal">ConditionKernelCommandLine=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd><dt id="Architecture="><span class="term"><code class="varname">Architecture=</code></span><a class="headerlink" title="Permalink to this term" href="#Architecture=">¶</a></dt><dd><p>Checks whether the system is running on a specific
+                                                architecture. See "<code class="literal">ConditionArchitecture=</code>" in
+                                                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
+                                                for details.
+                                                </p></dd></dl></div><p>The "<code class="literal">[Network]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Description="><span class="term"><code class="varname">Description=</code></span><a class="headerlink" title="Permalink to this term" href="#Description=">¶</a></dt><dd><p>A description of the device. This is only used for
+                                                presentation purposes.</p></dd><dt id="DHCP="><span class="term"><code class="varname">DHCP=</code></span><a class="headerlink" title="Permalink to this term" href="#DHCP=">¶</a></dt><dd><p>A boolean. When true, enables basic DHCPv4 support.</p></dd><dt id="Address="><span class="term"><code class="varname">Address=</code></span><a class="headerlink" title="Permalink to this term" href="#Address=">¶</a></dt><dd><p>A static IPv4 or IPv6 address and its prefix length,
+                                                separated by a "<code class="literal">/</code>" character. The format of the address must
+                                                be as described in
+                                                <a href="inet_pton.html"><span class="citerefentry"><span class="refentrytitle">inet_pton</span>(3)</span></a>
+                                                . This is a short-hand for an [Address] section only containing an Address key (see below).</p></dd><dt id="Gateway="><span class="term"><code class="varname">Gateway=</code></span><a class="headerlink" title="Permalink to this term" href="#Gateway=">¶</a></dt><dd><p>The gateway address, which must be in the format described in
+                                                <a href="inet_pton.html"><span class="citerefentry"><span class="refentrytitle">inet_pton</span>(3)</span></a>
+                                                . This is a short-hand for a [Route] section only containing a Gateway key.</p></dd><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A DNS server address, which must be in the format described in
+                                                <a href="inet_pton.html"><span class="citerefentry"><span class="refentrytitle">inet_pton</span>(3)</span></a>
+                                                .</p></dd><dt id="Bridge="><span class="term"><code class="varname">Bridge=</code></span><a class="headerlink" title="Permalink to this term" href="#Bridge=">¶</a></dt><dd><p>The name of the bridge to add the link to.</p></dd><dt id="Bond="><span class="term"><code class="varname">Bond=</code></span><a class="headerlink" title="Permalink to this term" href="#Bond=">¶</a></dt><dd><p>The name of the bond to add the link to.</p></dd><dt id="VLAN="><span class="term"><code class="varname">VLAN=</code></span><a class="headerlink" title="Permalink to this term" href="#VLAN=">¶</a></dt><dd><p>The name of a VLAN to create on the link. This option
+                                                may be specified more than once.</p></dd></dl></div><p>The "<code class="literal">[Address]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Address="><span class="term"><code class="varname">Address=</code></span><a class="headerlink" title="Permalink to this term" href="#Address=">¶</a></dt><dd><p>As in the "<code class="literal">[Network]</code>" section. This key is mandatory.</p></dd><dt id="Broadcast="><span class="term"><code class="varname">Broadcast=</code></span><a class="headerlink" title="Permalink to this term" href="#Broadcast=">¶</a></dt><dd><p>The broadcast address, which must be in the format described in
+                                                <a href="inet_pton.html"><span class="citerefentry"><span class="refentrytitle">inet_pton</span>(3)</span></a>
+                                                . This key only applies to IPv4 addresses. If it is not given, it is
+                                                derived from the "<code class="literal">Address</code>" key.</p></dd><dt id="Label="><span class="term"><code class="varname">Label=</code></span><a class="headerlink" title="Permalink to this term" href="#Label=">¶</a></dt><dd><p>An address label.</p></dd></dl></div><p>The "<code class="literal">[Route]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="Gateway="><span class="term"><code class="varname">Gateway=</code></span><a class="headerlink" title="Permalink to this term" href="#Gateway=">¶</a></dt><dd><p>As in the "<code class="literal">[Network]</code>" section. This key is mandatory.</p></dd><dt id="Destination="><span class="term"><code class="varname">Destination=</code></span><a class="headerlink" title="Permalink to this term" href="#Destination=">¶</a></dt><dd><p>The destination prefix of the route. Possibly followed by a slash and the
+                                                prefixlength, if ommitted a full-length host route is assumed.</p></dd></dl></div><p>The "<code class="literal">[DHCPv4]</code>" section accepts the following keys:</p><div class="variablelist"><dl class="variablelist"><dt id="UseDNS="><span class="term"><code class="varname">UseDNS=</code></span><a class="headerlink" title="Permalink to this term" href="#UseDNS=">¶</a></dt><dd><p>When true (the default), the DNS servers received from the DHCP server will
+                                                be used and take precedence over any statically configured ones.</p></dd><dt id="UseMTU="><span class="term"><code class="varname">UseMTU=</code></span><a class="headerlink" title="Permalink to this term" href="#UseMTU=">¶</a></dt><dd><p>When true, the interface maximum transmission unit from the DHCP server will
+                                                be used on the current link. Defaults to false.</p></dd><dt id="UseHostname="><span class="term"><code class="varname">UseHostname=</code></span><a class="headerlink" title="Permalink to this term" href="#UseHostname=">¶</a></dt><dd><p>When true (the default), the hostname received from the DHCP server
+                                                will be used as the transient hostname.</p></dd><dt id="CriticalConnection="><span class="term"><code class="varname">CriticalConnection=</code></span><a class="headerlink" title="Permalink to this term" href="#CriticalConnection=">¶</a></dt><dd><p>When true, the connection will never be torn down even if the DHCP lease
+                                                expires. This is contrary to the DHCP specification, but may be the best choice
+                                                if, say, the root filesystem relies on this connection. Defaults to false.</p></dd></dl></div></div></div><div class="refsect1"><a name="idm214194727760"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="udev.html"><span class="citerefentry"><span class="refentrytitle">udev</span>(7)</span></a>
+                </p></div></div></body></html>

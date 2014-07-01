@@ -4,19 +4,44 @@ Subject: util: make sure all our name_to_handle_at() code makes use of
  file_handle_union
 
 (cherry picked from commit 21749924e12201d8f5210c5dc9695e18fd16bb93)
-(cherry picked from commit 6b494ffbcb54873508b6ca18ec93dfa20221d542)
-
-Conflicts:
-	src/libudev/libudev-monitor.c
 ---
- src/shared/path-util.c | 25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+ src/libudev/libudev-monitor.c |  9 ++++++---
+ src/shared/path-util.c        | 25 ++++++++++++-------------
+ 2 files changed, 18 insertions(+), 16 deletions(-)
 
+diff --git a/src/libudev/libudev-monitor.c b/src/libudev/libudev-monitor.c
+index 85b1e408..e0452981 100644
+--- a/src/libudev/libudev-monitor.c
++++ b/src/libudev/libudev-monitor.c
+@@ -108,17 +108,20 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
+ 
+ /* we consider udev running when /dev is on devtmpfs */
+ static bool udev_has_devtmpfs(struct udev *udev) {
+-        union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
+-        int mount_id;
++
++        union file_handle_union h = {
++                .handle.handle_bytes = MAX_HANDLE_SZ
++        };
++
+         _cleanup_fclose_ FILE *f = NULL;
+         char line[LINE_MAX], *e;
++        int mount_id;
+         int r;
+ 
+         r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
+         if (r < 0)
+                 return false;
+ 
+-
+         f = fopen("/proc/self/mountinfo", "re");
+         if (!f)
+                 return false;
 diff --git a/src/shared/path-util.c b/src/shared/path-util.c
-index 45099eed..d8c14e8b 100644
+index bdc54a9a..c3ccf615 100644
 --- a/src/shared/path-util.c
 +++ b/src/shared/path-util.c
-@@ -327,11 +327,15 @@ bool path_equal(const char *a, const char *b) {
+@@ -324,11 +324,15 @@ bool path_equal(const char *a, const char *b) {
  }
  
  int path_is_mount_point(const char *t, bool allow_symlink) {
@@ -35,7 +60,7 @@ index 45099eed..d8c14e8b 100644
  
          /* We are not actually interested in the file handles, but
           * name_to_handle_at() also passes us the mount ID, hence use
-@@ -340,12 +344,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
+@@ -337,12 +341,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
          if (path_equal(t, "/"))
                  return 1;
  
@@ -50,7 +75,7 @@ index 45099eed..d8c14e8b 100644
                          /* This kernel or file system does not support
                           * name_to_handle_at(), hence fallback to the
                           * traditional stat() logic */
-@@ -361,15 +362,14 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
+@@ -358,15 +359,14 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
          if (r < 0)
                  return r;
  
@@ -69,7 +94,7 @@ index 45099eed..d8c14e8b 100644
                          return 1;
  
                  return -errno;
-@@ -396,7 +396,6 @@ fallback:
+@@ -393,7 +393,6 @@ fallback:
  
          r = lstat(parent, &b);
          free(parent);

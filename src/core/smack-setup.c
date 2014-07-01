@@ -36,6 +36,7 @@
 #include "macro.h"
 #include "smack-setup.h"
 #include "util.h"
+#include "fileio.h"
 #include "log.h"
 #include "label.h"
 
@@ -115,11 +116,13 @@ static int write_rules(const char* dstpath, const char* srcdir) {
 
 #endif
 
-int smack_setup(void) {
+int smack_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SMACK
 
         int r;
+
+        assert(loaded_policy);
 
         r = write_rules("/sys/fs/smackfs/load2", SMACK_CONFIG);
         switch(r) {
@@ -138,6 +141,13 @@ int smack_setup(void) {
                 return 0;
         }
 
+#ifdef SMACK_RUN_LABEL
+        r = write_string_file("/proc/self/attr/current", SMACK_RUN_LABEL);
+        if (r)
+                log_warning("Failed to set SMACK label \"%s\" on self: %s",
+                            SMACK_RUN_LABEL, strerror(-r));
+#endif
+
         r = write_rules("/sys/fs/smackfs/cipso2", CIPSO_CONFIG);
         switch(r) {
         case -ENOENT:
@@ -154,6 +164,8 @@ int smack_setup(void) {
                             strerror(abs(r)));
                 return 0;
         }
+
+        *loaded_policy = true;
 
 #endif
 

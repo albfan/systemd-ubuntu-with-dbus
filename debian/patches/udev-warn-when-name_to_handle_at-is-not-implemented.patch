@@ -1,0 +1,32 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sun, 20 Apr 2014 13:57:26 -0400
+Subject: udev: warn when name_to_handle_at is not implemented
+
+We have a bunch of reports from people who have a custom kernel and
+are confused why udev is not running. Issue a warning on
+error. Barring an error in the code, the only error that is possible
+is ENOSYS.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1072966
+(cherry picked from commit e6c474723dc66cd4765fd09453d6b48bd5905ba4)
+---
+ src/libudev/libudev-monitor.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/libudev/libudev-monitor.c b/src/libudev/libudev-monitor.c
+index e0452981..1afae14c 100644
+--- a/src/libudev/libudev-monitor.c
++++ b/src/libudev/libudev-monitor.c
+@@ -119,8 +119,11 @@ static bool udev_has_devtmpfs(struct udev *udev) {
+         int r;
+ 
+         r = name_to_handle_at(AT_FDCWD, "/dev", &h.handle, &mount_id, 0);
+-        if (r < 0)
++        if (r < 0) {
++                if (errno != EOPNOTSUPP)
++                        udev_err(udev, "name_to_handle_at on /dev: %m\n");
+                 return false;
++        }
+ 
+         f = fopen("/proc/self/mountinfo", "re");
+         if (!f)

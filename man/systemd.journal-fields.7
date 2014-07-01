@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.JOURNAL\-FIELDS" "7" "" "systemd 208" "systemd.journal-fields"
+.TH "SYSTEMD\&.JOURNAL\-FIELDS" "7" "" "systemd 209" "systemd.journal-fields"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -23,7 +23,7 @@
 systemd.journal-fields \- Special journal fields
 .SH "DESCRIPTION"
 .PP
-Entries in the journal resemble an environment block in their syntax, however with fields that can include binary data\&. Primarily, fields are formatted UTF\-8 text strings, and binary formatting is used only where formatting as UTF\-8 text strings makes little sense\&. New fields may freely be defined by applications, but a few fields have special meaning\&. All fields with special meanings are optional\&. In some cases fields may appear more than once per entry\&.
+Entries in the journal resemble an environment block in their syntax but with fields that can include binary data\&. Primarily, fields are formatted UTF\-8 text strings, and binary formatting is used only where formatting as UTF\-8 text strings makes little sense\&. New fields may freely be defined by applications, but a few fields have special meaning\&. All fields with special meanings are optional\&. In some cases, fields may appear more than once per entry\&.
 .SH "USER JOURNAL FIELDS"
 .PP
 User fields are fields that are directly passed from clients and stored in the journal\&.
@@ -66,12 +66,12 @@ Fields prefixed with an underscore are trusted fields, i\&.e\&. fields that are 
 .PP
 \fI_PID=\fR, \fI_UID=\fR, \fI_GID=\fR
 .RS 4
-The process, user and group ID of the process the journal entry originates from formatted as a decimal string\&.
+The process, user, and group ID of the process the journal entry originates from formatted as a decimal string\&.
 .RE
 .PP
 \fI_COMM=\fR, \fI_EXE=\fR, \fI_CMDLINE=\fR
 .RS 4
-The name, the executable path and the command line of the process the journal entry originates from\&.
+The name, the executable path, and the command line of the process the journal entry originates from\&.
 .RE
 .PP
 \fI_CAP_EFFECTIVE=\fR
@@ -93,7 +93,7 @@ The control group path in the systemd hierarchy, the systemd session ID (if any)
 .PP
 \fI_SELINUX_CONTEXT=\fR
 .RS 4
-The SELinux security context of the process the journal entry originates from\&.
+The SELinux security context (label) of the process the journal entry originates from\&.
 .RE
 .PP
 \fI_SOURCE_REALTIME_TIMESTAMP=\fR
@@ -155,11 +155,10 @@ Kernel fields are fields that are used by messages originating in the kernel and
 The kernel device name\&. If the entry is associated to a block device, the major and minor of the device node, separated by
 ":"
 and prefixed by
-"b"\&. Similar for character devices, but prefixed by
-"c"\&. For network devices the interface index, prefixed by
-"n"\&. For all other devices
-"+"
-followed by the subsystem name, followed by
+"b"\&. Similar for character devices but prefixed by
+"c"\&. For network devices, this is the interface index prefixed by
+"n"\&. For all other devices, this is the subsystem name prefixed by
+"+", followed by
 ":", followed by the kernel device name\&.
 .RE
 .PP
@@ -235,7 +234,7 @@ is described, instead of the process which logged the message\&.
 During serialization into external formats, such as the
 \m[blue]\fBJournal Export Format\fR\m[]\&\s-2\u[1]\d\s+2
 or the
-\m[blue]\fBJournal JSON Format\fR\m[]\&\s-2\u[2]\d\s+2, the addresses of journal entries are serialized into fields prefixed with double underscores\&. Note that these are not proper fields when stored in the journal but for addressing meta data of entries\&. They cannot be written as part of structured log entries via calls such as
+\m[blue]\fBJournal JSON Format\fR\m[]\&\s-2\u[2]\d\s+2, the addresses of journal entries are serialized into fields prefixed with double underscores\&. Note that these are not proper fields when stored in the journal but for addressing metadata of entries\&. They cannot be written as part of structured log entries via calls such as
 \fBsd_journal_send\fR(3)\&. They may also not be used as matches for
 \fBsd_journal_add_match\fR(3)
 .PP

@@ -1,0 +1,24 @@
+From: Jonathan Liu <net147@gmail.com>
+Date: Thu, 29 May 2014 01:17:25 +1000
+Subject: units: use KillMode=mixed for systemd-nspawn@.service
+
+This causes the container to shut down cleanly when the service is
+stopped.
+
+(cherry picked from commit d8e40d62ab871a87fde421c4b246bb45bc3cbe2d)
+---
+ units/systemd-nspawn@.service.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/units/systemd-nspawn@.service.in b/units/systemd-nspawn@.service.in
+index ff36e901..e3736284 100644
+--- a/units/systemd-nspawn@.service.in
++++ b/units/systemd-nspawn@.service.in
+@@ -11,6 +11,7 @@ Documentation=man:systemd-nspawn(1)
+ 
+ [Service]
+ ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=guest --directory=/var/lib/container/%i
++KillMode=mixed
+ Type=notify
+ 
+ [Install]

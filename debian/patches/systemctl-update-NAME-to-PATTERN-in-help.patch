@@ -1,0 +1,50 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 1 Apr 2014 20:43:15 -0400
+Subject: systemctl: update NAME to PATTERN in help()
+
+Previously the man page was modified, but not help().
+
+(cherry picked from commit b3ae710c251d0ce5cf2cef63208e325497b5e323)
+---
+ TODO                      |  2 ++
+ src/systemctl/systemctl.c | 14 +++++++-------
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/TODO b/TODO
+index b7dff10e..7d331bcd 100644
+--- a/TODO
++++ b/TODO
+@@ -1,4 +1,6 @@
+ Bugfixes:
++* Should systemctl status \* work on all unit types, not just .service?
++
+ * enabling an instance unit creates a pointless link, and
+   the unit will be started with getty@getty.service:
+     $ systemctl enable getty@.service
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 86927162..d44e6606 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -5059,15 +5059,15 @@ static int systemctl_help(void) {
+                "                                  otherwise restart if active\n"
+                "  isolate NAME                    Start one unit and stop all others\n"
+                "  kill NAME...                    Send signal to processes of a unit\n"
+-               "  is-active NAME...               Check whether units are active\n"
+-               "  is-failed NAME...               Check whether units are failed\n"
+-               "  status [NAME...|PID...]         Show runtime status of one or more units\n"
+-               "  show [NAME...|JOB...]           Show properties of one or more\n"
++               "  is-active PATTERN...            Check whether units are active\n"
++               "  is-failed PATTERN...            Check whether units are failed\n"
++               "  status [PATTERN...|PID...]      Show runtime status of one or more units\n"
++               "  show [PATTERN...|JOB...]        Show properties of one or more\n"
+                "                                  units/jobs or the manager\n"
+-               "  cat NAME...                     Show files and drop-ins of one or more units\n"
++               "  cat PATTERN...                  Show files and drop-ins of one or more units\n"
+                "  set-property NAME ASSIGNMENT... Sets one or more properties of a unit\n"
+-               "  help NAME...|PID...             Show manual for one or more units\n"
+-               "  reset-failed [NAME...]          Reset failed state for all, one, or more\n"
++               "  help PATTERN...|PID...          Show manual for one or more units\n"
++               "  reset-failed [PATTERN...]       Reset failed state for all, one, or more\n"
+                "                                  units\n"
+                "  list-dependencies [NAME]        Recursively show units which are required\n"
+                "                                  or wanted by this unit or by which this\n"

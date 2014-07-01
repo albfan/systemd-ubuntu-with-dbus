@@ -35,6 +35,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 #include "socket-util.h"
+#include "missing.h"
 
 /**
  * SECTION:libudev-monitor
@@ -95,7 +96,7 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
 {
         struct udev_monitor *udev_monitor;
 
-        udev_monitor = calloc(1, sizeof(struct udev_monitor));
+        udev_monitor = new0(struct udev_monitor, 1);
         if (udev_monitor == NULL)
                 return NULL;
         udev_monitor->refcount = 1;
@@ -103,6 +104,61 @@ static struct udev_monitor *udev_monitor_new(struct udev *udev)
         udev_list_init(udev, &udev_monitor->filter_subsystem_list, false);
         udev_list_init(udev, &udev_monitor->filter_tag_list, true);
         return udev_monitor;
+}
+
+/* we consider udev running when /dev is on devtmpfs */
+static bool udev_has_devtmpfs(struct udev *udev) {
+        struct file_handle *h;
+        int mount_id;
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX], *e;
+        int r;
+
+        h = alloca(MAX_HANDLE_SZ);
+        h->handle_bytes = MAX_HANDLE_SZ;
+        r = name_to_handle_at(AT_FDCWD, "/dev", h, &mount_id, 0);
+        if (r < 0)
+                return false;
+
+
+        f = fopen("/proc/self/mountinfo", "re");
+        if (!f)
+                return false;
+
+        FOREACH_LINE(line, f, return false) {
+                int mid;
+
+                if (sscanf(line, "%i", &mid) != 1)
+                        continue;
+
+                if (mid != mount_id)
+                        continue;
+
+                e = strstr(line, " - ");
+                if (!e)
+                        continue;
+
+                /* accept any name that starts with the currently expected type */
+                if (startswith(e + 3, "devtmpfs"))
+                        return true;
+        }
+
+        return false;
+}
+
+/* we consider udev running when we have running udev service */
+static bool udev_has_service(struct udev *udev) {
+        struct udev_queue *queue;
+        bool active;
+
+        queue = udev_queue_new(udev);
+        if (!queue)
+                return false;
+
+        active = udev_queue_get_udev_is_active(queue);
+        udev_queue_unref(queue);
+
+        return active;
 }
 
 struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const char *name, int fd)
@@ -115,9 +171,25 @@ struct udev_monitor *udev_monitor_new_from_netlink_fd(struct udev *udev, const c
 
         if (name == NULL)
                 group = UDEV_MONITOR_NONE;
-        else if (streq(name, "udev"))
-                group = UDEV_MONITOR_UDEV;
-        else if (streq(name, "kernel"))
+        else if (streq(name, "udev")) {
+                /*
+                 * We do not support subscribing to uevents if no instance of
+                 * udev is running. Uevents would otherwise broadcast the
+                 * processing data of the host into containers, which is not
+                 * desired.
+                 *
+                 * Containers will currently not get any udev uevents, until
+                 * a supporting infrastructure is available.
+                 *
+                 * We do not set a netlink multicast group here, so the socket
+                 * will not receive any messages.
+                 */
+                if (!udev_has_service(udev) && !udev_has_devtmpfs(udev)) {
+                        udev_dbg(udev, "the udev service seems not to be active, disable the monitor\n");
+                        group = UDEV_MONITOR_NONE;
+                } else
+                        group = UDEV_MONITOR_UDEV;
+        } else if (streq(name, "kernel"))
                 group = UDEV_MONITOR_KERNEL;
         else
                 return NULL;
@@ -219,7 +291,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
             udev_list_get_entry(&udev_monitor->filter_tag_list) == NULL)
                 return 0;
 
-        memset(ins, 0x00, sizeof(ins));
+        memzero(ins, sizeof(ins));
         i = 0;
 
         /* load magic in A */
@@ -288,7 +360,7 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
                         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
                         if (i+1 >= ELEMENTSOF(ins))
-                                return -1;
+                                return -E2BIG;
                 }
 
                 /* nothing matched, drop packet */
@@ -299,11 +371,11 @@ _public_ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
         bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
         /* install filter */
-        memset(&filter, 0x00, sizeof(filter));
+        memzero(&filter, sizeof(filter));
         filter.len = i;
         filter.filter = ins;
         err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-        return err;
+        return err < 0 ? -errno : 0;
 }
 
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
@@ -323,9 +395,6 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
         int err = 0;
         const int on = 1;
-
-        if (udev_monitor->snl.nl.nl_family == 0)
-                return -EINVAL;
 
         udev_monitor_filter_update(udev_monitor);
 
@@ -350,7 +419,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
                         udev_monitor->snl.nl.nl_pid = snl.nl.nl_pid;
         } else {
                 udev_err(udev_monitor->udev, "bind failed: %m\n");
-                return err;
+                return -errno;
         }
 
         /* enable receiving of sender credentials */
@@ -371,7 +440,7 @@ _public_ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 _public_ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
 {
         if (udev_monitor == NULL)
-                return -1;
+                return -EINVAL;
         return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_RCVBUFFORCE, &size, sizeof(size));
 }
 
@@ -381,7 +450,7 @@ int udev_monitor_disconnect(struct udev_monitor *udev_monitor)
 
         err = close(udev_monitor->sock);
         udev_monitor->sock = -1;
-        return err;
+        return err < 0 ? -errno : 0;
 }
 
 /**
@@ -408,7 +477,7 @@ _public_ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor
  * the bound socket will be closed, and the resources of the monitor
  * will be released.
  *
- * Returns: the passed udev monitor if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monitor)
 {
@@ -416,7 +485,7 @@ _public_ struct udev_monitor *udev_monitor_unref(struct udev_monitor *udev_monit
                 return NULL;
         udev_monitor->refcount--;
         if (udev_monitor->refcount > 0)
-                return udev_monitor;
+                return NULL;
         if (udev_monitor->sock >= 0)
                 close(udev_monitor->sock);
         udev_list_cleanup(&udev_monitor->filter_subsystem_list);
@@ -451,7 +520,7 @@ _public_ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
 _public_ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 {
         if (udev_monitor == NULL)
-                return -1;
+                return -EINVAL;
         return udev_monitor->sock;
 }
 
@@ -524,23 +593,19 @@ _public_ struct udev_device *udev_monitor_receive_device(struct udev_monitor *ud
         char buf[8192];
         ssize_t buflen;
         ssize_t bufpos;
-        struct udev_monitor_netlink_header *nlh;
 
 retry:
         if (udev_monitor == NULL)
                 return NULL;
         iov.iov_base = &buf;
         iov.iov_len = sizeof(buf);
-        memset (&smsg, 0x00, sizeof(struct msghdr));
+        memzero(&smsg, sizeof(struct msghdr));
         smsg.msg_iov = &iov;
         smsg.msg_iovlen = 1;
         smsg.msg_control = cred_msg;
         smsg.msg_controllen = sizeof(cred_msg);
-
-        if (udev_monitor->snl.nl.nl_family != 0) {
-                smsg.msg_name = &snl;
-                smsg.msg_namelen = sizeof(snl);
-        }
+        smsg.msg_name = &snl;
+        smsg.msg_namelen = sizeof(snl);
 
         buflen = recvmsg(udev_monitor->sock, &smsg, 0);
         if (buflen < 0) {
@@ -554,20 +619,18 @@ retry:
                 return NULL;
         }
 
-        if (udev_monitor->snl.nl.nl_family != 0) {
-                if (snl.nl.nl_groups == 0) {
-                        /* unicast message, check if we trust the sender */
-                        if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
-                            snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
-                                udev_dbg(udev_monitor->udev, "unicast netlink message ignored\n");
-                                return NULL;
-                        }
-                } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
-                        if (snl.nl.nl_pid > 0) {
-                                udev_dbg(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
-                                     snl.nl.nl_pid);
-                                return NULL;
-                        }
+        if (snl.nl.nl_groups == 0) {
+                /* unicast message, check if we trust the sender */
+                if (udev_monitor->snl_trusted_sender.nl.nl_pid == 0 ||
+                    snl.nl.nl_pid != udev_monitor->snl_trusted_sender.nl.nl_pid) {
+                        udev_dbg(udev_monitor->udev, "unicast netlink message ignored\n");
+                        return NULL;
+                }
+        } else if (snl.nl.nl_groups == UDEV_MONITOR_KERNEL) {
+                if (snl.nl.nl_pid > 0) {
+                        udev_dbg(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
+                             snl.nl.nl_pid);
+                        return NULL;
                 }
         }
 
@@ -583,35 +646,47 @@ retry:
                 return NULL;
         }
 
+        udev_device = udev_device_new(udev_monitor->udev);
+        if (udev_device == NULL)
+                return NULL;
+
         if (memcmp(buf, "libudev", 8) == 0) {
+                struct udev_monitor_netlink_header *nlh;
+
                 /* udev message needs proper version magic */
                 nlh = (struct udev_monitor_netlink_header *) buf;
                 if (nlh->magic != htonl(UDEV_MONITOR_MAGIC)) {
                         udev_err(udev_monitor->udev, "unrecognized message signature (%x != %x)\n",
-                            nlh->magic, htonl(UDEV_MONITOR_MAGIC));
+                                 nlh->magic, htonl(UDEV_MONITOR_MAGIC));
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
-                if (nlh->properties_off+32 > (size_t)buflen)
+                if (nlh->properties_off+32 > (size_t)buflen) {
+                        udev_device_unref(udev_device);
                         return NULL;
+                }
+
                 bufpos = nlh->properties_off;
+
+                /* devices received from udev are always initialized */
+                udev_device_set_is_initialized(udev_device);
         } else {
                 /* kernel message with header */
                 bufpos = strlen(buf) + 1;
                 if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
                         udev_dbg(udev_monitor->udev, "invalid message length\n");
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
 
                 /* check message header */
                 if (strstr(buf, "@/") == NULL) {
                         udev_dbg(udev_monitor->udev, "unrecognized message header\n");
+                        udev_device_unref(udev_device);
                         return NULL;
                 }
         }
 
-        udev_device = udev_device_new(udev_monitor->udev);
-        if (udev_device == NULL)
-                return NULL;
         udev_device_set_info_loaded(udev_device);
 
         while (bufpos < buflen) {
@@ -664,15 +739,12 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         struct udev_list_entry *list_entry;
         uint64_t tag_bloom_bits;
 
-        if (udev_monitor->snl.nl.nl_family == 0)
-                return -EINVAL;
-
         blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
         if (blen < 32)
                 return -EINVAL;
 
         /* add versioned header */
-        memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
+        memzero(&nlh, sizeof(struct udev_monitor_netlink_header));
         memcpy(nlh.prefix, "libudev", 8);
         nlh.magic = htonl(UDEV_MONITOR_MAGIC);
         nlh.header_size = sizeof(struct udev_monitor_netlink_header);
@@ -699,7 +771,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
         iov[1].iov_base = (char *)buf;
         iov[1].iov_len = blen;
 
-        memset(&smsg, 0x00, sizeof(struct msghdr));
+        memzero(&smsg, sizeof(struct msghdr));
         smsg.msg_iov = iov;
         smsg.msg_iovlen = 2;
         /*

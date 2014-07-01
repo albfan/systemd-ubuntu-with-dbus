@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RANDOM\-SEED\&.SERVICE" "8" "" "systemd 208" "systemd-random-seed.service"
+.TH "SYSTEMD\-RANDOM\-SEED\&.SERVICE" "8" "" "systemd 209" "systemd-random-seed.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,7 +32,7 @@ systemd\-random\-seed\&.service
 is a service that restores the random seed of the system at early\-boot and saves it at shutdown\&. See
 \fBrandom\fR(4)
 for details\&. Saving/restoring the random seed across boots increases the amount of available entropy early at boot\&. On disk the random seed is stored in
-/var/lib/random\-seed\&.
+/var/lib/systemd/random\-seed\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

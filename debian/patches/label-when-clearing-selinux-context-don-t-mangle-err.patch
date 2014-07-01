@@ -3,20 +3,16 @@ Date: Tue, 10 Jun 2014 22:48:56 +0200
 Subject: label: when clearing selinux context, don't mangle errno
 
 (cherry picked from commit 874f1947e33922f08c578696af5b628a0f67fec2)
-(cherry picked from commit 00d967b989929e176e940345bbf3ffa65832b15f)
-
-Conflicts:
-	src/tmpfiles/tmpfiles.c
 ---
  src/shared/label.c      |  4 ++++
- src/tmpfiles/tmpfiles.c | 13 +++++--------
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ src/tmpfiles/tmpfiles.c | 12 ++++--------
+ 2 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/src/shared/label.c b/src/shared/label.c
-index fde39f22..3a18e31c 100644
+index 70e5c85a..c4168997 100644
 --- a/src/shared/label.c
 +++ b/src/shared/label.c
-@@ -230,6 +230,8 @@ int label_socket_set(const char *label) {
+@@ -295,6 +295,8 @@ int label_socket_set(const char *label) {
  void label_context_clear(void) {
  
  #ifdef HAVE_SELINUX
@@ -25,7 +21,7 @@ index fde39f22..3a18e31c 100644
          if (!use_selinux())
                  return;
  
-@@ -240,6 +242,8 @@ void label_context_clear(void) {
+@@ -305,6 +307,8 @@ void label_context_clear(void) {
  void label_socket_clear(void) {
  
  #ifdef HAVE_SELINUX
@@ -35,16 +31,18 @@ index fde39f22..3a18e31c 100644
                  return;
  
 diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
-index 4244656a..be2115c6 100644
+index 2a48180f..5fd23f4d 100644
 --- a/src/tmpfiles/tmpfiles.c
 +++ b/src/tmpfiles/tmpfiles.c
-@@ -460,18 +460,19 @@ static int item_set_perms(Item *i, const char *path) {
+@@ -461,20 +461,21 @@ static int item_set_perms(Item *i, const char *path) {
  }
  
  static int write_one_file(Item *i, const char *path) {
--        int r, e, fd, flags;
-+        int r, fd, flags;
+-        int e, flags;
++        int flags;
+         int fd = -1;
          struct stat st;
+         int r = 0;
  
 +        assert(i);
 +        assert(path);
@@ -61,16 +59,15 @@ index 4244656a..be2115c6 100644
          }
  
          if (fd < 0) {
-@@ -633,7 +634,7 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
+@@ -636,7 +637,6 @@ static int glob_item(Item *i, int (*action)(Item *, const char *)) {
  }
  
  static int create_item(Item *i) {
--        int r, e;
-+        int r;
+-        int e;
          struct stat st;
+         int r = 0;
  
-         assert(i);
-@@ -728,9 +729,7 @@ static int create_item(Item *i) {
+@@ -732,9 +732,7 @@ static int create_item(Item *i) {
  
                  label_context_set(i->path, S_IFLNK);
                  r = symlink(i->argument, i->path);
@@ -80,7 +77,7 @@ index 4244656a..be2115c6 100644
  
                  if (r < 0 && errno != EEXIST) {
                          log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
-@@ -772,9 +771,7 @@ static int create_item(Item *i) {
+@@ -774,9 +772,7 @@ static int create_item(Item *i) {
                  RUN_WITH_UMASK(0000) {
                          label_context_set(i->path, file_type);
                          r = mknod(i->path, i->mode | file_type, i->major_minor);

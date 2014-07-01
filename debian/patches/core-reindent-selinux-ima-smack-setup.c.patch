@@ -11,8 +11,6 @@ Conflicts:
 	src/core/ima-setup.c
 
 [zj: just selinux-setup.c, as needed for futher commits.]
-
-(cherry picked from commit 31b1d7a4f7358cdbc632e4cd2b61bef8fa34d281)
 ---
  src/core/selinux-setup.c | 152 +++++++++++++++++++++++------------------------
  1 file changed, 76 insertions(+), 76 deletions(-)

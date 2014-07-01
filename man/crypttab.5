@@ -1,5 +1,5 @@
 '\" t
-.TH "CRYPTTAB" "5" "" "systemd 208" "crypttab"
+.TH "CRYPTTAB" "5" "" "systemd 209" "crypttab"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -92,6 +92,14 @@ Specifies the maximum number of bytes to read from the key file\&. See
 for possible values and the default value of this option\&. This option is ignored in plain encryption mode, as the key file size is then given by the key size\&.
 .RE
 .PP
+\fIkey\-slot=\fR
+.RS 4
+Specifies the key slot to compare the passphrase or key against\&. If the key slot does not match the given passphrase or key, but another would, the setup of the device will fail regardless\&. This option implies
+\fIluks\fR\&. See
+\fBcryptsetup\fR(8)
+for possible values\&. The default is to try all key slots in sequential order\&.
+.RE
+.PP
 \fIluks\fR
 .RS 4
 Force LUKS mode\&. When this mode is used, the following options are ignored since they are provided by the LUKS header on the device:
@@ -158,7 +166,7 @@ as the password file in the third field\&.
 .PP
 \fItcrypt\-hidden\fR
 .RS 4
-Use the hidden TrueCrypt volume\&. This implies
+Use the hidden TrueCrypt volume\&. This option implies
 \fItcrypt\fR\&.
 .sp
 This will map the hidden volume that is inside of the volume provided in the second field\&. Please note that there is no protection for the hidden volume if the outer volume is mounted instead\&. See
@@ -179,14 +187,8 @@ on the behavior of the passphrase and key files when using TrueCrypt encryption 
 .PP
 \fItcrypt\-system\fR
 .RS 4
-Use TrueCrypt in system encryption mode\&. This implies
+Use TrueCrypt in system encryption mode\&. This option implies
 \fItcrypt\fR\&.
-.sp
-Please note that when using this mode, the whole device needs to be given in the second field instead of the partition\&. For example: if
-"/dev/sda2"
-is the system encrypted TrueCrypt patition,
-"/dev/sda"
-has to be given\&.
 .RE
 .PP
 \fItimeout=\fR

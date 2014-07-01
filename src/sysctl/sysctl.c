@@ -30,11 +30,11 @@
 #include "log.h"
 #include "strv.h"
 #include "util.h"
-#include "strv.h"
 #include "hashmap.h"
 #include "path-util.h"
 #include "conf-files.h"
 #include "fileio.h"
+#include "build.h"
 
 static char **arg_prefixes = NULL;
 
@@ -132,7 +132,7 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
                 return r;
         }
 
-        log_debug("parse: %s\n", path);
+        log_debug("parse: %s", path);
         while (!feof(f)) {
                 char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
                 void *v;
@@ -205,6 +205,7 @@ static int help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
                "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
                program_invocation_short_name);
 
@@ -214,13 +215,15 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
+                ARG_VERSION = 0x100,
                 ARG_PREFIX
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "prefix",    required_argument, NULL, ARG_PREFIX    },
-                { NULL,        0,                 NULL, 0             }
+                {}
         };
 
         int c;
@@ -233,23 +236,22 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_PREFIX: {
                         char *p;
-                        char **l;
 
                         for (p = optarg; *p; p++)
                                 if (*p == '.')
                                         *p = '/';
 
-                        l = strv_append(arg_prefixes, optarg);
-                        if (!l)
+                        if (strv_extend(&arg_prefixes, optarg) < 0)
                                 return log_oom();
-
-                        strv_free(arg_prefixes);
-                        arg_prefixes = l;
 
                         break;
                 }
@@ -258,8 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

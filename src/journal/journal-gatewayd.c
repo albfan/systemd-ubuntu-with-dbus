@@ -32,8 +32,7 @@
 #include "sd-journal.h"
 #include "sd-daemon.h"
 #include "sd-bus.h"
-#include "bus-message.h"
-#include "bus-internal.h"
+#include "bus-util.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
 #include "build.h"
@@ -132,6 +131,7 @@ static int respond_oom_internal(struct MHD_Connection *connection) {
 
 #define respond_oom(connection) log_oom(), respond_oom_internal(connection)
 
+_printf_(3,4)
 static int respond_error(
                 struct MHD_Connection *connection,
                 unsigned code,
@@ -743,42 +743,30 @@ static int request_handler_file(
 }
 
 static int get_virtualization(char **v) {
-        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_bus_unref_ sd_bus *bus = NULL;
-        const char *t;
-        char *b;
+        char *b = NULL;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = sd_bus_default_system(&bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        NULL,
-                        &reply,
-                        "ss",
                         "org.freedesktop.systemd1.Manager",
-                        "Virtualization");
+                        "Virtualization",
+                        NULL,
+                        &b);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(reply, "v", "s", &t);
-        if (r < 0)
-                return r;
-
-        if (isempty(t)) {
+        if (isempty(b)) {
+                free(b);
                 *v = NULL;
                 return 0;
         }
-
-        b = strdup(t);
-        if (!b)
-                return -ENOMEM;
 
         *v = b;
         return 1;
@@ -792,7 +780,7 @@ static int request_handler_machine(
         RequestMeta *m = connection_cls;
         int r;
         _cleanup_free_ char* hostname = NULL, *os_name = NULL;
-        uint64_t cutoff_from, cutoff_to, usage;
+        uint64_t cutoff_from = 0, cutoff_to = 0, usage;
         char *json;
         sd_id128_t mid, bid;
         _cleanup_free_ char *v = NULL;
@@ -936,21 +924,23 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "key",     required_argument, NULL, ARG_KEY     },
                 { "cert",    required_argument, NULL, ARG_CERT    },
-                { NULL,      0,                 NULL, 0           }
+                {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+
                 switch(c) {
+
+                case 'h':
+                        return help();
+
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
-
-                case 'h':
-                        return help();
 
                 case ARG_KEY:
                         if (key_pem) {
@@ -982,8 +972,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (optind < argc) {

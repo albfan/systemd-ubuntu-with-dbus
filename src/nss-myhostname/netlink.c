@@ -31,7 +31,6 @@
 #include <limits.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <inttypes.h>
 #include <stdlib.h>
 
 #include "ifconf.h"
@@ -197,7 +196,8 @@ finish:
                 return r;
         }
 
-        qsort(list, n_list, sizeof(struct address), address_compare);
+        if (n_list)
+                qsort(list, n_list, sizeof(struct address), address_compare);
 
         *_list = list;
         *_n_list = n_list;

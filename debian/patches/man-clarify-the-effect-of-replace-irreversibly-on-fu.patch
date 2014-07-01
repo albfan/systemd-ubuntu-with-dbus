@@ -1,0 +1,27 @@
+From: David Strauss <david@davidstrauss.net>
+Date: Mon, 9 Jun 2014 15:32:03 -0700
+Subject: man: clarify the effect of replace-irreversibly on future
+ conflicting jobs
+
+(cherry picked from commit 9a92e77e4325b995288ef7cac144ecbf969886df)
+---
+ man/systemctl.xml | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index 43823420..dcac12b7 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -218,8 +218,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+         <para>If <literal>replace-irreversibly</literal> is specified,
+         operate like <literal>replace</literal>, but also mark the new
+         jobs as irreversible. This prevents future conflicting
+-        transactions from replacing these jobs. The jobs can still be
+-        cancelled using the <command>cancel</command> command.</para>
++        transactions from replacing these jobs (or even being enqueued
++        while the irreversible jobs are still pending). Irreversible
++        jobs can still be cancelled using the <command>cancel</command>
++        command.</para>
+ 
+         <para><literal>isolate</literal> is only valid for start
+         operations and causes all other units to be stopped when the
