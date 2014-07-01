@@ -8,6 +8,7 @@ systemd (210-1) UNRELEASED; urgency=medium
     functionality of the various libsystemd-* libraries.
   * Depreate libsystemd-* libraries as they've been bundled into libsystemd.
     The various -dev files now just carry a transitional .pc file
+    - Add new symbols file for libsystemd0.
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 
