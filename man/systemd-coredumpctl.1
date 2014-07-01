@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-COREDUMPCTL" "1" "" "systemd 208" "systemd-coredumpctl"
+.TH "SYSTEMD\-COREDUMPCTL" "1" "" "systemd 214" "systemd-coredumpctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,16 +33,6 @@ may be used to retrieve coredumps from
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Print a short help text and exit\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Print a short version string and exit\&.
-.RE
-.PP
 \fB\-F\fR, \fB\-\-field=\fR
 .RS 4
 Print all possible data values the specified field takes in matching coredump entries of the journal\&.
@@ -54,16 +44,24 @@ Write the core to
 \fBFILE\fR\&.
 .RE
 .PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output of
-\fBlist\fR
-into a pager\&.
-.RE
-.PP
 \fB\-\-no\-legend\fR
 .RS 4
 Do not print the column headers\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
 .RE
 .PP
 The following commands are understood:
@@ -75,7 +73,7 @@ List coredumps captured in the journal matching specified characteristics\&.
 .PP
 \fBdump\fR
 .RS 4
-Extract the last coredump matching specified characteristics\&. Coredump will be written on stdout, unless an output file is specified with
+Extract the last coredump matching specified characteristics\&. The coredump will be written on standard output, unless an output file is specified with
 \fB\-o/\-\-output\fR\&.
 .RE
 .PP
@@ -111,7 +109,7 @@ General journalctl predicates (see
 .RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&. Not finding any matching coredumps is treated as failure\&.
+On success, 0 is returned; otherwise, a non\-zero failure code is returned\&. Not finding any matching coredumps is treated as failure\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd-journald.service\fR(8),

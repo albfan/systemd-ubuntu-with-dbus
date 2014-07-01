@@ -19,20 +19,45 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-delta"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-delta — Find overridden configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-delta [OPTIONS...]  [SUFFIX...]</code> </p></div></div><div class="refsect1"><a name="idm274676709696"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-delta</strong></span> may be used to
-                identify and compare configuration files in
-                <code class="filename">/etc</code> that override default
-                counterparts in <code class="filename">/usr</code>. The command
-                line argument can be one or more name of a subdirectories of
-                <code class="filename">/etc</code> or
-                <code class="filename">/usr/lib</code> to compare, such as
-                <code class="filename">tmpfiles.d</code>, <code class="filename">sysctl.d</code> or
-                <code class="filename">systemd/system</code>.</p><p>When no argument is specified a number of
-                well-known subdirectories are searched for overridden
-                files.</p></div><div class="refsect1"><a name="idm274676702256"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p>Prints a short help
-                                text and exits.</p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p>Prints a short version
-                                string and exits.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a
-                                pager.</p></dd><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--type=</code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>When listing the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd-delta"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-delta — Find overridden configuration files</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-delta</code>  [OPTIONS...] [<em class="replaceable"><code>PREFIX</code></em>[<span class="optional">/<em class="replaceable"><code>SUFFIX</code></em></span>]|<em class="replaceable"><code>SUFFIX</code></em>...]</p></div></div><div class="refsect1"><a name="idm214169442352"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-delta</strong></span> may be used to
+                identify and compare configuration files that override
+                other configuration files. Files in
+                <code class="filename">/etc</code> have highest priority, files
+                in <code class="filename">/run</code> have the second highest
+                priority, ..., files in <code class="filename">/lib</code> have
+                lowest priority. Files in a directory with higher
+                priority override files with the same name in
+                directories of lower priority. In addition, certain
+                configuration files can have "<code class="literal">.d</code>"
+                directories which contain "drop-in" files with
+                configuration snippets which augment the main
+                configuration file. "Drop-in" files can be overriden
+                in the same way by placing files with the same name in
+                a directory of higher priority (except that in case of
+                "drop-in" files, both the "drop-in" file name and the
+                name of the containing directory, which corresponds to
+                the name of the main configuration file, must match).
+                For a fuller explanation, see
+                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.
+                </p><p>The command line argument will be split into a
+                prefix and a suffix. Either is optional. The prefix
+                must be one of the directories containing
+                configuration files (<code class="filename">/etc</code>,
+                <code class="filename">/run</code>,
+                <code class="filename">/usr/lib</code>, ...). If it is given,
+                only overriding files contained in this directory will
+                be shown. Otherwise, all overriding files will be
+                shown. The suffix must be a name of a subdirectory
+                containing configuration files like
+                <code class="filename">tmpfiles.d</code>,
+                <code class="filename">sysctl.d</code> or
+                <code class="filename">systemd/system</code>. If it is given,
+                only configuration files in this subdirectory (across
+                all configuration paths) will be analyzed. Otherwise,
+                all configuration files will be analyzed. If the
+                commandline argument is not given at all, all
+                configuration files will be analyzed. See below for
+                some examples.</p></div><div class="refsect1"><a name="idm214168463456"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--type=</code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>When listing the
                                 differences, only list those that are
                                 asked for. The list itself is a
                                 comma-separated list of desired
@@ -49,7 +74,9 @@
                                 files, when a file is overridden show a
                                 diff as well. This option takes a
                                 boolean argument. If omitted, it defaults
-                                to <code class="option">true</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm274680578384"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm274680577200"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
-                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
+                                to <code class="option">true</code>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm214172345232"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>To see all local configuration:</p><pre class="programlisting">systemd-delta</pre><p>To see all runtime configuration:</p><pre class="programlisting">systemd-delta /run</pre><p>To see all system unit configuration changes:</p><pre class="programlisting">systemd-delta systemd/system</pre><p>To see all runtime "drop-in" changes for system units:</p><pre class="programlisting">systemd-delta --type=extended /run/systemd/system</pre></div><div class="refsect1"><a name="idm214172340064"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm214172338880"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>
                 </p></div></div></body></html>

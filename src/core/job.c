@@ -24,8 +24,8 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 
-#include "systemd/sd-id128.h"
-#include "systemd/sd-messages.h"
+#include "sd-id128.h"
+#include "sd-messages.h"
 #include "set.h"
 #include "unit.h"
 #include "macro.h"
@@ -37,20 +37,7 @@
 #include "special.h"
 #include "async.h"
 #include "virt.h"
-
-JobBusClient* job_bus_client_new(DBusConnection *connection, const char *name) {
-        JobBusClient *cl;
-        size_t name_len;
-
-        name_len = strlen(name);
-        cl = malloc0(sizeof(JobBusClient) + name_len + 1);
-        if (!cl)
-                return NULL;
-
-        cl->bus = connection;
-        memcpy(cl->name, name, name_len + 1);
-        return cl;
-}
+#include "dbus.h"
 
 Job* job_new_raw(Unit *unit) {
         Job *j;
@@ -66,7 +53,6 @@ Job* job_new_raw(Unit *unit) {
         j->manager = unit->manager;
         j->unit = unit;
         j->type = _JOB_TYPE_INVALID;
-        j->timer_watch.type = WATCH_INVALID;
 
         return j;
 }
@@ -89,8 +75,6 @@ Job* job_new(Unit *unit, JobType type) {
 }
 
 void job_free(Job *j) {
-        JobBusClient *cl;
-
         assert(j);
         assert(!j->installed);
         assert(!j->transaction_prev);
@@ -99,24 +83,16 @@ void job_free(Job *j) {
         assert(!j->object_list);
 
         if (j->in_run_queue)
-                LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
+                LIST_REMOVE(run_queue, j->manager->run_queue, j);
 
         if (j->in_dbus_queue)
-                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+                LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
 
-        if (j->timer_watch.type != WATCH_INVALID) {
-                assert(j->timer_watch.type == WATCH_JOB_TIMER);
-                assert(j->timer_watch.data.job == j);
-                assert(j->timer_watch.fd >= 0);
+        sd_event_source_unref(j->timer_event_source);
 
-                assert_se(epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_DEL, j->timer_watch.fd, NULL) >= 0);
-                close_nointr_nofail(j->timer_watch.fd);
-        }
+        sd_bus_track_unref(j->subscribed);
+        strv_free(j->deserialized_subscribed);
 
-        while ((cl = j->bus_client_list)) {
-                LIST_REMOVE(JobBusClient, client, j->bus_client_list, cl);
-                free(cl);
-        }
         free(j);
 }
 
@@ -267,9 +243,9 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool 
         l->conflicts = conflicts;
 
         if (subject)
-                LIST_PREPEND(JobDependency, subject, subject->subject_list, l);
+                LIST_PREPEND(subject, subject->subject_list, l);
 
-        LIST_PREPEND(JobDependency, object, object->object_list, l);
+        LIST_PREPEND(object, object->object_list, l);
 
         return l;
 }
@@ -278,9 +254,9 @@ void job_dependency_free(JobDependency *l) {
         assert(l);
 
         if (l->subject)
-                LIST_REMOVE(JobDependency, subject, l->subject->subject_list, l);
+                LIST_REMOVE(subject, l->subject->subject_list, l);
 
-        LIST_REMOVE(JobDependency, object, l->object->object_list, l);
+        LIST_REMOVE(object, l->object->object_list, l);
 
         free(l);
 }
@@ -416,7 +392,7 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         return 0;
 }
 
-bool job_is_runnable(Job *j) {
+static bool job_is_runnable(Job *j) {
         Iterator i;
         Unit *other;
 
@@ -427,6 +403,11 @@ bool job_is_runnable(Job *j) {
          * job needs to be running after (in the case of a 'positive'
          * job type) or before (in the case of a 'negative' job
          * type. */
+
+        /* Note that unit types have a say in what is runnable,
+         * too. For example, if they return -EAGAIN from
+         * unit_start() they can indicate they are not
+         * runnable yet. */
 
         /* First check if there is an override */
         if (j->ignore_order)
@@ -491,7 +472,7 @@ int job_run_and_invalidate(Job *j) {
         assert(j->type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(j->in_run_queue);
 
-        LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
+        LIST_REMOVE(run_queue, j->manager->run_queue, j);
         j->in_run_queue = false;
 
         if (j->state != JOB_WAITING)
@@ -528,7 +509,7 @@ int job_run_and_invalidate(Job *j) {
                         else if (t == UNIT_ACTIVATING)
                                 r = -EAGAIN;
                         else
-                                r = -ENOEXEC;
+                                r = -EBADR;
                         break;
                 }
 
@@ -557,8 +538,10 @@ int job_run_and_invalidate(Job *j) {
         if (j) {
                 if (r == -EALREADY)
                         r = job_finish_and_invalidate(j, JOB_DONE, true);
-                else if (r == -ENOEXEC)
+                else if (r == -EBADR)
                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
+                else if (r == -ENOEXEC)
+                        r = job_finish_and_invalidate(j, JOB_INVALID, true);
                 else if (r == -EAGAIN) {
                         j->state = JOB_WAITING;
                         m->n_running_jobs--;
@@ -635,6 +618,8 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
         assert(t >= 0);
         assert(t < _JOB_TYPE_MAX);
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+
         if (t == JOB_START) {
                 format = job_get_status_message_format(u, t, result);
                 if (!format)
@@ -648,15 +633,18 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                         break;
 
                 case JOB_FAILED:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
                         manager_status_printf(u->manager, false, NULL, "See 'systemctl status %s' for details.", u->id);
                         break;
 
                 case JOB_DEPENDENCY:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_YELLOW_ON "DEPEND" ANSI_HIGHLIGHT_OFF, format);
                         break;
 
                 case JOB_TIMEOUT:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
@@ -673,6 +661,7 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 switch (result) {
 
                 case JOB_TIMEOUT:
+                        manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON " TIME " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
@@ -693,10 +682,10 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                 if (result == JOB_SKIPPED)
                         unit_status_printf(u, ANSI_HIGHLIGHT_ON " INFO " ANSI_HIGHLIGHT_OFF, "%s is not active.");
         }
+
+        REENABLE_WARNING;
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         const char *format;
         char buf[LINE_MAX];
@@ -715,8 +704,10 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
         if (!format)
                 return;
 
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         snprintf(buf, sizeof(buf), format, unit_description(u));
         char_array_0(buf);
+        REENABLE_WARNING;
 
         if (t == JOB_START) {
                 sd_id128_t mid;
@@ -745,7 +736,6 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                            "MESSAGE=%s", buf,
                            NULL);
 }
-#pragma GCC diagnostic pop
 
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
         Unit *u;
@@ -784,7 +774,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
                 goto finish;
         }
 
-        if (result == JOB_FAILED)
+        if (result == JOB_FAILED || result == JOB_INVALID)
                 j->manager->n_failed_jobs ++;
 
         job_uninstall(j);
@@ -859,48 +849,40 @@ finish:
         return 0;
 }
 
-int job_start_timer(Job *j) {
-        struct itimerspec its = {};
-        struct epoll_event ev = {
-                .data.ptr = &j->timer_watch,
-                .events = EPOLLIN,
-        };
-        int fd, r;
+static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *userdata) {
+        Job *j = userdata;
 
-        if (j->unit->job_timeout <= 0 ||
-            j->timer_watch.type == WATCH_JOB_TIMER)
+        assert(j);
+        assert(s == j->timer_event_source);
+
+        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
+                         j->unit->id, job_type_to_string(j->type));
+
+        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
+        return 0;
+}
+
+int job_start_timer(Job *j) {
+        int r;
+
+        if (j->timer_event_source)
                 return 0;
 
-        assert(j->timer_watch.type == WATCH_INVALID);
+        j->begin_usec = now(CLOCK_MONOTONIC);
 
-        if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (j->unit->job_timeout <= 0)
+                return 0;
 
-        timespec_store(&its.it_value, j->unit->job_timeout);
-
-        if (timerfd_settime(fd, 0, &its, NULL) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        j->timer_watch.type = WATCH_JOB_TIMER;
-        j->timer_watch.fd = fd;
-        j->timer_watch.data.job = j;
+        r = sd_event_add_time(
+                        j->manager->event,
+                        &j->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        j->begin_usec + j->unit->job_timeout, 0,
+                        job_dispatch_timer, j);
+        if (r < 0)
+                return r;
 
         return 0;
-
-fail:
-        if (fd >= 0)
-                close_nointr_nofail(fd);
-
-        return r;
 }
 
 void job_add_to_run_queue(Job *j) {
@@ -910,7 +892,10 @@ void job_add_to_run_queue(Job *j) {
         if (j->in_run_queue)
                 return;
 
-        LIST_PREPEND(Job, run_queue, j->manager->run_queue, j);
+        if (!j->manager->run_queue)
+                sd_event_source_set_enabled(j->manager->run_queue_event_source, SD_EVENT_ONESHOT);
+
+        LIST_PREPEND(run_queue, j->manager->run_queue, j);
         j->in_run_queue = true;
 }
 
@@ -925,7 +910,7 @@ void job_add_to_dbus_queue(Job *j) {
          * job might just have been created and not yet assigned to a
          * connection/client. */
 
-        LIST_PREPEND(Job, dbus_queue, j->manager->dbus_job_queue, j);
+        LIST_PREPEND(dbus_queue, j->manager->dbus_job_queue, j);
         j->in_dbus_queue = true;
 }
 
@@ -934,19 +919,10 @@ char *job_dbus_path(Job *j) {
 
         assert(j);
 
-        if (asprintf(&p, "/org/freedesktop/systemd1/job/%lu", (unsigned long) j->id) < 0)
+        if (asprintf(&p, "/org/freedesktop/systemd1/job/%"PRIu32, j->id) < 0)
                 return NULL;
 
         return p;
-}
-
-void job_timer_event(Job *j, uint64_t n_elapsed, Watch *w) {
-        assert(j);
-        assert(w == &j->timer_watch);
-
-        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
-                         j->unit->id, job_type_to_string(j->type));
-        job_finish_and_invalidate(j, JOB_TIMEOUT, true);
 }
 
 int job_serialize(Job *j, FILE *f, FDSet *fds) {
@@ -957,16 +933,11 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         fprintf(f, "job-irreversible=%s\n", yes_no(j->irreversible));
         fprintf(f, "job-sent-dbus-new-signal=%s\n", yes_no(j->sent_dbus_new_signal));
         fprintf(f, "job-ignore-order=%s\n", yes_no(j->ignore_order));
-        /* Cannot save bus clients. Just note the fact that we're losing
-         * them. job_send_message() will fallback to broadcasting. */
-        fprintf(f, "job-forgot-bus-clients=%s\n",
-                yes_no(j->forgot_bus_clients || j->bus_client_list));
-        if (j->timer_watch.type == WATCH_JOB_TIMER) {
-                int copy = fdset_put_dup(fds, j->timer_watch.fd);
-                if (copy < 0)
-                        return copy;
-                fprintf(f, "job-timer-watch-fd=%d\n", copy);
-        }
+
+        if (j->begin_usec > 0)
+                fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
+
+        bus_track_serialize(j->subscribed, f);
 
         /* End marker */
         fputc('\n', f);
@@ -974,6 +945,8 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
 }
 
 int job_deserialize(Job *j, FILE *f, FDSet *fds) {
+        assert(j);
+
         for (;;) {
                 char line[LINE_MAX], *l, *v;
                 size_t k;
@@ -1000,81 +973,112 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
                         v = l+k;
 
                 if (streq(l, "job-id")) {
+
                         if (safe_atou32(v, &j->id) < 0)
                                 log_debug("Failed to parse job id value %s", v);
+
                 } else if (streq(l, "job-type")) {
-                        JobType t = job_type_from_string(v);
+                        JobType t;
+
+                        t = job_type_from_string(v);
                         if (t < 0)
                                 log_debug("Failed to parse job type %s", v);
                         else if (t >= _JOB_TYPE_MAX_IN_TRANSACTION)
                                 log_debug("Cannot deserialize job of type %s", v);
                         else
                                 j->type = t;
+
                 } else if (streq(l, "job-state")) {
-                        JobState s = job_state_from_string(v);
+                        JobState s;
+
+                        s = job_state_from_string(v);
                         if (s < 0)
                                 log_debug("Failed to parse job state %s", v);
                         else
                                 j->state = s;
+
                 } else if (streq(l, "job-override")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job override flag %s", v);
                         else
                                 j->override = j->override || b;
+
                 } else if (streq(l, "job-irreversible")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job irreversible flag %s", v);
                         else
                                 j->irreversible = j->irreversible || b;
+
                 } else if (streq(l, "job-sent-dbus-new-signal")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job sent_dbus_new_signal flag %s", v);
                         else
                                 j->sent_dbus_new_signal = j->sent_dbus_new_signal || b;
+
                 } else if (streq(l, "job-ignore-order")) {
-                        int b = parse_boolean(v);
+                        int b;
+
+                        b = parse_boolean(v);
                         if (b < 0)
                                 log_debug("Failed to parse job ignore_order flag %s", v);
                         else
                                 j->ignore_order = j->ignore_order || b;
-                } else if (streq(l, "job-forgot-bus-clients")) {
-                        int b = parse_boolean(v);
-                        if (b < 0)
-                                log_debug("Failed to parse job forgot_bus_clients flag %s", v);
-                        else
-                                j->forgot_bus_clients = j->forgot_bus_clients || b;
-                } else if (streq(l, "job-timer-watch-fd")) {
-                        int fd;
-                        if (safe_atoi(v, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse job-timer-watch-fd value %s", v);
-                        else {
-                                if (j->timer_watch.type == WATCH_JOB_TIMER)
-                                        close_nointr_nofail(j->timer_watch.fd);
 
-                                j->timer_watch.type = WATCH_JOB_TIMER;
-                                j->timer_watch.fd = fdset_remove(fds, fd);
-                                j->timer_watch.data.job = j;
-                        }
+                } else if (streq(l, "job-begin")) {
+                        unsigned long long ull;
+
+                        if (sscanf(v, "%llu", &ull) != 1)
+                                log_debug("Failed to parse job-begin value %s", v);
+                        else
+                                j->begin_usec = ull;
+
+                } else if (streq(l, "subscribed")) {
+
+                        if (strv_extend(&j->deserialized_subscribed, v) < 0)
+                                return log_oom();
                 }
         }
 }
 
 int job_coldplug(Job *j) {
-        struct epoll_event ev = {
-                .data.ptr = &j->timer_watch,
-                .events = EPOLLIN,
-        };
+        int r;
 
-        if (j->timer_watch.type != WATCH_JOB_TIMER)
+        assert(j);
+
+        /* After deserialization is complete and the bus connection
+         * set up again, let's start watching our subscribers again */
+        r = bus_track_coldplug(j->manager, &j->subscribed, &j->deserialized_subscribed);
+        if (r < 0)
+                return r;
+
+        if (j->state == JOB_WAITING)
+                job_add_to_run_queue(j);
+
+        if (j->begin_usec == 0 || j->unit->job_timeout == 0)
                 return 0;
 
-        if (epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_ADD, j->timer_watch.fd, &ev) < 0)
-                return -errno;
+        if (j->timer_event_source)
+                j->timer_event_source = sd_event_source_unref(j->timer_event_source);
 
-        return 0;
+        r = sd_event_add_time(
+                        j->manager->event,
+                        &j->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        j->begin_usec + j->unit->job_timeout, 0,
+                        job_dispatch_timer, j);
+        if (r < 0)
+                log_debug("Failed to restart timeout for job: %s", strerror(-r));
+
+        return r;
 }
 
 void job_shutdown_magic(Job *j) {
@@ -1097,10 +1101,41 @@ void job_shutdown_magic(Job *j) {
         if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
                 return;
 
+        /* In case messages on console has been disabled on boot */
+        j->unit->manager->no_console_output = false;
+
         if (detect_container(NULL) > 0)
                 return;
 
         asynchronous_sync();
+}
+
+int job_get_timeout(Job *j, uint64_t *timeout) {
+        Unit *u = j->unit;
+        uint64_t x = -1, y = -1;
+        int r = 0, q = 0;
+
+        assert(u);
+
+        if (j->timer_event_source) {
+                r = sd_event_source_get_time(j->timer_event_source, &x);
+                if (r < 0)
+                        return r;
+                r = 1;
+        }
+
+        if (UNIT_VTABLE(u)->get_timeout) {
+                q = UNIT_VTABLE(u)->get_timeout(u, &y);
+                if (q < 0)
+                        return q;
+        }
+
+        if (r == 0 && q == 0)
+                return 0;
+
+        *timeout = MIN(x, y);
+
+        return 1;
 }
 
 static const char* const job_state_table[_JOB_STATE_MAX] = {
@@ -1128,8 +1163,9 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_REPLACE] = "replace",
         [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
         [JOB_ISOLATE] = "isolate",
+        [JOB_FLUSH] = "flush",
         [JOB_IGNORE_DEPENDENCIES] = "ignore-dependencies",
-        [JOB_IGNORE_REQUIREMENTS] = "ignore-requirements"
+        [JOB_IGNORE_REQUIREMENTS] = "ignore-requirements",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
@@ -1140,7 +1176,8 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_TIMEOUT] = "timeout",
         [JOB_FAILED] = "failed",
         [JOB_DEPENDENCY] = "dependency",
-        [JOB_SKIPPED] = "skipped"
+        [JOB_SKIPPED] = "skipped",
+        [JOB_INVALID] = "invalid",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

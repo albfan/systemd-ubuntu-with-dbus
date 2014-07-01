@@ -38,8 +38,6 @@
 #define LONG(x) ((x)/BITS_PER_LONG)
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 /*
  * Read a capability attribute and return bitmask.
  * @param dev udev_device
@@ -57,16 +55,16 @@ static void get_cap_mask(struct udev_device *dev,
         unsigned long val;
 
         snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(pdev, attr));
-        log_debug("%s raw kernel attribute: %s\n", attr, text);
+        log_debug("%s raw kernel attribute: %s", attr, text);
 
-        memset (bitmask, 0, bitmask_size);
+        memzero(bitmask, bitmask_size);
         i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
                 val = strtoul (word+1, NULL, 16);
                 if (i < bitmask_size/sizeof(unsigned long))
                         bitmask[i] = val;
                 else
-                        log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
+                        log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
                 *word = '\0';
                 ++i;
         }
@@ -74,21 +72,23 @@ static void get_cap_mask(struct udev_device *dev,
         if (i < bitmask_size / sizeof(unsigned long))
                 bitmask[i] = val;
         else
-                log_debug("ignoring %s block %lX which is larger than maximum size\n", attr, val);
+                log_debug("ignoring %s block %lX which is larger than maximum size", attr, val);
 
         if (test) {
                 /* printf pattern with the right unsigned long number of hex chars */
                 snprintf(text, sizeof(text), "  bit %%4u: %%0%zilX\n", 2 * sizeof(unsigned long));
-                log_debug("%s decoded bit map:\n", attr);
+                log_debug("%s decoded bit map:", attr);
                 val = bitmask_size / sizeof (unsigned long);
                 /* skip over leading zeros */
                 while (bitmask[val-1] == 0 && val > 0)
                         --val;
-                for (i = 0; i < val; ++i)
+                for (i = 0; i < val; ++i) {
+                        DISABLE_WARNING_FORMAT_NONLITERAL;
                         log_debug(text, i * BITS_PER_LONG, bitmask[i]);
+                        REENABLE_WARNING;
+                }
         }
 }
-#pragma GCC diagnostic pop
 
 /* pointer devices */
 static void test_pointers (struct udev_device *dev,
@@ -116,16 +116,27 @@ static void test_pointers (struct udev_device *dev,
                         udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
                 else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
                         is_touchpad = 1;
-                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
-                         test_bit (BTN_A, bitmask_key) ||
-                         test_bit (BTN_1, bitmask_key))
-                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
                 else if (test_bit (BTN_MOUSE, bitmask_key))
                         /* This path is taken by VMware's USB mouse, which has
                          * absolute axes, but no touch/pressure button. */
                         is_mouse = 1;
                 else if (test_bit (BTN_TOUCH, bitmask_key))
                         udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
+                /* joysticks don't necessarily have to have buttons; e. g.
+                 * rudders/pedals are joystick-like, but buttonless; they have
+                 * other fancy axes */
+                else if (test_bit (BTN_TRIGGER, bitmask_key) ||
+                         test_bit (BTN_A, bitmask_key) ||
+                         test_bit (BTN_1, bitmask_key) ||
+                         test_bit (ABS_RX, bitmask_abs) ||
+                         test_bit (ABS_RY, bitmask_abs) ||
+                         test_bit (ABS_RZ, bitmask_abs) ||
+                         test_bit (ABS_THROTTLE, bitmask_abs) ||
+                         test_bit (ABS_RUDDER, bitmask_abs) ||
+                         test_bit (ABS_WHEEL, bitmask_abs) ||
+                         test_bit (ABS_GAS, bitmask_abs) ||
+                         test_bit (ABS_BRAKE, bitmask_abs))
+                        udev_builtin_add_property(dev, test, "ID_INPUT_JOYSTICK", "1");
         }
 
         if (test_bit (EV_REL, bitmask_ev) &&
@@ -151,7 +162,7 @@ static void test_key (struct udev_device *dev,
 
         /* do we have any KEY_* capability? */
         if (!test_bit (EV_KEY, bitmask_ev)) {
-                log_debug("test_key: no EV_KEY capability\n");
+                log_debug("test_key: no EV_KEY capability");
                 return;
         }
 
@@ -159,13 +170,13 @@ static void test_key (struct udev_device *dev,
         found = 0;
         for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i) {
                 found |= bitmask_key[i];
-                log_debug("test_key: checking bit block %lu for any keys; found=%i\n", (unsigned long)i*BITS_PER_LONG, found > 0);
+                log_debug("test_key: checking bit block %lu for any keys; found=%i", (unsigned long)i*BITS_PER_LONG, found > 0);
         }
         /* If there are no keys in the lower block, check the higher block */
         if (!found) {
                 for (i = KEY_OK; i < BTN_TRIGGER_HAPPY; ++i) {
                         if (test_bit (i, bitmask_key)) {
-                                log_debug("test_key: Found key %x in high block\n", i);
+                                log_debug("test_key: Found key %x in high block", i);
                                 found = 1;
                                 break;
                         }

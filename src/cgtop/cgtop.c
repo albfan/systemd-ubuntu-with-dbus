@@ -98,7 +98,7 @@ static void group_hashmap_free(Hashmap *h) {
 static int process(const char *controller, const char *path, Hashmap *a, Hashmap *b, unsigned iteration) {
         Group *g;
         int r;
-        FILE *f;
+        FILE *f = NULL;
         pid_t pid;
         unsigned n;
 
@@ -461,7 +461,7 @@ static int display(Hashmap *a) {
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 
-        qsort(array, n, sizeof(Group*), group_compare);
+        qsort_safe(array, n, sizeof(Group*), group_compare);
 
         /* Find the longest names in one run */
         for (j = 0; j < n; j++) {
@@ -548,7 +548,7 @@ static int display(Hashmap *a) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Show top control groups by their resource usage.\n\n"
@@ -563,12 +563,10 @@ static void help(void) {
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
-               "     --depth=DEPTH    Maximum traversal depth (default: %d)\n",
+               "     --depth=DEPTH    Maximum traversal depth (default: %u)\n",
                program_invocation_short_name, arg_depth);
-}
 
-static void version(void) {
-        puts(PACKAGE_STRING " cgtop");
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -587,7 +585,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "batch",      no_argument,       NULL, 'b'         },
                 { "depth",      required_argument, NULL, ARG_DEPTH   },
                 { "cpu",        optional_argument, NULL, ARG_CPU_TYPE},
-                { NULL,         0,                 NULL, 0           }
+                {}
         };
 
         int c;
@@ -601,11 +599,11 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
-                        version();
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case ARG_CPU_TYPE:
@@ -674,8 +672,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 

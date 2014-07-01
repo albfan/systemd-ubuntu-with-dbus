@@ -36,23 +36,6 @@ static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
         [SLICE_ACTIVE] = UNIT_ACTIVE
 };
 
-static void slice_init(Unit *u) {
-        Slice *s = SLICE(u);
-
-        assert(u);
-        assert(u->load_state == UNIT_STUB);
-
-        cgroup_context_init(&s->cgroup_context);
-}
-
-static void slice_done(Unit *u) {
-        Slice *s = SLICE(u);
-
-        assert(u);
-
-        cgroup_context_done(&s->cgroup_context);
-}
-
 static void slice_set_state(Slice *t, SliceState state) {
         SliceState old_state;
         assert(t);
@@ -152,6 +135,10 @@ static int slice_load(Unit *u) {
         /* This is a new unit? Then let's add in some extras */
         if (u->load_state == UNIT_LOADED) {
 
+                r = unit_patch_contexts(u);
+                if (r < 0)
+                        return r;
+
                 r = slice_add_parent_slice(s);
                 if (r < 0)
                         return r;
@@ -216,7 +203,7 @@ static int slice_stop(Unit *u) {
         return 0;
 }
 
-static int slice_kill(Unit *u, KillWho who, int signo, DBusError *error) {
+static int slice_kill(Unit *u, KillWho who, int signo, sd_bus_error *error) {
         return unit_kill_common(u, who, signo, -1, -1, error);
 }
 
@@ -275,20 +262,18 @@ DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
 
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
+        .cgroup_context_offset = offsetof(Slice, cgroup_context),
+
         .sections =
                 "Unit\0"
                 "Slice\0"
                 "Install\0",
-
         .private_section = "Slice",
-        .cgroup_context_offset = offsetof(Slice, cgroup_context),
 
         .no_alias = true,
         .no_instances = true,
 
-        .init = slice_init,
         .load = slice_load,
-        .done = slice_done,
 
         .coldplug = slice_coldplug,
 
@@ -306,7 +291,7 @@ const UnitVTable slice_vtable = {
         .sub_state_to_string = slice_sub_state_to_string,
 
         .bus_interface = "org.freedesktop.systemd1.Slice",
-        .bus_message_handler = bus_slice_message_handler,
+        .bus_vtable = bus_slice_vtable,
         .bus_set_property = bus_slice_set_property,
         .bus_commit_properties = bus_slice_commit_properties,
 

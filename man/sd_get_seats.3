@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_GET_SEATS" "3" "" "systemd 208" "sd_get_seats"
+.TH "SD_GET_SEATS" "3" "" "systemd 214" "sd_get_seats"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,13 +29,13 @@ sd_get_seats, sd_get_sessions, sd_get_uids, sd_get_machine_names \- Determine av
 .fi
 .ft
 .HP \w'int\ sd_get_seats('u
-.BI "int sd_get_seats(char***\ " "seats" ");"
+.BI "int sd_get_seats(char\ ***" "seats" ");"
 .HP \w'int\ sd_get_sessions('u
-.BI "int sd_get_sessions(char***\ " "sessions" ");"
+.BI "int sd_get_sessions(char\ ***" "sessions" ");"
 .HP \w'int\ sd_get_uids('u
-.BI "int sd_get_uids(uid_t**\ " "users" ");"
+.BI "int sd_get_uids(uid_t\ **" "users" ");"
 .HP \w'int\ sd_get_machine_names('u
-.BI "int sd_get_machine_names(char***\ " "machines" ");"
+.BI "int sd_get_machine_names(char\ ***" "machines" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_get_seats()\fR
@@ -47,22 +47,22 @@ call after use\&. Note that instead of an empty array
 \fBNULL\fR
 may be returned and should be considered equivalent to an empty array\&.
 .PP
-Similar,
+Similarly,
 \fBsd_get_sessions()\fR
 may be used to determine all current login sessions\&.
 .PP
-Similar,
+Similarly,
 \fBsd_get_uids()\fR
 may be used to determine all Unix users who currently have login sessions\&.
 .PP
-Similar,
+Similarly,
 \fBsd_get_machine_names()\fR
 may be used to determine all current virtual machines and containers on the system\&.
 .PP
 Note that the returned lists are not sorted and in an undefined order\&.
 .SH "RETURN VALUE"
 .PP
-On success
+On success,
 \fBsd_get_seats()\fR,
 \fBsd_get_sessions()\fR,
 \fBsd_get_uids()\fR
@@ -77,8 +77,8 @@ The
 \fBsd_get_uids()\fR
 and
 \fBsd_get_machine_names()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

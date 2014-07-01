@@ -66,7 +66,7 @@ retry:
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 goto retry;
         }
 
@@ -91,11 +91,9 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 
         char buffer[8 + LINE_MAX], p[11]; struct iovec iov[2];
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
-
-        if (!format)
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
+        assert_return(format, -EINVAL);
 
         snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
         char_array_0(p);
@@ -111,7 +109,7 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
         return sd_journal_sendv(iov, 2);
 }
 
-_printf_attr_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
+_printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int extra, struct iovec **_iov) {
         PROTECT_ERRNO;
         int r, n = 0, i = 0, j;
         struct iovec *iov = NULL;
@@ -218,17 +216,10 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
                 uint8_t buf[CMSG_SPACE(sizeof(int))];
         } control;
         struct cmsghdr *cmsg;
-        /* We use /dev/shm instead of /tmp here, since we want this to
-         * be a tmpfs, and one that is available from early boot on
-         * and where unprivileged users can create files. */
-        char path[] = "/dev/shm/journal.XXXXXX";
         bool have_syslog_identifier = false;
 
-        if (_unlikely_(!iov))
-                return -EINVAL;
-
-        if (_unlikely_(n <= 0))
-                return -EINVAL;
+        assert_return(iov, -EINVAL);
+        assert_return(n > 0, -EINVAL);
 
         w = alloca(sizeof(struct iovec) * n * 5 + 3);
         l = alloca(sizeof(uint64_t) * n);
@@ -305,25 +296,27 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         if (k >= 0)
                 return 0;
 
+        /* Fail silently if the journal is not available */
+        if (errno == ENOENT)
+                return 0;
+
         if (errno != EMSGSIZE && errno != ENOBUFS)
                 return -errno;
 
         /* Message doesn't fit... Let's dump the data in a temporary
          * file and just pass a file descriptor of it to the other
-         * side */
-
-        buffer_fd = mkostemp(path, O_CLOEXEC|O_RDWR);
+         * side.
+         *
+         * We use /dev/shm instead of /tmp here, since we want this to
+         * be a tmpfs, and one that is available from early boot on
+         * and where unprivileged users can create files. */
+        buffer_fd = open_tmpfile("/dev/shm", O_RDWR | O_CLOEXEC);
         if (buffer_fd < 0)
-                return -errno;
-
-        if (unlink(path) < 0) {
-                close_nointr_nofail(buffer_fd);
-                return -errno;
-        }
+                return buffer_fd;
 
         n = writev(buffer_fd, w, j);
         if (n < 0) {
-                close_nointr_nofail(buffer_fd);
+                safe_close(buffer_fd);
                 return -errno;
         }
 
@@ -343,7 +336,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         mh.msg_controllen = cmsg->cmsg_len;
 
         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
-        close_nointr_nofail(buffer_fd);
+        safe_close(buffer_fd);
 
         if (k < 0)
                 return -errno;
@@ -410,8 +403,8 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         size_t l;
         ssize_t r;
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -419,12 +412,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
 
         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
         if (shutdown(fd, SHUT_RD) < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -452,12 +445,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
 
         r = loop_write(fd, header, l, false);
         if (r < 0) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return (int) r;
         }
 
         if ((size_t) r != l) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -480,11 +473,9 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
         struct iovec iov[5];
         char *f;
 
-        if (priority < 0 || priority > 7)
-                return -EINVAL;
-
-        if (_unlikely_(!format))
-                return -EINVAL;
+        assert_return(priority >= 0, -EINVAL);
+        assert_return(priority <= 7, -EINVAL);
+        assert_return(format, -EINVAL);
 
         snprintf(p, sizeof(p), "PRIORITY=%i", priority & LOG_PRIMASK);
         char_array_0(p);
@@ -548,11 +539,8 @@ _public_ int sd_journal_sendv_with_location(
         struct iovec *niov;
         char *f;
 
-        if (_unlikely_(!iov))
-                return -EINVAL;
-
-        if (_unlikely_(n <= 0))
-                return -EINVAL;
+        assert_return(iov, -EINVAL);
+        assert_return(n > 0, -EINVAL);
 
         niov = alloca(sizeof(struct iovec) * (n + 3));
         memcpy(niov, iov, sizeof(struct iovec) * n);

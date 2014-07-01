@@ -71,8 +71,11 @@ struct CGroupContext {
         bool memory_accounting;
 
         unsigned long cpu_shares;
+        unsigned long startup_cpu_shares;
+        usec_t cpu_quota_per_sec_usec;
 
         unsigned long blockio_weight;
+        unsigned long startup_blockio_weight;
         LIST_HEAD(CGroupBlockIODeviceWeight, blockio_device_weights);
         LIST_HEAD(CGroupBlockIODeviceBandwidth, blockio_device_bandwidths);
 
@@ -89,13 +92,20 @@ struct CGroupContext {
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix);
-void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path);
+void cgroup_context_apply(CGroupContext *c, CGroupControllerMask mask, const char *path, ManagerState state);
+
 CGroupControllerMask cgroup_context_get_mask(CGroupContext *c);
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a);
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
+CGroupControllerMask unit_get_cgroup_mask(Unit *u);
+CGroupControllerMask unit_get_siblings_mask(Unit *u);
+CGroupControllerMask unit_get_members_mask(Unit *u);
+CGroupControllerMask unit_get_target_mask(Unit *u);
+
+void unit_update_cgroup_members_masks(Unit *u);
 int unit_realize_cgroup(Unit *u);
 void unit_destroy_cgroup(Unit *u);
 

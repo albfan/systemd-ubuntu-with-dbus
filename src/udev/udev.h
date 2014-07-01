@@ -39,6 +39,7 @@ struct udev_event {
         mode_t mode;
         uid_t uid;
         gid_t gid;
+        struct udev_list seclabel_list;
         struct udev_list run_list;
         int exec_delay;
         usec_t birth_usec;
@@ -83,7 +84,7 @@ int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 int udev_event_spawn(struct udev_event *event,
                      const char *cmd, char **envp, const sigset_t *sigmask,
                      char *result, size_t ressize);
-int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
+void udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules, const sigset_t *sigset);
 void udev_event_execute_run(struct udev_event *event, const sigset_t *sigset);
 int udev_build_argv(struct udev *udev, char *cmd, int *argc, char *argv[]);
 
@@ -95,7 +96,9 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev);
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd);
 
 /* udev-node.c */
-void udev_node_add(struct udev_device *dev, bool apply, mode_t mode, uid_t uid, gid_t gid);
+void udev_node_add(struct udev_device *dev, bool apply,
+                   mode_t mode, uid_t uid, gid_t gid,
+                   struct udev_list *seclabel_list);
 void udev_node_remove(struct udev_device *dev);
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old);
 
@@ -104,7 +107,6 @@ struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new(struct udev *udev);
 struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
-struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
 struct udev_ctrl *udev_ctrl_unref(struct udev_ctrl *uctrl);
 int udev_ctrl_cleanup(struct udev_ctrl *uctrl);
 struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
@@ -123,7 +125,6 @@ struct udev_ctrl_connection *udev_ctrl_connection_ref(struct udev_ctrl_connectio
 struct udev_ctrl_connection *udev_ctrl_connection_unref(struct udev_ctrl_connection *conn);
 struct udev_ctrl_msg;
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn);
-struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg);
 struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
@@ -150,6 +151,7 @@ enum udev_builtin_cmd {
         UDEV_BUILTIN_KMOD,
 #endif
         UDEV_BUILTIN_NET_ID,
+        UDEV_BUILTIN_NET_LINK,
         UDEV_BUILTIN_PATH_ID,
         UDEV_BUILTIN_USB_ID,
 #ifdef HAVE_ACL
@@ -180,6 +182,7 @@ extern const struct udev_builtin udev_builtin_keyboard;
 extern const struct udev_builtin udev_builtin_kmod;
 #endif
 extern const struct udev_builtin udev_builtin_net_id;
+extern const struct udev_builtin udev_builtin_net_setup_link;
 extern const struct udev_builtin udev_builtin_path_id;
 extern const struct udev_builtin udev_builtin_usb_id;
 extern const struct udev_builtin udev_builtin_uaccess;
@@ -198,7 +201,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev, const char *prefix, const 
 /* udev logging */
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args) _printf_attr_(6, 0);
+                   const char *format, va_list args) _printf_(6, 0);
 
 /* udevadm commands */
 struct udevadm_cmd {

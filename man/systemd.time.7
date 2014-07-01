@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.TIME" "7" "" "systemd 208" "systemd.time"
+.TH "SYSTEMD\&.TIME" "7" "" "systemd 214" "systemd.time"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -197,8 +197,16 @@ When parsing, systemd will also accept relative time specifications\&. A time sp
 is evaluated to the current time plus the specified time span\&. Correspondingly, a time span that is prefixed with
 "\-"
 is evaluated to the current time minus the specified time span\&. Instead of prefixing the time span with
+"+"
+or
 "\-", it may also be suffixed with a space and the word
+"left"
+or
 "ago"\&.
+.PP
+Finally, a timespan prefixed with
+"@"
+is evaluated relative to the UNIX time epoch 1st Jan, 1970, 00:00\&.
 .PP
 Examples for valid timestamps and their normalized form (assuming the current time was 2012\-11\-23 18:15:22):
 .sp
@@ -219,6 +227,7 @@ Fri 2012\-11\-23 11:12:13 → Fri 2012\-11\-23 11:12:13
                +3h30min → Fri 2012\-11\-23 21:45:22
                     \-5s → Fri 2012\-11\-23 18:15:17
               11min ago → Fri 2012\-11\-23 18:04:22
+            @1395716396 → Tue 2014\-03\-25 03:59:56
 .fi
 .if n \{\
 .RE
@@ -257,7 +266,7 @@ may be combined freely\&.
 .PP
 In the date and time specifications, any component may be specified as
 "*"
-in which case any value will match\&. Alternatively, each component can be specified as list of values separated by commas\&. Values may also be suffixed with
+in which case any value will match\&. Alternatively, each component can be specified as a list of values separated by commas\&. Values may also be suffixed with
 "/"
 and a repetition value, which indicates that the value and all values plus multiples of the repetition value are matched\&.
 .PP

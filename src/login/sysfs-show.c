@@ -26,6 +26,7 @@
 #include "util.h"
 #include "sysfs-show.h"
 #include "path-util.h"
+#include "udev-util.h"
 
 static int show_sysfs_one(
                 struct udev *udev,
@@ -41,10 +42,10 @@ static int show_sysfs_one(
         assert(prefix);
 
         while (*item) {
+                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
                 struct udev_list_entry *next, *lookahead;
-                struct udev_device *d;
                 const char *sn, *name, *sysfs, *subsystem, *sysname;
-                char *l, *k;
+                _cleanup_free_ char *k = NULL, *l = NULL;
                 bool is_master;
 
                 sysfs = udev_list_entry_get_name(*item);
@@ -63,7 +64,6 @@ static int show_sysfs_one(
 
                 /* Explicitly also check for tag 'seat' here */
                 if (!streq(seat, sn) || !udev_device_has_tag(d, "seat")) {
-                        udev_device_unref(d);
                         *item = udev_list_entry_get_next(*item);
                         continue;
                 }
@@ -85,21 +85,17 @@ static int show_sysfs_one(
 
                         if (path_startswith(lookahead_sysfs, sub) &&
                             !path_startswith(lookahead_sysfs, sysfs)) {
-                                struct udev_device *lookahead_d;
+                                _cleanup_udev_device_unref_ struct udev_device *lookahead_d = NULL;
 
                                 lookahead_d = udev_device_new_from_syspath(udev, lookahead_sysfs);
                                 if (lookahead_d) {
                                         const char *lookahead_sn;
-                                        bool found;
 
                                         lookahead_sn = udev_device_get_property_value(d, "ID_SEAT");
                                         if (isempty(lookahead_sn))
                                                 lookahead_sn = "seat0";
 
-                                        found = streq(seat, lookahead_sn) && udev_device_has_tag(lookahead_d, "seat");
-                                        udev_device_unref(lookahead_d);
-
-                                        if (found)
+                                        if (streq(seat, lookahead_sn) && udev_device_has_tag(lookahead_d, "seat"))
                                                 break;
                                 }
                         }
@@ -108,44 +104,44 @@ static int show_sysfs_one(
                 }
 
                 k = ellipsize(sysfs, n_columns, 20);
-                printf("%s%s%s\n", prefix, draw_special_char(lookahead ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT),
-                                   k ? k : sysfs);
-                free(k);
+                if (!k)
+                        return -ENOMEM;
+
+                printf("%s%s%s\n", prefix, draw_special_char(lookahead ? DRAW_TREE_BRANCH : DRAW_TREE_RIGHT), k);
 
                 if (asprintf(&l,
                              "%s%s:%s%s%s%s",
                              is_master ? "[MASTER] " : "",
                              subsystem, sysname,
-                             name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0) {
-                        udev_device_unref(d);
+                             name ? " \"" : "", name ? name : "", name ? "\"" : "") < 0)
                         return -ENOMEM;
-                }
 
-                k = ellipsize(l, n_columns, 70);
-                printf("%s%s%s\n", prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ",
-                                   k ? k : l);
                 free(k);
-                free(l);
+                k = ellipsize(l, n_columns, 70);
+                if (!k)
+                        return -ENOMEM;
+
+                printf("%s%s%s\n", prefix, lookahead ? draw_special_char(DRAW_TREE_VERTICAL) : "  ", k);
 
                 *item = next;
                 if (*item) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead ? draw_special_char(DRAW_TREE_VERT) : "  ");
-                        show_sysfs_one(udev, seat, item, sysfs, p ? p : prefix, n_columns - 2);
-                        free(p);
+                        p = strappend(prefix, lookahead ? draw_special_char(DRAW_TREE_VERTICAL) : "  ");
+                        if (!p)
+                                return -ENOMEM;
+
+                        show_sysfs_one(udev, seat, item, sysfs, p, n_columns - 2);
                 }
-
-                udev_device_unref(d);
         }
 
         return 0;
 }
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
-        struct udev *udev;
+        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
         struct udev_list_entry *first = NULL;
-        struct udev_enumerate *e;
         int r;
 
         if (n_columns <= 0)
@@ -162,33 +158,29 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns) {
                 return -ENOMEM;
 
         e = udev_enumerate_new(udev);
-        if (!e) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!e)
+                return -ENOMEM;
 
         if (!streq(seat, "seat0"))
                 r = udev_enumerate_add_match_tag(e, seat);
         else
                 r = udev_enumerate_add_match_tag(e, "seat");
-
         if (r < 0)
-                goto finish;
+                return r;
+
+        r = udev_enumerate_add_match_is_initialized(e);
+        if (r < 0)
+                return r;
 
         r = udev_enumerate_scan_devices(e);
         if (r < 0)
-                goto finish;
+                return r;
 
         first = udev_enumerate_get_list_entry(e);
         if (first)
                 show_sysfs_one(udev, seat, &first, "/", prefix, n_columns);
-
-finish:
-        if (e)
-                udev_enumerate_unref(e);
-
-        if (udev)
-                udev_unref(udev);
+        else
+                printf("%s%s%s\n", prefix, draw_special_char(DRAW_TREE_RIGHT), "(none)");
 
         return r;
 }

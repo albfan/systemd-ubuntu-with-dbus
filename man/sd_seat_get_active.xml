@@ -46,6 +46,8 @@
                 <refname>sd_seat_get_active</refname>
                 <refname>sd_seat_get_sessions</refname>
                 <refname>sd_seat_can_multi_session</refname>
+                <refname>sd_seat_can_tty</refname>
+                <refname>sd_seat_can_graphical</refname>
                 <refpurpose>Determine state of a specific seat</refpurpose>
         </refnamediv>
 
@@ -55,32 +57,32 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_get_active</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
-                                <paramdef>char** <parameter>session</parameter></paramdef>
-                                <paramdef>uid_t* <parameter>uid</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
+                                <paramdef>char **<parameter>session</parameter></paramdef>
+                                <paramdef>uid_t *<parameter>uid</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_get_sessions</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
-                                <paramdef>char*** <parameter>sessions</parameter></paramdef>
-                                <paramdef>uid_t** <parameter>uid</parameter></paramdef>
-                                <paramdef>unsigned int* <parameter>n_uids</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
+                                <paramdef>char ***<parameter>sessions</parameter></paramdef>
+                                <paramdef>uid_t **<parameter>uid</parameter></paramdef>
+                                <paramdef>unsigned int *<parameter>n_uids</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_tty</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_seat_can_graphical</function></funcdef>
-                                <paramdef>const char* <parameter>seat</parameter></paramdef>
+                                <paramdef>const char *<parameter>seat</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -141,9 +143,9 @@
         <refsect1>
                 <title>Return Value</title>
 
-                <para> On success
+                <para> On success,
                 <function>sd_seat_get_active()</function>
-                returns 0 or a positive integer. On success
+                returns 0 or a positive integer. On success,
                 <function>sd_seat_get_sessions()</function> returns
                 the number of entries in the session identifier
                 array. If the test succeeds,
@@ -162,9 +164,9 @@
                 <function>sd_seat_can_multi_session()</function>,
                 <function>sd_seat_can_tty()</function> and
                 <function>sd_seat_can_grapical()</function> interfaces
-                are available as shared library, which can be compiled
+                are available as a shared library, which can be compiled
                 and linked to with the
-                <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

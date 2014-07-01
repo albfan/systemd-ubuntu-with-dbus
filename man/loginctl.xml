@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="loginctl" conditional='ENABLE_LOGIND'>
+<refentry id="loginctl" conditional='ENABLE_LOGIND'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>loginctl</title>
@@ -72,18 +73,21 @@
 
                 <variablelist>
                         <varlistentry>
-                                <term><option>-h</option></term>
-                                <term><option>--help</option></term>
+                                <term><option>--no-legend</option></term>
 
-                                <listitem><para>Prints a short help
-                                text and exits.</para></listitem>
+                                <listitem>
+                                        <para>Do not print the legend,
+                                        i.e. the column headers and
+                                        the footer.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>--version</option></term>
+                                <term><option>--no-ask-password</option></term>
 
-                                <listitem><para>Prints a short version
-                                string and exits.</para></listitem>
+                                <listitem><para>Do not query the user
+                                for authentication for privileged
+                                operations.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -109,7 +113,7 @@
 
                                 <listitem><para>When showing
                                 session/user/seat properties, show all
-                                properties regardless whether they are
+                                properties regardless of whether they are
                                 set or not.</para></listitem>
                         </varlistentry>
 
@@ -120,21 +124,6 @@
                                 <listitem><para>Do not ellipsize
                                 process tree entries.</para>
                                 </listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-pager</option></term>
-
-                                <listitem><para>Do not pipe output into a
-                                pager.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>--no-ask-password</option></term>
-
-                                <listitem><para>Do not query the user
-                                for authentication for privileged
-                                operations.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -168,26 +157,12 @@
                                 <constant>SIGTERM</constant>.</para></listitem>
                         </varlistentry>
 
-                        <varlistentry>
-                                <term><option>-H</option></term>
-                                <term><option>--host</option></term>
+                        <xi:include href="user-system-options.xml" xpointer="host" />
+                        <xi:include href="user-system-options.xml" xpointer="machine" />
 
-                                <listitem><para>Execute operation
-                                remotely. Specify a hostname, or
-                                username and hostname separated by <literal>@</literal>,
-                                to connect to. This will use SSH to
-                                talk to the remote login manager
-                                instance.</para></listitem>
-                        </varlistentry>
-
-                        <varlistentry>
-                                <term><option>-P</option></term>
-                                <term><option>--privileged</option></term>
-
-                                <listitem><para>Acquire privileges via
-                                PolicyKit before executing the
-                                operation.</para></listitem>
-                        </varlistentry>
+                        <xi:include href="standard-options.xml" xpointer="help" />
+                        <xi:include href="standard-options.xml" xpointer="version" />
+                        <xi:include href="standard-options.xml" xpointer="no-pager" />
                 </variablelist>
 
                 <para>The following commands are understood:</para>
@@ -200,7 +175,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>session-status [ID...]</command></term>
+                                <term><command>session-status</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -213,7 +188,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-session [ID...]</command></term>
+                                <term><command>show-session</command> <optional><replaceable>ID</replaceable>...</optional></term>
 
                                 <listitem><para>Show properties of one
                                 or more sessions or the manager
@@ -236,7 +211,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>activate [ID...]</command></term>
+                                <term><command>activate</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Activate one or more
                                 sessions. This brings one or more
@@ -247,12 +222,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>lock-session [ID...]</command></term>
-                                <term><command>unlock-session [ID...]</command></term>
+                                <term><command>lock-session</command> <replaceable>ID</replaceable>...</term>
+                                <term><command>unlock-session</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on one or more
-                                sessions, if the session supports it.</para></listitem>
+                                sessions, if the session supports it.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -261,22 +237,22 @@
 
                                 <listitem><para>Activates/deactivates
                                 the screen lock on all current
-                                sessions supporting
-                                it.</para></listitem>
+                                sessions supporting it.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-session [ID...]</command></term>
+                                <term><command>terminate-session</command> <replaceable>ID</replaceable>...</term>
 
-                                <listitem><para>Terminates a
-                                session. This kills all processes of
-                                the session and deallocates all
-                                resources attached to the
-                                session.</para></listitem>
+                                <listitem><para>Terminates a session.
+                                This kills all processes of the
+                                session and deallocates all resources
+                                attached to the session.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill-session [ID...]</command></term>
+                                <term><command>kill-session</command> <replaceable>ID</replaceable>...</term>
 
                                 <listitem><para>Send a signal to one
                                 or more processes of the session. Use
@@ -294,7 +270,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>user-status [USER...]</command></term>
+                                <term><command>user-status</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -302,14 +278,14 @@
                                 intended to generate human-readable
                                 output. If you are looking for
                                 computer-parsable output, use
-                                <command>show-user</command>
-                                instead. Users may be specified by
-                                their usernames or numeric user
-                                IDs.</para></listitem>
+                                <command>show-user</command> instead.
+                                Users may be specified by their
+                                usernames or numeric user IDs.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-user [USER...]</command></term>
+                                <term><command>show-user</command> <optional><replaceable>USER</replaceable>...</optional></term>
 
                                 <listitem><para>Show properties of one
                                 or more users or the manager
@@ -332,13 +308,13 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>enable-linger [USER...]</command></term>
-                                <term><command>disable-linger [USER...]</command></term>
+                                <term><command>enable-linger</command> <replaceable>USER</replaceable>...</term>
+                                <term><command>disable-linger</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Enable/disable user
                                 lingering for one or more users. If
                                 enabled for a specific user, a user
-                                manager is spawned for him/her at
+                                manager is spawned for the user at
                                 boot and kept around after
                                 logouts. This allows users who are not
                                 logged in to run long-running
@@ -346,18 +322,18 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-user [USER...]</command></term>
+                                <term><command>terminate-user</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Terminates all
                                 sessions of a user. This kills all
                                 processes of all sessions of the user
                                 and deallocates all runtime resources
-                                attached to the
-                                user.</para></listitem>
+                                attached to the user.
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>kill-user [USER...]</command></term>
+                                <term><command>kill-user</command> <replaceable>USER</replaceable>...</term>
 
                                 <listitem><para>Send a signal to all
                                 processes of a user. Use
@@ -374,7 +350,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>seat-status [NAME...]</command></term>
+                                <term><command>seat-status</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show terse runtime
                                 status information about one or more
@@ -387,7 +363,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>show-seat [NAME...]</command></term>
+                                <term><command>show-seat</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Show properties of one
                                 or more seats or the manager
@@ -410,7 +386,7 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>attach [NAME] [DEVICE...]</command></term>
+                                <term><command>attach</command> <replaceable>NAME</replaceable> <replaceable>DEVICE</replaceable>...</term>
 
                                 <listitem><para>Persistently attach
                                 one or more devices to a seat. The
@@ -443,12 +419,12 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><command>terminate-seat [NAME...]</command></term>
+                                <term><command>terminate-seat</command> <replaceable>NAME</replaceable>...</term>
 
                                 <listitem><para>Terminates all
                                 sessions on a seat. This kills all
-                                processes of all sessions on a seat and
-                                deallocates all runtime resources
+                                processes of all sessions on the seat
+                                and deallocates all runtime resources
                                 attached to them.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -462,21 +438,7 @@
                 code otherwise.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Environment</title>
-
-                <variablelist class='environment-variables'>
-                        <varlistentry>
-                                <term><varname>$SYSTEMD_PAGER</varname></term>
-                                <listitem><para>Pager to use when
-                                <option>--no-pager</option> is not given;
-                                overrides <varname>$PAGER</varname>.  Setting
-                                this to an empty string or the value
-                                <literal>cat</literal> is equivalent to passing
-                                <option>--no-pager</option>.</para></listitem>
-                        </varlistentry>
-                </variablelist>
-        </refsect1>
+        <xi:include href="less-variables.xml" />
 
         <refsect1>
                 <title>See Also</title>

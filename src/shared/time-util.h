@@ -27,6 +27,9 @@
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
 
+#define NSEC_FMT "%" PRIu64
+#define USEC_FMT "%" PRIu64
+
 #include "macro.h"
 
 typedef struct dual_timestamp {
@@ -34,29 +37,31 @@ typedef struct dual_timestamp {
         usec_t monotonic;
 } dual_timestamp;
 
-#define MSEC_PER_SEC  1000ULL
-#define USEC_PER_SEC  1000000ULL
-#define USEC_PER_MSEC 1000ULL
-#define NSEC_PER_SEC  1000000000ULL
-#define NSEC_PER_MSEC 1000000ULL
-#define NSEC_PER_USEC 1000ULL
+#define MSEC_PER_SEC  ((usec_t) 1000ULL)
+#define USEC_PER_SEC  ((usec_t) 1000000ULL)
+#define USEC_PER_MSEC ((usec_t) 1000ULL)
+#define NSEC_PER_SEC  ((usec_t) 1000000000ULL)
+#define NSEC_PER_MSEC ((usec_t) 1000000ULL)
+#define NSEC_PER_USEC ((usec_t) 1000ULL)
 
-#define USEC_PER_MINUTE (60ULL*USEC_PER_SEC)
-#define NSEC_PER_MINUTE (60ULL*NSEC_PER_SEC)
-#define USEC_PER_HOUR (60ULL*USEC_PER_MINUTE)
-#define NSEC_PER_HOUR (60ULL*NSEC_PER_MINUTE)
-#define USEC_PER_DAY (24ULL*USEC_PER_HOUR)
-#define NSEC_PER_DAY (24ULL*NSEC_PER_HOUR)
-#define USEC_PER_WEEK (7ULL*USEC_PER_DAY)
-#define NSEC_PER_WEEK (7ULL*NSEC_PER_DAY)
-#define USEC_PER_MONTH (2629800ULL*USEC_PER_SEC)
-#define NSEC_PER_MONTH (2629800ULL*NSEC_PER_SEC)
-#define USEC_PER_YEAR (31557600ULL*USEC_PER_SEC)
-#define NSEC_PER_YEAR (31557600ULL*NSEC_PER_SEC)
+#define USEC_PER_MINUTE ((usec_t) (60ULL*USEC_PER_SEC))
+#define NSEC_PER_MINUTE ((usec_t) (60ULL*NSEC_PER_SEC))
+#define USEC_PER_HOUR ((usec_t) (60ULL*USEC_PER_MINUTE))
+#define NSEC_PER_HOUR ((usec_t) (60ULL*NSEC_PER_MINUTE))
+#define USEC_PER_DAY ((usec_t) (24ULL*USEC_PER_HOUR))
+#define NSEC_PER_DAY ((usec_t) (24ULL*NSEC_PER_HOUR))
+#define USEC_PER_WEEK ((usec_t) (7ULL*USEC_PER_DAY))
+#define NSEC_PER_WEEK ((usec_t) (7ULL*NSEC_PER_DAY))
+#define USEC_PER_MONTH ((usec_t) (2629800ULL*USEC_PER_SEC))
+#define NSEC_PER_MONTH ((usec_t) (2629800ULL*NSEC_PER_SEC))
+#define USEC_PER_YEAR ((usec_t) (31557600ULL*USEC_PER_SEC))
+#define NSEC_PER_YEAR ((usec_t) (31557600ULL*NSEC_PER_SEC))
 
 #define FORMAT_TIMESTAMP_MAX ((4*4+1)+11+9+4+1) /* weekdays can be unicode */
 #define FORMAT_TIMESTAMP_RELATIVE_MAX 256
 #define FORMAT_TIMESPAN_MAX 64
+
+#define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) { 0, 0 })
 
 usec_t now(clockid_t clock);
 
@@ -64,7 +69,10 @@ dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 
-#define dual_timestamp_is_set(ts) ((ts)->realtime > 0)
+static inline bool dual_timestamp_is_set(dual_timestamp *ts) {
+        return ((ts->realtime > 0 && ts->realtime != (usec_t) -1) ||
+                (ts->monotonic > 0 && ts->monotonic != (usec_t) -1));
+}
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
 struct timespec *timespec_store(struct timespec *ts, usec_t u);
@@ -84,3 +92,5 @@ int parse_timestamp(const char *t, usec_t *usec);
 
 int parse_sec(const char *t, usec_t *usec);
 int parse_nsec(const char *t, nsec_t *nsec);
+
+bool ntp_synced(void);

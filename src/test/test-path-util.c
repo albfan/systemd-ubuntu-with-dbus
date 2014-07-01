@@ -50,10 +50,10 @@ static void test_path(void) {
         assert_se(is_path("a/b"));
         assert_se(!is_path("."));
 
-        assert_se(streq(path_get_file_name("./aa/bb/../file.da."), "file.da."));
-        assert_se(streq(path_get_file_name("/aa///.file"), ".file"));
-        assert_se(streq(path_get_file_name("/aa///file..."), "file..."));
-        assert_se(streq(path_get_file_name("file.../"), ""));
+        assert_se(streq(basename("./aa/bb/../file.da."), "file.da."));
+        assert_se(streq(basename("/aa///.file"), ".file"));
+        assert_se(streq(basename("/aa///file..."), "file..."));
+        assert_se(streq(basename("file.../"), ""));
 
 #define test_parent(x, y) {                                \
                 char _cleanup_free_ *z = NULL;             \
@@ -83,7 +83,7 @@ static void test_path(void) {
         }
 }
 
-static void test_find_binary(void) {
+static void test_find_binary(const char *self) {
         char *p;
 
         assert(find_binary("/bin/sh", &p) == 0);
@@ -91,7 +91,7 @@ static void test_find_binary(void) {
         assert(streq(p, "/bin/sh"));
         free(p);
 
-        assert(find_binary("./test-path-util", &p) == 0);
+        assert(find_binary(self, &p) == 0);
         puts(p);
         assert(endswith(p, "/test-path-util"));
         assert(path_is_absolute(p));
@@ -104,6 +104,8 @@ static void test_find_binary(void) {
         free(p);
 
         assert(find_binary("xxxx-xxxx", &p) == -ENOENT);
+
+        assert(find_binary("/some/dir/xxxx-xxxx", &p) == -ENOENT);
 }
 
 static void test_prefixes(void) {
@@ -158,9 +160,42 @@ static void test_prefixes(void) {
         }
 }
 
-int main(void) {
+static void test_fsck_exists(void) {
+        /* Ensure we use a sane default for PATH. */
+        unsetenv("PATH");
+
+        /* fsck.minix is provided by util-linux and will probably exist. */
+        assert_se(fsck_exists("minix") == 0);
+
+        assert_se(fsck_exists("AbCdE") == -ENOENT);
+}
+
+static void test_make_relative(void) {
+        char *result;
+
+        assert_se(path_make_relative("some/relative/path", "/some/path", &result) < 0);
+        assert_se(path_make_relative("/some/path", "some/relative/path", &result) < 0);
+
+#define test(from_dir, to_path, expected) {                     \
+                path_make_relative(from_dir, to_path, &result); \
+                assert_se(streq(result, expected));             \
+                free(result);                                   \
+        }
+
+        test("/", "/", ".");
+        test("/", "/some/path", "some/path");
+        test("/some/path", "/some/path", ".");
+        test("/some/path", "/some/path/in/subdir", "in/subdir");
+        test("/some/path", "/", "../..");
+        test("/some/path", "/some/other/path", "../other/path");
+        test("//extra/////slashes///won't////fool///anybody//", "////extra///slashes////are/just///fine///", "../../../are/just/fine");
+}
+
+int main(int argc, char **argv) {
         test_path();
-        test_find_binary();
+        test_find_binary(argv[0]);
         test_prefixes();
+        test_fsck_exists();
+        test_make_relative();
         return 0;
 }

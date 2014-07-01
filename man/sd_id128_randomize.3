@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_ID128_RANDOMIZE" "3" "" "systemd 208" "sd_id128_randomize"
+.TH "SD_ID128_RANDOMIZE" "3" "" "systemd 214" "sd_id128_randomize"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ sd_id128_randomize \- Generate 128\-bit IDs
 .fi
 .ft
 .HP \w'int\ sd_id128_randomize('u
-.BI "int sd_id128_randomize(sd_id128_t*\ " "ret" ");"
+.BI "int sd_id128_randomize(sd_id128_t\ *" "ret" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_id128_randomize()\fR
@@ -60,8 +60,8 @@ is filled in), or a negative errno\-style error code\&.
 .PP
 The
 \fBsd_id128_randomize()\fR
-interface is available as shared library, which can be compiled and linked to with the
-"libsystemd\-id128"\ \&\fBpkg-config\fR(1)
+interface is available as a shared library, which can be compiled and linked to with the
+"libsystemd"\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

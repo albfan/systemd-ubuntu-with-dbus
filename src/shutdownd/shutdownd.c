@@ -61,9 +61,9 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
         } control = {};
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
-                msghdr.msg_iovlen = 1,
-                msghdr.msg_control = &control,
-                msghdr.msg_controllen = sizeof(control),
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
 
         assert(fd >= 0);
@@ -120,7 +120,7 @@ static int read_packet(int fd, union shutdown_buffer *_b) {
 static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
         char date[FORMAT_TIMESTAMP_MAX];
         const char *prefix;
-        char *l = NULL;
+        _cleanup_free_ char *l = NULL;
 
         assert(c);
         assert(c->warn_wall);
@@ -142,12 +142,10 @@ static void warn_wall(usec_t n, struct sd_shutdown_command *c) {
                 assert_not_reached("Unknown mode!");
 
         if (asprintf(&l, "%s%s%s%s!", c->wall_message, c->wall_message[0] ? "\n" : "",
-                     prefix, format_timestamp(date, sizeof(date), c->usec)) < 0)
+                     prefix, format_timestamp(date, sizeof(date), c->usec)) >= 0)
+                utmp_wall(l, NULL, NULL);
+        else
                 log_error("Failed to allocate wall message");
-        else {
-                utmp_wall(l, NULL);
-                free(l);
-        }
 }
 
 _const_ static usec_t when_wall(usec_t n, usec_t elapse) {
@@ -199,8 +197,8 @@ static const char *mode_to_string(enum sd_shutdown_mode m) {
 
 static int update_schedule_file(struct sd_shutdown_command *c) {
         int r;
-        FILE *f;
-        char *temp_path, *t;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *t = NULL, *temp_path = NULL;
 
         assert(c);
 
@@ -217,17 +215,16 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
         r = fopen_temporary("/run/systemd/shutdown/scheduled", &f, &temp_path);
         if (r < 0) {
                 log_error("Failed to save information about scheduled shutdowns: %s", strerror(-r));
-                free(t);
                 return r;
         }
 
         fchmod(fileno(f), 0644);
 
         fprintf(f,
-                "USEC=%llu\n"
+                "USEC="USEC_FMT"\n"
                 "WARN_WALL=%i\n"
                 "MODE=%s\n",
-                (unsigned long long) c->usec,
+                c->usec,
                 c->warn_wall,
                 mode_to_string(c->mode));
 
@@ -236,8 +233,6 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
 
         if (!isempty(t))
                 fprintf(f, "WALL_MESSAGE=%s\n", t);
-
-        free(t);
 
         fflush(f);
 
@@ -248,9 +243,6 @@ static int update_schedule_file(struct sd_shutdown_command *c) {
                 unlink(temp_path);
                 unlink("/run/systemd/shutdown/scheduled");
         }
-
-        fclose(f);
-        free(temp_path);
 
         return r;
 }
@@ -313,7 +305,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        log_debug("systemd-shutdownd running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-shutdownd running as pid "PID_FMT, getpid());
 
         sd_notify(false,
                   "READY=1\n"
@@ -433,13 +425,12 @@ int main(int argc, char *argv[]) {
 
         r = EXIT_SUCCESS;
 
-        log_debug("systemd-shutdownd stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-shutdownd stopped as pid "PID_FMT, getpid());
 
 finish:
 
         for (i = 0; i < _FD_MAX; i++)
-                if (pollfd[i].fd >= 0)
-                        close_nointr_nofail(pollfd[i].fd);
+                safe_close(pollfd[i].fd);
 
         if (unlink_nologin)
                 unlink("/run/nologin");

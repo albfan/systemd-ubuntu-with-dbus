@@ -27,13 +27,14 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <libudev.h>
 
 #include "log.h"
 #include "readahead-common.h"
 #include "util.h"
 #include "missing.h"
 #include "fileio.h"
+#include "libudev.h"
+#include "udev-util.h"
 
 int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         assert(fd >= 0);
@@ -51,7 +52,7 @@ int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
         }
 
         if (st->st_size <= 0 || st->st_size > file_size_max) {
-                log_debug("Not preloading file %s with size out of bounds %llu", fn, (unsigned long long) st->st_size);
+                log_debug("Not preloading file %s with size out of bounds %zu", fn, st->st_size);
                 return 0;
         }
 
@@ -60,9 +61,9 @@ int file_verify(int fd, const char *fn, off_t file_size_max, struct stat *st) {
 
 int fs_on_ssd(const char *p) {
         struct stat st;
-        struct udev *udev = NULL;
-        struct udev_device *udev_device = NULL, *look_at = NULL;
-        bool b = false;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
+        struct udev_device *look_at = NULL;
         const char *devtype, *rotational, *model, *id;
         int r;
 
@@ -74,7 +75,7 @@ int fs_on_ssd(const char *p) {
         if (major(st.st_dev) == 0) {
                 _cleanup_fclose_ FILE *f = NULL;
                 int mount_id;
-                struct file_handle *h;
+                union file_handle_union h = { .handle.handle_bytes = MAX_HANDLE_SZ, };
 
                 /* Might be btrfs, which exposes "ssd" as mount flag if it is on ssd.
                  *
@@ -82,9 +83,7 @@ int fs_on_ssd(const char *p) {
                  * and then lookup the mount ID in mountinfo to find
                  * the mount options. */
 
-                h = alloca(MAX_HANDLE_SZ);
-                h->handle_bytes = MAX_HANDLE_SZ;
-                r = name_to_handle_at(AT_FDCWD, p, h, &mount_id, AT_SYMLINK_FOLLOW);
+                r = name_to_handle_at(AT_FDCWD, p, &h.handle, &mount_id, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return false;
 
@@ -128,7 +127,7 @@ int fs_on_ssd(const char *p) {
 
         udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
         if (!udev_device)
-                goto finish;
+                return false;
 
         devtype = udev_device_get_property_value(udev_device, "DEVTYPE");
         if (devtype && streq(devtype, "partition"))
@@ -137,46 +136,34 @@ int fs_on_ssd(const char *p) {
                 look_at = udev_device;
 
         if (!look_at)
-                goto finish;
+                return false;
 
         /* First, try high-level property */
         id = udev_device_get_property_value(look_at, "ID_SSD");
-        if (id) {
-                b = streq(id, "1");
-                goto finish;
-        }
+        if (id)
+                return streq(id, "1");
 
         /* Second, try kernel attribute */
         rotational = udev_device_get_sysattr_value(look_at, "queue/rotational");
-        if (rotational) {
-                b = streq(rotational, "0");
-                goto finish;
-        }
+        if (rotational)
+                return streq(rotational, "0");
 
         /* Finally, fallback to heuristics */
         look_at = udev_device_get_parent(look_at);
         if (!look_at)
-                goto finish;
+                return false;
 
         model = udev_device_get_sysattr_value(look_at, "model");
         if (model)
-                b = !!strstr(model, "SSD");
+                return !!strstr(model, "SSD");
 
-finish:
-        if (udev_device)
-                udev_device_unref(udev_device);
-
-        if (udev)
-                udev_unref(udev);
-
-        return b;
+        return false;
 }
 
 int fs_on_read_only(const char *p) {
         struct stat st;
-        struct udev *udev = NULL;
-        struct udev_device *udev_device = NULL;
-        bool b = false;
+        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *udev_device = NULL;
         const char *read_only;
 
         assert(p);
@@ -187,24 +174,19 @@ int fs_on_read_only(const char *p) {
         if (major(st.st_dev) == 0)
                 return false;
 
-        if (!(udev = udev_new()))
+        udev = udev_new();
+        if (!udev)
                 return -ENOMEM;
 
-        if (!(udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev)))
-                goto finish;
+        udev_device = udev_device_new_from_devnum(udev, 'b', st.st_dev);
+        if (!udev_device)
+                return false;
 
-        if ((read_only = udev_device_get_sysattr_value(udev_device, "ro")))
-                if ((b = streq(read_only, "1")))
-                        goto finish;
+        read_only = udev_device_get_sysattr_value(udev_device, "ro");
+        if (read_only)
+                return streq(read_only, "1");
 
-finish:
-        if (udev_device)
-                udev_device_unref(udev_device);
-
-        if (udev)
-                udev_unref(udev);
-
-        return b;
+        return false;
 }
 
 bool enough_ram(void) {
@@ -236,7 +218,7 @@ int open_inotify(void) {
 
         if (inotify_add_watch(fd, "/run/systemd/readahead", IN_CREATE) < 0) {
                 log_error("Failed to watch /run/systemd/readahead: %m");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return -errno;
         }
 
@@ -273,7 +255,7 @@ ReadaheadShared *shared_get(void) {
    Simply so that it is more unlikely that users end up picking this
    value too so that we can recognize better whether the user changed
    the value while we had it temporarily bumped. */
-#define BUMP_REQUEST_NR (20*1024)
+#define BUMP_REQUEST_NR (20*1024u)
 
 int block_bump_request_nr(const char *p) {
         struct stat st;
@@ -314,7 +296,7 @@ int block_bump_request_nr(const char *p) {
         free(line);
         line = NULL;
 
-        if (asprintf(&line, "%lu", (unsigned long) BUMP_REQUEST_NR) < 0) {
+        if (asprintf(&line, "%u", BUMP_REQUEST_NR) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }
@@ -323,7 +305,7 @@ int block_bump_request_nr(const char *p) {
         if (r < 0)
                 goto finish;
 
-        log_info("Bumped block_nr parameter of %u:%u to %lu. This is a temporary hack and should be removed one day.", major(d), minor(d), (unsigned long) BUMP_REQUEST_NR);
+        log_info("Bumped block_nr parameter of %u:%u to %u. This is a temporary hack and should be removed one day.", major(d), minor(d), BUMP_REQUEST_NR);
         r = 1;
 
 finish:
@@ -397,7 +379,7 @@ int block_set_readahead(const char *p, uint64_t bytes) {
                 goto finish;
         }
 
-        if (asprintf(&line, "%llu", (unsigned long long) bytes / 1024ULL) < 0) {
+        if (asprintf(&line, "%llu", bytes / 1024ULL) < 0) {
                 r = -ENOMEM;
                 goto finish;
         }

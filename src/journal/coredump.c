@@ -36,12 +36,14 @@
 #include "mkdir.h"
 #include "special.h"
 #include "cgroup-util.h"
+#include "journald-native.h"
 
 /* Few programs have less than 3MiB resident */
-#define COREDUMP_MIN_START (3*1024*1024)
+#define COREDUMP_MIN_START (3*1024*1024u)
 /* Make sure to not make this larger than the maximum journal entry
  * size. See ENTRY_SIZE_MAX in journald-native.c. */
-#define COREDUMP_MAX (767*1024*1024)
+#define COREDUMP_MAX (767*1024*1024u)
+assert_cc(COREDUMP_MAX <= ENTRY_SIZE_MAX);
 
 enum {
         ARG_PID = 1,
@@ -105,7 +107,7 @@ int main(int argc, char* argv[]) {
         uid_t uid;
         gid_t gid;
         struct iovec iovec[14];
-        size_t coredump_bufsize, coredump_size;
+        size_t coredump_bufsize = 0, coredump_size = 0;
         _cleanup_free_ char *core_pid = NULL, *core_uid = NULL, *core_gid = NULL, *core_signal = NULL,
                 *core_timestamp = NULL, *core_comm = NULL, *core_exe = NULL, *core_unit = NULL,
                 *core_session = NULL, *core_message = NULL, *core_cmdline = NULL, *coredump_data = NULL;
@@ -237,21 +239,22 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        coredump_bufsize = COREDUMP_MIN_START;
-        coredump_data = malloc(coredump_bufsize);
-        if (!coredump_data) {
-                r = log_oom();
-                goto finalize;
-        }
-
-        memcpy(coredump_data, "COREDUMP=", 9);
-        coredump_size = 9;
-
         for (;;) {
+                if (!GREEDY_REALLOC(coredump_data, coredump_bufsize,
+                                    MAX(coredump_size + 1, COREDUMP_MIN_START/2))) {
+                        log_warning("Failed to allocate memory for core, core will not be stored.");
+                        goto finalize;
+                }
+
+                if (coredump_size == 0) {
+                        memcpy(coredump_data, "COREDUMP=", 9);
+                        coredump_size = 9;
+                }
+
                 n = loop_read(STDIN_FILENO, coredump_data + coredump_size,
                               coredump_bufsize - coredump_size, false);
                 if (n < 0) {
-                        log_error("Failed to read core dump data: %s", strerror(-n));
+                        log_error("Failed to read core data: %s", strerror(-n));
                         r = (int) n;
                         goto finish;
                 } else if (n == 0)
@@ -259,13 +262,8 @@ int main(int argc, char* argv[]) {
 
                 coredump_size += n;
 
-                if(coredump_size > COREDUMP_MAX) {
-                        log_error("Coredump too large, ignoring");
-                        goto finalize;
-                }
-
-                if (!GREEDY_REALLOC(coredump_data, coredump_bufsize, coredump_size + 1)) {
-                        r = log_oom();
+                if (coredump_size > COREDUMP_MAX) {
+                        log_error("Core too large, core will not be stored.");
                         goto finalize;
                 }
         }
@@ -277,7 +275,7 @@ int main(int argc, char* argv[]) {
 finalize:
         r = sd_journal_sendv(iovec, j);
         if (r < 0)
-                log_error("Failed to send coredump: %s", strerror(-r));
+                log_error("Failed to log coredump: %s", strerror(-r));
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

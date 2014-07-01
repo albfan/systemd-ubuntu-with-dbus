@@ -56,7 +56,7 @@ __get_all_units      () { __systemctl $1 list-units --all \
 __get_active_units   () { __systemctl $1 list-units       \
         | { while read -r a b; do echo " $a"; done; }; }
 __get_startable_units () { __systemctl $1 list-units --all -t service,timer,socket,mount,automount,path,snapshot,swap \
-        | { while read -r a b c d; do [[ $c == "inactive" || $c == "failed " ]] && echo " $a"; done; }; }
+        | { while read -r a b c d; do [[ $c == "inactive" || $c == "failed" ]] && echo " $a"; done; }; }
 __get_failed_units   () { __systemctl $1 list-units       \
         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
 __get_enabled_units  () { __systemctl $1 list-unit-files  \
@@ -73,8 +73,8 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --fail --ignore-dependencies --failed --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall
-                             --quiet -q --privileged -P --system --user --version --runtime'
-                      [ARG]='--host -H --kill-mode --kill-who --property -p --signal -s --type -t --state --root'
+                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r'
+                      [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --root'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -99,9 +99,6 @@ _systemctl () {
                         --kill-who)
                                 comps='all control main'
                         ;;
-                        --kill-mode)
-                                comps='control-group process'
-                        ;;
                         --root)
                                 comps=$(compgen -A directory -- "$cur" )
                                 compopt -o filenames
@@ -123,7 +120,7 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-failed is-enabled status show mask preset help list-dependencies'
+                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies'
             [ENABLED_UNITS]='disable'
            [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
@@ -137,16 +134,16 @@ _systemctl () {
                      [JOBS]='cancel'
                 [SNAPSHOTS]='delete'
                      [ENVS]='set-environment unset-environment'
-               [STANDALONE]='daemon-reexec daemon-reload default dump
+               [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
-                             list-sockets list-units list-unit-files poweroff reboot rescue
-                             show-environment suspend get-default'
-                     [NAME]='snapshot load'
+                             list-sockets list-timers list-units list-unit-files poweroff
+                             reboot rescue show-environment suspend get-default'
+                     [NAME]='snapshot'
                      [FILE]='link'
                   [TARGETS]='set-default'
         )
 
-        for ((i=0; $i <= $COMP_CWORD; i++)); do
+        for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}
@@ -154,7 +151,7 @@ _systemctl () {
                 fi
         done
 
-        if   [[ -z $verb ]]; then
+        if [[ -z $verb ]]; then
                 comps="${VERBS[*]}"
 
         elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then

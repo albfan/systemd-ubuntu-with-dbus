@@ -126,10 +126,11 @@ static int add_match(Set *set, const char *match) {
                 goto fail;
 
         log_debug("Adding pattern: %s", pattern);
-        r = set_consume(set, pattern);
+        r = set_put(set, pattern);
         if (r < 0) {
                 log_error("Failed to add pattern '%s': %s",
                           pattern, strerror(-r));
+                free(pattern);
                 goto fail;
         }
 
@@ -155,7 +156,7 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
-                { NULL,           0,                 NULL, 0             }
+                {}
         };
 
         assert(argc >= 0);
@@ -163,15 +164,15 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
         while ((c = getopt_long(argc, argv, "ho:F:", options, NULL)) >= 0)
                 switch(c) {
+
                 case 'h':
-                        help();
                         arg_action = ACTION_NONE;
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
+                        arg_action = ACTION_NONE;
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
-                        arg_action = ACTION_NONE;
                         return 0;
 
                 case ARG_NO_PAGER:
@@ -209,13 +210,12 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
 
         if (optind < argc) {
                 const char *cmd = argv[optind++];
-                if(streq(cmd, "list"))
+                if (streq(cmd, "list"))
                         arg_action = ACTION_LIST;
                 else if (streq(cmd, "dump"))
                         arg_action = ACTION_DUMP;
@@ -417,7 +417,7 @@ static int dump_core(sd_journal* j) {
 
         r = sd_journal_previous(j);
         if (r >= 0)
-                log_warning("More than one entry matches, ignoring rest.\n");
+                log_warning("More than one entry matches, ignoring rest.");
 
         return 0;
 }
@@ -472,7 +472,7 @@ static int run_gdb(sd_journal *j) {
         data = (const uint8_t*) data + 9;
         len -= 9;
 
-        fd = mkostemp(path, O_WRONLY);
+        fd = mkostemp_safe(path, O_WRONLY|O_CLOEXEC);
         if (fd < 0) {
                 log_error("Failed to create temporary file: %m");
                 return -errno;
@@ -480,7 +480,7 @@ static int run_gdb(sd_journal *j) {
 
         sz = write(fd, data, len);
         if (sz < 0) {
-                log_error("Failed to write temporary file: %s", strerror(errno));
+                log_error("Failed to write temporary file: %m");
                 r = -errno;
                 goto finish;
         }
@@ -490,8 +490,7 @@ static int run_gdb(sd_journal *j) {
                 goto finish;
         }
 
-        close_nointr_nofail(fd);
-        fd = -1;
+        fd = safe_close(fd);
 
         pid = fork();
         if (pid < 0) {

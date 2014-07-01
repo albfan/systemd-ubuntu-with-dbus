@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 208" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 214" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -71,9 +71,9 @@ Takes a boolean value\&. If enabled (the default), data objects that shall be st
 Takes a boolean value\&. If enabled (the default), and a sealing key is available (as created by
 \fBjournalctl\fR(1)\*(Aqs
 \fB\-\-setup\-keys\fR
-command), forward secure sealing (FSS) for all persistent journal files is enabled\&. FSS is based on
+command), Forward Secure Sealing (FSS) for all persistent journal files is enabled\&. FSS is based on
 \m[blue]\fBSeekable Sequential Key Generators\fR\m[]\&\s-2\u[1]\d\s+2
-by G\&. A\&. Marson and B\&. Poettering and may be used to protect journal files from unnoticed alteration\&.
+by G\&. A\&. Marson and B\&. Poettering (doi:10\&.1007/978\-3\-642\-40203\-6_7) and may be used to protect journal files from unnoticed alteration\&.
 .RE
 .PP
 \fISplitMode=\fR
@@ -84,7 +84,7 @@ Controls whether to split up journal files per user\&. One of
 and
 "none"\&. If
 "login", each logged\-in user will get his own journal files, but systemd user IDs will log into the system journal\&. If
-"uid", any user ID will get his own journal files regardless whether it belongs to a system service or refers to a real logged in user\&. If
+"uid", any user ID will get his own journal files regardless of whether it belongs to a system service or refers to a real logged in user\&. If
 "none", journal files are not split up by user and all messages are instead stored in the single system journal\&. Note that splitting up journal files by user is only available for journals stored persistently\&. If journals are stored on volatile storage (see above), only a single journal file for all user IDs is kept\&. Defaults to
 "login"\&.
 .RE
@@ -94,7 +94,7 @@ and
 Configures the rate limiting that is applied to all messages generated on the system\&. If, in the time interval defined by
 \fIRateLimitInterval=\fR, more messages than specified in
 \fIRateLimitBurst=\fR
-are logged by a service, all further messages within the interval are dropped until the interval is over\&. A message about the number of dropped messages is generated\&. This rate limiting is applied per\-service, so that two services which log do not interfere with each other\*(Aqs limits\&. Defaults to 200 messages in 10s\&. The time specification for
+are logged by a service, all further messages within the interval are dropped until the interval is over\&. A message about the number of dropped messages is generated\&. This rate limiting is applied per\-service, so that two services which log do not interfere with each other\*(Aqs limits\&. Defaults to 1000 messages in 30s\&. The time specification for
 \fIRateLimitInterval=\fR
 may be specified in the following units:
 "s",
@@ -128,11 +128,20 @@ or
 \fISystemMaxUse=\fR
 and
 \fIRuntimeMaxUse=\fR
-control how much disk space the journal may use up at maximum\&. Defaults to 10% of the size of the respective file system\&.
+control how much disk space the journal may use up at maximum\&.
 \fISystemKeepFree=\fR
 and
 \fIRuntimeKeepFree=\fR
-control how much disk space systemd\-journald shall always leave free for other uses\&. Defaults to 15% of the size of the respective file system\&. systemd\-journald will respect both limits, i\&.e\&. use the smaller of the two values\&.
+control how much disk space systemd\-journald shall leave free for other uses\&.
+\fBsystemd\-journald\fR
+will respect both limits and use the smaller of the two values\&.
+.sp
+The first pair defaults to 10% and the second to 15% of the size of the respective file system\&. If the file system is nearly full and either
+\fISystemKeepFree=\fR
+or
+\fIRuntimeKeepFree=\fR
+is violated when systemd\-journald is started, the value will be raised to percentage that is actually free\&. This means that if there was enough free space before and journal files were created, and subsequently something else causes the file system to fill up, journald will stop using more space, but it will not be removing existing files to go reduce footprint either\&.
+.sp
 \fISystemMaxFileSize=\fR
 and
 \fIRuntimeMaxFileSize=\fR
@@ -177,18 +186,20 @@ to override the default time unit of seconds\&.
 The timeout before synchronizing journal files to disk\&. After syncing, journal files are placed in the OFFLINE state\&. Note that syncing is unconditionally done immediately after a log message of priority CRIT, ALERT or EMERG has been logged\&. This setting hence applies only to messages of the levels ERR, WARNING, NOTICE, INFO, DEBUG\&. The default timeout is 5 minutes\&.
 .RE
 .PP
-\fIForwardToSyslog=\fR, \fIForwardToKMsg=\fR, \fIForwardToConsole=\fR
+\fIForwardToSyslog=\fR, \fIForwardToKMsg=\fR, \fIForwardToConsole=\fR, \fIForwardToWall=\fR
 .RS 4
-Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), or to the system console\&. These options take boolean arguments\&. If forwarding to syslog is enabled but no syslog daemon is running, the respective option has no effect\&. By default, only forwarding to syslog is enabled\&. These settings may be overridden at boot time with the kernel command line options
+Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall messages to all logged\-in users\&. These options take boolean arguments\&. If forwarding to syslog is enabled but no syslog daemon is running, the respective option has no effect\&. By default, only forwarding to syslog and wall is enabled\&. These settings may be overridden at boot time with the kernel command line options
 "systemd\&.journald\&.forward_to_syslog=",
-"systemd\&.journald\&.forward_to_kmsg="
+"systemd\&.journald\&.forward_to_kmsg=",
+"systemd\&.journald\&.forward_to_console="
 and
-"systemd\&.journald\&.forward_to_console="\&.
+"systemd\&.journald\&.forward_to_wall="\&. When forwarding to the console, the TTY to log to can be changed with
+\fITTYPath=\fR, described below\&.
 .RE
 .PP
-\fIMaxLevelStore=\fR, \fIMaxLevelSyslog=\fR, \fIMaxLevelKMsg=\fR, \fIMaxLevelConsole=\fR
+\fIMaxLevelStore=\fR, \fIMaxLevelSyslog=\fR, \fIMaxLevelKMsg=\fR, \fIMaxLevelConsole=\fR, \fIMaxLevelWall=\fR
 .RS 4
-Controls the maximum log level of messages that are stored on disk, forwarded to syslog, kmsg or the console (if that is enabled, see above)\&. As argument, takes one of
+Controls the maximum log level of messages that are stored on disk, forwarded to syslog, kmsg, the console or wall (if that is enabled, see above)\&. As argument, takes one of
 "emerg",
 "alert",
 "crit",
@@ -205,11 +216,14 @@ and
 \fIMaxLevelSyslog=\fR, to ensure that the all messages are written to disk and forwarded to syslog\&. Defaults to
 "notice"
 for
-\fIMaxLevelKMsg=\fR
-and
+\fIMaxLevelKMsg=\fR,
 "info"
 for
-\fIMaxLevelConsole=\fR\&.
+\fIMaxLevelConsole=\fR
+and
+"emerg"
+for
+\fIMaxLevelWall=\fR\&.
 .RE
 .PP
 \fITTYPath=\fR

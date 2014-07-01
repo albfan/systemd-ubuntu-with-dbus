@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.TIMER" "5" "" "systemd 208" "systemd.timer"
+.TH "SYSTEMD\&.TIMER" "5" "" "systemd 214" "systemd.timer"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -73,7 +73,7 @@ Multiple directives may be combined of the same and of different types\&. For ex
 and
 \fIOnUnitActiveSec=\fR, it is possible to define a timer that elapses in regular intervals and activates a specific service each time\&.
 .sp
-The arguments to the directives are time spans configured in seconds\&. Example: "OnBootSec=50" means 50s after boot\-up\&. The argument may also include time units\&. Example: "OnBootSec=5h 30min" means 5 hours and 30 minutes after boot\-up\&. For details about the syntax of time spans see
+The arguments to the directives are time spans configured in seconds\&. Example: "OnBootSec=50" means 50s after boot\-up\&. The argument may also include time units\&. Example: "OnBootSec=5h 30min" means 5 hours and 30 minutes after boot\-up\&. For details about the syntax of time spans, see
 \fBsystemd.unit\fR(5)\&.
 .sp
 If a timer configured with
@@ -85,21 +85,61 @@ is already in the past when the timer unit is activated, it will immediately ela
 These are monotonic timers, independent of wall\-clock time and timezones\&. If the computer is temporarily suspended, the monotonic clock stops too\&.
 .sp
 If the empty string is assigned to any of these options, the list of timers is reset, and all prior assignments will have no effect\&.
+.sp
+Note that timers do not necessarily expire at the precise time configured with these settings, as they are subject to the
+\fIAccuracySec=\fR
+setting below\&.
 .RE
 .PP
 \fIOnCalendar=\fR
 .RS 4
-Defines realtime (i\&.e\&. wallclock) timers via calendar event expressions\&. See
+Defines realtime (i\&.e\&. wallclock) timers with calendar event expressions\&. See
 \fBsystemd.time\fR(7)
-for more information on the syntax of calendar event expressions\&. Otherwise the semantics are similar to
+for more information on the syntax of calendar event expressions\&. Otherwise, the semantics are similar to
 \fIOnActiveSec=\fR
 and related settings\&.
+.sp
+Note that timers do not necessarily expire at the precise time configured with this setting, as it is subject to the
+\fIAccuracySec=\fR
+setting below\&.
+.RE
+.PP
+\fIAccuracySec=\fR
+.RS 4
+Specify the accuracy the timer shall elapse with\&. Defaults to 1min\&. The timer is scheduled to elapse within a time window starting with the time specified in
+\fIOnCalendar=\fR,
+\fIOnActiveSec=\fR,
+\fIOnBootSec=\fR,
+\fIOnStartupSec=\fR,
+\fIOnUnitActiveSec=\fR
+or
+\fIOnUnitInactiveSec=\fR
+and ending the time configured with
+\fIAccuracySec=\fR
+later\&. Within this time window, the expiry time will be placed at a host\-specific, randomized but stable position that is synchronized between all local timer units\&. This is done in order to distribute the wake\-up time in networked installations, as well as optimizing power consumption to suppress unnecessary CPU wake\-ups\&. To get best accuracy, set this option to 1us\&. Note that the timer is still subject to the timer slack configured via
+\fBsystemd-system.conf\fR(5)\*(Aqs
+\fITimerSlackNSec=\fR
+setting\&. See
+\fBprctl\fR(2)
+for details\&. To optimize power consumption, make sure to set this value as high as possible and as low as necessary\&.
 .RE
 .PP
 \fIUnit=\fR
 .RS 4
 The unit to activate when this timer elapses\&. The argument is a unit name, whose suffix is not
 "\&.timer"\&. If not specified, this value defaults to a service that has the same name as the timer unit, except for the suffix\&. (See above\&.) It is recommended that the unit name that is activated and the unit name of the timer unit are named identically, except for the suffix\&.
+.RE
+.PP
+\fIPersistent=\fR
+.RS 4
+Takes a boolean argument\&. If true, the time when the service unit was last triggered is stored on disk\&. When the timer is activated, the service unit is triggered immediately if it would have been triggered at least once during the time when the timer was inactive\&. This is useful to catch up on missed runs of the service when the machine was off\&. Note that this setting only has an effect on timers configured with
+\fIOnCalendar=\fR\&.
+.RE
+.PP
+\fIWakeSystem=\fR
+.RS 4
+Takes a boolean argument\&. If true, an elapsing timer will cause the system to resume from suspend, should it be suspended and if the system supports this\&. Note that this option will only make sure the system resumes on the appropriate times, it will not take care of suspending it again after any work that is to be done is finished\&. Defaults to
+\fIfalse\fR\&.
 .RE
 .SH "SEE ALSO"
 .PP
@@ -108,4 +148,6 @@ The unit to activate when this timer elapses\&. The argument is a unit name, who
 \fBsystemd.unit\fR(5),
 \fBsystemd.service\fR(5),
 \fBsystemd.time\fR(7),
-\fBsystemd.directives\fR(7)
+\fBsystemd.directives\fR(7),
+\fBsystemd-system.conf\fR(5),
+\fBprctl\fR(2)

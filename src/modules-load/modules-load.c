@@ -33,8 +33,8 @@
 #include "util.h"
 #include "strv.h"
 #include "conf-files.h"
-#include "virt.h"
 #include "fileio.h"
+#include "build.h"
 
 static char **arg_proc_cmdline_modules = NULL;
 
@@ -48,70 +48,34 @@ static const char conf_file_dirs[] =
 #endif
         ;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 static void systemd_kmod_log(void *data, int priority, const char *file, int line,
-                             const char *fn, const char *format, va_list args)
-{
+                             const char *fn, const char *format, va_list args) {
+
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         log_metav(priority, file, line, fn, format, args);
+        REENABLE_WARNING;
 }
-#pragma GCC diagnostic pop
 
 static int add_modules(const char *p) {
-        char **t;
         _cleanup_strv_free_ char **k = NULL;
 
         k = strv_split(p, ",");
         if (!k)
                 return log_oom();
 
-        t = strv_merge(arg_proc_cmdline_modules, k);
-        if (!t)
+        if (strv_extend_strv(&arg_proc_cmdline_modules, k) < 0)
                 return log_oom();
-
-        strv_free(arg_proc_cmdline_modules);
-        arg_proc_cmdline_modules = t;
 
         return 0;
 }
 
-static int parse_proc_cmdline(void) {
-        _cleanup_free_ char *line = NULL;
-        char *w, *state;
+static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
-        size_t l;
 
-        if (detect_container(NULL) > 0)
-                return 0;
-
-        r = read_one_line_file("/proc/cmdline", &line);
-        if (r < 0) {
-                log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
-                return 0;
-        }
-
-        FOREACH_WORD_QUOTED(w, l, line, state) {
-                _cleanup_free_ char *word;
-
-                word = strndup(w, l);
-                if (!word)
-                        return log_oom();
-
-                if (startswith(word, "modules-load=")) {
-
-                        r = add_modules(word + 13);
-                        if (r < 0)
-                                return r;
-
-                } else if (startswith(word, "rd.modules-load=")) {
-
-                        if (in_initrd()) {
-                                r = add_modules(word + 16);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                }
+        if (STR_IN_SET(key, "modules-load", "rd.modules-load") && value) {
+                r = add_modules(value);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -122,7 +86,7 @@ static int load_module(struct kmod_ctx *ctx, const char *m) {
         struct kmod_list *itr, *modlist = NULL;
         int r = 0;
 
-        log_debug("load: %s\n", m);
+        log_debug("load: %s", m);
 
         r = kmod_module_new_from_lookup(ctx, m, &modlist);
         if (r < 0) {
@@ -181,7 +145,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         assert(ctx);
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", conf_file_dirs, &f);
+        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -190,7 +154,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 return r;
         }
 
-        log_debug("apply: %s\n", path);
+        log_debug("apply: %s", path);
         for (;;) {
                 char line[LINE_MAX], *l;
                 int k;
@@ -221,7 +185,8 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Loads statically configured kernel modules.\n\n"
-               "  -h --help             Show this help\n",
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n",
                program_invocation_short_name);
 
         return 0;
@@ -229,9 +194,14 @@ static int help(void) {
 
 static int parse_argv(int argc, char *argv[]) {
 
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
-                { NULL,        0,                 NULL, 0             }
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                {}
         };
 
         int c;
@@ -244,15 +214,18 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
+                        return help();
+
+                case ARG_VERSION:
+                        puts(PACKAGE_STRING);
+                        puts(SYSTEMD_FEATURES);
                         return 0;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -273,7 +246,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (parse_proc_cmdline() < 0)
+        if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
         ctx = kmod_new(NULL, NULL);
@@ -302,13 +275,15 @@ int main(int argc, char *argv[]) {
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
                         k = load_module(ctx, *i);
-                        if (k < 0)
-                                r = EXIT_FAILURE;
+                        if (k < 0 && r == 0)
+                                r = k;
                 }
 
-                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
-                if (r < 0) {
-                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
+                k = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+                if (k < 0) {
+                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
+                        if (r == 0)
+                                r = k;
                         goto finish;
                 }
 

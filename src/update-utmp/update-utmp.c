@@ -25,68 +25,48 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <dbus/dbus.h>
-
 #ifdef HAVE_AUDIT
 #include <libaudit.h>
 #endif
+
+#include "sd-bus.h"
 
 #include "log.h"
 #include "macro.h"
 #include "util.h"
 #include "special.h"
 #include "utmp-wtmp.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
+#include "unit-name.h"
 
 typedef struct Context {
-        DBusConnection *bus;
+        sd_bus *bus;
 #ifdef HAVE_AUDIT
         int audit_fd;
 #endif
 } Context;
 
 static usec_t get_startup_time(Context *c) {
-        const char
-                *interface = "org.freedesktop.systemd1.Manager",
-                *property = "UserspaceTimestamp";
-
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         usec_t t = 0;
-        DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub;
+        int r;
 
         assert(c);
 
-        if (bus_method_call_with_reply (
+        r = sd_bus_get_property_trivial(
                         c->bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID))
-                goto finish;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                log_error("Failed to parse reply.");
-                goto finish;
+                        "org.freedesktop.systemd1.Manager",
+                        "UserspaceTimestamp",
+                        &error,
+                        't', &t);
+        if (r < 0) {
+                log_error("Failed to get timestamp: %s", bus_error_message(&error, -r));
+                return 0;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT64)  {
-                log_error("Failed to parse reply.");
-                goto finish;
-        }
-
-        dbus_message_iter_get_basic(&sub, &t);
-
-finish:
-        if (reply)
-                dbus_message_unref(reply);
         return t;
 }
 
@@ -106,95 +86,38 @@ static int get_current_runlevel(Context *c) {
                 { '2', SPECIAL_RUNLEVEL2_TARGET },
                 { '1', SPECIAL_RESCUE_TARGET },
         };
-        const char
-                *interface = "org.freedesktop.systemd1.Unit",
-                *property = "ActiveState";
 
-        DBusMessage *reply = NULL;
-        int r = 0;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
         unsigned i;
-        DBusError error;
 
         assert(c);
 
-        dbus_error_init(&error);
-
         for (i = 0; i < ELEMENTSOF(table); i++) {
-                const char *path = NULL, *state;
-                DBusMessageIter iter, sub;
+                _cleanup_free_ char *state = NULL, *path = NULL;
 
-                r = bus_method_call_with_reply (
-                                c->bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "GetUnit",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &table[i].special,
-                                DBUS_TYPE_INVALID);
-                if (r == -ENOMEM)
-                        goto finish;
-                if (r)
-                        continue;
+                path = unit_dbus_path_from_name(table[i].special);
+                if (!path)
+                        return log_oom();
 
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_unref(reply);
-                r = bus_method_call_with_reply (
+                r = sd_bus_get_property_string(
                                 c->bus,
                                 "org.freedesktop.systemd1",
                                 path,
-                                "org.freedesktop.DBus.Properties",
-                                "Get",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &interface,
-                                DBUS_TYPE_STRING, &property,
-                                DBUS_TYPE_INVALID);
-                if (r)
-                        goto finish;
-
-                if (!dbus_message_iter_init(reply, &iter) ||
-                    dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
+                                "org.freedesktop.systemd1.Unit",
+                                "ActiveState",
+                                &error,
+                                &state);
+                if (r < 0) {
+                        log_warning("Failed to get state: %s", bus_error_message(&error, -r));
+                        return r;
                 }
-
-                dbus_message_iter_recurse(&iter, &sub);
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_get_basic(&sub, &state);
 
                 if (streq(state, "active") || streq(state, "reloading"))
-                        r = table[i].runlevel;
-
-                dbus_message_unref(reply);
-                reply = NULL;
-
-                if (r)
-                        break;
+                        return table[i].runlevel;
         }
 
-finish:
-        if (reply)
-                dbus_message_unref(reply);
-
-        dbus_error_free(&error);
-
-        return r;
+        return 0;
 }
 
 static int on_reboot(Context *c) {
@@ -219,7 +142,8 @@ static int on_reboot(Context *c) {
          * utmp_put_reboot() will then fix to the current time */
         t = get_startup_time(c);
 
-        if ((q = utmp_put_reboot(t)) < 0) {
+        q = utmp_put_reboot(t);
+        if (q < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -244,7 +168,8 @@ static int on_shutdown(Context *c) {
                 }
 #endif
 
-        if ((q = utmp_put_shutdown()) < 0) {
+        q = utmp_put_shutdown();
+        if (q < 0) {
                 log_error("Failed to write utmp record: %s", strerror(-q));
                 r = q;
         }
@@ -261,21 +186,21 @@ static int on_runlevel(Context *c) {
          * utmp record and send the audit msg */
 
         /* First, get last runlevel */
-        if ((q = utmp_get_runlevel(&previous, NULL)) < 0) {
+        q = utmp_get_runlevel(&previous, NULL);
 
+        if (q < 0) {
                 if (q != -ESRCH && q != -ENOENT) {
                         log_error("Failed to get current runlevel: %s", strerror(-q));
                         return q;
                 }
 
-                /* Hmm, we didn't find any runlevel, that means we
-                 * have been rebooted */
-                r = on_reboot(c);
                 previous = 0;
         }
 
         /* Secondly, get new runlevel */
-        if ((runlevel = get_current_runlevel(c)) < 0)
+        runlevel = get_current_runlevel(c);
+
+        if (runlevel < 0)
                 return runlevel;
 
         if (previous == runlevel)
@@ -283,43 +208,37 @@ static int on_runlevel(Context *c) {
 
 #ifdef HAVE_AUDIT
         if (c->audit_fd >= 0) {
-                char *s = NULL;
+                _cleanup_free_ char *s = NULL;
 
                 if (asprintf(&s, "old-level=%c new-level=%c",
                              previous > 0 ? previous : 'N',
                              runlevel > 0 ? runlevel : 'N') < 0)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (audit_log_user_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM) {
                         log_error("Failed to send audit message: %m");
                         r = -errno;
                 }
-
-                free(s);
         }
 #endif
 
-        if ((q = utmp_put_runlevel(runlevel, previous)) < 0) {
-                if (q != -ESRCH && q != -ENOENT) {
-                        log_error("Failed to write utmp record: %s", strerror(-q));
-                        r = q;
-                }
+        q = utmp_put_runlevel(runlevel, previous);
+        if (q < 0 && q != -ESRCH && q != -ENOENT) {
+                log_error("Failed to write utmp record: %s", strerror(-q));
+                r = q;
         }
 
         return r;
 }
 
 int main(int argc, char *argv[]) {
-        int r;
-        DBusError error;
-        Context c = {};
-
-        dbus_error_init(&error);
-
+        Context c = {
 #ifdef HAVE_AUDIT
-        c.audit_fd = -1;
+                .audit_fd = -1
 #endif
+        };
+        int r;
 
         if (getppid() != 1) {
                 log_error("This program should be invoked by init only.");
@@ -338,20 +257,20 @@ int main(int argc, char *argv[]) {
         umask(0022);
 
 #ifdef HAVE_AUDIT
-        if ((c.audit_fd = audit_open()) < 0 &&
-            /* If the kernel lacks netlink or audit support,
-             * don't worry about it. */
-            errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
+        /* If the kernel lacks netlink or audit support,
+         * don't worry about it. */
+        c.audit_fd = audit_open();
+        if (c.audit_fd < 0 && errno != EAFNOSUPPORT && errno != EPROTONOSUPPORT)
                 log_error("Failed to connect to audit log: %m");
 #endif
-
-        if (bus_connect(DBUS_BUS_SYSTEM, &c.bus, NULL, &error) < 0) {
-                log_error("Failed to get D-Bus connection: %s", bus_error_message(&error));
+        r = bus_open_system_systemd(&c.bus);
+        if (r < 0) {
+                log_error("Failed to get D-Bus connection: %s", strerror(-r));
                 r = -EIO;
                 goto finish;
         }
 
-        log_debug("systemd-update-utmp running as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid());
 
         if (streq(argv[1], "reboot"))
                 r = on_reboot(&c);
@@ -364,7 +283,7 @@ int main(int argc, char *argv[]) {
                 r = -EINVAL;
         }
 
-        log_debug("systemd-update-utmp stopped as pid %lu", (unsigned long) getpid());
+        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid());
 
 finish:
 #ifdef HAVE_AUDIT
@@ -372,14 +291,8 @@ finish:
                 audit_close(c.audit_fd);
 #endif
 
-        if (c.bus) {
-                dbus_connection_flush(c.bus);
-                dbus_connection_close(c.bus);
-                dbus_connection_unref(c.bus);
-        }
-
-        dbus_error_free(&error);
-        dbus_shutdown();
+        if (c.bus)
+                sd_bus_unref(c.bus);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

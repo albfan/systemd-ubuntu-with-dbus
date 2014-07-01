@@ -68,13 +68,26 @@
                 <para>The configuration files contain a list of
                 variable assignments, separated by newlines. Empty
                 lines and lines whose first non-whitespace character
-                is # or ; are ignored.</para>
+                is <literal>#</literal> or <literal>;</literal> are
+                ignored.</para>
 
-                <para>Note that both / and . are accepted as label
-                separators within sysctl variable
-                names. <literal>kernel.domainname=foo</literal> and
-                <literal>kernel/domainname=foo</literal> hence are
-                entirely equivalent.</para>
+                <para>Note that either <literal>/</literal> or
+                <literal>.</literal> may be used as separators within
+                sysctl variable names. If the first separator is a
+                slash, remaining slashes and dots are left intact. If
+                the first separator is a dot, dots and slashes are
+                interchanged. <literal>kernel.domainname=foo</literal>
+                and <literal>kernel/domainname=foo</literal> are
+                equivalent and will cause <literal>foo</literal> to
+                be written to
+                <filename>/proc/sys/kernel/domainname</filename>.
+                Either
+                <literal>net.ipv4.conf.enp3s0/200.forwarding</literal>
+                or
+                <literal>net/ipv4/conf/enp3s0.200/forwarding</literal>
+                may be used to refer to
+                <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
+                </para>
 
                 <para>Each configuration file shall be named in the
                 style of <filename><replaceable>program</replaceable>.conf</filename>.
@@ -89,8 +102,8 @@
                 administrator, who may use this logic to override the
                 configuration files installed by vendor packages. All
                 configuration files are sorted by their filename in
-                lexicographic order, regardless in which of the
-                directories they reside. If multiple files specify the
+                lexicographic order, regardless of which of the
+                directories they reside in. If multiple files specify the
                 same variable name, the entry in the file with the
                 lexicographically latest name will be applied. It is
                 recommended to prefix all filenames with a two-digit
@@ -103,6 +116,16 @@
                 <filename>/dev/null</filename> in
                 <filename>/etc/sysctl.d/</filename> bearing the
                 same filename.</para>
+
+                <para>The settings configured with
+                <filename>sysctl.d</filename> files will be applied
+                early on boot. The network interface-specific options
+                will also be applied individually for each network
+                interface as it shows up in the system. (More
+                specifically,
+                <filename>net.ipv4.conf.*</filename>,
+                <filename>net.ipv6.conf.*</filename>,
+                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
         </refsect1>
 
         <refsect1>

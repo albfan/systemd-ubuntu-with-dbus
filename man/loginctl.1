@@ -1,5 +1,5 @@
 '\" t
-.TH "LOGINCTL" "1" "" "systemd 208" "loginctl"
+.TH "LOGINCTL" "1" "" "systemd 214" "loginctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,14 +35,14 @@ login manager
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
+\fB\-\-no\-legend\fR
 .RS 4
-Prints a short help text and exits\&.
+Do not print the legend, i\&.e\&. the column headers and the footer\&.
 .RE
 .PP
-\fB\-\-version\fR
+\fB\-\-no\-ask\-password\fR
 .RS 4
-Prints a short version string and exits\&.
+Do not query the user for authentication for privileged operations\&.
 .RE
 .PP
 \fB\-p\fR, \fB\-\-property=\fR
@@ -53,22 +53,12 @@ When showing session/user/seat properties, limit display to certain properties a
 .PP
 \fB\-a\fR, \fB\-\-all\fR
 .RS 4
-When showing session/user/seat properties, show all properties regardless whether they are set or not\&.
+When showing session/user/seat properties, show all properties regardless of whether they are set or not\&.
 .RE
 .PP
 \fB\-l\fR, \fB\-\-full\fR
 .RS 4
 Do not ellipsize process tree entries\&.
-.RE
-.PP
-\fB\-\-no\-pager\fR
-.RS 4
-Do not pipe output into a pager\&.
-.RE
-.PP
-\fB\-\-no\-ask\-password\fR
-.RS 4
-Do not query the user for authentication for privileged operations\&.
 .RE
 .PP
 \fB\-\-kill\-who=\fR
@@ -94,15 +84,30 @@ or
 \fBSIGTERM\fR\&.
 .RE
 .PP
-\fB\-H\fR, \fB\-\-host\fR
+\fB\-H\fR, \fB\-\-host=\fR
 .RS 4
-Execute operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to the remote login manager instance\&.
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
 .RE
 .PP
-\fB\-P\fR, \fB\-\-privileged\fR
+\fB\-M\fR, \fB\-\-machine=\fR
 .RS 4
-Acquire privileges via PolicyKit before executing the operation\&.
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
 .RE
 .PP
 The following commands are understood:
@@ -112,14 +117,14 @@ The following commands are understood:
 List current sessions\&.
 .RE
 .PP
-\fBsession\-status [ID\&.\&.\&.]\fR
+\fBsession\-status\fR \fIID\fR\&.\&.\&.
 .RS 4
 Show terse runtime status information about one or more sessions\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-session\fR
 instead\&.
 .RE
 .PP
-\fBshow\-session [ID\&.\&.\&.]\fR
+\fBshow\-session\fR [\fIID\fR\&.\&.\&.]
 .RS 4
 Show properties of one or more sessions or the manager itself\&. If no argument is specified, properties of the manager will be shown\&. If a session ID is specified, properties of the session are shown\&. By default, empty properties are suppressed\&. Use
 \fB\-\-all\fR
@@ -129,12 +134,12 @@ to show those too\&. To select specific properties to show, use
 if you are looking for formatted human\-readable output\&.
 .RE
 .PP
-\fBactivate [ID\&.\&.\&.]\fR
+\fBactivate\fR \fIID\fR\&.\&.\&.
 .RS 4
 Activate one or more sessions\&. This brings one or more sessions into the foreground, if another session is currently in the foreground on the respective seat\&.
 .RE
 .PP
-\fBlock\-session [ID\&.\&.\&.]\fR, \fBunlock\-session [ID\&.\&.\&.]\fR
+\fBlock\-session\fR \fIID\fR\&.\&.\&., \fBunlock\-session\fR \fIID\fR\&.\&.\&.
 .RS 4
 Activates/deactivates the screen lock on one or more sessions, if the session supports it\&.
 .RE
@@ -144,12 +149,12 @@ Activates/deactivates the screen lock on one or more sessions, if the session su
 Activates/deactivates the screen lock on all current sessions supporting it\&.
 .RE
 .PP
-\fBterminate\-session [ID\&.\&.\&.]\fR
+\fBterminate\-session\fR \fIID\fR\&.\&.\&.
 .RS 4
 Terminates a session\&. This kills all processes of the session and deallocates all resources attached to the session\&.
 .RE
 .PP
-\fBkill\-session [ID\&.\&.\&.]\fR
+\fBkill\-session\fR \fIID\fR\&.\&.\&.
 .RS 4
 Send a signal to one or more processes of the session\&. Use
 \fB\-\-kill\-who=\fR
@@ -163,14 +168,14 @@ to select the signal to send\&.
 List currently logged in users\&.
 .RE
 .PP
-\fBuser\-status [USER\&.\&.\&.]\fR
+\fBuser\-status\fR \fIUSER\fR\&.\&.\&.
 .RS 4
 Show terse runtime status information about one or more logged in users\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-user\fR
 instead\&. Users may be specified by their usernames or numeric user IDs\&.
 .RE
 .PP
-\fBshow\-user [USER\&.\&.\&.]\fR
+\fBshow\-user\fR [\fIUSER\fR\&.\&.\&.]
 .RS 4
 Show properties of one or more users or the manager itself\&. If no argument is specified, properties of the manager will be shown\&. If a user is specified, properties of the user are shown\&. By default, empty properties are suppressed\&. Use
 \fB\-\-all\fR
@@ -180,17 +185,17 @@ to show those too\&. To select specific properties to show, use
 if you are looking for formatted human\-readable output\&.
 .RE
 .PP
-\fBenable\-linger [USER\&.\&.\&.]\fR, \fBdisable\-linger [USER\&.\&.\&.]\fR
+\fBenable\-linger\fR \fIUSER\fR\&.\&.\&., \fBdisable\-linger\fR \fIUSER\fR\&.\&.\&.
 .RS 4
-Enable/disable user lingering for one or more users\&. If enabled for a specific user, a user manager is spawned for him/her at boot and kept around after logouts\&. This allows users who are not logged in to run long\-running services\&.
+Enable/disable user lingering for one or more users\&. If enabled for a specific user, a user manager is spawned for the user at boot and kept around after logouts\&. This allows users who are not logged in to run long\-running services\&.
 .RE
 .PP
-\fBterminate\-user [USER\&.\&.\&.]\fR
+\fBterminate\-user\fR \fIUSER\fR\&.\&.\&.
 .RS 4
 Terminates all sessions of a user\&. This kills all processes of all sessions of the user and deallocates all runtime resources attached to the user\&.
 .RE
 .PP
-\fBkill\-user [USER\&.\&.\&.]\fR
+\fBkill\-user\fR \fIUSER\fR\&.\&.\&.
 .RS 4
 Send a signal to all processes of a user\&. Use
 \fB\-\-signal=\fR
@@ -202,14 +207,14 @@ to select the signal to send\&.
 List currently available seats on the local system\&.
 .RE
 .PP
-\fBseat\-status [NAME\&.\&.\&.]\fR
+\fBseat\-status\fR \fINAME\fR\&.\&.\&.
 .RS 4
 Show terse runtime status information about one or more seats\&. This function is intended to generate human\-readable output\&. If you are looking for computer\-parsable output, use
 \fBshow\-seat\fR
 instead\&.
 .RE
 .PP
-\fBshow\-seat [NAME\&.\&.\&.]\fR
+\fBshow\-seat\fR \fINAME\fR\&.\&.\&.
 .RS 4
 Show properties of one or more seats or the manager itself\&. If no argument is specified, properties of the manager will be shown\&. If a seat is specified, properties of the seat are shown\&. By default, empty properties are suppressed\&. Use
 \fB\-\-all\fR
@@ -219,7 +224,7 @@ to show those too\&. To select specific properties to show, use
 if you are looking for formatted human\-readable output\&.
 .RE
 .PP
-\fBattach [NAME] [DEVICE\&.\&.\&.]\fR
+\fBattach\fR \fINAME\fR \fIDEVICE\fR\&.\&.\&.
 .RS 4
 Persistently attach one or more devices to a seat\&. The devices should be specified via device paths in the
 /sys
@@ -238,9 +243,9 @@ Removes all device assignments previously created with
 \fBattach\fR\&. After this call, only automatically generated seats will remain, and all seat hardware is assigned to them\&.
 .RE
 .PP
-\fBterminate\-seat [NAME\&.\&.\&.]\fR
+\fBterminate\-seat\fR \fINAME\fR\&.\&.\&.
 .RS 4
-Terminates all sessions on a seat\&. This kills all processes of all sessions on a seat and deallocates all runtime resources attached to them\&.
+Terminates all sessions on a seat\&. This kills all processes of all sessions on the seat and deallocates all runtime resources attached to them\&.
 .RE
 .SH "EXIT STATUS"
 .PP
@@ -256,6 +261,13 @@ is not given; overrides
 "cat"
 is equivalent to passing
 \fB\-\-no\-pager\fR\&.
+.RE
+.PP
+\fI$SYSTEMD_LESS\fR
+.RS 4
+Override the default options passed to
+\fBless\fR
+("FRSXMK")\&.
 .RE
 .SH "SEE ALSO"
 .PP

@@ -26,10 +26,7 @@
 #include <sys/statvfs.h>
 #include <fcntl.h>
 #include <stddef.h>
-
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -68,7 +65,10 @@
 /* How many entries to keep in the entry array chain cache at max */
 #define CHAIN_CACHE_MAX 20
 
-int journal_file_set_online(JournalFile *f) {
+/* How much to increase the journal file size at once each time we allocate something new. */
+#define FILE_SIZE_INCREASE (8ULL*1024ULL*1024ULL)              /* 8MB */
+
+static int journal_file_set_online(JournalFile *f) {
         assert(f);
 
         if (!f->writable)
@@ -130,9 +130,7 @@ void journal_file_close(JournalFile *f) {
         if (f->header)
                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
 
-        if (f->fd >= 0)
-                close_nointr_nofail(f->fd);
-
+        safe_close(f->fd);
         free(f->path);
 
         if (f->mmap)
@@ -218,8 +216,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         journal_file_set_online(f);
 
         /* Sync the online state to disk */
-        msync(f->header, PAGE_ALIGN(sizeof(Header)), MS_SYNC);
-        fdatasync(f->fd);
+        fsync(f->fd);
 
         return 0;
 }
@@ -333,12 +330,10 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         if (new_size <= old_size)
                 return 0;
 
-        if (f->metrics.max_size > 0 &&
-            new_size > f->metrics.max_size)
+        if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
                 return -E2BIG;
 
-        if (new_size > f->metrics.min_size &&
-            f->metrics.keep_free > 0) {
+        if (new_size > f->metrics.min_size && f->metrics.keep_free > 0) {
                 struct statvfs svfs;
 
                 if (fstatvfs(f->fd, &svfs) >= 0) {
@@ -355,6 +350,11 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                                 return -E2BIG;
                 }
         }
+
+        /* Increase by larger blocks at once */
+        new_size = ((new_size+FILE_SIZE_INCREASE-1) / FILE_SIZE_INCREASE) * FILE_SIZE_INCREASE;
+        if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
+                new_size = f->metrics.max_size;
 
         /* Note that the glibc fallocate() fallback is very
            inefficient, hence we try to minimize the allocation area
@@ -393,7 +393,7 @@ static int journal_file_move_to(JournalFile *f, int context, bool keep_always, u
 
 static uint64_t minimum_header_size(Object *o) {
 
-        static uint64_t table[] = {
+        static const uint64_t table[] = {
                 [OBJECT_DATA] = sizeof(DataObject),
                 [OBJECT_FIELD] = sizeof(FieldObject),
                 [OBJECT_ENTRY] = sizeof(EntryObject),
@@ -414,7 +414,6 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         void *t;
         Object *o;
         uint64_t s;
-        unsigned context;
 
         assert(f);
         assert(ret);
@@ -423,10 +422,8 @@ int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Objec
         if (!VALID64(offset))
                 return -EFAULT;
 
-        /* One context for each type, plus one catch-all for the rest */
-        context = type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
 
-        r = journal_file_move_to(f, context, false, offset, sizeof(ObjectHeader), &t);
+        r = journal_file_move_to(f, type_to_context(type), false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
@@ -558,7 +555,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memset(o->hash_table.items, 0, s);
+        memzero(o->hash_table.items, s);
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->data_hash_table_size = htole64(s);
@@ -584,7 +581,7 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        memset(o->hash_table.items, 0, s);
+        memzero(o->hash_table.items, s);
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
         f->header->field_hash_table_size = htole64(s);
@@ -907,6 +904,8 @@ static int journal_file_append_field(
 
         osize = offsetof(Object, field.payload) + size;
         r = journal_file_append_object(f, OBJECT_FIELD, osize, &o, &p);
+        if (r < 0)
+                return r;
 
         o->field.hash = htole64(hash);
         memcpy(o->field.payload, field, size);
@@ -1003,10 +1002,13 @@ static int journal_file_append_data(
         if (r < 0)
                 return r;
 
-        eq = memchr(data, '=', size);
+        if (!data)
+                eq = NULL;
+        else
+                eq = memchr(data, '=', size);
         if (eq && eq > data) {
+                Object *fo = NULL;
                 uint64_t fp;
-                Object *fo;
 
                 /* Create field object ... */
                 r = journal_file_append_field(f, data, (uint8_t*) eq - (uint8_t*) data, &fo, &fp);
@@ -1342,7 +1344,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 
         /* Order by the position on disk, in order to improve seek
          * times for rotating media. */
-        qsort(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
+        qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
 
         r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
 
@@ -1352,10 +1354,11 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 }
 
 typedef struct ChainCacheItem {
-        uint64_t first; /* the array at the begin of the chain */
+        uint64_t first; /* the array at the beginning of the chain */
         uint64_t array; /* the cached array */
         uint64_t begin; /* the first item in the cached array */
         uint64_t total; /* the total number of items in all arrays before this one in the chain */
+        uint64_t last_index; /* the last index we looked at, to optimize locality when bisecting */
 } ChainCacheItem;
 
 static void chain_cache_put(
@@ -1364,7 +1367,8 @@ static void chain_cache_put(
                 uint64_t first,
                 uint64_t array,
                 uint64_t begin,
-                uint64_t total) {
+                uint64_t total,
+                uint64_t last_index) {
 
         if (!ci) {
                 /* If the chain item to cache for this chain is the
@@ -1392,12 +1396,14 @@ static void chain_cache_put(
         ci->array = array;
         ci->begin = begin;
         ci->total = total;
+        ci->last_index = last_index;
 }
 
-static int generic_array_get(JournalFile *f,
-                             uint64_t first,
-                             uint64_t i,
-                             Object **ret, uint64_t *offset) {
+static int generic_array_get(
+                JournalFile *f,
+                uint64_t first,
+                uint64_t i,
+                Object **ret, uint64_t *offset) {
 
         Object *o;
         uint64_t p = 0, a, t = 0;
@@ -1438,7 +1444,7 @@ static int generic_array_get(JournalFile *f,
 
 found:
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, o->entry_array.items[0], t);
+        chain_cache_put(f->chain_cache, ci, first, a, le64toh(o->entry_array.items[0]), t, i);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -1453,11 +1459,12 @@ found:
         return 1;
 }
 
-static int generic_array_get_plus_one(JournalFile *f,
-                                      uint64_t extra,
-                                      uint64_t first,
-                                      uint64_t i,
-                                      Object **ret, uint64_t *offset) {
+static int generic_array_get_plus_one(
+                JournalFile *f,
+                uint64_t extra,
+                uint64_t first,
+                uint64_t i,
+                Object **ret, uint64_t *offset) {
 
         Object *o;
 
@@ -1488,17 +1495,18 @@ enum {
         TEST_RIGHT
 };
 
-static int generic_array_bisect(JournalFile *f,
-                                uint64_t first,
-                                uint64_t n,
-                                uint64_t needle,
-                                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
-                                direction_t direction,
-                                Object **ret,
-                                uint64_t *offset,
-                                uint64_t *idx) {
+static int generic_array_bisect(
+                JournalFile *f,
+                uint64_t first,
+                uint64_t n,
+                uint64_t needle,
+                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset,
+                uint64_t *idx) {
 
-        uint64_t a, p, t = 0, i = 0, last_p = 0;
+        uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = (uint64_t) -1;
         bool subtract_one = false;
         Object *o, *array = NULL;
         int r;
@@ -1523,7 +1531,7 @@ static int generic_array_bisect(JournalFile *f,
                         return r;
 
                 if (r == TEST_LEFT) {
-                        /* OK, what we are looking for is right of th
+                        /* OK, what we are looking for is right of the
                          * begin of this EntryArray, so let's jump
                          * straight to previously cached array in the
                          * chain */
@@ -1531,6 +1539,7 @@ static int generic_array_bisect(JournalFile *f,
                         a = ci->array;
                         n -= ci->total;
                         t = ci->total;
+                        last_index = ci->last_index;
                 }
         }
 
@@ -1561,6 +1570,58 @@ static int generic_array_bisect(JournalFile *f,
                 if (r == TEST_RIGHT) {
                         left = 0;
                         right -= 1;
+
+                        if (last_index != (uint64_t) -1) {
+                                assert(last_index <= right);
+
+                                /* If we cached the last index we
+                                 * looked at, let's try to not to jump
+                                 * too wildly around and see if we can
+                                 * limit the range to look at early to
+                                 * the immediate neighbors of the last
+                                 * index we looked at. */
+
+                                if (last_index > 0) {
+                                        uint64_t x = last_index - 1;
+
+                                        p = le64toh(array->entry_array.items[x]);
+                                        if (p <= 0)
+                                                return -EBADMSG;
+
+                                        r = test_object(f, p, needle);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (r == TEST_FOUND)
+                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+                                        if (r == TEST_RIGHT)
+                                                right = x;
+                                        else
+                                                left = x + 1;
+                                }
+
+                                if (last_index < right) {
+                                        uint64_t y = last_index + 1;
+
+                                        p = le64toh(array->entry_array.items[y]);
+                                        if (p <= 0)
+                                                return -EBADMSG;
+
+                                        r = test_object(f, p, needle);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (r == TEST_FOUND)
+                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+                                        if (r == TEST_RIGHT)
+                                                right = y;
+                                        else
+                                                left = y + 1;
+                                }
+                        }
+
                         for (;;) {
                                 if (left == right) {
                                         if (direction == DIRECTION_UP)
@@ -1571,8 +1632,8 @@ static int generic_array_bisect(JournalFile *f,
                                 }
 
                                 assert(left < right);
-
                                 i = (left + right) / 2;
+
                                 p = le64toh(array->entry_array.items[i]);
                                 if (p <= 0)
                                         return -EBADMSG;
@@ -1605,6 +1666,7 @@ static int generic_array_bisect(JournalFile *f,
 
                 n -= k;
                 t += k;
+                last_index = (uint64_t) -1;
                 a = le64toh(array->entry_array.next_entry_array_offset);
         }
 
@@ -1615,7 +1677,7 @@ found:
                 return 0;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, array->entry_array.items[0], t);
+        chain_cache_put(f->chain_cache, ci, first, a, le64toh(array->entry_array.items[0]), t, subtract_one ? (i > 0 ? i-1 : (uint64_t) -1) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
@@ -1640,16 +1702,18 @@ found:
         return 1;
 }
 
-static int generic_array_bisect_plus_one(JournalFile *f,
-                                         uint64_t extra,
-                                         uint64_t first,
-                                         uint64_t n,
-                                         uint64_t needle,
-                                         int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
-                                         direction_t direction,
-                                         Object **ret,
-                                         uint64_t *offset,
-                                         uint64_t *idx) {
+
+static int generic_array_bisect_plus_one(
+                JournalFile *f,
+                uint64_t extra,
+                uint64_t first,
+                uint64_t n,
+                uint64_t needle,
+                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                direction_t direction,
+                Object **ret,
+                uint64_t *offset,
+                uint64_t *idx) {
 
         int r;
         bool step_back = false;
@@ -1876,7 +1940,7 @@ int journal_file_next_entry(
                 direction_t direction,
                 Object **ret, uint64_t *offset) {
 
-        uint64_t i, n;
+        uint64_t i, n, ofs;
         int r;
 
         assert(f);
@@ -1917,10 +1981,24 @@ int journal_file_next_entry(
         }
 
         /* And jump to it */
-        return generic_array_get(f,
-                                 le64toh(f->header->entry_array_offset),
-                                 i,
-                                 ret, offset);
+        r = generic_array_get(f,
+                              le64toh(f->header->entry_array_offset),
+                              i,
+                              ret, &ofs);
+        if (r <= 0)
+                return r;
+
+        if (p > 0 &&
+            (direction == DIRECTION_DOWN ? ofs <= p : ofs >= p)) {
+                log_debug("%s: entry array corrupted at entry %"PRIu64,
+                          f->path, i);
+                return -EBADMSG;
+        }
+
+        if (offset)
+                *offset = ofs;
+
+        return 1;
 }
 
 int journal_file_skip_entry(
@@ -2141,8 +2219,6 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
                 z = q;
         }
-
-        return 0;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(
@@ -2432,7 +2508,6 @@ int journal_file_open(
         }
 
         if (f->last_stat.st_size == 0 && f->writable) {
-#ifdef HAVE_XATTR
                 uint64_t crtime;
 
                 /* Let's attach the creation time to the journal file,
@@ -2447,7 +2522,6 @@ int journal_file_open(
 
                 crtime = htole64((uint64_t) now(CLOCK_REALTIME));
                 fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
-#endif
 
 #ifdef HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
@@ -2549,7 +2623,7 @@ fail:
 }
 
 int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
         int r;
@@ -2566,22 +2640,15 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal) {
                 return -EINVAL;
 
         l = strlen(old_file->path);
-
-        p = new(char, l + 1 + 32 + 1 + 16 + 1 + 16 + 1);
-        if (!p)
+        r = asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
+                     (int) l - 8, old_file->path,
+                     SD_ID128_FORMAT_VAL(old_file->header->seqnum_id),
+                     le64toh((*f)->header->head_entry_seqnum),
+                     le64toh((*f)->header->head_entry_realtime));
+        if (r < 0)
                 return -ENOMEM;
 
-        memcpy(p, old_file->path, l - 8);
-        p[l-8] = '@';
-        sd_id128_to_string(old_file->header->seqnum_id, p + l - 8 + 1);
-        snprintf(p + l - 8 + 1 + 32, 1 + 16 + 1 + 16 + 8 + 1,
-                 "-%016"PRIx64"-%016"PRIx64".journal",
-                 le64toh((*f)->header->head_entry_seqnum),
-                 le64toh((*f)->header->head_entry_realtime));
-
         r = rename(old_file->path, p);
-        free(p);
-
         if (r < 0)
                 return -errno;
 
@@ -2631,10 +2698,10 @@ int journal_file_open_reliably(
         /* The file is corrupted. Rotate it away and try it again (but only once) */
 
         l = strlen(fname);
-        if (asprintf(&p, "%.*s@%016llx-%016llx.journal~",
-                     (int) (l-8), fname,
+        if (asprintf(&p, "%.*s@%016llx-%016" PRIx64 ".journal~",
+                     (int) l - 8, fname,
                      (unsigned long long) now(CLOCK_REALTIME),
-                     random_ull()) < 0)
+                     random_u64()) < 0)
                 return -ENOMEM;
 
         r = rename(fname, p);
@@ -2665,12 +2732,9 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
         ts.monotonic = le64toh(o->entry.monotonic);
         ts.realtime = le64toh(o->entry.realtime);
 
-        if (to->tail_entry_monotonic_valid &&
-            ts.monotonic < le64toh(to->header->tail_entry_monotonic))
-                return -EINVAL;
-
         n = journal_file_entry_n_items(o);
-        items = alloca(sizeof(EntryItem) * n);
+        /* alloca() can't take 0, hence let's allocate at least one */
+        items = alloca(sizeof(EntryItem) * MAX(1u, n));
 
         for (i = 0; i < n; i++) {
                 uint64_t l, h;

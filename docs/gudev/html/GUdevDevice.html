@@ -82,6 +82,9 @@ const <span class="returnvalue">gchar</span> *       <a class="link" href="GUdev
 const <span class="returnvalue">gchar</span> * const * <a class="link" href="GUdevDevice.html#g-udev-device-get-property-as-strv" title="g_udev_device_get_property_as_strv ()">g_udev_device_get_property_as_strv</a>
                                                         (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
                                                          <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);
+const <span class="returnvalue">gchar</span> * const * <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-keys" title="g_udev_device_get_sysfs_attr_keys ()">g_udev_device_get_sysfs_attr_keys</a> (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>);
+<span class="returnvalue">gboolean</span>            <a class="link" href="GUdevDevice.html#g-udev-device-has-sysfs-attr" title="g_udev_device_has_sysfs_attr ()">g_udev_device_has_sysfs_attr</a>        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
+                                                         <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);
 const <span class="returnvalue">gchar</span> *       <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr" title="g_udev_device_get_sysfs_attr ()">g_udev_device_get_sysfs_attr</a>        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
                                                          <em class="parameter"><code>const <span class="type">gchar</span> *name</code></em>);
 <span class="returnvalue">gint</span>                <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int" title="g_udev_device_get_sysfs_attr_as_int ()">g_udev_device_get_sysfs_attr_as_int</a> (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
@@ -142,6 +145,8 @@ To access udev properties for the device, use
 </p>
 <p>
 To access sysfs attributes for the device, use
+<a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-keys" title="g_udev_device_get_sysfs_attr_keys ()"><code class="function">g_udev_device_get_sysfs_attr_keys()</code></a>,
+<a class="link" href="GUdevDevice.html#g-udev-device-has-sysfs-attr" title="g_udev_device_has_sysfs_attr ()"><code class="function">g_udev_device_has_sysfs_attr()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr" title="g_udev_device_get_sysfs_attr ()"><code class="function">g_udev_device_get_sysfs_attr()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int" title="g_udev_device_get_sysfs_attr_as_int ()"><code class="function">g_udev_device_get_sysfs_attr_as_int()</code></a>,
 <a class="link" href="GUdevDevice.html#g-udev-device-get-sysfs-attr-as-uint64" title="g_udev_device_get_sysfs_attr_as_uint64 ()"><code class="function">g_udev_device_get_sysfs_attr_as_uint64()</code></a>,
@@ -331,7 +336,9 @@ Gets the name of the driver used for <em class="parameter"><code>device</code></
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The name of the driver for <em class="parameter"><code>device</code></em> or <code class="literal">NULL</code> if unknown.</td>
+<td>The name of the driver for <em class="parameter"><code>device</code></em> or <code class="literal">NULL</code> if
+unknown. <span class="annotation">[nullable]</span>
+</td>
 </tr>
 </tbody>
 </table></div>
@@ -451,8 +458,9 @@ Gets the device file for <em class="parameter"><code>device</code></em>.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The device file for <em class="parameter"><code>device</code></em> or <code class="literal">NULL</code> if no device file
-exists.</td>
+<td>The device file for <em class="parameter"><code>device</code></em> or <code class="literal">NULL</code> if no
+device file exists. <span class="annotation">[nullable]</span>
+</td>
 </tr>
 </tbody>
 </table></div>
@@ -503,7 +511,8 @@ Gets the immediate parent of <em class="parameter"><code>device</code></em>, if 
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if <em class="parameter"><code>device</code></em> has no parent. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if
+<em class="parameter"><code>device</code></em> has no parent. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -541,7 +550,9 @@ device encountered where <em class="parameter"><code>subsystem</code></em> and <
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if <em class="parameter"><code>device</code></em> has no parent with <em class="parameter"><code>subsystem</code></em> and <em class="parameter"><code>devtype</code></em>. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> or <code class="literal">NULL</code> if
+<em class="parameter"><code>device</code></em> has no parent with <em class="parameter"><code>subsystem</code></em> and <em class="parameter"><code>devtype</code></em>. Free with
+<code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -707,7 +718,9 @@ Look up the value for <em class="parameter"><code>key</code></em> on <em class="
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The value for <em class="parameter"><code>key</code></em> or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em> doesn't exist on <em class="parameter"><code>device</code></em>. Do not free this string, it is owned by <em class="parameter"><code>device</code></em>.</td>
+<td>The value for <em class="parameter"><code>key</code></em> or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em> doesn't
+exist on <em class="parameter"><code>device</code></em>. Do not free this string, it is owned by <em class="parameter"><code>device</code></em>. <span class="annotation">[nullable]</span>
+</td>
 </tr>
 </tbody>
 </table></div>
@@ -869,11 +882,24 @@ locale is not taken into account).
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The value of <em class="parameter"><code>key</code></em> on <em class="parameter"><code>device</code></em> split into tokens or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em> doesn't exist. This array is owned by <em class="parameter"><code>device</code></em> and should not be freed by the caller. <span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span>
+<td>The value of <em class="parameter"><code>key</code></em> on <em class="parameter"><code>device</code></em> split into tokens or <code class="literal">NULL</code> if <em class="parameter"><code>key</code></em>
+doesn't exist. This array is owned by <em class="parameter"><code>device</code></em> and should not be
+freed by the caller. <span class="annotation">[nullable][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span>
 </td>
 </tr>
 </tbody>
 </table></div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="g-udev-device-get-sysfs-attr-keys"></a><h3>g_udev_device_get_sysfs_attr_keys ()</h3>
+<pre class="programlisting">const <span class="returnvalue">gchar</span> * const * g_udev_device_get_sysfs_attr_keys (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>);</pre>
+</div>
+<hr>
+<div class="refsect2">
+<a name="g-udev-device-has-sysfs-attr"></a><h3>g_udev_device_has_sysfs_attr ()</h3>
+<pre class="programlisting"><span class="returnvalue">gboolean</span>            g_udev_device_has_sysfs_attr        (<em class="parameter"><code><a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> *device</code></em>,
+                                                         <em class="parameter"><code>const <span class="type">gchar</span> *key</code></em>);</pre>
 </div>
 <hr>
 <div class="refsect2">
@@ -899,8 +925,10 @@ Look up the sysfs attribute with <em class="parameter"><code>name</code></em> on
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The value of the sysfs attribute or <code class="literal">NULL</code> if there is no
-such attribute. Do not free this string, it is owned by <em class="parameter"><code>device</code></em>.</td>
+<td>The value of the sysfs attribute or <code class="literal">NULL</code> if
+there is no such attribute. Do not free this string, it is owned by
+<em class="parameter"><code>device</code></em>. <span class="annotation">[nullable]</span>
+</td>
 </tr>
 </tbody>
 </table></div>
@@ -1062,7 +1090,9 @@ not taken into account).
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>The value of the sysfs attribute split into tokens or <code class="literal">NULL</code> if there is no such attribute. This array is owned by <em class="parameter"><code>device</code></em> and should not be freed by the caller. <span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span>
+<td>The value of the sysfs attribute split into tokens or <code class="literal">NULL</code> if
+there is no such attribute. This array is owned by <em class="parameter"><code>device</code></em> and
+should not be freed by the caller. <span class="annotation">[nullable][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>][<acronym title="Parameter points to an array of items."><span class="acronym">array</span></acronym> zero-terminated=1][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8]</span>
 </td>
 </tr>
 </tbody>

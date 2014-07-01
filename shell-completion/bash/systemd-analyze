@@ -25,13 +25,22 @@ __contains_word () {
         done
 }
 
+__get_machines() {
+        local a b
+        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
 _systemd_analyze() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='--help --version --system --user --from-pattern --to-pattern --order --require'
+
+        local -A OPTS=(
+               [STANDALONE]='--help --version --system --user --from-pattern --to-pattern --order --require --no-pager'
+                      [ARG]='-H --host -M --machine'
+        )
 
         local -A VERBS=(
-                [NO_OPTION]='time blame plot'
+                [STANDALONE]='time blame plot dump'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='set-log-level'
@@ -39,13 +48,26 @@ _systemd_analyze() {
 
         _init_completion || return
 
-        for ((i=0; $i <= $COMP_CWORD; i++)); do
+        for ((i=0; i < COMP_CWORD; i++)); do
                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                         verb=${COMP_WORDS[i]}
                         break
                 fi
         done
+
+        if __contains_word "$prev" ${OPTS[ARG]}; then
+                case $prev in
+                        --host|-H)
+                                comps=$(compgen -A hostname)
+                        ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
+                        ;;
+                esac
+                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+                return 0
+        fi
 
         if [[ -z $verb  && $cur = -* ]]; then
                 COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
@@ -55,7 +77,7 @@ _systemd_analyze() {
         if [[ -z $verb ]]; then
                 comps=${VERBS[*]}
 
-        elif __contains_word "$verb" ${VERBS[NO_OPTION]}; then
+        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 if [[ $cur = -* ]]; then
                         comps='--help --version --system --user'
                 fi

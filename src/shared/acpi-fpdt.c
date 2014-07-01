@@ -81,9 +81,9 @@ struct acpi_fpdt_boot {
 };
 
 int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
-        char *buf;
+        _cleanup_free_ char *buf = NULL;
         struct acpi_table_header *tbl;
-        size_t l;
+        size_t l = 0;
         struct acpi_fpdt_header *rec;
         int r;
         uint64_t ptr = 0;
@@ -109,6 +109,8 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         for (rec = (struct acpi_fpdt_header *)(buf + sizeof(struct acpi_table_header));
              (char *)rec < buf + l;
              rec = (struct acpi_fpdt_header *)((char *)rec + rec->length)) {
+                if (rec->length <= 0)
+                        break;
                 if (rec->type != ACPI_FPDT_TYPE_BOOT)
                         continue;
                 if (rec->length != sizeof(struct acpi_fpdt_header))
@@ -144,6 +146,11 @@ int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
                 return -EINVAL;
 
         if (brec.type != ACPI_FPDT_BOOT_REC)
+                return -EINVAL;
+
+        if (brec.startup_start == 0 || brec.exit_services_exit < brec.startup_start)
+                return -EINVAL;
+        if (brec.exit_services_exit > NSEC_PER_HOUR)
                 return -EINVAL;
 
         if (loader_start)

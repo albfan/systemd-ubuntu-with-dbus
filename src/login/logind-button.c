@@ -26,14 +26,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/input.h>
-#include <sys/epoll.h>
 
+#include "sd-messages.h"
 #include "conf-parser.h"
 #include "util.h"
-#include "logind-button.h"
 #include "special.h"
-#include "dbus-common.h"
-#include "sd-messages.h"
+#include "logind-button.h"
 
 Button* button_new(Manager *m, const char *name) {
         Button *b;
@@ -68,13 +66,13 @@ void button_free(Button *b) {
 
         hashmap_remove(b->manager->buttons, b->name);
 
-        if (b->fd >= 0) {
-                hashmap_remove(b->manager->button_fds, INT_TO_PTR(b->fd + 1));
-                assert_se(epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_DEL, b->fd, NULL) == 0);
+        sd_event_source_unref(b->io_event_source);
+        sd_event_source_unref(b->check_event_source);
 
+        if (b->fd >= 0) {
                 /* If the device has been unplugged close() returns
                  * ENODEV, let's ignore this, hence we don't use
-                 * close_nointr_nofail() */
+                 * safe_close() */
                 close(b->fd);
         }
 
@@ -99,86 +97,39 @@ int button_set_seat(Button *b, const char *sn) {
         return 0;
 }
 
-int button_open(Button *b) {
-        char name[256], *p;
-        struct epoll_event ev;
-        int r;
+static int button_recheck(sd_event_source *e, void *userdata) {
+        Button *b = userdata;
 
         assert(b);
+        assert(b->lid_closed);
 
-        if (b->fd >= 0) {
-                close(b->fd);
-                b->fd = -1;
-        }
-
-        p = strappend("/dev/input/", b->name);
-        if (!p)
-                return log_oom();
-
-        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-        free(p);
-        if (b->fd < 0) {
-                log_warning("Failed to open %s: %m", b->name);
-                return -errno;
-        }
-
-        if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
-                log_error("Failed to get input name: %m");
-                r = -errno;
-                goto fail;
-        }
-
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.u32 = FD_OTHER_BASE + b->fd;
-
-        if (epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_ADD, b->fd, &ev) < 0) {
-                log_error("Failed to add to epoll: %m");
-                r = -errno;
-                goto fail;
-        }
-
-        r = hashmap_put(b->manager->button_fds, INT_TO_PTR(b->fd + 1), b);
-        if (r < 0) {
-                log_error("Failed to add to hash map: %s", strerror(-r));
-                assert_se(epoll_ctl(b->manager->epoll_fd, EPOLL_CTL_DEL, b->fd, NULL) == 0);
-                goto fail;
-        }
-
-        log_info("Watching system buttons on /dev/input/%s (%s)", b->name, name);
-
-        return 0;
-
-fail:
-        close(b->fd);
-        b->fd = -1;
-        return r;
+        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
+        return 1;
 }
 
-static int button_handle(
-                Button *b,
-                InhibitWhat inhibit_key,
-                HandleAction handle,
-                bool ignore_inhibited,
-                bool is_edge) {
-
+static int button_install_check_event_source(Button *b) {
         int r;
-
         assert(b);
 
-        r = manager_handle_action(b->manager, inhibit_key, handle, ignore_inhibited, is_edge);
-        if (r > 0)
-                /* We are executing the operation, so make sure we don't
-                 * execute another one until the lid is opened/closed again */
-                b->lid_close_queued = false;
+        /* Install a post handler, so that we keep rechecking as long as the lid is closed. */
 
-        return r;
+        if (b->check_event_source)
+                return 0;
+
+        r = sd_event_add_post(b->manager->event, &b->check_event_source, button_recheck, b);
+        if (r < 0)
+                return r;
+
+        return sd_event_source_set_priority(b->check_event_source, SD_EVENT_PRIORITY_IDLE+1);
 }
 
-int button_process(Button *b) {
+static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Button *b = userdata;
         struct input_event ev;
         ssize_t l;
 
+        assert(s);
+        assert(fd == b->fd);
         assert(b);
 
         l = read(b->fd, &ev, sizeof(ev));
@@ -197,7 +148,9 @@ int button_process(Button *b) {
                                    "MESSAGE=Power key pressed.",
                                    MESSAGE_ID(SD_MESSAGE_POWER_KEY),
                                    NULL);
-                        return button_handle(b, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_POWER_KEY, b->manager->handle_power_key, b->manager->power_key_ignore_inhibited, true);
+                        break;
 
                 /* The kernel is a bit confused here:
 
@@ -210,52 +163,121 @@ int button_process(Button *b) {
                                    "MESSAGE=Suspend key pressed.",
                                    MESSAGE_ID(SD_MESSAGE_SUSPEND_KEY),
                                    NULL);
-                        return button_handle(b, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_SUSPEND_KEY, b->manager->handle_suspend_key, b->manager->suspend_key_ignore_inhibited, true);
+                        break;
 
                 case KEY_SUSPEND:
                         log_struct(LOG_INFO,
                                    "MESSAGE=Hibernate key pressed.",
                                    MESSAGE_ID(SD_MESSAGE_HIBERNATE_KEY),
                                    NULL);
-                        return button_handle(b, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
+                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
 
-                switch (ev.code) {
-
-                case SW_LID:
+                if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    "MESSAGE=Lid closed.",
                                    MESSAGE_ID(SD_MESSAGE_LID_CLOSED),
                                    NULL);
-                        b->lid_close_queued = true;
 
-                        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                        b->lid_closed = true;
+                        manager_handle_action(b->manager, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, true);
+                        button_install_check_event_source(b);
+
+                } else if (ev.code == SW_DOCK) {
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=System docked.",
+                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_DOCKED),
+                                   NULL);
+
+                        b->docked = true;
                 }
 
         } else if (ev.type == EV_SW && ev.value == 0) {
 
-                switch (ev.code) {
-
-                case SW_LID:
+                if (ev.code == SW_LID) {
                         log_struct(LOG_INFO,
                                    "MESSAGE=Lid opened.",
                                    MESSAGE_ID(SD_MESSAGE_LID_OPENED),
                                    NULL);
-                        b->lid_close_queued = false;
-                        break;
+
+                        b->lid_closed = false;
+                        b->check_event_source = sd_event_source_unref(b->check_event_source);
+
+                } else if (ev.code == SW_DOCK) {
+                        log_struct(LOG_INFO,
+                                   "MESSAGE=System undocked.",
+                                   MESSAGE_ID(SD_MESSAGE_SYSTEM_UNDOCKED),
+                                   NULL);
+
+                        b->docked = false;
                 }
         }
 
         return 0;
 }
 
-int button_recheck(Button *b) {
+int button_open(Button *b) {
+        char *p, name[256];
+        int r;
+
         assert(b);
 
-        if (!b->lid_close_queued)
-                return 0;
+        if (b->fd >= 0) {
+                close(b->fd);
+                b->fd = -1;
+        }
 
-        return button_handle(b, INHIBIT_HANDLE_LID_SWITCH, b->manager->handle_lid_switch, b->manager->lid_switch_ignore_inhibited, false);
+        p = strappenda("/dev/input/", b->name);
+
+        b->fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (b->fd < 0) {
+                log_warning("Failed to open %s: %m", b->name);
+                return -errno;
+        }
+
+        if (ioctl(b->fd, EVIOCGNAME(sizeof(name)), name) < 0) {
+                log_error("Failed to get input name: %m");
+                r = -errno;
+                goto fail;
+        }
+
+        r = sd_event_add_io(b->manager->event, &b->io_event_source, b->fd, EPOLLIN, button_dispatch, b);
+        if (r < 0) {
+                log_error("Failed to add button event: %s", strerror(-r));
+                goto fail;
+        }
+
+        log_info("Watching system buttons on /dev/input/%s (%s)", b->name, name);
+
+        return 0;
+
+fail:
+        close(b->fd);
+        b->fd = -1;
+        return r;
+}
+
+int button_check_switches(Button *b) {
+        uint8_t switches[SW_MAX/8+1] = {};
+        assert(b);
+
+        if (b->fd < 0)
+                return -EINVAL;
+
+        if (ioctl(b->fd, EVIOCGSW(sizeof(switches)), switches) < 0)
+                return -errno;
+
+        b->lid_closed = (switches[SW_LID/8] >> (SW_LID % 8)) & 1;
+        b->docked = (switches[SW_DOCK/8] >> (SW_DOCK % 8)) & 1;
+
+        if (b->lid_closed)
+                button_install_check_event_source(b);
+
+        return 0;
 }

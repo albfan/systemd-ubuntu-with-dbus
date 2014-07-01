@@ -19,66 +19,21 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
-
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <sys/utsname.h>
 
 #include "util.h"
 #include "strv.h"
-#include "dbus-common.h"
-#include "polkit.h"
 #include "def.h"
 #include "virt.h"
 #include "env-util.h"
 #include "fileio-label.h"
 #include "label.h"
-
-#define INTERFACE \
-        " <interface name=\"org.freedesktop.hostname1\">\n"             \
-        "  <property name=\"Hostname\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"StaticHostname\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"PrettyHostname\" type=\"s\" access=\"read\"/>\n" \
-        "  <property name=\"IconName\" type=\"s\" access=\"read\"/>\n"  \
-        "  <property name=\"Chassis\" type=\"s\" access=\"read\"/>\n"   \
-        "  <method name=\"SetHostname\">\n"                             \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetStaticHostname\">\n"                       \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetPrettyHostname\">\n"                       \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetIconName\">\n"                             \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"SetChassis\">\n"                              \
-        "   <arg name=\"name\" type=\"s\" direction=\"in\"/>\n"         \
-        "   <arg name=\"user_interaction\" type=\"b\" direction=\"in\"/>\n" \
-        "  </method>\n"                                                 \
-        " </interface>\n"
-
-#define INTROSPECTION                                                   \
-        DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE                       \
-        "<node>\n"                                                      \
-        INTERFACE                                                       \
-        BUS_PROPERTIES_INTERFACE                                        \
-        BUS_INTROSPECTABLE_INTERFACE                                    \
-        BUS_PEER_INTERFACE                                              \
-        "</node>\n"
-
-#define INTERFACES_LIST                         \
-        BUS_GENERIC_INTERFACES_LIST             \
-        "org.freedesktop.hostname1\0"
-
-const char hostname_interface[] _introspect_("hostname1") = INTERFACE;
+#include "bus-util.h"
+#include "event-util.h"
 
 enum {
         PROP_HOSTNAME,
@@ -86,45 +41,72 @@ enum {
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
+        PROP_KERNEL_NAME,
+        PROP_KERNEL_RELEASE,
+        PROP_KERNEL_VERSION,
+        PROP_OS_PRETTY_NAME,
+        PROP_OS_CPE_NAME,
         _PROP_MAX
 };
 
-static char *data[_PROP_MAX] = {
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-};
+typedef struct Context {
+        char *data[_PROP_MAX];
+        Hashmap *polkit_registry;
+} Context;
 
-static usec_t remain_until = 0;
-
-static void free_data(void) {
+static void context_reset(Context *c) {
         int p;
 
+        assert(c);
+
         for (p = 0; p < _PROP_MAX; p++) {
-                free(data[p]);
-                data[p] = NULL;
+                free(c->data[p]);
+                c->data[p] = NULL;
         }
 }
 
-static int read_data(void) {
+static void context_free(Context *c, sd_bus *bus) {
+        assert(c);
+
+        context_reset(c);
+        bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
+}
+
+static int context_read_data(Context *c) {
         int r;
+        struct utsname u;
 
-        free_data();
+        assert(c);
 
-        data[PROP_HOSTNAME] = gethostname_malloc();
-        if (!data[PROP_HOSTNAME])
+        context_reset(c);
+
+        assert_se(uname(&u) >= 0);
+        c->data[PROP_KERNEL_NAME] = strdup(u.sysname);
+        c->data[PROP_KERNEL_RELEASE] = strdup(u.release);
+        c->data[PROP_KERNEL_VERSION] = strdup(u.version);
+        if (!c->data[PROP_KERNEL_NAME] || !c->data[PROP_KERNEL_RELEASE] ||
+            !c->data[PROP_KERNEL_VERSION])
                 return -ENOMEM;
 
-        r = read_one_line_file("/etc/hostname", &data[PROP_STATIC_HOSTNAME]);
+        c->data[PROP_HOSTNAME] = gethostname_malloc();
+        if (!c->data[PROP_HOSTNAME])
+                return -ENOMEM;
+
+        r = read_one_line_file("/etc/hostname", &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
                 return r;
 
         r = parse_env_file("/etc/machine-info", NEWLINE,
-                           "PRETTY_HOSTNAME", &data[PROP_PRETTY_HOSTNAME],
-                           "ICON_NAME", &data[PROP_ICON_NAME],
-                           "CHASSIS", &data[PROP_CHASSIS],
+                           "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
+                           "ICON_NAME", &c->data[PROP_ICON_NAME],
+                           "CHASSIS", &c->data[PROP_CHASSIS],
+                           NULL);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        r = parse_env_file("/etc/os-release", NEWLINE,
+                           "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                           "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                            NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -163,7 +145,7 @@ static const char* fallback_chassis(void) {
         int r;
         char *type;
         unsigned t;
-        Virtualization v;
+        int v;
 
         v = detect_virtualization(NULL);
 
@@ -253,11 +235,13 @@ try_dmi:
         return NULL;
 }
 
-static char* fallback_icon_name(void) {
+static char* context_fallback_icon_name(Context *c) {
         const char *chassis;
 
-        if (!isempty(data[PROP_CHASSIS]))
-                return strappend("computer-", data[PROP_CHASSIS]);
+        assert(c);
+
+        if (!isempty(c->data[PROP_CHASSIS]))
+                return strappend("computer-", c->data[PROP_CHASSIS]);
 
         chassis = fallback_chassis();
         if (chassis)
@@ -266,13 +250,34 @@ static char* fallback_icon_name(void) {
         return strdup("computer");
 }
 
-static int write_data_hostname(void) {
+static bool hostname_is_useful(const char *hn) {
+        return !isempty(hn) && !streq(hn, "localhost");
+}
+
+static int context_update_kernel_hostname(Context *c) {
+        const char *static_hn;
         const char *hn;
 
-        if (isempty(data[PROP_HOSTNAME]))
-                hn = "localhost";
+        assert(c);
+
+        static_hn = c->data[PROP_STATIC_HOSTNAME];
+
+        /* /etc/hostname with something other than "localhost"
+         * has the highest preference ... */
+        if (hostname_is_useful(static_hn))
+                hn = static_hn;
+
+        /* ... the transient host name, (ie: DHCP) comes next ...*/
+        else if (!isempty(c->data[PROP_HOSTNAME]))
+                hn = c->data[PROP_HOSTNAME];
+
+        /* ... fallback to static "localhost.*" ignored above ... */
+        else if (!isempty(static_hn))
+                hn = static_hn;
+
+        /* ... and the ultimate fallback */
         else
-                hn = data[PROP_HOSTNAME];
+                hn = "localhost";
 
         if (sethostname(hn, strlen(hn)) < 0)
                 return -errno;
@@ -280,19 +285,21 @@ static int write_data_hostname(void) {
         return 0;
 }
 
-static int write_data_static_hostname(void) {
+static int context_write_data_static_hostname(Context *c) {
 
-        if (isempty(data[PROP_STATIC_HOSTNAME])) {
+        assert(c);
+
+        if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
 
                 if (unlink("/etc/hostname") < 0)
                         return errno == ENOENT ? 0 : -errno;
 
                 return 0;
         }
-        return write_string_file_atomic_label("/etc/hostname", data[PROP_STATIC_HOSTNAME]);
+        return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
 }
 
-static int write_data_other(void) {
+static int context_write_data_machine_info(Context *c) {
 
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
@@ -300,34 +307,35 @@ static int write_data_other(void) {
                 [PROP_CHASSIS] = "CHASSIS"
         };
 
-        char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         int r, p;
+
+        assert(c);
 
         r = load_env_file("/etc/machine-info", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (p = 2; p < _PROP_MAX; p++) {
+        for (p = PROP_PRETTY_HOSTNAME; p <= PROP_CHASSIS; p++) {
                 char *t, **u;
 
                 assert(name[p]);
 
-                if (isempty(data[p]))  {
+                if (isempty(c->data[p]))  {
                         strv_env_unset(l, name[p]);
                         continue;
                 }
 
-                if (asprintf(&t, "%s=%s", name[p], strempty(data[p])) < 0) {
-                        strv_free(l);
+                if (asprintf(&t, "%s=%s", name[p], strempty(c->data[p])) < 0)
                         return -ENOMEM;
-                }
 
                 u = strv_env_set(l, t);
                 free(t);
-                strv_free(l);
 
                 if (!u)
                         return -ENOMEM;
+
+                strv_free(l);
                 l = u;
         }
 
@@ -339,346 +347,309 @@ static int write_data_other(void) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/machine-info", l);
-        strv_free(l);
-
-        return r;
+        return write_env_file_label("/etc/machine-info", l);
 }
 
-static int bus_hostname_append_icon_name(DBusMessageIter *i, const char *property, void *userdata) {
-        const char *name;
+static int property_get_icon_name(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
         _cleanup_free_ char *n = NULL;
-
-        assert(i);
-        assert(property);
-
-        if (isempty(data[PROP_ICON_NAME]))
-                name = n = fallback_icon_name();
-        else
-                name = data[PROP_ICON_NAME];
-
-        return bus_property_append_string(i, property, (void*) name);
-}
-
-static int bus_hostname_append_chassis(DBusMessageIter *i, const char *property, void *userdata) {
+        Context *c = userdata;
         const char *name;
 
-        assert(i);
-        assert(property);
+        if (isempty(c->data[PROP_ICON_NAME]))
+                name = n = context_fallback_icon_name(c);
+        else
+                name = c->data[PROP_ICON_NAME];
 
-        if (isempty(data[PROP_CHASSIS]))
+        if (!name)
+                return -ENOMEM;
+
+        return sd_bus_message_append(reply, "s", name);
+}
+
+static int property_get_chassis(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = userdata;
+        const char *name;
+
+        if (isempty(c->data[PROP_CHASSIS]))
                 name = fallback_chassis();
         else
-                name = data[PROP_CHASSIS];
+                name = c->data[PROP_CHASSIS];
 
-        return bus_property_append_string(i, property, (void*) name);
+        return sd_bus_message_append(reply, "s", name);
 }
 
-static const BusProperty bus_hostname_properties[] = {
-        { "Hostname",       bus_property_append_string,    "s", sizeof(data[0])*PROP_HOSTNAME,        true },
-        { "StaticHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_STATIC_HOSTNAME, true },
-        { "PrettyHostname", bus_property_append_string,    "s", sizeof(data[0])*PROP_PRETTY_HOSTNAME, true },
-        { "IconName",       bus_hostname_append_icon_name, "s", sizeof(data[0])*PROP_ICON_NAME,       true },
-        { "Chassis",        bus_hostname_append_chassis,   "s", sizeof(data[0])*PROP_CHASSIS,         true },
-        { NULL, }
-};
-
-static const BusBoundProperties bps[] = {
-        { "org.freedesktop.hostname1", bus_hostname_properties, data },
-        { NULL, }
-};
-
-static DBusHandlerResult hostname_message_handler(
-                DBusConnection *connection,
-                DBusMessage *message,
-                void *userdata) {
-
-
-        DBusMessage *reply = NULL, *changed = NULL;
-        DBusError error;
+static int method_set_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = userdata;
+        const char *name;
+        int interactive;
+        char *h;
         int r;
 
-        assert(connection);
-        assert(message);
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
 
-        dbus_error_init(&error);
+        if (isempty(name))
+                name = c->data[PROP_STATIC_HOSTNAME];
 
-        if (dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetHostname")) {
-                const char *name;
-                dbus_bool_t interactive;
+        if (isempty(name))
+                name = "localhost";
 
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
+        if (!hostname_is_valid(name))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
-                if (isempty(name))
-                        name = data[PROP_STATIC_HOSTNAME];
+        if (streq_ptr(name, c->data[PROP_HOSTNAME]))
+                return sd_bus_reply_method_return(m, NULL);
 
-                if (isempty(name))
-                        name = "localhost";
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-hostname", interactive, error, method_set_hostname, c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        h = strdup(name);
+        if (!h)
+                return -ENOMEM;
+
+        free(c->data[PROP_HOSTNAME]);
+        c->data[PROP_HOSTNAME] = h;
+
+        r = context_update_kernel_hostname(c);
+        if (r < 0) {
+                log_error("Failed to set host name: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
+        }
+
+        log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
+
+        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_set_static_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = userdata;
+        const char *name;
+        int interactive;
+        int r;
+
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
+
+        if (isempty(name))
+                name = NULL;
+
+        if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
+                return sd_bus_reply_method_return(m, NULL);
+
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.hostname1.set-static-hostname", interactive, error, method_set_static_hostname, c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (isempty(name)) {
+                free(c->data[PROP_STATIC_HOSTNAME]);
+                c->data[PROP_STATIC_HOSTNAME] = NULL;
+        } else {
+                char *h;
 
                 if (!hostname_is_valid(name))
-                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
 
-                if (!streq_ptr(name, data[PROP_HOSTNAME])) {
-                        char *h;
+                h = strdup(name);
+                if (!h)
+                        return -ENOMEM;
 
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-hostname", interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        h = strdup(name);
-                        if (!h)
-                                goto oom;
-
-                        free(data[PROP_HOSTNAME]);
-                        data[PROP_HOSTNAME] = h;
-
-                        r = write_data_hostname();
-                        if (r < 0) {
-                                log_error("Failed to set host name: %s", strerror(-r));
-                                return bus_send_error_reply(connection, message, NULL, r);
-                        }
-
-                        log_info("Changed host name to '%s'", strna(data[PROP_HOSTNAME]));
-
-                        changed = bus_properties_changed_new(
-                                        "/org/freedesktop/hostname1",
-                                        "org.freedesktop.hostname1",
-                                        "Hostname\0");
-                        if (!changed)
-                                goto oom;
-                }
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetStaticHostname")) {
-                const char *name;
-                dbus_bool_t interactive;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (isempty(name))
-                        name = NULL;
-
-                if (!streq_ptr(name, data[PROP_STATIC_HOSTNAME])) {
-
-                        r = verify_polkit(connection, message, "org.freedesktop.hostname1.set-static-hostname", interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        if (isempty(name)) {
-                                free(data[PROP_STATIC_HOSTNAME]);
-                                data[PROP_STATIC_HOSTNAME] = NULL;
-                        } else {
-                                char *h;
-
-                                if (!hostname_is_valid(name))
-                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                                h = strdup(name);
-                                if (!h)
-                                        goto oom;
-
-                                free(data[PROP_STATIC_HOSTNAME]);
-                                data[PROP_STATIC_HOSTNAME] = h;
-                        }
-
-                        r = write_data_static_hostname();
-                        if (r < 0) {
-                                log_error("Failed to write static host name: %s", strerror(-r));
-                                return bus_send_error_reply(connection, message, NULL, r);
-                        }
-
-                        log_info("Changed static host name to '%s'", strna(data[PROP_STATIC_HOSTNAME]));
-
-                        changed = bus_properties_changed_new(
-                                        "/org/freedesktop/hostname1",
-                                        "org.freedesktop.hostname1",
-                                        "StaticHostname\0");
-                        if (!changed)
-                                goto oom;
-                }
-
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetPrettyHostname") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetIconName") ||
-                   dbus_message_is_method_call(message, "org.freedesktop.hostname1", "SetChassis")) {
-
-                const char *name;
-                dbus_bool_t interactive;
-                int k;
-
-                if (!dbus_message_get_args(
-                                    message,
-                                    &error,
-                                    DBUS_TYPE_STRING, &name,
-                                    DBUS_TYPE_BOOLEAN, &interactive,
-                                    DBUS_TYPE_INVALID))
-                        return bus_send_error_reply(connection, message, &error, -EINVAL);
-
-                if (isempty(name))
-                        name = NULL;
-
-                k = streq(dbus_message_get_member(message), "SetPrettyHostname") ? PROP_PRETTY_HOSTNAME :
-                        streq(dbus_message_get_member(message), "SetChassis") ? PROP_CHASSIS : PROP_ICON_NAME;
-
-                if (!streq_ptr(name, data[k])) {
-
-                        /* Since the pretty hostname should always be
-                         * changed at the same time as the static one,
-                         * use the same policy action for both... */
-
-                        r = verify_polkit(connection, message, k == PROP_PRETTY_HOSTNAME ?
-                                          "org.freedesktop.hostname1.set-static-hostname" :
-                                          "org.freedesktop.hostname1.set-machine-info", interactive, NULL, &error);
-                        if (r < 0)
-                                return bus_send_error_reply(connection, message, &error, r);
-
-                        if (isempty(name)) {
-                                free(data[k]);
-                                data[k] = NULL;
-                        } else {
-                                char *h;
-
-                                /* The icon name might ultimately be
-                                 * used as file name, so better be
-                                 * safe than sorry */
-                                if (k == PROP_ICON_NAME && !filename_is_safe(name))
-                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                                if (k == PROP_PRETTY_HOSTNAME &&
-                                    (string_has_cc(name) || chars_intersect(name, "\t")))
-                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-                                if (k == PROP_CHASSIS && !valid_chassis(name))
-                                        return bus_send_error_reply(connection, message, NULL, -EINVAL);
-
-                                h = strdup(name);
-                                if (!h)
-                                        goto oom;
-
-                                free(data[k]);
-                                data[k] = h;
-                        }
-
-                        r = write_data_other();
-                        if (r < 0) {
-                                log_error("Failed to write machine info: %s", strerror(-r));
-                                return bus_send_error_reply(connection, message, NULL, r);
-                        }
-
-                        log_info("Changed %s to '%s'",
-                                 k == PROP_PRETTY_HOSTNAME ? "pretty host name" :
-                                 k == PROP_CHASSIS ? "chassis" : "icon name", strna(data[k]));
-
-                        changed = bus_properties_changed_new(
-                                        "/org/freedesktop/hostname1",
-                                        "org.freedesktop.hostname1",
-                                        k == PROP_PRETTY_HOSTNAME ? "PrettyHostname\0" :
-                                        k == PROP_CHASSIS ? "Chassis\0" : "IconName\0");
-                        if (!changed)
-                                goto oom;
-                }
-
-        } else
-                return bus_default_message_handler(connection, message, INTROSPECTION, INTERFACES_LIST, bps);
-
-        reply = dbus_message_new_method_return(message);
-        if (!reply)
-                goto oom;
-
-        if (!bus_maybe_send_reply(connection, message, reply))
-                goto oom;
-
-        dbus_message_unref(reply);
-        reply = NULL;
-
-        if (changed) {
-
-                if (!dbus_connection_send(connection, changed, NULL))
-                        goto oom;
-
-                dbus_message_unref(changed);
+                free(c->data[PROP_STATIC_HOSTNAME]);
+                c->data[PROP_STATIC_HOSTNAME] = h;
         }
 
-        return DBUS_HANDLER_RESULT_HANDLED;
+        r = context_update_kernel_hostname(c);
+        if (r < 0) {
+                log_error("Failed to set host name: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %s", strerror(-r));
+        }
 
-oom:
-        if (reply)
-                dbus_message_unref(reply);
+        r = context_write_data_static_hostname(c);
+        if (r < 0) {
+                log_error("Failed to write static host name: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %s", strerror(-r));
+        }
 
-        if (changed)
-                dbus_message_unref(changed);
+        log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
 
-        dbus_error_free(&error);
+        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
 
-        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+        return sd_bus_reply_method_return(m, NULL);
 }
 
-static int connect_bus(DBusConnection **_bus) {
-        static const DBusObjectPathVTable hostname_vtable = {
-                .message_function = hostname_message_handler
-        };
-        DBusError error;
-        DBusConnection *bus = NULL;
+static int set_machine_info(Context *c, sd_bus *bus, sd_bus_message *m, int prop, sd_bus_message_handler_t cb, sd_bus_error *error) {
+        int interactive;
+        const char *name;
         int r;
 
+        assert(c);
+        assert(bus);
+        assert(m);
+
+        r = sd_bus_message_read(m, "sb", &name, &interactive);
+        if (r < 0)
+                return r;
+
+        if (isempty(name))
+                name = NULL;
+
+        if (streq_ptr(name, c->data[prop]))
+                return sd_bus_reply_method_return(m, NULL);
+
+        /* Since the pretty hostname should always be changed at the
+         * same time as the static one, use the same policy action for
+         * both... */
+
+        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, prop == PROP_PRETTY_HOSTNAME ?
+                          "org.freedesktop.hostname1.set-static-hostname" :
+                          "org.freedesktop.hostname1.set-machine-info", interactive, error, cb, c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        if (isempty(name)) {
+                free(c->data[prop]);
+                c->data[prop] = NULL;
+        } else {
+                char *h;
+
+                /* The icon name might ultimately be used as file
+                 * name, so better be safe than sorry */
+
+                if (prop == PROP_ICON_NAME && !filename_is_safe(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
+                if (prop == PROP_PRETTY_HOSTNAME &&
+                    (string_has_cc(name) || chars_intersect(name, "\t")))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
+                if (prop == PROP_CHASSIS && !valid_chassis(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
+
+                h = strdup(name);
+                if (!h)
+                        return -ENOMEM;
+
+                free(c->data[prop]);
+                c->data[prop] = h;
+        }
+
+        r = context_write_data_machine_info(c);
+        if (r < 0) {
+                log_error("Failed to write machine info: %s", strerror(-r));
+                return sd_bus_error_set_errnof(error, r, "Failed to write machine info: %s", strerror(-r));
+        }
+
+        log_info("Changed %s to '%s'",
+                 prop == PROP_PRETTY_HOSTNAME ? "pretty host name" :
+                 prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));
+
+        sd_bus_emit_properties_changed(bus, "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                       prop == PROP_PRETTY_HOSTNAME ? "PrettyHostname" :
+                                       prop == PROP_CHASSIS ? "Chassis" : "IconName", NULL);
+
+        return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_set_pretty_hostname(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_PRETTY_HOSTNAME, method_set_pretty_hostname, error);
+}
+
+static int method_set_icon_name(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_ICON_NAME, method_set_icon_name, error);
+}
+
+static int method_set_chassis(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        return set_machine_info(userdata, bus, m, PROP_CHASSIS, method_set_chassis, error);
+}
+
+static const sd_bus_vtable hostname_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Hostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOSTNAME, 0),
+        SD_BUS_PROPERTY("StaticHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_STATIC_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetIconName", "sb", NULL, method_set_icon_name, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_VTABLE_END,
+};
+
+static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
+
+        assert(c);
+        assert(event);
         assert(_bus);
 
-        dbus_error_init(&error);
-
-        bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        if (!bus) {
-                log_error("Failed to get system D-Bus connection: %s", bus_error_message(&error));
-                r = -ECONNREFUSED;
-                goto fail;
+        r = sd_bus_default_system(&bus);
+        if (r < 0) {
+                log_error("Failed to get system bus connection: %s", strerror(-r));
+                return r;
         }
 
-        dbus_connection_set_exit_on_disconnect(bus, FALSE);
-
-        if (!dbus_connection_register_object_path(bus, "/org/freedesktop/hostname1", &hostname_vtable, NULL) ||
-            !dbus_connection_add_filter(bus, bus_exit_idle_filter, &remain_until, NULL)) {
-                r = log_oom();
-                goto fail;
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/hostname1", "org.freedesktop.hostname1", hostname_vtable, c);
+        if (r < 0) {
+                log_error("Failed to register object: %s", strerror(-r));
+                return r;
         }
 
-        r = dbus_bus_request_name(bus, "org.freedesktop.hostname1", DBUS_NAME_FLAG_DO_NOT_QUEUE, &error);
-        if (dbus_error_is_set(&error)) {
-                log_error("Failed to register name on bus: %s", bus_error_message(&error));
-                r = -EEXIST;
-                goto fail;
+        r = sd_bus_request_name(bus, "org.freedesktop.hostname1", 0);
+        if (r < 0) {
+                log_error("Failed to register name: %s", strerror(-r));
+                return r;
         }
 
-        if (r != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER) {
-                log_error("Failed to acquire name.");
-                r = -EEXIST;
-                goto fail;
+        r = sd_bus_attach_event(bus, event, 0);
+        if (r < 0) {
+                log_error("Failed to attach bus to event loop: %s", strerror(-r));
+                return r;
         }
 
-        if (_bus)
-                *_bus = bus;
+        *_bus = bus;
+        bus = NULL;
 
         return 0;
-
-fail:
-        dbus_connection_close(bus);
-        dbus_connection_unref(bus);
-
-        dbus_error_free(&error);
-
-        return r;
 }
 
 int main(int argc, char *argv[]) {
+        Context context = {};
+
+        _cleanup_event_unref_ sd_event *event = NULL;
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
         int r;
-        DBusConnection *bus = NULL;
-        bool exiting = false;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -686,14 +657,6 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
         label_init("/etc");
-
-        if (argc == 2 && streq(argv[1], "--introspect")) {
-                fputs(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
-                      "<node>\n", stdout);
-                fputs(hostname_interface, stdout);
-                fputs("</node>\n", stdout);
-                return 0;
-        }
 
         if (argc != 1) {
                 log_error("This program takes no arguments.");
@@ -704,38 +667,38 @@ int main(int argc, char *argv[]) {
         if (!check_nss())
                 log_warning("Warning: nss-myhostname is not installed. Changing the local hostname might make it unresolveable. Please install nss-myhostname!");
 
-        r = read_data();
-        if (r < 0) {
-                log_error("Failed to read hostname data: %s", strerror(-r));
+        if (argc != 1) {
+                log_error("This program takes no arguments.");
+                r = -EINVAL;
                 goto finish;
         }
 
-        r = connect_bus(&bus);
+        r = sd_event_default(&event);
+        if (r < 0) {
+                log_error("Failed to allocate event loop: %s", strerror(-r));
+                goto finish;
+        }
+
+        sd_event_set_watchdog(event, true);
+
+        r = connect_bus(&context, event, &bus);
         if (r < 0)
                 goto finish;
 
-        remain_until = now(CLOCK_MONOTONIC) + DEFAULT_EXIT_USEC;
-        for (;;) {
-
-                if (!dbus_connection_read_write_dispatch(bus, exiting ? -1 : (int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC)))
-                        break;
-
-                if (!exiting && remain_until < now(CLOCK_MONOTONIC)) {
-                        exiting = true;
-                        bus_async_unregister_and_exit(bus, "org.freedesktop.hostname1");
-                }
+        r = context_read_data(&context);
+        if (r < 0) {
+                log_error("Failed to read hostname and machine information: %s", strerror(-r));
+                goto finish;
         }
 
-        r = 0;
+        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
+        if (r < 0) {
+                log_error("Failed to run event loop: %s", strerror(-r));
+                goto finish;
+        }
 
 finish:
-        free_data();
-
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
+        context_free(&context, bus);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

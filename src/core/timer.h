@@ -50,7 +50,6 @@ typedef enum TimerBase {
 typedef struct TimerValue {
         TimerBase base;
         bool disabled;
-        clockid_t clock_id;
 
         usec_t value; /* only for monotonic events */
         CalendarSpec *calendar_spec; /* only for calendar events */
@@ -69,18 +68,24 @@ typedef enum TimerResult {
 struct Timer {
         Unit meta;
 
+        usec_t accuracy_usec;
+
         LIST_HEAD(TimerValue, values);
-        usec_t next_elapse_monotonic;
         usec_t next_elapse_realtime;
+        usec_t next_elapse_monotonic_or_boottime;
+        dual_timestamp last_trigger;
 
         TimerState state, deserialized_state;
 
-        Watch monotonic_watch;
-        Watch realtime_watch;
+        sd_event_source *monotonic_event_source;
+        sd_event_source *realtime_event_source;
 
         TimerResult result;
 
-        usec_t last_trigger_monotonic;
+        bool persistent;
+        bool wake_system;
+
+        char *stamp_path;
 };
 
 void timer_free_values(Timer *t);

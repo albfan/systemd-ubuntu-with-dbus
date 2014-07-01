@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 208" "systemd-activate"
+.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 214" "systemd-activate"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,16 +43,6 @@ will be passed through to the dameon, in the original positions\&. Other sockets
 will use consecutive descriptors\&.
 .SH "OPTIONS"
 .PP
-\fB\-\-help\fR, \fB\-h\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-l \fR\fB\fIaddress\fR\fR, \fB\-\-listen=\fR\fB\fIaddress\fR\fR
 .RS 4
 Listen on this
@@ -67,7 +57,7 @@ or
 Launch a separate instance of daemon per connection and pass the connection socket as standard input and standard output\&.
 .RE
 .PP
-\fB\-E \fR\fB\fIVAR\fR\fR\fB[=\fIVALUE\fR]\fR, \fB\-\-environment=\fR\fB\fIVAR\fR\fR\fB[=\fIVALUE\fR]\fR
+\fB\-E \fR\fB\fIVAR\fR\fR\fB[=\fIVALUE\fR]\fR, \fB\-\-setenv=\fR\fB\fIVAR\fR\fR\fB[=\fIVALUE\fR]\fR
 .RS 4
 Add this variable to the environment of the launched process\&. If
 \fIVAR\fR
@@ -75,6 +65,16 @@ is followed by
 "=", assume that it is a variable\(envalue pair\&. Otherwise, obtain the value from the environment of
 \fBsystemd\-activate\fR
 itself\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "ENVIRONMENT VARIABLES"
 .PP

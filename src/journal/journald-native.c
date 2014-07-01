@@ -25,18 +25,15 @@
 
 #include "socket-util.h"
 #include "path-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-native.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"
 #include "journald-syslog.h"
+#include "journald-wall.h"
 
-/* Make sure not to make this smaller than the maximum coredump
- * size. See COREDUMP_MAX in coredump.c */
-#define ENTRY_SIZE_MAX (1024*1024*768)
-#define DATA_SIZE_MAX (1024*1024*768)
-
-static bool valid_user_field(const char *p, size_t l) {
+bool valid_user_field(const char *p, size_t l, bool allow_protected) {
         const char *a;
 
         /* We kinda enforce POSIX syntax recommendations for
@@ -54,7 +51,7 @@ static bool valid_user_field(const char *p, size_t l) {
                 return false;
 
         /* Variables starting with an underscore are protected */
-        if (p[0] == '_')
+        if (!allow_protected && p[0] == '_')
                 return false;
 
         /* Don't allow digits as first character */
@@ -63,9 +60,9 @@ static bool valid_user_field(const char *p, size_t l) {
 
         /* Only allow A-Z0-9 and '_' */
         for (a = p; a < p + l; a++)
-                if (!((*a >= 'A' && *a <= 'Z') ||
-                      (*a >= '0' && *a <= '9') ||
-                      *a == '_'))
+                if ((*a < 'A' || *a > 'Z') &&
+                    (*a < '0' || *a > '9') &&
+                    *a != '_')
                         return false;
 
         return true;
@@ -137,7 +134,7 @@ void server_process_native_message(
 
                 q = memchr(p, '=', e - p);
                 if (q) {
-                        if (valid_user_field(p, q - p)) {
+                        if (valid_user_field(p, q - p, false)) {
                                 size_t l;
 
                                 l = e - p;
@@ -237,7 +234,7 @@ void server_process_native_message(
                         k[e - p] = '=';
                         memcpy(k + (e - p) + 1, e + 1 + sizeof(uint64_t), l);
 
-                        if (valid_user_field(p, e - p)) {
+                        if (valid_user_field(p, e - p, false)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
                                 n++;
@@ -264,6 +261,9 @@ void server_process_native_message(
 
                 if (s->forward_to_console)
                         server_forward_console(s, priority, identifier, message, ucred);
+
+                if (s->forward_to_wall)
+                        server_forward_wall(s, priority, identifier, message, ucred);
         }
 
         server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
@@ -368,7 +368,6 @@ void server_process_native_file(
 int server_open_native_socket(Server*s) {
         union sockaddr_union sa;
         int one, r;
-        struct epoll_event ev;
 
         assert(s);
 
@@ -404,10 +403,12 @@ int server_open_native_socket(Server*s) {
         }
 
 #ifdef HAVE_SELINUX
-        one = 1;
-        r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
-        if (r < 0)
-                log_warning("SO_PASSSEC failed: %m");
+        if (use_selinux()) {
+                one = 1;
+                r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
+                if (r < 0)
+                        log_warning("SO_PASSSEC failed: %m");
+        }
 #endif
 
         one = 1;
@@ -417,12 +418,10 @@ int server_open_native_socket(Server*s) {
                 return -errno;
         }
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->native_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->native_fd, &ev) < 0) {
-                log_error("Failed to add native server fd to epoll object: %m");
-                return -errno;
+        r = sd_event_add_io(s->event, &s->native_event_source, s->native_fd, EPOLLIN, process_datagram, s);
+        if (r < 0) {
+                log_error("Failed to add native server fd to event loop: %s", strerror(-r));
+                return r;
         }
 
         return 0;

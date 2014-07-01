@@ -54,9 +54,13 @@ typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
         SESSION_X11,
+        SESSION_WAYLAND,
+        SESSION_MIR,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;
+
+#define SESSION_TYPE_IS_GRAPHICAL(type) IN_SET(type, SESSION_X11, SESSION_WAYLAND, SESSION_MIR)
 
 enum KillWho {
         KILL_LEADER,
@@ -69,6 +73,7 @@ struct Session {
         Manager *manager;
 
         char *id;
+        unsigned int pos;
         SessionType type;
         SessionClass class;
 
@@ -85,12 +90,15 @@ struct Session {
         char *remote_user;
         char *remote_host;
         char *service;
+        char *desktop;
 
         char *scope;
         char *scope_job;
 
-        int vtnr;
         Seat *seat;
+        unsigned int vtnr;
+        int vtfd;
+        sd_event_source *vt_source;
 
         pid_t leader;
         uint32_t audit_id;
@@ -98,14 +106,18 @@ struct Session {
         int fifo_fd;
         char *fifo_path;
 
+        sd_event_source *fifo_event_source;
+
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
 
         bool in_gc_queue:1;
         bool started:1;
-        bool closing:1;
+        bool stopping:1;
 
-        DBusMessage *create_message;
+        sd_bus_message *create_message;
+
+        sd_event_source *timer_event_source;
 
         char *controller;
         Hashmap *devices;
@@ -119,33 +131,34 @@ struct Session {
 Session *session_new(Manager *m, const char *id);
 void session_free(Session *s);
 void session_set_user(Session *s, User *u);
-int session_check_gc(Session *s, bool drop_not_started);
+bool session_check_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
 void session_set_idle_hint(Session *s, bool b);
 int session_create_fifo(Session *s);
-void session_remove_fifo(Session *s);
 int session_start(Session *s);
-int session_stop(Session *s);
+int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
+void session_release(Session *s);
 int session_save(Session *s);
 int session_load(Session *s);
 int session_kill(Session *s, KillWho who, int signo);
 
-char *session_bus_path(Session *s);
-
 SessionState session_get_state(Session *u);
 
-extern const DBusObjectPathVTable bus_session_vtable;
+extern const sd_bus_vtable session_vtable[];
+int session_node_enumerator(sd_bus *bus, const char *path,void *userdata, char ***nodes, sd_bus_error *error);
+int session_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
+char *session_bus_path(Session *s);
 
 int session_send_signal(Session *s, bool new_session);
-int session_send_changed(Session *s, const char *properties);
+int session_send_changed(Session *s, const char *properties, ...) _sentinel_;
 int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
-int session_send_create_reply(Session *s, DBusError *error);
+int session_send_create_reply(Session *s, sd_bus_error *error);
 
 const char* session_state_to_string(SessionState t) _const_;
 SessionState session_state_from_string(const char *s) _pure_;
@@ -158,6 +171,9 @@ SessionClass session_class_from_string(const char *s) _pure_;
 
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
+
+void session_prepare_vt(Session *s);
+void session_restore_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force);

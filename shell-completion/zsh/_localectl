@@ -1,17 +1,22 @@
 #compdef localectl
 
 _localectl_set-locale() {
-    local -a _confs _locales
+    local -a _locales locale_fields
+    locale_fields=(LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME \
+                   LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER \
+                   LC_NAME LC_ADDRESS LC_TELEPHONE \
+                   LC_MEASUREMENT LC_IDENTIFICATION)
+    # LC_ALL is omitted on purpose
+
     local expl suf
     _locales=( ${(f)"$(_call_program locales "$service" list-locales)"} )
-    _confs=( ${${(f)"$(_call_program confs "locale 2>/dev/null")"}%\=*} )
+    compset -P1 '*='
     if [[ -prefix 1 *\= ]]; then
         local conf=${PREFIX%%\=*}
-        compset -P1 '*='
         _wanted locales expl "locales configs" \
             _combination localeconfs  confs=$conf locales "$@" -
     else
-        compadd -S '='  $_confs
+        compadd -S '=' $locale_fields
     fi
 }
 
@@ -59,6 +64,10 @@ _localectl_command() {
         'set-keymap:Set virtual console keyboard mapping'
         'list-keymaps:Show known virtual console keyboard mappings'
         'set-x11-keymap:Set X11 keyboard mapping'
+        'list-x11-keymap-models:Show known X11 keyboard mapping models'
+        'list-x11-keymap-layouts:Show known X11 keyboard mapping layouts'
+        'list-x11-keymap-variants:Show known X11 keyboard mapping variants'
+        'list-x11-keymap-options:Show known X11 keyboard mapping options'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'localectl command' _localectl_cmds
@@ -80,4 +89,5 @@ _arguments \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machine' \
     '*::localectl commands:_localectl_command'

@@ -183,7 +183,7 @@ read_again:
                         return -EINVAL;
         }
 
-        transitions = (time_t *)calloc(total_size + tzspec_len, 1);
+        transitions = malloc0(total_size + tzspec_len);
         if (transitions == NULL)
                 return -EINVAL;
 
@@ -207,8 +207,8 @@ read_again:
                 if (type_idxs[i] >= num_types)
                         return -EINVAL;
 
-        if ((BYTE_ORDER != BIG_ENDIAN && (sizeof(time_t) == 4 || trans_width == 4)) ||
-            (BYTE_ORDER == BIG_ENDIAN && sizeof(time_t) == 8 && trans_width == 4)) {
+        if (BYTE_ORDER == BIG_ENDIAN ? sizeof(time_t) == 8 && trans_width == 4
+                                     : sizeof(time_t) == 4 || trans_width == 4) {
                 /* Decode the transition times, stored as 4-byte integers in
                    network (big-endian) byte order.  We work from the end of
                    the array so as not to clobber the next element to be

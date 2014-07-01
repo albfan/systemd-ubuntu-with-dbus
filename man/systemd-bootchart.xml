@@ -26,7 +26,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-bootchart" conditional='ENABLE_BOOTCHART'>
+<refentry id="systemd-bootchart" conditional='ENABLE_BOOTCHART'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
         <refentryinfo>
                 <title>systemd-bootchart</title>
                 <productname>systemd</productname>
@@ -76,8 +78,8 @@
                         in which order, and where possible problems
                         exist in the startup sequence of the system.
                         It is essentially a more detailed version of
-                        the <command>systemd-analyze</command>
-                        <command>plot</command> function.
+                        the <command>systemd-analyze plot</command>
+                        function.
                 </para>
                 <para>
                         Of course, bootchart can also be used at any
@@ -144,12 +146,7 @@
                 </para>
 
                 <variablelist>
-
-                        <varlistentry>
-                               <term><option>-h</option></term>
-                               <term><option>--help</option></term>
-                               <listitem><para>Prints a short help text and exits.</para></listitem>
-                        </varlistentry>
+                        <xi:include href="standard-options.xml" xpointer="help" />
 
                         <varlistentry>
                                 <term><option>-n</option></term>
@@ -197,6 +194,13 @@
                                 <term><option>--cmdline</option></term>
                                 <listitem><para>Display the full command line with arguments of processes,
                                 instead of only the process name.
+                                </para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>-g</option></term>
+                                <term><option>--control-group</option></term>
+                                <listitem><para>Display process control group
                                 </para></listitem>
                         </varlistentry>
 

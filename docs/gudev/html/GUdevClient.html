@@ -257,7 +257,10 @@ Gets all devices belonging to <em class="parameter"><code>subsystem</code></em>.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A list of <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> objects. The caller should free the result by using <code class="function">g_object_unref()</code> on each element in the list and then <code class="function">g_list_free()</code> on the list. <span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> GUdevDevice][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A
+list of <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> objects. The caller should free the result by
+using <code class="function">g_object_unref()</code> on each element in the list and then
+<code class="function">g_list_free()</code> on the list. <span class="annotation">[nullable][<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> GUdevDevice][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -293,7 +296,8 @@ Looks up a device for a type and device number.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -323,7 +327,8 @@ Looks up a device for a device file.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -353,7 +358,8 @@ Looks up a device for a sysfs path.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>
@@ -389,7 +395,8 @@ Looks up a device for a subsystem and name.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code> if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
+<td>A <a class="link" href="GUdevDevice.html" title="GUdevDevice"><span class="type">GUdevDevice</span></a> object or <code class="literal">NULL</code>
+if the device was not found. Free with <code class="function">g_object_unref()</code>. <span class="annotation">[nullable][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
 </td>
 </tr>
 </tbody>

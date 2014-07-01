@@ -26,7 +26,6 @@ typedef struct Service Service;
 #include "unit.h"
 #include "path.h"
 #include "ratelimit.h"
-#include "service.h"
 #include "kill.h"
 #include "exit-status.h"
 
@@ -54,6 +53,7 @@ typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
         SERVICE_RESTART_ON_SUCCESS,
         SERVICE_RESTART_ON_FAILURE,
+        SERVICE_RESTART_ON_ABNORMAL,
         SERVICE_RESTART_ON_WATCHDOG,
         SERVICE_RESTART_ON_ABORT,
         SERVICE_RESTART_ALWAYS,
@@ -104,14 +104,14 @@ typedef enum ServiceResult {
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
 
-typedef enum StartLimitAction {
-        SERVICE_START_LIMIT_NONE,
-        SERVICE_START_LIMIT_REBOOT,
-        SERVICE_START_LIMIT_REBOOT_FORCE,
-        SERVICE_START_LIMIT_REBOOT_IMMEDIATE,
-        _SERVICE_START_LIMIT_MAX,
-        _SERVICE_START_LIMIT_INVALID = -1
-} StartLimitAction;
+typedef enum FailureAction {
+        SERVICE_FAILURE_ACTION_NONE,
+        SERVICE_FAILURE_ACTION_REBOOT,
+        SERVICE_FAILURE_ACTION_REBOOT_FORCE,
+        SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE,
+        _SERVICE_FAILURE_ACTION_MAX,
+        _SERVICE_FAILURE_ACTION_INVALID = -1
+} FailureAction;
 
 struct Service {
         Unit meta;
@@ -130,7 +130,7 @@ struct Service {
 
         dual_timestamp watchdog_timestamp;
         usec_t watchdog_usec;
-        Watch watchdog_watch;
+        sd_event_source *watchdog_event_source;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
@@ -154,10 +154,11 @@ struct Service {
         /* The ID of the control command currently being executed */
         ServiceExecCommand control_command_id;
 
+        /* Runtime data of the execution context */
+        ExecRuntime *exec_runtime;
+
         pid_t main_pid, control_pid;
         int socket_fd;
-
-        int fsck_passno;
 
         bool permissions_start_only;
         bool root_directory_start_only;
@@ -172,28 +173,24 @@ struct Service {
         bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
-        bool got_socket_fd:1;
         bool start_timeout_defined:1;
 #ifdef HAVE_SYSV_COMPAT
-        bool is_sysv:1;
-        bool sysv_has_lsb:1;
-        bool sysv_enabled:1;
-        int sysv_start_priority_from_rcnd;
         int sysv_start_priority;
-
-        char *sysv_runlevels;
 #endif
 
         char *bus_name;
 
         char *status_text;
 
+        FailureAction failure_action;
+
         RateLimit start_limit;
-        StartLimitAction start_limit_action;
+        FailureAction start_limit_action;
+        char *reboot_arg;
 
         UnitRef accept_socket;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
@@ -223,5 +220,5 @@ NotifyAccess notify_access_from_string(const char *s) _pure_;
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
 
-const char* start_limit_action_to_string(StartLimitAction i) _const_;
-StartLimitAction start_limit_action_from_string(const char *s) _pure_;
+const char* failure_action_to_string(FailureAction i) _const_;
+FailureAction failure_action_from_string(const char *s) _pure_;

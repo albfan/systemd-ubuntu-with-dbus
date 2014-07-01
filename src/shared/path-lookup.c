@@ -90,9 +90,9 @@ static char** user_dirs(
         };
 
         const char *home, *e;
-        char *config_home = NULL, *data_home = NULL;
-        char **config_dirs = NULL, **data_dirs = NULL;
-        char **r = NULL, **t;
+        _cleanup_free_ char *config_home = NULL, *data_home = NULL;
+        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        char **r = NULL;
 
         /* Implement the mechanisms defined in
          *
@@ -125,6 +125,8 @@ static char** user_dirs(
                         goto fail;
 
         } else if (home) {
+                _cleanup_free_ char *data_home_parent = NULL;
+
                 if (asprintf(&data_home, "%s/.local/share/systemd/user", home) < 0)
                         goto fail;
 
@@ -135,8 +137,14 @@ static char** user_dirs(
                  * then filter out this link, if it is actually is
                  * one. */
 
-                mkdir_parents_label(data_home, 0777);
-                (void) symlink("../../../.config/systemd/user", data_home);
+                if (path_get_parent(data_home, &data_home_parent) >= 0) {
+                        _cleanup_free_ char *config_home_relative = NULL;
+
+                        if (path_make_relative(data_home_parent, config_home, &config_home_relative) >= 0) {
+                                mkdir_parents_label(data_home, 0777);
+                                (void) symlink(config_home_relative, data_home);
+                        }
+                }
         }
 
         e = getenv("XDG_DATA_DIRS");
@@ -150,95 +158,55 @@ static char** user_dirs(
                 goto fail;
 
         /* Now merge everything we found. */
-        if (generator_early) {
-                t = strv_append(r, generator_early);
-                if (!t)
+        if (generator_early)
+                if (strv_extend(&r, generator_early) < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
-        if (config_home) {
-                t = strv_append(r, config_home);
-                if (!t)
+        if (config_home)
+                if (strv_extend(&r, config_home) < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
-        if (!strv_isempty(config_dirs)) {
-                t = strv_merge_concat(r, config_dirs, "/systemd/user");
-                if (!t)
-                        goto finish;
-                strv_free(r);
-                r = t;
-        }
+        if (!strv_isempty(config_dirs))
+                if (strv_extend_strv_concat(&r, config_dirs, "/systemd/user") < 0)
+                        goto fail;
 
-        t = strv_merge(r, (char**) config_unit_paths);
-        if (!t)
+        if (strv_extend_strv(&r, (char**) config_unit_paths) < 0)
                 goto fail;
-        strv_free(r);
-        r = t;
 
-        if (generator) {
-                t = strv_append(r, generator);
-                if (!t)
+        if (generator)
+                if (strv_extend(&r, generator) < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
-        if (data_home) {
-                t = strv_append(r, data_home);
-                if (!t)
+        if (data_home)
+                if (strv_extend(&r, data_home) < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
-        if (!strv_isempty(data_dirs)) {
-                t = strv_merge_concat(r, data_dirs, "/systemd/user");
-                if (!t)
+        if (!strv_isempty(data_dirs))
+                if (strv_extend_strv_concat(&r, data_dirs, "/systemd/user") < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
-        t = strv_merge(r, (char**) data_unit_paths);
-        if (!t)
+        if (strv_extend_strv(&r, (char**) data_unit_paths) < 0)
                 goto fail;
-        strv_free(r);
-        r = t;
 
-        if (generator_late) {
-                t = strv_append(r, generator_late);
-                if (!t)
+        if (generator_late)
+                if (strv_extend(&r, generator_late) < 0)
                         goto fail;
-                strv_free(r);
-                r = t;
-        }
 
         if (!path_strv_make_absolute_cwd(r))
                 goto fail;
-
-finish:
-        free(config_home);
-        strv_free(config_dirs);
-        free(data_home);
-        strv_free(data_dirs);
 
         return r;
 
 fail:
         strv_free(r);
-        r = NULL;
-        goto finish;
+        return NULL;
 }
 
 int lookup_paths_init(
                 LookupPaths *p,
                 SystemdRunningAs running_as,
                 bool personal,
+                const char *root_dir,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late) {
@@ -316,10 +284,8 @@ int lookup_paths_init(
                 }
         }
 
-        if (!path_strv_canonicalize(p->unit_path))
+        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
                 return -ENOMEM;
-
-        strv_uniq(p->unit_path);
 
         if (!strv_isempty(p->unit_path)) {
                 _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
@@ -372,14 +338,11 @@ int lookup_paths_init(
                                 return -ENOMEM;
                 }
 
-                if (!path_strv_canonicalize(p->sysvinit_path))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
                         return -ENOMEM;
 
-                if (!path_strv_canonicalize(p->sysvrcnd_path))
+                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
                         return -ENOMEM;
-
-                strv_uniq(p->sysvinit_path);
-                strv_uniq(p->sysvrcnd_path);
 
                 if (!strv_isempty(p->sysvinit_path)) {
                         _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");

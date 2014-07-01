@@ -405,6 +405,7 @@ out:
         return ret;
 }
 
+_printf_(6,0)
 static void log_fn(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
                    const char *format, va_list args)
@@ -462,14 +463,14 @@ int main(int argc, char *argv[])
 
         node = argv[optind];
         if (node == NULL) {
-                log_error("no node specified\n");
+                log_error("no node specified");
                 rc = 1;
                 goto exit;
         }
 
-        fd = open(node, O_RDONLY|O_NONBLOCK);
+        fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
         if (fd < 0) {
-                log_error("unable to open '%s'\n", node);
+                log_error("unable to open '%s'", node);
                 rc = 1;
                 goto exit;
         }
@@ -501,7 +502,7 @@ int main(int argc, char *argv[])
         } else {
                 /* If this fails, then try HDIO_GET_IDENTITY */
                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
-                        log_info("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
+                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m", node);
                         rc = 2;
                         goto close;
                 }

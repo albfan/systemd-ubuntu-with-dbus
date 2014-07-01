@@ -94,7 +94,7 @@
                 in a unit file
                 <filename>home-lennart.mount</filename>. For details
                 about the escaping logic used to convert a file system
-                path to a unit name see
+                path to a unit name, see
                 <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
                 <para>Optionally, a mount unit may be accompanied by
@@ -132,7 +132,10 @@
                 for details). Mounts listed in
                 <filename>/etc/fstab</filename> will be converted into
                 native units dynamically at boot and when the
-                configuration of the system manager is reloaded. See
+                configuration of the system manager is reloaded. In
+                general, configuring mount points through
+                <filename>/etc/fstab</filename> is the preferred
+                approach. See
                 <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 for details about the conversion.</para>
 
@@ -158,6 +161,21 @@
                 seconds or explicitly specify a unit as
                 <literal>s</literal>, <literal>min</literal>,
                 <literal>h</literal>, <literal>ms</literal>.</para>
+
+                <para>If <option>nofail</option> is given, this mount
+                will be only wanted, not required, by the
+                <filename>local-fs.target</filename>. This means that
+                the boot will continue even if this mount point is not
+                mounted successfully. Option <option>fail</option> has
+                the opposite meaning and is the default.</para>
+
+                <para>If <option>noauto</option> is given, this mount
+                will not be added as a dependency for
+                <filename>local-fs.target</filename>. This means that
+                it will not be mounted automatically during boot,
+                unless it is pulled in by some other unit. Option
+                <option>auto</option> has the opposite meaning and is
+                the default.</para>
 
                 <para>If a mount point is configured in both
                 <filename>/etc/fstab</filename> and a unit file that
@@ -260,8 +278,8 @@
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
                                 20s". Pass 0 to disable the timeout
-                                logic. Defaults to
-                                90s.</para></listitem>
+                                logic. The default value is set from the manager configuration
+                                file's <varname>DefaultTimeoutStart=</varname> variable.</para></listitem>
                         </varlistentry>
                 </variablelist>
 
@@ -270,28 +288,6 @@
                 and
                 <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 for more settings.</para>
-        </refsect1>
-
-        <refsect1>
-                <title>Compatibility Options</title>
-
-                <para>The following option is also available in the
-                <literal>[Mount]</literal> section, but exists purely
-                for compatibility reasons and should not be used in
-                newly written mount files.</para>
-
-                <variablelist class='unit-directives'>
-                        <varlistentry>
-                                <term><varname>FsckPassNo=</varname></term>
-
-                                <listitem><para>The pass number for
-                                the file system checking service for
-                                this mount. See
-                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                                for more information on this setting.
-                                </para></listitem>
-                        </varlistentry>
-                </variablelist>
         </refsect1>
 
         <refsect1>

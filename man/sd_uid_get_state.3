@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_UID_GET_STATE" "3" "" "systemd 208" "sd_uid_get_state"
+.TH "SD_UID_GET_STATE" "3" "" "systemd 214" "sd_uid_get_state"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_uid_get_state, sd_uid_is_on_seat, sd_uid_get_sessions, sd_uid_get_seats \- Determine login state of a specific Unix user ID
+sd_uid_get_state, sd_uid_is_on_seat, sd_uid_get_sessions, sd_uid_get_seats, sd_uid_get_display \- Determine login state of a specific Unix user ID
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -29,13 +29,15 @@ sd_uid_get_state, sd_uid_is_on_seat, sd_uid_get_sessions, sd_uid_get_seats \- De
 .fi
 .ft
 .HP \w'int\ sd_uid_get_state('u
-.BI "int sd_uid_get_state(uid_t\ " "uid" ", char**\ " "state" ");"
+.BI "int sd_uid_get_state(uid_t\ " "uid" ", char\ **" "state" ");"
 .HP \w'int\ sd_uid_is_on_seat('u
-.BI "int sd_uid_is_on_seat(uid_t\ " "uid" ", int\ " "require_active" ", const\ char*\ " "seat" ");"
+.BI "int sd_uid_is_on_seat(uid_t\ " "uid" ", int\ " "require_active" ", const\ char\ *" "seat" ");"
 .HP \w'int\ sd_uid_get_sessions('u
-.BI "int sd_uid_get_sessions(uid_t\ " "uid" ", int\ " "require_active" ", char***\ " "sessions" ");"
+.BI "int sd_uid_get_sessions(uid_t\ " "uid" ", int\ " "require_active" ", char\ ***" "sessions" ");"
 .HP \w'int\ sd_uid_get_seats('u
-.BI "int sd_uid_get_seats(uid_t\ " "uid" ", int\ " "require_active" ", char***\ " "seats" ");"
+.BI "int sd_uid_get_seats(uid_t\ " "uid" ", int\ " "require_active" ", char\ ***" "seats" ");"
+.HP \w'int\ sd_uid_get_display('u
+.BI "int sd_uid_get_display(uid_t\ " "uid" ", char\ **" "session" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_uid_get_state()\fR
@@ -72,31 +74,41 @@ call after use, including all the strings referenced\&. If the string array para
 \fBNULL\fR
 may be returned and should be considered equivalent to an empty array\&.
 .PP
-Similar,
+Similarly,
 \fBsd_uid_get_seats()\fR
 may be used to determine the list of seats on which the user currently has sessions\&. Similar semantics apply, however note that the user may have multiple sessions on the same seat as well as sessions with no attached seat and hence the number of entries in the returned array may differ from the one returned by
 \fBsd_uid_get_sessions()\fR\&.
+.PP
+\fBsd_uid_get_display()\fR
+returns the name of the "primary" session of a user\&. If the user has graphical sessions, it will be the oldest graphical session\&. Otherwise, it will be the oldest open session\&.
 .SH "RETURN VALUE"
 .PP
-On success
+On success,
 \fBsd_uid_get_state()\fR
 returns 0 or a positive integer\&. If the test succeeds,
 \fBsd_uid_is_on_seat()\fR
-returns a positive integer, if it fails 0\&.
+returns a positive integer; if it fails, 0\&.
 \fBsd_uid_get_sessions()\fR
 and
 \fBsd_uid_get_seats()\fR
-return the number of entries in the returned arrays\&. On failure, these calls return a negative errno\-style error code\&.
+return the number of entries in the returned arrays\&.
+\fBsd_uid_get_display()\fR
+returns a non\-negative code on success\&. On failure, these calls return a negative errno\-style error code\&.
 .SH "NOTES"
 .PP
-The
+Functions described here are available as a shared library, and can be compiled and linked to using the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+entry\&.
+.SH "HISTORY"
 \fBsd_uid_get_state()\fR,
-\fBsd_uid_is_on_seat()\fR,
-\fBsd_uid_get_sessions()\fR, and
-\fBsd_uid_get_seats()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
-file\&.
+                \fBsd_uid_is_on_seat()\fR,
+                \fBsd_uid_get_sessions()\fR,
+                and \fBsd_uid_get_seats()\fR functions
+                were added in systemd\-31\&.
+
+                .PP
+\fBsd_uid_get_display()\fR
+was added in systemd\-213\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
