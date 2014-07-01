@@ -14,6 +14,13 @@ systemd (210-1) UNRELEASED; urgency=medium
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 
+systemd (208-5tanglu3) staging; urgency=medium
+
+  * Move new manpages from systemd to libsystemd-*-dev as appropriate.
+  * Remove pre-generated rules and unit files in debian/rules clean target.
+
+ -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 23:00:00 +0200
+
 systemd (208-5tanglu1) staging; urgency=medium
 
   * Merge from Debian experimental, remaining changes:
@@ -22,8 +29,6 @@ systemd (208-5tanglu1) staging; urgency=medium
     - Map SysV runlevel S to basic.target, not sysinit.target.
     - Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
-    - Move new manpages to libsystemd-*-dev as appropriate.
-  * Remove pre-generated rules and unit files in debian/rules clean target.
 
  -- Jon Severinsson <jon@severinsson.net>  Sat, 28 Jun 2014 16:00:00 +0200
 
