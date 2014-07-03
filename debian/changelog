@@ -13,6 +13,8 @@ systemd (214-1) UNRELEASED; urgency=medium
     - Add new symbols file for libsystemd0.
   * Update symbols file for libgudev-1.0-0.
   * Remove pre-generated rules and unit files in debian/rules clean target.
+  * Add new systemd service users in systemd postinst (systemd-timesync,
+    systemd-network, systemd-resolve)
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch

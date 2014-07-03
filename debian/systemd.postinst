@@ -95,6 +95,18 @@ if ! getent group systemd-journal >/dev/null; then
     addgroup --system systemd-journal
 fi
 
+if ! getent passwd systemd-timesync >/dev/null; then
+    adduser --system --group --no-create-home --home /run/systemd systemd-timesync
+fi
+
+if ! getent passwd systemd-network >/dev/null; then
+    adduser --system --group --no-create-home --home /run/systemd/netif systemd-network
+fi
+
+if ! getent passwd systemd-resolve >/dev/null; then
+    adduser --system --group --no-create-home --home /run/systemd/resolve systemd-resolve
+fi
+
 # initial update of the Message Catalogs database
 _update_catalog
 
