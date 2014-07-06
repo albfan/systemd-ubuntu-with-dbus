@@ -1,4 +1,4 @@
-systemd (204-14tanglu0.1) UNRELEASED; urgency=medium
+systemd (204-14tanglu0.1) aequorea-updates; urgency=medium
 
   * Merge from Debian, remaining changes:
     - Make systemd and systemd-sysv required packages.
