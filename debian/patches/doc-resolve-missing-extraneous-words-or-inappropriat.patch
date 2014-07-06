@@ -1,0 +1,243 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Mon, 17 Feb 2014 03:37:18 +0100
+Subject: doc: resolve missing/extraneous words or inappropriate forms
+
+Issues fixed:
+* missing words required by grammar
+* duplicated or extraneous words
+* inappropriate forms (e.g. singular/plural), and declinations
+* orthographic misspellings
+
+(cherry picked from commit 66f756d437658cc464bfb5647c97efd0cf77f933)
+
+Conflicts:
+	man/pam_systemd.xml
+	man/sd_bus_creds_get_pid.xml
+	man/sd_bus_error.xml
+	man/sd_bus_open_user.xml
+	man/systemctl.xml
+	man/systemd-nspawn.xml
+	man/systemd-system.conf.xml
+	man/systemd.exec.xml
+	man/udev.xml
+---
+ man/busctl.xml                   | 2 +-
+ man/journalctl.xml               | 2 +-
+ man/journald.conf.xml            | 6 +++---
+ man/machine-info.xml             | 6 +++---
+ man/sd_journal_print.xml         | 2 +-
+ man/systemd-coredumpctl.xml      | 2 +-
+ man/systemd-journald.service.xml | 4 ++--
+ man/systemd-system.conf.xml      | 2 +-
+ man/systemd-udevd.service.xml    | 4 ++--
+ man/systemd.exec.xml             | 2 +-
+ man/systemd.journal-fields.xml   | 2 +-
+ man/systemd.socket.xml           | 6 +++---
+ 12 files changed, 20 insertions(+), 20 deletions(-)
+
+diff --git a/man/busctl.xml b/man/busctl.xml
+index 0c5f05a..854eb38 100644
+--- a/man/busctl.xml
++++ b/man/busctl.xml
+@@ -151,7 +151,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+           <term><option>--activatable</option></term>
+ 
+           <listitem><para>When showing the list of endpoints, show
+-          only endpoints which haven't actually been activated yet,
++          only endpoints which have actually not been activated yet,
+           but may be started automatically if accessed.</para>
+           </listitem>
+       </varlistentry>
+diff --git a/man/journalctl.xml b/man/journalctl.xml
+index b695b3d..623d966 100644
+--- a/man/journalctl.xml
++++ b/man/journalctl.xml
+@@ -370,7 +370,7 @@
+                                                         terse output only
+                                                         showing the actual
+                                                         message of each journal
+-                                                        entry with no meta data,
++                                                        entry with no metadata,
+                                                         not even a timestamp.
+                                                         </para>
+                                                 </listitem>
+diff --git a/man/journald.conf.xml b/man/journald.conf.xml
+index e0796e1..27c326e 100644
+--- a/man/journald.conf.xml
++++ b/man/journald.conf.xml
+@@ -269,12 +269,12 @@
+                                 violated when systemd-journald is
+                                 started, the value will be raised to
+                                 percentage that is actually free. This
+-                                means that if before there was enough
+-                                free space and journal files were
++                                means that if there was enough
++                                free space before and journal files were
+                                 created, and subsequently something
+                                 else causes the file system to fill
+                                 up, journald will stop using more
+-                                space, but it'll will not removing
++                                space, but it will not be removing
+                                 existing files to go reduce footprint
+                                 either.</para>
+ 
+diff --git a/man/machine-info.xml b/man/machine-info.xml
+index ddf8f8b..7448e68 100644
+--- a/man/machine-info.xml
++++ b/man/machine-info.xml
+@@ -55,7 +55,7 @@
+                 <title>Description</title>
+ 
+                 <para>The <filename>/etc/machine-info</filename> file
+-                contains machine meta data.</para>
++                contains machine metadata.</para>
+ 
+                 <para>The basic file format of
+                 <filename>machine-info</filename> is a
+@@ -68,7 +68,7 @@
+                 execution engine.</para>
+ 
+                 <para><filename>/etc/machine-info</filename> contains
+-                meta data about the machine that is set by the user or
++                metadata about the machine that is set by the user or
+                 administrator.</para>
+ 
+                 <para>Depending on the operating system other
+@@ -84,7 +84,7 @@
+         <refsect1>
+                 <title>Options</title>
+ 
+-                <para>The following machine meta data parameters may
++                <para>The following machine metadata parameters may
+                 be set using
+                 <filename>/etc/machine-info</filename>:</para>
+ 
+diff --git a/man/sd_journal_print.xml b/man/sd_journal_print.xml
+index a716cc3..871baff 100644
+--- a/man/sd_journal_print.xml
++++ b/man/sd_journal_print.xml
+@@ -203,7 +203,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
+                 be guaranteed. Using
+                 <function>sd_journal_print()</function> has the
+                 benefit of logging source code line, filenames, and
+-                functions as meta data along all entries, and
++                functions as metadata along all entries, and
+                 guaranteeing chronological ordering with structured
+                 log entries that are generated via
+                 <function>sd_journal_send()</function>. Using
+diff --git a/man/systemd-coredumpctl.xml b/man/systemd-coredumpctl.xml
+index 286ff14..4318a2f 100644
+--- a/man/systemd-coredumpctl.xml
++++ b/man/systemd-coredumpctl.xml
+@@ -135,7 +135,7 @@
+ 
+                                 <listitem><para>Extract the last coredump
+                                 matching specified characteristics.
+-                                Coredump will be written on standard output,
++                                The coredump will be written on standard output,
+                                 unless an output file is specified with
+                                 <option>-o/--output</option>.
+                                 </para></listitem>
+diff --git a/man/systemd-journald.service.xml b/man/systemd-journald.service.xml
+index 0a20e21..4d2cb40 100644
+--- a/man/systemd-journald.service.xml
++++ b/man/systemd-journald.service.xml
+@@ -66,10 +66,10 @@
+                 <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 call, from standard input and standard error of system
+                 services or via its native API. It will implicitly
+-                collect numerous meta data fields for each log
++                collect numerous metadata fields for each log
+                 messages in a secure and unfakeable way. See
+                 <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+-                for more information about the collected meta data.
++                for more information about the collected metadata.
+                 </para>
+ 
+                 <para>Log data collected by the journal is primarily
+diff --git a/man/systemd-system.conf.xml b/man/systemd-system.conf.xml
+index 9a1a99f..6f36930 100644
+--- a/man/systemd-system.conf.xml
++++ b/man/systemd-system.conf.xml
+@@ -135,7 +135,7 @@
+                                 <listitem><para>Configures the initial
+                                 CPU affinity for the init
+                                 process. Takes a space-separated list
+-                                of CPU indexes.</para></listitem>
++                                of CPU indices.</para></listitem>
+                         </varlistentry>
+ 
+                         <varlistentry>
+diff --git a/man/systemd-udevd.service.xml b/man/systemd-udevd.service.xml
+index 0e49fa0..bb04694 100644
+--- a/man/systemd-udevd.service.xml
++++ b/man/systemd-udevd.service.xml
+@@ -83,7 +83,7 @@
+         <term><option>--exec-delay=</option></term>
+         <listitem>
+           <para>Delay the execution of <varname>RUN</varname>
+-          instruction by the given number of seconds. This option
++          instructions by the given number of seconds. This option
+           might be useful when debugging system crashes during
+           coldplug caused by loading non-working kernel
+           modules.</para>
+@@ -148,7 +148,7 @@
+         <term><varname>udev.exec-delay=</varname></term>
+         <term><varname>rd.udev.exec-delay=</varname></term>
+         <listitem>
+-          <para>Delay the execution of RUN instruction by the given
++          <para>Delay the execution of RUN instructions by the given
+           number of seconds. This option might be useful when
+           debugging system crashes during coldplug caused by loading
+           non-working kernel modules.</para>
+diff --git a/man/systemd.exec.xml b/man/systemd.exec.xml
+index ae134f2..630a28c 100644
+--- a/man/systemd.exec.xml
++++ b/man/systemd.exec.xml
+@@ -248,7 +248,7 @@
+                                 <listitem><para>Controls the CPU
+                                 affinity of the executed
+                                 processes. Takes a space-separated
+-                                list of CPU indexes. This option may
++                                list of CPU indices. This option may
+                                 be specified more than once in which
+                                 case the specificed CPU affinity masks
+                                 are merged. If the empty string is
+diff --git a/man/systemd.journal-fields.xml b/man/systemd.journal-fields.xml
+index bb89ed5..b492aae 100644
+--- a/man/systemd.journal-fields.xml
++++ b/man/systemd.journal-fields.xml
+@@ -529,7 +529,7 @@
+                 JSON Format</ulink>, the addresses of journal entries
+                 are serialized into fields prefixed with double
+                 underscores. Note that these are not proper fields when
+-                stored in the journal but for addressing meta data of
++                stored in the journal but for addressing metadata of
+                 entries. They cannot be written as part of structured
+                 log entries via calls such as
+                 <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>. They
+diff --git a/man/systemd.socket.xml b/man/systemd.socket.xml
+index 3e1dd88..67267b2 100644
+--- a/man/systemd.socket.xml
++++ b/man/systemd.socket.xml
+@@ -90,9 +90,9 @@
+                 <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                 for more information about .service files). The name
+                 of the .service unit is by default the same as the
+-                name of the .socket unit, but can be altered with
++                name of the .socket unit, but can be altered with the
+                 <option>Service=</option> option described below.
+-                Depending on the setting of <option>Accept=</option>
++                Depending on the setting of the <option>Accept=</option>
+                 option described below, this .service unit must either
+                 be named like the .socket unit, but with the suffix
+                 replaced, unless overridden with
+@@ -135,7 +135,7 @@
+                 <para>Socket units may be used to implement on-demand
+                 starting of services, as well as parallelized starting
+                 of services. See the blog stories linked at the end
+-                for introduction.</para>
++                for an introduction.</para>
+ 
+                 <para>Note that the daemon software configured for
+                 socket activation with socket units needs to be able

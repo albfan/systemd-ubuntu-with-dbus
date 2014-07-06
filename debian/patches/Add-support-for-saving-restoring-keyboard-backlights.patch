@@ -1,0 +1,65 @@
+From: Bastien Nocera <hadess@hadess.net>
+Date: Fri, 11 Oct 2013 09:45:32 +0200
+Subject: Add support for saving/restoring keyboard backlights
+
+Piggy-backing on the display backlight code, this saves and restores
+keyboard backlights on supported devices.
+
+The detection code matches that of UPower:
+http://cgit.freedesktop.org/upower/tree/src/up-kbd-backlight.c#n173
+
+https://bugs.freedesktop.org/show_bug.cgi?id=70367
+
+[tomegun: also work for devices named "{smc,samsung,asus}::kbd_backlight"]
+
+Conflicts:
+	rules/99-systemd.rules.in
+---
+ rules/99-systemd.rules.in | 4 +++-
+ src/backlight/backlight.c | 7 +++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index 307f18f..a00ffed 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -51,9 +51,11 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:0701??:
+ 
+ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="@rootlibexecdir@/systemd-sysctl --prefix=/proc/sys/net/ipv4/conf/$name --prefix=/proc/sys/net/ipv4/neigh/$name --prefix=/proc/sys/net/ipv6/conf/$name --prefix=/proc/sys/net/ipv6/neigh/$name"
+ 
+-# Pull in backlight save/restore for all firmware backlight devices
++# Pull in backlight save/restore for all firmware backlight devices,
++# and keyboard backlights
+ 
+ SUBSYSTEM=="backlight", ATTR{type}=="firmware", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
++SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", ENV{SYSTEMD_WANTS}+="systemd-backlight@$name.service"
+ 
+ # Asynchronously mount file systems implemented by these modules as
+ # soon as they are loaded.
+diff --git a/src/backlight/backlight.c b/src/backlight/backlight.c
+index 9b2eada..f22deed 100644
+--- a/src/backlight/backlight.c
++++ b/src/backlight/backlight.c
+@@ -56,9 +56,11 @@ int main(int argc, char *argv[]) {
+ 
+         errno = 0;
+         device = udev_device_new_from_subsystem_sysname(udev, "backlight", argv[2]);
++        if (!device)
++                device = udev_device_new_from_subsystem_sysname(udev, "leds", argv[2]);
+         if (!device) {
+                 if (errno != 0) {
+-                        log_error("Failed to get backlight device: %m");
++                        log_error("Failed to get backlight device '%s': %m", argv[2]);
+                         r = -errno;
+                 } else
+                         r = log_oom();
+@@ -66,7 +68,8 @@ int main(int argc, char *argv[]) {
+                 goto finish;
+         }
+ 
+-        if (!streq_ptr(udev_device_get_subsystem(device), "backlight")) {
++        if (!streq_ptr(udev_device_get_subsystem(device), "backlight") &&
++            !streq_ptr(udev_device_get_subsystem(device), "leds")) {
+                 log_error("Not a backlight device: %s", argv[2]);
+                 r = -ENODEV;
+                 goto finish;

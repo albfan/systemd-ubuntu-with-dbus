@@ -1,0 +1,36 @@
+From: Djalal Harouni <tixxdz@opendz.org>
+Date: Tue, 5 Nov 2013 15:26:37 +0100
+Subject: nspawn: log out of memory errors
+
+---
+ src/nspawn/nspawn.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index 9616dbf..db47fbd 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -224,6 +224,9 @@ static int parse_argv(int argc, char *argv[]) {
+ 
+                 case 'S':
+                         arg_slice = strdup(optarg);
++                        if (!arg_slice)
++                                return log_oom();
++
+                         break;
+ 
+                 case 'M':
+@@ -315,11 +318,11 @@ static int parse_argv(int argc, char *argv[]) {
+ 
+                         r = strv_extend(x, a);
+                         if (r < 0)
+-                                return r;
++                                return log_oom();
+ 
+                         r = strv_extend(x, b);
+                         if (r < 0)
+-                                return r;
++                                return log_oom();
+ 
+                         break;
+                 }

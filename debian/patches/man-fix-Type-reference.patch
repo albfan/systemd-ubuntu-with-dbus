@@ -1,0 +1,22 @@
+From: Marcos Felipe Rasia de Mello <marcosfrm@gmail.com>
+Date: Thu, 26 Dec 2013 17:47:57 -0200
+Subject: man: fix Type= reference
+
+Simple man page fix attached.
+---
+ man/systemd.service.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index e3a370f..898c19d 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -139,7 +139,7 @@
+ 
+                                 <para>If set to
+                                 <option>simple</option> (the default
+-                                value if <varname>BusName=</varname>
++                                value if <varname>Type=</varname>
+                                 is not specified), it is expected that
+                                 the process configured with
+                                 <varname>ExecStart=</varname> is the

@@ -1,0 +1,44 @@
+From: Dave Reisner <dreisner@archlinux.org>
+Date: Tue, 24 Dec 2013 16:42:06 -0500
+Subject: sleep-config: fix useless check for swapfile type
+
+Since 0c6f1f4ea49 the check was useless, because the kernel will
+ever only write "partition" or "file" there.
+
+OTOH, it is possible that "\\040(deleted)" (escaped " (deleted)")
+will be added for removed files. This should not happen, so add
+a warning to detect those cases.
+
+(cherry picked from commit db69869f264af2d1afcdd3e573e0e9fdd5bef065)
+---
+ src/shared/sleep-config.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/src/shared/sleep-config.c b/src/shared/sleep-config.c
+index 2bb0493..d76e3ad 100644
+--- a/src/shared/sleep-config.c
++++ b/src/shared/sleep-config.c
+@@ -183,7 +183,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
+         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
+ 
+         for (i = 1;; i++) {
+-                _cleanup_free_ char *dev = NULL, *d = NULL, *type = NULL;
++                _cleanup_free_ char *dev = NULL, *type = NULL;
+                 size_t size_field, used_field;
+                 int k;
+ 
+@@ -202,12 +202,8 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
+                         continue;
+                 }
+ 
+-                d = cunescape(dev);
+-                if (!d)
+-                        return -ENOMEM;
+-
+-                if (!streq(type, "partition") && !streq(type, "file")) {
+-                        log_debug("Partition %s has type %s, ignoring.", d, type);
++                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
++                        log_warning("Ignoring deleted swapfile '%s'.", dev);
+                         continue;
+                 }
+ 

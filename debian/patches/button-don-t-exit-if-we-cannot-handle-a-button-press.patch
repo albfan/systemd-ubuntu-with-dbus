@@ -1,0 +1,21 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Sun, 10 Nov 2013 23:05:08 +0100
+Subject: button: don't exit if we cannot handle a button press
+
+---
+ src/login/logind-button.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/login/logind-button.c b/src/login/logind-button.c
+index ea45c28..4f456d2 100644
+--- a/src/login/logind-button.c
++++ b/src/login/logind-button.c
+@@ -172,7 +172,7 @@ static int button_handle(
+                  * execute another one until the lid is opened/closed again */
+                 b->lid_close_queued = false;
+ 
+-        return r;
++        return 0;
+ }
+ 
+ int button_process(Button *b) {

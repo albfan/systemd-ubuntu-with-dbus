@@ -1,0 +1,32 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Sun, 23 Feb 2014 16:43:19 +0100
+Subject: man: document that per-interface sysctl variables are applied as
+ network interfaces show up
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1062955
+(cherry picked from commit 8f03fd08911016d8bbcad5892b2c07b30a4c2306)
+---
+ man/sysctl.d.xml | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/man/sysctl.d.xml b/man/sysctl.d.xml
+index 5544283..00a857b 100644
+--- a/man/sysctl.d.xml
++++ b/man/sysctl.d.xml
+@@ -103,6 +103,16 @@
+                 <filename>/dev/null</filename> in
+                 <filename>/etc/sysctl.d/</filename> bearing the
+                 same filename.</para>
++
++                <para>The settings configured with
++                <filename>sysctl.d</filename> files will be applied
++                early on boot. The network interface-specific options
++                will also be applied individually for each network
++                interface as it shows up in the system. (More
++                specifically, that is
++                <filename>net.ipv4.conf.*</filename>,
++                <filename>net.ipv6.conf.*</filename>,
++                <filename>net.ipv4.neigh.*</filename> and <filename>net.ipv6.neigh.*</filename>)</para>
+         </refsect1>
+ 
+         <refsect1>

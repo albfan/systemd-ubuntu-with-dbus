@@ -1,0 +1,23 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Wed, 18 Jun 2014 03:37:32 +0200
+Subject: rules: add loop-control and btrfs-control to "disk" group
+
+(cherry picked from commit 27e7c26268bd4c16edb92f2b8a8626b00c6f2dad)
+(cherry picked from commit cc1e6e5c1432bdeef730bfdfb09cc61d750b748d)
+---
+ rules/50-udev-default.rules | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/rules/50-udev-default.rules b/rules/50-udev-default.rules
+index 0bccf67..23ca088 100644
+--- a/rules/50-udev-default.rules
++++ b/rules/50-udev-default.rules
+@@ -59,6 +59,8 @@ KERNEL=="pktcdvd", GROUP="cdrom"
+ SUBSYSTEM=="scsi_generic|scsi_tape", SUBSYSTEMS=="scsi", ATTRS{type}=="1|8", GROUP="tape"
+ SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="0", GROUP="disk"
+ KERNEL=="qft[0-9]*|nqft[0-9]*|zqft[0-9]*|nzqft[0-9]*|rawqft[0-9]*|nrawqft[0-9]*", GROUP="disk"
++KERNEL=="loop-control", GROUP="disk", OPTIONS+="static_node=loop-control"
++KERNEL=="btrfs-control", GROUP="disk"
+ KERNEL=="rawctl", GROUP="disk"
+ SUBSYSTEM=="raw", KERNEL=="raw[0-9]*", GROUP="disk"
+ SUBSYSTEM=="aoe", GROUP="disk", MODE="0220"

@@ -1,0 +1,34 @@
+From: =?utf-8?q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
+Date: Mon, 2 Jun 2014 16:47:15 +0300
+Subject: man: fix references to sd_journal_cutoff_realtime_usec
+
+(cherry picked from commit d275b5296958446957e98ce61213f98519e11808)
+(cherry picked from commit 44045f883f3911ca1bcab36250bf66c0d24bc569)
+---
+ man/sd-journal.xml | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/man/sd-journal.xml b/man/sd-journal.xml
+index 832d584..83ee8f4 100644
+--- a/man/sd-journal.xml
++++ b/man/sd-journal.xml
+@@ -78,7 +78,8 @@
+                 <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                 <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                 <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+-                <citerefentry><refentrytitle>sd_journal_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
++                <citerefentry><refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
++                <citerefentry><refentrytitle>sd_journal_get_cutoff_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                 <citerefentry><refentrytitle>sd_journal_get_usage</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                 <citerefentry><refentrytitle>sd_journal_get_catalog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 and
+@@ -117,7 +118,8 @@
+                         <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                         <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                         <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+-                        <citerefentry><refentrytitle>sd_journal_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
++                        <citerefentry><refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
++                        <citerefentry><refentrytitle>sd_journal_get_cutoff_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                         <citerefentry><refentrytitle>sd_journal_get_usage</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                         <citerefentry><refentrytitle>sd_journal_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                         <citerefentry><refentrytitle>sd_journal_query_unique</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

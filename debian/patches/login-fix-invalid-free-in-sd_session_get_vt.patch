@@ -9,7 +9,7 @@ error-paths might corrupt random memory.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/login/sd-login.c b/src/login/sd-login.c
-index 9bfe43c..7e25041 100644
+index 71d8c29..6c27dfe 100644
 --- a/src/login/sd-login.c
 +++ b/src/login/sd-login.c
 @@ -350,7 +350,7 @@ _public_ int sd_session_get_tty(const char *session, char **tty) {

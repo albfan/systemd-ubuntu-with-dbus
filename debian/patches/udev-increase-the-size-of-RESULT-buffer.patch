@@ -1,0 +1,27 @@
+From: Robert Milasan <rmilasan@suse.com>
+Date: Thu, 24 Apr 2014 11:23:33 +0200
+Subject: udev: increase the size of RESULT buffer
+
+Under some conditions, in udev_rules_apply_to_event the fact that
+result is 1024 bytes, creates problems if the output of the running
+command/app is bigger then 1024 bytes.
+
+(cherry picked from commit 209b031e4fb7b50fc1812fc7c6ea59ca2f5d0c78)
+(cherry picked from commit aa8c95a158ada263eb0ddc53643bf94517290871)
+---
+ src/udev/udev-rules.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/udev-rules.c b/src/udev/udev-rules.c
+index 392ae86..366d870 100644
+--- a/src/udev/udev-rules.c
++++ b/src/udev/udev-rules.c
+@@ -2058,7 +2058,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
+                 case TK_M_PROGRAM: {
+                         char program[UTIL_PATH_SIZE];
+                         char **envp;
+-                        char result[UTIL_PATH_SIZE];
++                        char result[UTIL_LINE_SIZE];
+ 
+                         free(event->program_result);
+                         event->program_result = NULL;

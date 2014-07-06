@@ -1,0 +1,43 @@
+From: Shawn Landden <shawn@churchofgit.com>
+Date: Fri, 20 Dec 2013 15:35:38 -0800
+Subject: DEFAULT_PATH_SPLIT_USR macro
+
+(cherry picked from commit e10a55fd72b5246cec1bbd09135d544db32e0414)
+---
+ src/nspawn/nspawn.c    | 2 +-
+ src/shared/path-util.h | 7 +++++--
+ 2 files changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index 618f9c3..cafc306 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -1227,7 +1227,7 @@ int main(int argc, char *argv[]) {
+                         gid_t gid = (gid_t) -1;
+                         unsigned n_env = 2;
+                         const char *envp[] = {
+-                                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
++                                "PATH=" DEFAULT_PATH_SPLIT_USR,
+                                 "container=systemd-nspawn", /* LXC sets container=lxc, so follow the scheme here */
+                                 NULL, /* TERM */
+                                 NULL, /* HOME */
+diff --git a/src/shared/path-util.h b/src/shared/path-util.h
+index 0a42de7..1e58e1b 100644
+--- a/src/shared/path-util.h
++++ b/src/shared/path-util.h
+@@ -25,10 +25,13 @@
+ 
+ #include "macro.h"
+ 
++#define DEFAULT_PATH_NORMAL "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
++#define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":/sbin:/bin"
++
+ #ifdef HAVE_SPLIT_USR
+-#  define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
++#  define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
+ #else
+-#  define DEFAULT_PATH "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
++#  define DEFAULT_PATH DEFAULT_PATH_NORMAL
+ #endif
+ 
+ bool is_path(const char *p) _pure_;

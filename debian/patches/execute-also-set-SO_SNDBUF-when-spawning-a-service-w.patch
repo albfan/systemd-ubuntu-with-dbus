@@ -1,0 +1,32 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 16 Dec 2013 20:00:09 +0100
+Subject: execute: also set SO_SNDBUF when spawning a service with
+ stdout/stderr connected to journald
+
+(cherry picked from commit 531dca789ea6b4c269ca2646515b42962f83d64a)
+---
+ src/core/execute.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/core/execute.c b/src/core/execute.c
+index 58be72a..9b85379 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -75,6 +75,8 @@
+ /* This assumes there is a 'tty' group */
+ #define TTY_MODE 0620
+ 
++#define SNDBUF_SIZE (8*1024*1024)
++
+ static int shift_fds(int fds[], unsigned n_fds) {
+         int start, restart_from;
+ 
+@@ -232,6 +234,8 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
+                 return -errno;
+         }
+ 
++        fd_inc_sndbuf(fd, SNDBUF_SIZE);
++
+         dprintf(fd,
+                 "%s\n"
+                 "%s\n"

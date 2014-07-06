@@ -1,0 +1,33 @@
+From: =?utf-8?q?=C5=81ukasz_Stelmach?= <l.stelmach@samsung.com>
+Date: Tue, 7 Jan 2014 15:00:22 +0100
+Subject: gpt-auto-generator: skip nonexistent devices
+
+The devices we work with have eMMC chips for storage. The chips
+provide four "hardware" partitions.  The first is /dev/mmcblk0, it
+takes almost whole space and holds a GPT with several real partitions
+(/dev/mmcblk0p?). Then there are three block devices (mmcblk0boot0,
+mmcblk0boot1, rpmb) that are part of the same hardware as mmcblk0 that
+are presented by the kernel as children of the latter. That relationship
+makes gpt-auto-generator try to peek them but since they are not GPT
+partitions blkid_do_safeprobe() returns -2 making verify_gpt_parition()
+function return -ENODEV.
+
+(cherry picked from commit 843f737ade9c73609a2280dd3dd16e18222a5dcb)
+---
+ src/gpt-auto-generator/gpt-auto-generator.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/gpt-auto-generator/gpt-auto-generator.c b/src/gpt-auto-generator/gpt-auto-generator.c
+index 25440e7..0e8e959 100644
+--- a/src/gpt-auto-generator/gpt-auto-generator.c
++++ b/src/gpt-auto-generator/gpt-auto-generator.c
+@@ -298,6 +298,9 @@ static int enumerate_partitions(struct udev *udev, dev_t dev) {
+ 
+                 r = verify_gpt_partition(node, &type_id, &nr, &fstype);
+                 if (r < 0) {
++                        /* skip child devices which are not detected properly */
++                        if (r == -ENODEV)
++                                continue;
+                         log_error("Failed to verify GPT partition %s: %s",
+                                   node, strerror(-r));
+                         return r;

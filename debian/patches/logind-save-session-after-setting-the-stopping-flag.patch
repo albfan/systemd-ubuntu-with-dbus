@@ -1,0 +1,24 @@
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Mon, 10 Mar 2014 18:22:55 +0100
+Subject: logind: save session after setting the stopping flag
+
+---
+ src/login/logind-session.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/login/logind-session.c b/src/login/logind-session.c
+index e519d35..3ab41e6 100644
+--- a/src/login/logind-session.c
++++ b/src/login/logind-session.c
+@@ -682,10 +682,9 @@ int session_stop(Session *s) {
+         /* Kill cgroup */
+         r = session_stop_scope(s);
+ 
+-        session_save(s);
+-
+         s->stopping = true;
+ 
++        session_save(s);
+         return r;
+ }
+ 

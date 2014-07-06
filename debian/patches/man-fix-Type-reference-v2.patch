@@ -1,0 +1,36 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 27 Dec 2013 01:18:39 -0500
+Subject: man: fix Type= reference v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+grawity:
+
+  It looks like the old version _was_ correct – the default value will
+  be "Type=dbus" if the service has a BusName set.
+
+  Suggested change: "if neither Type= nor BusName= is specified"
+---
+ man/systemd.service.xml | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 898c19d..71bcfb4 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -139,9 +139,11 @@
+ 
+                                 <para>If set to
+                                 <option>simple</option> (the default
+-                                value if <varname>Type=</varname>
+-                                is not specified), it is expected that
+-                                the process configured with
++                                value if neither
++                                <varname>Type=</varname> nor
++                                <varname>BusName=</varname> are
++                                specified), it is expected that the
++                                process configured with
+                                 <varname>ExecStart=</varname> is the
+                                 main process of the service. In this
+                                 mode, if the process offers

@@ -1,0 +1,42 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 11 Mar 2014 05:23:39 +0100
+Subject: man: multiple sleep modes are to be separated by whitespace,
+ not commas
+
+As pointed out by Jason A. Donenfeld.
+
+(cherry picked from commit 252094eb05c58270a0bc35b14ad30a126ddbb3bb)
+(cherry picked from commit 608b982e50ab0efa67c4b1762823d95fc881ac84)
+
+Conflicts:
+	man/systemd-sleep.conf.xml
+---
+ man/systemd-sleep.conf.xml | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/man/systemd-sleep.conf.xml b/man/systemd-sleep.conf.xml
+index 4622205..04f3b06 100644
+--- a/man/systemd-sleep.conf.xml
++++ b/man/systemd-sleep.conf.xml
+@@ -127,8 +127,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+-        More than one value can be specified by seperating
+-        multiple values with commas. They will be tried
++        More than one value can be specified by separating
++        multiple values with whitespace. They will be tried
+         in turn, until one is written without error. If
+         neither suceeds, the operation will be aborted.
+         </para></listitem>
+@@ -145,8 +145,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+-        More than one value can be specified by seperating
+-        multiple values with commas. They will be tried
++        More than one value can be specified by separating
++        multiple values with whitespace. They will be tried
+         in turn, until one is written without error. If
+         neither suceeds, the operation will be aborted.
+         </para></listitem>

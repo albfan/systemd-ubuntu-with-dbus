@@ -1,0 +1,252 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sun, 22 Dec 2013 22:53:23 -0500
+Subject: delta: if prefix is specified, only show overrides there
+
+systemd-delta /run/systemd/system will show all unit overrides
+in /run, etc.
+
+(cherry picked from commit 6096dfd6167f8520be3a359c1fd0e6f2e76a4dc1)
+---
+ man/systemd-delta.xml | 80 +++++++++++++++++++++++++++++++++++++++++----------
+ src/delta/delta.c     | 71 ++++++++++++++++++++++++++++-----------------
+ 2 files changed, 109 insertions(+), 42 deletions(-)
+
+diff --git a/man/systemd-delta.xml b/man/systemd-delta.xml
+index 413ebd8..4d3ab78 100644
+--- a/man/systemd-delta.xml
++++ b/man/systemd-delta.xml
+@@ -49,7 +49,9 @@
+ 
+         <refsynopsisdiv>
+                 <cmdsynopsis>
+-                        <command>systemd-delta <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">SUFFIX</arg></command>
++                        <command>systemd-delta</command>
++			<arg choice="opt" rep="repeat">OPTIONS</arg>
++			<arg choice="opt" rep="repeat"><replaceable>PREFIX</replaceable><optional>/<replaceable>SUFFIX</replaceable></optional>|<replaceable>SUFFIX</replaceable></arg>
+                 </cmdsynopsis>
+         </refsynopsisdiv>
+ 
+@@ -57,18 +59,46 @@
+                 <title>Description</title>
+ 
+                 <para><command>systemd-delta</command> may be used to
+-                identify and compare configuration files in
+-                <filename>/etc</filename> that override default
+-                counterparts in <filename>/usr</filename>. The command
+-                line argument can be one or more name of a subdirectories of
+-                <filename>/etc</filename> or
+-                <filename>/usr/lib</filename> to compare, such as
+-                <filename>tmpfiles.d</filename>, <filename>sysctl.d</filename> or
+-                <filename>systemd/system</filename>.</para>
+-
+-                <para>When no argument is specified a number of
+-                well-known subdirectories are searched for overridden
+-                files.</para>
++                identify and compare configuration files that override
++                other configuration files. Files in
++                <filename>/etc</filename> have highest priority, files
++                in <filename>/run</filename> have the second highest
++                priority, ..., files in <filename>/lib</filename> have
++                lowest priority. Files in a directory with higher
++                priority override files with the same name in
++                directories of lower priority. In addition, certain
++                configuration files can have <literal>.d</literal>
++                directories which contain "drop-in" files with
++                configuration snippets which augment the main
++                configuration file. "Drop-in" files can be overriden
++                in the same way by placing files with the same name in
++                a directory of higher priority (except that in case of
++                "drop-in" files, both the "drop-in" file name and the
++                name of the containing directory, which corresponds to
++                the name of the main configuration file, must match).
++                For a fuller explanation, see
++                <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
++		</para>
++
++		<para>The command line argument will be split into a
++		prefix and a suffix. Either is optional. The prefix
++		must be one of the directories containing
++		configuration files (<filename>/etc</filename>,
++		<filename>/run</filename>,
++		<filename>/usr/lib</filename>, ...). If it is given,
++		only overriding files contained in this directory will
++		be shown. Otherwise, all overriding files will be
++		shown. The suffix must be a name of a subdirectory
++		containing configuration files like
++		<filename>tmpfiles.d</filename>,
++		<filename>sysctl.d</filename> or
++		<filename>systemd/system</filename>. If it is given,
++		only configuration files in this subdirectory (across
++		all configuration paths) will be analyzed. Otherwise,
++		all configuration files will be analyzed. If the
++		commandline argument is not given at all, all
++		configuration files will be analyzed. See below for
++		some examples.</para>
+         </refsect1>
+ 
+         <refsect1>
+@@ -168,9 +198,28 @@
+                         </varlistentry>
+ 
+                 </variablelist>
+-
+         </refsect1>
+ 
++	<refsect1>
++		<title>Examples</title>
++
++		<para>To see all local configuration:</para>
++		<programlisting>systemd-delta
++		</programlisting>
++
++		<para>To see all runtime configuration:</para>
++		<programlisting>systemd-delta /run
++		</programlisting>
++
++		<para>To see all system unit configuration changes:</para>
++		<programlisting>systemd-delta systemd/system
++		</programlisting>
++
++		<para>To see all runtime "drop-in" changes for system units:</para>
++		<programlisting>systemd-delta --type=extended /run/systemd/system
++		</programlisting>
++	</refsect1>
++
+         <refsect1>
+                 <title>Exit status</title>
+ 
+@@ -181,7 +230,8 @@
+         <refsect1>
+                 <title>See Also</title>
+                 <para>
+-                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
++                        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
++                        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                 </para>
+         </refsect1>
+ 
+diff --git a/src/delta/delta.c b/src/delta/delta.c
+index e97f2e9..ae658f9 100644
+--- a/src/delta/delta.c
++++ b/src/delta/delta.c
+@@ -4,6 +4,7 @@
+   This file is part of systemd.
+ 
+   Copyright 2012 Lennart Poettering
++  Copyright 2013 Zbigniew Jędrzejewski-Szmek
+ 
+   systemd is free software; you can redistribute it and/or modify it
+   under the terms of the GNU Lesser General Public License as published by
+@@ -346,7 +347,7 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
+         }
+ }
+ 
+-static int process_suffix(const char *suffix) {
++static int process_suffix(const char *suffix, const char *onlyprefix) {
+         const char *p;
+         char *f;
+         Hashmap *top, *bottom, *drops;
+@@ -391,20 +392,23 @@ static int process_suffix(const char *suffix) {
+                 o = hashmap_get(bottom, key);
+                 assert(o);
+ 
+-                if (path_equal(o, f))
+-                        notify_override_unchanged(f);
+-                else {
+-                        k = found_override(f, o);
+-                        if (k < 0)
+-                                r = k;
+-                        else
+-                                n_found += k;
++                if (!onlyprefix || startswith(o, onlyprefix)) {
++                        if (path_equal(o, f)) {
++                                notify_override_unchanged(f);
++                        } else {
++                                k = found_override(f, o);
++                                if (k < 0)
++                                        r = k;
++                                else
++                                        n_found += k;
++                        }
+                 }
+ 
+                 h = hashmap_get(drops, key);
+                 if (h)
+                         HASHMAP_FOREACH(o, h, j)
+-                                n_found += notify_override_extended(f, o);
++                                if (!onlyprefix || startswith(o, onlyprefix))
++                                        n_found += notify_override_extended(f, o);
+         }
+ 
+ finish:
+@@ -423,24 +427,41 @@ finish:
+         return r < 0 ? r : n_found;
+ }
+ 
+-static int process_suffix_chop(const char *suffix) {
++static int process_suffixes(const char *onlyprefix) {
++        const char *n;
++        int n_found = 0, r;
++
++        NULSTR_FOREACH(n, suffixes) {
++                r = process_suffix(n, onlyprefix);
++                if (r < 0)
++                        return r;
++                else
++                        n_found += r;
++        }
++        return n_found;
++}
++
++static int process_suffix_chop(const char *arg) {
+         const char *p;
+ 
+-        assert(suffix);
++        assert(arg);
+ 
+-        if (!path_is_absolute(suffix))
+-                return process_suffix(suffix);
++        if (!path_is_absolute(arg))
++                return process_suffix(arg, NULL);
+ 
+         /* Strip prefix from the suffix */
+         NULSTR_FOREACH(p, prefixes) {
+-                if (startswith(suffix, p)) {
+-                        suffix += strlen(p);
++                const char *suffix = startswith(arg, p);
++                if (suffix) {
+                         suffix += strspn(suffix, "/");
+-                        return process_suffix(suffix);
++                        if (*suffix)
++                                return process_suffix(suffix, NULL);
++                        else
++                                return process_suffixes(arg);
+                 }
+         }
+ 
+-        log_error("Invalid suffix specification %s.", suffix);
++        log_error("Invalid suffix specification %s.", arg);
+         return -EINVAL;
+ }
+ 
+@@ -594,15 +615,11 @@ int main(int argc, char *argv[]) {
+                 }
+ 
+         } else {
+-                const char *n;
+-
+-                NULSTR_FOREACH(n, suffixes) {
+-                        k = process_suffix(n);
+-                        if (k < 0)
+-                                r = k;
+-                        else
+-                                n_found += k;
+-                }
++                k = process_suffixes(NULL);
++                if (k < 0)
++                        r = k;
++                else
++                        n_found += k;
+         }
+ 
+         if (r >= 0)

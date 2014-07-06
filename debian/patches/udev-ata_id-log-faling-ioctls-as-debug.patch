@@ -1,0 +1,21 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Wed, 30 Oct 2013 14:34:58 +0100
+Subject: udev: ata_id: log faling ioctls as "debug"
+
+---
+ src/udev/ata_id/ata_id.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/ata_id/ata_id.c b/src/udev/ata_id/ata_id.c
+index 68a06b9..d375d43 100644
+--- a/src/udev/ata_id/ata_id.c
++++ b/src/udev/ata_id/ata_id.c
+@@ -501,7 +501,7 @@ int main(int argc, char *argv[])
+         } else {
+                 /* If this fails, then try HDIO_GET_IDENTITY */
+                 if (ioctl(fd, HDIO_GET_IDENTITY, &id) != 0) {
+-                        log_info("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
++                        log_debug("HDIO_GET_IDENTITY failed for '%s': %m\n", node);
+                         rc = 2;
+                         goto close;
+                 }

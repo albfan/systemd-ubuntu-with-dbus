@@ -1,0 +1,38 @@
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Fri, 27 Dec 2013 09:35:20 -0800
+Subject: hwdb: Update database of Bluetooth company identifiers
+
+(cherry picked from commit c4a3a17ee919e8b1197328394709edfe36d8b710)
+---
+ hwdb/20-bluetooth-vendor-product.hwdb | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/hwdb/20-bluetooth-vendor-product.hwdb b/hwdb/20-bluetooth-vendor-product.hwdb
+index 6f8301f..192b715 100644
+--- a/hwdb/20-bluetooth-vendor-product.hwdb
++++ b/hwdb/20-bluetooth-vendor-product.hwdb
+@@ -427,7 +427,7 @@ bluetooth:v008B*
+  ID_VENDOR_FROM_DATABASE=Topcorn Positioning Systems, LLC
+ 
+ bluetooth:v008C*
+- ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.
++ ID_VENDOR_FROM_DATABASE=Qualcomm Retail Solutions, Inc. (formerly Qualcomm Labs, Inc.)
+ 
+ bluetooth:v008D*
+  ID_VENDOR_FROM_DATABASE=Zscan Software
+@@ -839,3 +839,15 @@ bluetooth:v0115*
+ 
+ bluetooth:v0116*
+  ID_VENDOR_FROM_DATABASE=1OAK Technologies
++
++bluetooth:v0117*
++ ID_VENDOR_FROM_DATABASE=Wimoto Technologies Inc
++
++bluetooth:v0118*
++ ID_VENDOR_FROM_DATABASE=Radius Networks, Inc.
++
++bluetooth:v0119*
++ ID_VENDOR_FROM_DATABASE=Wize Technology Co., Ltd.
++
++bluetooth:v011A*
++ ID_VENDOR_FROM_DATABASE=Qualcomm Labs, Inc.

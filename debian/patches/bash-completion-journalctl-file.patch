@@ -1,0 +1,32 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 15 Nov 2013 19:00:01 -0500
+Subject: bash-completion: journalctl --file
+
+---
+ shell-completion/bash/journalctl | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/shell-completion/bash/journalctl b/shell-completion/bash/journalctl
+index 942a253..e4b2f4a 100644
+--- a/shell-completion/bash/journalctl
++++ b/shell-completion/bash/journalctl
+@@ -43,7 +43,7 @@ _journalctl() {
+                               -h --help -l --local --new-id128 -m --merge --no-pager
+                               --no-tail -q --quiet --setup-keys --this-boot --verify
+                               --version --list-catalog --update-catalog --list-boots'
+-                       [ARG]='-b --boot --this-boot -D --directory -F --field
++                       [ARG]='-b --boot --this-boot -D --directory --file -F --field
+                               -o --output -u --unit --user-unit'
+                 [ARGUNKNOWN]='-c --cursor --interval -n --lines -p --priority --since --until
+                               --verify-key'
+@@ -58,6 +58,10 @@ _journalctl() {
+                                 comps=$(compgen -d -- "$cur")
+                                 compopt -o filenames
+                         ;;
++                        --file)
++                                comps=$(compgen -f -- "$cur")
++                                compopt -o filenames
++                        ;;
+                         --output|-o)
+                                 comps='short short-monotonic verbose export json cat'
+                         ;;

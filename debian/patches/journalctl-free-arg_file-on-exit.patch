@@ -1,0 +1,22 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 29 Mar 2014 11:58:32 -0400
+Subject: journalctl: free arg_file on exit
+
+(cherry picked from commit a36b8debe67f3a5515200dada75cf4dbc334c7f5)
+(cherry picked from commit fc8dd899a6001160c2a1252470198179f9ed2a55)
+---
+ src/journal/journalctl.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
+index 6f52467..b991ae3 100644
+--- a/src/journal/journalctl.c
++++ b/src/journal/journalctl.c
+@@ -1781,5 +1781,7 @@ int main(int argc, char *argv[]) {
+ finish:
+         pager_close();
+ 
++        strv_free(arg_file);
++
+         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+ }

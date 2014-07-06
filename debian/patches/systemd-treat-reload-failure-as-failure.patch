@@ -1,0 +1,89 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 2 Dec 2013 21:52:51 -0500
+Subject: systemd: treat reload failure as failure
+
+systemctl reload "suceeded" on stopped units, but it is documented
+to fail in this case.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1036845
+---
+ src/core/job.c  | 11 +++++++----
+ src/core/job.h  |  3 ++-
+ src/core/unit.c |  5 ++++-
+ 3 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/src/core/job.c b/src/core/job.c
+index dc3bc12..7d2b994 100644
+--- a/src/core/job.c
++++ b/src/core/job.c
+@@ -528,7 +528,7 @@ int job_run_and_invalidate(Job *j) {
+                         else if (t == UNIT_ACTIVATING)
+                                 r = -EAGAIN;
+                         else
+-                                r = -ENOEXEC;
++                                r = -EBADR;
+                         break;
+                 }
+ 
+@@ -557,8 +557,10 @@ int job_run_and_invalidate(Job *j) {
+         if (j) {
+                 if (r == -EALREADY)
+                         r = job_finish_and_invalidate(j, JOB_DONE, true);
+-                else if (r == -ENOEXEC)
++                else if (r == -EBADR)
+                         r = job_finish_and_invalidate(j, JOB_SKIPPED, true);
++                else if (r == -ENOEXEC)
++                        r = job_finish_and_invalidate(j, JOB_INVALID, true);
+                 else if (r == -EAGAIN) {
+                         j->state = JOB_WAITING;
+                         m->n_running_jobs--;
+@@ -784,7 +786,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive) {
+                 goto finish;
+         }
+ 
+-        if (result == JOB_FAILED)
++        if (result == JOB_FAILED || result == JOB_INVALID)
+                 j->manager->n_failed_jobs ++;
+ 
+         job_uninstall(j);
+@@ -1143,7 +1145,8 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
+         [JOB_TIMEOUT] = "timeout",
+         [JOB_FAILED] = "failed",
+         [JOB_DEPENDENCY] = "dependency",
+-        [JOB_SKIPPED] = "skipped"
++        [JOB_SKIPPED] = "skipped",
++        [JOB_INVALID] = "invalid",
+ };
+ 
+ DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
+diff --git a/src/core/job.h b/src/core/job.h
+index d90bc96..4237529 100644
+--- a/src/core/job.h
++++ b/src/core/job.h
+@@ -97,7 +97,8 @@ enum JobResult {
+         JOB_TIMEOUT,             /* JobTimeout elapsed */
+         JOB_FAILED,              /* Job failed */
+         JOB_DEPENDENCY,          /* A required dependency job did not result in JOB_DONE */
+-        JOB_SKIPPED,             /* JOB_RELOAD of inactive unit; negative result of JOB_VERIFY_ACTIVE */
++        JOB_SKIPPED,             /* Negative result of JOB_VERIFY_ACTIVE */
++        JOB_INVALID,             /* JOB_RELOAD of inactive unit */
+         _JOB_RESULT_MAX,
+         _JOB_RESULT_INVALID = -1
+ };
+diff --git a/src/core/unit.c b/src/core/unit.c
+index b65e798..6c2c4a0 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1239,8 +1239,11 @@ int unit_reload(Unit *u) {
+         if (state == UNIT_RELOADING)
+                 return -EALREADY;
+ 
+-        if (state != UNIT_ACTIVE)
++        if (state != UNIT_ACTIVE) {
++                log_warning_unit(u->id, "Unit %s cannot be reloaded because it is inactive.",
++                                 u->id);
+                 return -ENOEXEC;
++        }
+ 
+         if ((following = unit_following(u))) {
+                 log_debug_unit(u->id, "Redirecting reload request from %s to %s.",

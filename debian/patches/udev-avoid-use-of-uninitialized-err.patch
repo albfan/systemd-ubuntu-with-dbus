@@ -1,0 +1,31 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Fri, 16 May 2014 23:46:48 +0200
+Subject: udev: avoid use of uninitialized err
+
+After 1ea972174baba40dbc80c51cbfc4edc49764b59b err is no longer
+set unless we hit a special case. Initialize it to 0 and remove
+a check that will never fail.
+
+(cherry picked from commit bf9bead187802a52a1f376a03caee762d663e945)
+
+Conflicts:
+	src/udev/udevd.c
+
+(cherry picked from commit 6c160b0f7a5581e2c5ae76f57e9e8a6dd0db0ceb)
+---
+ src/udev/udevd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/udevd.c b/src/udev/udevd.c
+index 5235cbd..bbca5d5 100644
+--- a/src/udev/udevd.c
++++ b/src/udev/udevd.c
+@@ -272,7 +272,7 @@ static void worker_new(struct event *event)
+                 for (;;) {
+                         struct udev_event *udev_event;
+                         struct worker_message msg;
+-                        int err;
++                        int err = 0;
+ 
+                         log_debug("seq %llu running\n", udev_device_get_seqnum(dev));
+                         udev_event = udev_event_new(dev);

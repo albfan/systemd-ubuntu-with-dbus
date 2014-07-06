@@ -1,0 +1,103 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Fri, 11 Apr 2014 08:44:55 -0400
+Subject: journal: cleanup up error handling in update_catalog()
+
+- Negative/positive errno mixup caused duplicates not to be detected properly.
+  Now we get a warning about some duplicate entries in our own catalogs...
+- Errors in update_catalog would be ignored, but they should not be.
+
+(cherry picked from commit e3b9d9c8027a7c4c55cf1614e0fe9423fad69e8f)
+(cherry picked from commit 68018bce87437df9986b4417e5b84b1f1c2a5287)
+---
+ src/journal/catalog.c      | 25 +++++++++++++------------
+ src/journal/test-catalog.c |  3 ++-
+ 2 files changed, 15 insertions(+), 13 deletions(-)
+
+diff --git a/src/journal/catalog.c b/src/journal/catalog.c
+index 90ca008..e5342be 100644
+--- a/src/journal/catalog.c
++++ b/src/journal/catalog.c
+@@ -109,7 +109,7 @@ static int finish_item(
+                 const char *payload) {
+ 
+         ssize_t offset;
+-        CatalogItem *i;
++        _cleanup_free_ CatalogItem *i = NULL;
+         int r;
+ 
+         assert(h);
+@@ -129,13 +129,14 @@ static int finish_item(
+         i->offset = htole64((uint64_t) offset);
+ 
+         r = hashmap_put(h, i, i);
+-        if (r == EEXIST) {
++        if (r == -EEXIST) {
+                 log_warning("Duplicate entry for " SD_ID128_FORMAT_STR ".%s, ignoring.",
+                             SD_ID128_FORMAT_VAL(id), language ? language : "C");
+-                free(i);
+                 return 0;
+-        }
++        } else if (r < 0)
++                return r;
+ 
++        i = NULL;
+         return 0;
+ }
+ 
+@@ -348,8 +349,8 @@ error:
+ int catalog_update(const char* database, const char* root, const char* const* dirs) {
+         _cleanup_strv_free_ char **files = NULL;
+         char **f;
+-        Hashmap *h;
+         struct strbuf *sb = NULL;
++        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+         _cleanup_free_ CatalogItem *items = NULL;
+         CatalogItem *i;
+         Iterator j;
+@@ -371,13 +372,17 @@ int catalog_update(const char* database, const char* root, const char* const* di
+         }
+ 
+         STRV_FOREACH(f, files) {
+-                log_debug("reading file '%s'", *f);
+-                catalog_import_file(h, sb, *f);
++                log_debug("Reading file '%s'", *f);
++                r = catalog_import_file(h, sb, *f);
++                if (r < 0) {
++                        log_error("Failed to import file '%s': %s.",
++                                  *f, strerror(-r));
++                        goto finish;
++                }
+         }
+ 
+         if (hashmap_size(h) <= 0) {
+                 log_info("No items in catalog.");
+-                r = 0;
+                 goto finish;
+         } else
+                 log_debug("Found %u items in catalog.", hashmap_size(h));
+@@ -408,11 +413,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
+                 log_debug("%s: wrote %u items, with %zu bytes of strings, %ld total size.",
+                           database, n, sb->len, r);
+ 
+-        r = 0;
+-
+ finish:
+-        if (h)
+-                hashmap_free_free(h);
+         if (sb)
+                 strbuf_cleanup(sb);
+ 
+diff --git a/src/journal/test-catalog.c b/src/journal/test-catalog.c
+index 5db5bed..f021dbf 100644
+--- a/src/journal/test-catalog.c
++++ b/src/journal/test-catalog.c
+@@ -126,7 +126,8 @@ int main(int argc, char *argv[]) {
+ 
+         setlocale(LC_ALL, "de_DE.UTF-8");
+ 
+-        log_set_max_level(LOG_DEBUG);
++        log_parse_environment();
++        log_open();
+ 
+         test_catalog_importing();
+ 

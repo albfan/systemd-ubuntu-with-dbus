@@ -1,3 +1,9 @@
+systemd (208-6) UNRELEASED; urgency=medium
+
+  * Add v208-stable patch series.
+
+ -- Jon Severinsson <jon@severinsson.net>  Sun, 06 Jul 2014 18:00:00 +0200
+
 systemd (208-5) experimental; urgency=medium
 
   * Merge changes from unstable branch.

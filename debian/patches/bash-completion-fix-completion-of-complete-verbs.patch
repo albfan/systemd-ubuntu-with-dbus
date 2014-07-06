@@ -1,0 +1,116 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 6 Feb 2014 00:31:22 -0500
+Subject: bash-completion: fix completion of complete verbs
+
+When doing 'command verb<TAB>', the arguments for verb would be
+proposed, but it is too early. We should complete verb first.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=74596
+(cherry picked from commit 3ce09b7da2eb8b888066468663b2b5c81a05a03c)
+
+Conflicts:
+	shell-completion/bash/busctl
+	shell-completion/bash/loginctl
+	shell-completion/bash/systemctl
+	shell-completion/bash/systemd-analyze
+---
+ shell-completion/bash/hostnamectl     | 2 +-
+ shell-completion/bash/localectl       | 2 +-
+ shell-completion/bash/loginctl        | 2 +-
+ shell-completion/bash/systemctl       | 2 +-
+ shell-completion/bash/systemd-analyze | 2 +-
+ shell-completion/bash/timedatectl     | 2 +-
+ shell-completion/bash/udevadm         | 2 +-
+ 7 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/shell-completion/bash/hostnamectl b/shell-completion/bash/hostnamectl
+index 38ab134..9c75da9 100644
+--- a/shell-completion/bash/hostnamectl
++++ b/shell-completion/bash/hostnamectl
+@@ -41,7 +41,7 @@ _hostnamectl() {
+                       [NAME]='set-hostname'
+         )
+ 
+-        for ((i=0; i <= COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                         verb=${COMP_WORDS[i]}
+                         break
+diff --git a/shell-completion/bash/localectl b/shell-completion/bash/localectl
+index bec9e78..84e2a6b 100644
+--- a/shell-completion/bash/localectl
++++ b/shell-completion/bash/localectl
+@@ -52,7 +52,7 @@ _localectl() {
+                       [X11]='set-x11-keymap'
+         )
+ 
+-        for ((i=0; i <= COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                         verb=${COMP_WORDS[i]}
+                         break
+diff --git a/shell-completion/bash/loginctl b/shell-completion/bash/loginctl
+index 3104b30..26a8696 100644
+--- a/shell-completion/bash/loginctl
++++ b/shell-completion/bash/loginctl
+@@ -70,7 +70,7 @@ _loginctl () {
+                 [ATTACH]='attach'
+         )
+ 
+-        for ((i=0; $i <= $COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                         verb=${COMP_WORDS[i]}
+diff --git a/shell-completion/bash/systemctl b/shell-completion/bash/systemctl
+index 84149e3..a5f10b4 100644
+--- a/shell-completion/bash/systemctl
++++ b/shell-completion/bash/systemctl
+@@ -146,7 +146,7 @@ _systemctl () {
+                   [TARGETS]='set-default'
+         )
+ 
+-        for ((i=0; $i <= $COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                         verb=${COMP_WORDS[i]}
+diff --git a/shell-completion/bash/systemd-analyze b/shell-completion/bash/systemd-analyze
+index b65466b..6afcd96 100644
+--- a/shell-completion/bash/systemd-analyze
++++ b/shell-completion/bash/systemd-analyze
+@@ -39,7 +39,7 @@ _systemd_analyze() {
+ 
+         _init_completion || return
+ 
+-        for ((i=0; $i <= $COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                         verb=${COMP_WORDS[i]}
+diff --git a/shell-completion/bash/timedatectl b/shell-completion/bash/timedatectl
+index c6a6545..1a0acc6 100644
+--- a/shell-completion/bash/timedatectl
++++ b/shell-completion/bash/timedatectl
+@@ -52,7 +52,7 @@ _timedatectl() {
+                      [TIME]='set-time'
+         )
+ 
+-        for ((i=0; i <= COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+                         verb=${COMP_WORDS[i]}
+                         break
+diff --git a/shell-completion/bash/udevadm b/shell-completion/bash/udevadm
+index 8ad8550..7e89189 100644
+--- a/shell-completion/bash/udevadm
++++ b/shell-completion/bash/udevadm
+@@ -36,7 +36,7 @@ _udevadm() {
+ 
+         local verbs=(info trigger settle control monitor hwdb test-builtin test)
+ 
+-        for ((i=0; i <= COMP_CWORD; i++)); do
++        for ((i=0; i < COMP_CWORD; i++)); do
+                 if __contains_word "${COMP_WORDS[i]}" "${verbs[@]}" &&
+                  ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                         verb=${COMP_WORDS[i]}

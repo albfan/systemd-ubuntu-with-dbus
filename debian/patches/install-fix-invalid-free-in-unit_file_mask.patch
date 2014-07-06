@@ -1,0 +1,29 @@
+From: Andreas Henriksson <andreas@fatal.se>
+Date: Fri, 13 Jun 2014 18:48:18 +0200
+Subject: install: fix invalid free() in unit_file_mask()
+
+int unit_file_mask(...) in ./src/shared/install.c calls
+get_config_path(...) which can in 4 error cases return without setting
+"ret", and thus "prefix" can be uninitialized when unit_file_mask(...)
+finishes (which it does directly after the error is returned from
+get_config_path(...)).
+
+(cherry picked from commit 223217749e57996336d5730b0a28716cca56d45d)
+(cherry picked from commit bcb667c211614b38870aced0703c6f93b0d198eb)
+---
+ src/shared/install.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/shared/install.c b/src/shared/install.c
+index 241e000..c9c785a 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -567,7 +567,7 @@ int unit_file_mask(
+                 unsigned *n_changes) {
+ 
+         char **i;
+-        _cleanup_free_ char *prefix;
++        _cleanup_free_ char *prefix = NULL;
+         int r;
+ 
+         assert(scope >= 0);

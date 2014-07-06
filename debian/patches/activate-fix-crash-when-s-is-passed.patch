@@ -1,0 +1,22 @@
+From: =?utf-8?q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
+Date: Wed, 13 Nov 2013 13:36:16 +0200
+Subject: activate: fix crash when -s is passed
+
+getopt_long() was told to accept -s which was never implemented.
+---
+ src/activate/activate.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/activate/activate.c b/src/activate/activate.c
+index fc581b9..a9461bc 100644
+--- a/src/activate/activate.c
++++ b/src/activate/activate.c
+@@ -346,7 +346,7 @@ static int parse_argv(int argc, char *argv[]) {
+         assert(argc >= 0);
+         assert(argv);
+ 
+-        while ((c = getopt_long(argc, argv, "+hl:saE:", options, NULL)) >= 0)
++        while ((c = getopt_long(argc, argv, "+hl:aE:", options, NULL)) >= 0)
+                 switch(c) {
+                 case 'h':
+                         help();

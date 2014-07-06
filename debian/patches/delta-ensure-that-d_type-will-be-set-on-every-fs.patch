@@ -1,0 +1,22 @@
+From: Lukas Nykryn <lnykryn@redhat.com>
+Date: Thu, 9 Jan 2014 16:43:00 +0100
+Subject: delta: ensure that d_type will be set on every fs
+
+(cherry picked from commit 277f2f75f69bbd5868c74991011c804ce00dfed9)
+---
+ src/delta/delta.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/delta/delta.c b/src/delta/delta.c
+index ae658f9..a8dd57e 100644
+--- a/src/delta/delta.c
++++ b/src/delta/delta.c
+@@ -316,6 +316,8 @@ static int enumerate_dir(Hashmap *top, Hashmap *bottom, Hashmap *drops, const ch
+                 if (!de)
+                         return -errno;
+ 
++                dirent_ensure_type(d, de);
++
+                 if (dropins && de->d_type == DT_DIR && endswith(de->d_name, ".d"))
+                         enumerate_dir_d(top, bottom, drops, path, de->d_name);
+ 

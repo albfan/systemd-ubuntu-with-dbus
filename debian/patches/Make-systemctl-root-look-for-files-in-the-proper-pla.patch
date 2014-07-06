@@ -1,0 +1,342 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 24 Apr 2014 01:44:10 -0400
+Subject: Make systemctl --root look for files in the proper places
+
+Running systemctl enable/disable/set-default/... with the --root
+option under strace reveals that it accessed various files and
+directories in the main fs, and not underneath the specified root.
+This can lead to correct results only when the layout and
+configuration in the container are identical, which often is not the
+case. Fix this by adding the specified root to all file access
+operations.
+
+This patch does not handle some corner cases: symlinks which point
+outside of the specified root might be interpreted differently than
+they would be by the kernel if the specified root was the real root.
+But systemctl does not create such symlinks by itself, and I think
+this is enough of a corner case not to be worth the additional
+complexity of reimplementing link chasing in systemd.
+
+Also, simplify the code in a few places and remove an hypothetical
+memory leak on error.
+
+(cherry picked from commit 12ed81d9c88406234c20e9261ae8c8b992d8bc4d)
+
+Conflicts:
+	TODO
+
+(cherry picked from commit fd516dfa0612d2a169158bbed6f8994f47f3e6ce)
+
+Conflicts:
+	src/shared/install.c
+---
+ src/core/manager.c        |  2 ++
+ src/shared/install.c      | 34 +++++++++++++++++++++-----------
+ src/shared/path-lookup.c  | 12 ++++--------
+ src/shared/path-lookup.h  |  8 +++++++-
+ src/shared/path-util.c    | 49 ++++++++++++++++++++++++++++++++++++-----------
+ src/systemctl/systemctl.c |  2 +-
+ 6 files changed, 75 insertions(+), 32 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 28f4d72..1baa863 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -890,6 +890,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+ 
+         r = lookup_paths_init(
+                         &m->lookup_paths, m->running_as, true,
++                        NULL,
+                         m->generator_unit_path,
+                         m->generator_unit_path_early,
+                         m->generator_unit_path_late);
+@@ -2390,6 +2391,7 @@ int manager_reload(Manager *m) {
+ 
+         q = lookup_paths_init(
+                         &m->lookup_paths, m->running_as, true,
++                        NULL,
+                         m->generator_unit_path,
+                         m->generator_unit_path_early,
+                         m->generator_unit_path_late);
+diff --git a/src/shared/install.c b/src/shared/install.c
+index 9f34ac5..cb07947 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -47,7 +47,9 @@ typedef struct {
+ #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+ #define _cleanup_install_context_done_ _cleanup_(install_context_done)
+ 
+-static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope) {
++static int lookup_paths_init_from_scope(LookupPaths *paths,
++                                        UnitFileScope scope,
++                                        const char *root_dir) {
+         assert(paths);
+         assert(scope >= 0);
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+@@ -57,6 +59,7 @@ static int lookup_paths_init_from_scope(LookupPaths *paths, UnitFileScope scope)
+         return lookup_paths_init(paths,
+                                  scope == UNIT_FILE_SYSTEM ? SYSTEMD_SYSTEM : SYSTEMD_USER,
+                                  scope == UNIT_FILE_USER,
++                                 root_dir,
+                                  NULL, NULL, NULL);
+ }
+ 
+@@ -705,7 +708,7 @@ int unit_file_link(
+         assert(scope >= 0);
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1475,7 +1478,7 @@ int unit_file_enable(
+         assert(scope >= 0);
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1515,7 +1518,7 @@ int unit_file_disable(
+         assert(scope >= 0);
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1577,7 +1580,7 @@ int unit_file_set_default(
+         if (unit_name_to_type(file) != UNIT_TARGET)
+                 return -EINVAL;
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1612,7 +1615,11 @@ int unit_file_get_default(
+         char **p;
+         int r;
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        assert(scope >= 0);
++        assert(scope < _UNIT_FILE_SCOPE_MAX);
++        assert(name);
++
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1664,12 +1671,13 @@ UnitFileState unit_file_get_state(
+         if (!unit_name_is_valid(name, true))
+                 return -EINVAL;
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+         STRV_FOREACH(i, paths.unit_path) {
+                 struct stat st;
++                char *partial;
+ 
+                 free(path);
+                 path = NULL;
+@@ -1678,10 +1686,14 @@ UnitFileState unit_file_get_state(
+                         asprintf(&path, "%s/%s/%s", root_dir, *i, name);
+                 else
+                         asprintf(&path, "%s/%s", *i, name);
+-
+                 if (!path)
+                         return -ENOMEM;
+ 
++                if (root_dir)
++                        partial = path + strlen(root_dir) + 1;
++                else
++                        partial = path;
++
+                 /*
+                  * Search for a unit file in our default paths, to
+                  * be sure, that there are no broken symlinks.
+@@ -1713,7 +1725,7 @@ UnitFileState unit_file_get_state(
+                 else if (r > 0)
+                         return state;
+ 
+-                r = unit_file_can_install(&paths, root_dir, path, true);
++                r = unit_file_can_install(&paths, root_dir, partial, true);
+                 if (r < 0 && errno != ENOENT)
+                         return r;
+                 else if (r > 0)
+@@ -1821,7 +1833,7 @@ int unit_file_preset(
+         assert(scope >= 0);
+         assert(scope < _UNIT_FILE_SCOPE_MAX);
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+@@ -1890,7 +1902,7 @@ int unit_file_get_list(
+         if (root_dir && scope != UNIT_FILE_SYSTEM)
+                 return -EINVAL;
+ 
+-        r = lookup_paths_init_from_scope(&paths, scope);
++        r = lookup_paths_init_from_scope(&paths, scope, root_dir);
+         if (r < 0)
+                 return r;
+ 
+diff --git a/src/shared/path-lookup.c b/src/shared/path-lookup.c
+index 03c1380..b62f302 100644
+--- a/src/shared/path-lookup.c
++++ b/src/shared/path-lookup.c
+@@ -239,6 +239,7 @@ int lookup_paths_init(
+                 LookupPaths *p,
+                 SystemdRunningAs running_as,
+                 bool personal,
++                const char *root_dir,
+                 const char *generator,
+                 const char *generator_early,
+                 const char *generator_late) {
+@@ -316,11 +317,9 @@ int lookup_paths_init(
+                 }
+         }
+ 
+-        if (!path_strv_canonicalize_absolute(p->unit_path, NULL))
++        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
+                 return -ENOMEM;
+ 
+-        strv_uniq(p->unit_path);
+-
+         if (!strv_isempty(p->unit_path)) {
+                 _cleanup_free_ char *t = strv_join(p->unit_path, "\n\t");
+                 if (!t)
+@@ -372,15 +371,12 @@ int lookup_paths_init(
+                                 return -ENOMEM;
+                 }
+ 
+-                if (!path_strv_canonicalize_absolute(p->sysvinit_path, NULL))
++                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
+                         return -ENOMEM;
+ 
+-                if (!path_strv_canonicalize_absolute(p->sysvrcnd_path, NULL))
++                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
+                         return -ENOMEM;
+ 
+-                strv_uniq(p->sysvinit_path);
+-                strv_uniq(p->sysvrcnd_path);
+-
+                 if (!strv_isempty(p->sysvinit_path)) {
+                         _cleanup_free_ char *t = strv_join(p->sysvinit_path, "\n\t");
+                         if (!t)
+diff --git a/src/shared/path-lookup.h b/src/shared/path-lookup.h
+index 9dee85f..0db9bfb 100644
+--- a/src/shared/path-lookup.h
++++ b/src/shared/path-lookup.h
+@@ -41,5 +41,11 @@ SystemdRunningAs systemd_running_as_from_string(const char *s) _pure_;
+ 
+ int user_config_home(char **config_home);
+ 
+-int lookup_paths_init(LookupPaths *p, SystemdRunningAs running_as, bool personal, const char *generator, const char *generator_early, const char *generator_late);
++int lookup_paths_init(LookupPaths *p,
++                      SystemdRunningAs running_as,
++                      bool personal,
++                      const char *root_dir,
++                      const char *generator,
++                      const char *generator_early,
++                      const char *generator_late);
+ void lookup_paths_free(LookupPaths *p);
+diff --git a/src/shared/path-util.c b/src/shared/path-util.c
+index 36542cd..5c0bf93 100644
+--- a/src/shared/path-util.c
++++ b/src/shared/path-util.c
+@@ -179,36 +179,63 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
+ 
+         STRV_FOREACH(s, l) {
+                 char *t, *u;
++                _cleanup_free_ char *orig = NULL;
+ 
+-                if (!path_is_absolute(*s))
++                if (!path_is_absolute(*s)) {
++                        free(*s);
+                         continue;
++                }
+ 
+                 if (prefix) {
+-                        t = strappend(prefix, *s);
+-                        free(*s);
+-                        *s = NULL;
+-
++                        orig = *s;
++                        t = strappend(prefix, orig);
+                         if (!t) {
+                                 enomem = true;
+                                 continue;
+                         }
+-                } else {
++                } else
+                         t = *s;
+-                        *s = NULL;
+-                }
+ 
+                 errno = 0;
+                 u = canonicalize_file_name(t);
+                 if (!u) {
+-                        if (errno == ENOENT)
+-                                u = t;
+-                        else {
++                        if (errno == ENOENT) {
++                                if (prefix) {
++                                        u = orig;
++                                        orig = NULL;
++                                        free(t);
++                                } else
++                                        u = t;
++                        } else {
+                                 free(t);
+                                 if (errno == ENOMEM || errno == 0)
+                                         enomem = true;
+ 
+                                 continue;
+                         }
++                } else if (prefix) {
++                        char *x;
++
++                        free(t);
++                        x = path_startswith(u, prefix);
++                        if (x) {
++                                /* restore the slash if it was lost */
++                                if (!startswith(x, "/"))
++                                        *(--x) = '/';
++
++                                t = strdup(x);
++                                free(u);
++                                if (!t) {
++                                        enomem = true;
++                                        continue;
++                                }
++                                u = t;
++                        } else {
++                                /* canonicalized path goes outside of
++                                 * prefix, keep the original path instead */
++                                u = orig;
++                                orig = NULL;
++                        }
+                 } else
+                         free(t);
+ 
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index da49da7..517257b 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -4239,7 +4239,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+         /* Processes all SysV units, and reshuffles the array so that
+          * afterwards only the native units remain */
+ 
+-        r = lookup_paths_init(&paths, SYSTEMD_SYSTEM, false, NULL, NULL, NULL);
++        r = lookup_paths_init(&paths, SYSTEMD_SYSTEM, false, arg_root, NULL, NULL, NULL);
+         if (r < 0)
+                 return r;
+ 

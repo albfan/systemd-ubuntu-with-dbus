@@ -1,0 +1,23 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 21 Feb 2014 15:06:44 +0100
+Subject: man: there is no ExecStopPre= for service units
+
+https://bugs.freedesktop.org/show_bug.cgi?id=73177
+(cherry picked from commit c32acc96ef74d13d0059a680cdede5f05db1981a)
+---
+ man/systemd.service.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 4d672f0..50b19a8 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -674,7 +674,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+                                 processes specified with
+                                 <varname>ExecStartPre=</varname>,
+                                 <varname>ExecStartPost=</varname>,
+-                                <varname>ExecStopPre=</varname>,
++                                <varname>ExecStop=</varname>,
+                                 <varname>ExecStopPost=</varname>, or
+                                 <varname>ExecReload=</varname>.
+                                 When the death of the process is a

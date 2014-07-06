@@ -1,0 +1,37 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 30 Nov 2013 20:27:54 -0500
+Subject: docs: remove unneeded the's in gudev docs
+
+https://bugs.freedesktop.org/show_bug.cgi?id=72164
+---
+ src/libudev/libudev-device.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/src/libudev/libudev-device.c b/src/libudev/libudev-device.c
+index a644904..161181a 100644
+--- a/src/libudev/libudev-device.c
++++ b/src/libudev/libudev-device.c
+@@ -980,9 +980,8 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
+  * Find the next parent device, and fill in information from the sys
+  * device and the udev database entry.
+  *
+- * The returned the device is not referenced. It is attached to the
+- * child device, and will be cleaned up when the child device
+- * is cleaned up.
++ * Returned device is not referenced. It is attached to the child
++ * device, and will be cleaned up when the child device is cleaned up.
+  *
+  * It is not necessarily just the upper level directory, empty or not
+  * recognized sys directories are ignored.
+@@ -1016,9 +1015,8 @@ _public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_dev
+  * If devtype is #NULL, only subsystem is checked, and any devtype will
+  * match.
+  *
+- * The returned the device is not referenced. It is attached to the
+- * child device, and will be cleaned up when the child device
+- * is cleaned up.
++ * Returned device is not referenced. It is attached to the child
++ * device, and will be cleaned up when the child device is cleaned up.
+  *
+  * It can be called as many times as needed, without caring about
+  * references.

@@ -1,0 +1,37 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Thu, 19 Dec 2013 14:16:46 -0500
+Subject: logind: remove dead variable
+
+Noticed-by: Jan Alexander Steffens <jan.steffens@gmail.com>
+(cherry picked from commit eb53c37e2eb1ff9e2dbf370985dd53c62a98fa66)
+---
+ src/login/logind-user.c | 3 ---
+ src/login/logind-user.h | 1 -
+ 2 files changed, 4 deletions(-)
+
+diff --git a/src/login/logind-user.c b/src/login/logind-user.c
+index e2fce5c..b87311c 100644
+--- a/src/login/logind-user.c
++++ b/src/login/logind-user.c
+@@ -648,9 +648,6 @@ UserState user_get_state(User *u) {
+ 
+         assert(u);
+ 
+-        if (u->closing)
+-                return USER_CLOSING;
+-
+         if (u->slice_job || u->service_job)
+                 return USER_OPENING;
+ 
+diff --git a/src/login/logind-user.h b/src/login/logind-user.h
+index b9171d3..a36f456 100644
+--- a/src/login/logind-user.h
++++ b/src/login/logind-user.h
+@@ -61,7 +61,6 @@ struct User {
+ 
+         bool in_gc_queue:1;
+         bool started:1;
+-        bool closing:1;
+ 
+         LIST_HEAD(Session, sessions);
+         LIST_FIELDS(User, gc_queue);

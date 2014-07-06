@@ -1,0 +1,726 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Thu, 26 Dec 2013 02:47:43 +0100
+Subject: man: resolve word omissions
+
+This is a recurring submission and includes corrections to:
+word omissions and word class choice.
+
+(cherry picked from commit 494a66821815e8109afa136bd42818b85da38c09)
+
+Conflicts:
+	man/sd_bus_message_get_cookie.xml
+	man/sd_bus_request_name.xml
+	man/sd_watchdog_enabled.xml
+	man/systemd-getty-generator.xml
+---
+ man/binfmt.d.xml                            | 4 ++--
+ man/journald.conf.xml                       | 2 +-
+ man/loginctl.xml                            | 2 +-
+ man/sd-daemon.xml                           | 2 +-
+ man/sd-journal.xml                          | 2 +-
+ man/sd-login.xml                            | 4 ++--
+ man/sd_booted.xml                           | 2 +-
+ man/sd_get_seats.xml                        | 8 ++++----
+ man/sd_id128_get_machine.xml                | 2 +-
+ man/sd_id128_randomize.xml                  | 2 +-
+ man/sd_id128_to_string.xml                  | 2 +-
+ man/sd_is_fifo.xml                          | 2 +-
+ man/sd_journal_add_match.xml                | 2 +-
+ man/sd_journal_get_catalog.xml              | 2 +-
+ man/sd_journal_get_cursor.xml               | 2 +-
+ man/sd_journal_get_cutoff_realtime_usec.xml | 2 +-
+ man/sd_journal_get_data.xml                 | 2 +-
+ man/sd_journal_get_fd.xml                   | 2 +-
+ man/sd_journal_get_realtime_usec.xml        | 2 +-
+ man/sd_journal_get_usage.xml                | 2 +-
+ man/sd_journal_next.xml                     | 6 +++---
+ man/sd_journal_print.xml                    | 2 +-
+ man/sd_journal_query_unique.xml             | 2 +-
+ man/sd_journal_seek_head.xml                | 4 ++--
+ man/sd_journal_stream_fd.xml                | 2 +-
+ man/sd_listen_fds.xml                       | 4 ++--
+ man/sd_login_monitor_new.xml                | 2 +-
+ man/sd_notify.xml                           | 4 ++--
+ man/sd_pid_get_session.xml                  | 2 +-
+ man/sd_seat_get_active.xml                  | 2 +-
+ man/sd_session_is_active.xml                | 2 +-
+ man/sd_uid_get_state.xml                    | 4 ++--
+ man/sysctl.d.xml                            | 4 ++--
+ man/systemctl.xml                           | 4 ++--
+ man/systemd-getty-generator.xml             | 8 ++++----
+ man/systemd-halt.service.xml                | 2 +-
+ man/systemd-machine-id-setup.xml            | 2 +-
+ man/systemd.preset.xml                      | 4 ++--
+ man/systemd.service.xml                     | 2 +-
+ man/systemd.socket.xml                      | 4 ++--
+ man/systemd.unit.xml                        | 4 ++--
+ man/tmpfiles.d.xml                          | 4 ++--
+ 42 files changed, 62 insertions(+), 62 deletions(-)
+
+diff --git a/man/binfmt.d.xml b/man/binfmt.d.xml
+index 94f97e0..6f8668b 100644
+--- a/man/binfmt.d.xml
++++ b/man/binfmt.d.xml
+@@ -88,8 +88,8 @@
+                 administrator, who may use this logic to override the
+                 configuration files installed from vendor
+                 packages. All files are sorted by their filename in
+-                lexicographic order, regardless in which of the
+-                directories they reside. If multiple files specify
++                lexicographic order, regardless of which of the
++                directories they reside in. If multiple files specify
+                 the same binary type name, the entry in the file with
+                 the lexicographically latest name will be applied.</para>
+ 
+diff --git a/man/journald.conf.xml b/man/journald.conf.xml
+index 8e642a3..b362c5d 100644
+--- a/man/journald.conf.xml
++++ b/man/journald.conf.xml
+@@ -155,7 +155,7 @@
+                                 into the system journal. If
+                                 <literal>uid</literal>, any user ID
+                                 will get his own journal files
+-                                regardless whether it belongs to a
++                                regardless of whether it belongs to a
+                                 system service or refers to a real
+                                 logged in user. If
+                                 <literal>none</literal>, journal files
+diff --git a/man/loginctl.xml b/man/loginctl.xml
+index 1b54ff7..133d6cf 100644
+--- a/man/loginctl.xml
++++ b/man/loginctl.xml
+@@ -109,7 +109,7 @@
+ 
+                                 <listitem><para>When showing
+                                 session/user/seat properties, show all
+-                                properties regardless whether they are
++                                properties regardless of whether they are
+                                 set or not.</para></listitem>
+                         </varlistentry>
+ 
+diff --git a/man/sd-daemon.xml b/man/sd-daemon.xml
+index 6e804e1..84c1afa 100644
+--- a/man/sd-daemon.xml
++++ b/man/sd-daemon.xml
+@@ -144,7 +144,7 @@
+                 <para>These APIs are implemented in the reference
+                 implementation's <filename>sd-daemon.c</filename> and
+                 <filename>sd-daemon.h</filename> files. These
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+diff --git a/man/sd-journal.xml b/man/sd-journal.xml
+index 6d39611..832d584 100644
+--- a/man/sd-journal.xml
++++ b/man/sd-journal.xml
+@@ -98,7 +98,7 @@
+         <refsect1>
+                 <title>Notes</title>
+ 
+-                <para>These APIs are implemented as shared library,
++                <para>These APIs are implemented as a shared library,
+                 which can be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd-login.xml b/man/sd-login.xml
+index 251b35b..1d47b29 100644
+--- a/man/sd-login.xml
++++ b/man/sd-login.xml
+@@ -99,7 +99,7 @@
+                 caller with the libc
+                 <citerefentry><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 call after use, including the strings referenced
+-                therein. Similar, individual strings returned need to
++                therein. Similarly, individual strings returned need to
+                 be freed, as well.</para>
+ 
+                 <para>As a special exception, instead of an empty
+@@ -120,7 +120,7 @@
+         <refsect1>
+                 <title>Notes</title>
+ 
+-                <para>These APIs are implemented as shared library,
++                <para>These APIs are implemented as a shared library,
+                 which can be compiled and linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_booted.xml b/man/sd_booted.xml
+index 64c0cd9..6f8cc95 100644
+--- a/man/sd_booted.xml
++++ b/man/sd_booted.xml
+@@ -100,7 +100,7 @@
+                 in the reference implementation's
+                 <filename>sd-daemon.c</filename> and
+                 <filename>sd-daemon.h</filename> files. These
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+diff --git a/man/sd_get_seats.xml b/man/sd_get_seats.xml
+index 8254b7c..1e55af3 100644
+--- a/man/sd_get_seats.xml
++++ b/man/sd_get_seats.xml
+@@ -90,13 +90,13 @@
+                 <constant>NULL</constant> may be returned and should be considered
+                 equivalent to an empty array.</para>
+ 
+-                <para>Similar, <function>sd_get_sessions()</function> may
++                <para>Similarly, <function>sd_get_sessions()</function> may
+                 be used to determine all current login sessions.</para>
+ 
+-                <para>Similar, <function>sd_get_uids()</function> may
++                <para>Similarly, <function>sd_get_uids()</function> may
+                 be used to determine all Unix users who currently have login sessions.</para>
+ 
+-                <para>Similar,
++                <para>Similarly,
+                 <function>sd_get_machine_names()</function> may be
+                 used to determine all current virtual machines and
+                 containers on the system.</para>
+@@ -122,7 +122,7 @@
+                 <function>sd_get_sessions()</function>,
+                 <function>sd_get_uids()</function> and
+                 <function>sd_get_machine_names()</function> interfaces
+-                are available as shared library, which can be compiled
++                are available as a shared library, which can be compiled
+                 and linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_id128_get_machine.xml b/man/sd_id128_get_machine.xml
+index 6bee7ad..084fda2 100644
+--- a/man/sd_id128_get_machine.xml
++++ b/man/sd_id128_get_machine.xml
+@@ -116,7 +116,7 @@
+ 
+                 <para>The <function>sd_id128_get_machine()</function>
+                 and <function>sd_id128_get_boot()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_id128_randomize.xml b/man/sd_id128_randomize.xml
+index 0b95803..100de16 100644
+--- a/man/sd_id128_randomize.xml
++++ b/man/sd_id128_randomize.xml
+@@ -95,7 +95,7 @@
+                 <title>Notes</title>
+ 
+                 <para>The <function>sd_id128_randomize()</function> interface
+-                is available as shared library, which can be compiled
++                is available as a shared library, which can be compiled
+                 and linked to with the
+                 <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_id128_to_string.xml b/man/sd_id128_to_string.xml
+index 71cf82a..eae2915 100644
+--- a/man/sd_id128_to_string.xml
++++ b/man/sd_id128_to_string.xml
+@@ -118,7 +118,7 @@
+ 
+                 <para>The <function>sd_id128_to_string()</function>
+                 and <function>sd_id128_from_string()</function> interfaces are
+-                available as shared library, which can be compiled and
++                available as a shared library, which can be compiled and
+                 linked to with the <literal>libsystemd-id128</literal> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+         </refsect1>
+diff --git a/man/sd_is_fifo.xml b/man/sd_is_fifo.xml
+index 4d9cd79..5e79453 100644
+--- a/man/sd_is_fifo.xml
++++ b/man/sd_is_fifo.xml
+@@ -208,7 +208,7 @@
+                 related functions are implemented in the reference
+                 implementation's <filename>sd-daemon.c</filename> and
+                 <filename>sd-daemon.h</filename> files. These
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+diff --git a/man/sd_journal_add_match.xml b/man/sd_journal_add_match.xml
+index b6c7b06..6568234 100644
+--- a/man/sd_journal_add_match.xml
++++ b/man/sd_journal_add_match.xml
+@@ -174,7 +174,7 @@
+                 <function>sd_journal_add_disjunction()</function>,
+                 <function>sd_journal_add_conjunction()</function> and
+                 <function>sd_journal_flush_matches()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_catalog.xml b/man/sd_journal_get_catalog.xml
+index 4a7e0a1..ecd329f 100644
+--- a/man/sd_journal_get_catalog.xml
++++ b/man/sd_journal_get_catalog.xml
+@@ -118,7 +118,7 @@
+ 
+                 <para>The <function>sd_journal_get_catalog()</function> and
+                 <function>sd_journal_get_catalog_for_message_id()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_cursor.xml b/man/sd_journal_get_cursor.xml
+index 4cee7d5..046c154 100644
+--- a/man/sd_journal_get_cursor.xml
++++ b/man/sd_journal_get_cursor.xml
+@@ -130,7 +130,7 @@
+ 
+                 <para>The <function>sd_journal_get_cursor()</function>
+                 and <function>sd_journal_test_cursor()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_cutoff_realtime_usec.xml b/man/sd_journal_get_cutoff_realtime_usec.xml
+index 9bf8220..287c1c5 100644
+--- a/man/sd_journal_get_cutoff_realtime_usec.xml
++++ b/man/sd_journal_get_cutoff_realtime_usec.xml
+@@ -122,7 +122,7 @@
+                 <function>sd_journal_get_cutoff_realtime_usec()</function>
+                 and
+                 <function>sd_journal_get_cutoff_monotonic_usec()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_data.xml b/man/sd_journal_get_data.xml
+index 0e1111e..6ed52b5 100644
+--- a/man/sd_journal_get_data.xml
++++ b/man/sd_journal_get_data.xml
+@@ -203,7 +203,7 @@
+                 <function>sd_journal_set_data_threshold()</function>
+                 and
+                 <function>sd_journal_get_data_threshold()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_fd.xml b/man/sd_journal_get_fd.xml
+index 764f716..4b36f97 100644
+--- a/man/sd_journal_get_fd.xml
++++ b/man/sd_journal_get_fd.xml
+@@ -253,7 +253,7 @@ else {
+                 <function>sd_journal_reliable_fd()</function>,
+                 <function>sd_journal_process()</function> and
+                 <function>sd_journal_wait()</function> interfaces are
+-                available as shared library, which can be compiled and
++                available as a shared library, which can be compiled and
+                 linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_realtime_usec.xml b/man/sd_journal_get_realtime_usec.xml
+index 8870c29..bf1aa50 100644
+--- a/man/sd_journal_get_realtime_usec.xml
++++ b/man/sd_journal_get_realtime_usec.xml
+@@ -122,7 +122,7 @@
+                 <function>sd_journal_get_realtime_usec()</function>
+                 and
+                 <function>sd_journal_get_monotonic_usec()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_get_usage.xml b/man/sd_journal_get_usage.xml
+index 180d8b2..08d8640 100644
+--- a/man/sd_journal_get_usage.xml
++++ b/man/sd_journal_get_usage.xml
+@@ -84,7 +84,7 @@
+                 <title>Notes</title>
+ 
+                 <para>The <function>sd_journal_get_usage()</function>
+-                interface is available as shared library, which can be
++                interface is available as a shared library, which can be
+                 compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_next.xml b/man/sd_journal_next.xml
+index 6e437d1..1409b0d 100644
+--- a/man/sd_journal_next.xml
++++ b/man/sd_journal_next.xml
+@@ -102,7 +102,7 @@
+                 functions such as
+                 <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+ 
+-                <para>Similar, <function>sd_journal_previous()</function> sets
++                <para>Similarly, <function>sd_journal_previous()</function> sets
+                 the read pointer back one entry.</para>
+ 
+                 <para><function>sd_journal_next_skip()</function> and
+@@ -129,7 +129,7 @@
+                 <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                 and <function>sd_journal_next()</function> in order to
+                 make iterating through the journal easier. See below
+-                for an example. Similar,
++                for an example. Similarly,
+                 <function>SD_JOURNAL_FOREACH_BACKWARDS()</function>
+                 may be used for iterating the journal in reverse
+                 order.</para>
+@@ -156,7 +156,7 @@
+                 <para>The <function>sd_journal_next()</function>, <function>sd_journal_previous()</function>,
+                 <function>sd_journal_next_skip()</function> and
+                 <function>sd_journal_previous_skip()</function> interfaces are
+-                available as shared library, which can be compiled and
++                available as a shared library, which can be compiled and
+                 linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_print.xml b/man/sd_journal_print.xml
+index e61a648..a716cc3 100644
+--- a/man/sd_journal_print.xml
++++ b/man/sd_journal_print.xml
+@@ -227,7 +227,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
+                 <function>sd_journal_printv()</function>,
+                 <function>sd_journal_send()</function> and
+                 <function>sd_journal_sendv()</function> interfaces
+-                are available as shared library, which can be compiled
++                are available as a shared library, which can be compiled
+                 and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_query_unique.xml b/man/sd_journal_query_unique.xml
+index f5d9d2b..f0b9204 100644
+--- a/man/sd_journal_query_unique.xml
++++ b/man/sd_journal_query_unique.xml
+@@ -156,7 +156,7 @@
+                 <para>The <function>sd_journal_query_unique()</function>,
+                 <function>sd_journal_enumerate_unique()</function> and
+                 <function>sd_journal_restart_unique()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_seek_head.xml b/man/sd_journal_seek_head.xml
+index 03de30a..939f0b1 100644
+--- a/man/sd_journal_seek_head.xml
++++ b/man/sd_journal_seek_head.xml
+@@ -94,7 +94,7 @@
+                 seeks to the beginning of the journal, i.e. the oldest
+                 available entry.</para>
+ 
+-                <para>Similar,
++                <para>Similarly,
+                 <function>sd_journal_seek_tail()</function> may be
+                 used to seek to the end of the journal, i.e. the most
+                 recent available entry.</para>
+@@ -156,7 +156,7 @@
+                 <function>sd_journal_seek_monotonic_usec()</function>,
+                 <function>sd_journal_seek_realtime_usec()</function>,
+                 and <function>sd_journal_seek_cursor()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_journal_stream_fd.xml b/man/sd_journal_stream_fd.xml
+index 4bd0abc..a8dc8fd 100644
+--- a/man/sd_journal_stream_fd.xml
++++ b/man/sd_journal_stream_fd.xml
+@@ -112,7 +112,7 @@
+                 <title>Notes</title>
+ 
+                 <para>The <function>sd_journal_stream_fd()</function>
+-                interface is available as shared library, which can
++                interface is available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_listen_fds.xml b/man/sd_listen_fds.xml
+index 240300d..aaabdbf 100644
+--- a/man/sd_listen_fds.xml
++++ b/man/sd_listen_fds.xml
+@@ -73,7 +73,7 @@
+                 parameter is non-zero,
+                 <function>sd_listen_fds()</function> will unset the
+                 <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>
+-                environment variables before returning (regardless
++                environment variables before returning (regardless of
+                 whether the function call itself succeeded or
+                 not). Further calls to
+                 <function>sd_listen_fds()</function> will then fail,
+@@ -149,7 +149,7 @@
+                 implemented in the reference implementation's
+                 <filename>sd-daemon.c</filename> and
+                 <filename>sd-daemon.h</filename> files. These
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+diff --git a/man/sd_login_monitor_new.xml b/man/sd_login_monitor_new.xml
+index 909a3d9..f439d3e 100644
+--- a/man/sd_login_monitor_new.xml
++++ b/man/sd_login_monitor_new.xml
+@@ -224,7 +224,7 @@ else {
+                 <function>sd_login_monitor_get_fd()</function>,
+                 <function>sd_login_monitor_get_events()</function> and
+                 <function>sd_login_monitor_get_timeout()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_notify.xml b/man/sd_notify.xml
+index 55965ff..e078140 100644
+--- a/man/sd_notify.xml
++++ b/man/sd_notify.xml
+@@ -79,7 +79,7 @@
+                 <para>If the <parameter>unset_environment</parameter>
+                 parameter is non-zero, <function>sd_notify()</function>
+                 will unset the <varname>$NOTIFY_SOCKET</varname>
+-                environment variable before returning (regardless
++                environment variable before returning (regardless of
+                 whether the function call itself succeeded or
+                 not). Further calls to
+                 <function>sd_notify()</function> will then fail, but
+@@ -236,7 +236,7 @@
+                 the reference implementation's
+                 <filename>sd-daemon.c</filename> and
+                 <filename>sd-daemon.h</filename> files. These
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-daemon</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file. Alternatively, applications consuming these APIs
+diff --git a/man/sd_pid_get_session.xml b/man/sd_pid_get_session.xml
+index e5c7709..ff5905b 100644
+--- a/man/sd_pid_get_session.xml
++++ b/man/sd_pid_get_session.xml
+@@ -186,7 +186,7 @@
+                 <function>sd_pid_get_owner_uid()</function>,
+                 <function>sd_pid_get_machine_name()</function> and
+                 <function>sd_pid_get_slice()</function> interfaces are
+-                available as shared library, which can be compiled and
++                available as a shared library, which can be compiled and
+                 linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_seat_get_active.xml b/man/sd_seat_get_active.xml
+index cd87696..23d582d 100644
+--- a/man/sd_seat_get_active.xml
++++ b/man/sd_seat_get_active.xml
+@@ -164,7 +164,7 @@
+                 <function>sd_seat_can_multi_session()</function>,
+                 <function>sd_seat_can_tty()</function> and
+                 <function>sd_seat_can_grapical()</function> interfaces
+-                are available as shared library, which can be compiled
++                are available as a shared library, which can be compiled
+                 and linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_session_is_active.xml b/man/sd_session_is_active.xml
+index 293ce71..06891f7 100644
+--- a/man/sd_session_is_active.xml
++++ b/man/sd_session_is_active.xml
+@@ -252,7 +252,7 @@
+                 <function>sd_session_get_class()</function>,
+                 <function>sd_session_get_display()</function> and
+                 <function>sd_session_get_tty()</function>
+-                interfaces are available as shared library, which can
++                interfaces are available as a shared library, which can
+                 be compiled and linked to with the
+                 <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+diff --git a/man/sd_uid_get_state.xml b/man/sd_uid_get_state.xml
+index d4d23f4..0faa765 100644
+--- a/man/sd_uid_get_state.xml
++++ b/man/sd_uid_get_state.xml
+@@ -139,7 +139,7 @@
+                 be returned and should be considered equivalent to an
+                 empty array.</para>
+ 
+-                <para>Similar, <function>sd_uid_get_seats()</function>
++                <para>Similarly, <function>sd_uid_get_seats()</function>
+                 may be used to determine the list of seats on which
+                 the user currently has sessions. Similar semantics
+                 apply, however note that the user may have
+@@ -171,7 +171,7 @@
+                 <function>sd_uid_is_on_seat()</function>,
+                 <function>sd_uid_get_sessions()</function>, and
+                 <function>sd_uid_get_seats()</function> interfaces are
+-                available as shared library, which can be compiled and
++                available as a shared library, which can be compiled and
+                 linked to with the <constant>libsystemd-login</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                 file.</para>
+         </refsect1>
+diff --git a/man/sysctl.d.xml b/man/sysctl.d.xml
+index 854864c..5544283 100644
+--- a/man/sysctl.d.xml
++++ b/man/sysctl.d.xml
+@@ -89,8 +89,8 @@
+                 administrator, who may use this logic to override the
+                 configuration files installed by vendor packages. All
+                 configuration files are sorted by their filename in
+-                lexicographic order, regardless in which of the
+-                directories they reside. If multiple files specify the
++                lexicographic order, regardless of which of the
++                directories they reside in. If multiple files specify the
+                 same variable name, the entry in the file with the
+                 lexicographically latest name will be applied. It is
+                 recommended to prefix all filenames with a two-digit
+diff --git a/man/systemctl.xml b/man/systemctl.xml
+index b4bc15d..61deb19 100644
+--- a/man/systemctl.xml
++++ b/man/systemctl.xml
+@@ -250,7 +250,7 @@ systemctl start foo
+           sleep state. Any user may take these locks and privileged
+           users may override these locks. If any locks are taken,
+           shutdown and sleep state requests will normally fail
+-          (regardless if privileged or not) and a list of active locks
++          (regardless of whether privileged or not) and a list of active locks
+           is printed. However, if <option>--ignore-inhibitors</option>
+           is specified, the locks are ignored and not printed, and the
+           operation attempted anyway, possibly requiring additional
+@@ -445,7 +445,7 @@ systemctl start foo
+           with identical immediate effects, however, since the latter
+           is lost on reboot, the changes are lost too.</para>
+ 
+-          <para>Similar, when used with
++          <para>Similarly, when used with
+           <command>set-property</command>, make changes only
+           temporarily, so that they are lost on the next
+           reboot.</para>
+diff --git a/man/systemd-getty-generator.xml b/man/systemd-getty-generator.xml
+index da88e72..b1993ae 100644
+--- a/man/systemd-getty-generator.xml
++++ b/man/systemd-getty-generator.xml
+@@ -61,10 +61,10 @@
+                 subsystem. It will also instantiate
+                 <filename>serial-getty@.service</filename> instances
+                 for virtualizer consoles, if execution in a
+-                virtualized environment is detected. This should
+-                ensure that the user is shown a login prompt at the
+-                right place, regardless in which environment the
+-                system is started. For example, it is sufficient to
++                virtualized environment is detected. This
++                should ensure that the user is shown a login prompt at
++                the right place, regardless of which environment the
++                system is started in. For example, it is sufficient to
+                 redirect the kernel console with a kernel command line
+                 argument such as <varname>console=</varname> to get
+                 both kernel messages and a getty prompt on a serial
+diff --git a/man/systemd-halt.service.xml b/man/systemd-halt.service.xml
+index 90b443f..99457aa 100644
+--- a/man/systemd-halt.service.xml
++++ b/man/systemd-halt.service.xml
+@@ -65,7 +65,7 @@
+                 <para><filename>systemd-halt.service</filename> is a
+                 system service that is pulled in by
+                 <filename>halt.target</filename> and is responsible
+-                for the actual system halt. Similar,
++                for the actual system halt. Similarly,
+                 <filename>systemd-poweroff.service</filename> is
+                 pulled in by <filename>poweroff.target</filename>,
+                 <filename>systemd-reboot.service</filename> by
+diff --git a/man/systemd-machine-id-setup.xml b/man/systemd-machine-id-setup.xml
+index fef76bc..bc38d55 100644
+--- a/man/systemd-machine-id-setup.xml
++++ b/man/systemd-machine-id-setup.xml
+@@ -80,7 +80,7 @@
+                 UUID passed is sufficiently unique and is different
+                 for every booted instanced of the VM.</para>
+ 
+-                <para>Similar, if run inside a Linux container
++                <para>Similarly, if run inside a Linux container
+                 environment and a UUID is set for the container this
+                 is used to initialize the machine ID. For details see
+                 the documentation of the <ulink
+diff --git a/man/systemd.preset.xml b/man/systemd.preset.xml
+index 16db8cd..55cb4de 100644
+--- a/man/systemd.preset.xml
++++ b/man/systemd.preset.xml
+@@ -126,8 +126,8 @@
+                 administrator, who may use this logic to override the
+                 preset files installed by vendor packages. All preset
+                 files are sorted by their filename in lexicographic
+-                order, regardless in which of the directories they
+-                reside. If multiple files specify the same unit name,
++                order, regardless of which of the directories they
++                reside in. If multiple files specify the same unit name,
+                 the entry in the file with the lexicographically earliest
+                 name will be applied. It is recommended to prefix all
+                 filenames with a two-digit number and a dash, to simplify
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 8f9137c..80a935d 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -712,7 +712,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}
+                                 timeout for the service expires.
+                                 If set to
+                                 <option>always</option>, the service
+-                                will be restarted regardless whether
++                                will be restarted regardless of whether
+                                 it exited cleanly or not, got
+                                 terminated abnormally by a signal or
+                                 hit a timeout.</para>
+diff --git a/man/systemd.socket.xml b/man/systemd.socket.xml
+index 1c78562..ac3127d 100644
+--- a/man/systemd.socket.xml
++++ b/man/systemd.socket.xml
+@@ -213,7 +213,7 @@
+                                 traffic on any of the sockets will
+                                 trigger service activation, and all
+                                 listed sockets will be passed to the
+-                                service, regardless whether there is
++                                service, regardless of whether there is
+                                 incoming traffic on them or not. If
+                                 the empty string is assigned to any of
+                                 these options, the list of addresses
+@@ -225,7 +225,7 @@
+                                 it is often desirable to listen on it
+                                 before the interface it is configured
+                                 on is up and running, and even
+-                                regardless whether it will be up and
++                                regardless of whether it will be up and
+                                 running ever at all. To deal with this
+                                 it is recommended to set the
+                                 <varname>FreeBind=</varname> option
+diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
+index 77127ff..b70c5e9 100644
+--- a/man/systemd.unit.xml
++++ b/man/systemd.unit.xml
+@@ -634,7 +634,7 @@
+                                 dependency on another unit is shut
+                                 down while the latter is started up,
+                                 the shut down is ordered before the
+-                                start-up regardless whether the
++                                start-up regardless of whether the
+                                 ordering dependency is actually of
+                                 type <varname>After=</varname> or
+                                 <varname>Before=</varname>. If two
+@@ -938,7 +938,7 @@
+                                 exists, is a regular file and marked
+                                 executable.</para>
+ 
+-                                <para>Similar,
++                                <para>Similarly,
+                                 <varname>ConditionKernelCommandLine=</varname>
+                                 may be used to check whether a
+                                 specific kernel command line option is
+diff --git a/man/tmpfiles.d.xml b/man/tmpfiles.d.xml
+index 39aa68d..ed88751 100644
+--- a/man/tmpfiles.d.xml
++++ b/man/tmpfiles.d.xml
+@@ -88,8 +88,8 @@
+                 the local administrator, who may use this logic to
+                 override the configuration files installed by vendor
+                 packages. All configuration files are sorted by their
+-                filename in lexicographic order, regardless in which
+-                of the directories they reside. If multiple files
++                filename in lexicographic order, regardless of which
++                of the directories they reside in. If multiple files
+                 specify the same path, the entry in the file with the
+                 lexicographically earliest name will be applied, all
+                 all other conflicting entries logged as errors.</para>

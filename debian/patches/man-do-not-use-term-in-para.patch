@@ -1,0 +1,22 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Tue, 5 Nov 2013 21:34:50 +0100
+Subject: man: do not use <term> in <para>
+
+Element term in namespace '' encountered in para, but no template matches.
+---
+ man/systemd.mount.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
+index 71a5736..df5a79e 100644
+--- a/man/systemd.mount.xml
++++ b/man/systemd.mount.xml
+@@ -261,7 +261,7 @@
+                                 a time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+                                 logic. Default value is setted up in manager configuration
+-                                file via <term><varname>DefaultTimeoutStart=</varname></term>.</para></listitem>
++                                file via <varname>DefaultTimeoutStart=</varname>.</para></listitem>
+                         </varlistentry>
+                 </variablelist>
+ 

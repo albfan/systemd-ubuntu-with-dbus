@@ -1,0 +1,79 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Mon, 31 Mar 2014 08:57:28 -0400
+Subject: journal: fix export of messages containing newlines
+
+In "export" format, newlines are significant, and messages containing
+newlines must be exported as "binary".
+
+(cherry picked from commit 0ade5ffe2778e7b238bba8d979ca4d53dee1e702)
+(cherry picked from commit 0fa79586f73bddf872b8e3bb5af4c9926cb84d41)
+---
+ src/shared/logs-show.c | 7 ++++---
+ src/shared/utf8.c      | 5 +++--
+ src/shared/utf8.h      | 5 ++++-
+ 3 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/src/shared/logs-show.c b/src/shared/logs-show.c
+index 91eefb3..00e6d11 100644
+--- a/src/shared/logs-show.c
++++ b/src/shared/logs-show.c
+@@ -544,7 +544,9 @@ static int output_export(
+                     startswith(data, "_BOOT_ID="))
+                         continue;
+ 
+-                if (!utf8_is_printable(data, length)) {
++                if (utf8_is_printable_newline(data, length, false))
++                        fwrite(data, length, 1, f);
++                else {
+                         const char *c;
+                         uint64_t le64;
+ 
+@@ -559,8 +561,7 @@ static int output_export(
+                         le64 = htole64(length - (c - (const char*) data) - 1);
+                         fwrite(&le64, sizeof(le64), 1, f);
+                         fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
+-                } else
+-                        fwrite(data, length, 1, f);
++                }
+ 
+                 fputc('\n', f);
+         }
+diff --git a/src/shared/utf8.c b/src/shared/utf8.c
+index 2b70d45..15605e6 100644
+--- a/src/shared/utf8.c
++++ b/src/shared/utf8.c
+@@ -136,7 +136,7 @@ static int utf8_encoded_to_unichar(const char *str) {
+         return unichar;
+ }
+ 
+-bool utf8_is_printable(const char* str, size_t length) {
++bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
+         const uint8_t *p;
+ 
+         assert(str);
+@@ -145,7 +145,8 @@ bool utf8_is_printable(const char* str, size_t length) {
+                 int encoded_len = utf8_encoded_valid_unichar((const char *)p);
+                 int val = utf8_encoded_to_unichar((const char*)p);
+ 
+-                if (encoded_len < 0 || val < 0 || is_unicode_control(val))
++                if (encoded_len < 0 || val < 0 || is_unicode_control(val) ||
++                    (!newline && val == '\n'))
+                         return false;
+ 
+                 length -= encoded_len;
+diff --git a/src/shared/utf8.h b/src/shared/utf8.h
+index f93dfb8..b14709a 100644
+--- a/src/shared/utf8.h
++++ b/src/shared/utf8.h
+@@ -31,7 +31,10 @@ const char *utf8_is_valid(const char *s) _pure_;
+ char *ascii_is_valid(const char *s) _pure_;
+ char *utf8_escape_invalid(const char *s);
+ 
+-bool utf8_is_printable(const char* str, size_t length) _pure_;
++bool utf8_is_printable_newline(const char* str, size_t length, bool newline) _pure_;
++_pure_ static inline bool utf8_is_printable(const char* str, size_t length) {
++        return utf8_is_printable_newline(str, length, true);
++}
+ 
+ char *ascii_filter(const char *s);
+ 

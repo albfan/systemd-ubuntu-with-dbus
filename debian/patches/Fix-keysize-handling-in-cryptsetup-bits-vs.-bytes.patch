@@ -1,0 +1,57 @@
+From: =?utf-8?q?David_H=C3=A4rdeman?= <david@hardeman.nu>
+Date: Tue, 25 Mar 2014 11:05:28 +0100
+Subject: Fix keysize handling in cryptsetup (bits vs. bytes)
+
+The command line key-size is in bits but the libcryptsetup API expects bytes.
+
+Note that the modulo 8 check is in the original cryptsetup binary as well, so
+it's no new limitation.
+
+(v2: changed the point at which the /= 8 is performed, rebased, removed tabs)
+
+(cherry picked from commit 6131a78b4d247618715e042e14ad682f678d3b32)
+
+Conflicts:
+	src/cryptsetup/cryptsetup.c
+
+(cherry picked from commit 19ef179118bcf92b7290669edf7e38e12f1a80d6)
+---
+ src/cryptsetup/cryptsetup.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/src/cryptsetup/cryptsetup.c b/src/cryptsetup/cryptsetup.c
+index 6a76d21..1211433 100644
+--- a/src/cryptsetup/cryptsetup.c
++++ b/src/cryptsetup/cryptsetup.c
+@@ -88,6 +88,13 @@ static int parse_one_option(const char *option) {
+                         return 0;
+                 }
+ 
++                if (opt_key_size % 8) {
++                        log_error("size= not a multiple of 8, ignoring.");
++                        return 0;
++                }
++
++                opt_key_size /= 8;
++
+         } else if (startswith(option, "key-slot=")) {
+ 
+                 opt_type = CRYPT_LUKS1;
+@@ -414,7 +421,7 @@ static int attach_luks_or_plain(struct crypt_device *cd,
+                 /* for CRYPT_PLAIN limit reads
+                  * from keyfile to key length, and
+                  * ignore keyfile-size */
+-                opt_keyfile_size = opt_key_size / 8;
++                opt_keyfile_size = opt_key_size;
+ 
+                 /* In contrast to what the name
+                  * crypt_setup() might suggest this
+@@ -577,7 +584,7 @@ int main(int argc, char *argv[]) {
+                 else
+                         until = 0;
+ 
+-                opt_key_size = (opt_key_size > 0 ? opt_key_size : 256);
++                opt_key_size = (opt_key_size > 0 ? opt_key_size : (256 / 8));
+ 
+                 if (key_file) {
+                         struct stat st;

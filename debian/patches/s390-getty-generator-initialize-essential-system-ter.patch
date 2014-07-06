@@ -1,0 +1,58 @@
+From: Hendrik Brueckner <brueckner@redhat.com>
+Date: Fri, 31 Jan 2014 17:08:37 +0100
+Subject: s390/getty-generator: initialize essential system terminals/consoles
+
+Ensure to start getty programs on all essential system consoles on Linux on
+System z.  Add these essential devices to the list of virtualization_consoles
+to always generate getty configurations.
+
+For the sake of completion, the list of essential consoles is:
+
+  /dev/sclp_line0 - Operating system messages applet (LPAR)
+  /dev/ttysclp0 - Integrated ASCII console applet (z/VM and LPAR)
+  /dev/ttyS0 - Already handled by systemd (3215 console on z/VM)
+  /dev/hvc0  - Already handled by systemd (IUCV HVC terminal on z/VM)
+
+Depending on the environment, z/VM or LPAR, only a subset of these terminals
+are available.
+
+See also RH BZ 860158[1] "Cannot login via Operating System Console into RHEL7
+instance installed on a LPAR".  This bugzilla actually blocks the installation
+of Linux on System z instances in LPAR mode.
+
+[1] https://bugzilla.redhat.com/show_bug.cgi?id=860158
+
+(cherry picked from commit 07901fc142504efb67c07875a588933dc59a3955)
+---
+ rules/99-systemd.rules.in             | 2 +-
+ src/getty-generator/getty-generator.c | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
+index a00ffed..1eaf0c1 100644
+--- a/rules/99-systemd.rules.in
++++ b/rules/99-systemd.rules.in
+@@ -7,7 +7,7 @@
+ 
+ ACTION=="remove", GOTO="systemd_end"
+ 
+-SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*", TAG+="systemd"
++SUBSYSTEM=="tty", KERNEL=="tty[a-zA-Z]*|hvc*|xvc*|hvsi*|ttysclp*|sclp_line*", TAG+="systemd"
+ 
+ KERNEL=="vport*", TAG+="systemd"
+ 
+diff --git a/src/getty-generator/getty-generator.c b/src/getty-generator/getty-generator.c
+index 6c93806..40374b5 100644
+--- a/src/getty-generator/getty-generator.c
++++ b/src/getty-generator/getty-generator.c
+@@ -91,7 +91,9 @@ int main(int argc, char *argv[]) {
+         static const char virtualization_consoles[] =
+                 "hvc0\0"
+                 "xvc0\0"
+-                "hvsi0\0";
++                "hvsi0\0"
++                "sclp_line0\0"
++                "ttysclp0\0";
+ 
+         int r = EXIT_SUCCESS;
+         char *active;

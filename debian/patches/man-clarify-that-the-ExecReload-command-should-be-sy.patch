@@ -1,0 +1,36 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 16 May 2014 01:33:22 +0200
+Subject: man: clarify that the ExecReload= command should be synchronous
+
+http://lists.freedesktop.org/archives/systemd-devel/2014-May/019054.html
+(cherry picked from commit 33169701b0640d3629d4c36cf8c71dc26d2cb7e1)
+(cherry picked from commit e3f71240733a153605a68e521ef5892e3cdf88f7)
+---
+ man/systemd.service.xml | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 50b19a8..f549e89 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -519,6 +519,20 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+                                 following:</para>
+ 
+                                 <programlisting>/bin/kill -HUP $MAINPID</programlisting>
++
++                                <para>Note however that reloading a
++                                daemon by sending a signal (as with
++                                the example line above) is usually not
++                                a good choice, because this is an
++                                asynchronous operation and hence not
++                                suitable to order reloads of multiple
++                                services against each other. It is
++                                strongly recommended to set
++                                <varname>ExecReload=</varname> to a
++                                command that no only triggers a
++                                configuration reload of the daemon,
++                                but also synchronously waits for it
++                                complete.</para>
+                                 </listitem>
+                         </varlistentry>
+ 

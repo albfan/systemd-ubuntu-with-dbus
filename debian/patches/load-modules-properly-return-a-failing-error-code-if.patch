@@ -1,0 +1,31 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 18 Feb 2014 21:23:16 +0100
+Subject: load-modules: properly return a failing error code if some module
+ fails to load
+
+This is the missing part of b857193b1def5172e3641ca1d5bc9e08ae81aac4.
+
+(cherry picked from commit 4b462d1a28461b302586b117736ef288fba1012f)
+---
+ src/modules-load/modules-load.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/modules-load/modules-load.c b/src/modules-load/modules-load.c
+index 9789398..ba7d417 100644
+--- a/src/modules-load/modules-load.c
++++ b/src/modules-load/modules-load.c
+@@ -306,9 +306,11 @@ int main(int argc, char *argv[]) {
+                                 r = k;
+                 }
+ 
+-                r = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
+-                if (r < 0) {
+-                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-r));
++                k = conf_files_list_nulstr(&files, ".conf", NULL, conf_file_dirs);
++                if (k < 0) {
++                        log_error("Failed to enumerate modules-load.d files: %s", strerror(-k));
++                        if (r == 0)
++                                r = k;
+                         goto finish;
+                 }
+ 

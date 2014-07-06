@@ -1,0 +1,22 @@
+From: Thomas Hindoe Paaboel Andersen <phomes@gmail.com>
+Date: Sat, 4 Jan 2014 23:21:13 +0100
+Subject: man: typo fix
+
+(cherry picked from commit 3563b896da77bb2e6abc2ca0f03d8e2f570f1cc7)
+---
+ man/systemd.time.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/systemd.time.xml b/man/systemd.time.xml
+index f438fa5..a837f23 100644
+--- a/man/systemd.time.xml
++++ b/man/systemd.time.xml
+@@ -222,7 +222,7 @@
+                 <para>In the date and time specifications, any
+                 component may be specified as <literal>*</literal> in
+                 which case any value will match. Alternatively, each
+-                component can be specified as list of values separated
++                component can be specified as a list of values separated
+                 by commas. Values may also be suffixed with
+                 <literal>/</literal> and a repetition value, which
+                 indicates that the value and all values plus multiples

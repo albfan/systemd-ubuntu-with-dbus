@@ -1,0 +1,36 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 12 Nov 2013 22:01:10 -0500
+Subject: fstab-generator: use RequiresOverridable for fsck units
+
+This allows the user to disable fsck's by masking.
+
+If fsck fails, emergency target is started, the user might mount the
+unit using mount and disable fsck by masking the unit. In this case,
+.mount will be active because the mount is detect through
+/proc/self/mountinfo, but systemd-fsck@.service will still be in
+failed mode. This results in a funny situation where
+
+$ systemctl show -p ActiveState local-fs.target yyy.mount
+ActiveState=active
+ActiveState=active
+
+$ sudo systemctl start local-fs.target
+[sudo] password for test:
+Failed to start local-fs.target: Unit systemd-fsck@xxx.service is masked.
+---
+ src/fstab-generator/fstab-generator.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
+index 795a24c..4137796 100644
+--- a/src/fstab-generator/fstab-generator.c
++++ b/src/fstab-generator/fstab-generator.c
+@@ -184,7 +184,7 @@ static int add_fsck(FILE *f, const char *what, const char *where, const char *ty
+                         return log_oom();
+ 
+                 fprintf(f,
+-                        "Requires=%s\n"
++                        "RequiresOverridable=%s\n"
+                         "After=%s\n",
+                         fsck,
+                         fsck);

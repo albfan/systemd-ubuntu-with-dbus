@@ -1,0 +1,22 @@
+From: AppleBloom <rat.o.drat@gmail.com>
+Date: Mon, 6 Jan 2014 20:51:47 -0500
+Subject: hwdb: fix match for Thinkpad X201 tablet
+
+https://bugs.freedesktop.org/show_bug.cgi?id=71929
+(cherry picked from commit f92164e45a0f7524e294fb383e624ff754095a25)
+---
+ hwdb/60-keyboard.hwdb | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index cf3d1fb..d253724 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -524,6 +524,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:pvr*
+ 
+ # Thinkpad X200_Tablet
+ keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnThinkPad*X2*Tablet*:pvr*
++keyboard:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*
+  KEYBOARD_KEY_5d=menu
+  KEYBOARD_KEY_63=fn
+  KEYBOARD_KEY_66=screenlock

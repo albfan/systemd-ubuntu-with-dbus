@@ -1,0 +1,24 @@
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Mon, 26 May 2014 20:09:45 +0200
+Subject: Do not unescape unit names in [Install] section
+
+https://bugs.freedesktop.org/show_bug.cgi?id=49316
+(cherry picked from commit 000f6e5667eb4f73e137cbd0d7395a9f9db7728a)
+(cherry picked from commit 6a5aa37d144cf0d2be355324e78ff320556628a5)
+---
+ src/shared/conf-parser.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/shared/conf-parser.c b/src/shared/conf-parser.c
+index e206b5b..348a540 100644
+--- a/src/shared/conf-parser.c
++++ b/src/shared/conf-parser.c
+@@ -669,7 +669,7 @@ int config_parse_strv(const char *unit,
+         FOREACH_WORD_QUOTED(w, l, rvalue, state) {
+                 _cleanup_free_ char *n;
+ 
+-                n = cunescape_length(w, l);
++                n = strndup(w, l);
+                 if (!n)
+                         return log_oom();
+ 

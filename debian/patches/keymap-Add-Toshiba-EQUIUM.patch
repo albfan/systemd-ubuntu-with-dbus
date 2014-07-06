@@ -1,0 +1,23 @@
+From: Martin Pitt <martinpitt@gnome.org>
+Date: Wed, 29 Jan 2014 16:13:22 +0100
+Subject: keymap: Add Toshiba EQUIUM
+
+Thanks Aleksander Kowalski <aleksander.kowalski.1@gmail.com>!
+
+(cherry picked from commit c9cf047362cd8e4530c10bc7c2d6db988452305d)
+---
+ hwdb/60-keyboard.hwdb | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index ea206bb..f9084e4 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -1089,6 +1089,7 @@ keyboard:dmi:bvn*:bvr*:bd*:svnPEGATRON*CORP.:pnSpring*Peak:*
+ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite*[uU][35]0[05]*:pvr*
+ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSATELLITE*[uU][35]0[05]*:pvr*
+ keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnSatellite*Pro*[uU]300*:pvr*
++keyboard:dmi:bvn*:bvr*:bd*:svnTOSHIBA:pnEQUIUM [uU][35]0[05]*:pvr*
+ keyboard:dmi:bvn*:bvr*:bd*:svnViooo*Corporation:pnPT17:*
+ keyboard:dmi:bvn*:bvr*:bd*:svnHANNspree:pnSN10E100:*
+ keyboard:dmi:bvn*:bvr*:bd*:svnGIGABYTE:pni1520M:*

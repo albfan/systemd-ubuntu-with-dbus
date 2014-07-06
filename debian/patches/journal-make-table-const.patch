@@ -1,0 +1,43 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 26 Nov 2013 18:40:23 +0100
+Subject: journal: make table const
+
+(cherry picked from commit b8e891e699e1336c5527f8203e4e8f67c9bbeb84)
+---
+ src/journal/journal-file.c | 2 +-
+ src/journal/journal-file.h | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/journal/journal-file.c b/src/journal/journal-file.c
+index d1b8433..d3bdaea 100644
+--- a/src/journal/journal-file.c
++++ b/src/journal/journal-file.c
+@@ -401,7 +401,7 @@ static int journal_file_move_to(JournalFile *f, int context, bool keep_always, u
+ 
+ static uint64_t minimum_header_size(Object *o) {
+ 
+-        static uint64_t table[] = {
++        static const uint64_t table[] = {
+                 [OBJECT_DATA] = sizeof(DataObject),
+                 [OBJECT_FIELD] = sizeof(FieldObject),
+                 [OBJECT_ENTRY] = sizeof(EntryObject),
+diff --git a/src/journal/journal-file.h b/src/journal/journal-file.h
+index 5cc2c2d..50bdb67 100644
+--- a/src/journal/journal-file.h
++++ b/src/journal/journal-file.h
+@@ -54,11 +54,11 @@ typedef struct JournalFile {
+ 
+         int flags;
+         int prot;
+-        bool writable;
+-        bool compress;
+-        bool seal;
++        bool writable:1;
++        bool compress:1;
++        bool seal:1;
+ 
+-        bool tail_entry_monotonic_valid;
++        bool tail_entry_monotonic_valid:1;
+ 
+         direction_t last_direction;
+ 

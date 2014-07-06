@@ -1,0 +1,49 @@
+From: Matt Mullins <mokomull@gmail.com>
+Date: Mon, 24 Feb 2014 15:03:52 -0800
+Subject: core: do not segfault if /proc/swaps cannot be opened
+
+The refactoring in f84b1b1ff9b1261 ('core: do not segfault if swap
+activity happens when /proc/swaps is not open') caused
+swap_dispatch_reload and swap_enumerate to continue even if fopen()
+failed with ENOENT.
+
+This should instead be modified to return from swap_dispatch_reload and
+swap_enumerate, rather than continuing to load the list of swaps when
+m->proc_swaps is NULL.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1069393
+---
+ src/core/swap.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/core/swap.c b/src/core/swap.c
+index 727bb95..3c009da 100644
+--- a/src/core/swap.c
++++ b/src/core/swap.c
+@@ -1074,7 +1074,7 @@ static int open_proc_swaps(Manager *m) {
+ 
+                 m->proc_swaps = fopen("/proc/swaps", "re");
+                 if (!m->proc_swaps)
+-                        return (errno == ENOENT) ? 0 : -errno;
++                        return -errno;
+ 
+                 m->swap_watch.type = WATCH_SWAP;
+                 m->swap_watch.fd = fileno(m->proc_swaps);
+@@ -1097,7 +1097,7 @@ int swap_dispatch_reload(Manager *m) {
+ 
+         r = open_proc_swaps(m);
+         if (r < 0)
+-                return r;
++                return (r == -ENOENT) ? 0 : r;
+ 
+         return swap_fd_event(m, EPOLLPRI);
+ }
+@@ -1250,7 +1250,7 @@ static int swap_enumerate(Manager *m) {
+ 
+         r = open_proc_swaps(m);
+         if (r < 0)
+-                return r;
++                return (r == -ENOENT) ? 0 : r;
+ 
+         r = swap_load_proc_swaps(m, false);
+         if (r < 0)

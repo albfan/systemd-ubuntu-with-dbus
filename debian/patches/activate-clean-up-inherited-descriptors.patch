@@ -1,0 +1,78 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Tue, 10 Dec 2013 21:52:11 -0500
+Subject: activate: clean up inherited descriptors
+
+> [simon@troela server]$ /usr/lib/systemd/systemd-activate -l 9000 main.js
+> Assertion 'fd == 3 + count' failed at src/activate/activate.c:115,
+> function open_sockets(). Aborting.
+> Aborted (core dumped)
+
+> after a bit debuging i found the problem:
+> slim appears to leak an fd into all of its children:
+> stat /proc/14004/fd/3  (14004 is the pid a random process in my session)
+>  File: '/proc/14004/fd/3' -> '/var/log/slim.log'
+
+systemd-activate should be robust against the shell (or anything else) leaking
+descriptors. Now everything except stdin/stdout/stderr and received sockets
+will be closed.
+
+(cherry picked from commit c099716487df4a4f5394e57e7ca14da1d358166a)
+---
+ src/activate/activate.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/src/activate/activate.c b/src/activate/activate.c
+index a9461bc..6aa8b9f 100644
+--- a/src/activate/activate.c
++++ b/src/activate/activate.c
+@@ -137,6 +137,17 @@ static int open_sockets(int *epoll_fd, bool accept) {
+                 count ++;
+         }
+ 
++        /* Close logging and all other descriptors */
++        if (arg_listen) {
++                int except[3 + n];
++
++                for (fd = 0; fd < SD_LISTEN_FDS_START + n; fd++)
++                        except[fd] = fd;
++
++                log_close();
++                close_all_fds(except, 3 + n);
++        }
++
+         /** Note: we leak some fd's on error here. I doesn't matter
+          *  much, since the program will exit immediately anyway, but
+          *  would be a pain to fix.
+@@ -147,6 +158,7 @@ static int open_sockets(int *epoll_fd, bool accept) {
+ 
+                 fd = make_socket_fd(*address, SOCK_STREAM | (arg_accept*SOCK_CLOEXEC));
+                 if (fd < 0) {
++                        log_open();
+                         log_error("Failed to open '%s': %s", *address, strerror(-fd));
+                         return fd;
+                 }
+@@ -154,6 +166,9 @@ static int open_sockets(int *epoll_fd, bool accept) {
+                 count ++;
+         }
+ 
++        if (arg_listen)
++                log_open();
++
+         *epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+         if (*epoll_fd < 0) {
+                 log_error("Failed to create epoll object: %m");
+@@ -298,10 +313,10 @@ static void sigchld_hdl(int sig, siginfo_t *t, void *data) {
+ 
+ static int install_chld_handler(void) {
+         int r;
+-        struct sigaction act;
+-        zero(act);
+-        act.sa_flags = SA_SIGINFO;
+-        act.sa_sigaction = sigchld_hdl;
++        struct sigaction act = {
++                .sa_flags = SA_SIGINFO,
++                .sa_sigaction = sigchld_hdl,
++        };
+ 
+         r = sigaction(SIGCHLD, &act, 0);
+         if (r < 0)

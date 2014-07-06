@@ -1,0 +1,27 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 22 May 2014 16:56:21 +0900
+Subject: socket: properly handle if our service vanished during runtime
+
+(cherry picked from commit 640ace4a8de907994a1b95f6d368c3e6a8fcf60f)
+(cherry picked from commit b56c47689c38ea4be7d0307e1e01be5acecf73be)
+---
+ src/core/socket.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/core/socket.c b/src/core/socket.c
+index 842850f..b811a61 100644
+--- a/src/core/socket.c
++++ b/src/core/socket.c
+@@ -1462,6 +1462,12 @@ static void socket_enter_running(Socket *s, int cfd) {
+                         }
+ 
+                 if (!pending) {
++                        if (!UNIT_ISSET(s->service)) {
++                                log_error_unit(UNIT(s)->id, "%s: service to activate vanished, refusing activation.", UNIT(s)->id);
++                                r = -ENOENT;
++                                goto fail;
++                        }
++
+                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, true, &error, NULL);
+                         if (r < 0)
+                                 goto fail;

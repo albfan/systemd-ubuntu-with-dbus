@@ -1,0 +1,28 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 11 Jun 2014 14:58:32 +0200
+Subject: units: order network-online.target after network.target
+
+There might be implementations around where the network-online logic
+might not talk to any network configuration service (and thus not have
+to wait for it), hence let's explicitly order network-online.target
+after network.target to avoid any ambiguities.
+
+(cherry picked from commit 58e027023b47b32e42cf93dd4a629b869ee1ef25)
+
+Conflicts:
+	units/systemd-networkd-wait-online.service.in
+
+(cherry picked from commit 406be70b2f9adaa7dc4168dd51ac8e3cfe41bcb3)
+---
+ units/network-online.target | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/units/network-online.target b/units/network-online.target
+index a40c44c..67bc4fa 100644
+--- a/units/network-online.target
++++ b/units/network-online.target
+@@ -9,3 +9,4 @@
+ Description=Network is Online
+ Documentation=man:systemd.special(7)
+ Documentation=http://www.freedesktop.org/wiki/Software/systemd/NetworkTarget
++After=network.target

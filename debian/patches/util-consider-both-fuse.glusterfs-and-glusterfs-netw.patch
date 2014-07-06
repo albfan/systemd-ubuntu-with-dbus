@@ -1,0 +1,35 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 25 Mar 2014 01:46:24 +0100
+Subject: util: consider both fuse.glusterfs and glusterfs network file systems
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Based on a similar patch by Lukáš Nykrýn.
+
+(cherry picked from commit 67608cad2301f9ab5c92336992c176505640f2ba)
+(cherry picked from commit 5a01c85370bea492d27ff006c7a33a1084b49a94)
+---
+ src/shared/util.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/src/shared/util.c b/src/shared/util.c
+index bec339b..617c3ac 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -1625,7 +1625,14 @@ bool fstype_is_network(const char *fstype) {
+                 "nfs\0"
+                 "nfs4\0"
+                 "gfs\0"
+-                "gfs2\0";
++                "gfs2\0"
++                "glusterfs\0";
++
++        const char *x;
++
++        x = startswith(fstype, "fuse.");
++        if (x)
++                fstype = x;
+ 
+         return nulstr_contains(table, fstype);
+ }

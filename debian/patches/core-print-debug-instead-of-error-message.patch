@@ -1,0 +1,27 @@
+From: Michal Sekletar <msekleta@redhat.com>
+Date: Wed, 14 May 2014 15:13:43 +0200
+Subject: core: print debug instead of error message
+
+In case that session scope is in some other state than SCOPE_RUNNING or
+SCOPE_ABANDONED we will not print error message. It might be the case
+that scope is in other state because systemd realized that scope is
+empty before dispatching dbus call from pam hook. Or system is going
+down and stop job is runnig for the scope and changed scope state to
+SCOPE_STOP_SIGTERM or SCOPE_STOP_SIGKILL.
+---
+ src/core/dbus-scope.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/dbus-scope.c b/src/core/dbus-scope.c
+index 58dd9ff..71d6921 100644
+--- a/src/core/dbus-scope.c
++++ b/src/core/dbus-scope.c
+@@ -76,7 +76,7 @@ DBusHandlerResult bus_scope_message_handler(Unit *u, DBusConnection *c, DBusMess
+ 
+                 r = scope_abandon(s);
+                 if (r < 0)
+-                        log_error("Failed to mark scope %s as abandoned : %s", UNIT(s)->id, strerror(-r));
++                        log_debug("Failed to mark scope %s as abandoned : Scope is not running", UNIT(s)->id);
+ 
+                 reply = dbus_message_new_method_return(message);
+                 if (!reply)

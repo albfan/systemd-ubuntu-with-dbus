@@ -1,0 +1,26 @@
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Tue, 15 Apr 2014 14:12:01 -0700
+Subject: tmpfiles: fix permissions on new journal files
+
+When starting up journald on a new system, set the proper permissions on
+the system.journal files, not only on the journal directory.
+
+(cherry picked from commit a606871da508995f5ede113a8fc6538afd98966c)
+(cherry picked from commit ea082a72550975b831076e135f89c035259fdca8)
+---
+ tmpfiles.d/systemd.conf | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tmpfiles.d/systemd.conf b/tmpfiles.d/systemd.conf
+index 7c6d6b9..c470045 100644
+--- a/tmpfiles.d/systemd.conf
++++ b/tmpfiles.d/systemd.conf
+@@ -23,6 +23,6 @@ d /run/systemd/machines 0755 root root -
+ d /run/systemd/shutdown 0755 root root -
+ 
+ m /var/log/journal 2755 root systemd-journal - -
+-m /var/log/journal/%m 2755 root systemd-journal - -
++Z /var/log/journal/%m 2755 root systemd-journal - -
+ m /run/log/journal 2755 root systemd-journal - -
+-m /run/log/journal/%m 2755 root systemd-journal - -
++Z /run/log/journal/%m 2755 root systemd-journal - -

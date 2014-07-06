@@ -1,0 +1,81 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sun, 15 Dec 2013 16:26:27 -0500
+Subject: Fix a few signed/unsigned format string issues
+
+Since numbers involved are all small, behaviour was correct already.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1043304
+(cherry picked from commit b5dd8148730db080b48b874c214f8f74ae787d6b)
+---
+ src/shared/time-util.c         |  2 +-
+ src/udev/udev-builtin-net_id.c | 21 +++++++--------------
+ 2 files changed, 8 insertions(+), 15 deletions(-)
+
+diff --git a/src/shared/time-util.c b/src/shared/time-util.c
+index 81d4ede..d31401b 100644
+--- a/src/shared/time-util.c
++++ b/src/shared/time-util.c
+@@ -382,7 +382,7 @@ void dual_timestamp_deserialize(const char *value, dual_timestamp *t) {
+         assert(value);
+         assert(t);
+ 
+-        if (sscanf(value, "%lli %llu", &a, &b) != 2)
++        if (sscanf(value, "%llu %llu", &a, &b) != 2)
+                 log_debug("Failed to parse finish timestamp value %s", value);
+         else {
+                 t->realtime = a;
+diff --git a/src/udev/udev-builtin-net_id.c b/src/udev/udev-builtin-net_id.c
+index 9ae8f08..9bc1946 100644
+--- a/src/udev/udev-builtin-net_id.c
++++ b/src/udev/udev-builtin-net_id.c
+@@ -166,23 +166,17 @@ out:
+ 
+ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+         struct udev *udev = udev_device_get_udev(names->pcidev);
+-        unsigned int domain;
+-        unsigned int bus;
+-        unsigned int slot;
+-        unsigned int func;
+-        unsigned int dev_id = 0;
++        unsigned domain, bus, slot, func, dev_id = 0;
+         size_t l;
+         char *s;
+         const char *attr;
+         struct udev_device *pci = NULL;
+-        char slots[256];
+-        DIR *dir;
++        char slots[256], str[256];
++        _cleanup_closedir_ DIR *dir = NULL;
+         struct dirent *dent;
+-        char str[256];
+-        int hotplug_slot = 0;
+-        int err = 0;
++        int hotplug_slot = 0, err = 0;
+ 
+-        if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%d", &domain, &bus, &slot, &func) != 4)
++        if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
+                 return -ENOENT;
+ 
+         /* kernel provided multi-device index */
+@@ -239,7 +233,6 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+                 if (hotplug_slot > 0)
+                         break;
+         }
+-        closedir(dir);
+ 
+         if (hotplug_slot > 0) {
+                 s = names->pci_slot;
+@@ -341,11 +334,11 @@ static int names_bcma(struct udev_device *dev, struct netnames *names) {
+                 return -ENOENT;
+ 
+         /* bus num:core num */
+-        if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*d:%d", &core) != 1)
++        if (sscanf(udev_device_get_sysname(bcmadev), "bcma%*u:%u", &core) != 1)
+                 return -EINVAL;
+         /* suppress the common core == 0 */
+         if (core > 0)
+-                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%d", core);
++                snprintf(names->bcma_core, sizeof(names->bcma_core), "b%u", core);
+ 
+         names->type = NET_BCMA;
+         return 0;

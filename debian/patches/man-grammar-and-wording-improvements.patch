@@ -1,0 +1,78 @@
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Thu, 26 Dec 2013 02:47:45 +0100
+Subject: man: grammar and wording improvements
+
+This is a recurring submission and includes corrections to:
+- missing words, preposition choice.
+- change of /lib to /usr/lib, because that is what most distros are
+  using as the system-wide location for systemd/udev files.
+
+Conflicts:
+	man/journalctl.xml
+	man/sd_bus_message_get_cookie.xml
+	man/sd_bus_request_name.xml
+	man/systemctl.xml
+	man/systemd-networkd.service.xml
+	man/systemd.device.xml
+	man/systemd.exec.xml
+	man/systemd.timer.xml
+	man/udev.xml
+---
+ man/daemon.xml          | 2 +-
+ man/sd_is_fifo.xml      | 2 +-
+ man/systemd.service.xml | 2 +-
+ man/systemd.unit.xml    | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/man/daemon.xml b/man/daemon.xml
+index 7790420..1fe4546 100644
+--- a/man/daemon.xml
++++ b/man/daemon.xml
+@@ -408,7 +408,7 @@
+                         description files.</para>
+ 
+                         <para>In systemd, if the developer or
+-                        administrator wants to make sure a service or
++                        administrator wants to make sure that a service or
+                         other unit is activated automatically on boot,
+                         it is recommended to place a symlink to the
+                         unit file in the <filename>.wants/</filename>
+diff --git a/man/sd_is_fifo.xml b/man/sd_is_fifo.xml
+index 4bb2236..58cd1c9 100644
+--- a/man/sd_is_fifo.xml
++++ b/man/sd_is_fifo.xml
+@@ -165,7 +165,7 @@
+                 called to check whether the specified file descriptor
+                 refers to a special file. If the
+                 <parameter>path</parameter> parameter is not
+-                <constant>NULL</constant>, it is checked whether file
++                <constant>NULL</constant>, it is checked whether the file
+                 descriptor is bound to the specified file
+                 name. Special files in this context are character
+                 device nodes and files in <filename>/proc</filename>
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index e869f95..e3a370f 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -427,7 +427,7 @@
+                                 <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'
+                                 </programlisting>
+ 
+-                                <para>Only select environment variables
++                                <para>Only select environment variables that
+                                 are set for executed commands. See
+                                 <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                 </para>
+diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
+index b70c5e9..f6b4b24 100644
+--- a/man/systemd.unit.xml
++++ b/man/systemd.unit.xml
+@@ -548,7 +548,7 @@
+                                 of units. When systemd stops or restarts
+                                 the units listed here, the action is
+                                 propagated to this unit.
+-                                Note that this is a one way dependency —
++                                Note that this is a one-way dependency —
+                                 changes to this unit do not affect the
+                                 listed units.
+                                 </para></listitem>

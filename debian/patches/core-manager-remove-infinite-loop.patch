@@ -1,0 +1,25 @@
+From: Shawn Landden <shawn@churchofgit.com>
+Date: Tue, 10 Dec 2013 09:28:26 -0800
+Subject: core/manager: remove infinite loop
+
+(cherry picked from commit 145b1f799ff6712f333cef92c44218254a1320c5)
+---
+ src/core/manager.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 944c196..a34a3c6 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -2285,10 +2285,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
+         }
+ 
+ finish:
+-        if (ferror(f)) {
++        if (ferror(f))
+                 r = -EIO;
+-                goto finish;
+-        }
+ 
+         assert(m->n_reloading > 0);
+         m->n_reloading --;

@@ -1,0 +1,26 @@
+From: =?utf-8?q?S=C3=A9bastien_Luttringer?= <seblu@seblu.net>
+Date: Thu, 5 Dec 2013 02:55:05 +0100
+Subject: kernel-install: fix help output
+
+Kernel install doesn't need the second argument on his command line when
+removing.
+This is correctly documented in the man page.
+
+(cherry picked from commit d838db0d3b1369639ed7572f4f838eda58b8d858)
+---
+ src/kernel-install/kernel-install | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/kernel-install/kernel-install b/src/kernel-install/kernel-install
+index f5ff362..3ae1d77 100644
+--- a/src/kernel-install/kernel-install
++++ b/src/kernel-install/kernel-install
+@@ -23,7 +23,7 @@ usage()
+ {
+     echo "Usage:"
+     echo "        $0 add KERNEL-VERSION KERNEL-IMAGE"
+-    echo "        $0 remove KERNEL-VERSION KERNEL-IMAGE"
++    echo "        $0 remove KERNEL-VERSION"
+ }
+ 
+ dropindirs_sort()

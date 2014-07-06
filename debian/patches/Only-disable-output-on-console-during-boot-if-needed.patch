@@ -1,0 +1,36 @@
+From: Olivier Brunel <jjk@jjacky.com>
+Date: Fri, 20 Sep 2013 22:18:29 +0200
+Subject: Only disable output on console during boot if needed
+
+If there are no more jobs on console, no need/we shouldn't disable output.
+---
+ src/core/manager.c | 2 +-
+ src/core/unit.c    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 58dacdc..ce32baf 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -1761,7 +1761,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
+         }
+ 
+         case WATCH_IDLE_PIPE: {
+-                m->no_console_output = true;
++                m->no_console_output = m->n_on_console > 0;
+ 
+                 manager_unwatch_idle_pipe(m);
+                 close_idle_pipe(m);
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 1db7d06..717ce84 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1454,7 +1454,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
+ 
+                                 if (m->n_on_console == 0)
+                                         /* unset no_console_output flag, since the console is free */
+-                                        m->no_console_output = 0;
++                                        m->no_console_output = false;
+                         } else
+                                 m->n_on_console ++;
+                 }

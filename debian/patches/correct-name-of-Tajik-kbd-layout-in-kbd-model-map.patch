@@ -1,0 +1,22 @@
+From: Adam Williamson <awilliam@redhat.com>
+Date: Mon, 9 Dec 2013 22:02:25 -0800
+Subject: correct name of Tajik kbd layout in kbd-model-map
+
+(cherry picked from commit 18c92a4958361f333d63507c67a35bbcfd0aa925)
+---
+ src/locale/kbd-model-map | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/locale/kbd-model-map b/src/locale/kbd-model-map
+index 78c7887..322c0a9 100644
+--- a/src/locale/kbd-model-map
++++ b/src/locale/kbd-model-map
+@@ -39,7 +39,7 @@ ro			ro	pc105		-		terminate:ctrl_alt_bksp
+ us-acentos		us	pc105		intl		terminate:ctrl_alt_bksp
+ pt-latin1		pt	pc105		-		terminate:ctrl_alt_bksp
+ ro-std-cedilla		ro	pc105		std_cedilla	terminate:ctrl_alt_bksp
+-tj			tj	pc105		-		terminate:ctrl_alt_bksp
++tj_alt-UTF8		tj	pc105		-		terminate:ctrl_alt_bksp
+ de-latin1-nodeadkeys	de	pc105		nodeadkeys	terminate:ctrl_alt_bksp
+ no			no	pc105		-		terminate:ctrl_alt_bksp
+ bg_bds-utf8		bg,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll

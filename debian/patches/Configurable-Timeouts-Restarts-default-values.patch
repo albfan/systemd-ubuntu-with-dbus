@@ -1,0 +1,292 @@
+From: Oleksii Shevchuk <alxchk@gmail.com>
+Date: Mon, 4 Nov 2013 18:47:43 +0200
+Subject: Configurable Timeouts/Restarts default values
+
+https://bugs.freedesktop.org/show_bug.cgi?id=71132
+
+Patch adds DefaultTimeoutStartSec, DefaultTimeoutStopSec, DefaultRestartSec
+configuration options to manager configuration file.
+---
+ man/systemd-system.conf.xml | 24 +++++++++++++++++++++++-
+ man/systemd.mount.xml       |  4 ++--
+ man/systemd.service.xml     |  6 ++++--
+ man/systemd.socket.xml      |  4 ++--
+ man/systemd.swap.xml        |  4 ++--
+ src/core/device.c           |  2 +-
+ src/core/main.c             |  9 +++++++++
+ src/core/manager.h          |  3 +++
+ src/core/mount.c            |  2 +-
+ src/core/scope.c            |  2 +-
+ src/core/service.c          |  6 +++---
+ src/core/socket.c           |  2 +-
+ src/core/swap.c             |  2 +-
+ src/core/system.conf        |  3 +++
+ src/core/user.conf          |  3 +++
+ 15 files changed, 59 insertions(+), 17 deletions(-)
+
+diff --git a/man/systemd-system.conf.xml b/man/systemd-system.conf.xml
+index e8cf8a9..c1f2648 100644
+--- a/man/systemd-system.conf.xml
++++ b/man/systemd-system.conf.xml
+@@ -61,7 +61,6 @@
+                 otherwise <filename>user.conf</filename>. These
+                 configuration files contain a few settings controlling
+                 basic manager operations.</para>
+-
+         </refsect1>
+ 
+         <refsect1>
+@@ -95,6 +94,29 @@
+                         </varlistentry>
+ 
+                         <varlistentry>
++                                <term><varname>DefaultTimeoutStartSec=</varname></term>
++                                <term><varname>DefaultTimeoutStopSec=</varname></term>
++                                <term><varname>DefaultRestartSec=</varname></term>
++
++                                <listitem><para>Configures the default
++                                time-outs for starting and stopping of
++                                units, as well as the default time to
++                                sleep between automatic restarts of a
++                                units, as configured per-unit in
++                                <varname>TimeoutStartSec=</varname>,
++                                <varname>TimeoutStopSec=</varname> and
++                                <varname>RestartSec=</varname> (for
++                                service units see
++                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
++                                for details on the per-unit
++                                settings). For non-service units
++                                <varname>DefaultTimeoutStartSec=</varname>
++                                sets the default
++                                <varname>TimeoutSec=</varname> value.
++                                </para></listitem>
++                        </varlistentry>
++
++                        <varlistentry>
+                                 <term><varname>CPUAffinity=</varname></term>
+ 
+                                 <listitem><para>Configures the initial
+diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
+index 48af1ca..71a5736 100644
+--- a/man/systemd.mount.xml
++++ b/man/systemd.mount.xml
+@@ -260,8 +260,8 @@
+                                 Takes a unit-less value in seconds, or
+                                 a time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+-                                logic. Defaults to
+-                                90s.</para></listitem>
++                                logic. Default value is setted up in manager configuration
++                                file via <term><varname>DefaultTimeoutStart=</varname></term>.</para></listitem>
+                         </varlistentry>
+                 </variablelist>
+ 
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index 5e1ddf7..df04048 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -524,7 +524,8 @@
+                                 Takes a unit-less value in seconds, or a
+                                 time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+-                                logic. Defaults to 90s, except when
++                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
++                                manager configuration file, except when
+                                 <varname>Type=oneshot</varname> is
+                                 used in which case the timeout
+                                 is disabled by default.
+@@ -545,7 +546,8 @@
+                                 Takes a unit-less value in seconds, or a
+                                 time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+-                                logic. Defaults to 90s.
++                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
++                                manager configuration file.
+                                 </para></listitem>
+                         </varlistentry>
+ 
+diff --git a/man/systemd.socket.xml b/man/systemd.socket.xml
+index 8c88d9f..1c78562 100644
+--- a/man/systemd.socket.xml
++++ b/man/systemd.socket.xml
+@@ -679,8 +679,8 @@
+                                 Takes a unit-less value in seconds, or
+                                 a time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+-                                logic. Defaults to
+-                                90s.</para></listitem>
++                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
++                                manager configuration file.</para></listitem>
+                         </varlistentry>
+ 
+                         <varlistentry>
+diff --git a/man/systemd.swap.xml b/man/systemd.swap.xml
+index 813ae6c..13f6c84 100644
+--- a/man/systemd.swap.xml
++++ b/man/systemd.swap.xml
+@@ -186,8 +186,8 @@
+                                 Takes a unit-less value in seconds, or
+                                 a time span value such as "5min
+                                 20s". Pass 0 to disable the timeout
+-                                logic. Defaults to
+-                                90s.</para></listitem>
++                                logic. Defaults to <varname>TimeoutStartSec=</varname> in
++                                manager configuration file.</para></listitem>
+                         </varlistentry>
+                 </variablelist>
+ 
+diff --git a/src/core/device.c b/src/core/device.c
+index 9fca82a..5397bd6 100644
+--- a/src/core/device.c
++++ b/src/core/device.c
+@@ -70,7 +70,7 @@ static void device_init(Unit *u) {
+          * indefinitely for plugged in devices, something which cannot
+          * happen for the other units since their operations time out
+          * anyway. */
+-        UNIT(d)->job_timeout = DEFAULT_TIMEOUT_USEC;
++        UNIT(d)->job_timeout = u->manager->default_timeout_start_usec;
+ 
+         UNIT(d)->ignore_on_isolate = true;
+         UNIT(d)->ignore_on_snapshot = true;
+diff --git a/src/core/main.c b/src/core/main.c
+index fe291f8..937994c 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -90,6 +90,9 @@ static bool arg_switched_root = false;
+ static char ***arg_join_controllers = NULL;
+ static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
+ static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
++static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
++static usec_t arg_default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
++static usec_t arg_default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+ static usec_t arg_runtime_watchdog = 0;
+ static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+ static char **arg_default_environment = NULL;
+@@ -636,6 +639,9 @@ static int parse_config_file(void) {
+                 { "Manager", "CPUAffinity",           config_parse_cpu_affinity2, 0, NULL                    },
+                 { "Manager", "DefaultStandardOutput", config_parse_output,       0, &arg_default_std_output  },
+                 { "Manager", "DefaultStandardError",  config_parse_output,       0, &arg_default_std_error   },
++                { "Manager", "DefaultTimeoutStartSec", config_parse_sec,         0, &arg_default_timeout_start_usec },
++                { "Manager", "DefaultTimeoutStopSec", config_parse_sec,          0, &arg_default_timeout_stop_usec  },
++                { "Manager", "DefaultRestartSec",     config_parse_sec,          0, &arg_default_restart_usec  },
+                 { "Manager", "JoinControllers",       config_parse_join_controllers, 0, &arg_join_controllers },
+                 { "Manager", "RuntimeWatchdogSec",    config_parse_sec,          0, &arg_runtime_watchdog    },
+                 { "Manager", "ShutdownWatchdogSec",   config_parse_sec,          0, &arg_shutdown_watchdog   },
+@@ -1542,6 +1548,9 @@ int main(int argc, char *argv[]) {
+         m->confirm_spawn = arg_confirm_spawn;
+         m->default_std_output = arg_default_std_output;
+         m->default_std_error = arg_default_std_error;
++        m->default_restart_usec = arg_default_restart_usec;
++        m->default_timeout_start_usec = arg_default_timeout_start_usec;
++        m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
+         m->runtime_watchdog = arg_runtime_watchdog;
+         m->shutdown_watchdog = arg_shutdown_watchdog;
+         m->userspace_timestamp = userspace_timestamp;
+diff --git a/src/core/manager.h b/src/core/manager.h
+index a3049b5..e74c609 100644
+--- a/src/core/manager.h
++++ b/src/core/manager.h
+@@ -230,6 +230,9 @@ struct Manager {
+ 
+         ExecOutput default_std_output, default_std_error;
+ 
++        usec_t default_restart_usec, default_timeout_start_usec,
++                default_timeout_stop_usec;
++
+         struct rlimit *rlimit[RLIMIT_NLIMITS];
+ 
+         /* non-zero if we are reloading or reexecuting, */
+diff --git a/src/core/mount.c b/src/core/mount.c
+index 70cd372..c0445a6 100644
+--- a/src/core/mount.c
++++ b/src/core/mount.c
+@@ -131,7 +131,7 @@ static void mount_init(Unit *u) {
+         assert(u);
+         assert(u->load_state == UNIT_STUB);
+ 
+-        m->timeout_usec = DEFAULT_TIMEOUT_USEC;
++        m->timeout_usec = u->manager->default_timeout_start_usec;
+         m->directory_mode = 0755;
+ 
+         exec_context_init(&m->exec_context);
+diff --git a/src/core/scope.c b/src/core/scope.c
+index 50e5dba..41da3b9 100644
+--- a/src/core/scope.c
++++ b/src/core/scope.c
+@@ -46,7 +46,7 @@ static void scope_init(Unit *u) {
+         assert(u);
+         assert(u->load_state == UNIT_STUB);
+ 
+-        s->timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
++        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+ 
+         watch_init(&s->timer_watch);
+ 
+diff --git a/src/core/service.c b/src/core/service.c
+index 96ed2d3..e81aa1f 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -124,9 +124,9 @@ static void service_init(Unit *u) {
+         assert(u);
+         assert(u->load_state == UNIT_STUB);
+ 
+-        s->timeout_start_usec = DEFAULT_TIMEOUT_USEC;
+-        s->timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
+-        s->restart_usec = DEFAULT_RESTART_USEC;
++        s->timeout_start_usec = u->manager->default_timeout_start_usec;
++        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
++        s->restart_usec = u->manager->default_restart_usec;
+         s->type = _SERVICE_TYPE_INVALID;
+ 
+         watch_init(&s->watchdog_watch);
+diff --git a/src/core/socket.c b/src/core/socket.c
+index 6c0ac1a..d368f7e 100644
+--- a/src/core/socket.c
++++ b/src/core/socket.c
+@@ -73,7 +73,7 @@ static void socket_init(Unit *u) {
+         assert(u->load_state == UNIT_STUB);
+ 
+         s->backlog = SOMAXCONN;
+-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
++        s->timeout_usec = u->manager->default_timeout_start_usec;
+         s->directory_mode = 0755;
+         s->socket_mode = 0666;
+ 
+diff --git a/src/core/swap.c b/src/core/swap.c
+index a68ab7c..147f710 100644
+--- a/src/core/swap.c
++++ b/src/core/swap.c
+@@ -86,7 +86,7 @@ static void swap_init(Unit *u) {
+         assert(s);
+         assert(UNIT(s)->load_state == UNIT_STUB);
+ 
+-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
++        s->timeout_usec = u->manager->default_timeout_start_usec;
+ 
+         exec_context_init(&s->exec_context);
+         s->exec_context.std_output = u->manager->default_std_output;
+diff --git a/src/core/system.conf b/src/core/system.conf
+index 7b03c87..3c6cc03 100644
+--- a/src/core/system.conf
++++ b/src/core/system.conf
+@@ -24,6 +24,9 @@
+ #ShutdownWatchdogSec=10min
+ #CapabilityBoundingSet=
+ #TimerSlackNSec=
++#DefaultTimeoutStartSec=90s
++#DefaultTimeoutStopSec=90s
++#DefaultRestartSec=100ms
+ #DefaultEnvironment=
+ #DefaultLimitCPU=
+ #DefaultLimitFSIZE=
+diff --git a/src/core/user.conf b/src/core/user.conf
+index 4a0129a..b030701 100644
+--- a/src/core/user.conf
++++ b/src/core/user.conf
+@@ -14,3 +14,6 @@
+ #LogLocation=no
+ #DefaultStandardOutput=inherit
+ #DefaultStandardError=inherit
++#DefaultTimeoutStartSec=90s
++#DefaultTimeoutStopSec=90s
++#DefaultRestartSec=100ms

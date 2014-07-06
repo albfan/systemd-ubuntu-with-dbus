@@ -1,0 +1,53 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 14 Dec 2013 17:30:25 -0500
+Subject: man: remove advice to avoid setting the same var more than once
+
+So far the compatibility with .desktop settings hasn't been imporant
+at all, and we do not want people to write convoluted unit
+files.
+
+(cherry picked from commit 6baf995c17a95ca0d6b5ad0b1f1667c956574816)
+---
+ man/systemd.service.xml |  6 +-----
+ man/systemd.unit.xml    | 11 +++++++++++
+ 2 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/man/systemd.service.xml b/man/systemd.service.xml
+index ca297ba..8f9137c 100644
+--- a/man/systemd.service.xml
++++ b/man/systemd.service.xml
+@@ -321,11 +321,7 @@
+                                 (these semicolons must be passed as
+                                 separate words). Alternatively, this
+                                 directive may be specified more than
+-                                once with the same effect. However,
+-                                the latter syntax is not recommended
+-                                for compatibility with parsers
+-                                suitable for XDG
+-                                <filename>.desktop</filename> files.
++                                once with the same effect.
+                                 Lone semicolons may be escaped as
+                                 <literal>\;</literal>. If the empty
+                                 string is assigned to this option, the
+diff --git a/man/systemd.unit.xml b/man/systemd.unit.xml
+index 029392c..77127ff 100644
+--- a/man/systemd.unit.xml
++++ b/man/systemd.unit.xml
+@@ -120,6 +120,17 @@
+                 <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                 </para>
+ 
++                <para>Various settings are allowed to be specified
++                more than once, in which case the interpretation
++                depends on the setting. Often, multiple settings form
++                a list, and setting to an empty value "resets", which
++                means that previous assignments are ignored. When this
++                is allowed, it is mentioned in the description of the
++                setting. Note that using multiple assignments to the
++                same value makes the unit file incompatible with
++                parsers for the XDG <filename>.desktop</filename> file
++                format.</para>
++
+                 <para>Unit files are loaded from a set of paths
+                 determined during compilation, described in the next section.
+                 </para>

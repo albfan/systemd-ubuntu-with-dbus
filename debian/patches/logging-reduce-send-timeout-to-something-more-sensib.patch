@@ -1,0 +1,50 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 14 Dec 2013 11:54:26 -0500
+Subject: logging: reduce send timeout to something more sensible
+
+For a user, the timeout of 1 min per message seems equivalent to a hang.
+If journald cannot process a message from PID1 for 10 ms then something
+is significantly wrong. It's better to lose the message and continue.
+
+(cherry picked from commit 4d89874af6a798744a32deb314001a13a28f0559)
+---
+ src/shared/log.c       | 5 ++++-
+ src/shared/time-util.c | 7 +++----
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/src/shared/log.c b/src/shared/log.c
+index de770ca..2267764 100644
+--- a/src/shared/log.c
++++ b/src/shared/log.c
+@@ -126,7 +126,10 @@ static int create_log_socket(int type) {
+         /* We need a blocking fd here since we'd otherwise lose
+         messages way too early. However, let's not hang forever in the
+         unlikely case of a deadlock. */
+-        timeval_store(&tv, 1*USEC_PER_MINUTE);
++        if (getpid() == 1)
++                timeval_store(&tv, 10 * USEC_PER_MSEC);
++        else
++                timeval_store(&tv, 10 * USEC_PER_SEC);
+         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+ 
+         return fd;
+diff --git a/src/shared/time-util.c b/src/shared/time-util.c
+index d31401b..505b280 100644
+--- a/src/shared/time-util.c
++++ b/src/shared/time-util.c
+@@ -141,12 +141,11 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
+         if (u == (usec_t) -1) {
+                 tv->tv_sec = (time_t) -1;
+                 tv->tv_usec = (suseconds_t) -1;
+-                return tv;
++        } else {
++                tv->tv_sec = (time_t) (u / USEC_PER_SEC);
++                tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
+         }
+ 
+-        tv->tv_sec = (time_t) (u / USEC_PER_SEC);
+-        tv->tv_usec = (suseconds_t) (u % USEC_PER_SEC);
+-
+         return tv;
+ }
+ 

@@ -1,0 +1,2854 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 18 Mar 2014 19:22:43 +0100
+Subject: util: replace close_nointr_nofail() by a more useful safe_close()
+
+safe_close() automatically becomes a NOP when a negative fd is passed,
+and returns -1 unconditionally. This makes it easy to write lines like
+this:
+
+        fd = safe_close(fd);
+
+Which will close an fd if it is open, and reset the fd variable
+correctly.
+
+By making use of this new scheme we can drop a > 200 lines of code that
+was required to test for non-negative fds or to reset the closed fd
+variable afterwards.
+
+(cherry-picked from commit 03e334a1c7dc8c20c38902aa039440763acc9b17)
+
+(cherry picked from commit 4529ad1defde79e74797b494ab3ac924ce06ff2a)
+
+Conflicts:
+	src/core/automount.c
+	src/core/busname.c
+	src/core/dbus.c
+	src/core/execute.c
+	src/core/manager.c
+	src/core/path.c
+	src/core/socket.c
+	src/journal/journalctl.c
+	src/journal/journald-console.c
+	src/journal/journald-kmsg.c
+	src/journal/journald-server.c
+	src/journal/journald-stream.c
+	src/libsystemd-dhcp/dhcp-network.c
+	src/libsystemd-dhcp/sd-dhcp-client.c
+	src/libsystemd/sd-bus/bus-container.c
+	src/libsystemd/sd-bus/bus-kernel.c
+	src/libsystemd/sd-bus/bus-message.c
+	src/libsystemd/sd-bus/sd-bus.c
+	src/libsystemd/sd-bus/sd-memfd.c
+	src/libsystemd/sd-event/sd-event.c
+	src/libsystemd/sd-resolve/sd-resolve.c
+	src/libsystemd/sd-rtnl/sd-rtnl.c
+	src/login/logind-inhibit.c
+	src/login/logind-session.c
+	src/login/pam-module.c
+	src/machine/machinectl.c
+	src/nspawn/nspawn.c
+	src/shared/logs-show.c
+	src/shared/util.c
+	src/socket-proxy/socket-proxyd.c
+	src/udev/net/link-config.c
+---
+ src/core/audit-fd.c                                |  2 +-
+ src/core/automount.c                               | 40 ++++-------
+ src/core/cgroup.c                                  |  8 +--
+ src/core/dbus.c                                    | 10 ++-
+ src/core/execute.c                                 | 50 +++++--------
+ src/core/ima-setup.c                               |  6 +-
+ src/core/job.c                                     |  7 +-
+ src/core/load-fragment.c                           |  2 +-
+ src/core/machine-id-setup.c                        |  7 +-
+ src/core/main.c                                    |  2 +-
+ src/core/manager.c                                 | 32 ++++-----
+ src/core/path.c                                    |  4 +-
+ src/core/service.c                                 |  6 +-
+ src/core/smack-setup.c                             |  2 +-
+ src/core/socket.c                                  | 41 ++++-------
+ src/core/switch-root.c                             | 35 +++------
+ src/core/umount.c                                  |  8 +--
+ src/core/unit.c                                    |  4 +-
+ src/fsck/fsck.c                                    |  9 +--
+ src/initctl/initctl.c                              |  5 +-
+ src/journal/cat.c                                  |  9 +--
+ src/journal/catalog.c                              |  8 +--
+ src/journal/coredumpctl.c                          |  3 +-
+ src/journal/journal-authenticate.c                 |  5 +-
+ src/journal/journal-file.c                         |  4 +-
+ src/journal/journal-send.c                         | 16 ++---
+ src/journal/journal-verify.c                       | 12 ++--
+ src/journal/journalctl.c                           |  5 +-
+ src/journal/journald-console.c                     |  2 +-
+ src/journal/journald-kmsg.c                        |  5 +-
+ src/journal/journald-server.c                      | 27 ++-----
+ src/journal/journald-stream.c                      |  6 +-
+ src/journal/sd-journal.c                           |  3 +-
+ src/journal/test-journal-verify.c                  |  2 +-
+ src/journal/test-mmap-cache.c                      |  6 +-
+ src/libsystemd-bus/bus-kernel.c                    |  6 +-
+ src/libsystemd-bus/bus-message.c                   |  5 +-
+ src/libsystemd-bus/bus-socket.c                    |  4 +-
+ src/libsystemd-bus/sd-bus.c                        |  4 +-
+ src/libsystemd-bus/sd-memfd.c                      |  2 +-
+ src/libsystemd-bus/test-bus-chat.c                 |  2 +-
+ src/libsystemd-bus/test-bus-kernel-benchmark.c     |  2 +-
+ src/libsystemd-bus/test-bus-kernel.c               |  6 +-
+ src/login/inhibit.c                                |  2 +-
+ src/login/logind-button.c                          |  2 +-
+ src/login/logind-core.c                            |  2 +-
+ src/login/logind-dbus.c                            |  5 +-
+ src/login/logind-inhibit.c                         |  6 +-
+ src/login/logind-seat.c                            |  3 +-
+ src/login/logind-session.c                         |  6 +-
+ src/login/logind.c                                 | 23 ++----
+ src/login/pam-module.c                             |  3 +-
+ src/login/sd-login.c                               |  8 +--
+ src/login/test-inhibit.c                           |  4 +-
+ src/machine/machined.c                             |  7 +-
+ src/nspawn/nspawn.c                                | 27 ++++---
+ src/readahead/readahead-collect.c                  | 22 ++----
+ src/readahead/readahead-common.c                   |  2 +-
+ src/readahead/readahead-replay.c                   | 18 ++---
+ src/reply-password/reply-password.c                |  6 +-
+ src/shared/ask-password-api.c                      | 17 ++---
+ src/shared/dbus-loop.c                             | 12 ++--
+ src/shared/fdset.c                                 |  2 +-
+ src/shared/hwclock.c                               |  4 +-
+ src/shared/install.c                               | 12 ++--
+ src/shared/log.c                                   | 25 ++-----
+ src/shared/socket-label.c                          |  2 +-
+ src/shared/spawn-polkit-agent.c                    |  4 +-
+ src/shared/util.c                                  | 84 +++++++++++-----------
+ src/shared/util.h                                  |  6 +-
+ src/shared/watchdog.c                              |  3 +-
+ src/shutdownd/shutdownd.c                          |  3 +-
+ src/test/test-util.c                               |  2 +-
+ src/tmpfiles/tmpfiles.c                            |  6 +-
+ .../tty-ask-password-agent.c                       | 25 +++----
+ src/vconsole/vconsole-setup.c                      |  3 +-
+ 76 files changed, 297 insertions(+), 483 deletions(-)
+
+diff --git a/src/core/audit-fd.c b/src/core/audit-fd.c
+index 5955bd8..4326d17 100644
+--- a/src/core/audit-fd.c
++++ b/src/core/audit-fd.c
+@@ -55,7 +55,7 @@ int get_audit_fd(void) {
+ void close_audit_fd(void) {
+ 
+         if (initialized && audit_fd >= 0)
+-                close_nointr_nofail(audit_fd);
++                safe_close(audit_fd);
+ 
+         initialized = true;
+         audit_fd = -ECONNRESET;
+diff --git a/src/core/automount.c b/src/core/automount.c
+index 203104e..4c753de 100644
+--- a/src/core/automount.c
++++ b/src/core/automount.c
+@@ -92,8 +92,7 @@ static void unmount_autofs(Automount *a) {
+         automount_send_ready(a, -EHOSTDOWN);
+ 
+         unit_unwatch_fd(UNIT(a), &a->pipe_watch);
+-        close_nointr_nofail(a->pipe_fd);
+-        a->pipe_fd = -1;
++        a->pipe_fd = safe_close(a->pipe_fd);
+ 
+         /* If we reload/reexecute things we keep the mount point
+          * around */
+@@ -311,8 +310,7 @@ static int open_dev_autofs(Manager *m) {
+ 
+         init_autofs_dev_ioctl(&param);
+         if (ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param) < 0) {
+-                close_nointr_nofail(m->dev_autofs_fd);
+-                m->dev_autofs_fd = -1;
++                m->dev_autofs_fd = safe_close(m->dev_autofs_fd);
+                 return -errno;
+         }
+ 
+@@ -412,8 +410,9 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
+ }
+ 
+ int automount_send_ready(Automount *a, int status) {
+-        int ioctl_fd, r;
++        _cleanup_close_ int ioctl_fd = -1;
+         unsigned token;
++        int r;
+ 
+         assert(a);
+         assert(status <= 0);
+@@ -422,10 +421,8 @@ int automount_send_ready(Automount *a, int status) {
+                 return 0;
+ 
+         ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
+-        if (ioctl_fd < 0) {
+-                r = ioctl_fd;
+-                goto fail;
+-        }
++        if (ioctl_fd < 0)
++                return ioctl_fd;
+ 
+         if (status)
+                 log_debug_unit(UNIT(a)->id, "Sending failure: %s", strerror(-status));
+@@ -451,18 +448,15 @@ int automount_send_ready(Automount *a, int status) {
+                         r = k;
+         }
+ 
+-fail:
+-        if (ioctl_fd >= 0)
+-                close_nointr_nofail(ioctl_fd);
+-
+         return r;
+ }
+ 
+ static void automount_enter_waiting(Automount *a) {
++        _cleanup_close_ int ioctl_fd = -1;
+         int p[2] = { -1, -1 };
+         char name[32], options[128];
+         bool mounted = false;
+-        int r, ioctl_fd = -1, dev_autofs_fd;
++        int r, dev_autofs_fd;
+         struct stat st;
+ 
+         assert(a);
+@@ -501,8 +495,7 @@ static void automount_enter_waiting(Automount *a) {
+ 
+         mounted = true;
+ 
+-        close_nointr_nofail(p[1]);
+-        p[1] = -1;
++        p[1] = safe_close(p[1]);
+ 
+         if (stat(a->where, &st) < 0) {
+                 r = -errno;
+@@ -529,8 +522,7 @@ static void automount_enter_waiting(Automount *a) {
+          * the direct mount will not receive events from the
+          * kernel. */
+ 
+-        close_nointr_nofail(ioctl_fd);
+-        ioctl_fd = -1;
++        ioctl_fd = safe_close(ioctl_fd);
+ 
+         r = unit_watch_fd(UNIT(a), p[0], EPOLLIN, &a->pipe_watch);
+         if (r < 0)
+@@ -544,10 +536,7 @@ static void automount_enter_waiting(Automount *a) {
+         return;
+ 
+ fail:
+-        assert_se(close_pipe(p) == 0);
+-
+-        if (ioctl_fd >= 0)
+-                close_nointr_nofail(ioctl_fd);
++        close_pipe(p);
+ 
+         if (mounted)
+                 repeat_unmount(a->where);
+@@ -716,9 +705,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
+                 if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                         log_debug_unit(u->id, "Failed to parse pipe-fd value %s", value);
+                 else {
+-                        if (a->pipe_fd >= 0)
+-                                close_nointr_nofail(a->pipe_fd);
+-
++                        safe_close(a->pipe_fd);
+                         a->pipe_fd = fdset_remove(fds, fd);
+                 }
+         } else
+@@ -811,8 +798,7 @@ fail:
+ static void automount_shutdown(Manager *m) {
+         assert(m);
+ 
+-        if (m->dev_autofs_fd >= 0)
+-                close_nointr_nofail(m->dev_autofs_fd);
++        m->dev_autofs_fd = safe_close(m->dev_autofs_fd);
+ }
+ 
+ static void automount_reset_failed(Unit *u) {
+diff --git a/src/core/cgroup.c b/src/core/cgroup.c
+index c215a86..9e46304 100644
+--- a/src/core/cgroup.c
++++ b/src/core/cgroup.c
+@@ -657,8 +657,7 @@ int manager_setup_cgroup(Manager *m) {
+         }
+ 
+         /* 5. And pin it, so that it cannot be unmounted */
+-        if (m->pin_cgroupfs_fd >= 0)
+-                close_nointr_nofail(m->pin_cgroupfs_fd);
++        safe_close(m->pin_cgroupfs_fd);
+ 
+         m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
+         if (m->pin_cgroupfs_fd < 0) {
+@@ -683,10 +682,7 @@ void manager_shutdown_cgroup(Manager *m, bool delete) {
+         if (delete && m->cgroup_root)
+                 cg_trim(SYSTEMD_CGROUP_CONTROLLER, m->cgroup_root, false);
+ 
+-        if (m->pin_cgroupfs_fd >= 0) {
+-                close_nointr_nofail(m->pin_cgroupfs_fd);
+-                m->pin_cgroupfs_fd = -1;
+-        }
++        m->pin_cgroupfs_fd = safe_close(m->pin_cgroupfs_fd);
+ 
+         free(m->cgroup_root);
+         m->cgroup_root = NULL;
+diff --git a/src/core/dbus.c b/src/core/dbus.c
+index aa3d93b..b616a24 100644
+--- a/src/core/dbus.c
++++ b/src/core/dbus.c
+@@ -147,7 +147,7 @@ static dbus_bool_t bus_add_watch(DBusWatch *bus_watch, void *data) {
+                 }
+ 
+                 if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, w->fd, &ev) < 0) {
+-                        close_nointr_nofail(w->fd);
++                        safe_close(w->fd);
+                         free(w);
+                         return FALSE;
+                 }
+@@ -174,8 +174,7 @@ static void bus_remove_watch(DBusWatch *bus_watch, void *data) {
+         assert(w->type == WATCH_DBUS_WATCH);
+         assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
+ 
+-        if (w->fd_is_dupped)
+-                close_nointr_nofail(w->fd);
++        safe_close(w->fd);
+ 
+         free(w);
+ }
+@@ -263,8 +262,7 @@ static dbus_bool_t bus_add_timeout(DBusTimeout *timeout, void *data) {
+         return TRUE;
+ 
+ fail:
+-        if (w->fd >= 0)
+-                close_nointr_nofail(w->fd);
++        safe_close(w->fd);
+ 
+         free(w);
+         return FALSE;
+@@ -284,7 +282,7 @@ static void bus_remove_timeout(DBusTimeout *timeout, void *data) {
+         assert(w->type == WATCH_DBUS_TIMEOUT);
+ 
+         assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
+-        close_nointr_nofail(w->fd);
++        safe_close(w->fd);
+         free(w);
+ }
+ 
+diff --git a/src/core/execute.c b/src/core/execute.c
+index ee445d7..add66ce 100644
+--- a/src/core/execute.c
++++ b/src/core/execute.c
+@@ -103,7 +103,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
+                         if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
+                                 return -errno;
+ 
+-                        close_nointr_nofail(fds[i]);
++                        safe_close(fds[i]);
+                         fds[i] = nfd;
+ 
+                         /* Hmm, the fd we wanted isn't free? Then
+@@ -200,7 +200,7 @@ static int open_null_as(int flags, int nfd) {
+ 
+         if (fd != nfd) {
+                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+         } else
+                 r = nfd;
+ 
+@@ -225,12 +225,12 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
+ 
+         r = connect(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+         if (r < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+         if (shutdown(fd, SHUT_RD) < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -254,7 +254,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
+ 
+         if (fd != nfd) {
+                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+         } else
+                 r = nfd;
+ 
+@@ -271,7 +271,7 @@ static int open_terminal_as(const char *path, mode_t mode, int nfd) {
+ 
+         if (fd != nfd) {
+                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+         } else
+                 r = nfd;
+ 
+@@ -331,7 +331,7 @@ static int setup_input(const ExecContext *context, int socket_fd, bool apply_tty
+ 
+                 if (fd != STDIN_FILENO) {
+                         r = dup2(fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                 } else
+                         r = STDIN_FILENO;
+ 
+@@ -495,7 +495,7 @@ static int setup_confirm_stdio(int *_saved_stdin,
+         }
+ 
+         if (fd >= 2)
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+         *_saved_stdin = saved_stdin;
+         *_saved_stdout = saved_stdout;
+@@ -503,20 +503,15 @@ static int setup_confirm_stdio(int *_saved_stdin,
+         return 0;
+ 
+ fail:
+-        if (saved_stdout >= 0)
+-                close_nointr_nofail(saved_stdout);
+-
+-        if (saved_stdin >= 0)
+-                close_nointr_nofail(saved_stdin);
+-
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(saved_stdout);
++        safe_close(saved_stdin);
++        safe_close(fd);
+ 
+         return r;
+ }
+ 
+ _printf_attr_(1, 2) static int write_confirm_message(const char *format, ...) {
+-        int fd;
++        _cleanup_close_ int fd = -1;
+         va_list ap;
+ 
+         assert(format);
+@@ -529,8 +524,6 @@ _printf_attr_(1, 2) static int write_confirm_message(const char *format, ...) {
+         vdprintf(fd, format, ap);
+         va_end(ap);
+ 
+-        close_nointr_nofail(fd);
+-
+         return 0;
+ }
+ 
+@@ -552,11 +545,8 @@ static int restore_confirm_stdio(int *saved_stdin,
+                 if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
+                         r = -errno;
+ 
+-        if (*saved_stdin >= 0)
+-                close_nointr_nofail(*saved_stdin);
+-
+-        if (*saved_stdout >= 0)
+-                close_nointr_nofail(*saved_stdout);
++        safe_close(*saved_stdin);
++        safe_close(*saved_stdout);
+ 
+         return r;
+ }
+@@ -1002,10 +992,9 @@ static int apply_seccomp(uint32_t *syscall_filter) {
+ static void do_idle_pipe_dance(int idle_pipe[4]) {
+         assert(idle_pipe);
+ 
+-        if (idle_pipe[1] >= 0)
+-                close_nointr_nofail(idle_pipe[1]);
+-        if (idle_pipe[2] >= 0)
+-                close_nointr_nofail(idle_pipe[2]);
++
++        safe_close(idle_pipe[1]);
++        safe_close(idle_pipe[2]);
+ 
+         if (idle_pipe[0] >= 0) {
+                 int r;
+@@ -1020,12 +1009,11 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
+                         fd_wait_for_event(idle_pipe[0], POLLHUP, IDLE_TIMEOUT2_USEC);
+                 }
+ 
+-                close_nointr_nofail(idle_pipe[0]);
++                safe_close(idle_pipe[0]);
+ 
+         }
+ 
+-        if (idle_pipe[3] >= 0)
+-                close_nointr_nofail(idle_pipe[3]);
++        safe_close(idle_pipe[3]);
+ }
+ 
+ int exec_spawn(ExecCommand *command,
+diff --git a/src/core/ima-setup.c b/src/core/ima-setup.c
+index 7f8ec23..ed65096 100644
+--- a/src/core/ima-setup.c
++++ b/src/core/ima-setup.c
+@@ -47,7 +47,7 @@ int ima_setup(void) {
+        struct stat st;
+        ssize_t policy_size = 0, written = 0;
+        char *policy;
+-       int policyfd = -1, imafd = -1;
++       _cleanup_close_ int policyfd = -1, imafd = -1;
+        int result = 0;
+ 
+        if (stat(IMA_POLICY_PATH, &st) < 0)
+@@ -98,10 +98,6 @@ int ima_setup(void) {
+ out_mmap:
+        munmap(policy, policy_size);
+ out:
+-       if (policyfd >= 0)
+-                close_nointr_nofail(policyfd);
+-       if (imafd >= 0)
+-                close_nointr_nofail(imafd);
+        if (result)
+                 return result;
+ #endif /* HAVE_IMA */
+diff --git a/src/core/job.c b/src/core/job.c
+index c6bf08f..916e191 100644
+--- a/src/core/job.c
++++ b/src/core/job.c
+@@ -110,7 +110,7 @@ void job_free(Job *j) {
+                 assert(j->timer_watch.fd >= 0);
+ 
+                 assert_se(epoll_ctl(j->manager->epoll_fd, EPOLL_CTL_DEL, j->timer_watch.fd, NULL) >= 0);
+-                close_nointr_nofail(j->timer_watch.fd);
++                safe_close(j->timer_watch.fd);
+         }
+ 
+         while ((cl = j->bus_client_list)) {
+@@ -899,8 +899,7 @@ int job_start_timer(Job *j) {
+         return 0;
+ 
+ fail:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -1054,7 +1053,7 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
+                                 log_debug("Failed to parse job-timer-watch-fd value %s", v);
+                         else {
+                                 if (j->timer_watch.type == WATCH_JOB_TIMER)
+-                                        close_nointr_nofail(j->timer_watch.fd);
++                                        safe_close(j->timer_watch.fd);
+ 
+                                 j->timer_watch.type = WATCH_JOB_TIMER;
+                                 j->timer_watch.fd = fdset_remove(fds, fd);
+diff --git a/src/core/load-fragment.c b/src/core/load-fragment.c
+index d6ac4f6..45b36b9 100644
+--- a/src/core/load-fragment.c
++++ b/src/core/load-fragment.c
+@@ -2373,7 +2373,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
+         f = fdopen(fd, "re");
+         if (!f) {
+                 r = -errno;
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return r;
+         }
+ 
+diff --git a/src/core/machine-id-setup.c b/src/core/machine-id-setup.c
+index dcd1630..86fa0b4 100644
+--- a/src/core/machine-id-setup.c
++++ b/src/core/machine-id-setup.c
+@@ -73,7 +73,7 @@ static int generate(char id[34]) {
+         fd = open("/var/lib/dbus/machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+         if (fd >= 0) {
+                 k = loop_read(fd, id, 33, false);
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+                 if (k == 33 && id[32] == '\n') {
+ 
+@@ -118,7 +118,7 @@ static int generate(char id[34]) {
+                         fd = open("/sys/class/dmi/id/product_uuid", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                         if (fd >= 0) {
+                                 k = loop_read(fd, uuid, 36, false);
+-                                close_nointr_nofail(fd);
++                                safe_close(fd);
+ 
+                                 if (k >= 36) {
+                                         r = shorten_uuid(id, uuid);
+@@ -205,8 +205,7 @@ int machine_id_setup(void) {
+                         return 0;
+         }
+ 
+-        close_nointr_nofail(fd);
+-        fd = -1;
++        fd = safe_close(fd);
+ 
+         /* Hmm, we couldn't write it? So let's write it to
+          * /run/machine-id as a replacement */
+diff --git a/src/core/main.c b/src/core/main.c
+index 1ac1ba7..2a294c6 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -235,7 +235,7 @@ static int console_setup(bool do_reset) {
+         if (r < 0)
+                 log_error("Failed to reset /dev/console: %s", strerror(-r));
+ 
+-        close_nointr_nofail(tty_fd);
++        safe_close(tty_fd);
+         return r;
+ }
+ 
+diff --git a/src/core/manager.c b/src/core/manager.c
+index 1baa863..1e7dc38 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -192,8 +192,7 @@ static int manager_watch_jobs_in_progress(Manager *m) {
+         return 0;
+ 
+ err:
+-        if (m->jobs_in_progress_watch.fd >= 0)
+-                close_nointr_nofail(m->jobs_in_progress_watch.fd);
++        safe_close(m->jobs_in_progress_watch.fd);
+         watch_init(&m->jobs_in_progress_watch);
+         return r;
+ }
+@@ -203,7 +202,7 @@ static void manager_unwatch_jobs_in_progress(Manager *m) {
+                 return;
+ 
+         assert_se(epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->jobs_in_progress_watch.fd, NULL) >= 0);
+-        close_nointr_nofail(m->jobs_in_progress_watch.fd);
++        safe_close(m->jobs_in_progress_watch.fd);
+         watch_init(&m->jobs_in_progress_watch);
+         m->jobs_in_progress_iteration = 0;
+ 
+@@ -306,8 +305,7 @@ static int manager_watch_idle_pipe(Manager *m) {
+         return 0;
+ 
+ err:
+-        if (m->idle_pipe_watch.fd >= 0)
+-                close_nointr_nofail(m->idle_pipe_watch.fd);
++        safe_close(m->idle_pipe_watch.fd);
+         watch_init(&m->idle_pipe_watch);
+         return r;
+ }
+@@ -349,7 +347,7 @@ static int manager_setup_time_change(Manager *m) {
+ 
+         if (timerfd_settime(m->time_change_watch.fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
+                 log_debug("Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
+-                close_nointr_nofail(m->time_change_watch.fd);
++                m->time_change_watch.fd = safe_close(m->time_change_watch.fd);
+                 watch_init(&m->time_change_watch);
+                 return 0;
+         }
+@@ -385,7 +383,7 @@ static int enable_special_signals(Manager *m) {
+                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
+                         log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
+ 
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+         }
+ 
+         return 0;
+@@ -747,16 +745,11 @@ void manager_free(Manager *m) {
+         hashmap_free(m->watch_pids2);
+         hashmap_free(m->watch_bus);
+ 
+-        if (m->epoll_fd >= 0)
+-                close_nointr_nofail(m->epoll_fd);
+-        if (m->signal_watch.fd >= 0)
+-                close_nointr_nofail(m->signal_watch.fd);
+-        if (m->notify_watch.fd >= 0)
+-                close_nointr_nofail(m->notify_watch.fd);
+-        if (m->time_change_watch.fd >= 0)
+-                close_nointr_nofail(m->time_change_watch.fd);
+-        if (m->jobs_in_progress_watch.fd >= 0)
+-                close_nointr_nofail(m->jobs_in_progress_watch.fd);
++        safe_close(m->epoll_fd);
++        safe_close(m->signal_watch.fd);
++        safe_close(m->notify_watch.fd);
++        safe_close(m->time_change_watch.fd);
++        safe_close(m->jobs_in_progress_watch.fd);
+ 
+         free(m->notify_socket);
+ 
+@@ -1770,7 +1763,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
+                 /* Restart the watch */
+                 epoll_ctl(m->epoll_fd, EPOLL_CTL_DEL, m->time_change_watch.fd,
+                           NULL);
+-                close_nointr_nofail(m->time_change_watch.fd);
++                safe_close(m->time_change_watch.fd);
+                 watch_init(&m->time_change_watch);
+                 manager_setup_time_change(m);
+ 
+@@ -2050,8 +2043,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
+         }
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         free(message);
+ }
+diff --git a/src/core/path.c b/src/core/path.c
+index 99e2fed..5e4f6d5 100644
+--- a/src/core/path.c
++++ b/src/core/path.c
+@@ -150,9 +150,7 @@ void path_spec_unwatch(PathSpec *s, Unit *u) {
+                 return;
+ 
+         unit_unwatch_fd(u, &s->watch);
+-
+-        close_nointr_nofail(s->inotify_fd);
+-        s->inotify_fd = -1;
++        s->inotify_fd = safe_close(s->inotify_fd);
+ }
+ 
+ int path_spec_fd_event(PathSpec *s, uint32_t events) {
+diff --git a/src/core/service.c b/src/core/service.c
+index 3bda9a3..f0df5fe 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -222,8 +222,7 @@ static void service_close_socket_fd(Service *s) {
+         if (s->socket_fd < 0)
+                 return;
+ 
+-        close_nointr_nofail(s->socket_fd);
+-        s->socket_fd = -1;
++        s->socket_fd = safe_close(s->socket_fd);
+ }
+ 
+ static void service_connection_unref(Service *s) {
+@@ -2794,8 +2793,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
+                         log_debug_unit(u->id, "Failed to parse socket-fd value %s", value);
+                 else {
+ 
+-                        if (s->socket_fd >= 0)
+-                                close_nointr_nofail(s->socket_fd);
++                        safe_close(s->socket_fd);
+                         s->socket_fd = fdset_remove(fds, fd);
+                 }
+         } else if (streq(key, "main-exec-status-pid")) {
+diff --git a/src/core/smack-setup.c b/src/core/smack-setup.c
+index 1434dea..8838d31 100644
+--- a/src/core/smack-setup.c
++++ b/src/core/smack-setup.c
+@@ -86,7 +86,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
+                 if (!policy) {
+                         if (r == 0)
+                                 r = -errno;
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         log_error("Failed to open %s: %m", entry->d_name);
+                         continue;
+                 }
+diff --git a/src/core/socket.c b/src/core/socket.c
+index e673f38..842850f 100644
+--- a/src/core/socket.c
++++ b/src/core/socket.c
+@@ -113,7 +113,7 @@ void socket_free_ports(Socket *s) {
+ 
+                 if (p->fd >= 0) {
+                         unit_unwatch_fd(UNIT(s), &p->fd_watch);
+-                        close_nointr_nofail(p->fd);
++                        safe_close(p->fd);
+                 }
+ 
+                 free(p->path);
+@@ -676,7 +676,7 @@ static void socket_close_fds(Socket *s) {
+                         continue;
+ 
+                 unit_unwatch_fd(UNIT(s), &p->fd_watch);
+-                close_nointr_nofail(p->fd);
++                p->fd = safe_close(p->fd);
+ 
+                 /* One little note: we should never delete any sockets
+                  * in the file system here! After all some other
+@@ -685,8 +685,6 @@ static void socket_close_fds(Socket *s) {
+                  * we delete sockets in the file system before we
+                  * create a new one, not after we stopped using
+                  * one! */
+-
+-                p->fd = -1;
+         }
+ }
+ 
+@@ -863,9 +861,7 @@ static int fifo_address_create(
+ 
+ fail:
+         label_context_clear();
+-
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -900,8 +896,7 @@ static int special_address_create(
+         return 0;
+ 
+ fail:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -960,9 +955,7 @@ static int mq_address_create(
+         return 0;
+ 
+ fail:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
+-
++        safe_close(fd);
+         return r;
+ }
+ 
+@@ -1438,7 +1431,7 @@ static void socket_enter_running(Socket *s, int cfd) {
+                                UNIT(s)->id);
+ 
+                 if (cfd >= 0)
+-                        close_nointr_nofail(cfd);
++                        safe_close(cfd);
+                 else  {
+                         /* Flush all sockets by closing and reopening them */
+                         socket_close_fds(s);
+@@ -1483,7 +1476,7 @@ static void socket_enter_running(Socket *s, int cfd) {
+                         log_warning_unit(UNIT(s)->id,
+                                          "%s: Too many incoming connections (%u)",
+                                          UNIT(s)->id, s->n_connections);
+-                        close_nointr_nofail(cfd);
++                        safe_close(cfd);
+                         return;
+                 }
+ 
+@@ -1498,7 +1491,7 @@ static void socket_enter_running(Socket *s, int cfd) {
+ 
+                         /* ENOTCONN is legitimate if TCP RST was received.
+                          * This connection is over, but the socket unit lives on. */
+-                        close_nointr_nofail(cfd);
++                        safe_close(cfd);
+                         return;
+                 }
+ 
+@@ -1558,8 +1551,7 @@ fail:
+                          bus_error(&error, r));
+         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+ 
+-        if (cfd >= 0)
+-                close_nointr_nofail(cfd);
++        safe_close(cfd);
+ 
+         dbus_error_free(&error);
+ }
+@@ -1804,8 +1796,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value,
+                                         break;
+ 
+                         if (p) {
+-                                if (p->fd >= 0)
+-                                        close_nointr_nofail(p->fd);
++                                safe_close(p->fd);
+                                 p->fd = fdset_remove(fds, fd);
+                         }
+                 }
+@@ -1825,8 +1816,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value,
+                                         break;
+ 
+                         if (p) {
+-                                if (p->fd >= 0)
+-                                        close_nointr_nofail(p->fd);
++                                safe_close(p->fd);
+                                 p->fd = fdset_remove(fds, fd);
+                         }
+                 }
+@@ -1846,8 +1836,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value,
+                                         break;
+ 
+                         if (p) {
+-                                if (p->fd >= 0)
+-                                        close_nointr_nofail(p->fd);
++                                safe_close(p->fd);
+                                 p->fd = fdset_remove(fds, fd);
+                         }
+                 }
+@@ -1866,8 +1855,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value,
+                                         break;
+ 
+                         if (p) {
+-                                if (p->fd >= 0)
+-                                        close_nointr_nofail(p->fd);
++                                safe_close(p->fd);
+                                 p->fd = fdset_remove(fds, fd);
+                         }
+                 }
+@@ -1886,8 +1874,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value,
+                                         break;
+ 
+                         if (p) {
+-                                if (p->fd >= 0)
+-                                        close_nointr_nofail(p->fd);
++                                safe_close(p->fd);
+                                 p->fd = fdset_remove(fds, fd);
+                         }
+                 }
+diff --git a/src/core/switch-root.c b/src/core/switch-root.c
+index ce0e41d..518ec1f 100644
+--- a/src/core/switch-root.c
++++ b/src/core/switch-root.c
+@@ -41,11 +41,10 @@ int switch_root(const char *new_root) {
+                 "/sys\0"
+                 "/run\0";
+ 
+-        int r, old_root_fd = -1;
++        _cleanup_close_ int old_root_fd = -1;
+         struct stat new_root_stat;
+         bool old_root_remove;
+-        const char *i;
+-        _cleanup_free_ char *temporary_old_root = NULL;
++        const char *i, *temporary_old_root;
+ 
+         if (path_equal(new_root, "/"))
+                 return 0;
+@@ -56,16 +55,13 @@ int switch_root(const char *new_root) {
+          * directory we choose for this, but it should be more likely
+          * than not that /mnt exists and is suitable as mount point
+          * and is on the same fs as the old root dir */
+-        temporary_old_root = strappend(new_root, "/mnt");
+-        if (!temporary_old_root)
+-                return -ENOMEM;
++        temporary_old_root = strappenda(new_root, "/mnt");
+ 
+         old_root_remove = in_initrd();
+ 
+         if (stat(new_root, &new_root_stat) < 0) {
+-                r = -errno;
+                 log_error("Failed to stat directory %s: %m", new_root);
+-                goto fail;
++                return -errno;
+         }
+ 
+         /* Work-around for a kernel bug: for some reason the kernel
+@@ -104,9 +100,8 @@ int switch_root(const char *new_root) {
+         }
+ 
+         if (chdir(new_root) < 0) {
+-                r = -errno;
+                 log_error("Failed to change directory to %s: %m", new_root);
+-                goto fail;
++                return -errno;
+         }
+ 
+         if (old_root_remove) {
+@@ -123,27 +118,23 @@ int switch_root(const char *new_root) {
+                 /* Immediately get rid of the old root. Since we are
+                  * running off it we need to do this lazily. */
+                 if (umount2(temporary_old_root, MNT_DETACH) < 0) {
+-                        r = -errno;
+                         log_error("Failed to umount old root dir %s: %m", temporary_old_root);
+-                        goto fail;
++                        return -errno;
+                 }
+ 
+         } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0) {
+-                r = -errno;
+                 log_error("Failed to mount moving %s to /: %m", new_root);
+-                goto fail;
++                return -errno;
+         }
+ 
+         if (chroot(".") < 0) {
+-                r = -errno;
+                 log_error("Failed to change root: %m");
+-                goto fail;
++                return -errno;
+         }
+ 
+         if (chdir("/") < 0) {
+-                r = -errno;
+                 log_error("Failed to change directory: %m");
+-                goto fail;
++                return -errno;
+         }
+ 
+         if (old_root_fd >= 0) {
+@@ -157,11 +148,5 @@ int switch_root(const char *new_root) {
+                 }
+         }
+ 
+-        r = 0;
+-
+-fail:
+-        if (old_root_fd >= 0)
+-                close_nointr_nofail(old_root_fd);
+-
+-        return r;
++        return 0;
+ }
+diff --git a/src/core/umount.c b/src/core/umount.c
+index fbd7e1c..57a97e1 100644
+--- a/src/core/umount.c
++++ b/src/core/umount.c
+@@ -315,14 +315,14 @@ static int dm_list_get(MountPoint **head) {
+ }
+ 
+ static int delete_loopback(const char *device) {
+-        int fd, r;
++        _cleanup_close_ int fd = -1;
++        int r;
+ 
+-        if ((fd = open(device, O_RDONLY|O_CLOEXEC)) < 0)
++        fd = open(device, O_RDONLY|O_CLOEXEC);
++        if (fd < 0)
+                 return errno == ENOENT ? 0 : -errno;
+ 
+         r = ioctl(fd, LOOP_CLR_FD, 0);
+-        close_nointr_nofail(fd);
+-
+         if (r >= 0)
+                 return 1;
+ 
+diff --git a/src/core/unit.c b/src/core/unit.c
+index 9a7720d..c05926a 100644
+--- a/src/core/unit.c
++++ b/src/core/unit.c
+@@ -1851,7 +1851,7 @@ int unit_watch_timer(Unit *u, clockid_t clock_id, bool relative, usec_t usec, Wa
+ 
+ fail:
+         if (ours)
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+         return -errno;
+ }
+@@ -1868,7 +1868,7 @@ void unit_unwatch_timer(Unit *u, Watch *w) {
+         assert(w->fd >= 0);
+ 
+         assert_se(epoll_ctl(u->manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
+-        close_nointr_nofail(w->fd);
++        safe_close(w->fd);
+ 
+         w->fd = -1;
+         w->type = WATCH_INVALID;
+diff --git a/src/fsck/fsck.c b/src/fsck/fsck.c
+index 1189fe7..1ae104a 100644
+--- a/src/fsck/fsck.c
++++ b/src/fsck/fsck.c
+@@ -183,7 +183,7 @@ static int process_progress(int fd) {
+ 
+         f = fdopen(fd, "r");
+         if (!f) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -370,15 +370,12 @@ int main(int argc, char *argv[]) {
+         } else if (pid == 0) {
+                 /* Child */
+                 if (progress_pipe[0] >= 0)
+-                        close_nointr_nofail(progress_pipe[0]);
++                        safe_close(progress_pipe[0]);
+                 execv(cmdline[0], (char**) cmdline);
+                 _exit(8); /* Operational error */
+         }
+ 
+-        if (progress_pipe[1] >= 0) {
+-                close_nointr_nofail(progress_pipe[1]);
+-                progress_pipe[1] = -1;
+-        }
++        progress_pipe[1] = safe_close(progress_pipe[1]);
+ 
+         if (progress_pipe[0] >= 0) {
+                 process_progress(progress_pipe[0]);
+diff --git a/src/initctl/initctl.c b/src/initctl/initctl.c
+index ec33040..03a379a 100644
+--- a/src/initctl/initctl.c
++++ b/src/initctl/initctl.c
+@@ -258,7 +258,7 @@ static void fifo_free(Fifo *f) {
+                 if (f->server)
+                         epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
+ 
+-                close_nointr_nofail(f->fd);
++                safe_close(f->fd);
+         }
+ 
+         free(f);
+@@ -270,8 +270,7 @@ static void server_done(Server *s) {
+         while (s->fifos)
+                 fifo_free(s->fifos);
+ 
+-        if (s->epoll_fd >= 0)
+-                close_nointr_nofail(s->epoll_fd);
++        safe_close(s->epoll_fd);
+ 
+         if (s->bus) {
+                 dbus_connection_flush(s->bus);
+diff --git a/src/journal/cat.c b/src/journal/cat.c
+index ea61578..b4b1332 100644
+--- a/src/journal/cat.c
++++ b/src/journal/cat.c
+@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
+         }
+ 
+         if (fd >= 3)
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+         fd = -1;
+ 
+@@ -169,11 +169,8 @@ int main(int argc, char *argv[]) {
+         log_error("Failed to execute process: %s", strerror(-r));
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
+-
+-        if (saved_stderr >= 0)
+-                close_nointr_nofail(saved_stderr);
++        safe_close(fd);
++        safe_close(saved_stderr);
+ 
+         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+ }
+diff --git a/src/journal/catalog.c b/src/journal/catalog.c
+index e5342be..7f748b3 100644
+--- a/src/journal/catalog.c
++++ b/src/journal/catalog.c
+@@ -435,18 +435,18 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
+                 return -errno;
+ 
+         if (fstat(fd, &st) < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+         if (st.st_size < (off_t) sizeof(CatalogHeader)) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -EINVAL;
+         }
+ 
+         p = mmap(NULL, PAGE_ALIGN(st.st_size), PROT_READ, MAP_SHARED, fd, 0);
+         if (p == MAP_FAILED) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -457,7 +457,7 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
+             h->incompatible_flags != 0 ||
+             le64toh(h->n_items) <= 0 ||
+             st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 munmap(p, st.st_size);
+                 return -EBADMSG;
+         }
+diff --git a/src/journal/coredumpctl.c b/src/journal/coredumpctl.c
+index a5997e2..f384286 100644
+--- a/src/journal/coredumpctl.c
++++ b/src/journal/coredumpctl.c
+@@ -491,8 +491,7 @@ static int run_gdb(sd_journal *j) {
+                 goto finish;
+         }
+ 
+-        close_nointr_nofail(fd);
+-        fd = -1;
++        fd = safe_close(fd);
+ 
+         pid = fork();
+         if (pid < 0) {
+diff --git a/src/journal/journal-authenticate.c b/src/journal/journal-authenticate.c
+index f416b79..5ab1982 100644
+--- a/src/journal/journal-authenticate.c
++++ b/src/journal/journal-authenticate.c
+@@ -418,10 +418,9 @@ finish:
+         if (m)
+                 munmap(m, PAGE_ALIGN(sizeof(FSSHeader)));
+ 
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
+-
++        safe_close(fd);
+         free(p);
++
+         return r;
+ }
+ 
+diff --git a/src/journal/journal-file.c b/src/journal/journal-file.c
+index 57ded0a..2d2d289 100644
+--- a/src/journal/journal-file.c
++++ b/src/journal/journal-file.c
+@@ -133,9 +133,7 @@ void journal_file_close(JournalFile *f) {
+         if (f->header)
+                 munmap(f->header, PAGE_ALIGN(sizeof(Header)));
+ 
+-        if (f->fd >= 0)
+-                close_nointr_nofail(f->fd);
+-
++        safe_close(f->fd);
+         free(f->path);
+ 
+         if (f->mmap)
+diff --git a/src/journal/journal-send.c b/src/journal/journal-send.c
+index d99ff0c..d40eaba 100644
+--- a/src/journal/journal-send.c
++++ b/src/journal/journal-send.c
+@@ -66,7 +66,7 @@ retry:
+         fd_inc_sndbuf(fd, SNDBUF_SIZE);
+ 
+         if (!__sync_bool_compare_and_swap(&fd_plus_one, 0, fd+1)) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 goto retry;
+         }
+ 
+@@ -321,13 +321,13 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
+                 return -errno;
+ 
+         if (unlink(path) < 0) {
+-                close_nointr_nofail(buffer_fd);
++                safe_close(buffer_fd);
+                 return -errno;
+         }
+ 
+         n = writev(buffer_fd, w, j);
+         if (n < 0) {
+-                close_nointr_nofail(buffer_fd);
++                safe_close(buffer_fd);
+                 return -errno;
+         }
+ 
+@@ -347,7 +347,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
+         mh.msg_controllen = cmsg->cmsg_len;
+ 
+         k = sendmsg(fd, &mh, MSG_NOSIGNAL);
+-        close_nointr_nofail(buffer_fd);
++        safe_close(buffer_fd);
+ 
+         if (k < 0)
+                 return -errno;
+@@ -423,12 +423,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
+ 
+         r = connect(fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
+         if (r < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+         if (shutdown(fd, SHUT_RD) < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -456,12 +456,12 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
+ 
+         r = loop_write(fd, header, l, false);
+         if (r < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return (int) r;
+         }
+ 
+         if ((size_t) r != l) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+diff --git a/src/journal/journal-verify.c b/src/journal/journal-verify.c
+index f2422ff..55ec6fd 100644
+--- a/src/journal/journal-verify.c
++++ b/src/journal/journal-verify.c
+@@ -1228,9 +1228,9 @@ int journal_file_verify(
+         mmap_cache_close_fd(f->mmap, entry_fd);
+         mmap_cache_close_fd(f->mmap, entry_array_fd);
+ 
+-        close_nointr_nofail(data_fd);
+-        close_nointr_nofail(entry_fd);
+-        close_nointr_nofail(entry_array_fd);
++        safe_close(data_fd);
++        safe_close(entry_fd);
++        safe_close(entry_array_fd);
+ 
+         if (first_contained)
+                 *first_contained = le64toh(f->header->head_entry_realtime);
+@@ -1253,17 +1253,17 @@ fail:
+ 
+         if (data_fd >= 0) {
+                 mmap_cache_close_fd(f->mmap, data_fd);
+-                close_nointr_nofail(data_fd);
++                safe_close(data_fd);
+         }
+ 
+         if (entry_fd >= 0) {
+                 mmap_cache_close_fd(f->mmap, entry_fd);
+-                close_nointr_nofail(entry_fd);
++                safe_close(entry_fd);
+         }
+ 
+         if (entry_array_fd >= 0) {
+                 mmap_cache_close_fd(f->mmap, entry_array_fd);
+-                close_nointr_nofail(entry_array_fd);
++                safe_close(entry_array_fd);
+         }
+ 
+         return r;
+diff --git a/src/journal/journalctl.c b/src/journal/journalctl.c
+index b991ae3..9886a2f 100644
+--- a/src/journal/journalctl.c
++++ b/src/journal/journalctl.c
+@@ -1141,7 +1141,7 @@ static int setup_keys(void) {
+         n = now(CLOCK_REALTIME);
+         n /= arg_interval;
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+         fd = mkostemp(k, O_WRONLY|O_CLOEXEC|O_NOCTTY);
+         if (fd < 0) {
+                 log_error("Failed to open %s: %m", k);
+@@ -1240,8 +1240,7 @@ static int setup_keys(void) {
+         r = 0;
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         if (k) {
+                 unlink(k);
+diff --git a/src/journal/journald-console.c b/src/journal/journald-console.c
+index 1ee3afe..7a566ae 100644
+--- a/src/journal/journald-console.c
++++ b/src/journal/journald-console.c
+@@ -107,7 +107,7 @@ void server_forward_console(
+         if (writev(fd, iovec, n) < 0)
+                 log_debug("Failed to write to %s for logging: %s", tty, strerror(errno));
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+ finish:
+         free(ident_buf);
+diff --git a/src/journal/journald-kmsg.c b/src/journal/journald-kmsg.c
+index 9895808..4c2f6e7 100644
+--- a/src/journal/journald-kmsg.c
++++ b/src/journal/journald-kmsg.c
+@@ -407,7 +407,7 @@ int server_open_dev_kmsg(Server *s) {
+ }
+ 
+ int server_open_kernel_seqnum(Server *s) {
+-        int fd;
++        _cleanup_close_ int fd;
+         uint64_t *p;
+ 
+         assert(s);
+@@ -424,18 +424,15 @@ int server_open_kernel_seqnum(Server *s) {
+ 
+         if (posix_fallocate(fd, 0, sizeof(uint64_t)) < 0) {
+                 log_error("Failed to allocate sequential number file, ignoring: %m");
+-                close_nointr_nofail(fd);
+                 return 0;
+         }
+ 
+         p = mmap(NULL, sizeof(uint64_t), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+         if (p == MAP_FAILED) {
+                 log_error("Failed to map sequential number file, ignoring: %m");
+-                close_nointr_nofail(fd);
+                 return 0;
+         }
+ 
+-        close_nointr_nofail(fd);
+         s->kernel_seqnum = p;
+ 
+         return 0;
+diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
+index cd2cfe9..0b31d10 100644
+--- a/src/journal/journald-server.c
++++ b/src/journal/journald-server.c
+@@ -1638,26 +1638,13 @@ void server_done(Server *s) {
+ 
+         hashmap_free(s->user_journals);
+ 
+-        if (s->epoll_fd >= 0)
+-                close_nointr_nofail(s->epoll_fd);
+-
+-        if (s->signal_fd >= 0)
+-                close_nointr_nofail(s->signal_fd);
+-
+-        if (s->syslog_fd >= 0)
+-                close_nointr_nofail(s->syslog_fd);
+-
+-        if (s->native_fd >= 0)
+-                close_nointr_nofail(s->native_fd);
+-
+-        if (s->stdout_fd >= 0)
+-                close_nointr_nofail(s->stdout_fd);
+-
+-        if (s->dev_kmsg_fd >= 0)
+-                close_nointr_nofail(s->dev_kmsg_fd);
+-
+-        if (s->sync_timer_fd >= 0)
+-                close_nointr_nofail(s->sync_timer_fd);
++        safe_close(s->epoll_fd);
++        safe_close(s->signal_fd);
++        safe_close(s->syslog_fd);
++        safe_close(s->native_fd);
++        safe_close(s->stdout_fd);
++        safe_close(s->dev_kmsg_fd);
++        safe_close(s->sync_timer_fd);
+ 
+         if (s->rate_limit)
+                 journal_rate_limit_free(s->rate_limit);
+diff --git a/src/journal/journald-stream.c b/src/journal/journald-stream.c
+index aae381b..816e351 100644
+--- a/src/journal/journald-stream.c
++++ b/src/journal/journald-stream.c
+@@ -327,7 +327,7 @@ void stdout_stream_free(StdoutStream *s) {
+                 if (s->server)
+                         epoll_ctl(s->server->epoll_fd, EPOLL_CTL_DEL, s->fd, NULL);
+ 
+-                close_nointr_nofail(s->fd);
++                safe_close(s->fd);
+         }
+ 
+ #ifdef HAVE_SELINUX
+@@ -359,13 +359,13 @@ int stdout_stream_new(Server *s) {
+ 
+         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
+                 log_warning("Too many stdout streams, refusing connection.");
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return 0;
+         }
+ 
+         stream = new0(StdoutStream, 1);
+         if (!stream) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return log_oom();
+         }
+ 
+diff --git a/src/journal/sd-journal.c b/src/journal/sd-journal.c
+index 661257b..3840ee4 100644
+--- a/src/journal/sd-journal.c
++++ b/src/journal/sd-journal.c
+@@ -1836,8 +1836,7 @@ _public_ void sd_journal_close(sd_journal *j) {
+         hashmap_free(j->directories_by_path);
+         hashmap_free(j->directories_by_wd);
+ 
+-        if (j->inotify_fd >= 0)
+-                close_nointr_nofail(j->inotify_fd);
++        safe_close(j->inotify_fd);
+ 
+         if (j->mmap) {
+                 log_debug("mmap cache statistics: %u hit, %u miss", mmap_cache_get_hit(j->mmap), mmap_cache_get_missed(j->mmap));
+diff --git a/src/journal/test-journal-verify.c b/src/journal/test-journal-verify.c
+index 0540074..3b181c6 100644
+--- a/src/journal/test-journal-verify.c
++++ b/src/journal/test-journal-verify.c
+@@ -48,7 +48,7 @@ static void bit_toggle(const char *fn, uint64_t p) {
+         r = pwrite(fd, &b, 1, p/8);
+         assert(r == 1);
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ }
+ 
+ static int raw_verify(const char *fn, const char *verification_key) {
+diff --git a/src/journal/test-mmap-cache.c b/src/journal/test-mmap-cache.c
+index e2ffaf4..868ba00 100644
+--- a/src/journal/test-mmap-cache.c
++++ b/src/journal/test-mmap-cache.c
+@@ -71,9 +71,9 @@ int main(int argc, char *argv[]) {
+ 
+         mmap_cache_unref(m);
+ 
+-        close_nointr_nofail(x);
+-        close_nointr_nofail(y);
+-        close_nointr_nofail(z);
++        safe_close(x);
++        safe_close(y);
++        safe_close(z);
+ 
+         return 0;
+ }
+diff --git a/src/libsystemd-bus/bus-kernel.c b/src/libsystemd-bus/bus-kernel.c
+index bf8de04..4efc65f 100644
+--- a/src/libsystemd-bus/bus-kernel.c
++++ b/src/libsystemd-bus/bus-kernel.c
+@@ -414,7 +414,7 @@ static void close_kdbus_msg(sd_bus *bus, struct kdbus_msg *k) {
+                 if (d->type == KDBUS_MSG_FDS)
+                         close_many(d->fds, (d->size - offsetof(struct kdbus_item, fds)) / sizeof(int));
+                 else if (d->type == KDBUS_MSG_PAYLOAD_MEMFD)
+-                        close_nointr_nofail(d->memfd.fd);
++                        safe_close(d->memfd.fd);
+         }
+ }
+ 
+@@ -687,7 +687,7 @@ int bus_kernel_create(const char *name, char **s) {
+                 return -ENOMEM;
+ 
+         if (ioctl(fd, KDBUS_CMD_BUS_MAKE, make) < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 free(p);
+                 return -errno;
+         }
+@@ -742,7 +742,7 @@ static void close_and_munmap(int fd, void *address, size_t size) {
+         if (size > 0)
+                 assert_se(munmap(address, PAGE_ALIGN(size)) >= 0);
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ }
+ 
+ void bus_kernel_push_memfd(sd_bus *bus, int fd, void *address, size_t size) {
+diff --git a/src/libsystemd-bus/bus-message.c b/src/libsystemd-bus/bus-message.c
+index 760a148..7284d27 100644
+--- a/src/libsystemd-bus/bus-message.c
++++ b/src/libsystemd-bus/bus-message.c
+@@ -68,7 +68,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
+                         if (part->mapped > 0)
+                                 assert_se(munmap(part->data, part->mapped) == 0);
+ 
+-                        close_nointr_nofail(part->memfd);
++                        safe_close(part->memfd);
+                 }
+ 
+         } else if (part->munmap_this)
+@@ -1482,8 +1482,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
+         return 0;
+ 
+ fail:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+diff --git a/src/libsystemd-bus/bus-socket.c b/src/libsystemd-bus/bus-socket.c
+index b60facb..32b9207 100644
+--- a/src/libsystemd-bus/bus-socket.c
++++ b/src/libsystemd-bus/bus-socket.c
+@@ -745,7 +745,7 @@ int bus_socket_exec(sd_bus *b) {
+                 assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);
+ 
+                 if (s[1] != STDIN_FILENO && s[1] != STDOUT_FILENO)
+-                        close_nointr_nofail(s[1]);
++                        safe_close(s[1]);
+ 
+                 fd_cloexec(STDIN_FILENO, false);
+                 fd_cloexec(STDOUT_FILENO, false);
+@@ -762,7 +762,7 @@ int bus_socket_exec(sd_bus *b) {
+                 _exit(EXIT_FAILURE);
+         }
+ 
+-        close_nointr_nofail(s[1]);
++        safe_close(s[1]);
+         b->output_fd = b->input_fd = s[0];
+ 
+         return bus_socket_start_auth(b);
+diff --git a/src/libsystemd-bus/sd-bus.c b/src/libsystemd-bus/sd-bus.c
+index 8dc3f6e..6f08a00 100644
+--- a/src/libsystemd-bus/sd-bus.c
++++ b/src/libsystemd-bus/sd-bus.c
+@@ -49,10 +49,10 @@ static void bus_close_fds(sd_bus *b) {
+         assert(b);
+ 
+         if (b->input_fd >= 0)
+-                close_nointr_nofail(b->input_fd);
++                safe_close(b->input_fd);
+ 
+         if (b->output_fd >= 0 && b->output_fd != b->input_fd)
+-                close_nointr_nofail(b->output_fd);
++                safe_close(b->output_fd);
+ 
+         b->input_fd = b->output_fd = -1;
+ }
+diff --git a/src/libsystemd-bus/sd-memfd.c b/src/libsystemd-bus/sd-memfd.c
+index bd14da3..4ecfe61 100644
+--- a/src/libsystemd-bus/sd-memfd.c
++++ b/src/libsystemd-bus/sd-memfd.c
+@@ -88,7 +88,7 @@ void sd_memfd_free(sd_memfd *m) {
+         if (m->f)
+                 fclose(m->f);
+         else
+-                close_nointr_nofail(m->fd);
++                safe_close(m->fd);
+ 
+         free(m);
+ }
+diff --git a/src/libsystemd-bus/test-bus-chat.c b/src/libsystemd-bus/test-bus-chat.c
+index f308edd..b2c2636 100644
+--- a/src/libsystemd-bus/test-bus-chat.c
++++ b/src/libsystemd-bus/test-bus-chat.c
+@@ -229,7 +229,7 @@ static int server(sd_bus *bus) {
+ 
+                         if (write(fd, &x, 1) < 0) {
+                                 log_error("Failed to write to fd: %m");
+-                                close_nointr_nofail(fd);
++                                safe_close(fd);
+                                 goto fail;
+                         }
+ 
+diff --git a/src/libsystemd-bus/test-bus-kernel-benchmark.c b/src/libsystemd-bus/test-bus-kernel-benchmark.c
+index 2e84cd9..7ee9fbb 100644
+--- a/src/libsystemd-bus/test-bus-kernel-benchmark.c
++++ b/src/libsystemd-bus/test-bus-kernel-benchmark.c
+@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
+                 CPU_SET(0, &cpuset);
+                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+ 
+-                close_nointr_nofail(bus_ref);
++                safe_close(bus_ref);
+                 sd_bus_unref(b);
+ 
+                 switch (mode) {
+diff --git a/src/libsystemd-bus/test-bus-kernel.c b/src/libsystemd-bus/test-bus-kernel.c
+index 680dcde..2d08bc8 100644
+--- a/src/libsystemd-bus/test-bus-kernel.c
++++ b/src/libsystemd-bus/test-bus-kernel.c
+@@ -122,14 +122,12 @@ int main(int argc, char *argv[]) {
+ 
+         assert_se(write(pipe_fds[1], "x", 1) == 1);
+ 
+-        close_nointr_nofail(pipe_fds[1]);
+-        pipe_fds[1] = -1;
++        pipe_fds[1] = safe_close(pipe_fds[1]);
+ 
+         r = sd_bus_message_append(m, "h", pipe_fds[0]);
+         assert_se(r >= 0);
+ 
+-        close_nointr_nofail(pipe_fds[0]);
+-        pipe_fds[0] = -1;
++        pipe_fds[0] = safe_close(pipe_fds[0]);
+ 
+         r = sd_bus_send(b, m, NULL);
+         assert_se(r >= 0);
+diff --git a/src/login/inhibit.c b/src/login/inhibit.c
+index 29e50c1..37edc5e 100644
+--- a/src/login/inhibit.c
++++ b/src/login/inhibit.c
+@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
+                 if (pid == 0) {
+                         /* Child */
+ 
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         close_all_fds(NULL, 0);
+ 
+                         execvp(argv[optind], argv + optind);
+diff --git a/src/login/logind-button.c b/src/login/logind-button.c
+index 4f456d2..1705a29 100644
+--- a/src/login/logind-button.c
++++ b/src/login/logind-button.c
+@@ -74,7 +74,7 @@ void button_free(Button *b) {
+ 
+                 /* If the device has been unplugged close() returns
+                  * ENODEV, let's ignore this, hence we don't use
+-                 * close_nointr_nofail() */
++                 * safe_close() */
+                 close(b->fd);
+         }
+ 
+diff --git a/src/login/logind-core.c b/src/login/logind-core.c
+index 36999ac..ce14a99 100644
+--- a/src/login/logind-core.c
++++ b/src/login/logind-core.c
+@@ -460,7 +460,7 @@ static int vt_is_busy(int vtnr) {
+         else
+                 r = !!(vt_stat.v_state & (1 << vtnr));
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+diff --git a/src/login/logind-dbus.c b/src/login/logind-dbus.c
+index a5ab19c..24f6622 100644
+--- a/src/login/logind-dbus.c
++++ b/src/login/logind-dbus.c
+@@ -795,7 +795,7 @@ static int bus_manager_inhibit(
+                 goto fail;
+         }
+ 
+-        close_nointr_nofail(fifo_fd);
++        safe_close(fifo_fd);
+         *_reply = reply;
+         reply = NULL;
+ 
+@@ -807,8 +807,7 @@ fail:
+         if (i)
+                 inhibitor_free(i);
+ 
+-        if (fifo_fd >= 0)
+-                close_nointr_nofail(fifo_fd);
++        safe_close(fifo_fd);
+ 
+         return r;
+ }
+diff --git a/src/login/logind-inhibit.c b/src/login/logind-inhibit.c
+index e770883..38a6841 100644
+--- a/src/login/logind-inhibit.c
++++ b/src/login/logind-inhibit.c
+@@ -258,8 +258,7 @@ int inhibitor_load(Inhibitor *i) {
+                 int fd;
+ 
+                 fd = inhibitor_create_fifo(i);
+-                if (fd >= 0)
+-                        close_nointr_nofail(fd);
++                safe_close(fd);
+         }
+ 
+ finish:
+@@ -323,8 +322,7 @@ void inhibitor_remove_fifo(Inhibitor *i) {
+         if (i->fifo_fd >= 0) {
+                 assert_se(hashmap_remove(i->manager->inhibitor_fds, INT_TO_PTR(i->fifo_fd + 1)) == i);
+                 assert_se(epoll_ctl(i->manager->epoll_fd, EPOLL_CTL_DEL, i->fifo_fd, NULL) == 0);
+-                close_nointr_nofail(i->fifo_fd);
+-                i->fifo_fd = -1;
++                i->fifo_fd = safe_close(i->fifo_fd);
+         }
+ 
+         if (i->fifo_path) {
+diff --git a/src/login/logind-seat.c b/src/login/logind-seat.c
+index feebcf4..b581925 100644
+--- a/src/login/logind-seat.c
++++ b/src/login/logind-seat.c
+@@ -183,8 +183,7 @@ static int vt_allocate(int vtnr) {
+ 
+         r = fd < 0 ? -errno : 0;
+ 
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+diff --git a/src/login/logind-session.c b/src/login/logind-session.c
+index ece222a..13de549 100644
+--- a/src/login/logind-session.c
++++ b/src/login/logind-session.c
+@@ -375,8 +375,7 @@ int session_load(Session *s) {
+                    trigger the EOF. */
+ 
+                 fd = session_create_fifo(s);
+-                if (fd >= 0)
+-                        close_nointr_nofail(fd);
++                safe_close(fd);
+         }
+ 
+         if (realtime) {
+@@ -972,8 +971,7 @@ void session_remove_fifo(Session *s) {
+         if (s->fifo_fd >= 0) {
+                 assert_se(hashmap_remove(s->manager->session_fds, INT_TO_PTR(s->fifo_fd + 1)) == s);
+                 assert_se(epoll_ctl(s->manager->epoll_fd, EPOLL_CTL_DEL, s->fifo_fd, NULL) == 0);
+-                close_nointr_nofail(s->fifo_fd);
+-                s->fifo_fd = -1;
++                s->fifo_fd = safe_close(s->fifo_fd);
+ 
+                 session_save(s);
+                 user_save(s->user);
+diff --git a/src/login/logind.c b/src/login/logind.c
+index 5180be7..f147910 100644
+--- a/src/login/logind.c
++++ b/src/login/logind.c
+@@ -152,8 +152,7 @@ void manager_free(Manager *m) {
+         hashmap_free(m->button_fds);
+         hashmap_free(m->timer_fds);
+ 
+-        if (m->console_active_fd >= 0)
+-                close_nointr_nofail(m->console_active_fd);
++        safe_close(m->console_active_fd);
+ 
+         if (m->udev_seat_monitor)
+                 udev_monitor_unref(m->udev_seat_monitor);
+@@ -173,17 +172,10 @@ void manager_free(Manager *m) {
+                 dbus_connection_unref(m->bus);
+         }
+ 
+-        if (m->bus_fd >= 0)
+-                close_nointr_nofail(m->bus_fd);
+-
+-        if (m->epoll_fd >= 0)
+-                close_nointr_nofail(m->epoll_fd);
+-
+-        if (m->reserve_vt_fd >= 0)
+-                close_nointr_nofail(m->reserve_vt_fd);
+-
+-        if (m->idle_action_fd >= 0)
+-                close_nointr_nofail(m->idle_action_fd);
++        safe_close(m->bus_fd);
++        safe_close(m->epoll_fd);
++        safe_close(m->reserve_vt_fd);
++        safe_close(m->idle_action_fd);
+ 
+         strv_free(m->kill_only_users);
+         strv_free(m->kill_exclude_users);
+@@ -1041,10 +1033,7 @@ int manager_dispatch_idle_action(Manager *m) {
+         return 0;
+ 
+ finish:
+-        if (m->idle_action_fd >= 0) {
+-                close_nointr_nofail(m->idle_action_fd);
+-                m->idle_action_fd = -1;
+-        }
++        m->idle_action_fd = safe_close(m->idle_action_fd);
+ 
+         return r;
+ }
+diff --git a/src/login/pam-module.c b/src/login/pam-module.c
+index 6259450..fe3ddd4 100644
+--- a/src/login/pam-module.c
++++ b/src/login/pam-module.c
+@@ -478,8 +478,7 @@ finish:
+         if (reply)
+                 dbus_message_unref(reply);
+ 
+-        if (session_fd >= 0)
+-                close_nointr_nofail(session_fd);
++        safe_close(session_fd);
+ 
+         return r;
+ }
+diff --git a/src/login/sd-login.c b/src/login/sd-login.c
+index 7e25041..2e7768e 100644
+--- a/src/login/sd-login.c
++++ b/src/login/sd-login.c
+@@ -646,7 +646,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
+         if (!category || streq(category, "seat")) {
+                 k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
+                 if (k < 0) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -errno;
+                 }
+ 
+@@ -656,7 +656,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
+         if (!category || streq(category, "session")) {
+                 k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
+                 if (k < 0) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -errno;
+                 }
+ 
+@@ -666,7 +666,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
+         if (!category || streq(category, "uid")) {
+                 k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
+                 if (k < 0) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -errno;
+                 }
+ 
+@@ -676,7 +676,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
+         if (!category || streq(category, "machine")) {
+                 k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
+                 if (k < 0) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -errno;
+                 }
+ 
+diff --git a/src/login/test-inhibit.c b/src/login/test-inhibit.c
+index 7b6deff..68d91da 100644
+--- a/src/login/test-inhibit.c
++++ b/src/login/test-inhibit.c
+@@ -127,11 +127,11 @@ int main(int argc, char*argv[]) {
+         assert(fd2 >= 0);
+         print_inhibitors(bus);
+ 
+-        close_nointr_nofail(fd1);
++        safe_close(fd1);
+         sleep(1);
+         print_inhibitors(bus);
+ 
+-        close_nointr_nofail(fd2);
++        safe_close(fd2);
+         sleep(1);
+         print_inhibitors(bus);
+ 
+diff --git a/src/machine/machined.c b/src/machine/machined.c
+index ad804a1..f427383 100644
+--- a/src/machine/machined.c
++++ b/src/machine/machined.c
+@@ -73,11 +73,8 @@ void manager_free(Manager *m) {
+                 dbus_connection_unref(m->bus);
+         }
+ 
+-        if (m->bus_fd >= 0)
+-                close_nointr_nofail(m->bus_fd);
+-
+-        if (m->epoll_fd >= 0)
+-                close_nointr_nofail(m->epoll_fd);
++        safe_close(m->bus_fd);
++        safe_close(m->epoll_fd);
+ 
+         free(m);
+ }
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index 8718e94..adc682d 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -785,7 +785,7 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
+         /* Store away the fd in the socket, so that it stays open as
+          * long as we run the child */
+         k = sendmsg(kmsg_socket, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         if (k < 0) {
+                 log_error("Failed to send FIFO fd: %m");
+@@ -1050,7 +1050,7 @@ static bool audit_enabled(void) {
+ 
+         fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_AUDIT);
+         if (fd >= 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return true;
+         }
+         return false;
+@@ -1239,12 +1239,11 @@ int main(int argc, char *argv[]) {
+                                 n_env ++;
+ 
+                         /* Wait for the parent process to log our PID */
+-                        close_nointr_nofail(pipefd[1]);
++                        safe_close(pipefd[1]);
+                         fd_wait_for_event(pipefd[0], POLLHUP, -1);
+-                        close_nointr_nofail(pipefd[0]);
++                        safe_close(pipefd[0]);
+ 
+-                        close_nointr_nofail(master);
+-                        master = -1;
++                        master = safe_close(master);
+ 
+                         if (saved_attr_valid) {
+                                 if (tcsetattr(STDIN_FILENO, TCSANOW, &raw_attr) < 0) {
+@@ -1257,8 +1256,7 @@ int main(int argc, char *argv[]) {
+                         close_nointr(STDOUT_FILENO);
+                         close_nointr(STDERR_FILENO);
+ 
+-                        close_nointr_nofail(kmsg_socket_pair[0]);
+-                        kmsg_socket_pair[0] = -1;
++                        kmsg_socket_pair[0] = safe_close(kmsg_socket_pair[0]);
+ 
+                         reset_all_signal_handlers();
+ 
+@@ -1268,7 +1266,7 @@ int main(int argc, char *argv[]) {
+                         k = open_terminal(console, O_RDWR);
+                         if (k != STDIN_FILENO) {
+                                 if (k >= 0) {
+-                                        close_nointr_nofail(k);
++                                        safe_close(k);
+                                         k = -EINVAL;
+                                 }
+ 
+@@ -1335,8 +1333,7 @@ int main(int argc, char *argv[]) {
+                         if (setup_kmsg(arg_directory, kmsg_socket_pair[1]) < 0)
+                                 goto child_fail;
+ 
+-                        close_nointr_nofail(kmsg_socket_pair[1]);
+-                        kmsg_socket_pair[1] = -1;
++                        kmsg_socket_pair[1] = safe_close(kmsg_socket_pair[1]);
+ 
+                         if (setup_boot_id(arg_directory) < 0)
+                                 goto child_fail;
+@@ -1504,13 +1501,13 @@ int main(int argc, char *argv[]) {
+                 }
+ 
+                 log_info("Init process in the container running as PID %lu.", (unsigned long) pid);
+-                close_nointr_nofail(pipefd[0]);
+-                close_nointr_nofail(pipefd[1]);
++                safe_close(pipefd[0]);
++                safe_close(pipefd[1]);
+ 
+                 /* Wait for the child process to establish cgroup hierarchy */
+-                close_nointr_nofail(pipefd2[1]);
++                safe_close(pipefd2[1]);
+                 fd_wait_for_event(pipefd2[0], POLLHUP, -1);
+-                close_nointr_nofail(pipefd2[0]);
++                safe_close(pipefd2[0]);
+ 
+                 fdset_free(fds);
+                 fds = NULL;
+diff --git a/src/readahead/readahead-collect.c b/src/readahead/readahead-collect.c
+index 6b74866..112f59c 100644
+--- a/src/readahead/readahead-collect.c
++++ b/src/readahead/readahead-collect.c
+@@ -177,8 +177,7 @@ finish:
+         if (start != MAP_FAILED)
+                 munmap(start, l);
+ 
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -494,16 +493,12 @@ static int collect(const char *root) {
+                                 log_warning("readlink(%s) failed: %s", fn, strerror(-k));
+ 
+                 next_iteration:
+-                        if (m->fd >= 0)
+-                                close_nointr_nofail(m->fd);
++                        safe_close(m->fd);
+                 }
+         }
+ 
+ done:
+-        if (fanotify_fd >= 0) {
+-                close_nointr_nofail(fanotify_fd);
+-                fanotify_fd = -1;
+-        }
++        fanotify_fd = safe_close(fanotify_fd);
+ 
+         log_debug("Writing Pack File...");
+ 
+@@ -593,14 +588,9 @@ done:
+         log_debug("Done.");
+ 
+ finish:
+-        if (fanotify_fd >= 0)
+-                close_nointr_nofail(fanotify_fd);
+-
+-        if (signal_fd >= 0)
+-                close_nointr_nofail(signal_fd);
+-
+-        if (inotify_fd >= 0)
+-                close_nointr_nofail(inotify_fd);
++        safe_close(fanotify_fd);
++        safe_close(signal_fd);
++        safe_close(inotify_fd);
+ 
+         if (pack) {
+                 fclose(pack);
+diff --git a/src/readahead/readahead-common.c b/src/readahead/readahead-common.c
+index 1edf9cc..49679fc 100644
+--- a/src/readahead/readahead-common.c
++++ b/src/readahead/readahead-common.c
+@@ -218,7 +218,7 @@ int open_inotify(void) {
+ 
+         if (inotify_add_watch(fd, "/run/systemd/readahead", IN_CREATE) < 0) {
+                 log_error("Failed to watch /run/systemd/readahead: %m");
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+diff --git a/src/readahead/readahead-replay.c b/src/readahead/readahead-replay.c
+index cb04e5f..8dc1942 100644
+--- a/src/readahead/readahead-replay.c
++++ b/src/readahead/readahead-replay.c
+@@ -67,10 +67,8 @@ static int unpack_file(FILE *pack) {
+                 if (errno != ENOENT && errno != EPERM && errno != EACCES && errno != ELOOP)
+                         log_warning("open(%s) failed: %m", fn);
+ 
+-        } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0) {
+-                close_nointr_nofail(fd);
+-                fd = -1;
+-        }
++        } else if (file_verify(fd, fn, arg_file_size_max, &st) <= 0)
++                fd = safe_close(fd);
+ 
+         if (fread(&inode, sizeof(inode), 1, pack) != 1) {
+                 log_error("Premature end of pack file.");
+@@ -81,10 +79,8 @@ static int unpack_file(FILE *pack) {
+         if (fd >= 0) {
+                 /* If the inode changed the file got deleted, so just
+                  * ignore this entry */
+-                if (st.st_ino != (uint64_t) inode) {
+-                        close_nointr_nofail(fd);
+-                        fd = -1;
+-                }
++                if (st.st_ino != (uint64_t) inode)
++                        fd = safe_close(fd);
+         }
+ 
+         for (;;) {
+@@ -129,8 +125,7 @@ static int unpack_file(FILE *pack) {
+         }
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -279,8 +274,7 @@ finish:
+         if (pack)
+                 fclose(pack);
+ 
+-        if (inotify_fd >= 0)
+-                close_nointr_nofail(inotify_fd);
++        safe_close(inotify_fd);
+ 
+         free(pack_fn);
+ 
+diff --git a/src/reply-password/reply-password.c b/src/reply-password/reply-password.c
+index 2f16898..c730216 100644
+--- a/src/reply-password/reply-password.c
++++ b/src/reply-password/reply-password.c
+@@ -91,7 +91,8 @@ int main(int argc, char *argv[]) {
+                 goto finish;
+         }
+ 
+-        if ((fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0)) < 0) {
++        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
++        if (fd < 0) {
+                 log_error("socket() failed: %m");
+                 goto finish;
+         }
+@@ -102,8 +103,7 @@ int main(int argc, char *argv[]) {
+         r = EXIT_SUCCESS;
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+diff --git a/src/shared/ask-password-api.c b/src/shared/ask-password-api.c
+index 25367d0..200876d 100644
+--- a/src/shared/ask-password-api.c
++++ b/src/shared/ask-password-api.c
+@@ -231,8 +231,7 @@ int ask_password_tty(
+         r = 0;
+ 
+ finish:
+-        if (notify >= 0)
+-                close_nointr_nofail(notify);
++        safe_close(notify);
+ 
+         if (ttyfd >= 0) {
+ 
+@@ -241,7 +240,7 @@ finish:
+                         tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                 }
+ 
+-                close_nointr_nofail(ttyfd);
++                safe_close(ttyfd);
+         }
+ 
+         return r;
+@@ -294,7 +293,7 @@ static int create_socket(char **name) {
+         return fd;
+ 
+ fail:
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -528,19 +527,15 @@ int ask_password_agent(
+         r = 0;
+ 
+ finish:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         if (socket_name) {
+                 unlink(socket_name);
+                 free(socket_name);
+         }
+ 
+-        if (socket_fd >= 0)
+-                close_nointr_nofail(socket_fd);
+-
+-        if (signal_fd >= 0)
+-                close_nointr_nofail(signal_fd);
++        safe_close(socket_fd);
++        safe_close(signal_fd);
+ 
+         if (f)
+                 fclose(f);
+diff --git a/src/shared/dbus-loop.c b/src/shared/dbus-loop.c
+index c533242..aadb641 100644
+--- a/src/shared/dbus-loop.c
++++ b/src/shared/dbus-loop.c
+@@ -75,7 +75,7 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *data) {
+                         return FALSE;
+ 
+                 if (epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_ADD, e->fd, &ev) < 0) {
+-                        close_nointr_nofail(e->fd);
++                        safe_close(e->fd);
+                         return FALSE;
+                 }
+ 
+@@ -99,8 +99,7 @@ static void remove_watch(DBusWatch *watch, void *data) {
+ 
+         assert_se(epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_DEL, e->fd, NULL) >= 0);
+ 
+-        if (e->fd_is_dupped)
+-                close_nointr_nofail(e->fd);
++        safe_close(e->fd);
+ }
+ 
+ static void toggle_watch(DBusWatch *watch, void *data) {
+@@ -167,8 +166,7 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *data) {
+         return TRUE;
+ 
+ fail:
+-        if (e->fd >= 0)
+-                close_nointr_nofail(e->fd);
++        safe_close(e->fd);
+ 
+         free(e);
+         return FALSE;
+@@ -184,7 +182,7 @@ static void remove_timeout(DBusTimeout *timeout, void *data) {
+                 return;
+ 
+         assert_se(epoll_ctl(PTR_TO_INT(data), EPOLL_CTL_DEL, e->fd, NULL) >= 0);
+-        close_nointr_nofail(e->fd);
++        safe_close(e->fd);
+ }
+ 
+ static void toggle_timeout(DBusTimeout *timeout, void *data) {
+@@ -213,7 +211,7 @@ int bus_loop_open(DBusConnection *c) {
+ 
+         if (!dbus_connection_set_watch_functions(c, add_watch, remove_watch, toggle_watch, INT_TO_PTR(fd), NULL) ||
+             !dbus_connection_set_timeout_functions(c, add_timeout, remove_timeout, toggle_timeout, INT_TO_PTR(fd), NULL)) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -ENOMEM;
+         }
+ 
+diff --git a/src/shared/fdset.c b/src/shared/fdset.c
+index fd27398..a2c861d 100644
+--- a/src/shared/fdset.c
++++ b/src/shared/fdset.c
+@@ -82,7 +82,7 @@ int fdset_put_dup(FDSet *s, int fd) {
+ 
+         r = fdset_put(s, copy);
+         if (r < 0) {
+-                close_nointr_nofail(copy);
++                safe_close(copy);
+                 return r;
+         }
+ 
+diff --git a/src/shared/hwclock.c b/src/shared/hwclock.c
+index 17f12de..10c6537 100644
+--- a/src/shared/hwclock.c
++++ b/src/shared/hwclock.c
+@@ -62,7 +62,7 @@ int hwclock_get_time(struct tm *tm) {
+          * to confused mktime(). */
+         tm->tm_isdst = -1;
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return err;
+ }
+@@ -80,7 +80,7 @@ int hwclock_set_time(const struct tm *tm) {
+         if (ioctl(fd, RTC_SET_TIME, tm) < 0)
+                 err = -errno;
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return err;
+ }
+diff --git a/src/shared/install.c b/src/shared/install.c
+index cb07947..241e000 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -207,7 +207,7 @@ static int remove_marked_symlinks_fd(
+ 
+         d = fdopendir(fd);
+         if (!d) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -248,7 +248,7 @@ static int remove_marked_symlinks_fd(
+ 
+                         p = path_make_absolute(de->d_name, path);
+                         if (!p) {
+-                                close_nointr_nofail(nfd);
++                                safe_close(nfd);
+                                 return -ENOMEM;
+                         }
+ 
+@@ -348,7 +348,7 @@ static int remove_marked_symlinks(
+                         r = q;
+         } while (deleted);
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }
+@@ -371,7 +371,7 @@ static int find_symlinks_fd(
+ 
+         d = fdopendir(fd);
+         if (!d) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -408,7 +408,7 @@ static int find_symlinks_fd(
+ 
+                         p = path_make_absolute(de->d_name, path);
+                         if (!p) {
+-                                close_nointr_nofail(nfd);
++                                safe_close(nfd);
+                                 return -ENOMEM;
+                         }
+ 
+@@ -1013,7 +1013,7 @@ static int unit_file_load(
+ 
+         f = fdopen(fd, "re");
+         if (!f) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -ENOMEM;
+         }
+ 
+diff --git a/src/shared/log.c b/src/shared/log.c
+index 2267764..039cbbe 100644
+--- a/src/shared/log.c
++++ b/src/shared/log.c
+@@ -62,7 +62,7 @@ void log_close_console(void) {
+ 
+         if (getpid() == 1) {
+                 if (console_fd >= 3)
+-                        close_nointr_nofail(console_fd);
++                        safe_close(console_fd);
+ 
+                 console_fd = -1;
+         }
+@@ -84,12 +84,7 @@ static int log_open_console(void) {
+ }
+ 
+ void log_close_kmsg(void) {
+-
+-        if (kmsg_fd < 0)
+-                return;
+-
+-        close_nointr_nofail(kmsg_fd);
+-        kmsg_fd = -1;
++        kmsg_fd = safe_close(kmsg_fd);
+ }
+ 
+ static int log_open_kmsg(void) {
+@@ -105,12 +100,7 @@ static int log_open_kmsg(void) {
+ }
+ 
+ void log_close_syslog(void) {
+-
+-        if (syslog_fd < 0)
+-                return;
+-
+-        close_nointr_nofail(syslog_fd);
+-        syslog_fd = -1;
++        syslog_fd = safe_close(syslog_fd);
+ }
+ 
+ static int create_log_socket(int type) {
+@@ -152,7 +142,7 @@ static int log_open_syslog(void) {
+         }
+ 
+         if (connect(syslog_fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path)) < 0) {
+-                close_nointr_nofail(syslog_fd);
++                safe_close(syslog_fd);
+ 
+                 /* Some legacy syslog systems still use stream
+                  * sockets. They really shouldn't. But what can we
+@@ -180,12 +170,7 @@ fail:
+ }
+ 
+ void log_close_journal(void) {
+-
+-        if (journal_fd < 0)
+-                return;
+-
+-        close_nointr_nofail(journal_fd);
+-        journal_fd = -1;
++        journal_fd = safe_close(journal_fd);
+ }
+ 
+ static int log_open_journal(void) {
+diff --git a/src/shared/socket-label.c b/src/shared/socket-label.c
+index ff212de..e4382d5 100644
+--- a/src/shared/socket-label.c
++++ b/src/shared/socket-label.c
+@@ -138,6 +138,6 @@ int socket_address_listen(
+ 
+ fail:
+         r = -errno;
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+         return r;
+ }
+diff --git a/src/shared/spawn-polkit-agent.c b/src/shared/spawn-polkit-agent.c
+index f9e52cd..fccf1e9 100644
+--- a/src/shared/spawn-polkit-agent.c
++++ b/src/shared/spawn-polkit-agent.c
+@@ -61,7 +61,7 @@ int polkit_agent_open(void) {
+                        POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
+ 
+         /* Close the writing side, because that's the one for the agent */
+-        close_nointr_nofail(pipe_fd[1]);
++        safe_close(pipe_fd[1]);
+ 
+         if (r < 0)
+                 log_error("Failed to fork TTY ask password agent: %s", strerror(-r));
+@@ -69,7 +69,7 @@ int polkit_agent_open(void) {
+                 /* Wait until the agent closes the fd */
+                 fd_wait_for_event(pipe_fd[0], POLLHUP, (usec_t) -1);
+ 
+-        close_nointr_nofail(pipe_fd[0]);
++        safe_close(pipe_fd[0]);
+ 
+         return r;
+ }
+diff --git a/src/shared/util.c b/src/shared/util.c
+index 533db92..aa6242d 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -173,13 +173,22 @@ int close_nointr(int fd) {
+                 return -errno;
+ }
+ 
+-void close_nointr_nofail(int fd) {
+-        PROTECT_ERRNO;
++int safe_close(int fd) {
++
++        /*
++         * Like close_nointr() but cannot fail. Guarantees errno is
++         * unchanged. Is a NOP with negative fds passed, and returns
++         * -1, so that it can be used in this syntax:
++         *
++         * fd = safe_close(fd);
++         */
+ 
+-        /* like close_nointr() but cannot fail, and guarantees errno
+-         * is unchanged */
++        if (fd >= 0) {
++                PROTECT_ERRNO;
++                assert_se(close_nointr(fd) == 0);
++        }
+ 
+-        assert_se(close_nointr(fd) == 0);
++        return -1;
+ }
+ 
+ void close_many(const int fds[], unsigned n_fd) {
+@@ -188,7 +197,7 @@ void close_many(const int fds[], unsigned n_fd) {
+         assert(fds || n_fd <= 0);
+ 
+         for (i = 0; i < n_fd; i++)
+-                close_nointr_nofail(fds[i]);
++                safe_close(fds[i]);
+ }
+ 
+ int unlink_noerrno(const char *path) {
+@@ -1834,16 +1843,13 @@ finish:
+ }
+ 
+ int reset_terminal(const char *name) {
+-        int fd, r;
++        _cleanup_close_ int fd = -1;
+ 
+         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+         if (fd < 0)
+                 return fd;
+ 
+-        r = reset_terminal_fd(fd, true);
+-        close_nointr_nofail(fd);
+-
+-        return r;
++        return reset_terminal_fd(fd, true);
+ }
+ 
+ int open_terminal(const char *name, int mode) {
+@@ -1882,12 +1888,12 @@ int open_terminal(const char *name, int mode) {
+ 
+         r = isatty(fd);
+         if (r < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+         if (!r) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -ENOTTY;
+         }
+ 
+@@ -2076,11 +2082,10 @@ int acquire_terminal(
+                  * ended our handle will be dead. It's important that
+                  * we do this after sleeping, so that we don't enter
+                  * an endless loop. */
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+         }
+ 
+-        if (notify >= 0)
+-                close_nointr_nofail(notify);
++        safe_close(notify);
+ 
+         r = reset_terminal_fd(fd, true);
+         if (r < 0)
+@@ -2089,11 +2094,8 @@ int acquire_terminal(
+         return fd;
+ 
+ fail:
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
+-
+-        if (notify >= 0)
+-                close_nointr_nofail(notify);
++        safe_close(fd);
++        safe_close(notify);
+ 
+         return r;
+ }
+@@ -2391,7 +2393,7 @@ int make_stdio(int fd) {
+         t = dup3(fd, STDERR_FILENO, 0);
+ 
+         if (fd >= 3)
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+         if (r < 0 || s < 0 || t < 0)
+                 return -errno;
+@@ -2772,7 +2774,7 @@ int rm_rf_children_dangerous(int fd, bool only_dirs, bool honour_sticky, struct
+ 
+         d = fdopendir(fd);
+         if (!d) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+                 return errno == ENOENT ? 0 : -errno;
+         }
+@@ -2867,7 +2869,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
+         assert(fd >= 0);
+ 
+         if (fstatfs(fd, &s) < 0) {
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -errno;
+         }
+ 
+@@ -2876,7 +2878,7 @@ int rm_rf_children(int fd, bool only_dirs, bool honour_sticky, struct stat *root
+          * non-state data */
+         if (!is_temporary_fs(&s)) {
+                 log_error("Attempted to remove disk file system, and we can't allow that.");
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 return -EPERM;
+         }
+ 
+@@ -2922,13 +2924,13 @@ static int rm_rf_internal(const char *path, bool only_dirs, bool delete_root, bo
+ 
+         if (!dangerous) {
+                 if (fstatfs(fd, &s) < 0) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -errno;
+                 }
+ 
+                 if (!is_temporary_fs(&s)) {
+                         log_error("Attempted to remove disk file system, and we can't allow that.");
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return -EPERM;
+                 }
+         }
+@@ -3382,7 +3384,7 @@ char *ellipsize(const char *s, size_t length, unsigned percent) {
+ }
+ 
+ int touch(const char *path) {
+-        int fd;
++        _cleanup_close_ int fd;
+ 
+         assert(path);
+ 
+@@ -3394,7 +3396,6 @@ int touch(const char *path) {
+         if (fd < 0)
+                 return -errno;
+ 
+-        close_nointr_nofail(fd);
+         return 0;
+ }
+ 
+@@ -3557,7 +3558,7 @@ DIR *xopendirat(int fd, const char *name, int flags) {
+ 
+         d = fdopendir(nfd);
+         if (!d) {
+-                close_nointr_nofail(nfd);
++                safe_close(nfd);
+                 return NULL;
+         }
+ 
+@@ -4055,16 +4056,13 @@ int terminal_vhangup_fd(int fd) {
+ }
+ 
+ int terminal_vhangup(const char *name) {
+-        int fd, r;
++        _cleanup_close_ int fd;
+ 
+         fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
+         if (fd < 0)
+                 return fd;
+ 
+-        r = terminal_vhangup_fd(fd);
+-        close_nointr_nofail(fd);
+-
+-        return r;
++        return terminal_vhangup_fd(fd);
+ }
+ 
+ int vt_disallocate(const char *name) {
+@@ -4091,7 +4089,7 @@ int vt_disallocate(const char *name) {
+                            "\033[H"    /* move home */
+                            "\033[2J",  /* clear screen */
+                            10, false);
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+ 
+                 return 0;
+         }
+@@ -4112,7 +4110,7 @@ int vt_disallocate(const char *name) {
+                 return fd;
+ 
+         r = ioctl(fd, VT_DISALLOCATE, u);
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         if (r >= 0)
+                 return 0;
+@@ -4131,7 +4129,7 @@ int vt_disallocate(const char *name) {
+                    "\033[H"   /* move home */
+                    "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
+                    10, false);
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return 0;
+ }
+@@ -4148,7 +4146,7 @@ int copy_file(const char *from, const char *to) {
+ 
+         fdt = open(to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY, 0644);
+         if (fdt < 0) {
+-                close_nointr_nofail(fdf);
++                safe_close(fdf);
+                 return -errno;
+         }
+ 
+@@ -4160,7 +4158,7 @@ int copy_file(const char *from, const char *to) {
+                 if (n < 0) {
+                         r = -errno;
+ 
+-                        close_nointr_nofail(fdf);
++                        safe_close(fdf);
+                         close_nointr(fdt);
+                         unlink(to);
+ 
+@@ -4175,7 +4173,7 @@ int copy_file(const char *from, const char *to) {
+                 if (n != k) {
+                         r = k < 0 ? k : (errno ? -errno : -EIO);
+ 
+-                        close_nointr_nofail(fdf);
++                        safe_close(fdf);
+                         close_nointr(fdt);
+ 
+                         unlink(to);
+@@ -4183,7 +4181,7 @@ int copy_file(const char *from, const char *to) {
+                 }
+         }
+ 
+-        close_nointr_nofail(fdf);
++        safe_close(fdf);
+         r = close_nointr(fdt);
+ 
+         if (r < 0) {
+@@ -5669,7 +5667,7 @@ int on_ac_power(void) {
+                 if (n != 6 || memcmp(contents, "Mains\n", 6))
+                         continue;
+ 
+-                close_nointr_nofail(fd);
++                safe_close(fd);
+                 fd = openat(device, "online", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                 if (fd < 0) {
+                         if (errno == ENOENT)
+diff --git a/src/shared/util.h b/src/shared/util.h
+index a173885..e83d2ab 100644
+--- a/src/shared/util.h
++++ b/src/shared/util.h
+@@ -125,7 +125,8 @@ char *endswith(const char *s, const char *postfix) _pure_;
+ bool first_word(const char *s, const char *word) _pure_;
+ 
+ int close_nointr(int fd);
+-void close_nointr_nofail(int fd);
++int safe_close(int fd);
++
+ void close_many(const int fds[], unsigned n_fd);
+ 
+ int parse_boolean(const char *v) _pure_;
+@@ -565,8 +566,7 @@ static inline void freep(void *p) {
+         struct __useless_struct_to_allow_trailing_semicolon__
+ 
+ static inline void closep(int *fd) {
+-        if (*fd >= 0)
+-                close_nointr_nofail(*fd);
++        safe_close(*fd);
+ }
+ 
+ static inline void umaskp(mode_t *u) {
+diff --git a/src/shared/watchdog.c b/src/shared/watchdog.c
+index ddbe7af..ba9ad9b 100644
+--- a/src/shared/watchdog.c
++++ b/src/shared/watchdog.c
+@@ -164,6 +164,5 @@ void watchdog_close(bool disarm) {
+                 }
+         }
+ 
+-        close_nointr_nofail(watchdog_fd);
+-        watchdog_fd = -1;
++        watchdog_fd = safe_close(watchdog_fd);
+ }
+diff --git a/src/shutdownd/shutdownd.c b/src/shutdownd/shutdownd.c
+index 461a726..886380d 100644
+--- a/src/shutdownd/shutdownd.c
++++ b/src/shutdownd/shutdownd.c
+@@ -438,8 +438,7 @@ int main(int argc, char *argv[]) {
+ finish:
+ 
+         for (i = 0; i < _FD_MAX; i++)
+-                if (pollfd[i].fd >= 0)
+-                        close_nointr_nofail(pollfd[i].fd);
++                safe_close(pollfd[i].fd);
+ 
+         if (unlink_nologin)
+                 unlink("/run/nologin");
+diff --git a/src/test/test-util.c b/src/test/test-util.c
+index 7566adc..34b7db8 100644
+--- a/src/test/test-util.c
++++ b/src/test/test-util.c
+@@ -64,7 +64,7 @@ static void test_close_many(void) {
+         assert_se(fcntl(fds[1], F_GETFD) == -1);
+         assert_se(fcntl(fds[2], F_GETFD) >= 0);
+ 
+-        close_nointr_nofail(fds[2]);
++        safe_close(fds[2]);
+ 
+         unlink(name0);
+         unlink(name1);
+diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
+index 98d01a1..4244656 100644
+--- a/src/tmpfiles/tmpfiles.c
++++ b/src/tmpfiles/tmpfiles.c
+@@ -489,7 +489,7 @@ static int write_one_file(Item *i, const char *path) {
+ 
+                 unescaped = cunescape(i->argument);
+                 if (unescaped == NULL) {
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return log_oom();
+                 }
+ 
+@@ -498,12 +498,12 @@ static int write_one_file(Item *i, const char *path) {
+ 
+                 if (n < 0 || (size_t) n < l) {
+                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
+-                        close_nointr_nofail(fd);
++                        safe_close(fd);
+                         return n < 0 ? n : -EIO;
+                 }
+         }
+ 
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         if (stat(path, &st) < 0) {
+                 log_error("stat(%s) failed: %m", path);
+diff --git a/src/tty-ask-password-agent/tty-ask-password-agent.c b/src/tty-ask-password-agent/tty-ask-password-agent.c
+index 256c21d..cb74c72 100644
+--- a/src/tty-ask-password-agent/tty-ask-password-agent.c
++++ b/src/tty-ask-password-agent/tty-ask-password-agent.c
+@@ -234,11 +234,8 @@ static int ask_password_plymouth(
+         r = 0;
+ 
+ finish:
+-        if (notify >= 0)
+-                close_nointr_nofail(notify);
+-
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(notify);
++        safe_close(fd);
+ 
+         free(packet);
+ 
+@@ -374,7 +371,7 @@ static int parse_password(const char *filename, char **wall) {
+                         r = ask_password_tty(message, not_after, filename, &password);
+ 
+                         if (arg_console) {
+-                                close_nointr_nofail(tty_fd);
++                                safe_close(tty_fd);
+                                 release_terminal();
+                         }
+ 
+@@ -421,8 +418,7 @@ static int parse_password(const char *filename, char **wall) {
+ finish:
+         fclose(f);
+ 
+-        if (socket_fd >= 0)
+-                close_nointr_nofail(socket_fd);
++        safe_close(socket_fd);
+ 
+         free(packet);
+         free(socket_name);
+@@ -494,7 +490,7 @@ static bool wall_tty_match(const char *path) {
+                 return true;
+ 
+         /* What, we managed to open the pipe? Then this tty is filtered. */
+-        close_nointr_nofail(fd);
++        safe_close(fd);
+         return false;
+ }
+ 
+@@ -616,14 +612,9 @@ static int watch_passwords(void) {
+         r = 0;
+ 
+ finish:
+-        if (notify >= 0)
+-                close_nointr_nofail(notify);
+-
+-        if (signal_fd >= 0)
+-                close_nointr_nofail(signal_fd);
+-
+-        if (tty_block_fd >= 0)
+-                close_nointr_nofail(tty_block_fd);
++        safe_close(notify);
++        safe_close(signal_fd);
++        safe_close(tty_block_fd);
+ 
+         return r;
+ }
+diff --git a/src/vconsole/vconsole-setup.c b/src/vconsole/vconsole-setup.c
+index 1bbf737..0f2b706 100644
+--- a/src/vconsole/vconsole-setup.c
++++ b/src/vconsole/vconsole-setup.c
+@@ -301,8 +301,7 @@ finish:
+         free(vc_font_map);
+         free(vc_font_unimap);
+ 
+-        if (fd >= 0)
+-                close_nointr_nofail(fd);
++        safe_close(fd);
+ 
+         return r;
+ }

@@ -1,0 +1,33 @@
+From: Mark Eichin <eichin@thok.org>
+Date: Mon, 9 Jun 2014 01:57:19 -0400
+Subject: man: Searching for an explanation of what a "slice unit" was,
+ found this, felt compelled to send in fixes for the obvious typos
+
+(cherry picked from commit 299a55075d1bf478b9190191caefd5c1b934340d)
+(cherry picked from commit e3d71d5dc2872bef8dbd20b29be5f6ba444a171f)
+---
+ man/systemd.slice.xml | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/man/systemd.slice.xml b/man/systemd.slice.xml
+index 4d27ddf..f82e6c3 100644
+--- a/man/systemd.slice.xml
++++ b/man/systemd.slice.xml
+@@ -56,13 +56,13 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+ 
+     <para>A unit configuration file whose name ends in
+     <literal>.slice</literal> encodes information about a slice which
+-    is a concept for hierarchially managing resources of a group of
++    is a concept for hierarchically managing resources of a group of
+     processes. This management is performed by creating a node in the
+     Linux Control Group (cgroup) tree. Units that manage processes
+-    (primarilly scope and service units) may be assigned to a specific
+-    slice. For each slice, certain resource limits may the be set that
++    (primarily scope and service units) may be assigned to a specific
++    slice. For each slice, certain resource limits may be set that
+     apply to all processes of all units contained in that
+-    slice. Slices are organized hierarchially in a tree. The name of
++    slice. Slices are organized hierarchically in a tree. The name of
+     the slice encodes the location in the tree. The name consists of a
+     dash-separated series of names, which describes the path to the
+     slice from the root slice. The root slice is named,
