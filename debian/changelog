@@ -1,3 +1,9 @@
+systemd (208-7) UNRELEASED; urgency=medium
+
+  * Remove pre-generated rules and unit files in debian/rules clean target.
+
+ -- Jon Severinsson <jon@severinsson.net>  Sun, 13 Jul 2014 18:00:00 +0200
+
 systemd (208-6) unstable; urgency=medium
 
   [ Jon Severinsson ]
