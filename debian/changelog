@@ -22,6 +22,8 @@ systemd (215-5ubuntu1) UNRELEASED; urgency=medium
       for those in plymouth.
     - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf
+      (LP: #1320534, Closes: #674755).
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
