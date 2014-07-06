@@ -81,6 +81,12 @@ override_dh_auto_clean:
 	rm -rf debian/install/
 	# remove pre-generated man pages so they are rebuilt
 	rm -f man/*.[13578]
+	# remove pre-generated rules and unit files so they are rebuilt
+	rm -f rules/99-systemd.rules \
+		units/emergency.service \
+		units/systemd-udevd.service \
+		units/systemd-udev-settle.service \
+		units/systemd-udev-trigger.service
 	# remove Python byte code files
 	rm -f *.pyc
 
