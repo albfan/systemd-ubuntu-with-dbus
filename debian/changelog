@@ -1,6 +1,8 @@
 systemd (208-7) UNRELEASED; urgency=medium
 
   * Remove pre-generated rules and unit files in debian/rules clean target.
+  * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf
+    (Closes: #674755).
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 13 Jul 2014 18:00:00 +0200
 
