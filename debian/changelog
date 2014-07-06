@@ -11,6 +11,7 @@ systemd (214-1) UNRELEASED; urgency=medium
     - Deprecate the old libsystemd-* libraries as they've been bundled into
       libsystemd0. The old -dev files now just carry a transitional .pc file.
     - Add new symbols file for libsystemd0.
+  * Update symbols file for libgudev-1.0-0.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
