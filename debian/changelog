@@ -1,6 +1,13 @@
 systemd (215-7) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Add myself to Uploaders:.
+
+  [ Jon Severinsson]
+  * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf. This
+    avoids breakage in Jessie for packages which still refer to /run/shm, and
+    while https://wiki.debian.org/ReleaseGoals/RunDirectory is still official.
+    (LP: #1320534, Closes: #674755).
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 
