@@ -10,19 +10,19 @@ $local_fs, too.
 ---
  Makefile.am                   |  1 +
  man/systemd.special.xml       | 35 +++++++++++++++++++++++++++++++++++
- src/core/service.c            | 16 +++++++++-------
+ src/core/service.c            | 12 +++++-------
  src/core/special.h            |  3 ++-
  units/syslog.socket           |  5 ++++-
  units/syslog.target           | 19 +++++++++++++++++++
  units/systemd-journald.socket |  2 +-
- 7 files changed, 71 insertions(+), 10 deletions(-)
+ 7 files changed, 67 insertions(+), 10 deletions(-)
  create mode 100644 units/syslog.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 43f1ec6..909bf58 100644
+index df2bdf5..23056d9 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -415,6 +415,7 @@ dist_systemunit_DATA = \
+@@ -423,6 +423,7 @@ dist_systemunit_DATA = \
  	units/smartcard.target \
  	units/systemd-ask-password-wall.path \
  	units/systemd-ask-password-console.path \
@@ -31,10 +31,10 @@ index 43f1ec6..909bf58 100644
  	units/systemd-udevd-kernel.socket \
  	units/system-update.target \
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 863a029..0876ccc 100644
+index 4dd7d97..a7302c0 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
-@@ -97,6 +97,7 @@
+@@ -98,6 +98,7 @@
                  <filename>swap.target</filename>,
                  <filename>sysinit.target</filename>,
                  <filename>syslog.socket</filename>,
@@ -42,7 +42,7 @@ index 863a029..0876ccc 100644
                  <filename>system-update.target</filename>,
                  <filename>time-sync.target</filename>,
                  <filename>timers.target</filename>,
-@@ -367,6 +368,27 @@
+@@ -368,6 +369,27 @@
                                          that have the
                                          <option>auto</option> mount
                                          option set.</para>
@@ -70,7 +70,7 @@ index 863a029..0876ccc 100644
                                  </listitem>
                          </varlistentry>
                          <varlistentry>
-@@ -675,6 +697,19 @@
+@@ -676,6 +698,19 @@
                                  </listitem>
                          </varlistentry>
                          <varlistentry>
@@ -91,10 +91,10 @@ index 863a029..0876ccc 100644
                                  <listitem>
                                          <para>A special target unit
 diff --git a/src/core/service.c b/src/core/service.c
-index 6792024..47587d0 100644
+index 9fd58fa..fbe0428 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
-@@ -332,8 +332,7 @@ static void service_done(Unit *u) {
+@@ -334,8 +334,7 @@ static void service_done(Unit *u) {
  static char *sysv_translate_name(const char *name) {
          char *r;
  
@@ -104,17 +104,13 @@ index 6792024..47587d0 100644
                  return NULL;
  
          if (endswith(name, ".sh"))
-@@ -356,12 +355,16 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -358,12 +357,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */
 -                "local_fs",             NULL,
 +                "local_fs",             SPECIAL_LOCAL_FS_TARGET,
-+                /* Due to unfortunate name selection in Mandriva,
-+                 * $network is provided by network-up which is ordered
-+                 * after network which actually starts interfaces.
-+                 * To break the loop, just ignore it */
-                 "network",              SPECIAL_NETWORK_TARGET,
+                 "network",              SPECIAL_NETWORK_ONLINE_TARGET,
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
                  "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
@@ -123,7 +119,7 @@ index 6792024..47587d0 100644
                  "time",                 SPECIAL_TIME_SYNC_TARGET,
          };
  
-@@ -382,9 +385,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -384,9 +383,8 @@ static int sysv_translate_facility(const char *name, const char *filename, char
                  if (!table[i+1])
                          return 0;
  

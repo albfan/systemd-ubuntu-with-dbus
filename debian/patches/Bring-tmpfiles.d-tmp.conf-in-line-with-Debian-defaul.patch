@@ -8,7 +8,7 @@ Closes: #675422
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/tmpfiles.d/tmp.conf b/tmpfiles.d/tmp.conf
-index 3b534a1..74bc677 100644
+index f0312ef..445ba5c 100644
 --- a/tmpfiles.d/tmp.conf
 +++ b/tmpfiles.d/tmp.conf
 @@ -8,8 +8,8 @@
@@ -21,4 +21,4 @@ index 3b534a1..74bc677 100644
 +#d /var/tmp 1777 root root 30d
  
  # Exclude namespace mountpoints created with PrivateTmp=yes
- x /tmp/systemd-private-*
+ x /tmp/systemd-*.service-*
