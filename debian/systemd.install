@@ -28,7 +28,6 @@ usr/bin/timedatectl
 usr/bin/localectl
 usr/bin/hostnamectl
 usr/share/man/man1/
-usr/share/man/man3/
 usr/share/man/man5/
 usr/share/man/man7/
 usr/share/man/man8/

@@ -50,7 +50,7 @@ Suggests: systemd-ui
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         libsystemd-login0 (= ${binary:Version}),
+         libsystemd0 (= ${binary:Version}),
          util-linux (>= 2.19.1-2),
          initscripts (>= 2.88dsf-17),
          sysv-rc,
@@ -125,35 +125,7 @@ Description: system and service manager - PAM module
  .
  Packages that depend on logind functionality need to depend on libpam-systemd.
 
-Package: libsystemd-login0
-Architecture: linux-any
-Multi-Arch: same
-Section: libs
-Priority: optional
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
-Description: systemd login utility library
- The libsystemd-login library provides an interface for the
- systemd-logind service which is used to track user sessions and seats.
-
-Package: libsystemd-login-dev
-Architecture: linux-any
-Multi-Arch: same
-Section: libdevel
-Priority: optional
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         libsystemd-login0 (= ${binary:Version})
-Breaks: systemd (<< 204-8)
-Replaces: systemd (<< 204-8)
-Description: systemd login utility library - development files
- The libsystemd-login library provides an interface for the
- systemd-logind service which is used to track user sessions and seats.
- .
- This package contains the development files
-
-Package: libsystemd-daemon0
+Package: libsystemd0
 Architecture: linux-any
 Multi-Arch: same
 Section: libs
@@ -162,81 +134,142 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
 Description: systemd utility library
+ The libsystemd0 library provides interfaces to various systemd components
+
+Package: libsystemd-dev
+Architecture: linux-any
+Multi-Arch: same
+Section: libdevel
+Priority: optional
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         libsystemd0 (= ${binary:Version})
+Breaks: systemd (<< 204-8),
+        libsystemd-login-dev (<< 209),
+        libsystemd-daemon-dev (<< 209),
+        libsystemd-journal-dev (<< 209),
+        libsystemd-id128-dev (<< 209),
+Replaces: systemd (<< 204-8),
+          libsystemd-login-dev (<< 209),
+          libsystemd-daemon-dev (<< 209),
+          libsystemd-journal-dev (<< 209),
+          libsystemd-id128-dev (<< 209),
+Description: systemd utility library - development files
+ The libsystemd0 library provides interfaces to various systemd components
+ .
+ This package contains the development files
+
+Package: libsystemd-login0
+Architecture: linux-any
+Multi-Arch: same
+Section: oldlibs
+Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: systemd login utility library (deprecated)
+ The libsystemd-login library provides an interface for the
+ systemd-logind service which is used to track user sessions and seats.
+ .
+ Transitional compatibility library, functionality has been integrated into
+ libsystemd0
+
+Package: libsystemd-login-dev
+Architecture: linux-any
+Multi-Arch: same
+Section: oldlibs
+Priority: extra
+Depends: ${misc:Depends},
+         libsystemd-dev (>= ${binary:Version})
+Description: systemd login utility library (transitional package)
+ The libsystemd-login library provides an interface for the
+ systemd-logind service which is used to track user sessions and seats.
+ .
+ This is a transition package that can be safely removed once no package depend on it.
+
+Package: libsystemd-daemon0
+Architecture: linux-any
+Multi-Arch: same
+Section: oldlibs
+Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends},
+         ${misc:Depends}
+Description: systemd utility library (deprecated)
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.
+ .
+ Transitional compatibility library, functionality has been integrated into
+ libsystemd0
 
 Package: libsystemd-daemon-dev
 Architecture: linux-any
 Multi-Arch: same
-Section: libdevel
-Priority: optional
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         libsystemd-daemon0 (= ${binary:Version})
-Breaks: systemd (<< 204-8)
-Replaces: systemd (<< 204-8)
-Description: systemd utility library - development files
+Section: oldlibs
+Priority: extra
+Depends: ${misc:Depends},
+         libsystemd-dev (>= ${binary:Version})
+Description: systemd utility library (transitional package)
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.
  .
- This package contains the development files
+ This is a transition package that can be safely removed once no package depend on it.
 
 Package: libsystemd-journal0
 Architecture: linux-any
 Multi-Arch: same
-Section: libs
-Priority: optional
+Section: oldlibs
+Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
-Description: systemd journal utility library
+Description: systemd journal utility library (deprecated)
  The libsystemd-journal library provides an interface for the
  systemd journal service.
+ .
+ Transitional compatibility library, functionality has been integrated into
+ libsystemd0
 
 Package: libsystemd-journal-dev
 Architecture: linux-any
 Multi-Arch: same
-Section: libdevel
-Priority: optional
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         libsystemd-journal0 (= ${binary:Version}),
-         libsystemd-id128-dev (= ${binary:Version})
-Breaks: systemd (<< 204-8)
-Replaces: systemd (<< 204-8)
-Description: systemd journal utility library - development files
+Section: oldlibs
+Priority: extra
+Depends: ${misc:Depends},
+         libsystemd-dev (>= ${binary:Version})
+Description: systemd journal utility library (transitional package)
  The libsystemd-journal library provides an interface for the
  systemd journal service.
  .
- This package contains the development files
+ This is a transition package that can be safely removed once no package depend on it.
 
 Package: libsystemd-id128-0
 Architecture: linux-any
 Multi-Arch: same
-Section: libs
-Priority: optional
+Section: oldlibs
+Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends}
-Description: systemd 128 bit ID utility library
+Description: systemd 128 bit ID utility library (deprecated)
  The libsystemd-id128 library provides utility functions for generating
  128 bit IDs.
+ .
+ Transitional compatibility library, functionality has been integrated into
+ libsystemd0
 
 Package: libsystemd-id128-dev
 Architecture: linux-any
 Multi-Arch: same
-Section: libdevel
-Priority: optional
-Depends: ${shlibs:Depends},
-         ${misc:Depends},
-         libsystemd-id128-0 (= ${binary:Version})
-Breaks: systemd (<< 204-8)
-Replaces: systemd (<< 204-8)
-Description: systemd 128 bit ID utility library - development files
+Section: oldlibs
+Priority: extra
+Depends: ${misc:Depends},
+         libsystemd-dev (>= ${binary:Version})
+Description: systemd 128 bit ID utility library (transitional package)
  The libsystemd-id128 library provides utility functions for generating
  128 bit IDs.
  .
- This package contains the development files
+ This is a transition package that can be safely removed once no package depend on it.
 
 Package: udev
 Section: admin
@@ -361,10 +394,7 @@ Priority: extra
 Depends: ${misc:Depends},
          systemd (= ${binary:Version}),
          udev (= ${binary:Version}),
-         libsystemd-login0 (= ${binary:Version}),
-         libsystemd-daemon0 (= ${binary:Version}),
-         libsystemd-journal0 (= ${binary:Version}),
-         libsystemd-id128-0 (= ${binary:Version}),
+         libsystemd0 (= ${binary:Version}),
          libudev1 (= ${binary:Version})
 Description: system and service manager (debug symbols)
  systemd is a replacement for sysvinit.  It is dependency-based and

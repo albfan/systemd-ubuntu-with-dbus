@@ -31,7 +31,8 @@ endif
 CONFFLAGS_deb = \
 	--enable-selinux \
 	--enable-introspection \
-	--enable-gtk-doc
+	--enable-gtk-doc \
+	--enable-compat-libs
 
 CONFFLAGS_udeb = \
 	--disable-selinux \
@@ -98,6 +99,11 @@ override_dh_install:
 	rm -rf debian/install/*/etc/kernel/
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	find debian/install/ -name '*.la' -delete
+	# Remove .so for deprecated compatibility libraries
+	rm -f debian/install/*/usr/lib/*/libsystemd-daemon.so
+	rm -f debian/install/*/usr/lib/*/libsystemd-login.so
+	rm -f debian/install/*/usr/lib/*/libsystemd-id128.so
+	rm -f debian/install/*/usr/lib/*/libsystemd-journal.so
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
 	# install some files manually, --sourcedir makes that necessary
@@ -156,6 +162,11 @@ override_dh_install:
 	ln -s ../udev-finish.service debian/udev/lib/systemd/system/sysinit.target.wants/
 	install --mode=755 debian/debian-fixup \
 		debian/systemd/lib/systemd/
+	# man files for example code in /usr/share/doc
+	mkdir -p debian/systemd/usr/share/man/man3/
+	mv debian/libsystemd-dev/usr/share/man/man3/sd-readahead.3 \
+		debian/libsystemd-dev/usr/share/man/man3/sd_readahead.3 \
+		debian/systemd/usr/share/man/man3/
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
@@ -185,9 +196,6 @@ endif
 	rm debian/udev/lib/udev/rules.d/73-seat-late.rules
 	rm debian/udev/lib/udev/rules.d/71-seat.rules
 	rm debian/udev/lib/udev/rules.d/99-systemd.rules
-	# files shipped by libsystemd-*-dev
-	find debian/libsystemd-*-dev -name "*.3" -exec sh -c \
-		'rm debian/systemd/usr/share/man/man3/$$(basename {})' \;
 
 # use symlinked doc directories as the old udev package did
 override_dh_installdocs:

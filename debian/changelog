@@ -6,6 +6,10 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Import upstream v214-stable patch series.
     - Rebase remaining Debian patches on top of v214-stable.
     - Drop modifications to the now-removed built-in sysvinit support.
+  * Install the new combined libsystemd0 library, this library combines all
+    functionality of the various libsystemd-* libraries.
+    - Deprecate the old libsystemd-* libraries as they've been bundled into
+      libsystemd0. The old -dev files now just carry a transitional .pc file.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
