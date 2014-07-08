@@ -31,7 +31,7 @@ index 47587d0..e11c413 100644
          { "rc5.d",  SPECIAL_RUNLEVEL5_TARGET, RUNLEVEL_UP },
  
 +        /* Debian style rcS.d */
-+        { "rcS.d",  SPECIAL_SYSINIT_TARGET,   RUNLEVEL_SYSINIT },
++        { "rcS.d",  SPECIAL_BASIC_TARGET,     RUNLEVEL_SYSINIT },
 +
          /* Standard SysV runlevels for shutdown */
          { "rc0.d",  SPECIAL_POWEROFF_TARGET,  RUNLEVEL_DOWN },

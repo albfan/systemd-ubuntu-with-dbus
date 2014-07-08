@@ -21,14 +21,14 @@ index c573a72..c56027f 100644
 +                         * An example is samba being reloaded by the dhcp hook
 +                         * when the network is activated during rcS.
 +                         * As a workaround we ignore reload or (re)start
-+                         * requests while sysinit.target is queued for
++                         * requests while basic.target is queued for
 +                         * services which have the DefaultDependencies option
 +                         * set to yes.
 +                         *
 +                         * See http://bugs.debian.org/624599 */
-+                        if (strcmp(j->unit->id, "sysinit.target") == 0 && unit->default_dependencies) {
-+                                log_debug("sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-+                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "sysinit.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
++                        if (strcmp(j->unit->id, "basic.target") == 0 && unit->default_dependencies) {
++                                log_debug("basic.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
++                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "basic.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
 +                                return -EINVAL;
 +                        }
                  }
