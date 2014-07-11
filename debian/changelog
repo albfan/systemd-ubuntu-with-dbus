@@ -26,6 +26,7 @@ systemd (214-1) UNRELEASED; urgency=medium
     - Special-case some dependencies for sysv init scripts for better
       backwards compatibility. (Closes: #726027, #738965).
   * Add systemd depends on new mount. (Closes: #754411)
+  * Update /run/initctl symlink target in debian/tmpfiles.d/debian.conf.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
