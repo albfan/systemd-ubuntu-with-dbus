@@ -519,3 +519,4 @@ Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 core-transaction-fix-cycle-break-attempts-outside-tr.patch
+Map-init-script-dependencies-on-cryptdisks-mountall-.patch

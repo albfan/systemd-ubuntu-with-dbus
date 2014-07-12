@@ -1,0 +1,24 @@
+From: Jon Severinsson <jon@severinsson.net>
+Date: Fri, 11 Jul 2014 02:15:37 +0200
+Subject: Map init script dependencies on cryptdisks, mountall,
+ and mountnfs to the corresponding systemd targets
+
+---
+ src/core/service.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index 7648c15..a81563b 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -370,6 +370,10 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
+                 "syslog",               SPECIAL_SYSLOG_TARGET,
+                 "time",                 SPECIAL_TIME_SYNC_TARGET,
++                /* special rcS init scripts */
++                "cryptdisks",           "cryptsetup.target",
++                "mountall",             SPECIAL_LOCAL_FS_TARGET,
++                "mountnfs",             SPECIAL_REMOTE_FS_TARGET,
+         };
+ 
+         unsigned i;
