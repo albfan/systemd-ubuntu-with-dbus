@@ -27,6 +27,7 @@ systemd (214-1) UNRELEASED; urgency=medium
     assume udev implementation details that have changed slightly since v213
   * debian/control: Remove b-d on librwap0-dev
   * debian/control: Bump libkmod-dev b-d to >= 15
+  * debian/rules: Drop outdated --enable-tcpwrap
 
  -- Sjoerd Simons <sjoerd@debian.org>  Sun, 10 Aug 2014 10:42:30 +0200
 
