@@ -27,6 +27,7 @@ systemd (214-1) UNRELEASED; urgency=medium
       backwards compatibility. (Closes: #726027, #738965).
   * Add systemd depends on new mount. (Closes: #754411)
   * Update /run/initctl symlink target in debian/tmpfiles.d/debian.conf.
+  * Remove more stuff from /var/lib/systemd on systemd purge.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
