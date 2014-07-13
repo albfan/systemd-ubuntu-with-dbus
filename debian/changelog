@@ -17,6 +17,7 @@ systemd (214-1) UNRELEASED; urgency=medium
     systemd-network, systemd-resolve)
   * Add new system group "input" used by udev rules in udev postinst.
   * Try-restart networkd, resolved, and timesyncd after an upgrade.
+  * Do not force-enable default-on services on every upgrade.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
