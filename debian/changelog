@@ -1,4 +1,4 @@
-systemd (208-7) UNRELEASED; urgency=medium
+systemd (208-6tanglu2) staging; urgency=medium
 
   * Remove pre-generated rules and unit files in debian/rules clean target.
   * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf

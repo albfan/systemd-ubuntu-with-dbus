@@ -144,8 +144,8 @@ Priority: optional
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-login0 (= ${binary:Version})
-Breaks: systemd (<< 204-8)
-Replaces: systemd (<< 204-8)
+Breaks: systemd (<< 208-5tanglu2)
+Replaces: systemd (<< 208-5tanglu2)
 Description: systemd login utility library - development files
  The libsystemd-login library provides an interface for the
  systemd-logind service which is used to track user sessions and seats.
