@@ -16,6 +16,7 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Add new systemd service users in systemd postinst (systemd-timesync,
     systemd-network, systemd-resolve)
   * Add new system group "input" used by udev rules in udev postinst.
+  * Try-restart networkd, resolved, and timesyncd after an upgrade.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
