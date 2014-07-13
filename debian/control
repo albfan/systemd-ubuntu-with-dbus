@@ -280,6 +280,7 @@ Multi-Arch: foreign
 Pre-Depends: debconf (>= 1.4.69) | debconf-2.0
 Depends: ${shlibs:Depends},
          ${misc:Depends},
+         adduser,
          libudev1 (= ${binary:Version}),
          lsb-base (>= 3.0-6),
          util-linux (>= 2.16),

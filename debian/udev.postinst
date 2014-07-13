@@ -146,6 +146,11 @@ case "$1" in
     # update/create hwdb before we (re)start udev
     update_hwdb
 
+    # Add new system group used by udev rules
+    if ! getent group "input" >/dev/null; then
+      addgroup --system "input"
+    fi
+
     if [ -z "$2" ]; then # first install
       if ! chrooted && ! in_debootstrap; then
 	write_interfaces_rules
