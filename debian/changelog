@@ -30,6 +30,9 @@ systemd (214-1) UNRELEASED; urgency=medium
   * debian/rules: Drop outdated --enable-tcpwrap
   * debian/rules: Explicitely turn off rfkill, networkd, timesyncd and resolved
     for the udeb build
+  * debian/rules: Use the debian ntp pool as default ntp servers
+  * debian/rules: explicitely configure the maximum system uid/gids instead of
+    relying on autodetection
 
  -- Sjoerd Simons <sjoerd@debian.org>  Sun, 10 Aug 2014 10:42:30 +0200
 
