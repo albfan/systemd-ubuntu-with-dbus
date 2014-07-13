@@ -53,11 +53,14 @@ CONFFLAGS_udeb = \
 	--disable-machined \
 	--disable-hostnamed \
 	--disable-timedated \
+	--disable-networkd \
+	--disable-timesyncd \
 	--disable-localed \
+	--disable-resolved \
 	--disable-polkit \
 	--disable-acl \
-	--disable-xattr \
 	--disable-gudev \
+	--disable-rfkill \
 	--disable-manpages \
 	--without-python
 
