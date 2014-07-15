@@ -58,6 +58,7 @@ Advertise-hibernation-only-if-there-s-enough-free-sw.patch
 journal-handle-multiline-syslog-messages.patch
 libudev-fix-memleak-when-enumerating-childs.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
+core-transaction-fix-cycle-break-attempts-outside-tr.patch
 
 # Ubuntu patches:
 Add-cgmanager-support-to-logind.patch

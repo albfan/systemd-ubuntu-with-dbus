@@ -51,17 +51,22 @@ appears in /var/log/messages.
 　　　Sep  7 19:19:39 localhost test2: aaa aaa
 
 https://bugzilla.redhat.com/show_bug.cgi?id=855313
+
+journald: remove unused variable
 ---
- src/journal/journald-server.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ src/journal/journald-server.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
 diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
-index 01f23ce..5c607b6 100644
+index 01f23ce..a62aa5e 100644
 --- a/src/journal/journald-server.c
 +++ b/src/journal/journald-server.c
-@@ -1142,12 +1142,7 @@ int process_event(Server *s, struct epoll_event *ev) {
-                                 char *e;
+@@ -1139,15 +1139,8 @@ int process_event(Server *s, struct epoll_event *ev) {
+                         }
  
+                         if (ev->data.fd == s->syslog_fd) {
+-                                char *e;
+-
                                  if (n > 0 && n_fds == 0) {
 -                                        e = memchr(s->buffer, '\n', n);
 -                                        if (e)

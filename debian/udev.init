@@ -122,11 +122,6 @@ if [ ! -d /sys/class/ ]; then
   log_end_msg 1
 fi
 
-if [ ! -e /sys/kernel/uevent_helper ]; then
-  log_failure_msg "udev requires hotplug support, not started"
-  log_end_msg 1
-fi
-
 if ! ps --no-headers --format args ax | egrep -q '^\['; then
   log_warning_msg "udev does not support containers, not started"
   exit 0
