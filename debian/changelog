@@ -1,4 +1,4 @@
-systemd (208-6) UNRELEASED; urgency=medium
+systemd (208-6) unstable; urgency=medium
 
   [ Jon Severinsson ]
   * Add v208-stable patch series.
@@ -8,7 +8,7 @@ systemd (208-6) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Upload to unstable.
 
- -- Jon Severinsson <jon@severinsson.net>  Sun, 06 Jul 2014 18:00:00 +0200
+ -- Michael Biebl <biebl@debian.org>  Wed, 16 Jul 2014 00:44:15 +0200
 
 systemd (208-5) experimental; urgency=medium
 
