@@ -1,8 +1,12 @@
 systemd (208-6) UNRELEASED; urgency=medium
 
+  [ Jon Severinsson ]
   * Add v208-stable patch series.
     - Update Debian patches to apply on top of v208-stable.
     - Move new manpages to libsystemd-*-dev as appropriate.
+
+  [ Michael Biebl ]
+  * Upload to unstable.
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 06 Jul 2014 18:00:00 +0200
 
