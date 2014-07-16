@@ -6,13 +6,12 @@ This is based on parts of similar patches from Michael Marineau and
 Lukas Nykrin, but simply uses strappenda3().
 
 (cherry picked from commit cebed5005b5ede17fc52ab50c054fca73bc938b8)
-(cherry picked from commit 173749803c35c127b84d537974b6783cdba674fc)
 ---
  src/shared/conf-files.c | 16 +++++++++++++---
  1 file changed, 13 insertions(+), 3 deletions(-)
 
 diff --git a/src/shared/conf-files.c b/src/shared/conf-files.c
-index 3d5b1df..4ec8bed 100644
+index 5201782..59bc8ce 100644
 --- a/src/shared/conf-files.c
 +++ b/src/shared/conf-files.c
 @@ -37,10 +37,20 @@

@@ -4,7 +4,6 @@ Subject: install: make sure that --root= mode doesn't make us consider all
  units outside of search path
 
 (cherry picked from commit 8f294b45cbb627d31342f6a79444be59ce7e2274)
-(cherry picked from commit 9139b554df671481a7e03e928d661420bffb8774)
 ---
  src/shared/install.c | 41 +++++++++++++++++++++++++++++++++++++----
  src/shared/util.c    | 16 ----------------
@@ -12,11 +11,11 @@ Subject: install: make sure that --root= mode doesn't make us consider all
  3 files changed, 37 insertions(+), 21 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index e772c45..5d93a2e 100644
+index 278350b..509ae93 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
 @@ -47,6 +47,37 @@ typedef struct {
- #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+ 
  #define _cleanup_install_context_done_ _cleanup_(install_context_done)
  
 +static int in_search_path(const char *path, char **search, const char *root_dir) {
@@ -53,7 +52,7 @@ index e772c45..5d93a2e 100644
  static int lookup_paths_init_from_scope(LookupPaths *paths,
                                          UnitFileScope scope,
                                          const char *root_dir) {
-@@ -759,7 +790,7 @@ int unit_file_link(
+@@ -746,7 +777,7 @@ int unit_file_link(
                          continue;
                  }
  
@@ -62,7 +61,7 @@ index e772c45..5d93a2e 100644
                  if (q < 0)
                          return q;
  
-@@ -1315,6 +1346,7 @@ static int install_info_symlink_link(
+@@ -1296,6 +1327,7 @@ static int install_info_symlink_link(
                  InstallInfo *i,
                  LookupPaths *paths,
                  const char *config_path,
@@ -70,7 +69,7 @@ index e772c45..5d93a2e 100644
                  bool force,
                  UnitFileChange **changes,
                  unsigned *n_changes) {
-@@ -1327,7 +1359,7 @@ static int install_info_symlink_link(
+@@ -1308,7 +1340,7 @@ static int install_info_symlink_link(
          assert(config_path);
          assert(i->path);
  
@@ -79,7 +78,7 @@ index e772c45..5d93a2e 100644
          if (r != 0)
                  return r;
  
-@@ -1342,6 +1374,7 @@ static int install_info_apply(
+@@ -1323,6 +1355,7 @@ static int install_info_apply(
                  InstallInfo *i,
                  LookupPaths *paths,
                  const char *config_path,
@@ -87,7 +86,7 @@ index e772c45..5d93a2e 100644
                  bool force,
                  UnitFileChange **changes,
                  unsigned *n_changes) {
-@@ -1362,7 +1395,7 @@ static int install_info_apply(
+@@ -1343,7 +1376,7 @@ static int install_info_apply(
          if (r == 0)
                  r = q;
  
@@ -96,7 +95,7 @@ index e772c45..5d93a2e 100644
          if (r == 0)
                  r = q;
  
-@@ -1402,7 +1435,7 @@ static int install_context_apply(
+@@ -1383,7 +1416,7 @@ static int install_context_apply(
                  } else if (r >= 0)
                          r += q;
  
@@ -106,10 +105,10 @@ index e772c45..5d93a2e 100644
                          r = q;
          }
 diff --git a/src/shared/util.c b/src/shared/util.c
-index 1f83eb7..f034134 100644
+index 91cbf20..9be8088 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -4520,22 +4520,6 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
+@@ -4452,22 +4452,6 @@ int dirent_ensure_type(DIR *d, struct dirent *de) {
          return 0;
  }
  
@@ -133,10 +132,10 @@ index 1f83eb7..f034134 100644
          _cleanup_closedir_ DIR *d = NULL;
          size_t bufsize = 0, n = 0;
 diff --git a/src/shared/util.h b/src/shared/util.h
-index 3f97663..f358362 100644
+index 0f8c393..9c38499 100644
 --- a/src/shared/util.h
 +++ b/src/shared/util.h
-@@ -477,7 +477,6 @@ int glob_extend(char ***strv, const char *path);
+@@ -543,7 +543,6 @@ int glob_extend(char ***strv, const char *path);
  
  int dirent_ensure_type(DIR *d, struct dirent *de);
  

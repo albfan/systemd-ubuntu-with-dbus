@@ -3,17 +3,16 @@ Date: Tue, 17 Jun 2014 01:37:54 +0200
 Subject: install: simplify symlink --root= logic
 
 (cherry picked from commit 278fa5758c8e30f03c8c50f15873d55edfc4cbaf)
-(cherry picked from commit aa5882a2d14c8de0956be0569f20678816dfa1f5)
 ---
  src/shared/install.c | 59 +++++++++++++---------------------------------------
  1 file changed, 15 insertions(+), 44 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 5d93a2e..86a05a4 100644
+index 509ae93..8322970 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
 @@ -47,9 +47,8 @@ typedef struct {
- #define _cleanup_lookup_paths_free_ _cleanup_(lookup_paths_free)
+ 
  #define _cleanup_install_context_done_ _cleanup_(install_context_done)
  
 -static int in_search_path(const char *path, char **search, const char *root_dir) {
@@ -49,7 +48,7 @@ index 5d93a2e..86a05a4 100644
  }
  
  static int lookup_paths_init_from_scope(LookupPaths *paths,
-@@ -790,7 +772,7 @@ int unit_file_link(
+@@ -777,7 +759,7 @@ int unit_file_link(
                          continue;
                  }
  
@@ -58,7 +57,7 @@ index 5d93a2e..86a05a4 100644
                  if (q < 0)
                          return q;
  
-@@ -1037,6 +1019,7 @@ static int unit_file_load(
+@@ -1021,6 +1003,7 @@ static int unit_file_load(
                  InstallContext *c,
                  InstallInfo *info,
                  const char *path,
@@ -66,7 +65,7 @@ index 5d93a2e..86a05a4 100644
                  bool allow_symlink) {
  
          const ConfigTableItem items[] = {
-@@ -1048,14 +1031,16 @@ static int unit_file_load(
+@@ -1032,14 +1015,16 @@ static int unit_file_load(
                  { NULL, NULL, NULL, 0, NULL }
          };
  
@@ -85,7 +84,7 @@ index 5d93a2e..86a05a4 100644
          fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(allow_symlink ? 0 : O_NOFOLLOW));
          if (fd < 0)
                  return -errno;
-@@ -1091,30 +1076,19 @@ static int unit_file_search(
+@@ -1075,30 +1060,19 @@ static int unit_file_search(
          assert(info);
          assert(paths);
  
@@ -120,7 +119,7 @@ index 5d93a2e..86a05a4 100644
                  if (r >= 0) {
                          info->path = path;
                          path = NULL;
-@@ -1139,14 +1113,11 @@ static int unit_file_search(
+@@ -1123,14 +1097,11 @@ static int unit_file_search(
                  STRV_FOREACH(p, paths->unit_path) {
                          _cleanup_free_ char *path = NULL;
  
@@ -137,7 +136,7 @@ index 5d93a2e..86a05a4 100644
                          if (r >= 0) {
                                  info->path = path;
                                  path = NULL;
-@@ -1359,7 +1330,7 @@ static int install_info_symlink_link(
+@@ -1340,7 +1311,7 @@ static int install_info_symlink_link(
          assert(config_path);
          assert(i->path);
  

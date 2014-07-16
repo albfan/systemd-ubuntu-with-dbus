@@ -6,17 +6,15 @@ Subject: tmpfiles: set up selinux label proeprly when creating fifos
 
 Conflicts:
 	src/shared/util.c
-
-(cherry picked from commit 1762262e61d16e77a9446b7588f7828f70cd9cbb)
 ---
  src/tmpfiles/tmpfiles.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/src/tmpfiles/tmpfiles.c b/src/tmpfiles/tmpfiles.c
-index be2115c..6b0dfaf 100644
+index bb12dd0..3e817cc 100644
 --- a/src/tmpfiles/tmpfiles.c
 +++ b/src/tmpfiles/tmpfiles.c
-@@ -699,9 +699,11 @@ static int create_item(Item *i) {
+@@ -719,9 +719,11 @@ static int create_item(Item *i) {
  
          case CREATE_FIFO:
  

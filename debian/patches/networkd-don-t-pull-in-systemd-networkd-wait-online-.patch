@@ -1,0 +1,25 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 17 Jun 2014 02:13:08 +0200
+Subject: networkd: don't pull in systemd-networkd-wait-online service from
+ systemd-networkd when enabling
+
+networkd-wait-online should never exist in the default transaction,
+unless explicitly enable or pulled in via things like NFS. However, just
+enabling networkd shouldn't enable networkd-wait-online, since it's
+common to use the former without the latter.
+
+(cherry picked from commit 324d7a53b9c53b33520b97f2562219ac4143f581)
+---
+ units/systemd-networkd.service.in | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/units/systemd-networkd.service.in b/units/systemd-networkd.service.in
+index 48f4d63..f3bf95d 100644
+--- a/units/systemd-networkd.service.in
++++ b/units/systemd-networkd.service.in
+@@ -25,5 +25,4 @@ ProtectHome=yes
+ WatchdogSec=1min
+ 
+ [Install]
+-Also=systemd-networkd-wait-online.service
+ WantedBy=multi-user.target

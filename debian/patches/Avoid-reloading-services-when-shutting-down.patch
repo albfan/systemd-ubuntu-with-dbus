@@ -9,11 +9,11 @@ for the patch.  Closes: #624599.
  1 file changed, 25 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 58dacdc..c573a72 100644
+index 0cb2044..a00ca74 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -943,6 +943,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
- int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, DBusError *e, Job **_ret) {
+@@ -1040,6 +1040,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
          int r;
          Transaction *tr;
 +        Job *j;
@@ -21,33 +21,33 @@ index 58dacdc..c573a72 100644
  
          assert(m);
          assert(type < _JOB_TYPE_MAX);
-@@ -954,6 +956,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+@@ -1051,6 +1053,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                  return -EINVAL;
          }
  
 +        if (type == JOB_RELOAD || type == JOB_RELOAD_OR_START || type == JOB_RESTART || type == JOB_TRY_RESTART) {
-+                /* If final.target is queued (happens on poweroff, reboot and
-+                 * halt), we will not accept new reload jobs. They would not be
-+                 * executed ever anyways (since the shutdown comes first), but
-+                 * they block the shutdown process: when systemd tries to stop
-+                 * a unit such as ifup@eth0.service, that unit might invoke a
-+                 * systemctl reload command, which blockingly waits (but only
-+                 * gets executed after all other queued units for the shutdown
-+                 * have been executed).
-+                 *
-+                 * See http://bugs.debian.org/624599 and
-+                 *     http://bugs.debian.org/635777 */
 +                HASHMAP_FOREACH(j, m->jobs, i) {
 +                        assert(j->installed);
 +
++                        /* If final.target is queued (happens on poweroff, reboot and
++                         * halt), we will not accept new reload jobs. They would not be
++                         * executed ever anyways (since the shutdown comes first), but
++                         * they block the shutdown process: when systemd tries to stop
++                         * a unit such as ifup@eth0.service, that unit might invoke a
++                         * systemctl reload command, which blockingly waits (but only
++                         * gets executed after all other queued units for the shutdown
++                         * have been executed).
++                         *
++                         * See http://bugs.debian.org/624599 and
++                         *     http://bugs.debian.org/635777 */
 +                        if (strcmp(j->unit->id, "final.target") == 0) {
 +                                log_debug("final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
-+                                dbus_set_error(e, BUS_ERROR_INVALID_JOB_MODE, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
++                                sd_bus_error_setf(e, BUS_ERROR_SHUTTING_DOWN, "final.target is queued, ignoring %s request for unit %s", job_type_to_string(type), unit->id);
 +                                return -EINVAL;
 +                        }
 +                }
 +        }
 +
          if (mode == JOB_ISOLATE && !unit->allow_isolate) {
-                 dbus_set_error(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                 sd_bus_error_setf(e, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
                  return -EPERM;

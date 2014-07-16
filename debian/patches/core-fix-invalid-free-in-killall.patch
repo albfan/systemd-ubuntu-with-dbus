@@ -11,16 +11,15 @@ dereferenced(!), in addition to nothing else initializing it before
 the scope it is in finishes.
 
 (cherry picked from commit 3e09eb5c83e56bc0184bd9d9c44f76047464f77c)
-(cherry picked from commit 89655d12976c14a2fc6b6c2b91164b9246898560)
 ---
  src/core/killall.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/killall.c b/src/core/killall.c
-index e395050..967dac0 100644
+index 57ed41c..eab48f7 100644
 --- a/src/core/killall.c
 +++ b/src/core/killall.c
-@@ -167,7 +167,7 @@ static int killall(int sig, Set *pids) {
+@@ -168,7 +168,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                          continue;
  
                  if (sig == SIGKILL) {
@@ -28,4 +27,4 @@ index e395050..967dac0 100644
 +                        _cleanup_free_ char *s = NULL;
  
                          get_process_comm(pid, &s);
-                         log_notice("Sending SIGKILL to PID %lu (%s).", (unsigned long) pid, strna(s));
+                         log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));

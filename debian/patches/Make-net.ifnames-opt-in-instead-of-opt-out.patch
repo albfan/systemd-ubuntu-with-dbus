@@ -6,19 +6,28 @@ With this commit, you need to actively specify net.ifnames=1 to get
 predictable network interface names:
 http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/
 ---
- rules/80-net-name-slot.rules | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ src/udev/net/link-config.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/rules/80-net-name-slot.rules b/rules/80-net-name-slot.rules
-index c5f1b38..4738e53 100644
---- a/rules/80-net-name-slot.rules
-+++ b/rules/80-net-name-slot.rules
-@@ -5,7 +5,7 @@ SUBSYSTEM!="net", GOTO="net_name_slot_end"
- NAME!="", GOTO="net_name_slot_end"
+diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
+index 7a9d01b..a19954b 100644
+--- a/src/udev/net/link-config.c
++++ b/src/udev/net/link-config.c
+@@ -194,13 +194,13 @@ static bool enable_name_policy(void) {
+         if (r < 0)
+                 log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
+         if (r <= 0)
+-                return true;
++                return false;
  
- IMPORT{cmdline}="net.ifnames"
--ENV{net.ifnames}=="0", GOTO="net_name_slot_end"
-+ENV{net.ifnames}!="1", GOTO="net_name_slot_end"
+         FOREACH_WORD_QUOTED(w, l, line, state)
+-                if (strneq(w, "net.ifnames=0", l))
+-                        return false;
++                if (strneq(w, "net.ifnames=1", l))
++                        return true;
  
- NAME=="", ENV{ID_NET_NAME_ONBOARD}!="", NAME="$env{ID_NET_NAME_ONBOARD}"
- NAME=="", ENV{ID_NET_NAME_SLOT}!="", NAME="$env{ID_NET_NAME_SLOT}"
+-        return true;
++        return false;
+ }
+ 
+ int link_config_load(link_config_ctx *ctx) {

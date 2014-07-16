@@ -1,0 +1,68 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 17 Jun 2014 00:11:47 +0200
+Subject: install: use symlink_atomic() instead of unlink()+symlink() when
+ force creating a symlink
+
+(cherry picked from commit 1f8c46040e824d7367c2f013de13c87d53f249dc)
+---
+ src/shared/install.c | 27 ++++++++-------------------
+ 1 file changed, 8 insertions(+), 19 deletions(-)
+
+diff --git a/src/shared/install.c b/src/shared/install.c
+index 0f49f2a..f0d3d1b 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -603,13 +603,9 @@ int unit_file_mask(
+                                 continue;
+ 
+                         if (force) {
+-                                unlink(path);
+-
+-                                if (symlink("/dev/null", path) >= 0) {
+-
++                                if (symlink_atomic("/dev/null", path) >= 0) {
+                                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, "/dev/null");
+-
+                                         continue;
+                                 }
+                         }
+@@ -770,13 +766,9 @@ int unit_file_link(
+                                 continue;
+ 
+                         if (force) {
+-                                unlink(path);
+-
+-                                if (symlink(*i, path) >= 0) {
+-
++                                if (symlink_atomic(*i, path) >= 0) {
+                                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, path, NULL);
+                                         add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, path, *i);
+-
+                                         continue;
+                                 }
+                         }
+@@ -1172,17 +1164,14 @@ static int create_symlink(
+         if (!force)
+                 return -EEXIST;
+ 
+-        r = unlink(new_path);
+-        if (r < 0 && errno != ENOENT)
+-                return -errno;
++        r = symlink_atomic(old_path, new_path);
++        if (r < 0)
++                return r;
+ 
+-        if (symlink(old_path, new_path) >= 0) {
+-                add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
+-                add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+-                return 0;
+-        }
++        add_file_change(changes, n_changes, UNIT_FILE_UNLINK, new_path, NULL);
++        add_file_change(changes, n_changes, UNIT_FILE_SYMLINK, new_path, old_path);
+ 
+-        return -errno;
++        return 0;
+ }
+ 
+ static int install_info_symlink_alias(

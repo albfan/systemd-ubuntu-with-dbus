@@ -8,13 +8,12 @@ look very good.
 Similar fix from the one done in systemd-analyze (418e3750)
 
 (cherry picked from commit a7997073ac07add6cb30dcd9491c0179b2d6ad52)
-(cherry picked from commit 0eca797c3c6b82527d1e38a9f194f9daca1abb47)
 ---
  src/bootchart/svg.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/src/bootchart/svg.c b/src/bootchart/svg.c
-index 5eee2d1..fe8b1b8 100644
+index a53f98a..8121199 100644
 --- a/src/bootchart/svg.c
 +++ b/src/bootchart/svg.c
 @@ -123,6 +123,7 @@ static void svg_header(void) {
@@ -25,7 +24,7 @@ index 5eee2d1..fe8b1b8 100644
          svg("      rect.cpu   { fill: rgb(64,64,240); stroke-width: 0; fill-opacity: 0.7; }\n");
          svg("      rect.wait  { fill: rgb(240,240,0); stroke-width: 0; fill-opacity: 0.7; }\n");
          svg("      rect.bi    { fill: rgb(240,128,128); stroke-width: 0; fill-opacity: 0.7; }\n");
-@@ -1276,6 +1277,7 @@ void svg_do(const char *build) {
+@@ -1270,6 +1271,7 @@ void svg_do(const char *build) {
  
          /* after this, we can draw the header with proper sizing */
          svg_header();

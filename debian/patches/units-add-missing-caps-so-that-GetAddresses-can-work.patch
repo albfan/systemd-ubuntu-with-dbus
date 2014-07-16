@@ -1,0 +1,22 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Thu, 19 Jun 2014 19:53:16 +0200
+Subject: units: add missing caps so that GetAddresses() can work
+
+(cherry picked from commit a55954297dade7b432fd3a4f328f23261621ff79)
+---
+ units/systemd-machined.service.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/units/systemd-machined.service.in b/units/systemd-machined.service.in
+index 3ae0847..5a890b5 100644
+--- a/units/systemd-machined.service.in
++++ b/units/systemd-machined.service.in
+@@ -15,7 +15,7 @@ After=machine.slice
+ [Service]
+ ExecStart=@rootlibexecdir@/systemd-machined
+ BusName=org.freedesktop.machine1
+-CapabilityBoundingSet=CAP_KILL
++CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID
+ WatchdogSec=1min
+ PrivateTmp=yes
+ PrivateDevices=yes

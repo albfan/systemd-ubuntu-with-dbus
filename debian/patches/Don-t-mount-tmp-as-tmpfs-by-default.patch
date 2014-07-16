@@ -18,16 +18,16 @@ anymore afterwards).
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 8d9c587..7d1f408 100644
+index 12d2c94..f5eee70 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -4413,8 +4413,7 @@ SYSINIT_TARGET_WANTS += \
+@@ -5067,8 +5067,7 @@ endif
+ SYSINIT_TARGET_WANTS += \
  	systemd-update-utmp.service
  LOCAL_FS_TARGET_WANTS += \
- 	systemd-remount-fs.service \
--	systemd-fsck-root.service \
+-	systemd-remount-fs.service \
 -	tmp.mount
-+	systemd-fsck-root.service
++	systemd-remount-fs.service
  MULTI_USER_TARGET_WANTS += \
  	getty.target \
  	systemd-ask-password-wall.path

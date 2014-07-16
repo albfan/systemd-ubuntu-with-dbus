@@ -14,10 +14,10 @@ Closes: #724797
  1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/src/fstab-generator/fstab-generator.c b/src/fstab-generator/fstab-generator.c
-index 0d954a2..f10fc11 100644
+index a9a5c02..8c2a9b2 100644
 --- a/src/fstab-generator/fstab-generator.c
 +++ b/src/fstab-generator/fstab-generator.c
-@@ -142,9 +142,7 @@ static bool mount_is_network(struct mntent *me) {
+@@ -154,9 +154,7 @@ static bool mount_is_network(struct mntent *me) {
  static bool mount_in_initrd(struct mntent *me) {
          assert(me);
  
@@ -27,4 +27,4 @@ index 0d954a2..f10fc11 100644
 +        return hasmntopt(me, "x-initrd.mount");
  }
  
- static int add_fsck(FILE *f, const char *what, const char *where, const char *type, int passno) {
+ static int add_mount(

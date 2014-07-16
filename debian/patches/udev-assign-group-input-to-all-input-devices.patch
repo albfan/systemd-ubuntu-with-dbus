@@ -1,0 +1,52 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Thu, 12 Jun 2014 14:59:53 +0200
+Subject: udev: assign group "input" to all input devices
+
+(cherry picked from commit 3dff3e00e044e2d53c76fa842b9a4759d4a50e69)
+---
+ NEWS                        | 6 ++++++
+ README                      | 2 +-
+ rules/50-udev-default.rules | 1 +
+ 3 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/NEWS b/NEWS
+index 4f3c522..318f3d4 100644
+--- a/NEWS
++++ b/NEWS
+@@ -1,5 +1,11 @@
+ systemd System and Service Manager
+ 
++CHANGES WITH 215:
++        * A new system group "input" is introduced, all input
++          device nodes get this group assigned. This is useful for
++          system-level software to get access to input devices. It
++          complements what is already done for "audio" and "video".
++
+ CHANGES WITH 214:
+ 
+         * As an experimental feature, udev now tries to lock the
+diff --git a/README b/README
+index 529c6e1..de159fe 100644
+--- a/README
++++ b/README
+@@ -168,7 +168,7 @@ USERS AND GROUPS:
+         even in the very early boot stages, where no other databases
+         and network are available:
+ 
+-        tty, dialout, kmem, video, audio, lp, cdrom, tape, disk
++        audio, cdrom, dialout, disk, input, kmem, lp, tape, tty, video
+ 
+         During runtime, the journal daemon requires the
+         "systemd-journal" system group to exist. New journal files will
+diff --git a/rules/50-udev-default.rules b/rules/50-udev-default.rules
+index 122d07c..1ecd47a 100644
+--- a/rules/50-udev-default.rules
++++ b/rules/50-udev-default.rules
+@@ -23,6 +23,7 @@ KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*|rfcomm[0-9]*", GROUP=
+ 
+ SUBSYSTEM=="mem", KERNEL=="mem|kmem|port", GROUP="kmem", MODE="0640"
+ 
++SUBSYSTEM=="input", GROUP="input"
+ SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
+ 
+ SUBSYSTEM=="video4linux", GROUP="video"

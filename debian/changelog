@@ -1,3 +1,14 @@
+systemd (214-1) UNRELEASED; urgency=medium
+
+  * New upstream release v214.
+
+  [ Jon Severinsson ]
+  * Import upstream v214-stable patch series.
+    - Rebase remaining Debian patches on top of v214-stable.
+    - Drop modifications to the now-removed built-in sysvinit support.
+
+ -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
+
 systemd (208-6) unstable; urgency=medium
 
   [ Jon Severinsson ]

@@ -7,7 +7,6 @@ as we don't hardcode the systemd paths in old RPMs that shall work with
 new systemds.
 
 (cherry picked from commit 8cf7c96517c3688d29b30651adcda9e71e7fcb07)
-(cherry picked from commit 2ea8cba266174f4c4afe7b0a5fbbfebf93fb37cc)
 ---
  src/core/macros.systemd.in | 20 ++++++++++----------
  1 file changed, 10 insertions(+), 10 deletions(-)

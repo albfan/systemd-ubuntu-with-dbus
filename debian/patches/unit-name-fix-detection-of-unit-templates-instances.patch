@@ -6,16 +6,15 @@ We need to check for the last dot, not the first one in a unit name, for
 the suffix. Correct that.
 
 (cherry picked from commit 6ef9eeed61a291cc42b7d911f5cf5a4deca742a3)
-(cherry picked from commit 2992a46a54b65b349b8d5b6330fe8fd19234e321)
 ---
  src/shared/unit-name.c | 16 ++++++++++++----
  1 file changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/src/shared/unit-name.c b/src/shared/unit-name.c
-index bc8094d..577f7e7 100644
+index 6c167b4..d0e71f2 100644
 --- a/src/shared/unit-name.c
 +++ b/src/shared/unit-name.c
-@@ -334,7 +334,7 @@ char *unit_name_path_unescape(const char *f) {
+@@ -332,7 +332,7 @@ char *unit_name_path_unescape(const char *f) {
  }
  
  bool unit_name_is_template(const char *n) {
@@ -24,7 +23,7 @@ index bc8094d..577f7e7 100644
  
          assert(n);
  
-@@ -342,11 +342,15 @@ bool unit_name_is_template(const char *n) {
+@@ -340,11 +340,15 @@ bool unit_name_is_template(const char *n) {
          if (!p)
                  return false;
  
@@ -42,7 +41,7 @@ index bc8094d..577f7e7 100644
  
          assert(n);
  
-@@ -354,7 +358,11 @@ bool unit_name_is_instance(const char *n) {
+@@ -352,7 +356,11 @@ bool unit_name_is_instance(const char *n) {
          if (!p)
                  return false;
  

@@ -1,0 +1,113 @@
+From: Michael Marineau <michael.marineau@coreos.com>
+Date: Thu, 19 Jun 2014 19:07:02 -0700
+Subject: shared: rename path_strv_canonicalize_absolute functions
+
+Since 12ed81d9 path_strv_canonicalize_absolute leaves the search list
+relative to the given root directory instead of resolving paths to their
+true location as the name implies. To better reflect this behavior
+rename to the less strongly worded path_strv_resolve.
+
+(cherry picked from commit 7d8da2c9641c584ff977493eeb8148300dce8759)
+---
+ src/shared/conf-files.c  | 2 +-
+ src/shared/path-lookup.c | 6 +++---
+ src/shared/path-util.c   | 6 +++---
+ src/shared/path-util.h   | 4 ++--
+ src/shared/util.c        | 2 +-
+ 5 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/src/shared/conf-files.c b/src/shared/conf-files.c
+index 59bc8ce..44e137e 100644
+--- a/src/shared/conf-files.c
++++ b/src/shared/conf-files.c
+@@ -110,7 +110,7 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
+         assert(suffix);
+ 
+         /* This alters the dirs string array */
+-        if (!path_strv_canonicalize_absolute_uniq(dirs, root))
++        if (!path_strv_resolve_uniq(dirs, root))
+                 return -ENOMEM;
+ 
+         fh = hashmap_new(string_hash_func, string_compare_func);
+diff --git a/src/shared/path-lookup.c b/src/shared/path-lookup.c
+index e072fd6..e0aaf44 100644
+--- a/src/shared/path-lookup.c
++++ b/src/shared/path-lookup.c
+@@ -284,7 +284,7 @@ int lookup_paths_init(
+                 }
+         }
+ 
+-        if (!path_strv_canonicalize_absolute_uniq(p->unit_path, root_dir))
++        if (!path_strv_resolve_uniq(p->unit_path, root_dir))
+                 return -ENOMEM;
+ 
+         if (!strv_isempty(p->unit_path)) {
+@@ -338,10 +338,10 @@ int lookup_paths_init(
+                                 return -ENOMEM;
+                 }
+ 
+-                if (!path_strv_canonicalize_absolute_uniq(p->sysvinit_path, root_dir))
++                if (!path_strv_resolve_uniq(p->sysvinit_path, root_dir))
+                         return -ENOMEM;
+ 
+-                if (!path_strv_canonicalize_absolute_uniq(p->sysvrcnd_path, root_dir))
++                if (!path_strv_resolve_uniq(p->sysvrcnd_path, root_dir))
+                         return -ENOMEM;
+ 
+                 if (!strv_isempty(p->sysvinit_path)) {
+diff --git a/src/shared/path-util.c b/src/shared/path-util.c
+index 5863429..c32ca94 100644
+--- a/src/shared/path-util.c
++++ b/src/shared/path-util.c
+@@ -238,7 +238,7 @@ char **path_strv_make_absolute_cwd(char **l) {
+         return l;
+ }
+ 
+-char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
++char **path_strv_resolve(char **l, const char *prefix) {
+         char **s;
+         unsigned k = 0;
+         bool enomem = false;
+@@ -323,12 +323,12 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
+         return l;
+ }
+ 
+-char **path_strv_canonicalize_absolute_uniq(char **l, const char *prefix) {
++char **path_strv_resolve_uniq(char **l, const char *prefix) {
+ 
+         if (strv_isempty(l))
+                 return l;
+ 
+-        if (!path_strv_canonicalize_absolute(l, prefix))
++        if (!path_strv_resolve(l, prefix))
+                 return NULL;
+ 
+         return strv_uniq(l);
+diff --git a/src/shared/path-util.h b/src/shared/path-util.h
+index 6882d78..976d2b2 100644
+--- a/src/shared/path-util.h
++++ b/src/shared/path-util.h
+@@ -47,8 +47,8 @@ char* path_startswith(const char *path, const char *prefix) _pure_;
+ bool path_equal(const char *a, const char *b) _pure_;
+ 
+ char** path_strv_make_absolute_cwd(char **l);
+-char** path_strv_canonicalize_absolute(char **l, const char *prefix);
+-char** path_strv_canonicalize_absolute_uniq(char **l, const char *prefix);
++char** path_strv_resolve(char **l, const char *prefix);
++char** path_strv_resolve_uniq(char **l, const char *prefix);
+ 
+ int path_is_mount_point(const char *path, bool allow_symlink);
+ int path_is_read_only_fs(const char *path);
+diff --git a/src/shared/util.c b/src/shared/util.c
+index 9be8088..02cfd49 100644
+--- a/src/shared/util.c
++++ b/src/shared/util.c
+@@ -5675,7 +5675,7 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
+         assert(mode);
+         assert(_f);
+ 
+-        if (!path_strv_canonicalize_absolute_uniq(search, root))
++        if (!path_strv_resolve_uniq(search, root))
+                 return -ENOMEM;
+ 
+         STRV_FOREACH(i, search) {

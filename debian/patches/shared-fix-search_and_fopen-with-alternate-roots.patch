@@ -6,16 +6,15 @@ Update for the current behavior of path_strv_resolve which now returns
 paths relative to the given root, not the full absolute paths.
 
 (cherry picked from commit 375eadd911a9f83f89f1e7de5e05f44cc81e3642)
-(cherry picked from commit 686e842aecfc9f89547f9d9021afb9e1a21067ec)
 ---
  src/shared/util.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/src/shared/util.c b/src/shared/util.c
-index 65a09d9..7aa3d02 100644
+index 02cfd49..6165d72 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -5701,7 +5701,10 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
+@@ -5682,7 +5682,10 @@ static int search_and_fopen_internal(const char *path, const char *mode, const c
                  _cleanup_free_ char *p = NULL;
                  FILE *f;
  

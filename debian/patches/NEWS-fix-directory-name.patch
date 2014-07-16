@@ -1,0 +1,22 @@
+From: =?utf-8?q?Mantas_Mikul=C4=97nas?= <grawity@gmail.com>
+Date: Wed, 11 Jun 2014 17:09:11 +0300
+Subject: NEWS: fix directory name
+
+(cherry picked from commit c54bed5d515771c21250b8e0c052cb6600e21d37)
+---
+ NEWS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/NEWS b/NEWS
+index 1274c30..4f3c522 100644
+--- a/NEWS
++++ b/NEWS
+@@ -52,7 +52,7 @@ CHANGES WITH 214:
+           transports. Instead it is assumed the kernel loads them
+           automatically when required. This only works correctly on
+           very new kernels. On older kernels, please consider adding
+-          the kernel modules to /etc/load-modules.d/ as a work-around.
++          the kernel modules to /etc/modules-load.d/ as a work-around.
+ 
+         * The resolv.conf file systemd-resolved generates has been
+           moved to /run/systemd/resolve/, if you have a symlink from

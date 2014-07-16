@@ -1,0 +1,24 @@
+From: Hristo Venev <mustrumr97@gmail.com>
+Date: Mon, 23 Jun 2014 18:53:04 +0200
+Subject: core: make sure Environment fields passed in for transient units are
+ properly written to unit files
+
+https://bugs.freedesktop.org/show_bug.cgi?id=76744
+(cherry picked from commit cdd7b7dfd44649b204c43e907f03d4294de4f28a)
+---
+ src/core/dbus-execute.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/core/dbus-execute.c b/src/core/dbus-execute.c
+index cb9a077..ecbadd7 100644
+--- a/src/core/dbus-execute.c
++++ b/src/core/dbus-execute.c
+@@ -848,7 +848,7 @@ int bus_exec_context_set_transient_property(
+                         strv_free(c->environment);
+                         c->environment = e;
+ 
+-                        joined = strv_join(c->environment, " ");
++                        joined = strv_join_quoted(c->environment);
+                         if (!joined)
+                                 return -ENOMEM;
+ 

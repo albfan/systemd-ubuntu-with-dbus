@@ -9,7 +9,7 @@ over the upstream 50-udev-default.rules.
  1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/rules/50-udev-default.rules b/rules/50-udev-default.rules
-index 23ca088..7e2d2ff 100644
+index 2bf9c1e..e279285 100644
 --- a/rules/50-udev-default.rules
 +++ b/rules/50-udev-default.rules
 @@ -20,8 +20,11 @@ SUBSYSTEM=="tty", KERNEL=="ttysclp[0-9]*", GROUP="tty", MODE="0620"
@@ -22,8 +22,8 @@ index 23ca088..7e2d2ff 100644
  SUBSYSTEM=="mem", KERNEL=="mem|kmem|port", GROUP="kmem", MODE="0640"
 +KERNEL=="nvram", GROUP="kmem", MODE="0640"
  
+ SUBSYSTEM=="input", GROUP="input"
  SUBSYSTEM=="input", KERNEL=="js[0-9]*", MODE="0664"
- 
 @@ -54,7 +57,7 @@ SUBSYSTEM=="block", KERNEL=="sr[0-9]*", GROUP="cdrom"
  SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
  KERNEL=="sch[0-9]*", GROUP="cdrom"

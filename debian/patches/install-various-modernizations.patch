@@ -8,10 +8,10 @@ Subject: install: various modernizations
  1 file changed, 14 insertions(+), 29 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index c9c785a..1f3ea5b 100644
+index f562063..115d831 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
-@@ -320,7 +320,8 @@ static int remove_marked_symlinks(
+@@ -319,7 +319,8 @@ static int remove_marked_symlinks(
                  unsigned *n_changes,
                  char** files) {
  
@@ -21,7 +21,7 @@ index c9c785a..1f3ea5b 100644
          bool deleted;
  
          assert(config_path);
-@@ -348,8 +349,6 @@ static int remove_marked_symlinks(
+@@ -347,8 +348,6 @@ static int remove_marked_symlinks(
                          r = q;
          } while (deleted);
  
@@ -30,7 +30,7 @@ index c9c785a..1f3ea5b 100644
          return r;
  }
  
-@@ -1823,11 +1822,11 @@ int unit_file_preset(
+@@ -1830,11 +1829,11 @@ int unit_file_preset(
                  UnitFileChange **changes,
                  unsigned *n_changes) {
  
@@ -45,7 +45,7 @@ index c9c785a..1f3ea5b 100644
          int r, q;
  
          assert(scope >= 0);
-@@ -1854,16 +1853,13 @@ int unit_file_preset(
+@@ -1861,16 +1860,13 @@ int unit_file_preset(
                          r = install_info_add_auto(&plus, *i);
                  else
                          r = install_info_add_auto(&minus, *i);
@@ -64,7 +64,7 @@ index c9c785a..1f3ea5b 100644
          if (r == 0)
                  r = q;
  
-@@ -1891,8 +1887,6 @@ int unit_file_get_list(
+@@ -1899,8 +1895,6 @@ int unit_file_get_list(
  
          _cleanup_lookup_paths_free_ LookupPaths paths = {};
          char **i;
@@ -73,7 +73,7 @@ index c9c785a..1f3ea5b 100644
          int r;
  
          assert(scope >= 0);
-@@ -1907,22 +1901,19 @@ int unit_file_get_list(
+@@ -1915,22 +1909,19 @@ int unit_file_get_list(
                  return r;
  
          STRV_FOREACH(i, paths.unit_path) {
@@ -101,7 +101,7 @@ index c9c785a..1f3ea5b 100644
                  d = opendir(units_dir);
                  if (!d) {
                          if (errno == ENOENT)
-@@ -1953,15 +1944,9 @@ int unit_file_get_list(
+@@ -1960,15 +1951,9 @@ int unit_file_get_list(
                          if (hashmap_get(h, de->d_name))
                                  continue;
  

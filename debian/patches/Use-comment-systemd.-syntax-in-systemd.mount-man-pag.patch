@@ -13,10 +13,10 @@ again.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
-index 48af1ca..66be987 100644
+index 657cf11..bfc3ac8 100644
 --- a/man/systemd.mount.xml
 +++ b/man/systemd.mount.xml
-@@ -145,12 +145,12 @@
+@@ -148,12 +148,12 @@
                  <filename>local-fs.target</filename> or
                  <filename>remote-fs.target</filename>, depending
                  whether the file system is local or remote. If

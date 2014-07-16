@@ -1,0 +1,48 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Tue, 17 Jun 2014 01:05:39 +0200
+Subject: log: don't downgrade log level in non-PID 1 if "quiet" is passed on
+ kernel cmdline
+
+"debug" should apply to all tools, but "quiet" only to PID1.
+
+(cherry picked from commit d7b15e0a0161e8fd823bffd61a4799364871582f)
+---
+ src/core/main.c  | 5 +++++
+ src/shared/log.c | 3 ---
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/core/main.c b/src/core/main.c
+index c947292..80a2ea3 100644
+--- a/src/core/main.c
++++ b/src/core/main.c
+@@ -412,11 +412,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
+                 }
+ 
+         } else if (streq(key, "quiet") && !value) {
++
++                log_set_max_level(LOG_NOTICE);
++
+                 if (arg_show_status == _SHOW_STATUS_UNSET)
+                         arg_show_status = SHOW_STATUS_AUTO;
+ 
+         } else if (streq(key, "debug") && !value) {
++
+                 log_set_max_level(LOG_DEBUG);
++
+                 if (detect_container(NULL) > 0)
+                         log_set_target(LOG_TARGET_CONSOLE);
+ 
+diff --git a/src/shared/log.c b/src/shared/log.c
+index 6f17705..9039db3 100644
+--- a/src/shared/log.c
++++ b/src/shared/log.c
+@@ -878,9 +878,6 @@ void log_parse_environment(void) {
+                         if (l == 5 && startswith(w, "debug")) {
+                                 log_set_max_level(LOG_DEBUG);
+                                 break;
+-                        } else if (l == 5 && startswith(w, "quiet")) {
+-                                log_set_max_level(LOG_WARNING);
+-                                break;
+                         }
+                 }
+         }

@@ -18,15 +18,16 @@ verify that the unit is part of the transaction before considering a
 job a candidate for deletion.
 
 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=752259
+(cherry picked from commit 375ae4aa4d2f89ae8afdd27e9f2b8336fcc2a046)
 ---
  src/core/transaction.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/core/transaction.c b/src/core/transaction.c
-index 203070f..45e06b0 100644
+index d23a45c..805d40a 100644
 --- a/src/core/transaction.c
 +++ b/src/core/transaction.c
-@@ -374,7 +374,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
+@@ -381,7 +381,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                        "Found dependency on %s/%s",
                                        k->unit->id, job_type_to_string(k->type));
  

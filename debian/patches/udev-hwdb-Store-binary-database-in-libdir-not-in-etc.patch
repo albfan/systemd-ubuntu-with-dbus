@@ -15,10 +15,10 @@ Move it to udevlibexecdir instead.
  4 files changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 82ef4ce..1eb643d 100644
+index f5eee70..ad6b36a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -2417,7 +2417,7 @@ INSTALL_DATA_HOOKS += \
+@@ -2869,7 +2869,7 @@ INSTALL_DATA_HOOKS += \
  	hwdb-update-hook
  
  hwdb-remove-hook:
@@ -28,10 +28,10 @@ index 82ef4ce..1eb643d 100644
  # ------------------------------------------------------------------------------
  TESTS += \
 diff --git a/man/udevadm.xml b/man/udevadm.xml
-index 112652c..ed9062d 100644
+index fbfa85a..0e8d00b 100644
 --- a/man/udevadm.xml
 +++ b/man/udevadm.xml
-@@ -439,13 +439,13 @@
+@@ -481,14 +481,14 @@
      </refsect2>
  
      <refsect2><title>udevadm hwdb <optional>options</optional></title>
@@ -39,6 +39,7 @@ index 112652c..ed9062d 100644
 +      <para>Maintain the hardware database index in <filename>/lib/udev/hwdb.bin</filename>.</para>
        <variablelist>
          <varlistentry>
+           <term><option>-u</option></term>
            <term><option>--update</option></term>
            <listitem>
 -            <para>Compile the hardware database information located in /usr/lib/udev/hwdb.d/,
@@ -49,7 +50,7 @@ index 112652c..ed9062d 100644
              udev daemon will detect a new database on its own and does not need to be
              notified about it.</para>
 diff --git a/src/libudev/libudev-hwdb.c b/src/libudev/libudev-hwdb.c
-index ba43b9f..d4ea076 100644
+index e0d4d7c..edb75e8 100644
 --- a/src/libudev/libudev-hwdb.c
 +++ b/src/libudev/libudev-hwdb.c
 @@ -275,30 +275,30 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
@@ -89,10 +90,10 @@ index ba43b9f..d4ea076 100644
                  return NULL;
          }
 diff --git a/src/udev/udevadm-hwdb.c b/src/udev/udevadm-hwdb.c
-index 141db57..90a86b4 100644
+index 65cbf61..6b56000 100644
 --- a/src/udev/udevadm-hwdb.c
 +++ b/src/udev/udevadm-hwdb.c
-@@ -627,7 +627,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+@@ -624,7 +624,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                  log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                            trie->strings->dedup_len, trie->strings->dedup_count);
  

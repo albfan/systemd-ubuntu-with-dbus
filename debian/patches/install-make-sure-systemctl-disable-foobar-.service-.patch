@@ -4,26 +4,22 @@ Subject: install: make sure "systemctl disable foobar@.service" actually
  removes all instances
 
 (cherry picked from commit 559367add5e22bf32d14fa1496512c68488f48b0)
-
-Conflicts:
-	src/shared/install.c
-
-(cherry picked from commit b83e096610a05b7bb3b096cebd634ef3717c4b2c)
 ---
- src/shared/install.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ src/shared/install.c | 24 +++++++++++++++++-------
+ 1 file changed, 17 insertions(+), 7 deletions(-)
 
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 00a6a77..e772c45 100644
+index e16de4d..278350b 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
-@@ -267,8 +267,21 @@ static int remove_marked_symlinks_fd(
+@@ -266,8 +266,22 @@ static int remove_marked_symlinks_fd(
  
                          if (unit_name_is_instance(de->d_name) &&
                              instance_whitelist &&
 -                            !strv_contains(instance_whitelist, de->d_name))
 -                                continue;
 +                            !strv_contains(instance_whitelist, de->d_name)) {
++
 +                                _cleanup_free_ char *w;
 +
 +                                /* OK, the file is not listed directly
@@ -41,16 +37,23 @@ index 00a6a77..e772c45 100644
  
                          p = path_make_absolute(de->d_name, path);
                          if (!p)
-@@ -297,10 +310,10 @@ static int remove_marked_symlinks_fd(
-                                         continue;
-                                 }
+@@ -290,18 +304,14 @@ static int remove_marked_symlinks_fd(
+                         if (!found)
+                                 continue;
  
--                                rmdir_parents(p, config_path);
 -
-                                 path_kill_slashes(p);
+                         if (unlink(p) < 0 && errno != ENOENT) {
+-
+                                 if (r == 0)
+                                         r = -errno;
+                                 continue;
+                         }
  
-+                                rmdir_parents(p, config_path);
-+
-                                 add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
+-                        rmdir_parents(p, config_path);
+-
+                         path_kill_slashes(p);
+-
++                        rmdir_parents(p, config_path);
+                         add_file_change(changes, n_changes, UNIT_FILE_UNLINK, p, NULL);
  
-                                 if (!set_get(remove_symlinks_to, p)) {
+                         if (!set_get(remove_symlinks_to, p)) {

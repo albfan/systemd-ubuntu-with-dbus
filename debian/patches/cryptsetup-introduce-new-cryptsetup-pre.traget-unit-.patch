@@ -6,7 +6,6 @@ Subject: cryptsetup: introduce new cryptsetup-pre.traget unit so that
 
 https://bugzilla.redhat.com/show_bug.cgi?id=1097938
 (cherry picked from commit 9542239eaf481decca6c254dffb3f2b4e716545e)
-(cherry picked from commit 137cb035d2facdf2a70f0c915d6c018b6d900933)
 ---
  Makefile.am                           |  3 ++-
  man/systemd.special.xml               | 22 ++++++++++++++++++++++
@@ -16,10 +15,10 @@ https://bugzilla.redhat.com/show_bug.cgi?id=1097938
  create mode 100644 units/cryptsetup-pre.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 5cf03c0..d57d890 100644
+index cb9b1fa..75d62f0 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -3414,7 +3414,8 @@ systemgenerator_PROGRAMS += \
+@@ -3846,7 +3846,8 @@ systemgenerator_PROGRAMS += \
  	systemd-cryptsetup-generator
  
  dist_systemunit_DATA += \
@@ -30,7 +29,7 @@ index 5cf03c0..d57d890 100644
  systemd_cryptsetup_SOURCES = \
  	src/cryptsetup/cryptsetup.c
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 38b94a7..4dd7d97 100644
+index cda6edd..f29cc23 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
 @@ -52,6 +52,7 @@
@@ -41,7 +40,7 @@ index 38b94a7..4dd7d97 100644
                  <filename>dbus.service</filename>,
                  <filename>dbus.socket</filename>,
                  <filename>default.target</filename>,
-@@ -840,6 +841,27 @@
+@@ -841,6 +842,27 @@
  
                  <variablelist>
                          <varlistentry>
@@ -70,11 +69,11 @@ index 38b94a7..4dd7d97 100644
                                  <listitem>
                                          <para>This target unit is
 diff --git a/src/cryptsetup/cryptsetup-generator.c b/src/cryptsetup/cryptsetup-generator.c
-index 00891f1..11e5268 100644
+index f4eeb2a..dfdca1e 100644
 --- a/src/cryptsetup/cryptsetup-generator.c
 +++ b/src/cryptsetup/cryptsetup-generator.c
-@@ -119,7 +119,7 @@ static int create_disk(
-                 "DefaultDependencies=no\n"
+@@ -127,7 +127,7 @@ static int create_disk(
+                 "Conflicts=umount.target\n"
                  "BindsTo=dev-mapper-%i.device\n"
                  "IgnoreOnIsolate=true\n"
 -                "After=systemd-readahead-collect.service systemd-readahead-replay.service\n",

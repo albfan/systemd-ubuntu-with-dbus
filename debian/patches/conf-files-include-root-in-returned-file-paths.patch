@@ -14,15 +14,13 @@ no user needs the un-concatenated form that is pointless duplication.
 
 Conflicts:
 	src/shared/install.c
-
-(cherry picked from commit 084c41bc148e0a7b0eeee614d9e0acc9aaae6b0d)
 ---
  src/shared/conf-files.c | 16 ++++++----------
  src/shared/install.c    |  6 +++---
  2 files changed, 9 insertions(+), 13 deletions(-)
 
 diff --git a/src/shared/conf-files.c b/src/shared/conf-files.c
-index 4ec8bed..fc5f1fe 100644
+index 44e137e..64ce8a0 100644
 --- a/src/shared/conf-files.c
 +++ b/src/shared/conf-files.c
 @@ -37,20 +37,16 @@
@@ -61,10 +59,10 @@ index 4ec8bed..fc5f1fe 100644
                          hashmap_free_free(fh);
                          return r;
 diff --git a/src/shared/install.c b/src/shared/install.c
-index 86a05a4..f40be79 100644
+index 8322970..c6d13ec 100644
 --- a/src/shared/install.c
 +++ b/src/shared/install.c
-@@ -1763,7 +1763,7 @@ UnitFileState unit_file_get_state(
+@@ -1753,7 +1753,7 @@ UnitFileState unit_file_get_state(
  
  int unit_file_query_preset(UnitFileScope scope, const char *name) {
          _cleanup_strv_free_ char **files = NULL;
@@ -73,7 +71,7 @@ index 86a05a4..f40be79 100644
          int r;
  
          assert(scope >= 0);
-@@ -1791,10 +1791,10 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
+@@ -1781,10 +1781,10 @@ int unit_file_query_preset(UnitFileScope scope, const char *name) {
          if (r < 0)
                  return r;
  
