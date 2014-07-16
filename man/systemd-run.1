@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RUN" "1" "" "systemd 208" "systemd-run"
+.TH "SYSTEMD\-RUN" "1" "" "systemd 214" "systemd-run"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -27,7 +27,7 @@ systemd-run \- Run programs in transient scope or service units
 .SH "DESCRIPTION"
 .PP
 \fBsystemd\-run\fR
-may be used create and start a transient
+may be used to create and start a transient
 \&.service
 or a
 \&.scope
@@ -49,21 +49,6 @@ and thus inherit the execution environment of the caller\&. It is however manage
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
-\fB\-\-user\fR
-.RS 4
-Talk to the service manager of the calling user, rather than the service manager of the system\&.
-.RE
-.PP
 \fB\-\-scope\fR
 .RS 4
 Create a transient
@@ -78,9 +63,17 @@ unit\&.
 Use this unit name instead of an automatically generated one\&.
 .RE
 .PP
+\fB\-\-property=\fR, \fB\-p\fR
+.RS 4
+Sets a unit property for the scope or service unit that is created\&. This takes an assignment in the same format as
+\fBsystemctl\fR(1)\*(Aqs
+\fBset\-property\fR
+command\&.
+.RE
+.PP
 \fB\-\-description=\fR
 .RS 4
-Provide description for the unit\&. If not specified, the command itself will be used as a description\&. See
+Provide a description for the service or scope unit\&. If not specified, the command itself will be used as a description\&. See
 \fIDescription=\fR
 in
 \fBsystemd.unit\fR(5)\&.
@@ -98,7 +91,7 @@ system\&.slice\&.
 .PP
 \fB\-\-remain\-after\-exit\fR
 .RS 4
-After the service\*(Aqs process has terminated, keep the service around until it is explicitly stopped\&. This is useful to collect runtime information about the service after it finished running\&. Also see
+After the service or scope process has terminated, keep the service around until it is explicitly stopped\&. This is useful to collect runtime information about the service after it finished running\&. Also see
 \fIRemainAfterExit=\fR
 in
 \fBsystemd.service\fR(5)\&.
@@ -106,17 +99,84 @@ in
 .PP
 \fB\-\-send\-sighup\fR
 .RS 4
-When terminating the scope unit, send a SIGHUP immediately after SIGTERM\&. This is useful to indicate to shells and shell\-like processes that the connection has been severed\&. Also see
+When terminating the scope or service unit, send a SIGHUP immediately after SIGTERM\&. This is useful to indicate to shells and shell\-like processes that the connection has been severed\&. Also see
 \fISendSIGHUP=\fR
 in
 \fBsystemd.kill\fR(5)\&.
+.RE
+.PP
+\fB\-\-service\-type=\fR
+.RS 4
+Sets the service type\&. Also see
+\fIType=\fR
+in
+\fBsystemd.service\fR(5)\&. This option has no effect in conjunction with
+\fB\-\-scope\fR\&. Defaults to
+\fBsimple\fR\&.
+.RE
+.PP
+\fB\-\-uid=\fR, \fB\-\-gid=\fR
+.RS 4
+Runs the service process under the UNIX user and group\&. Also see
+\fIUser=\fR
+and
+\fIGroup=\fR
+in
+\fBsystemd.exec\fR(5)\&.
+.RE
+.PP
+\fB\-\-nice=\fR
+.RS 4
+Runs the service process with the specified nice level\&. Also see
+\fINice=\fR
+in
+\fBsystemd.exec\fR(5)\&.
+.RE
+.PP
+\fB\-\-setenv=\fR
+.RS 4
+Runs the service process with the specified environment variables set\&. Also see
+\fIEnvironment=\fR
+in
+\fBsystemd.exec\fR(5)\&.
+.RE
+.PP
+\fB\-\-user\fR
+.RS 4
+Talk to the service manager of the calling user, rather than the service manager of the system\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Talk to the service manager of the system\&. This is the implied default\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .PP
 All command\-line arguments after the first non\-option argument become part of the commandline of the launched process\&. If a command is run as service unit, its first argument needs to be an absolute binary path\&.
 .SH "EXIT STATUS"
 .PP
 On success, 0 is returned, a non\-zero failure code otherwise\&.
-.SH "EXAMPLE"
+.SH "EXAMPLES"
 .PP
 The following command will log the environment variables provided by systemd to services:
 .sp
@@ -132,7 +192,24 @@ Sep 08 07:37:21 bupkis systemd[1]: Started /usr/bin/env\&.
 Sep 08 07:37:21 bupkis env[19948]: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 Sep 08 07:37:21 bupkis env[19948]: LANG=en_US\&.UTF\-8
 Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz\-3\&.11\&.0\-0\&.rc5\&.git6\&.2\&.fc20\&.x86_64
-    
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+The following command invokes the
+\fBupdatedb\fR(8)
+tool, but lowers the block IO weight for it to 10\&. See
+\fBsystemd.resource-control\fR(5)
+for more information on the
+\fIBlockIOWeight=\fR
+property\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# systemd\-run \-p BlockIOWeight=10 updatedb
 .fi
 .if n \{\
 .RE
@@ -144,4 +221,7 @@ Sep 08 07:37:21 bupkis env[19948]: BOOT_IMAGE=/vmlinuz\-3\&.11\&.0\-0\&.rc5\&.gi
 \fBsystemd.unit\fR(5),
 \fBsystemd.service\fR(5),
 \fBsystemd.scope\fR(5),
-\fBsystemd.slice\fR(5)\&.
+\fBsystemd.slice\fR(5),
+\fBsystemd.exec\fR(5),
+\fBsystemd.resource-control\fR(5),
+\fBmachinectl\fR(1)

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSCTL\&.D" "5" "" "systemd 208" "sysctl.d"
+.TH "SYSCTL\&.D" "5" "" "systemd 214" "sysctl.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,13 +37,29 @@ reads configuration files from the above directories to configure
 kernel parameters\&.
 .SH "CONFIGURATION FORMAT"
 .PP
-The configuration files contain a list of variable assignments, separated by newlines\&. Empty lines and lines whose first non\-whitespace character is # or ; are ignored\&.
+The configuration files contain a list of variable assignments, separated by newlines\&. Empty lines and lines whose first non\-whitespace character is
+"#"
+or
+";"
+are ignored\&.
 .PP
-Note that both / and \&. are accepted as label separators within sysctl variable names\&.
+Note that either
+"/"
+or
+"\&."
+may be used as separators within sysctl variable names\&. If the first separator is a slash, remaining slashes and dots are left intact\&. If the first separator is a dot, dots and slashes are interchanged\&.
 "kernel\&.domainname=foo"
 and
 "kernel/domainname=foo"
-hence are entirely equivalent\&.
+are equivalent and will cause
+"foo"
+to be written to
+/proc/sys/kernel/domainname\&. Either
+"net\&.ipv4\&.conf\&.enp3s0/200\&.forwarding"
+or
+"net/ipv4/conf/enp3s0\&.200/forwarding"
+may be used to refer to
+/proc/sys/net/ipv4/conf/enp3s0\&.200/forwarding\&.
 .PP
 Each configuration file shall be named in the style of
 \fIprogram\fR\&.conf\&. Files in
@@ -57,13 +73,22 @@ override files with the same name in
 /usr/lib/\&. Packages should install their configuration files in
 /usr/lib/\&. Files in
 /etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless in which of the directories they reside\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
 .PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
 in
 /etc/sysctl\&.d/
 bearing the same filename\&.
+.PP
+The settings configured with
+sysctl\&.d
+files will be applied early on boot\&. The network interface\-specific options will also be applied individually for each network interface as it shows up in the system\&. (More specifically,
+net\&.ipv4\&.conf\&.*,
+net\&.ipv6\&.conf\&.*,
+net\&.ipv4\&.neigh\&.*
+and
+net\&.ipv6\&.neigh\&.*)
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/sysctl.d/domain-name.conf example:\fR

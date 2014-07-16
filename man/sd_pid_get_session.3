@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_PID_GET_SESSION" "3" "" "systemd 208" "sd_pid_get_session"
+.TH "SD_PID_GET_SESSION" "3" "" "systemd 214" "sd_pid_get_session"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_pid_get_session, sd_pid_get_unit, sd_pid_get_user_unit, sd_pid_get_owner_uid, sd_pid_get_machine_name, sd_pid_get_slice \- Determine session, service, owner of a session, container/VM or slice of a specific PID
+sd_pid_get_session, sd_pid_get_unit, sd_pid_get_user_unit, sd_pid_get_owner_uid, sd_pid_get_machine_name, sd_pid_get_slice, sd_peer_get_session, sd_peer_get_unit, sd_peer_get_user_unit, sd_peer_get_owner_uid, sd_peer_get_machine_name, sd_peer_get_slice \- Determine session, service, owner of a session, container/VM or slice of a specific PID or socket peer
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -29,17 +29,29 @@ sd_pid_get_session, sd_pid_get_unit, sd_pid_get_user_unit, sd_pid_get_owner_uid,
 .fi
 .ft
 .HP \w'int\ sd_pid_get_session('u
-.BI "int sd_pid_get_session(pid_t\ " "pid" ", char**\ " "session" ");"
+.BI "int sd_pid_get_session(pid_t\ " "pid" ", char\ **" "session" ");"
 .HP \w'int\ sd_pid_get_unit('u
-.BI "int sd_pid_get_unit(pid_t\ " "pid" ", char**\ " "unit" ");"
+.BI "int sd_pid_get_unit(pid_t\ " "pid" ", char\ **" "unit" ");"
 .HP \w'int\ sd_pid_get_user_unit('u
-.BI "int sd_pid_get_user_unit(pid_t\ " "pid" ", char**\ " "unit" ");"
+.BI "int sd_pid_get_user_unit(pid_t\ " "pid" ", char\ **" "unit" ");"
 .HP \w'int\ sd_pid_get_owner_uid('u
-.BI "int sd_pid_get_owner_uid(pid_t\ " "pid" ", uid_t*\ " "uid" ");"
+.BI "int sd_pid_get_owner_uid(pid_t\ " "pid" ", uid_t\ *" "uid" ");"
 .HP \w'int\ sd_pid_get_machine_name('u
-.BI "int sd_pid_get_machine_name(pid_t\ " "pid" ", char**\ " "name" ");"
+.BI "int sd_pid_get_machine_name(pid_t\ " "pid" ", char\ **" "name" ");"
 .HP \w'int\ sd_pid_get_slice('u
-.BI "int sd_pid_get_slice(pid_t\ " "pid" ", char**\ " "slice" ");"
+.BI "int sd_pid_get_slice(pid_t\ " "pid" ", char\ **" "slice" ");"
+.HP \w'int\ sd_peer_get_session('u
+.BI "int sd_peer_get_session(int\ " "fd" ", char\ **" "session" ");"
+.HP \w'int\ sd_peer_get_unit('u
+.BI "int sd_peer_get_unit(int\ " "fd" ", char\ **" "unit" ");"
+.HP \w'int\ sd_peer_get_user_unit('u
+.BI "int sd_peer_get_user_unit(int\ " "fd" ", char\ **" "unit" ");"
+.HP \w'int\ sd_peer_get_owner_uid('u
+.BI "int sd_peer_get_owner_uid(int\ " "fd" ", uid_t\ *" "uid" ");"
+.HP \w'int\ sd_peer_get_machine_name('u
+.BI "int sd_peer_get_machine_name(int\ " "fd" ", char\ **" "name" ");"
+.HP \w'int\ sd_peer_get_slice('u
+.BI "int sd_peer_get_slice(int\ " "fd" ", char\ **" "slice" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_pid_get_session()\fR
@@ -79,6 +91,16 @@ call after use\&.
 If the
 \fIpid\fR
 parameter of any of these functions is passed as 0, the operation is executed for the calling process\&.
+.PP
+The
+\fBsd_peer_get_session()\fR,
+\fBsd_peer_get_unit()\fR,
+\fBsd_peer_get_user_unit()\fR,
+\fBsd_peer_get_owner_uid()\fR,
+\fBsd_peer_get_machine_name()\fR
+and
+\fBsd_peer_get_slice()\fR
+calls operate similar to their PID counterparts, but operate on a connected AF_UNIX socket and retrieve information about the connected peer process\&.
 .SH "RETURN VALUE"
 .PP
 On success, these calls return 0 or a positive integer\&. On failure, these calls return a negative errno\-style error code\&.
@@ -89,11 +111,17 @@ The
 \fBsd_pid_get_unit()\fR,
 \fBsd_pid_get_user_unit()\fR,
 \fBsd_pid_get_owner_uid()\fR,
-\fBsd_pid_get_machine_name()\fR
+\fBsd_pid_get_machine_name()\fR,
+\fBsd_pid_get_slice()\fR,
+\fBsd_peer_get_session()\fR,
+\fBsd_peer_get_unit()\fR,
+\fBsd_peer_get_user_unit()\fR,
+\fBsd_peer_get_owner_uid()\fR,
+\fBsd_peer_get_machine_name()\fR
 and
-\fBsd_pid_get_slice()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+\fBsd_peer_get_slice()\fR
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .PP
 Note that the login session identifier as returned by

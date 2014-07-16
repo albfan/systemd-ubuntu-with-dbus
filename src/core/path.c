@@ -31,9 +31,10 @@
 #include "mkdir.h"
 #include "dbus-path.h"
 #include "special.h"
-#include "dbus-common.h"
 #include "path-util.h"
 #include "macro.h"
+#include "bus-util.h"
+#include "bus-error.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
@@ -42,7 +43,9 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_FAILED] = UNIT_FAILED
 };
 
-int path_spec_watch(PathSpec *s, Unit *u) {
+static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+
+int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
         static const int flags_table[_PATH_TYPE_MAX] = {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
@@ -56,10 +59,11 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         char *slash, *oldslash = NULL;
         int r;
 
-        assert(u);
         assert(s);
+        assert(s->unit);
+        assert(handler);
 
-        path_spec_unwatch(s, u);
+        path_spec_unwatch(s);
 
         s->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
         if (s->inotify_fd < 0) {
@@ -67,7 +71,7 @@ int path_spec_watch(PathSpec *s, Unit *u) {
                 goto fail;
         }
 
-        r = unit_watch_fd(u, s->inotify_fd, EPOLLIN, &s->watch);
+        r = sd_event_add_io(s->unit->manager->event, &s->event_source, s->inotify_fd, EPOLLIN, handler, s);
         if (r < 0)
                 goto fail;
 
@@ -140,29 +144,25 @@ int path_spec_watch(PathSpec *s, Unit *u) {
         return 0;
 
 fail:
-        path_spec_unwatch(s, u);
+        path_spec_unwatch(s);
         return r;
 }
 
-void path_spec_unwatch(PathSpec *s, Unit *u) {
+void path_spec_unwatch(PathSpec *s) {
+        assert(s);
 
-        if (s->inotify_fd < 0)
-                return;
-
-        unit_unwatch_fd(u, &s->watch);
-
-        close_nointr_nofail(s->inotify_fd);
-        s->inotify_fd = -1;
+        s->event_source = sd_event_source_unref(s->event_source);
+        s->inotify_fd = safe_close(s->inotify_fd);
 }
 
-int path_spec_fd_event(PathSpec *s, uint32_t events) {
+int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         _cleanup_free_ uint8_t *buf = NULL;
         struct inotify_event *e;
         ssize_t k;
         int l;
         int r = 0;
 
-        if (events != EPOLLIN) {
+        if (revents != EPOLLIN) {
                 log_error("Got invalid poll event on inotify.");
                 return -EINVAL;
         }
@@ -282,8 +282,8 @@ void path_free_specs(Path *p) {
         assert(p);
 
         while ((s = p->specs)) {
-                path_spec_unwatch(s, UNIT(p));
-                LIST_REMOVE(PathSpec, spec, p->specs, s);
+                path_spec_unwatch(s);
+                LIST_REMOVE(spec, p->specs, s);
                 path_spec_done(s);
                 free(s);
         }
@@ -419,7 +419,7 @@ static void path_unwatch(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
-                path_spec_unwatch(s, UNIT(p));
+                path_spec_unwatch(s);
 }
 
 static int path_watch(Path *p) {
@@ -429,7 +429,7 @@ static int path_watch(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs) {
-                r = path_spec_watch(s, UNIT(p));
+                r = path_spec_watch(s, path_dispatch_io);
                 if (r < 0)
                         return r;
         }
@@ -487,12 +487,10 @@ static void path_enter_dead(Path *p, PathResult f) {
 }
 
 static void path_enter_running(Path *p) {
-        _cleanup_dbus_error_free_ DBusError error;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(p);
-
-        dbus_error_init(&error);
 
         /* Don't start job if we are supposed to go down */
         if (unit_stop_pending(UNIT(p)))
@@ -514,7 +512,7 @@ static void path_enter_running(Path *p) {
 
 fail:
         log_warning("%s failed to queue unit startup job: %s",
-                    UNIT(p)->id, bus_error(&error, r));
+                    UNIT(p)->id, bus_error_message(&error, r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
@@ -664,17 +662,20 @@ _pure_ static const char *path_sub_state_to_string(Unit *u) {
         return path_state_to_string(PATH(u)->state);
 }
 
-static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
-        Path *p = PATH(u);
-        PathSpec *s;
+static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        PathSpec *s = userdata;
+        Path *p;
         int changed;
 
-        assert(p);
+        assert(s);
+        assert(s->unit);
         assert(fd >= 0);
+
+        p = PATH(s->unit);
 
         if (p->state != PATH_WAITING &&
             p->state != PATH_RUNNING)
-                return;
+                return 0;
 
         /* log_debug("inotify wakeup on %s.", u->id); */
 
@@ -687,7 +688,7 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
                 goto fail;
         }
 
-        changed = path_spec_fd_event(s, events);
+        changed = path_spec_fd_event(s, revents);
         if (changed < 0)
                 goto fail;
 
@@ -701,10 +702,11 @@ static void path_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         else
                 path_enter_waiting(p, false, true);
 
-        return;
+        return 0;
 
 fail:
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
+        return 0;
 }
 
 static void path_trigger_notify(Unit *u, Unit *other) {
@@ -755,22 +757,23 @@ DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
 static const char* const path_type_table[_PATH_TYPE_MAX] = {
         [PATH_EXISTS] = "PathExists",
         [PATH_EXISTS_GLOB] = "PathExistsGlob",
+        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty",
         [PATH_CHANGED] = "PathChanged",
         [PATH_MODIFIED] = "PathModified",
-        [PATH_DIRECTORY_NOT_EMPTY] = "DirectoryNotEmpty"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_type, PathType);
 
 static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS] = "success",
-        [PATH_FAILURE_RESOURCES] = "resources"
+        [PATH_FAILURE_RESOURCES] = "resources",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);
 
 const UnitVTable path_vtable = {
         .object_size = sizeof(Path),
+
         .sections =
                 "Unit\0"
                 "Path\0"
@@ -793,13 +796,10 @@ const UnitVTable path_vtable = {
         .active_state = path_active_state,
         .sub_state_to_string = path_sub_state_to_string,
 
-        .fd_event = path_fd_event,
-
         .trigger_notify = path_trigger_notify,
 
         .reset_failed = path_reset_failed,
 
         .bus_interface = "org.freedesktop.systemd1.Path",
-        .bus_message_handler = bus_path_message_handler,
-        .bus_invalidating_properties = bus_path_invalidating_properties
+        .bus_vtable = bus_path_vtable
 };

@@ -65,6 +65,7 @@ void udev_log(struct udev *udev,
         va_end(args);
 }
 
+_printf_(6,0)
 static void log_stderr(struct udev *udev,
                        int priority, const char *file, int line, const char *fn,
                        const char *format, va_list args)
@@ -120,12 +121,12 @@ _public_ struct udev *udev_new(void)
         const char *env;
         FILE *f;
 
-        udev = calloc(1, sizeof(struct udev));
+        udev = new0(struct udev, 1);
         if (udev == NULL)
                 return NULL;
         udev->refcount = 1;
         udev->log_fn = log_stderr;
-        udev->log_priority = LOG_ERR;
+        udev->log_priority = LOG_INFO;
         udev_list_init(udev, &udev->properties_list, true);
 
         f = fopen("/etc/udev/udev.conf", "re");

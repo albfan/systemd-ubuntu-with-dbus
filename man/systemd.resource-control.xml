@@ -64,7 +64,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
-    processes. Internally, this relies on the the Control Groups
+    processes. Internally, this relies on the Control Groups
     kernel concept for organizing processes in a hierarchial tree of
     named groups for the purpose of resource management.</para>
 
@@ -86,7 +86,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <para>See the <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
-    Control Group Interfaces</ulink> for an introduction how to make
+    Control Group Interfaces</ulink> for an introduction on how to make
     use of resource control APIs from programs.</para>
   </refsect1>
 
@@ -105,21 +105,59 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
           one unit might also implicitly turn it on for all units
-          contained in the same slice and for all its parent slices and
-          the units contained therein.</para>
+          contained in the same slice and for all its parent slices
+          and the units contained therein. The system default for this
+          setting maybe controlled with
+          <varname>DefaultCPUAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>CPUShares=<replaceable>weight</replaceable></varname></term>
+        <term><varname>StartupCPUShares=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
-          <para>Assign the specified overall CPU time share weight to
-          the processes executed. Takes an integer value. This
-          controls the <literal>cpu.shares</literal> control group
+          <para>Assign the specified CPU time share weight to the
+          processes executed. Those options take an integer value and
+          control the <literal>cpu.shares</literal> control group
           attribute, which defaults to 1024. For details about this
           control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
+          The available CPU time is split up among all units within
+          one slice relative to their CPU time share weight.</para>
+
+          <para>While <varname>StartupCPUShares=</varname> only
+          applies to the startup phase of the system,
+          <varname>CPUShares=</varname> applies to normal runtime of
+          the system, and if the former is not set also to the startup
+          phase. Using <varname>StartupCPUShares=</varname> allows
+          priorizing specific services at boot-up differently than
+          during normal runtime.</para>
+
+          <para>Those options imply
+          <literal>CPUAccounting=true</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CPUQuota=</varname></term>
+
+        <listitem>
+          <para>Assign the specified CPU time quota to the processes
+          executed. Takes a percentage value, suffixed with "%". The
+          percentage specifies how much CPU time the unit shall get at
+          maximum, relative to the total CPU time available on one
+          CPU. Use values &gt; 100% for alloting CPU time on more than
+          one CPU. This controls the
+          <literal>cpu.cfs_quota_us</literal> control group
+          attribute. For details about this control group attribute,
+          see <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUShares=20%</varname> ensures that
+          the executed processes will never get more than 20% CPU time
+          on one CPU.</para>
 
           <para>Implies <literal>CPUAccounting=true</literal>.</para>
         </listitem>
@@ -132,8 +170,10 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on process and kernel memory accounting for this
           unit. Takes a boolean argument. Note that turning on memory
           accounting for one unit might also implicitly turn it on for
-          all units contained in the same slice and for all its parent
-          slices and the units contained therein.</para>
+          all its parent slices. The system default for this setting
+          maybe controlled with
+          <varname>DefaultMemoryAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
@@ -164,26 +204,34 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <para>Turn on Block IO accounting for this unit. Takes a
           boolean argument. Note that turning on block IO accounting
           for one unit might also implicitly turn it on for all units
-          contained in the same slice and all for its parent slices and
-          the units contained therein.</para>
+          contained in the same slice and all for its parent slices
+          and the units contained therein. The system default for this
+          setting maybe controlled with
+          <varname>DefaultBlockIOAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>BlockIOWeight=<replaceable>weight</replaceable></varname></term>
+        <term><varname>StartupBlockIOWeight=<replaceable>weight</replaceable></varname></term>
 
-        <listitem><para>Set the default
-        overall block IO weight for the
-        executed processes. Takes a single
-        weight value (between 10 and 1000) to
-        set the default block IO weight. This
-        controls the
-        <literal>blkio.weight</literal>
-        control group attribute, which
-        defaults to 1000. For details about
-        this control group attribute, see
-        <ulink
-            url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
+        <listitem><para>Set the default overall block IO weight for
+        the executed processes. Takes a single weight value (between
+        10 and 1000) to set the default block IO weight. This controls
+        the <literal>blkio.weight</literal> control group attribute,
+        which defaults to 1000. For details about this control group
+        attribute, see <ulink
+        url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
+        The available IO bandwidth is split up among all units within
+        one slice relative to their block IO weight.</para>
+
+        <para>While <varname>StartupBlockIOWeight=</varname> only
+        applies to the startup phase of the system,
+        <varname>BlockIOWeight=</varname> applies to the later runtime
+        of the system, and if the former is not set also to the
+        startup phase. This allows priorizing specific services at
+        boot-up differently than during runtime.</para>
 
         <para>Implies
         <literal>BlockIOAccounting=true</literal>.</para>
@@ -199,7 +247,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           path and a weight value to specify the device specific
           weight value, between 10 and 1000. (Example: "/dev/sda
           500"). The file path may be specified as path to a block
-          device node or as any other file in which case the backing
+          device node or as any other file, in which case the backing
           block device of the file system of the file is
           determined. This controls the
           <literal>blkio.weight_device</literal> control group
@@ -226,14 +274,15 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           case the backing block device of the file system of the file
           is used. If the bandwidth is suffixed with K, M, G, or T,
           the specified bandwidth is parsed as Kilobytes, Megabytes,
-          Gigabytes, or Terabytes, respectively (Example:
+          Gigabytes, or Terabytes, respectively, to the base of
+          1000. (Example:
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This
           controls the <literal>blkio.read_bps_device</literal> and
           <literal>blkio.write_bps_device</literal> control group
           attributes. Use this option multiple times to set bandwidth
           limits for multiple devices. For details about these control
-          group attributes, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
+          group attributes, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroups/blkio-controller.txt">blkio-controller.txt</ulink>.
           </para>
 
           <para>Implies
@@ -247,17 +296,35 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem>
           <para>Control access to specific device nodes by the
           executed processes. Takes two space-separated strings: a
-          device node path (such as <filename>/dev/null</filename>)
-          followed by a combination of <constant>r</constant>,
-          <constant>w</constant>, <constant>m</constant> to control
+          device node specifier followed by a combination of
+          <constant>r</constant>, <constant>w</constant>,
+          <constant>m</constant> to control
           <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creation of the specific device node by the unit
+          or creation of the specific device node(s) by the unit
           (<emphasis>m</emphasis>knod), respectively. This controls
           the <literal>devices.allow</literal> and
           <literal>devices.deny</literal> control group
-          attributes. For details about these control group attributes,
-          see <ulink
+          attributes. For details about these control group
+          attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroups/devices.txt">devices.txt</ulink>.</para>
+
+          <para>The device node specifier is either a path to a device
+          node in the file system, starting with
+          <filename>/dev/</filename>, or a string starting with either
+          <literal>char-</literal> or <literal>block-</literal>
+          followed by a device group name, as listed in
+          <filename>/proc/devices</filename>. The latter is useful to
+          whitelist all current and future devices belonging to a
+          specific device group at once. The device group is matched
+          according to file name globbing rules, you may hence use the
+          <literal>*</literal> and <literal>?</literal>
+          wildcards. Examples: <filename>/dev/sda5</filename> is a
+          path to a device node, referring to an ATA or SCSI block
+          device. <literal>char-pts</literal> and
+          <literal>char-alsa</literal> are specifiers for all pseudo
+          TTYs and all ALSA sound devices,
+          respectively. <literal>char-cpu/*</literal> is a specifier
+          matching all CPU related device groups.</para>
         </listitem>
       </varlistentry>
 

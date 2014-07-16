@@ -59,6 +59,8 @@
  * g_udev_device_get_property_as_strv().
  *
  * To access sysfs attributes for the device, use
+ * g_udev_device_get_sysfs_attr_keys(),
+ * g_udev_device_has_sysfs_attr(),
  * g_udev_device_get_sysfs_attr(),
  * g_udev_device_get_sysfs_attr_as_int(),
  * g_udev_device_get_sysfs_attr_as_uint64(),
@@ -84,6 +86,7 @@ struct _GUdevDevicePrivate
   /* computed ondemand and cached */
   gchar **device_file_symlinks;
   gchar **property_keys;
+  gchar **sysfs_attr_keys;
   gchar **tags;
   GHashTable *prop_strvs;
   GHashTable *sysfs_attr_strvs;
@@ -98,6 +101,7 @@ g_udev_device_finalize (GObject *object)
 
   g_strfreev (device->priv->device_file_symlinks);
   g_strfreev (device->priv->property_keys);
+  g_strfreev (device->priv->sysfs_attr_keys);
   g_strfreev (device->priv->tags);
 
   if (device->priv->udevice != NULL)
@@ -224,7 +228,8 @@ g_udev_device_get_sysfs_path (GUdevDevice *device)
  *
  * Gets the name of the driver used for @device.
  *
- * Returns: The name of the driver for @device or %NULL if unknown.
+ * Returns: (nullable): The name of the driver for @device or %NULL if
+ * unknown.
  */
 const gchar *
 g_udev_device_get_driver (GUdevDevice *device)
@@ -321,8 +326,8 @@ g_udev_device_get_device_number (GUdevDevice *device)
  *
  * Gets the device file for @device.
  *
- * Returns: The device file for @device or %NULL if no device file
- * exists.
+ * Returns: (nullable): The device file for @device or %NULL if no
+ * device file exists.
  */
 const gchar *
 g_udev_device_get_device_file (GUdevDevice *device)
@@ -371,7 +376,8 @@ g_udev_device_get_device_file_symlinks (GUdevDevice *device)
  *
  * Gets the immediate parent of @device, if any.
  *
- * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice or %NULL if
+ * @device has no parent. Free with g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent (GUdevDevice  *device)
@@ -402,7 +408,9 @@ g_udev_device_get_parent (GUdevDevice  *device)
  * Walks up the chain of parents of @device and returns the first
  * device encountered where @subsystem and @devtype matches, if any.
  *
- * Returns: (transfer full): A #GUdevDevice or %NULL if @device has no parent with @subsystem and @devtype. Free with g_object_unref().
+ * Returns: (nullable) (transfer full): A #GUdevDevice or %NULL if
+ * @device has no parent with @subsystem and @devtype. Free with
+ * g_object_unref().
  */
 GUdevDevice *
 g_udev_device_get_parent_with_subsystem (GUdevDevice  *device,
@@ -488,7 +496,8 @@ g_udev_device_has_property (GUdevDevice  *device,
  *
  * Look up the value for @key on @device.
  *
- * Returns: The value for @key or %NULL if @key doesn't exist on @device. Do not free this string, it is owned by @device.
+ * Returns: (nullable): The value for @key or %NULL if @key doesn't
+ * exist on @device. Do not free this string, it is owned by @device.
  */
 const gchar *
 g_udev_device_get_property (GUdevDevice  *device,
@@ -660,7 +669,10 @@ split_at_whitespace (const gchar *s)
  * horizontal tab ('\t'), and vertical tab ('\v') are considered; the
  * locale is not taken into account).
  *
- * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): The value of @key on @device split into tokens or %NULL if @key doesn't exist. This array is owned by @device and should not be freed by the caller.
+ * Returns: (nullable) (transfer none) (array zero-terminated=1) (element-type utf8):
+ * The value of @key on @device split into tokens or %NULL if @key
+ * doesn't exist. This array is owned by @device and should not be
+ * freed by the caller.
  */
 const gchar* const *
 g_udev_device_get_property_as_strv (GUdevDevice  *device,
@@ -699,14 +711,64 @@ out:
 /* ---------------------------------------------------------------------------------------------------- */
 
 /**
+ * g_udev_device_get_sysfs_attr_keys:
+ * @device: A #GUdevDevice.
+ *
+ * Gets all keys for sysfs attributes on @device.
+ *
+ * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): A %NULL terminated string array of sysfs attribute keys. This array is owned by @device and should not be freed by the caller.
+ */
+const gchar * const *
+g_udev_device_get_sysfs_attr_keys (GUdevDevice *device)
+{
+  struct udev_list_entry *l;
+  GPtrArray *p;
+
+  g_return_val_if_fail (G_UDEV_IS_DEVICE (device), NULL);
+
+  if (device->priv->sysfs_attr_keys != NULL)
+    goto out;
+
+  p = g_ptr_array_new ();
+  for (l = udev_device_get_sysattr_list_entry (device->priv->udevice); l != NULL; l = udev_list_entry_get_next (l))
+    {
+      g_ptr_array_add (p, g_strdup (udev_list_entry_get_name (l)));
+    }
+  g_ptr_array_add (p, NULL);
+  device->priv->sysfs_attr_keys = (gchar **) g_ptr_array_free (p, FALSE);
+
+ out:
+  return (const gchar * const *) device->priv->sysfs_attr_keys;
+}
+
+/**
+ * g_udev_device_has_sysfs_attr:
+ * @device: A #GUdevDevice.
+ * @key: Name of sysfs attribute.
+ *
+ * Check if a the sysfs attribute with the given key exists.
+ *
+ * Returns: %TRUE only if the value for @key exist.
+ */
+gboolean
+g_udev_device_has_sysfs_attr (GUdevDevice  *device,
+                            const gchar  *key)
+{
+  g_return_val_if_fail (G_UDEV_IS_DEVICE (device), FALSE);
+  g_return_val_if_fail (key != NULL, FALSE);
+  return udev_device_get_sysattr_value (device->priv->udevice, key) != NULL;
+}
+
+/**
  * g_udev_device_get_sysfs_attr:
  * @device: A #GUdevDevice.
  * @name: Name of the sysfs attribute.
  *
  * Look up the sysfs attribute with @name on @device.
  *
- * Returns: The value of the sysfs attribute or %NULL if there is no
- * such attribute. Do not free this string, it is owned by @device.
+ * Returns: (nullable): The value of the sysfs attribute or %NULL if
+ * there is no such attribute. Do not free this string, it is owned by
+ * @device.
  */
 const gchar *
 g_udev_device_get_sysfs_attr (GUdevDevice  *device,
@@ -854,7 +916,10 @@ g_udev_device_get_sysfs_attr_as_boolean (GUdevDevice  *device,
  * tab ('\t'), and vertical tab ('\v') are considered; the locale is
  * not taken into account).
  *
- * Returns: (transfer none) (array zero-terminated=1) (element-type utf8): The value of the sysfs attribute split into tokens or %NULL if there is no such attribute. This array is owned by @device and should not be freed by the caller.
+ * Returns: (nullable) (transfer none) (array zero-terminated=1) (element-type utf8):
+ * The value of the sysfs attribute split into tokens or %NULL if
+ * there is no such attribute. This array is owned by @device and
+ * should not be freed by the caller.
  */
 const gchar * const *
 g_udev_device_get_sysfs_attr_as_strv (GUdevDevice  *device,

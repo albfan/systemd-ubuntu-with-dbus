@@ -8,4 +8,6 @@
 [Unit]
 Description=Default
 Documentation=man:systemd.special(7)
+Requires=basic.target
+After=basic.target
 AllowIsolate=yes

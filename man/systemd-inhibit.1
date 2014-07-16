@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-INHIBIT" "1" "" "systemd 208" "systemd-inhibit"
+.TH "SYSTEMD\-INHIBIT" "1" "" "systemd 214" "systemd-inhibit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -39,16 +39,6 @@ For more information see the
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-\-what=\fR
 .RS 4
 Takes a colon\-separated list of one or more operations to inhibit:
@@ -83,7 +73,7 @@ and describes how the lock is applied\&. If
 is used (the default), the lock prohibits any of the requested operations without time limit, and only privileged users may override it\&. If
 "delay"
 is used, the lock can only delay the requested operations for a limited time\&. If the time elapses, the lock is ignored and the operation executed\&. The time limit may be specified in
-\fBsystemd-logind.conf\fR(5)\&. Note that
+\fBlogind.conf\fR(5)\&. Note that
 "delay"
 is only available for
 "sleep"
@@ -94,6 +84,16 @@ and
 \fB\-\-list\fR
 .RS 4
 Lists all active inhibition locks instead of acquiring one\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .SH "EXIT STATUS"
 .PP
@@ -117,7 +117,7 @@ on a CD using
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemd-logind.conf\fR(5)
+\fBlogind.conf\fR(5)
 .SH "NOTES"
 .IP " 1." 4
 Inhibitor Lock Developer Documentation

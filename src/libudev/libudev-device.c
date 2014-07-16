@@ -36,6 +36,8 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
+
 /**
  * SECTION:libudev-device
  * @short_description: kernel sys devices
@@ -534,8 +536,10 @@ int udev_device_read_db(struct udev_device *udev_device, const char *dbfile)
         f = fopen(dbfile, "re");
         if (f == NULL) {
                 udev_dbg(udev_device->udev, "no db file to read %s: %m\n", dbfile);
-                return -1;
+                return -errno;
         }
+
+        /* devices with a database entry are initialized */
         udev_device->is_initialized = true;
 
         while (fgets(line, sizeof(line), f)) {
@@ -591,7 +595,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
         strscpyl(filename, sizeof(filename), udev_device->syspath, "/uevent", NULL);
         f = fopen(filename, "re");
         if (f == NULL)
-                return -1;
+                return -errno;
         udev_device->uevent_loaded = true;
 
         while (fgets(line, sizeof(line), f)) {
@@ -643,7 +647,7 @@ struct udev_device *udev_device_new(struct udev *udev)
         if (udev == NULL)
                 return NULL;
 
-        udev_device = calloc(1, sizeof(struct udev_device));
+        udev_device = new0(struct udev_device, 1);
         if (udev_device == NULL)
                 return NULL;
         udev_device->refcount = 1;
@@ -806,7 +810,7 @@ _public_ struct udev_device *udev_device_new_from_device_id(struct udev *udev, c
                 sk = socket(PF_INET, SOCK_DGRAM, 0);
                 if (sk < 0)
                         return NULL;
-                memset(&ifr, 0x00, sizeof(struct ifreq));
+                memzero(&ifr, sizeof(struct ifreq));
                 ifr.ifr_ifindex = ifindex;
                 if (ioctl(sk, SIOCGIFNAME, &ifr) != 0) {
                         close(sk);
@@ -980,9 +984,8 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
  * Find the next parent device, and fill in information from the sys
  * device and the udev database entry.
  *
- * The returned the device is not referenced. It is attached to the
- * child device, and will be cleaned up when the child device
- * is cleaned up.
+ * Returned device is not referenced. It is attached to the child
+ * device, and will be cleaned up when the child device is cleaned up.
  *
  * It is not necessarily just the upper level directory, empty or not
  * recognized sys directories are ignored.
@@ -1016,9 +1019,8 @@ _public_ struct udev_device *udev_device_get_parent(struct udev_device *udev_dev
  * If devtype is #NULL, only subsystem is checked, and any devtype will
  * match.
  *
- * The returned the device is not referenced. It is attached to the
- * child device, and will be cleaned up when the child device
- * is cleaned up.
+ * Returned device is not referenced. It is attached to the child
+ * device, and will be cleaned up when the child device is cleaned up.
  *
  * It can be called as many times as needed, without caring about
  * references.
@@ -1088,7 +1090,7 @@ _public_ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  * Drop a reference of a udev device. If the refcount reaches zero,
  * the resources of the device will be released.
  *
- * Returns: the passed udev device if it has still an active reference, or #NULL otherwise.
+ * Returns: #NULL
  **/
 _public_ struct udev_device *udev_device_unref(struct udev_device *udev_device)
 {
@@ -1096,7 +1098,7 @@ _public_ struct udev_device *udev_device_unref(struct udev_device *udev_device)
                 return NULL;
         udev_device->refcount--;
         if (udev_device->refcount > 0)
-                return udev_device;
+                return NULL;
         if (udev_device->parent_device != NULL)
                 udev_device_unref(udev_device->parent_device);
         free(udev_device->syspath);
@@ -1339,7 +1341,7 @@ void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t us
         char num[32];
 
         udev_device->usec_initialized = usec_initialized;
-        snprintf(num, sizeof(num), "%llu", (unsigned long long)usec_initialized);
+        snprintf(num, sizeof(num), USEC_FMT, usec_initialized);
         udev_device_add_property(udev_device, "USEC_INITIALIZED", num);
 }
 
@@ -1519,13 +1521,13 @@ static int udev_device_sysattr_list_read(struct udev_device *udev_device)
         int num = 0;
 
         if (udev_device == NULL)
-                return -1;
+                return -EINVAL;
         if (udev_device->sysattr_list_read)
                 return 0;
 
         dir = opendir(udev_device_get_syspath(udev_device));
         if (!dir)
-                return -1;
+                return -errno;
 
         for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
                 char path[UTIL_PATH_SIZE];
@@ -1611,7 +1613,7 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
         return 0;
 }
 
-int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
+static int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
 {
         free(udev_device->devnode);
         if (devnode[0] != '/') {

@@ -1,5 +1,5 @@
 '\" t
-.TH "HOSTNAMECTL" "1" "" "systemd 208" "hostnamectl"
+.TH "HOSTNAMECTL" "1" "" "systemd 214" "hostnamectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ hostnamectl \- Control the system hostname
 \fBhostnamectl\fR
 may be used to query and change the system hostname and related settings\&.
 .PP
-This tool distinguishes three different hostnames: the high\-level "pretty" hostname which might include all kinds of special characters (e\&.g\&. "Lennart\*(Aqs Laptop"), the static hostname which is used to initialize the kernel hostname at boot (e\&.g\&. "lennarts\-laptop"), and the transient hostname which might be assigned temporarily due to network configuration and might revert back to the static hostname if network connectivity is lost and is only temporarily written to the kernel hostname (e\&.g\&. "dhcp\-47\-11")\&.
+This tool distinguishes three different hostnames: the high\-level "pretty" hostname which might include all kinds of special characters (e\&.g\&. "Lennart\*(Aqs Laptop"), the static hostname which is used to initialize the kernel hostname at boot (e\&.g\&. "lennarts\-laptop"), and the transient hostname which is a default received from network configuration\&. If a static hostname is set, and is valid (something other than localhost) then the transient hostname is not used\&.
 .PP
 Note that the pretty hostname has little restrictions on the characters used, while the static and transient hostnames are limited to the usually accepted characters of Internet domain names\&.
 .PP
@@ -43,16 +43,6 @@ for more information\&. The pretty hostname, chassis type, and icon name are sto
 .PP
 The following options are understood:
 .PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Prints a short help text and exits\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Prints a short version string and exits\&.
-.RE
-.PP
 \fB\-\-no\-ask\-password\fR
 .RS 4
 Do not query the user for authentication for privileged operations\&.
@@ -61,12 +51,6 @@ Do not query the user for authentication for privileged operations\&.
 \fB\-P\fR, \fB\-\-privileged\fR
 .RS 4
 Acquire privileges via PolicyKit before executing the operation\&.
-.RE
-.PP
-\fB\-H\fR, \fB\-\-host\fR
-.RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to a remote system\&.
 .RE
 .PP
 \fB\-\-static\fR, \fB\-\-transient\fR, \fB\-\-pretty\fR
@@ -79,6 +63,22 @@ will print out just this selected hostname\&.
 .sp
 If used with
 \fBset\-hostname\fR, only the selected hostname(s) will be updated\&. When more than one of those options is used, all the specified hostnames will be updated\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
 .RE
 .PP
 The following commands are understood:
@@ -123,7 +123,7 @@ for virtualized systems that lack an immediate physical chassis\&. Pass an empty
 .RE
 .SH "EXIT STATUS"
 .PP
-On success 0 is returned, a non\-zero failure code otherwise\&.
+On success, 0 is returned, a non\-zero failure code otherwise\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

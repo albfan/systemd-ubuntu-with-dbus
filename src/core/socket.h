@@ -32,6 +32,7 @@ typedef struct Socket Socket;
 typedef enum SocketState {
         SOCKET_DEAD,
         SOCKET_START_PRE,
+        SOCKET_START_CHOWN,
         SOCKET_START_POST,
         SOCKET_LISTENING,
         SOCKET_RUNNING,
@@ -48,6 +49,7 @@ typedef enum SocketState {
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
+        SOCKET_EXEC_START_CHOWN,
         SOCKET_EXEC_START_POST,
         SOCKET_EXEC_STOP_PRE,
         SOCKET_EXEC_STOP_POST,
@@ -77,12 +79,14 @@ typedef enum SocketResult {
 } SocketResult;
 
 typedef struct SocketPort {
+        Socket *socket;
+
         SocketType type;
         int fd;
 
         SocketAddress address;
         char *path;
-        Watch fd_watch;
+        sd_event_source *event_source;
 
         LIST_FIELDS(struct SocketPort, port);
 } SocketPort;
@@ -103,6 +107,7 @@ struct Socket {
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
+        ExecRuntime *exec_runtime;
 
         /* For Accept=no sockets refers to the one service we'll
         activate. For Accept=yes sockets is either NULL, or filled
@@ -111,7 +116,7 @@ struct Socket {
 
         SocketState state, deserialized_state;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 
         ExecCommand* control_command;
         SocketExecCommand control_command_id;
@@ -122,7 +127,10 @@ struct Socket {
 
         SocketResult result;
 
+        char **symlinks;
+
         bool accept;
+        bool remove_on_stop;
 
         /* Socket options */
         bool keep_alive;
@@ -144,13 +152,15 @@ struct Socket {
         size_t pipe_size;
         char *bind_to_device;
         char *tcp_congestion;
-        bool reuseport;
+        bool reuse_port;
         long mq_maxmsg;
         long mq_msgsize;
 
         char *smack;
         char *smack_ip_in;
         char *smack_ip_out;
+
+        char *user, *group;
 };
 
 /* Called from the service code when collecting fds */

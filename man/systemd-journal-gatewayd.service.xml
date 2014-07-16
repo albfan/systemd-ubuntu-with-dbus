@@ -21,7 +21,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'>
+<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-journal-gatewayd.service</title>
@@ -82,21 +83,6 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
     <variablelist>
       <varlistentry>
-        <term><option>--help</option></term>
-        <term><option>-h</option></term>
-
-        <listitem><para>Prints a short help
-        text and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--version</option></term>
-
-        <listitem><para>Prints a short version
-        string and exits.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--cert=</option></term>
 
         <listitem><para>Specify the path to a file containing a server
@@ -114,6 +100,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         with <option>--cert=</option>.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 
@@ -154,14 +142,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <listitem><para>Return a JSON structure describing the machine.</para>
 
         <para>Example:
-        <programlisting>
-{ "machine_id" : "8cf7ed9d451ea194b77a9f118f3dc446",
+        <programlisting>{ "machine_id" : "8cf7ed9d451ea194b77a9f118f3dc446",
   "boot_id" : "3d3c9efaf556496a9b04259ee35df7f7",
   "hostname" : "fedora",
   "os_pretty_name" : "Fedora 19 (Rawhide)",
   "virtualization" : "kvm",
-  ...}
-        </programlisting>
+  ...}</programlisting>
         </para>
         </listitem>
       </varlistentry>
@@ -295,16 +281,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     in <ulink
     url="http://www.freedesktop.org/wiki/Software/systemd/export">Journal
     Export Format</ulink>:
-    <programlisting>
-curl --silent -H'Accept: application/vnd.fdo.journal' \
-       'http://localhost:19531/entries?boot'
-    </programlisting>
+    <programlisting>curl --silent -H'Accept: application/vnd.fdo.journal' \
+       'http://localhost:19531/entries?boot'</programlisting>
     </para>
 
     <para>Listen for core dumps:
-    <programlisting>
-curl 'http://localhost:19531/entries?follow&amp;MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1'
-    </programlisting></para>
+    <programlisting>curl 'http://localhost:19531/entries?follow&amp;MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1'</programlisting></para>
   </refsect1>
 
   <refsect1>

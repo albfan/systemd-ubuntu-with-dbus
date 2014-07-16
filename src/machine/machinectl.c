@@ -19,40 +19,40 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <dbus/dbus.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
 #include <pwd.h>
 #include <locale.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#include "sd-bus.h"
 #include "log.h"
 #include "util.h"
 #include "macro.h"
 #include "pager.h"
-#include "dbus-common.h"
+#include "bus-util.h"
+#include "bus-error.h"
 #include "build.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
-#include "spawn-polkit-agent.h"
+#include "ptyfwd.h"
 
 static char **arg_property = NULL;
 static bool arg_all = false;
 static bool arg_full = false;
 static bool arg_no_pager = false;
+static bool arg_legend = true;
 static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
-static enum transport {
-        TRANSPORT_NORMAL,
-        TRANSPORT_SSH,
-        TRANSPORT_POLKIT
-} arg_transport = TRANSPORT_NORMAL;
-static bool arg_ask_password = true;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
-static char *arg_user = NULL;
 
 static void pager_open_if_enabled(void) {
 
@@ -63,120 +63,89 @@ static void pager_open_if_enabled(void) {
         pager_open(false);
 }
 
-static int list_machines(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        DBusMessageIter iter, sub, sub2;
+static int list_machines(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *name, *class, *service, *object;
         unsigned k = 0;
         int r;
 
         pager_open_if_enabled();
 
-        r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.machine1",
-                        "/org/freedesktop/machine1",
-                        "org.freedesktop.machine1.Manager",
-                        "ListMachines",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_INVALID);
-        if (r)
+        r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "ListMachines",
+                                &error,
+                                &reply,
+                                "");
+        if (r < 0) {
+                log_error("Could not get machines: %s", bus_error_message(&error, -r));
                 return r;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_STRUCT)  {
-                log_error("Failed to parse reply.");
-                return -EIO;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
-
-        if (on_tty())
+        if (arg_legend)
                 printf("%-32s %-9s %-16s\n", "MACHINE", "CONTAINER", "SERVICE");
 
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *name, *class, *service, *object;
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssso)");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRUCT) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &class, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &service, true) < 0 ||
-                    bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_OBJECT_PATH, &object, false) < 0) {
-                        log_error("Failed to parse reply.");
-                        return -EIO;
-                }
-
+        while ((r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object)) > 0) {
                 printf("%-32s %-9s %-16s\n", name, class, service);
 
                 k++;
-
-                dbus_message_iter_next(&sub);
         }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
-        if (on_tty())
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (arg_legend)
                 printf("\n%u machines listed.\n", k);
 
         return 0;
 }
 
-static int show_scope_cgroup(DBusConnection *bus, const char *unit, pid_t leader) {
-        const char *interface = "org.freedesktop.systemd1.Scope";
-        const char *property = "ControlGroup";
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
+static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
-        DBusMessageIter iter, sub;
         const char *cgroup;
-        DBusError error;
         int r, output_flags;
         unsigned c;
 
         assert(bus);
         assert(unit);
 
-        if (arg_transport == TRANSPORT_SSH)
+        if (arg_transport == BUS_TRANSPORT_REMOTE)
                 return 0;
 
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return log_oom();
 
-        r = bus_method_call_with_reply(
+        r = sd_bus_get_property(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        &reply,
+                        endswith(unit, ".scope") ? "org.freedesktop.systemd1.Scope" : "org.freedesktop.systemd1.Service",
+                        "ControlGroup",
                         &error,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_STRING, &property,
-                        DBUS_TYPE_INVALID);
+                        &reply,
+                        "s");
         if (r < 0) {
-                log_error("Failed to query ControlGroup: %s", bus_error(&error, r));
-                dbus_error_free(&error);
+                log_error("Failed to query ControlGroup: %s", bus_error_message(&error, -r));
                 return r;
         }
 
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-                log_error("Failed to parse reply.");
-                return -EINVAL;
-        }
-
-        dbus_message_iter_recurse(&iter, &sub);
-        if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_STRING) {
-                log_error("Failed to parse reply.");
-                return -EINVAL;
-        }
-
-        dbus_message_iter_get_basic(&sub, &cgroup);
+        r = sd_bus_message_read(reply, "s", &cgroup);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         if (isempty(cgroup))
                 return 0;
@@ -198,18 +167,75 @@ static int show_scope_cgroup(DBusConnection *bus, const char *unit, pid_t leader
         return 0;
 }
 
+static int print_addresses(sd_bus *bus, const char *name, const char *prefix, const char *prefix2) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(prefix);
+        assert(prefix2);
+
+        r = sd_bus_call_method(bus,
+                               "org.freedesktop.machine1",
+                               "/org/freedesktop/machine1",
+                               "org.freedesktop.machine1.Manager",
+                               "GetMachineAddresses",
+                               NULL,
+                               &reply,
+                               "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
+                unsigned char family;
+                const void *a;
+                size_t sz;
+                char buffer[MAX(INET6_ADDRSTRLEN, INET_ADDRSTRLEN)];
+
+                r = sd_bus_message_read(reply, "y", &family);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &a, &sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                printf("%s%s\n", prefix, inet_ntop(family, a, buffer, sizeof(buffer)));
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (prefix != prefix2)
+                        prefix = prefix2;
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 typedef struct MachineStatusInfo {
-        const char *name;
+        char *name;
         sd_id128_t id;
-        const char *class;
-        const char *service;
-        const char *scope;
-        const char *root_directory;
+        char *class;
+        char *service;
+        char *unit;
+        char *root_directory;
         pid_t leader;
         usec_t timestamp;
 } MachineStatusInfo;
 
-static void print_machine_status_info(DBusConnection *bus, MachineStatusInfo *i) {
+static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         assert(i);
@@ -254,246 +280,131 @@ static void print_machine_status_info(DBusConnection *bus, MachineStatusInfo *i)
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
 
-        if (i->scope) {
-                printf("\t    Unit: %s\n", i->scope);
-                show_scope_cgroup(bus, i->scope, i->leader);
+        print_addresses(bus, i->name,
+                       "\t Address: ",
+                       "\t          ");
+
+        if (i->unit) {
+                printf("\t    Unit: %s\n", i->unit);
+                show_unit_cgroup(bus, i->unit, i->leader);
         }
 }
 
-static int status_property_machine(const char *name, DBusMessageIter *iter, MachineStatusInfo *i) {
-        assert(name);
-        assert(iter);
-        assert(i);
+static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
 
-        switch (dbus_message_iter_get_arg_type(iter)) {
+        static const struct bus_properties_map map[]  = {
+                { "Name",          "s",  NULL,          offsetof(MachineStatusInfo, name) },
+                { "Class",         "s",  NULL,          offsetof(MachineStatusInfo, class) },
+                { "Service",       "s",  NULL,          offsetof(MachineStatusInfo, service) },
+                { "Unit",          "s",  NULL,          offsetof(MachineStatusInfo, unit) },
+                { "RootDirectory", "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
+                { "Leader",        "u",  NULL,          offsetof(MachineStatusInfo, leader) },
+                { "Timestamp",     "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
+                { "Id",            "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
+                {}
+        };
 
-        case DBUS_TYPE_STRING: {
-                const char *s;
-
-                dbus_message_iter_get_basic(iter, &s);
-
-                if (!isempty(s)) {
-                        if (streq(name, "Name"))
-                                i->name = s;
-                        else if (streq(name, "Class"))
-                                i->class = s;
-                        else if (streq(name, "Service"))
-                                i->service = s;
-                        else if (streq(name, "Scope"))
-                                i->scope = s;
-                        else if (streq(name, "RootDirectory"))
-                                i->root_directory = s;
-                }
-                break;
-        }
-
-        case DBUS_TYPE_UINT32: {
-                uint32_t u;
-
-                dbus_message_iter_get_basic(iter, &u);
-
-                if (streq(name, "Leader"))
-                        i->leader = (pid_t) u;
-
-                break;
-        }
-
-        case DBUS_TYPE_UINT64: {
-                uint64_t u;
-
-                dbus_message_iter_get_basic(iter, &u);
-
-                if (streq(name, "Timestamp"))
-                        i->timestamp = (usec_t) u;
-
-                break;
-        }
-
-        case DBUS_TYPE_ARRAY: {
-                DBusMessageIter sub;
-
-                dbus_message_iter_recurse(iter, &sub);
-
-                if (dbus_message_iter_get_arg_type(&sub) == DBUS_TYPE_BYTE && streq(name, "Id")) {
-                        void *v;
-                        int n;
-
-                        dbus_message_iter_get_fixed_array(&sub, &v, &n);
-                        if (n == 0)
-                                i->id = SD_ID128_NULL;
-                        else if (n == 16)
-                                memcpy(&i->id, v, n);
-                }
-
-                break;
-        }
-        }
-
-        return 0;
-}
-
-static int print_property(const char *name, DBusMessageIter *iter) {
-        assert(name);
-        assert(iter);
-
-        if (arg_property && !strv_find(arg_property, name))
-                return 0;
-
-        if (generic_print_property(name, iter, arg_all) > 0)
-                return 0;
-
-        if (arg_all)
-                printf("%s=[unprintable]\n", name);
-
-        return 0;
-}
-
-static int show_one(const char *verb, DBusConnection *bus, const char *path, bool show_properties, bool *new_line) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        const char *interface = "";
+        MachineStatusInfo info = {};
         int r;
-        DBusMessageIter iter, sub, sub2, sub3;
-        MachineStatusInfo machine_info = {};
 
         assert(path);
         assert(new_line);
 
-        r = bus_method_call_with_reply(
-                        bus,
-                        "org.freedesktop.machine1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &reply,
-                        NULL,
-                        DBUS_TYPE_STRING, &interface,
-                        DBUS_TYPE_INVALID);
-        if (r < 0)
-                goto finish;
-
-        if (!dbus_message_iter_init(reply, &iter) ||
-            dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY ||
-            dbus_message_iter_get_element_type(&iter) != DBUS_TYPE_DICT_ENTRY)  {
-                log_error("Failed to parse reply.");
-                r = -EIO;
-                goto finish;
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.machine1",
+                                   path,
+                                   map,
+                                   &info);
+        if (r < 0) {
+                log_error("Could not get properties: %s", strerror(-r));
+                return r;
         }
 
-        dbus_message_iter_recurse(&iter, &sub);
+        if (*new_line)
+                printf("\n");
+        *new_line = true;
+
+        print_machine_status_info(bus, &info);
+
+        free(info.name);
+        free(info.class);
+        free(info.service);
+        free(info.unit);
+        free(info.root_directory);
+
+        return r;
+}
+
+static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+        int r;
 
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
 
-        while (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INVALID) {
-                const char *name;
-
-                if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_DICT_ENTRY) {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_recurse(&sub, &sub2);
-
-                if (bus_iter_get_basic_and_next(&sub2, DBUS_TYPE_STRING, &name, true) < 0) {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                if (dbus_message_iter_get_arg_type(&sub2) != DBUS_TYPE_VARIANT)  {
-                        log_error("Failed to parse reply.");
-                        r = -EIO;
-                        goto finish;
-                }
-
-                dbus_message_iter_recurse(&sub2, &sub3);
-
-                if (show_properties)
-                        r = print_property(name, &sub3);
-                else
-                        r = status_property_machine(name, &sub3, &machine_info);
-
-                if (r < 0) {
-                        log_error("Failed to parse reply.");
-                        goto finish;
-                }
-
-                dbus_message_iter_next(&sub);
-        }
-
-        if (!show_properties)
-                print_machine_status_info(bus, &machine_info);
-
-        r = 0;
-
-finish:
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_all);
+        if (r < 0)
+                log_error("Could not get properties: %s", strerror(-r));
 
         return r;
 }
 
-static int show(DBusConnection *bus, char **args, unsigned n) {
-        _cleanup_dbus_message_unref_ DBusMessage *reply = NULL;
-        int r, ret = 0;
-        DBusError error;
+static int show(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r = 0;
         unsigned i;
-        bool show_properties, new_line = false;
+        bool properties, new_line = false;
 
         assert(bus);
         assert(args);
 
-        dbus_error_init(&error);
-
-        show_properties = !strstr(args[0], "status");
+        properties = !strstr(args[0], "status");
 
         pager_open_if_enabled();
 
-        if (show_properties && n <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+        if (properties && n <= 1) {
 
-                ret = show_one(args[0], bus, "/org/freedesktop/machine1", show_properties, &new_line);
-                goto finish;
+                /* If no argument is specified, inspect the manager
+                 * itself */
+                r = show_properties(bus, "/org/freedesktop/machine1", &new_line);
+                if (r < 0)
+                        return r;
         }
 
         for (i = 1; i < n; i++) {
                 const char *path = NULL;
 
-                ret = bus_method_call_with_reply(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "GetMachine",
-                                &reply,
-                                NULL,
-                                DBUS_TYPE_STRING, &args[i],
-                                DBUS_TYPE_INVALID);
-                if (ret < 0)
-                        goto finish;
-
-                if (!dbus_message_get_args(reply, &error,
-                                           DBUS_TYPE_OBJECT_PATH, &path,
-                                           DBUS_TYPE_INVALID)) {
-                        log_error("Failed to parse reply: %s", bus_error_message(&error));
-                        ret = -EIO;
-                        goto finish;
+                r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.machine1",
+                                        "/org/freedesktop/machine1",
+                                        "org.freedesktop.machine1.Manager",
+                                        "GetMachine",
+                                        &error,
+                                        &reply,
+                                        "s", args[i]);
+                if (r < 0) {
+                        log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                        return r;
                 }
 
-                r = show_one(args[0], bus, path, show_properties, &new_line);
-                if (r != 0)
-                        ret = r;
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (properties)
+                        r = show_properties(bus, path, &new_line);
+                else
+                        r = show_info(args[0], bus, path, &new_line);
         }
 
-finish:
-        dbus_error_free(&error);
-
-        return ret;
+        return r;
 }
 
-static int kill_machine(DBusConnection *bus, char **args, unsigned n) {
+static int kill_machine(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned i;
 
         assert(args);
@@ -504,26 +415,40 @@ static int kill_machine(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 int r;
 
-                r = bus_method_call_with_reply (
-                        bus,
-                        "org.freedesktop.machine1",
-                        "/org/freedesktop/machine1",
-                        "org.freedesktop.machine1.Manager",
-                        "KillMachine",
-                        NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[i],
-                        DBUS_TYPE_STRING, &arg_kill_who,
-                        DBUS_TYPE_INT32, &arg_signal,
-                        DBUS_TYPE_INVALID);
-                if (r)
+                r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.machine1",
+                                        "/org/freedesktop/machine1",
+                                        "org.freedesktop.machine1.Manager",
+                                        "KillMachine",
+                                        &error,
+                                        NULL,
+                                        "ssi", args[i], arg_kill_who, arg_signal);
+                if (r < 0) {
+                        log_error("Could not kill machine: %s", bus_error_message(&error, -r));
                         return r;
+                }
         }
 
         return 0;
 }
 
-static int terminate_machine(DBusConnection *bus, char **args, unsigned n) {
+static int reboot_machine(sd_bus *bus, char **args, unsigned n) {
+        arg_kill_who = "leader";
+        arg_signal = SIGINT; /* sysvinit + systemd */
+
+        return kill_machine(bus, args, n);
+}
+
+static int poweroff_machine(sd_bus *bus, char **args, unsigned n) {
+        arg_kill_who = "leader";
+        arg_signal = SIGRTMIN+4; /* only systemd */
+
+        return kill_machine(bus, args, n);
+}
+
+static int terminate_machine(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         unsigned i;
 
         assert(args);
@@ -531,19 +456,226 @@ static int terminate_machine(DBusConnection *bus, char **args, unsigned n) {
         for (i = 1; i < n; i++) {
                 int r;
 
-                r = bus_method_call_with_reply (
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.machine1",
+                                "/org/freedesktop/machine1",
+                                "org.freedesktop.machine1.Manager",
+                                "TerminateMachine",
+                                &error,
+                                NULL,
+                                "s", args[i]);
+                if (r < 0) {
+                        log_error("Could not terminate machine: %s", bus_error_message(&error, -r));
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int openpt_in_namespace(pid_t pid, int flags) {
+        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
+        union {
+                struct cmsghdr cmsghdr;
+                uint8_t buf[CMSG_SPACE(sizeof(int))];
+        } control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+        int master = -1, r;
+        pid_t child;
+        siginfo_t si;
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        child = fork();
+        if (child < 0)
+                return -errno;
+
+        if (child == 0) {
+                pair[0] = safe_close(pair[0]);
+
+                r = namespace_enter(pidnsfd, mntnsfd, -1, rootfd);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                master = posix_openpt(flags);
+                if (master < 0)
+                        _exit(EXIT_FAILURE);
+
+                cmsg = CMSG_FIRSTHDR(&mh);
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                memcpy(CMSG_DATA(cmsg), &master, sizeof(int));
+
+                mh.msg_controllen = cmsg->cmsg_len;
+
+                if (sendmsg(pair[1], &mh, MSG_NOSIGNAL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate(child, &si);
+        if (r < 0)
+                return r;
+        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                return -EIO;
+
+        if (recvmsg(pair[0], &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC) < 0)
+                return -errno;
+
+        for (cmsg = CMSG_FIRSTHDR(&mh); cmsg; cmsg = CMSG_NXTHDR(&mh, cmsg))
+                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+                        int *fds;
+                        unsigned n_fds;
+
+                        fds = (int*) CMSG_DATA(cmsg);
+                        n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        if (n_fds != 1) {
+                                close_many(fds, n_fds);
+                                return -EIO;
+                        }
+
+                        master = fds[0];
+                }
+
+        if (master < 0)
+                return -EIO;
+
+        return master;
+}
+
+static int login_machine(sd_bus *bus, char **args, unsigned n) {
+        _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_close_ int master = -1;
+        _cleanup_free_ char *getty = NULL;
+        const char *path, *pty, *p;
+        uint32_t leader;
+        sigset_t mask;
+        int r;
+
+        assert(bus);
+        assert(args);
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Login only supported on local machines.");
+                return -ENOTSUP;
+        }
+
+        r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "TerminateMachine",
-                        NULL,
-                        NULL,
-                        DBUS_TYPE_STRING, &args[i],
-                        DBUS_TYPE_INVALID);
-                if (r)
-                        return r;
+                        "GetMachine",
+                        &error,
+                        &reply,
+                        "s", args[1]);
+        if (r < 0) {
+                log_error("Could not get path to machine: %s", bus_error_message(&error, -r));
+                return r;
         }
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.machine1",
+                        path,
+                        "org.freedesktop.machine1.Machine",
+                        "Leader",
+                        &error,
+                        &reply2,
+                        "u");
+        if (r < 0) {
+                log_error("Failed to retrieve PID of leader: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_bus_message_read(reply2, "u", &leader);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        master = openpt_in_namespace(leader, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
+        if (master < 0) {
+                log_error("Failed to acquire pseudo tty: %s", strerror(-master));
+                return master;
+        }
+
+        pty = ptsname(master);
+        if (!pty) {
+                log_error("Failed to get pty name: %m");
+                return -errno;
+        }
+
+        p = startswith(pty, "/dev/pts/");
+        if (!p) {
+                log_error("Invalid pty name %s.", pty);
+                return -EIO;
+        }
+
+        r = sd_bus_open_system_container(&container_bus, args[1]);
+        if (r < 0) {
+                log_error("Failed to get container bus: %s", strerror(-r));
+                return r;
+        }
+
+        getty = strjoin("container-getty@", p, ".service", NULL);
+        if (!getty)
+                return log_oom();
+
+        if (unlockpt(master) < 0) {
+                log_error("Failed to unlock tty: %m");
+                return -errno;
+        }
+
+        r = sd_bus_call_method(container_bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "StartUnit",
+                               &error, &reply3,
+                               "ss", getty, "replace");
+        if (r < 0) {
+                log_error("Failed to start getty service: %s", bus_error_message(&error, r));
+                return r;
+        }
+
+        container_bus = sd_bus_unref(container_bus);
+
+        assert_se(sigemptyset(&mask) == 0);
+        sigset_add_many(&mask, SIGWINCH, SIGTERM, SIGINT, -1);
+        assert_se(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+
+        log_info("Connected to container %s. Press ^] three times within 1s to exit session.", args[1]);
+
+        r = process_pty(master, &mask, 0, 0);
+        if (r < 0) {
+                log_error("Failed to process pseudo tty: %s", strerror(-r));
+                return r;
+        }
+
+        fputc('\n', stdout);
+
+        log_info("Connection to container %s terminated.", args[1]);
 
         return 0;
 }
@@ -554,21 +686,24 @@ static int help(void) {
                "Send control commands to or query the virtual machine and container registration manager.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
+               "  -H --host=[USER@]HOST  Operate on remote host\n"
+               "  -M --machine=CONTAINER Operate on local container\n"
                "  -p --property=NAME     Show only properties by this name\n"
                "  -a --all               Show all properties, including empty ones\n"
-               "     --kill-who=WHO      Who to send signal to\n"
                "  -l --full              Do not ellipsize output\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
-               "     --no-ask-password   Don't prompt for password\n"
-               "  -H --host=[USER@]HOST  Show information for remote host\n"
-               "  -P --privileged        Acquire privileges before execution\n"
-               "     --no-pager          Do not pipe output into a pager\n\n"
+               "     --kill-who=WHO      Who to send signal to\n"
+               "  -s --signal=SIGNAL     Which signal to send\n\n"
                "Commands:\n"
                "  list                   List running VMs and containers\n"
-               "  status [NAME...]       Show VM/container status\n"
-               "  show [NAME...]         Show properties of one or more VMs/containers\n"
-               "  terminate [NAME...]    Terminate one or more VMs/containers\n"
-               "  kill [NAME...]         Send signal to processes of a VM/container\n",
+               "  status NAME...         Show VM/container status\n"
+               "  show NAME...           Show properties of one or more VMs/containers\n"
+               "  login NAME             Get a login prompt on a container\n"
+               "  poweroff NAME...       Power off one or more containers\n"
+               "  reboot NAME...         Reboot one or more containers\n"
+               "  kill NAME...           Send signal to processes of a VM/container\n"
+               "  terminate NAME...      Terminate one or more VMs/containers\n",
                program_invocation_short_name);
 
         return 0;
@@ -579,8 +714,8 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_KILL_WHO,
-                ARG_NO_ASK_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -590,48 +725,41 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all",             no_argument,       NULL, 'a'                 },
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
                 { "kill-who",        required_argument, NULL, ARG_KILL_WHO        },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
-                { "privileged",      no_argument,       NULL, 'P'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { NULL,              0,                 NULL, 0                   }
+                { "machine",         required_argument, NULL, 'M'                 },
+                {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:P", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
                         puts(SYSTEMD_FEATURES);
                         return 0;
 
-                case 'p': {
-                        char **l;
-
-                        l = strv_append(arg_property, optarg);
-                        if (!l)
-                                return -ENOMEM;
-
-                        strv_free(arg_property);
-                        arg_property = l;
+                case 'p':
+                        r = strv_extend(&arg_property, optarg);
+                        if (r < 0)
+                                return log_oom();
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
                          * empty. */
                         arg_all = true;
                         break;
-                }
 
                 case 'a':
                         arg_all = true;
@@ -645,8 +773,8 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_no_pager = true;
                         break;
 
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_KILL_WHO:
@@ -661,28 +789,28 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case 'P':
-                        arg_transport = TRANSPORT_POLKIT;
+                case 'H':
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = optarg;
                         break;
 
-                case 'H':
-                        arg_transport = TRANSPORT_SSH;
-                        parse_user_at_host(optarg, &arg_user, &arg_host);
+                case 'M':
+                        arg_transport = BUS_TRANSPORT_CONTAINER;
+                        arg_host = optarg;
                         break;
 
                 case '?':
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
         return 1;
 }
 
-static int machinectl_main(DBusConnection *bus, int argc, char *argv[], DBusError *error) {
+static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const struct {
                 const char* verb;
@@ -692,13 +820,16 @@ static int machinectl_main(DBusConnection *bus, int argc, char *argv[], DBusErro
                         EQUAL
                 } argc_cmp;
                 const int argc;
-                int (* const dispatch)(DBusConnection *bus, char **args, unsigned n);
+                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
         } verbs[] = {
                 { "list",                  LESS,   1, list_machines     },
                 { "status",                MORE,   2, show              },
                 { "show",                  MORE,   1, show              },
                 { "terminate",             MORE,   2, terminate_machine },
+                { "reboot",                MORE,   2, reboot_machine    },
+                { "poweroff",              MORE,   2, poweroff_machine  },
                 { "kill",                  MORE,   2, kill_machine      },
+                { "login",                 MORE,   2, login_machine     },
         };
 
         int left;
@@ -706,12 +837,11 @@ static int machinectl_main(DBusConnection *bus, int argc, char *argv[], DBusErro
 
         assert(argc >= 0);
         assert(argv);
-        assert(error);
 
         left = argc - optind;
 
         if (left <= 0)
-                /* Special rule: no arguments means "list-sessions" */
+                /* Special rule: no arguments means "list" */
                 i = 0;
         else {
                 if (streq(argv[optind], "help")) {
@@ -759,58 +889,33 @@ static int machinectl_main(DBusConnection *bus, int argc, char *argv[], DBusErro
                 assert_not_reached("Unknown comparison operator.");
         }
 
-        if (!bus) {
-                log_error("Failed to get D-Bus connection: %s", error->message);
-                return -EIO;
-        }
-
         return verbs[i].dispatch(bus, argv + optind, left);
 }
 
 int main(int argc, char*argv[]) {
-        int r, retval = EXIT_FAILURE;
-        DBusConnection *bus = NULL;
-        DBusError error;
-
-        dbus_error_init(&error);
+        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        int r;
 
         setlocale(LC_ALL, "");
         log_parse_environment();
         log_open();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
+        if (r <= 0)
                 goto finish;
-        else if (r == 0) {
-                retval = EXIT_SUCCESS;
+
+        r = bus_open_transport(arg_transport, arg_host, false, &bus);
+        if (r < 0) {
+                log_error("Failed to create bus connection: %s", strerror(-r));
                 goto finish;
         }
 
-        if (arg_transport == TRANSPORT_NORMAL)
-                bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
-        else if (arg_transport == TRANSPORT_POLKIT)
-                bus_connect_system_polkit(&bus, &error);
-        else if (arg_transport == TRANSPORT_SSH)
-                bus_connect_system_ssh(NULL, arg_host, &bus, &error);
-        else
-                assert_not_reached("Uh, invalid transport...");
-
-        r = machinectl_main(bus, argc, argv, &error);
-        retval = r < 0 ? EXIT_FAILURE : r;
+        r = machinectl_main(bus, argc, argv);
 
 finish:
-        if (bus) {
-                dbus_connection_flush(bus);
-                dbus_connection_close(bus);
-                dbus_connection_unref(bus);
-        }
-
-        dbus_error_free(&error);
-        dbus_shutdown();
+        pager_close();
 
         strv_free(arg_property);
 
-        pager_close();
-
-        return retval;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

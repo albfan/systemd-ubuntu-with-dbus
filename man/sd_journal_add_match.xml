@@ -56,24 +56,24 @@
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_add_match</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
-                                <paramdef>const void* <parameter>data</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+                                <paramdef>const void *<parameter>data</parameter></paramdef>
                                 <paramdef>size_t <parameter>size</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_add_disjunction</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>int <function>sd_journal_add_conjunction</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
 
                         <funcprototype>
                                 <funcdef>void <function>sd_journal_flush_matches</function></funcdef>
-                                <paramdef>sd_journal* <parameter>j</parameter></paramdef>
+                                <paramdef>sd_journal *<parameter>j</parameter></paramdef>
                         </funcprototype>
                 </funcsynopsis>
         </refsynopsisdiv>
@@ -174,9 +174,9 @@
                 <function>sd_journal_add_disjunction()</function>,
                 <function>sd_journal_add_conjunction()</function> and
                 <function>sd_journal_flush_matches()</function>
-                interfaces are available as shared library, which can
+                interfaces are available as a shared library, which can
                 be compiled and linked to with the
-                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 file.</para>
         </refsect1>
 

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "log.h"
 #include "macro.h"
@@ -36,15 +37,15 @@ int main(int argc, char *argv[]) {
 
         assert_se(m = mmap_cache_new());
 
-        x = mkstemp(px);
+        x = mkostemp_safe(px, O_RDWR|O_CLOEXEC);
         assert(x >= 0);
         unlink(px);
 
-        y = mkstemp(py);
+        y = mkostemp_safe(py, O_RDWR|O_CLOEXEC);
         assert(y >= 0);
         unlink(py);
 
-        z = mkstemp(pz);
+        z = mkostemp_safe(pz, O_RDWR|O_CLOEXEC);
         assert(z >= 0);
         unlink(pz);
 
@@ -71,9 +72,9 @@ int main(int argc, char *argv[]) {
 
         mmap_cache_unref(m);
 
-        close_nointr_nofail(x);
-        close_nointr_nofail(y);
-        close_nointr_nofail(z);
+        safe_close(x);
+        safe_close(y);
+        safe_close(z);
 
         return 0;
 }

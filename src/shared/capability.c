@@ -29,34 +29,31 @@
 #include <ctype.h>
 #include <sys/capability.h>
 #include <sys/prctl.h>
+#include "grp.h"
 
 #include "macro.h"
-#include "capability.h"
 #include "util.h"
 #include "log.h"
 #include "fileio.h"
+#include "capability.h"
 
 int have_effective_cap(int value) {
-        cap_t cap;
+        _cleanup_cap_free_ cap_t cap;
         cap_flag_value_t fv;
-        int r;
 
         cap = cap_get_proc();
         if (!cap)
                 return -errno;
 
         if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                r = -errno;
+                return -errno;
         else
-                r = fv == CAP_SET;
-
-        cap_free(cap);
-        return r;
+                return fv == CAP_SET;
 }
 
 unsigned long cap_last_cap(void) {
-        static __thread unsigned long saved;
-        static __thread bool valid = false;
+        static thread_local unsigned long saved;
+        static thread_local bool valid = false;
         unsigned long p;
 
         if (valid)
@@ -88,9 +85,9 @@ unsigned long cap_last_cap(void) {
 }
 
 int capability_bounding_set_drop(uint64_t drop, bool right_now) {
-        unsigned long i;
-        cap_t after_cap = NULL, temp_cap = NULL;
+        _cleanup_cap_free_ cap_t after_cap = NULL;
         cap_flag_value_t fv;
+        unsigned long i;
         int r;
 
         /* If we are run as PID 1 we will lack CAP_SETPCAP by default
@@ -102,12 +99,11 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         if (!after_cap)
                 return -errno;
 
-        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0) {
-                cap_free(after_cap);
+        if (cap_get_flag(after_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
-        }
 
         if (fv != CAP_SET) {
+                _cleanup_cap_free_ cap_t temp_cap = NULL;
                 static const cap_value_t v = CAP_SETPCAP;
 
                 temp_cap = cap_dup(after_cap);
@@ -137,7 +133,7 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
                                 r = -errno;
                                 goto finish;
                         }
-                        v = i;
+                        v = (cap_value_t) i;
 
                         /* Also drop it from the inheritable set, so
                          * that anything we exec() loses the
@@ -162,13 +158,8 @@ int capability_bounding_set_drop(uint64_t drop, bool right_now) {
         r = 0;
 
 finish:
-        if (temp_cap)
-                cap_free(temp_cap);
-
-        if (after_cap) {
-                cap_set_proc(after_cap);
-                cap_free(after_cap);
-        }
+        if (cap_set_proc(after_cap) < 0)
+                return -errno;
 
         return r;
 }
@@ -222,4 +213,75 @@ int capability_bounding_set_drop_usermode(uint64_t drop) {
                 return r;
 
         return r;
+}
+
+int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
+
+        _cleanup_cap_free_ cap_t d = NULL;
+        int r;
+
+        /* Unfortunately we cannot leave privilege dropping to PID 1
+         * here, since we want to run as user but want to keep some
+         * capabilities. Since file capabilities have been introduced
+         * this cannot be done across exec() anymore, unless our
+         * binary has the capability configured in the file system,
+         * which we want to avoid. */
+
+        if (setresgid(gid, gid, gid) < 0) {
+                log_error("Failed change group ID: %m");
+                return -errno;
+        }
+
+        if (setgroups(0, NULL) < 0) {
+                log_error("Failed to drop auxiliary groups list: %m");
+                return -errno;
+        }
+
+        if (prctl(PR_SET_KEEPCAPS, 1) < 0) {
+                log_error("Failed to enable keep capabilities flag: %m");
+                return -errno;
+        }
+
+        r = setresuid(uid, uid, uid);
+        if (r < 0) {
+                log_error("Failed change user ID: %m");
+                return -errno;
+        }
+
+        if (prctl(PR_SET_KEEPCAPS, 0) < 0) {
+                log_error("Failed to disable keep capabilities flag: %m");
+                return -errno;
+        }
+
+        r = capability_bounding_set_drop(~keep_capabilities, true);
+        if (r < 0) {
+                log_error("Failed to drop capabilities: %s", strerror(-r));
+                return r;
+        }
+
+        d = cap_init();
+        if (!d)
+                return log_oom();
+
+        if (keep_capabilities) {
+                cap_value_t bits[sizeof(keep_capabilities)*8];
+                unsigned i, j = 0;
+
+                for (i = 0; i < sizeof(keep_capabilities)*8; i++)
+                        if (keep_capabilities & (1ULL << i))
+                                bits[j++] = i;
+
+                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
+                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0) {
+                        log_error("Failed to enable capabilities bits: %m");
+                        return -errno;
+                }
+        }
+
+        if (cap_set_proc(d) < 0) {
+                log_error("Failed to increase capabilities: %m");
+                return -errno;
+        }
+
+        return 0;
 }

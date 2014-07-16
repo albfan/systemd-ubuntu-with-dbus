@@ -22,13 +22,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <libudev.h>
+
 typedef struct Swap Swap;
 
 #include "unit.h"
 
 typedef enum SwapState {
         SWAP_DEAD,
-        SWAP_ACTIVATING,
+        SWAP_ACTIVATING,               /* /sbin/swapon is running, but the swap not yet enabled. */
+        SWAP_ACTIVATING_DONE,          /* /sbin/swapon is running, and the swap is done. */
         SWAP_ACTIVE,
         SWAP_DEACTIVATING,
         SWAP_ACTIVATING_SIGTERM,
@@ -47,13 +50,6 @@ typedef enum SwapExecCommand {
         _SWAP_EXEC_COMMAND_INVALID = -1
 } SwapExecCommand;
 
-typedef struct SwapParameters {
-        char *what;
-        int priority;
-        bool noauto:1;
-        bool nofail:1;
-} SwapParameters;
-
 typedef enum SwapResult {
         SWAP_SUCCESS,
         SWAP_FAILURE_RESOURCES,
@@ -65,10 +61,22 @@ typedef enum SwapResult {
         _SWAP_RESULT_INVALID = -1
 } SwapResult;
 
+typedef struct SwapParameters {
+        char *what;
+        int priority;
+        bool noauto:1;
+        bool nofail:1;
+} SwapParameters;
+
 struct Swap {
         Unit meta;
 
         char *what;
+
+        /* If the device has already shown up, this is the device
+         * node, which might be different from what, due to
+         * symlinks */
+        char *devnode;
 
         SwapParameters parameters_proc_swaps;
         SwapParameters parameters_fragment;
@@ -90,25 +98,27 @@ struct Swap {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
+        ExecRuntime *exec_runtime;
+
         SwapState state, deserialized_state;
 
         ExecCommand* control_command;
         SwapExecCommand control_command_id;
         pid_t control_pid;
 
-        Watch timer_watch;
+        sd_event_source *timer_event_source;
 
         /* In order to be able to distinguish dependencies on
         different device nodes we might end up creating multiple
         devices for the same swap. We chain them up here. */
 
-        LIST_FIELDS(struct Swap, same_proc_swaps);
+        LIST_FIELDS(struct Swap, same_devnode);
 };
 
 extern const UnitVTable swap_vtable;
 
-int swap_dispatch_reload(Manager *m);
-int swap_fd_event(Manager *m, int events);
+int swap_process_new_device(Manager *m, struct udev_device *dev);
+int swap_process_removed_device(Manager *m, struct udev_device *dev);
 
 const char* swap_state_to_string(SwapState i) _const_;
 SwapState swap_state_from_string(const char *s) _pure_;

@@ -1,7 +1,6 @@
 /*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
-#ifndef foologindinhibithfoo
-#define foologindinhibithfoo
+#pragma once
 
 /***
   This file is part of systemd.
@@ -52,6 +51,8 @@ typedef enum InhibitMode {
 struct Inhibitor {
         Manager *manager;
 
+        sd_event_source *event_source;
+
         char *id;
         char *state_file;
 
@@ -84,12 +85,10 @@ int inhibitor_create_fifo(Inhibitor *i);
 void inhibitor_remove_fifo(Inhibitor *i);
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
-bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid);
+bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
 const char *inhibit_what_to_string(InhibitWhat k);
 InhibitWhat inhibit_what_from_string(const char *s);
 
 const char *inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);
-
-#endif

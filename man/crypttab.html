@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm274704570816"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="crypttab"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>crypttab — Configuration for encrypted block devices</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/crypttab</code></p></div><div class="refsect1"><a name="idm214191735008"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>The <code class="filename">/etc/crypttab</code> file
                 describes encrypted block devices that are set up
                 during system boot.</p><p>Empty lines and lines starting with the "<code class="literal">#</code>"
                 character are ignored.  Each of the remaining lines
@@ -72,7 +72,15 @@
                                 for possible values and the default value of
                                 this option. This option is ignored in plain
                                 encryption mode, as the key file size is then
-                                given by the key size.</p></dd><dt id="luks"><span class="term"><code class="varname">luks</code></span><a class="headerlink" title="Permalink to this term" href="#luks">¶</a></dt><dd><p>Force LUKS mode. When this mode
+                                given by the key size.</p></dd><dt id="key-slot="><span class="term"><code class="varname">key-slot=</code></span><a class="headerlink" title="Permalink to this term" href="#key-slot=">¶</a></dt><dd><p>Specifies the key slot to
+                                compare the passphrase or key against.
+                                If the key slot does not match the given
+                                passphrase or key, but another would, the
+                                setup of the device will fail regardless.
+                                This option implies <code class="varname">luks</code>. See
+                                <a href="cryptsetup.html"><span class="citerefentry"><span class="refentrytitle">cryptsetup</span>(8)</span></a>
+                                for possible values. The default is to try
+                                all key slots in sequential order.</p></dd><dt id="luks"><span class="term"><code class="varname">luks</code></span><a class="headerlink" title="Permalink to this term" href="#luks">¶</a></dt><dd><p>Force LUKS mode. When this mode
                                 is used, the following options are ignored since
                                 they are provided by the LUKS header on the
                                 device: <code class="varname">cipher=</code>,
@@ -113,7 +121,7 @@
                                 an empty passphrase in combination with one or
                                 more key files, use "<code class="literal">/dev/null</code>"
                                 as the password file in the third field.</p></dd><dt id="tcrypt-hidden"><span class="term"><code class="varname">tcrypt-hidden</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-hidden">¶</a></dt><dd><p>Use the hidden TrueCrypt volume.
-                                This implies <code class="varname">tcrypt</code>.</p><p>This will map the hidden volume that is
+                                This option implies <code class="varname">tcrypt</code>.</p><p>This will map the hidden volume that is
                                 inside of the volume provided in the second
                                 field. Please note that there is no protection
                                 for the hidden volume if the outer volume is
@@ -126,13 +134,8 @@
                                 files.</p><p>See the entry for <code class="varname">tcrypt</code>
                                 on the behavior of the passphrase and key files
                                 when using TrueCrypt encryption mode.</p></dd><dt id="tcrypt-system"><span class="term"><code class="varname">tcrypt-system</code></span><a class="headerlink" title="Permalink to this term" href="#tcrypt-system">¶</a></dt><dd><p>Use TrueCrypt in system
-                                encryption mode. This implies
-                                <code class="varname">tcrypt</code>.</p><p>Please note that when using this mode, the
-                                whole device needs to be given in the second
-                                field instead of the partition. For example: if
-                                "<code class="literal">/dev/sda2</code>" is the system
-                                encrypted TrueCrypt patition, "<code class="literal">/dev/sda</code>"
-                                has to be given.</p></dd><dt id="timeout="><span class="term"><code class="varname">timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#timeout=">¶</a></dt><dd><p>Specifies the timeout for
+                                encryption mode. This option implies
+                                <code class="varname">tcrypt</code>.</p></dd><dt id="timeout="><span class="term"><code class="varname">timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#timeout=">¶</a></dt><dd><p>Specifies the timeout for
                                 querying for a password. If no unit is
                                 specified, seconds is used. Supported units are
                                 s, ms, us, min, h, d. A timeout of 0 waits
@@ -151,12 +154,12 @@
                                 prevent typos.</p></dd></dl></div><p>At early boot and when the system manager
                 configuration is reloaded, this file is translated into
                 native systemd units
-                by <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm274705151904"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm274702985200"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up four encrypted block devices. One using
+                by <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214194879488"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm214194878816"></a><p class="title"><b>Example 1. /etc/crypttab example</b></p><div class="example-contents"><p>Set up four encrypted block devices. One using
                         LUKS for normal storage, another one for usage as a swap
                         device and two TrueCrypt volumes.</p><pre class="programlisting">luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
 swap       /dev/sda7       /dev/urandom             swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /null                    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm274702530704"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+hidden     /mnt/tc_hidden  /null                    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214193239680"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-cryptsetup@.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup@.service</span>(8)</span></a>,
                         <a href="systemd-cryptsetup-generator.html"><span class="citerefentry"><span class="refentrytitle">systemd-cryptsetup-generator</span>(8)</span></a>,

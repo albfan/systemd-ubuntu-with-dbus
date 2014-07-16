@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 208" "systemd.special"
+.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 214" "systemd.special"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -47,6 +47,7 @@ local\-fs\-pre\&.target,
 multi\-user\&.target,
 network\&.target,
 network\-online\&.target,
+network\-pre\&.target,
 nss\-lookup\&.target,
 nss\-user\-lookup\&.target,
 paths\&.target,
@@ -480,7 +481,7 @@ This may be used to pull in audio management daemons dynamically when audio hard
 .RE
 .SH "SPECIAL PASSIVE SYSTEM UNITS"
 .PP
-A number of special system targets are defined that can be used to properly order boot\-up of optional services\&. These targets are generally not part of the initial boot transaction, unless they are explicitly pulled in by one of the implementing services\&. Note specifically, that these
+A number of special system targets are defined that can be used to properly order boot\-up of optional services\&. These targets are generally not part of the initial boot transaction, unless they are explicitly pulled in by one of the implementing services\&. Note specifically that these
 \fIpassive\fR
 target units are generally not pulled in by the consumer of a service, but by the provider of the service\&. This means: a consuming service should order itself after these targets (as appropriate), but not pull it in\&. A providing service should order itself before these targets (as appropriate) and pull it in (via a
 \fIWants=\fR
@@ -501,7 +502,7 @@ network\&.target
 .RS 4
 This unit is supposed to indicate when network functionality is available, but it is only very weakly defined what that is supposed to mean, with one exception: at shutdown, a unit that is ordered after
 network\&.target
-will be stopped before the network \-\- to whatever level it might be set up then \-\- is shut down\&. Also see
+will be stopped before the network \-\- to whatever level it might be set up then \-\- is shut down\&. It is hence useful when writing service files that require network access on shutdown, which should order themselves after this target, but not pull it in\&. Also see
 \m[blue]\fBRunning Services After the Network is up\fR\m[]\&\s-2\u[1]\d\s+2
 for more information\&. Also see
 network\-online\&.target
@@ -514,11 +515,16 @@ for this target unit to all SysV init script service units with an LSB header re
 facility\&.
 .RE
 .PP
+network\-pre\&.target
+.RS 4
+This passive target unit may be pulled in by services that want to run before any network is set up, for example for the purpose of setting up a firewall\&. All network management software orders itself after this target, but does not pull it in\&.
+.RE
+.PP
 nss\-lookup\&.target
 .RS 4
 A target that should be used as synchronization point for all host/network name service lookups\&. Note that this is independent of user/group name lookups for which
 nss\-user\-lookup\&.target
-should be used\&. systemd automatically adds dependencies of type
+should be used\&. All services for which the availability of full host/network name resolution is essential should be ordered after this target, but not pull it in\&. systemd automatically adds dependencies of type
 \fIAfter=\fR
 for this target unit to all SysV init script service units with an LSB header referring to the
 "$named"
@@ -529,7 +535,7 @@ nss\-user\-lookup\&.target
 .RS 4
 A target that should be used as synchronization point for all user/group name service lookups\&. Note that this is independent of host/network name lookups for which
 nss\-lookup\&.target
-should be used\&.
+should be used\&. All services for which the availability of the full user/group database is essential should be ordered after this target, but not pull it in\&. Note that system users are always resolvable, and hence do not require any special ordering against this target\&.
 .RE
 .PP
 remote\-fs\-pre\&.target
@@ -539,15 +545,11 @@ This target unit is automatically ordered before all remote mount point units (s
 type dependency\&. If the unit wants to be pulled in by the first remote mount showing up, it should use
 network\-online\&.target
 (see above)\&.
-.sp
-Again, this target unit is
-\fInot\fR
-suitable for pulling in other units, it is only useful for ordering\&.
 .RE
 .PP
 rpcbind\&.target
 .RS 4
-systemd automatically adds dependencies of type
+The portmapper/rpcbind pulls in this target and orders itself before it, to indicate its availability\&. systemd automatically adds dependencies of type
 \fIAfter=\fR
 for this target unit to all SysV init script service units with an LSB header referring to the
 "$portmap"
@@ -556,7 +558,7 @@ facility\&.
 .PP
 time\-sync\&.target
 .RS 4
-systemd automatically adds dependencies of type
+Services responsible for synchronizing the system clock from a remote source (such as NTP client implementations) should pull in this target and order themselves before it\&. All services where correct time is essential should be ordered after this unit, but not pull it in\&. systemd automatically adds dependencies of type
 \fIAfter=\fR
 for this target unit to all SysV init script service units with an LSB header referring to the
 "$time"
@@ -575,7 +577,7 @@ printer\&.target,
 smartcard\&.target,
 sound\&.target\&.
 .PP
-In addition the following special unit is understood only when systemd runs as service instance:
+In addition, the following special unit is understood only when systemd runs as service instance:
 .PP
 exit\&.target
 .RS 4

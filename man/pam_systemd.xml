@@ -127,14 +127,37 @@
                                 <listitem><para>Takes a string
                                 argument which sets the session class.
                                 The XDG_SESSION_CLASS environmental variable
-                                takes precedence.</para></listitem>
+                                takes precedence. One of
+                                <literal>user</literal>,
+                                <literal>greeter</literal>,
+                                <literal>lock-screen</literal> or
+                                <literal>background</literal>. See
+                                <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details about the session class.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
-                                <term><option>debug=</option></term>
+                                <term><option>type=</option></term>
 
-                                <listitem><para>Takes a boolean
-                                argument. If yes, the module will log
+                                <listitem><para>Takes a string
+                                argument which sets the session type.
+                                The XDG_SESSION_TYPE environmental
+                                variable takes precedence. One of
+                                <literal>unspecified</literal>,
+                                <literal>tty</literal>,
+                                <literal>x11</literal>,
+                                <literal>wayland</literal> or
+                                <literal>mir</literal>. See
+                                <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                for details about the session type.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><option>debug<optional>=</optional></option></term>
+
+                                <listitem><para>Takes an optional
+                                boolean argument. If yes or without
+                                the argument, the module will log
                                 debugging information as it
                                 operates.</para></listitem>
                         </varlistentry>
@@ -200,6 +223,72 @@
                                 operating system
                                 provides.</para></listitem>
                         </varlistentry>
+
+                </variablelist>
+
+                <para>The following environment variables are read by
+                the module and may be used by the PAM service to pass
+                metadata to the module:</para>
+
+                <variablelist class='environment-variables'>
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_TYPE</varname></term>
+
+                                <listitem><para>The session type. This
+                                may be used instead of
+                                <option>session=</option> on the
+                                module parameter line, and is usually
+                                preferred.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_CLASS</varname></term>
+
+                                <listitem><para>The session class. This
+                                may be used instead of
+                                <option>class=</option> on the
+                                module parameter line, and is usually
+                                preferred.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SESSION_DESKTOP</varname></term>
+
+                                <listitem><para>A single, short
+                                identifier string for the desktop
+                                environment. This may be used to
+                                indicate the session desktop used,
+                                where this applies and if this
+                                information is available. For example:
+                                <literal>GNOME</literal>, or
+                                <literal>KDE</literal>. It is
+                                recommended to use the same
+                                identifiers and capitalization as for
+                                <varname>$XDG_CURRENT_DESKTOP</varname>,
+                                as defined by the <ulink
+                                url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
+                                Entry
+                                Specification</ulink>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_SEAT</varname></term>
+
+                                <listitem><para>The seat name the session
+                                shall be registered for, if
+                                any.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>$XDG_VTNR</varname></term>
+
+                                <listitem><para>The VT number the
+                                session shall be registered for, if
+                                any. (Only applies to seats with a VT
+                                available, such as
+                                <literal>seat0</literal>)</para></listitem>
+                        </varlistentry>
+
                 </variablelist>
         </refsect1>
 

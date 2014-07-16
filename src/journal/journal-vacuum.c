@@ -24,10 +24,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
-
-#ifdef HAVE_XATTR
-#include <attr/xattr.h>
-#endif
+#include <sys/xattr.h>
 
 #include "journal-def.h"
 #include "journal-file.h"
@@ -79,11 +76,8 @@ static void patch_realtime(
                 unsigned long long *realtime) {
 
         usec_t x;
-
-#ifdef HAVE_XATTR
         uint64_t crtime;
         _cleanup_free_ const char *path = NULL;
-#endif
 
         /* The timestamp was determined by the file name, but let's
          * see if the file might actually be older than the file name
@@ -106,7 +100,6 @@ static void patch_realtime(
         if (x > 0 && x != (usec_t) -1 && x < *realtime)
                 *realtime = x;
 
-#ifdef HAVE_XATTR
         /* Let's read the original creation time, if possible. Ideally
          * we'd just query the creation time the FS might provide, but
          * unfortunately there's currently no sane API to query
@@ -125,7 +118,6 @@ static void patch_realtime(
                 if (crtime > 0 && crtime != (uint64_t) -1 && crtime < *realtime)
                         *realtime = crtime;
         }
-#endif
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
@@ -150,7 +142,6 @@ static int journal_file_empty(int dir_fd, const char *name) {
 int journal_directory_vacuum(
                 const char *directory,
                 uint64_t max_use,
-                uint64_t min_free,
                 usec_t max_retention_usec,
                 usec_t *oldest_usec) {
 
@@ -164,7 +155,7 @@ int journal_directory_vacuum(
 
         assert(directory);
 
-        if (max_use <= 0 && min_free <= 0 && max_retention_usec <= 0)
+        if (max_use <= 0 && max_retention_usec <= 0)
                 return 0;
 
         if (max_retention_usec > 0) {
@@ -180,9 +171,7 @@ int journal_directory_vacuum(
                 return -errno;
 
         for (;;) {
-                int k;
                 struct dirent *de;
-                union dirent_storage buf;
                 size_t q;
                 struct stat st;
                 char *p;
@@ -190,9 +179,10 @@ int journal_directory_vacuum(
                 sd_id128_t seqnum_id;
                 bool have_seqnum;
 
-                k = readdir_r(d, &buf.de, &de);
-                if (k != 0) {
-                        r = -k;
+                errno = 0;
+                de = readdir(d);
+                if (!de && errno != 0) {
+                        r = -errno;
                         goto finish;
                 }
 
@@ -278,6 +268,8 @@ int journal_directory_vacuum(
                         } else if (errno != ENOENT)
                                 log_warning("Failed to delete %s/%s: %m", directory, p);
 
+                        free(p);
+
                         continue;
                 }
 
@@ -297,8 +289,7 @@ int journal_directory_vacuum(
                 n_list ++;
         }
 
-        if (n_list > 0)
-                qsort(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
+        qsort_safe(list, n_list, sizeof(struct vacuum_info), vacuum_compare);
 
         for (i = 0; i < n_list; i++) {
                 struct statvfs ss;
@@ -309,8 +300,7 @@ int journal_directory_vacuum(
                 }
 
                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
-                    (max_use <= 0 || sum <= max_use) &&
-                    (min_free <= 0 || (uint64_t) ss.f_bavail * (uint64_t) ss.f_bsize >= min_free))
+                    (max_use <= 0 || sum <= max_use))
                         break;
 
                 if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
@@ -335,7 +325,7 @@ finish:
                 free(list[i].filename);
         free(list);
 
-        log_info("Vacuuming done, freed %"PRIu64" bytes", freed);
+        log_debug("Vacuuming done, freed %"PRIu64" bytes", freed);
 
         return r;
 }

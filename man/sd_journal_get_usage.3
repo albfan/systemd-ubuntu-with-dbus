@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_USAGE" "3" "" "systemd 208" "sd_journal_get_usage"
+.TH "SD_JOURNAL_GET_USAGE" "3" "" "systemd 214" "sd_journal_get_usage"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ sd_journal_get_usage \- Journal disk usage
 .fi
 .ft
 .HP \w'int\ sd_journal_get_usage('u
-.BI "int sd_journal_get_usage(sd_journal*\ " "j" ", uint64_t*\ " "bytes" ");"
+.BI "int sd_journal_get_usage(sd_journal\ *" "j" ", uint64_t\ *" "bytes" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_usage()\fR
@@ -44,8 +44,8 @@ returns 0 on success or a negative errno\-style error code\&.
 .PP
 The
 \fBsd_journal_get_usage()\fR
-interface is available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interface is available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

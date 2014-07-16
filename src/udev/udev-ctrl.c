@@ -75,7 +75,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         struct udev_ctrl *uctrl;
         const int on = 1;
 
-        uctrl = calloc(1, sizeof(struct udev_ctrl));
+        uctrl = new0(struct udev_ctrl, 1);
         if (uctrl == NULL)
                 return NULL;
         uctrl->refcount = 1;
@@ -84,7 +84,7 @@ struct udev_ctrl *udev_ctrl_new_from_fd(struct udev *udev, int fd)
         if (fd < 0) {
                 uctrl->sock = socket(AF_LOCAL, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
                 if (uctrl->sock < 0) {
-                        log_error("error getting socket: %m\n");
+                        log_error("error getting socket: %m");
                         udev_ctrl_unref(uctrl);
                         return NULL;
                 }
@@ -118,14 +118,14 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 
                 if (err < 0) {
                         err = -errno;
-                        log_error("bind failed: %m\n");
+                        log_error("bind failed: %m");
                         return err;
                 }
 
                 err = listen(uctrl->sock, 0);
                 if (err < 0) {
                         err = -errno;
-                        log_error("listen failed: %m\n");
+                        log_error("listen failed: %m");
                         return err;
                 }
 
@@ -140,7 +140,7 @@ struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl)
         return uctrl->udev;
 }
 
-struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl)
+static struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl)
 {
         if (uctrl == NULL)
                 return NULL;
@@ -180,11 +180,11 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
 {
         struct udev_ctrl_connection *conn;
-        struct ucred ucred;
-        socklen_t slen;
+        struct ucred ucred = {};
         const int on = 1;
+        int r;
 
-        conn = calloc(1, sizeof(struct udev_ctrl_connection));
+        conn = new(struct udev_ctrl_connection, 1);
         if (conn == NULL)
                 return NULL;
         conn->refcount = 1;
@@ -193,18 +193,18 @@ struct udev_ctrl_connection *udev_ctrl_get_connection(struct udev_ctrl *uctrl)
         conn->sock = accept4(uctrl->sock, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (conn->sock < 0) {
                 if (errno != EINTR)
-                        log_error("unable to receive ctrl connection: %m\n");
+                        log_error("unable to receive ctrl connection: %m");
                 goto err;
         }
 
         /* check peer credential of connection */
-        slen = sizeof(ucred);
-        if (getsockopt(conn->sock, SOL_SOCKET, SO_PEERCRED, &ucred, &slen) < 0) {
-                log_error("unable to receive credentials of ctrl connection: %m\n");
+        r = getpeercred(conn->sock, &ucred);
+        if (r < 0) {
+                log_error("unable to receive credentials of ctrl connection: %s", strerror(-r));
                 goto err;
         }
         if (ucred.uid > 0) {
-                log_error("sender uid=%i, message ignored\n", ucred.uid);
+                log_error("sender uid=%i, message ignored", ucred.uid);
                 goto err;
         }
 
@@ -246,7 +246,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
         struct udev_ctrl_msg_wire ctrl_msg_wire;
         int err = 0;
 
-        memset(&ctrl_msg_wire, 0x00, sizeof(struct udev_ctrl_msg_wire));
+        memzero(&ctrl_msg_wire, sizeof(struct udev_ctrl_msg_wire));
         strcpy(ctrl_msg_wire.version, "udev-" VERSION);
         ctrl_msg_wire.magic = UDEV_CTRL_MAGIC;
         ctrl_msg_wire.type = type;
@@ -275,7 +275,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 
                 pfd[0].fd = uctrl->sock;
                 pfd[0].events = POLLIN;
-                r = poll(pfd, 1, timeout * 1000);
+                r = poll(pfd, 1, timeout * MSEC_PER_SEC);
                 if (r  < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -340,13 +340,18 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 {
         struct udev_ctrl_msg *uctrl_msg;
         ssize_t size;
-        struct msghdr smsg;
         struct cmsghdr *cmsg;
         struct iovec iov;
-        struct ucred *cred;
         char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        struct msghdr smsg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = cred_msg,
+                .msg_controllen = sizeof(cred_msg),
+        };
+        struct ucred *cred;
 
-        uctrl_msg = calloc(1, sizeof(struct udev_ctrl_msg));
+        uctrl_msg = new0(struct udev_ctrl_msg, 1);
         if (uctrl_msg == NULL)
                 return NULL;
         uctrl_msg->refcount = 1;
@@ -354,7 +359,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
         udev_ctrl_connection_ref(conn);
 
         /* wait for the incoming message */
-        for(;;) {
+        for (;;) {
                 struct pollfd pfd[1];
                 int r;
 
@@ -367,11 +372,11 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
                                 continue;
                         goto err;
                 } else if (r == 0) {
-                        log_error("timeout waiting for ctrl message\n");
+                        log_error("timeout waiting for ctrl message");
                         goto err;
                 } else {
                         if (!(pfd[0].revents & POLLIN)) {
-                                log_error("ctrl connection error: %m\n");
+                                log_error("ctrl connection error: %m");
                                 goto err;
                         }
                 }
@@ -381,31 +386,27 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 
         iov.iov_base = &uctrl_msg->ctrl_msg_wire;
         iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
-        memset(&smsg, 0x00, sizeof(struct msghdr));
-        smsg.msg_iov = &iov;
-        smsg.msg_iovlen = 1;
-        smsg.msg_control = cred_msg;
-        smsg.msg_controllen = sizeof(cred_msg);
+
         size = recvmsg(conn->sock, &smsg, 0);
         if (size <  0) {
-                log_error("unable to receive ctrl message: %m\n");
+                log_error("unable to receive ctrl message: %m");
                 goto err;
         }
         cmsg = CMSG_FIRSTHDR(&smsg);
         cred = (struct ucred *) CMSG_DATA(cmsg);
 
         if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-                log_error("no sender credentials received, message ignored\n");
+                log_error("no sender credentials received, message ignored");
                 goto err;
         }
 
         if (cred->uid != 0) {
-                log_error("sender uid=%i, message ignored\n", cred->uid);
+                log_error("sender uid=%i, message ignored", cred->uid);
                 goto err;
         }
 
         if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
-                log_error("message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
+                log_error("message magic 0x%08x doesn't match, ignore it", uctrl_msg->ctrl_msg_wire.magic);
                 goto err;
         }
 
@@ -413,14 +414,6 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl_connection *conn)
 err:
         udev_ctrl_msg_unref(uctrl_msg);
         return NULL;
-}
-
-struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg)
-{
-        if (ctrl_msg == NULL)
-                return NULL;
-        ctrl_msg->refcount++;
-        return ctrl_msg;
 }
 
 struct udev_ctrl_msg *udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)

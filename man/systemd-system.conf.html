@@ -19,11 +19,11 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 208</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, systemd-user.conf — System and session service manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p></div><div class="refsect1"><a name="idm274686659824"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as system instance systemd reads the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd-system.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-system.conf, systemd-user.conf — System and session service manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/system.conf</code></p><p><code class="filename">/etc/systemd/user.conf</code></p></div><div class="refsect1"><a name="idm214192577744"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When run as system instance systemd reads the
                 configuration file <code class="filename">system.conf</code>,
                 otherwise <code class="filename">user.conf</code>. These
                 configuration files contain a few settings controlling
-                basic manager operations.</p></div><div class="refsect1"><a name="idm274687554272"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+                basic manager operations.</p></div><div class="refsect1"><a name="idm214192574992"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
                 "<code class="literal">[Manager]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="LogLevel="><span class="term"><code class="varname">LogLevel=</code>, </span><span class="term"><code class="varname">LogTarget=</code>, </span><span class="term"><code class="varname">LogColor=</code>, </span><span class="term"><code class="varname">LogLocation=</code>, </span><span class="term"><code class="varname">DumpCore=yes</code>, </span><span class="term"><code class="varname">CrashShell=no</code>, </span><span class="term"><code class="varname">ShowStatus=yes</code>, </span><span class="term"><code class="varname">CrashChVT=1</code>, </span><span class="term"><code class="varname">DefaultStandardOutput=journal</code>, </span><span class="term"><code class="varname">DefaultStandardError=inherit</code></span><a class="headerlink" title="Permalink to this term" href="#LogLevel=">¶</a></dt><dd><p>Configures various
                                 parameters of basic manager
                                 operation. These options may be
@@ -34,7 +34,7 @@
                                 arguments.</p></dd><dt id="CPUAffinity="><span class="term"><code class="varname">CPUAffinity=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAffinity=">¶</a></dt><dd><p>Configures the initial
                                 CPU affinity for the init
                                 process. Takes a space-separated list
-                                of CPU indexes.</p></dd><dt id="JoinControllers=cpu,cpuacct net_cls,netprio"><span class="term"><code class="varname">JoinControllers=cpu,cpuacct net_cls,netprio</code></span><a class="headerlink" title="Permalink to this term" href="#JoinControllers=cpu,cpuacct%20net_cls,netprio">¶</a></dt><dd><p>Configures controllers
+                                of CPU indices.</p></dd><dt id="JoinControllers=cpu,cpuacct net_cls,netprio"><span class="term"><code class="varname">JoinControllers=cpu,cpuacct net_cls,netprio</code></span><a class="headerlink" title="Permalink to this term" href="#JoinControllers=cpu,cpuacct%20net_cls,netprio">¶</a></dt><dd><p>Configures controllers
                                 that shall be mounted in a single
                                 hierarchy. By default, systemd will
                                 mount all controllers which are
@@ -122,9 +122,46 @@
                                 directive for units, but note that
                                 capabilities dropped for PID 1 cannot
                                 be regained in individual units, they
-                                are lost for good.</p></dd><dt id="TimerSlackNSec="><span class="term"><code class="varname">TimerSlackNSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimerSlackNSec=">¶</a></dt><dd><p>Sets the timer slack
-                                in nanoseconds for PID 1 which is then
-                                inherited to all executed processes,
+                                are lost for good.</p></dd><dt id="SystemCallArchitectures="><span class="term"><code class="varname">SystemCallArchitectures=</code></span><a class="headerlink" title="Permalink to this term" href="#SystemCallArchitectures=">¶</a></dt><dd><p>Takes a
+                                space-separated list of architecture
+                                identifiers. Selects from which
+                                architectures system calls may be
+                                invoked on this system. This may be
+                                used as an effective way to disable
+                                invocation of non-native binaries
+                                system-wide, for example to prohibit
+                                execution of 32-bit x86 binaries on
+                                64-bit x86-64 systems. This option
+                                operates system-wide, and acts
+                                similar to the
+                                <code class="varname">SystemCallArchitectures=</code>
+                                setting of unit files, see
+                                <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
+                                for details. This setting defaults to
+                                the empty list, in which case no
+                                filtering of system calls based on
+                                architecture is applied. Known
+                                architecture identifiers are
+                                "<code class="literal">x86</code>",
+                                "<code class="literal">x86-64</code>",
+                                "<code class="literal">x32</code>",
+                                "<code class="literal">arm</code>" and the special
+                                identifier
+                                "<code class="literal">native</code>". The latter
+                                implicitly maps to the native
+                                architecture of the system (or more
+                                specifically, the architecture the
+                                system manager was compiled for). Set
+                                this setting to
+                                "<code class="literal">native</code>" to prohibit
+                                execution of any non-native
+                                binaries. When a binary executes a
+                                system call of an architecture that is
+                                not listed in this setting, it will be
+                                immediately terminated with the SIGSYS
+                                signal.</p></dd><dt id="TimerSlackNSec="><span class="term"><code class="varname">TimerSlackNSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimerSlackNSec=">¶</a></dt><dd><p>Sets the timer slack
+                                in nanoseconds for PID 1, which is
+                                inherited by all executed processes,
                                 unless overridden individually, for
                                 example with the
                                 <code class="varname">TimerSlackNSec=</code>
@@ -132,7 +169,8 @@
                                 see
                                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>). The
                                 timer slack controls the accuracy of
-                                wake-ups triggered by timers. See
+                                wake-ups triggered by system
+                                timers. See
                                 <a href="prctl.html"><span class="citerefentry"><span class="refentrytitle">prctl</span>(2)</span></a>
                                 for more information. Note that in
                                 contrast to most other time span
@@ -140,7 +178,45 @@
                                 integer value in nano-seconds if no
                                 unit is specified. The usual time
                                 units are understood
-                                too.</p></dd><dt id="DefaultEnvironment="><span class="term"><code class="varname">DefaultEnvironment=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultEnvironment=">¶</a></dt><dd><p>Sets manager
+                                too.</p></dd><dt id="DefaultTimerAccuracySec="><span class="term"><code class="varname">DefaultTimerAccuracySec=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultTimerAccuracySec=">¶</a></dt><dd><p>Sets the default
+                                accuracy of timer units. This controls
+                                the global default for the
+                                <code class="varname">AccuracySec=</code>
+                                setting of timer units, see
+                                <a href="systemd.timer.html"><span class="citerefentry"><span class="refentrytitle">systemd.timer</span>(5)</span></a>
+                                for
+                                details. <code class="varname">AccuracySec=</code>
+                                set in individual units override the
+                                global default for the specific
+                                unit. Defaults to 1min. Note that the
+                                accuracy of timer units is also
+                                affected by the configured timer slack
+                                for PID 1, see
+                                <code class="varname">TimerSlackNSec=</code>
+                                above.</p></dd><dt id="DefaultTimeoutStartSec="><span class="term"><code class="varname">DefaultTimeoutStartSec=</code>, </span><span class="term"><code class="varname">DefaultTimeoutStopSec=</code>, </span><span class="term"><code class="varname">DefaultRestartSec=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultTimeoutStartSec=">¶</a></dt><dd><p>Configures the default
+                                timeouts for starting and stopping of
+                                units, as well as the default time to
+                                sleep between automatic restarts of
+                                units, as configured per-unit in
+                                <code class="varname">TimeoutStartSec=</code>,
+                                <code class="varname">TimeoutStopSec=</code> and
+                                <code class="varname">RestartSec=</code> (for
+                                services, see
+                                <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
+                                for details on the per-unit
+                                settings). For non-service units,
+                                <code class="varname">DefaultTimeoutStartSec=</code>
+                                sets the default
+                                <code class="varname">TimeoutSec=</code> value.
+                                </p></dd><dt id="DefaultStartLimitInterval="><span class="term"><code class="varname">DefaultStartLimitInterval=</code>, </span><span class="term"><code class="varname">DefaultStartLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultStartLimitInterval=">¶</a></dt><dd><p>Configure the default
+                                unit start rate limiting, as
+                                configured per-service by
+                                <code class="varname">StartLimitInterval=</code>
+                                and
+                                <code class="varname">StartLimitBurst=</code>. See
+                                <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>
+                                for details on the per-service
+                                settings.</p></dd><dt id="DefaultEnvironment="><span class="term"><code class="varname">DefaultEnvironment=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultEnvironment=">¶</a></dt><dd><p>Sets manager
                                 environment variables passed to all
                                 executed processes. Takes a
                                 space-separated list of variable
@@ -154,7 +230,16 @@
                                 Sets three variables
                                 "<code class="literal">VAR1</code>",
                                 "<code class="literal">VAR2</code>",
-                                "<code class="literal">VAR3</code>".</p></dd><dt id="DefaultLimitCPU="><span class="term"><code class="varname">DefaultLimitCPU=</code>, </span><span class="term"><code class="varname">DefaultLimitFSIZE=</code>, </span><span class="term"><code class="varname">DefaultLimitDATA=</code>, </span><span class="term"><code class="varname">DefaultLimitSTACK=</code>, </span><span class="term"><code class="varname">DefaultLimitCORE=</code>, </span><span class="term"><code class="varname">DefaultLimitRSS=</code>, </span><span class="term"><code class="varname">DefaultLimitNOFILE=</code>, </span><span class="term"><code class="varname">DefaultLimitAS=</code>, </span><span class="term"><code class="varname">DefaultLimitNPROC=</code>, </span><span class="term"><code class="varname">DefaultLimitMEMLOCK=</code>, </span><span class="term"><code class="varname">DefaultLimitLOCKS=</code>, </span><span class="term"><code class="varname">DefaultLimitSIGPENDING=</code>, </span><span class="term"><code class="varname">DefaultLimitMSGQUEUE=</code>, </span><span class="term"><code class="varname">DefaultLimitNICE=</code>, </span><span class="term"><code class="varname">DefaultLimitRTPRIO=</code>, </span><span class="term"><code class="varname">DefaultLimitRTTIME=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultLimitCPU=">¶</a></dt><dd><p>These settings control
+                                "<code class="literal">VAR3</code>".</p></dd><dt id="DefaultCPUAccounting="><span class="term"><code class="varname">DefaultCPUAccounting=</code>, </span><span class="term"><code class="varname">DefaultBlockIOAccounting=</code>, </span><span class="term"><code class="varname">DefaultMemoryAccounting=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultCPUAccounting=">¶</a></dt><dd><p>Configure the default
+                                resource accounting settings, as
+                                configured per-unit by
+                                <code class="varname">CPUAccounting=</code>,
+                                <code class="varname">BlockIOAccounting=</code>
+                                and
+                                <code class="varname">MemoryAccounting=</code>. See
+                                <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>
+                                for details on the per-unit
+                                settings.</p></dd><dt id="DefaultLimitCPU="><span class="term"><code class="varname">DefaultLimitCPU=</code>, </span><span class="term"><code class="varname">DefaultLimitFSIZE=</code>, </span><span class="term"><code class="varname">DefaultLimitDATA=</code>, </span><span class="term"><code class="varname">DefaultLimitSTACK=</code>, </span><span class="term"><code class="varname">DefaultLimitCORE=</code>, </span><span class="term"><code class="varname">DefaultLimitRSS=</code>, </span><span class="term"><code class="varname">DefaultLimitNOFILE=</code>, </span><span class="term"><code class="varname">DefaultLimitAS=</code>, </span><span class="term"><code class="varname">DefaultLimitNPROC=</code>, </span><span class="term"><code class="varname">DefaultLimitMEMLOCK=</code>, </span><span class="term"><code class="varname">DefaultLimitLOCKS=</code>, </span><span class="term"><code class="varname">DefaultLimitSIGPENDING=</code>, </span><span class="term"><code class="varname">DefaultLimitMSGQUEUE=</code>, </span><span class="term"><code class="varname">DefaultLimitNICE=</code>, </span><span class="term"><code class="varname">DefaultLimitRTPRIO=</code>, </span><span class="term"><code class="varname">DefaultLimitRTTIME=</code></span><a class="headerlink" title="Permalink to this term" href="#DefaultLimitCPU=">¶</a></dt><dd><p>These settings control
                                 various default resource limits for
                                 units. See
                                 <a href="setrlimit.html"><span class="citerefentry"><span class="refentrytitle">setrlimit</span>(2)</span></a>
@@ -167,8 +252,11 @@
                                 directives. Note that these resource
                                 limits are only defaults for units,
                                 they are not applied to PID 1
-                                itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm274691158736"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                itself.</p></dd></dl></div></div><div class="refsect1"><a name="idm214191475072"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>,
-                          <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
+                          <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
+                          <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
+                          <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>,
+                          <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
                   </p></div></div></body></html>

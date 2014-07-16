@@ -1,5 +1,5 @@
 '\" t
-.TH "SD\-LOGIN" "3" "" "systemd 208" "sd-login"
+.TH "SD\-LOGIN" "3" "" "systemd 214" "sd-login"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,8 +28,8 @@ sd-login \- APIs for tracking logins
 #include <systemd/sd\-login\&.h>
 .fi
 .ft
-.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\-login\fR\ 'u
-\fBpkg\-config \-\-cflags \-\-libs libsystemd\-login\fR
+.HP \w'\fBpkg\-config\ \-\-cflags\ \-\-libs\ libsystemd\fR\ 'u
+\fBpkg\-config \-\-cflags \-\-libs libsystemd\fR
 .SH "DESCRIPTION"
 .PP
 sd\-login\&.h
@@ -57,7 +57,7 @@ If the functions return string arrays, these are generally
 \fBNULL\fR
 terminated and need to be freed by the caller with the libc
 \fBfree\fR(3)
-call after use, including the strings referenced therein\&. Similar, individual strings returned need to be freed, as well\&.
+call after use, including the strings referenced therein\&. Similarly, individual strings returned need to be freed, as well\&.
 .PP
 As a special exception, instead of an empty string array
 \fBNULL\fR
@@ -73,8 +73,8 @@ See
 for more information about the functions implemented\&.
 .SH "NOTES"
 .PP
-These APIs are implemented as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-login\fR\ \&\fBpkg-config\fR(1)
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

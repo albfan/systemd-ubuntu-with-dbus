@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_SEEK_HEAD" "3" "" "systemd 208" "sd_journal_seek_head"
+.TH "SD_JOURNAL_SEEK_HEAD" "3" "" "systemd 214" "sd_journal_seek_head"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,21 +29,21 @@ sd_journal_seek_head, sd_journal_seek_tail, sd_journal_seek_monotonic_usec, sd_j
 .fi
 .ft
 .HP \w'int\ sd_journal_seek_head('u
-.BI "int sd_journal_seek_head(sd_journal*\ " "j" ");"
+.BI "int sd_journal_seek_head(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_seek_tail('u
-.BI "int sd_journal_seek_tail(sd_journal*\ " "j" ");"
+.BI "int sd_journal_seek_tail(sd_journal\ *" "j" ");"
 .HP \w'int\ sd_journal_seek_monotonic_usec('u
-.BI "int sd_journal_seek_monotonic_usec(sd_journal*\ " "j" ", sd_id128_t\ " "boot_id" ", uint64_t\ " "usec" ");"
+.BI "int sd_journal_seek_monotonic_usec(sd_journal\ *" "j" ", sd_id128_t\ " "boot_id" ", uint64_t\ " "usec" ");"
 .HP \w'int\ sd_journal_seek_realtime_usec('u
-.BI "int sd_journal_seek_realtime_usec(sd_journal*\ " "j" ", uint64_t\ " "usec" ");"
+.BI "int sd_journal_seek_realtime_usec(sd_journal\ *" "j" ", uint64_t\ " "usec" ");"
 .HP \w'int\ sd_journal_seek_cursor('u
-.BI "int sd_journal_seek_cursor(sd_journal*\ " "j" ", const\ char\ *\ " "cursor" ");"
+.BI "int sd_journal_seek_cursor(sd_journal\ *" "j" ", const\ char\ *" "cursor" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_seek_head()\fR
 seeks to the beginning of the journal, i\&.e\&. the oldest available entry\&.
 .PP
-Similar,
+Similarly,
 \fBsd_journal_seek_tail()\fR
 may be used to seek to the end of the journal, i\&.e\&. the most recent available entry\&.
 .PP
@@ -79,8 +79,8 @@ The
 \fBsd_journal_seek_monotonic_usec()\fR,
 \fBsd_journal_seek_realtime_usec()\fR, and
 \fBsd_journal_seek_cursor()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

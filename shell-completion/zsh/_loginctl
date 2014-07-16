@@ -1,8 +1,8 @@
 #compdef loginctl
 
-_loginctl_all_sessions(){_sys_all_sessions=($(loginctl list-sessions | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_users()   {_sys_all_users=(   $(loginctl list-users    | { while read a b; do echo " $a"; done; }) )}
-_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl list-seats    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_sessions(){_sys_all_sessions=($(loginctl --no-legend list-sessions | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_users()   {_sys_all_users=(   $(loginctl --no-legend list-users    | { while read a b; do echo " $a"; done; }) )}
+_loginctl_all_seats()   {_sys_all_seats=(   $(loginctl --no-legend list-seats    | { while read a b; do echo " $a"; done; }) )}
 
 # Completion functions for SESSIONS
 for fun in session-status show-session activate lock-session unlock-session terminate-session kill-session ; do
@@ -56,6 +56,8 @@ done
     "activate:Activate a session"
     "lock-session:Screen lock one or more sessions"
     "unlock-session:Screen unlock one or more sessions"
+    "lock-sessions:Screen lock all current sessions"
+    "unlock-sessions:Screen unlock all current sessions"
     "terminate-session:Terminate one or more sessions"
     "kill-session:Send signal to processes of a session"
     "list-users:List users"
@@ -99,8 +101,11 @@ _arguments -s \
     {-a,--all}'[Show all properties, including empty ones]' \
     '--kill-who=[Who to send signal to]:killwho:(main control all)' \
     {-s+,--signal=}'[Which signal to send]:signal:_signals' \
-    '--no-ask-password[Do not ask for system passwords]' \
-    {-H+,--host=}'[Show information for remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container]:machine' \
     {-P,--privileged}'[Acquire privileges before execution]' \
+    {-l,--full}'[Do not ellipsize output]' \
     '--no-pager[Do not pipe output into a pager]' \
+    '--no-legend[Do not show the headers and footers]' \
+    '--no-ask-password[Do not ask for system passwords]' \
     '*::loginctl command:_loginctl_command'

@@ -194,12 +194,12 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
                         if (kill(pid, sig) < 0) {
                                 if (ret >= 0 && errno != ESRCH)
                                         ret = -errno;
-                        } else if (ret == 0) {
-
+                        } else {
                                 if (sigcont)
                                         kill(pid, SIGCONT);
 
-                                ret = 1;
+                                if (ret == 0)
+                                        ret = 1;
                         }
 
                         done = false;
@@ -277,37 +277,6 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
         }
 
         return ret;
-}
-
-int cg_kill_recursive_and_wait(const char *controller, const char *path, bool rem) {
-        unsigned i;
-
-        assert(path);
-
-        /* This safely kills all processes; first it sends a SIGTERM,
-         * then checks 8 times after 200ms whether the group is now
-         * empty, then kills everything that is left with SIGKILL and
-         * finally checks 5 times after 200ms each whether the group
-         * is finally empty. */
-
-        for (i = 0; i < 15; i++) {
-                int sig, r;
-
-                if (i <= 0)
-                        sig = SIGTERM;
-                else if (i == 9)
-                        sig = SIGKILL;
-                else
-                        sig = 0;
-
-                r = cg_kill_recursive(controller, path, sig, true, true, rem, NULL);
-                if (r <= 0)
-                        return r;
-
-                usleep(200 * USEC_PER_MSEC);
-        }
-
-        return 0;
 }
 
 int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char *pto, bool ignore_self) {
@@ -503,15 +472,13 @@ static int join_path(const char *controller, const char *path, const char *suffi
         if (!t)
                 return -ENOMEM;
 
-        path_kill_slashes(t);
-
-        *fs = t;
+        *fs = path_kill_slashes(t);
         return 0;
 }
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs) {
         const char *p;
-        static __thread bool good = false;
+        static thread_local bool good = false;
 
         assert(fs);
 
@@ -540,7 +507,7 @@ static int check_hierarchy(const char *p) {
         assert(p);
 
         /* Check if this controller actually really exists */
-        cc = alloca(sizeof("/sys/fs/cgroup/") + strlen(p));
+        cc = alloca(strlen("/sys/fs/cgroup/") + strlen(p) + 1);
         strcpy(stpcpy(cc, "/sys/fs/cgroup/"), p);
         if (access(cc, F_OK) < 0)
                 return -errno;
@@ -674,7 +641,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         if (pid == 0)
                 pid = getpid();
 
-        snprintf(c, sizeof(c), "%lu\n", (unsigned long) pid);
+        snprintf(c, sizeof(c), PID_FMT"\n", pid);
 
         return write_string_file(fs, c);
 }
@@ -777,10 +744,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         } else
                 controller = SYSTEMD_CGROUP_CONTROLLER;
 
-        if (pid == 0)
-                fs = "/proc/self/cgroup";
-        else
-                fs = procfs_file_alloca(pid, "cgroup");
+        fs = procfs_file_alloca(pid, "cgroup");
 
         f = fopen(fs, "re");
         if (!f)
@@ -941,19 +905,6 @@ int cg_is_empty(const char *controller, const char *path, bool ignore_self) {
         return !found;
 }
 
-int cg_is_empty_by_spec(const char *spec, bool ignore_self) {
-        _cleanup_free_ char *controller = NULL, *path = NULL;
-        int r;
-
-        assert(spec);
-
-        r = cg_split_spec(spec, &controller, &path);
-        if (r < 0)
-                return r;
-
-        return cg_is_empty(controller, path, ignore_self);
-}
-
 int cg_is_empty_recursive(const char *controller, const char *path, bool ignore_self) {
         _cleanup_closedir_ DIR *d = NULL;
         char *fn;
@@ -1004,8 +955,7 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                         if (!t)
                                 return -ENOMEM;
 
-                        path_kill_slashes(t);
-                        *path = t;
+                        *path = path_kill_slashes(t);
                 }
 
                 if (controller)
@@ -1080,33 +1030,6 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
         return 0;
 }
 
-int cg_join_spec(const char *controller, const char *path, char **spec) {
-        char *s;
-
-        assert(path);
-
-        if (!controller)
-                controller = "systemd";
-        else {
-                if (!cg_controller_is_valid(controller, true))
-                        return -EINVAL;
-
-                controller = normalize_controller(controller);
-        }
-
-        if (!path_is_absolute(path))
-                return -EINVAL;
-
-        s = strjoin(controller, ":", path, NULL);
-        if (!s)
-                return -ENOMEM;
-
-        path_kill_slashes(s + strlen(controller) + 1);
-
-        *spec = s;
-        return 0;
-}
-
 int cg_mangle_path(const char *path, char **result) {
         _cleanup_free_ char *c = NULL, *p = NULL;
         char *t;
@@ -1115,19 +1038,18 @@ int cg_mangle_path(const char *path, char **result) {
         assert(path);
         assert(result);
 
-        /* First check if it already is a filesystem path */
+        /* First, check if it already is a filesystem path */
         if (path_startswith(path, "/sys/fs/cgroup")) {
 
                 t = strdup(path);
                 if (!t)
                         return -ENOMEM;
 
-                path_kill_slashes(t);
-                *result = t;
+                *result = path_kill_slashes(t);
                 return 0;
         }
 
-        /* Otherwise treat it as cg spec */
+        /* Otherwise, treat it as cg spec */
         r = cg_split_spec(path, &c, &p);
         if (r < 0)
                 return r;
@@ -1153,79 +1075,62 @@ int cg_get_root_path(char **path) {
         return 0;
 }
 
-char **cg_shorten_controllers(char **controllers) {
-        char **f, **t;
-
-        if (!controllers)
-                return controllers;
-
-        for (f = controllers, t = controllers; *f; f++) {
-                const char *p;
-                int r;
-
-                p = normalize_controller(*f);
-
-                if (streq(p, "systemd")) {
-                        free(*f);
-                        continue;
-                }
-
-                if (!cg_controller_is_valid(p, true)) {
-                        log_warning("Controller %s is not valid, removing from controllers list.", p);
-                        free(*f);
-                        continue;
-                }
-
-                r = check_hierarchy(p);
-                if (r < 0) {
-                        log_debug("Controller %s is not available, removing from controllers list.", p);
-                        free(*f);
-                        continue;
-                }
-
-                *(t++) = *f;
-        }
-
-        *t = NULL;
-        return strv_uniq(controllers);
-}
-
-int cg_pid_get_path_shifted(pid_t pid, char **root, char **cgroup) {
-        _cleanup_free_ char *cg_root = NULL;
-        char *cg_process, *p;
+int cg_shift_path(const char *cgroup, const char *root, const char **shifted) {
+        _cleanup_free_ char *rt = NULL;
+        char *p;
         int r;
 
-        r = cg_get_root_path(&cg_root);
-        if (r < 0)
-                return r;
+        assert(cgroup);
+        assert(shifted);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cg_process);
-        if (r < 0)
-                return r;
+        if (!root) {
+                /* If the root was specified let's use that, otherwise
+                 * let's determine it from PID 1 */
 
-        p = path_startswith(cg_process, cg_root);
-        if (p)
-                p--;
-        else
-                p = cg_process;
+                r = cg_get_root_path(&rt);
+                if (r < 0)
+                        return r;
 
-        if (cgroup) {
-                char* c;
-
-                c = strdup(p);
-                if (!c) {
-                        free(cg_process);
-                        return -ENOMEM;
-                }
-
-                *cgroup = c;
+                root = rt;
         }
 
-        if (root) {
-                cg_process[p-cg_process] = 0;
-                *root = cg_process;
-        } else
-                free(cg_process);
+        p = path_startswith(cgroup, root);
+        if (p)
+                *shifted = p - 1;
+        else
+                *shifted = cgroup;
+
+        return 0;
+}
+
+int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
+        _cleanup_free_ char *raw = NULL;
+        const char *c;
+        int r;
+
+        assert(pid >= 0);
+        assert(cgroup);
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &raw);
+        if (r < 0)
+                return r;
+
+        r = cg_shift_path(raw, root, &c);
+        if (r < 0)
+                return r;
+
+        if (c == raw) {
+                *cgroup = raw;
+                raw = NULL;
+        } else {
+                char *n;
+
+                n = strdup(c);
+                if (!n)
+                        return -ENOMEM;
+
+                *cgroup = n;
+        }
 
         return 0;
 }
@@ -1240,7 +1145,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit){
         c = strndupa(cgroup, e - cgroup);
         c = cg_unescape(c);
 
-        if (!unit_name_is_valid(c, false))
+        if (!unit_name_is_valid(c, TEMPLATE_INVALID))
                 return -EINVAL;
 
         s = strdup(c);
@@ -1291,6 +1196,9 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
+/**
+ * Skip session-*.scope, but require it to be there.
+ */
 static const char *skip_session(const char *p) {
         size_t n;
 
@@ -1299,7 +1207,27 @@ static const char *skip_session(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n <= 12 || memcmp(p, "session-", 8) != 0 || memcmp(p + n - 6, ".scope", 6) != 0)
+        if (n < strlen("session-x.scope") || memcmp(p, "session-", 8) != 0 || memcmp(p + n - 6, ".scope", 6) != 0)
+                return NULL;
+
+        p += n;
+        p += strspn(p, "/");
+
+        return p;
+}
+
+/**
+ * Skip user@*.service, but require it to be there.
+ */
+static const char *skip_user_manager(const char *p) {
+        size_t n;
+
+        assert(p);
+
+        p += strspn(p, "/");
+
+        n = strcspn(p, "/");
+        if (n < strlen("user@x.service") || memcmp(p, "user@", 5) != 0 || memcmp(p + n - 8, ".service", 8) != 0)
                 return NULL;
 
         p += n;
@@ -1309,7 +1237,7 @@ static const char *skip_session(const char *p) {
 }
 
 int cg_path_get_user_unit(const char *path, char **unit) {
-        const char *e;
+        const char *e, *t;
 
         assert(path);
         assert(unit);
@@ -1321,13 +1249,17 @@ int cg_path_get_user_unit(const char *path, char **unit) {
         /* Skip slices, if there are any */
         e = skip_slices(path);
 
-        /* Skip the session scope, require that there is one */
-        e = skip_session(e);
-        if (!e)
-                return -ENOENT;
-
-        /* And skip more slices */
-        e = skip_slices(e);
+        /* Skip the session scope... */
+        t = skip_session(e);
+        if (t)
+                /* ... and skip more slices if there's one */
+                e = skip_slices(t);
+        else {
+                /* ... or require a user manager unit to be there */
+                e = skip_user_manager(e);
+                if (!e)
+                        return -ENOENT;
+        }
 
         return cg_path_decode_unit(e, unit);
 }
@@ -1346,39 +1278,18 @@ int cg_pid_get_user_unit(pid_t pid, char **unit) {
 }
 
 int cg_path_get_machine_name(const char *path, char **machine) {
-        const char *e, *n, *x;
-        char *s, *r;
-        size_t l;
+        _cleanup_free_ char *u = NULL, *sl = NULL;
+        int r;
 
-        assert(path);
-        assert(machine);
+        r = cg_path_get_unit(path, &u);
+        if (r < 0)
+                return r;
 
-        /* Skip slices, if there are any */
-        e = skip_slices(path);
-
-        n = strchrnul(e, '/');
-        if (e == n)
-                return -ENOENT;
-
-        s = strndupa(e, n - e);
-        s = cg_unescape(s);
-
-        x = startswith(s, "machine-");
-        if (!x)
-                return -ENOENT;
-        if (!endswith(x, ".scope"))
-                return -ENOENT;
-
-        l = strlen(x);
-        if (l <= 6)
-                return -ENOENT;
-
-        r = strndup(x, l - 6);
-        if (!r)
+        sl = strjoin("/run/systemd/machines/unit:", u, NULL);
+        if (!sl)
                 return -ENOMEM;
 
-        *machine = r;
-        return 0;
+        return readlink_malloc(sl, machine);
 }
 
 int cg_pid_get_machine_name(pid_t pid, char **machine) {
@@ -1396,11 +1307,10 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 
 int cg_path_get_session(const char *path, char **session) {
         const char *e, *n, *x;
-        char *s, *r;
+        char *s;
         size_t l;
 
         assert(path);
-        assert(session);
 
         /* Skip slices, if there are any */
         e = skip_slices(path);
@@ -1422,19 +1332,22 @@ int cg_path_get_session(const char *path, char **session) {
         if (l <= 6)
                 return -ENOENT;
 
-        r = strndup(x, l - 6);
-        if (!r)
-                return -ENOMEM;
+        if (session) {
+                char *r;
 
-        *session = r;
+                r = strndup(x, l - 6);
+                if (!r)
+                        return -ENOMEM;
+
+                *session = r;
+        }
+
         return 0;
 }
 
 int cg_pid_get_session(pid_t pid, char **session) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(session);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
@@ -1445,35 +1358,40 @@ int cg_pid_get_session(pid_t pid, char **session) {
 
 int cg_path_get_owner_uid(const char *path, uid_t *uid) {
         _cleanup_free_ char *slice = NULL;
-        const char *e;
+        const char *start, *end;
         char *s;
+        uid_t u;
         int r;
 
         assert(path);
-        assert(uid);
 
         r = cg_path_get_slice(path, &slice);
         if (r < 0)
                 return r;
 
-        e = startswith(slice, "user-");
-        if (!e)
+        start = startswith(slice, "user-");
+        if (!start)
                 return -ENOENT;
-        if (!endswith(slice, ".slice"))
+        end = endswith(slice, ".slice");
+        if (!end)
                 return -ENOENT;
 
-        s = strndupa(e, strlen(e) - 6);
+        s = strndupa(start, end - start);
         if (!s)
-                return -ENOMEM;
+                return -ENOENT;
 
-        return parse_uid(s, uid);
+        if (parse_uid(s, &u) < 0)
+                return -EIO;
+
+        if (uid)
+                *uid = u;
+
+        return 0;
 }
 
 int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
-
-        assert(uid);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
@@ -1527,35 +1445,6 @@ int cg_pid_get_slice(pid_t pid, char **slice) {
                 return r;
 
         return cg_path_get_slice(cgroup, slice);
-}
-
-int cg_controller_from_attr(const char *attr, char **controller) {
-        const char *dot;
-        char *c;
-
-        assert(attr);
-        assert(controller);
-
-        if (!filename_is_safe(attr))
-                return -EINVAL;
-
-        dot = strchr(attr, '.');
-        if (!dot) {
-                *controller = NULL;
-                return 0;
-        }
-
-        c = strndup(attr, dot - attr);
-        if (!c)
-                return -ENOMEM;
-
-        if (!cg_controller_is_valid(c, false)) {
-                free(c);
-                return -EINVAL;
-        }
-
-        *controller = c;
-        return 1;
 }
 
 char *cg_escape(const char *p) {
@@ -1651,7 +1540,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         assert(unit);
         assert(ret);
 
-        if (!unit_name_is_valid(unit, false))
+        if (!unit_name_is_valid(unit, TEMPLATE_INVALID))
                 return -EINVAL;
 
         if (!endswith(unit, ".slice"))
@@ -1668,7 +1557,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
                 strcpy(stpncpy(n, p, dash - p), ".slice");
 
-                if (!unit_name_is_valid(n, false))
+                if (!unit_name_is_valid(n, TEMPLATE_INVALID))
                         return -EINVAL;
 
                 escaped = cg_escape(n);
@@ -1775,7 +1664,7 @@ int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, 
         return r;
 }
 
-int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to) {
+int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupControllerMask bit = 1;
         const char *n;
         int r;
@@ -1787,8 +1676,17 @@ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, cons
         }
 
         NULSTR_FOREACH(n, mask_names) {
-                if (supported & bit)
-                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, to, false, false);
+                if (supported & bit) {
+                        const char *p = NULL;
+
+                        if (to_callback)
+                                p = to_callback(bit, userdata);
+
+                        if (!p)
+                                p = to;
+
+                        cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, n, p, false, false);
+                }
 
                 bit <<= 1;
         }

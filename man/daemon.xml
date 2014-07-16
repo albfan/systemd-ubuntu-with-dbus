@@ -74,8 +74,8 @@
 
                         <orderedlist>
                                 <listitem><para>Close all open file
-                                descriptors except STDIN, STDOUT,
-                                STDERR (i.e. the first three file
+                                descriptors except standard input, output,
+                                and error (i.e. the first three file
                                 descriptors 0, 1, 2). This ensures
                                 that no accidentally passed file
                                 descriptor stays around in the daemon
@@ -128,8 +128,8 @@
 
                                 <listitem><para>In the daemon process,
                                 connect <filename>/dev/null</filename>
-                                to STDIN, STDOUT,
-                                STDERR.</para></listitem>
+                                to standard input, output, and error.
+                                </para></listitem>
 
                                 <listitem><para>In the daemon process,
                                 reset the umask to 0, so that the file
@@ -149,7 +149,7 @@
                                 write the daemon PID (as returned by
                                 <function>getpid()</function>) to a
                                 PID file, for example
-                                <filename>/var/run/foobar.pid</filename>
+                                <filename>/run/foobar.pid</filename>
                                 (for a hypothetical daemon "foobar")
                                 to ensure that the daemon cannot be
                                 started more than once. This must be
@@ -158,9 +158,7 @@
                                 it is verified at the same time that
                                 the PID previously stored in the PID
                                 file no longer exists or belongs to a
-                                foreign process. Commonly, some kind of
-                                file locking is employed to implement
-                                this logic.</para></listitem>
+                                foreign process.</para></listitem>
 
                                 <listitem><para>In the daemon process,
                                 drop privileges, if possible and
@@ -223,15 +221,16 @@
                         service.</para>
 
                         <para>Note that new-style init systems
-                        guarantee execution of daemon processes in
-                        a clean process context: it is guaranteed that
+                        guarantee execution of daemon processes in a
+                        clean process context: it is guaranteed that
                         the environment block is sanitized, that the
                         signal handlers and mask is reset and that no
                         left-over file descriptors are passed. Daemons
-                        will be executed in their own session, and
-                        STDIN/STDOUT/STDERR connected to
+                        will be executed in their own session, with
+                        standard input/output/error connected to
                         <filename>/dev/null</filename> unless
-                        otherwise configured. The umask is reset.</para>
+                        otherwise configured. The umask is reset.
+                        </para>
 
                         <para>It is recommended for new-style daemons
                         to implement the following:</para>
@@ -251,7 +250,7 @@
                                 detect service errors and problems. It
                                 is recommended to follow the exit code
                                 scheme as defined in the <ulink
-                                url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+                                url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
                                 recommendations for SysV init
                                 scripts</ulink>.</para></listitem>
 
@@ -324,7 +323,7 @@
                                 <listitem><para>Instead of using the
                                 <function>syslog()</function> call to log directly to the
                                 system syslog service, a new-style daemon may
-                                choose to simply log to STDERR via
+                                choose to simply log to standard error via
                                 <function>fprintf()</function>, which is then forwarded to
                                 syslog by the init system. If log
                                 priorities are necessary, these can be
@@ -353,7 +352,7 @@
 
                         <para>These recommendations are similar but
                         not identical to the <ulink
-                        url="http://developer.apple.com/mac/library/documentation/MacOSX/Conceptual/BPSystemStartup/Articles/LaunchOnDemandDaemons.html#//apple_ref/doc/uid/TP40001762-104738">Apple
+                        url="https://developer.apple.com/library/mac/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html">Apple
                         MacOS X Daemon Requirements</ulink>.</para>
                 </refsect2>
 
@@ -394,7 +393,7 @@
                         exclusively on boot (and manually by the
                         administrator) via SysV init scripts, as
                         detailed in the <ulink
-                        url="http://refspecs.freestandards.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+                        url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
                         Linux Standard Base Core
                         Specification</ulink>. This method of
                         activation is supported ubiquitously on Linux
@@ -408,7 +407,7 @@
                         description files.</para>
 
                         <para>In systemd, if the developer or
-                        administrator wants to make sure a service or
+                        administrator wants to make sure that a service or
                         other unit is activated automatically on boot,
                         it is recommended to place a symlink to the
                         unit file in the <filename>.wants/</filename>
@@ -765,12 +764,19 @@
 
                         <programlisting>PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([systemdsystemunitdir],
-        AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
-        [], [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
-if test "x$with_systemdsystemunitdir" != xno; then
-        AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])
-fi
-AM_CONDITIONAL(HAVE_SYSTEMD, [test -n "$with_systemdsystemunitdir" -a "x$with_systemdsystemunitdir" != xno ])</programlisting>
+     [AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files])],,
+     [with_systemdsystemunitdir=auto])
+AS_IF([test "x$with_systemdsystemunitdir" = "xyes" -o "x$with_systemdsystemunitdir" = "xauto"], [
+     def_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)
+
+     AS_IF([test "x$def_systemdsystemunitdir" = "x"],
+         [AS_IF([test "x$with_systemdsystemunitdir" = "xyes"],
+                [AC_MSG_ERROR([systemd support requested but pkg-config unable to query systemd package])])
+          with_systemdsystemunitdir=no],
+         [with_systemdsystemunitdir="$def_systemdsystemunitdir"])])
+AS_IF([test "x$with_systemdsystemunitdir" != "xno"],
+      [AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])])
+AM_CONDITIONAL([HAVE_SYSTEMD], [test "x$with_systemdsystemunitdir" != "xno"])</programlisting>
 
                         <para>This snippet allows automatic
                         installation of the unit files on systemd

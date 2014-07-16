@@ -45,18 +45,6 @@ bool is_path(const char *p) {
         return !!strchr(p, '/');
 }
 
-char *path_get_file_name(const char *p) {
-        char *r;
-
-        assert(p);
-
-        r = strrchr(p, '/');
-        if (r)
-                return r + 1;
-
-        return (char*) p;
-}
-
 int path_get_parent(const char *path, char **_r) {
         const char *e, *a = NULL, *b = NULL, *p;
         char *r;
@@ -144,6 +132,91 @@ char *path_make_absolute_cwd(const char *p) {
         return path_make_absolute(p, cwd);
 }
 
+int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
+        char *r, *p;
+        unsigned n_parents;
+
+        assert(from_dir);
+        assert(to_path);
+        assert(_r);
+
+        /* Strips the common part, and adds ".." elements as necessary. */
+
+        if (!path_is_absolute(from_dir))
+                return -EINVAL;
+
+        if (!path_is_absolute(to_path))
+                return -EINVAL;
+
+        /* Skip the common part. */
+        for (;;) {
+                size_t a;
+                size_t b;
+
+                from_dir += strspn(from_dir, "/");
+                to_path += strspn(to_path, "/");
+
+                if (!*from_dir) {
+                        if (!*to_path)
+                                /* from_dir equals to_path. */
+                                r = strdup(".");
+                        else
+                                /* from_dir is a parent directory of to_path. */
+                                r = strdup(to_path);
+
+                        if (!r)
+                                return -ENOMEM;
+
+                        path_kill_slashes(r);
+
+                        *_r = r;
+                        return 0;
+                }
+
+                if (!*to_path)
+                        break;
+
+                a = strcspn(from_dir, "/");
+                b = strcspn(to_path, "/");
+
+                if (a != b)
+                        break;
+
+                if (memcmp(from_dir, to_path, a) != 0)
+                        break;
+
+                from_dir += a;
+                to_path += b;
+        }
+
+        /* If we're here, then "from_dir" has one or more elements that need to
+         * be replaced with "..". */
+
+        /* Count the number of necessary ".." elements. */
+        for (n_parents = 0;;) {
+                from_dir += strspn(from_dir, "/");
+
+                if (!*from_dir)
+                        break;
+
+                from_dir += strcspn(from_dir, "/");
+                n_parents++;
+        }
+
+        r = malloc(n_parents * 3 + strlen(to_path) + 1);
+        if (!r)
+                return -ENOMEM;
+
+        for (p = r; n_parents > 0; n_parents--, p += 3)
+                memcpy(p, "../", 3);
+
+        strcpy(p, to_path);
+        path_kill_slashes(r);
+
+        *_r = r;
+        return 0;
+}
+
 char **path_strv_make_absolute_cwd(char **l) {
         char **s;
 
@@ -165,7 +238,7 @@ char **path_strv_make_absolute_cwd(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize(char **l) {
+char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
         char **s;
         unsigned k = 0;
         bool enomem = false;
@@ -179,27 +252,62 @@ char **path_strv_canonicalize(char **l) {
 
         STRV_FOREACH(s, l) {
                 char *t, *u;
+                _cleanup_free_ char *orig = NULL;
 
-                t = path_make_absolute_cwd(*s);
-                free(*s);
-                *s = NULL;
-
-                if (!t) {
-                        enomem = true;
+                if (!path_is_absolute(*s)) {
+                        free(*s);
                         continue;
                 }
+
+                if (prefix) {
+                        orig = *s;
+                        t = strappend(prefix, orig);
+                        if (!t) {
+                                enomem = true;
+                                continue;
+                        }
+                } else
+                        t = *s;
 
                 errno = 0;
                 u = canonicalize_file_name(t);
                 if (!u) {
-                        if (errno == ENOENT)
-                                u = t;
-                        else {
+                        if (errno == ENOENT) {
+                                if (prefix) {
+                                        u = orig;
+                                        orig = NULL;
+                                        free(t);
+                                } else
+                                        u = t;
+                        } else {
                                 free(t);
-                                if (errno == ENOMEM || !errno)
+                                if (errno == ENOMEM || errno == 0)
                                         enomem = true;
 
                                 continue;
+                        }
+                } else if (prefix) {
+                        char *x;
+
+                        free(t);
+                        x = path_startswith(u, prefix);
+                        if (x) {
+                                /* restore the slash if it was lost */
+                                if (!startswith(x, "/"))
+                                        *(--x) = '/';
+
+                                t = strdup(x);
+                                free(u);
+                                if (!t) {
+                                        enomem = true;
+                                        continue;
+                                }
+                                u = t;
+                        } else {
+                                /* canonicalized path goes outside of
+                                 * prefix, keep the original path instead */
+                                u = orig;
+                                orig = NULL;
                         }
                 } else
                         free(t);
@@ -215,11 +323,12 @@ char **path_strv_canonicalize(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize_uniq(char **l) {
+char **path_strv_canonicalize_absolute_uniq(char **l, const char *prefix) {
+
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_canonicalize(l))
+        if (!path_strv_canonicalize_absolute(l, prefix))
                 return NULL;
 
         return strv_uniq(l);
@@ -327,11 +436,15 @@ bool path_equal(const char *a, const char *b) {
 }
 
 int path_is_mount_point(const char *t, bool allow_symlink) {
-        char *parent;
-        int r;
-        struct file_handle *h;
+
+        union file_handle_union h = {
+                .handle.handle_bytes = MAX_HANDLE_SZ
+        };
+
         int mount_id, mount_id_parent;
+        char *parent;
         struct stat a, b;
+        int r;
 
         /* We are not actually interested in the file handles, but
          * name_to_handle_at() also passes us the mount ID, hence use
@@ -340,12 +453,9 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         if (path_equal(t, "/"))
                 return 1;
 
-        h = alloca(MAX_HANDLE_SZ);
-        h->handle_bytes = MAX_HANDLE_SZ;
-
-        r = name_to_handle_at(AT_FDCWD, t, h, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
+        r = name_to_handle_at(AT_FDCWD, t, &h.handle, &mount_id, allow_symlink ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0) {
-                if (errno == ENOSYS || errno == ENOTSUP)
+                if (IN_SET(errno, ENOSYS, EOPNOTSUPP))
                         /* This kernel or file system does not support
                          * name_to_handle_at(), hence fallback to the
                          * traditional stat() logic */
@@ -361,15 +471,14 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         if (r < 0)
                 return r;
 
-        h->handle_bytes = MAX_HANDLE_SZ;
-        r = name_to_handle_at(AT_FDCWD, parent, h, &mount_id_parent, 0);
+        h.handle.handle_bytes = MAX_HANDLE_SZ;
+        r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, 0);
         free(parent);
-
         if (r < 0) {
                 /* The parent can't do name_to_handle_at() but the
                  * directory we are interested in can? If so, it must
                  * be a mount point */
-                if (errno == ENOTSUP)
+                if (errno == EOPNOTSUPP)
                         return 1;
 
                 return -errno;
@@ -396,7 +505,6 @@ fallback:
 
         r = lstat(parent, &b);
         free(parent);
-
         if (r < 0)
                 return -errno;
 
@@ -428,17 +536,21 @@ int path_is_os_tree(const char *path) {
 
 int find_binary(const char *name, char **filename) {
         assert(name);
+
         if (strchr(name, '/')) {
-                char *p;
+                if (access(name, X_OK) < 0)
+                        return -errno;
 
-                if (path_is_absolute(name))
-                        p = strdup(name);
-                else
+                if (filename) {
+                        char *p;
+
                         p = path_make_absolute_cwd(name);
-                if (!p)
-                        return -ENOMEM;
+                        if (!p)
+                                return -ENOMEM;
 
-                *filename = p;
+                        *filename = p;
+                }
+
                 return 0;
         } else {
                 const char *path;
@@ -454,22 +566,64 @@ int find_binary(const char *name, char **filename) {
                         path = DEFAULT_PATH;
 
                 FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
-                        char *p;
+                        _cleanup_free_ char *p = NULL;
 
                         if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
                                 return -ENOMEM;
 
-                        if (access(p, X_OK) < 0) {
-                                free(p);
+                        if (access(p, X_OK) < 0)
                                 continue;
-                        }
 
-                        path_kill_slashes(p);
-                        *filename = p;
+                        if (filename) {
+                                *filename = path_kill_slashes(p);
+                                p = NULL;
+                        }
 
                         return 0;
                 }
 
                 return -ENOENT;
         }
+}
+
+bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
+        bool changed = false;
+        const char* const* i;
+
+        assert(timestamp);
+
+        if (paths == NULL)
+                return false;
+
+        STRV_FOREACH(i, paths) {
+                struct stat stats;
+                usec_t u;
+
+                if (stat(*i, &stats) < 0)
+                        continue;
+
+                u = timespec_load(&stats.st_mtim);
+
+                /* first check */
+                if (*timestamp >= u)
+                        continue;
+
+                log_debug("timestamp of '%s' changed", *i);
+
+                /* update timestamp */
+                if (update) {
+                        *timestamp = u;
+                        changed = true;
+                } else
+                        return true;
+        }
+
+        return changed;
+}
+
+int fsck_exists(const char *fstype) {
+        const char *checker;
+
+        checker = strappenda("fsck.", fstype);
+        return find_binary(checker, NULL);
 }

@@ -1,0 +1,160 @@
+'\" t
+.TH "BUSCTL" "1" "" "systemd 214" "busctl"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+busctl \- Introspect the bus
+.SH "SYNOPSIS"
+.HP \w'\fBbusctl\fR\ 'u
+\fBbusctl\fR [OPTIONS...] [COMMAND] [\fINAME\fR...]
+.SH "DESCRIPTION"
+.PP
+\fBbusctl\fR
+may be used to introspect and monitor the D\-Bus bus\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-\-address=\fR\fB\fIADDRESS\fR\fR
+.RS 4
+Connect to the bus specified by
+\fIADDRESS\fR
+instead of using suitable defaults for either the system or user bus (see
+\fB\-\-system\fR
+and
+\fB\-\-user\fR
+options)\&.
+.RE
+.PP
+\fB\-\-show\-machine\fR
+.RS 4
+When showing the list of endpoints, show a column containing the names of containers they belong to\&. See
+\fBsystemd-machined.service\fR(8)\&.
+.RE
+.PP
+\fB\-\-unique\fR
+.RS 4
+When showing the list of endpoints, show only "unique" names (of the form
+":\fInumber\fR\&.\fInumber\fR")\&.
+.RE
+.PP
+\fB\-\-acquired\fR
+.RS 4
+The opposite of
+\fB\-\-unique\fR
+\(em only "well\-known" names will be shown\&.
+.RE
+.PP
+\fB\-\-activatable\fR
+.RS 4
+When showing the list of endpoints, show only endpoints which have actually not been activated yet, but may be started automatically if accessed\&.
+.RE
+.PP
+\fB\-\-match=\fR\fB\fIMATCH\fR\fR
+.RS 4
+When showing messages being exchanged, show only the subset matching
+\fIMATCH\fR\&.
+.RE
+.PP
+\fB\-\-no\-legend\fR
+.RS 4
+Do not print the legend, i\&.e\&. the column headers and the footer\&.
+.RE
+.PP
+\fB\-\-user\fR
+.RS 4
+Talk to the service manager of the calling user, rather than the service manager of the system\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Talk to the service manager of the system\&. This is the implied default\&.
+.RE
+.PP
+\fB\-H\fR, \fB\-\-host=\fR
+.RS 4
+Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
+"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+.RE
+.PP
+\fB\-M\fR, \fB\-\-machine=\fR
+.RS 4
+Execute operation on a local container\&. Specify a container name to connect to\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.PP
+\fB\-\-no\-pager\fR
+.RS 4
+Do not pipe output into a pager\&.
+.RE
+.SH "COMMANDS"
+.PP
+The following commands are understood:
+.PP
+\fBlist\fR
+.RS 4
+Show endpoints attached to the bus\&. This is the default if no command is specified\&.
+.RE
+.PP
+\fBmonitor\fR [\fINAME\fR...]
+.RS 4
+Dump messages being exchanged\&. If
+\fINAME\fR
+is specified, show messages to or from this endpoint\&. Otherwise, show all messages on the bus\&.
+.RE
+.PP
+\fBstatus\fR \fINAME\fR
+.RS 4
+Show process information and credentials of a bus endpoint\&.
+.RE
+.PP
+\fBhelp\fR
+.RS 4
+Show command syntax help\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBdbus-daemon\fR(1),
+\m[blue]\fBD\-Bus\fR\m[]\&\s-2\u[1]\d\s+2,
+\m[blue]\fBkdbus\fR\m[]\&\s-2\u[2]\d\s+2,
+\fBsd-bus\fR(3),
+\fBsystemd\fR(1),
+\fBsystemd-bus-proxyd\fR(8),
+\fBmachinectl\fR(1)
+.SH "NOTES"
+.IP " 1." 4
+D-Bus
+.RS 4
+\%http://freedesktop.org/wiki/Software/dbus
+.RE
+.IP " 2." 4
+kdbus
+.RS 4
+\%https://code.google.com/p/d-bus/
+.RE

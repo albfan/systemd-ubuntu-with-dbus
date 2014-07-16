@@ -21,7 +21,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd-journal">
+<refentry id="sd-journal"
+        xmlns:xi="http://www.w3.org/2001/XInclude">
 
         <refentryinfo>
                 <title>sd-journal</title>
@@ -53,7 +54,7 @@
                 </funcsynopsis>
 
                 <cmdsynopsis>
-                        <command>pkg-config --cflags --libs libsystemd-journal</command>
+                        <command>pkg-config --cflags --libs libsystemd</command>
                 </cmdsynopsis>
 
         </refsynopsisdiv>
@@ -78,7 +79,8 @@
                 <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>sd_journal_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                <citerefentry><refentrytitle>sd_journal_get_cutoff_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_journal_get_usage</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                 <citerefentry><refentrytitle>sd_journal_get_catalog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                 and
@@ -95,14 +97,7 @@
                 tool.</para>
         </refsect1>
 
-        <refsect1>
-                <title>Notes</title>
-
-                <para>These APIs are implemented as shared library,
-                which can be compiled and linked to with the
-                <constant>libsystemd-journal</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-                file.</para>
-        </refsect1>
+        <xi:include href="libsystemd-pkgconfig.xml" />
 
         <refsect1>
                 <title>See Also</title>
@@ -117,7 +112,8 @@
                         <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_seek_head</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sd_journal_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_get_cutoff_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>sd_journal_get_cutoff_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_get_usage</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sd_journal_query_unique</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

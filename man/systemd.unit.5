@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 208" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 214" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,6 +45,7 @@ systemd.unit \- Unit configuration
 .fi
 .PP
 .nf
+$XDG_CONFIG_HOME/systemd/user/*
 $HOME/\&.config/systemd/user/*
 /etc/systemd/user/*
 /run/systemd/user/*
@@ -77,10 +78,14 @@ In addition to the generic [Unit] and [Install] sections described here, each un
 \fBsystemd.slice\fR(5)\&.
 \fBsystemd.scope\fR(5)\&.
 .PP
+Various settings are allowed to be specified more than once, in which case the interpretation depends on the setting\&. Often, multiple settings form a list, and setting to an empty value "resets", which means that previous assignments are ignored\&. When this is allowed, it is mentioned in the description of the setting\&. Note that using multiple assignments to the same value makes the unit file incompatible with parsers for the XDG
+\&.desktop
+file format\&.
+.PP
 Unit files are loaded from a set of paths determined during compilation, described in the next section\&.
 .PP
-Unit files may contain additional options on top of those listed here\&. If systemd encounters an unknown option, it will write a warning log message but continue loading the unit\&. If an option is prefixed with
-\fBX\-\fR, it is ignored completely by systemd\&. Applications may use this to include additional information in the unit files\&.
+Unit files may contain additional options on top of those listed here\&. If systemd encounters an unknown option, it will write a warning log message but continue loading the unit\&. If an option or section name is prefixed with
+\fBX\-\fR, it is ignored completely by systemd\&. Options within an ignored section do not need the prefix\&. Applications may use this to include additional information in the unit files\&.
 .PP
 Boolean arguments used in unit files can be written in various formats\&. For positive settings the strings
 \fB1\fR,
@@ -126,10 +131,6 @@ may exist\&. All files with the suffix
 "\&.conf"
 from this directory will be parsed after the file itself is parsed\&. This is useful to alter or add configuration settings to a unit, without having to modify their unit files\&. Make sure that the file that is included has the appropriate section headers before any directive\&.
 .PP
-If a line starts with
-\fB\&.include\fR
-followed by a filename, the specified file will be parsed at this point\&. Make sure that the file that is included has the appropriate section headers before any directives\&.
-.PP
 Note that while systemd offers a flexible dependency system between units it is recommended to use this functionality only sparingly and instead rely on techniques such as bus\-based or socket\-based activation which make dependencies implicit, resulting in a both simpler and more flexible system\&.
 .PP
 Some unit names reflect paths existing in the file system namespace\&. Example: a device unit
@@ -138,7 +139,7 @@ refers to a device with the device node
 /dev/sda
 in the file system namespace\&. If this applies, a special way to escape the path name is used, so that the result is usable as part of a filename\&. Basically, given a path, "/" is replaced by "\-", and all unprintable characters and the "\-" are replaced by C\-style "\ex20" escapes\&. The root directory "/" is encoded as single dash, while otherwise the initial and ending "/" is removed from all paths during transformation\&. This escaping is reversible\&.
 .PP
-Optionally, units may be instantiated from a template file at runtime\&. This allows creation of multiple units from a single configuration file\&. If systemd looks for a unit configuration file, it will first search for the literal unit name in the filesystem\&. If that yields no success and the unit name contains an
+Optionally, units may be instantiated from a template file at runtime\&. This allows creation of multiple units from a single configuration file\&. If systemd looks for a unit configuration file, it will first search for the literal unit name in the file system\&. If that yields no success and the unit name contains an
 "@"
 character, systemd will look for a unit template that shares the same name but with the instance string (i\&.e\&. the part between the
 "@"
@@ -218,11 +219,17 @@ T}
 l l
 l l
 l l
+l l
 l l.
+T{
+$XDG_CONFIG_HOME/systemd/user
+T}:T{
+User configuration (only used when $XDG_CONFIG_HOME is set)
+T}
 T{
 $HOME/\&.config/systemd/user
 T}:T{
-User configuration
+User configuration (only used when $XDG_CONFIG_HOME is not set)
 T}
 T{
 /etc/systemd/user
@@ -247,7 +254,7 @@ Additional units might be loaded into systemd ("linked") from directories not on
 command for
 \fBsystemctl\fR(1)\&. Also, some units are dynamically created via generators
 \m[blue]\fBGenerators\fR\m[]\&\s-2\u[3]\d\s+2\&.
-.SH "OPTIONS"
+.SH "[UNIT] SECTION OPTIONS"
 .PP
 Unit file may include a [Unit] section, which carries generic information about the unit that is not dependent on the type of unit:
 .PP
@@ -270,12 +277,12 @@ A space\-separated list of URIs referencing documentation for this unit or its c
 "file:",
 "info:",
 "man:"\&. For more information about the syntax of these URIs, see
-\fBuri\fR(7)\&. The URIs should be listed in order of relevance, starting with the most relevant\&. It is a good idea to first reference documentation that explains what the unit\*(Aqs purpose is, followed by how it is configured, followed by any other related documentation\&. This option may be specified more than once in which case the specified list of URIs is merged\&. If the empty string is assigned to this option, the list is reset and all prior assignments will have no effect\&.
+\fBuri\fR(7)\&. The URIs should be listed in order of relevance, starting with the most relevant\&. It is a good idea to first reference documentation that explains what the unit\*(Aqs purpose is, followed by how it is configured, followed by any other related documentation\&. This option may be specified more than once, in which case the specified list of URIs is merged\&. If the empty string is assigned to this option, the list is reset and all prior assignments will have no effect\&.
 .RE
 .PP
 \fIRequires=\fR
 .RS 4
-Configures requirement dependencies on other units\&. If this unit gets activated, the units listed here will be activated as well\&. If one of the other units gets deactivated or its activation fails, this unit will be deactivated\&. This option may be specified more than once, in which case requirement dependencies for all listed names are created\&. Note that requirement dependencies do not influence the order in which services are started or stopped\&. This has to be configured independently with the
+Configures requirement dependencies on other units\&. If this unit gets activated, the units listed here will be activated as well\&. If one of the other units gets deactivated or its activation fails, this unit will be deactivated\&. This option may be specified more than once or multiple space\-separated units may be specified in one option in which case requirement dependencies for all listed names will be created\&. Note that requirement dependencies do not influence the order in which services are started or stopped\&. This has to be configured independently with the
 \fIAfter=\fR
 or
 \fIBefore=\fR
@@ -314,34 +321,34 @@ which cannot be fulfilled or fail to start are ignored if the startup was explic
 Similar to
 \fIRequires=\fR
 and
-\fIRequiresOverridable=\fR, respectively\&. However, if a unit listed here is not started already it will not be started and the transaction fails immediately\&.
+\fIRequiresOverridable=\fR, respectively\&. However, if the units listed here are not started already, they will not be started and the transaction will fail immediately\&.
 .RE
 .PP
 \fIWants=\fR
 .RS 4
 A weaker version of
-\fIRequires=\fR\&. A unit listed in this option will be started if the configuring unit is\&. However, if the listed unit fails to start up or cannot be added to the transaction this has no impact on the validity of the transaction as a whole\&. This is the recommended way to hook start\-up of one unit to the start\-up of another unit\&.
+\fIRequires=\fR\&. Units listed in this option will be started if the configuring unit is\&. However, if the listed units fail to start or cannot be added to the transaction, this has no impact on the validity of the transaction as a whole\&. This is the recommended way to hook start\-up of one unit to the start\-up of another unit\&.
 .sp
-Note that dependencies of this type may also be configured outside of the unit configuration file by adding a symlink to a
+Note that dependencies of this type may also be configured outside of the unit configuration file by adding symlinks to a
 \&.wants/
-directory accompanying the unit file\&. For details see above\&.
+directory accompanying the unit file\&. For details, see above\&.
 .RE
 .PP
 \fIBindsTo=\fR
 .RS 4
 Configures requirement dependencies, very similar in style to
-\fIRequires=\fR, however in addition to this behavior it also declares that this unit is stopped when any of the units listed suddenly disappears\&. Units can suddenly, unexpectedly disappear if a service terminates on its own choice, a device is unplugged or a mount point unmounted without involvement of systemd\&.
+\fIRequires=\fR, however in addition to this behavior, it also declares that this unit is stopped when any of the units listed suddenly disappears\&. Units can suddenly, unexpectedly disappear if a service terminates on its own choice, a device is unplugged or a mount point unmounted without involvement of systemd\&.
 .RE
 .PP
 \fIPartOf=\fR
 .RS 4
 Configures dependencies similar to
-\fIRequires=\fR, but limited to stopping and restarting of units\&. When systemd stops or restarts the units listed here, the action is propagated to this unit\&. Note that this is a one way dependency \- changes to this unit do not affect the listed units\&.
+\fIRequires=\fR, but limited to stopping and restarting of units\&. When systemd stops or restarts the units listed here, the action is propagated to this unit\&. Note that this is a one\-way dependency\ \&\(em changes to this unit do not affect the listed units\&.
 .RE
 .PP
 \fIConflicts=\fR
 .RS 4
-Configures negative requirement dependencies\&. If a unit has a
+A space\-separated list of unit names\&. Configures negative requirement dependencies\&. If a unit has a
 \fIConflicts=\fR
 setting on another unit, starting the former will stop the latter and vice versa\&. Note that this setting is independent of and orthogonal to the
 \fIAfter=\fR
@@ -349,12 +356,12 @@ and
 \fIBefore=\fR
 ordering dependencies\&.
 .sp
-If a unit A that conflicts with a unit B is scheduled to be started at the same time as B, the transaction will either fail (in case both are required part of the transaction) or be modified to be fixed (in case one or both jobs are not a required part of the transaction)\&. In the latter case the job that is not the required will be removed, or in case both are not required the unit that conflicts will be started and the unit that is conflicted is stopped\&.
+If a unit A that conflicts with a unit B is scheduled to be started at the same time as B, the transaction will either fail (in case both are required part of the transaction) or be modified to be fixed (in case one or both jobs are not a required part of the transaction)\&. In the latter case, the job that is not the required will be removed, or in case both are not required, the unit that conflicts will be started and the unit that is conflicted is stopped\&.
 .RE
 .PP
 \fIBefore=\fR, \fIAfter=\fR
 .RS 4
-Configures ordering dependencies between units\&. If a unit
+A space\-separated list of unit names\&. Configures ordering dependencies between units\&. If a unit
 foo\&.service
 contains a setting
 \fBBefore=bar\&.service\fR
@@ -366,7 +373,7 @@ is started up\&. Note that this setting is independent of and orthogonal to the 
 \fIAfter=\fR
 and
 \fIRequires=\fR
-option in which case the unit listed will be started before the unit that is configured with these options\&. This option may be specified more than once, in which case ordering dependencies for all listed names are created\&.
+option, in which case the unit listed will be started before the unit that is configured with these options\&. This option may be specified more than once, in which case ordering dependencies for all listed names are created\&.
 \fIAfter=\fR
 is the inverse of
 \fIBefore=\fR, i\&.e\&. while
@@ -375,7 +382,7 @@ ensures that the configured unit is started after the listed unit finished start
 \fIBefore=\fR
 ensures the opposite, i\&.e\&. that the configured unit is fully started up before the listed unit is started\&. Note that when two units with an ordering dependency between them are shut down, the inverse of the start\-up order is applied\&. i\&.e\&. if a unit is configured with
 \fIAfter=\fR
-on another unit, the former is stopped before the latter if both are shut down\&. If one unit with an ordering dependency on another unit is shut down while the latter is started up, the shut down is ordered before the start\-up regardless whether the ordering dependency is actually of type
+on another unit, the former is stopped before the latter if both are shut down\&. If one unit with an ordering dependency on another unit is shut down while the latter is started up, the shut down is ordered before the start\-up regardless of whether the ordering dependency is actually of type
 \fIAfter=\fR
 or
 \fIBefore=\fR\&. If two units have no ordering dependencies between them, they are shut down or started up simultaneously, and no ordering takes place\&.
@@ -383,14 +390,32 @@ or
 .PP
 \fIOnFailure=\fR
 .RS 4
-Lists one or more units that are activated when this unit enters the
+A space\-separated list of one or more units that are activated when this unit enters the
 "failed"
 state\&.
 .RE
 .PP
 \fIPropagatesReloadTo=\fR, \fIReloadPropagatedFrom=\fR
 .RS 4
-Lists one or more units where reload requests on the unit will be propagated to/on the other unit will be propagated from\&. Issuing a reload request on a unit will automatically also enqueue a reload request on all units that the reload request shall be propagated to via these two settings\&.
+A space\-separated list of one or more units where reload requests on this unit will be propagated to, or reload requests on the other unit will be propagated to this unit, respectively\&. Issuing a reload request on a unit will automatically also enqueue a reload request on all units that the reload request shall be propagated to via these two settings\&.
+.RE
+.PP
+\fIJoinsNamespaceOf=\fR
+.RS 4
+For units that start processes (such as service units), lists one or more other units whose network and/or temporary file namespace to join\&. This only applies to unit types which support the
+\fIPrivateNetwork=\fR
+and
+\fIPrivateTmp=\fR
+directives (see
+\fBsystemd.exec\fR(5)
+for details)\&. If a unit that has this setting set is started, its processes will see the same
+/tmp,
+/tmp/var
+and network namespace as one listed unit that is started\&. If multiple listed units are already started, it is not defined which namespace is joined\&. Note that this setting only has an effect if
+\fIPrivateNetwork=\fR
+and/or
+\fIPrivateTmp=\fR
+is enabled for both the unit that joins the namespace and the unit whose namespace is joined\&.
 .RE
 .PP
 \fIRequiresMountsFor=\fR
@@ -400,16 +425,34 @@ Takes a space\-separated list of absolute paths\&. Automatically adds dependenci
 and
 \fIAfter=\fR
 for all mount units required to access the specified path\&.
+.sp
+Mount points marked with
+\fBnoauto\fR
+are not mounted automatically and will be ignored for the purposes of this option\&. If such a mount should be a requirement for this unit, direct dependencies on the mount units may be added (\fIRequires=\fR
+and
+\fIAfter=\fR
+or some other combination)\&.
 .RE
 .PP
-\fIOnFailureIsolate=\fR
+\fIOnFailureJobMode=\fR
 .RS 4
-Takes a boolean argument\&. If
-\fBtrue\fR, the unit listed in
+Takes a value of
+"fail",
+"replace",
+"replace\-irreversibly",
+"isolate",
+"flush",
+"ignore\-dependencies"
+or
+"ignore\-requirements"\&. Defaults to
+"replace"\&. Specifies how the units listed in
 \fIOnFailure=\fR
-will be enqueued in isolation mode, i\&.e\&. all units that are not its dependency will be stopped\&. If this is set, only a single unit may be listed in
-\fIOnFailure=\fR\&. Defaults to
-\fBfalse\fR\&.
+will be enqueued\&. See
+\fBsystemctl\fR(1)\*(Aqs
+\fB\-\-job\-mode=\fR
+option for details on the possible values\&. If this is set to
+"isolate", only a single unit may be listed in
+\fIOnFailure=\fR\&.\&.
 .RE
 .PP
 \fIIgnoreOnIsolate=\fR
@@ -469,9 +512,90 @@ mode\&. This value defaults to 0 (job timeouts disabled), except for device unit
 in service units) as the job timeout has no effect on the unit itself, only on the job that might be pending for it\&. Or in other words: unit\-specific timeouts are useful to abort unit state changes, and revert them\&. The job timeout set with this option however is useful to abort only the job waiting for the unit state to change\&.
 .RE
 .PP
-\fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionVirtualization=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionHost=\fR, \fIConditionACPower=\fR, \fIConditionNull=\fR
+\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
 .RS 4
 Before starting a unit verify that the specified condition is true\&. If it is not true, the starting of the unit will be skipped, however all ordering dependencies of it are still respected\&. A failing condition will not result in the unit being moved into a failure state\&. The condition is checked at the time the queued start job is to be executed\&.
+.sp
+\fIConditionArchitecture=\fR
+may be used to check whether the system is running on a specific architecture\&. Takes one of
+\fIx86\fR,
+\fIx86\-64\fR,
+\fIppc\fR,
+\fIppc64\fR,
+\fIia64\fR,
+\fIparisc\fR,
+\fIparisc64\fR,
+\fIs390\fR,
+\fIs390x\fR,
+\fIsparc\fR,
+\fIsparc64\fR,
+\fImips\fR,
+\fImips64\fR,
+\fIalpha\fR,
+\fIarm\fR,
+\fIarm\-be\fR,
+\fIarm64\fR,
+\fIarm64\-be\fR,
+\fIsh\fR,
+\fIsh64\fR,
+\fIm86k\fR
+to test against a specific architecture\&. The architecture is determined from the information returned by
+\fBuname\fR(2)
+and is thus subject to
+\fBpersonality\fR(2)\&. Note that a
+\fIPersonality=\fR
+setting in the same unit file has no effect on this condition\&. A special architecture name
+\fInative\fR
+is mapped to the architecture the system manager itself is compiled for\&. The test may be negated by prepending an exclamation mark\&.
+.sp
+\fIConditionVirtualization=\fR
+may be used to check whether the system is executed in a virtualized environment and optionally test whether it is a specific implementation\&. Takes either boolean value to check if being executed in any virtualized environment, or one of
+\fIvm\fR
+and
+\fIcontainer\fR
+to test against a generic type of virtualization solution, or one of
+\fIqemu\fR,
+\fIkvm\fR,
+\fIvmware\fR,
+\fImicrosoft\fR,
+\fIoracle\fR,
+\fIxen\fR,
+\fIbochs\fR,
+\fIchroot\fR,
+\fIuml\fR,
+\fIopenvz\fR,
+\fIlxc\fR,
+\fIlxc\-libvirt\fR,
+\fIsystemd\-nspawn\fR
+to test against a specific implementation\&. If multiple virtualization technologies are nested, only the innermost is considered\&. The test may be negated by prepending an exclamation mark\&.
+.sp
+\fIConditionHost=\fR
+may be used to match against the hostname or machine ID of the host\&. This either takes a hostname string (optionally with shell style globs) which is tested against the locally set hostname as returned by
+\fBgethostname\fR(2), or a machine ID formatted as string (see
+\fBmachine-id\fR(5))\&. The test may be negated by prepending an exclamation mark\&.
+.sp
+\fIConditionKernelCommandLine=\fR
+may be used to check whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. The argument must either be a single word, or an assignment (i\&.e\&. two words, separated
+"=")\&. In the former case the kernel command line is searched for the word appearing as is, or as left hand side of an assignment\&. In the latter case, the exact assignment is looked for with right and left hand side matching\&.
+.sp
+\fIConditionSecurity=\fR
+may be used to check whether the given security module is enabled on the system\&. Currently the recognized values values are
+\fIselinux\fR,
+\fIapparmor\fR,
+\fIima\fR
+and
+\fIsmack\fR\&. The test may be negated by prepending an exclamation mark\&.
+.sp
+\fIConditionCapability=\fR
+may be used to check whether the given capability exists in the capability bounding set of the service manager (i\&.e\&. this does not check whether capability is actually available in the permitted or effective sets, see
+\fBcapabilities\fR(7)
+for details)\&. Pass a capability name such as
+"CAP_MKNOD", possibly prefixed with an exclamation mark to negate the check\&.
+.sp
+\fIConditionACPower=\fR
+may be used to check whether the system has AC power, or is exclusively battery powered at the time of activation of the unit\&. This takes a boolean argument\&. If set to
+\fItrue\fR, the condition will hold only if at least one AC connector of the system is connected to a power source, or if no AC connectors are known\&. Conversely, if set to
+\fIfalse\fR, the condition will hold only if there is at least one AC connector known and all AC connectors are disconnected from a power source\&.
 .sp
 With
 \fIConditionPathExists=\fR
@@ -518,56 +642,6 @@ is similar to
 \fIConditionPathExists=\fR
 but verifies whether a certain path exists, is a regular file and marked executable\&.
 .sp
-Similar,
-\fIConditionKernelCommandLine=\fR
-may be used to check whether a specific kernel command line option is set (or if prefixed with the exclamation mark unset)\&. The argument must either be a single word, or an assignment (i\&.e\&. two words, separated
-"=")\&. In the former case the kernel command line is searched for the word appearing as is, or as left hand side of an assignment\&. In the latter case the exact assignment is looked for with right and left hand side matching\&.
-.sp
-\fIConditionVirtualization=\fR
-may be used to check whether the system is executed in a virtualized environment and optionally test whether it is a specific implementation\&. Takes either boolean value to check if being executed in any virtualized environment, or one of
-\fIvm\fR
-and
-\fIcontainer\fR
-to test against a generic type of virtualization solution, or one of
-\fIqemu\fR,
-\fIkvm\fR,
-\fIvmware\fR,
-\fImicrosoft\fR,
-\fIoracle\fR,
-\fIxen\fR,
-\fIbochs\fR,
-\fIchroot\fR,
-\fIuml\fR,
-\fIopenvz\fR,
-\fIlxc\fR,
-\fIlxc\-libvirt\fR,
-\fIsystemd\-nspawn\fR
-to test against a specific implementation\&. If multiple virtualization technologies are nested, only the innermost is considered\&. The test may be negated by prepending an exclamation mark\&.
-.sp
-\fIConditionSecurity=\fR
-may be used to check whether the given security module is enabled on the system\&. Currently the recognized values values are
-\fIselinux\fR,
-\fIapparmor\fR,
-\fIima\fR
-and
-\fIsmack\fR\&. The test may be negated by prepending an exclamation mark\&.
-.sp
-\fIConditionCapability=\fR
-may be used to check whether the given capability exists in the capability bounding set of the service manager (i\&.e\&. this does not check whether capability is actually available in the permitted or effective sets, see
-\fBcapabilities\fR(7)
-for details)\&. Pass a capability name such as
-"CAP_MKNOD", possibly prefixed with an exclamation mark to negate the check\&.
-.sp
-\fIConditionHost=\fR
-may be used to match against the hostname or machine ID of the host\&. This either takes a hostname string (optionally with shell style globs) which is tested against the locally set hostname as returned by
-\fBgethostname\fR(2), or a machine ID formatted as string (see
-\fBmachine-id\fR(5))\&. The test may be negated by prepending an exclamation mark\&.
-.sp
-\fIConditionACPower=\fR
-may be used to check whether the system has AC power, or is exclusively battery powered at the time of activation of the unit\&. This takes a boolean argument\&. If set to
-\fItrue\fR, the condition will hold only if at least one AC connector of the system is connected to a power source, or if no AC connectors are known\&. Conversely, if set to
-\fIfalse\fR, the condition will hold only if there is at least one AC connector known and all AC connectors are disconnected from a power source\&.
-.sp
 Finally,
 \fIConditionNull=\fR
 may be used to add a constant condition check value to the unit\&. It takes a boolean argument\&. If set to
@@ -581,6 +655,7 @@ If multiple conditions are specified, the unit will be executed if all of them a
 .RS 4
 A path to a configuration file this unit has been generated from\&. This is primarily useful for implementation of generator tools that convert configuration from an external configuration file format into native unit files\&. Thus functionality should not be used in normal units\&.
 .RE
+.SH "[INSTALL] SECTION OPTIONS"
 .PP
 Unit file may include a [Install] section, which carries installation information for the unit\&. This section is not interpreted by
 \fBsystemd\fR(1)
@@ -594,18 +669,18 @@ tool during installation of a unit:
 .PP
 \fIAlias=\fR
 .RS 4
-Additional names this unit shall be installed under\&. The names listed here must have the same suffix (i\&.e\&. type) as the unit file name\&. This option may be specified more than once, in which case all listed names are used\&. At installation time,
+A space\-seperated list of additional names this unit shall be installed under\&. The names listed here must have the same suffix (i\&.e\&. type) as the unit file name\&. This option may be specified more than once, in which case all listed names are used\&. At installation time,
 \fBsystemctl enable\fR
 will create symlinks from these names to the unit filename\&.
 .RE
 .PP
 \fIWantedBy=\fR, \fIRequiredBy=\fR
 .RS 4
-A symbolic link is created in the
+This option may be used more than once, or a space\-separated list of unit names may be given\&. A symbolic link is created in the
 \&.wants/
 or
 \&.requires/
-directory of the listed unit when this unit is activated by
+directory of each of the listed units when this unit is installed by
 \fBsystemctl enable\fR\&. This has the effect that a dependency of type
 \fIWants=\fR
 or
@@ -646,6 +721,8 @@ Additional units to install/deinstall when this unit is installed/deinstalled\&.
 and
 \fBsystemctl disable\fR
 will automatically install/uninstall units listed in this option as well\&.
+.sp
+This option may be used more than once, or a space\-separated list of unit names may be given\&.
 .RE
 .PP
 The following specifiers are interpreted in the Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v\&. For their meaning see the next section\&.
@@ -701,73 +778,70 @@ T{
 T}:T{
 Unescaped full unit name
 T}:T{
-\ \&
+Same as "%n", but with escaping undone
 T}
 T{
 "%p"
 T}:T{
 Prefix name
 T}:T{
-For instantiated units this refers to the string before the @\&. For non\-instantiated units this refers to to the name of the unit with the type suffix removed\&.
+For instantiated units, this refers to the string before the "@" character of the unit name\&. For non\-instantiated units, this refers to the name of the unit with the type suffix removed\&.
 T}
 T{
 "%P"
 T}:T{
 Unescaped prefix name
 T}:T{
-\ \&
+Same as "%p", but with escaping undone
 T}
 T{
 "%i"
 T}:T{
 Instance name
 T}:T{
-For instantiated units: this is the string between the "@" character and the suffix\&.
+For instantiated units: this is the string between the "@" character and the suffix of the unit name\&.
 T}
 T{
 "%I"
 T}:T{
 Unescaped instance name
 T}:T{
-\ \&
+Same as "%i", but with escaping undone
 T}
 T{
 "%f"
 T}:T{
 Unescaped filename
 T}:T{
-This is either the unescaped instance name (if applicable) with / prepended (if applicable), or the prefix name similarly prepended with /\&.
+This is either the unescaped instance name (if applicable) with / prepended (if applicable), or the prefix name prepended with /\&.
 T}
 T{
 "%c"
 T}:T{
 Control group path of the unit
 T}:T{
-\ \&
+This path does not include the /sys/fs/cgroup/systemd/ prefix\&.
 T}
 T{
 "%r"
 T}:T{
-Root control group path where units are placed\&.
+Control group path of the slice the unit is placed in
 T}:T{
-For system instances this usually resolves to /system, except in containers, where the path might be prefixed with the container\*(Aqs root control group\&.
+This usually maps to the parent cgroup path of "%c"\&.
 T}
 T{
 "%R"
 T}:T{
-Parent directory of the control group path where units are placed\&.
+Root control group path below which slices and units are placed
 T}:T{
-For system instances this usually
-                        resolves to /, except in
-                        containers, where this resolves to the
-                        container\*(Aqs root directory\&.
+For system instances, this resolves to /, except in containers, where this maps to the container\*(Aqs root control group path\&.
 T}
 T{
 "%t"
 T}:T{
-Runtime socket dir
+Runtime directory
 T}:T{
-This is either /run (for the system manager) or "$XDG_RUNTIME_DIR" (for user managers)\&.
+This is either /run (for the system manager) or the path "$XDG_RUNTIME_DIR" resolves to (for user managers)\&.
 T}
 T{
 "%u"
@@ -781,21 +855,21 @@ T{
 T}:T{
 User UID
 T}:T{
-This is the UID of the configured user of the unit, or (if none is set) the user running the systemd instance\&.
+This is the numeric UID of the configured user of the unit, or (if none is set) the user running the systemd user instance\&. Note that this specifier is not available for units run by the systemd system instance (as opposed to those run by a systemd user instance), unless the user has been configured as a numeric UID in the first place or the configured user is the root user\&.
 T}
 T{
 "%h"
 T}:T{
 User home directory
 T}:T{
-This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd instance\&.
+This is the home directory of the configured user of the unit, or (if none is set) the user running the systemd user instance\&. Similar to "%U", this specifier is not available for units run by the systemd system instance, unless the configured user is the root user\&.
 T}
 T{
 "%s"
 T}:T{
 User shell
 T}:T{
-This is the shell of the configured user of the unit, or (if none is set) the user running the systemd instance\&.  If the user is "root" (UID equal to 0), the shell configured in account database is ignored and /bin/sh is always used\&.
+This is the shell of the configured user of the unit, or (if none is set) the user running the systemd user instance\&. Similar to "%U", this specifier is not available for units run by the systemd system instance, unless the configured user is the root user\&.
 T}
 T{
 "%m"
@@ -816,21 +890,21 @@ T{
 T}:T{
 Host name
 T}:T{
-The hostname of the running system\&.
+The hostname of the running system at the point in time the unit configuation is loaded\&.
 T}
 T{
 "%v"
 T}:T{
 Kernel release
 T}:T{
-Identical to \fBuname \-r\fR output\&.
+Identical to \fBuname \-r\fR output
 T}
 T{
 "%%"
 T}:T{
-Escaped %
+Single percent sign
 T}:T{
-Single percent sign\&.
+Use "%%" in place of "%" to specify a single percent sign\&.
 T}
 .TE
 .sp 1

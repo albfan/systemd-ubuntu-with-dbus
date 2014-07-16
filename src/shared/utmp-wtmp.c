@@ -46,13 +46,15 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
          * very new and does not apply to the current script being
          * executed. */
 
-        if ((e = getenv("RUNLEVEL")) && e[0] > 0) {
+        e = getenv("RUNLEVEL");
+        if (e && e[0] > 0) {
                 *runlevel = e[0];
 
                 if (previous) {
                         /* $PREVLEVEL seems to be an Upstart thing */
 
-                        if ((e = getenv("PREVLEVEL")) && e[0] > 0)
+                        e = getenv("PREVLEVEL");
+                        if (e && e[0] > 0)
                                 *previous = e[0];
                         else
                                 *previous = 0;
@@ -66,7 +68,8 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
 
         setutxent();
 
-        if (!(found = getutxid(&lookup)))
+        found = getutxid(&lookup);
+        if (!found)
                 r = -errno;
         else {
                 int a, b;
@@ -216,7 +219,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         strncpy(store.ut_id, sanitize_id(id), sizeof(store.ut_id));
 
         if (line)
-                strncpy(store.ut_line, path_get_file_name(line), sizeof(store.ut_line));
+                strncpy(store.ut_line, basename(line), sizeof(store.ut_line));
 
         return write_entry_both(&store);
 }
@@ -232,7 +235,8 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         lookup.ut_type = INIT_PROCESS; /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
         strncpy(lookup.ut_id, sanitize_id(id), sizeof(lookup.ut_id));
 
-        if (!(found = getutxid(&lookup)))
+        found = getutxid(&lookup);
+        if (!found)
                 return 0;
 
         if (found->ut_pid != pid)
@@ -264,7 +268,8 @@ int utmp_put_runlevel(int runlevel, int previous) {
         if (previous <= 0) {
                 /* Find the old runlevel automatically */
 
-                if ((r = utmp_get_runlevel(&previous, NULL)) < 0) {
+                r = utmp_get_runlevel(&previous, NULL);
+                if (r < 0) {
                         if (r != -ESRCH)
                                 return r;
 
@@ -342,16 +347,19 @@ static int write_to_terminal(const char *tty, const char *message) {
         return 0;
 }
 
-int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
-        struct utmpx *u;
+int utmp_wall(const char *message, const char *username, bool (*match_tty)(const char *tty)) {
+        _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
         char date[FORMAT_TIMESTAMP_MAX];
-        char *text = NULL, *hn = NULL, *un = NULL, *tty = NULL;
+        struct utmpx *u;
         int r;
 
-        if (!(hn = gethostname_malloc()) ||
-            !(un = getlogname_malloc())) {
-                r = -ENOMEM;
-                goto finish;
+        hn = gethostname_malloc();
+        if (!hn)
+                return -ENOMEM;
+        if (!username) {
+                un = getlogname_malloc();
+                if (!un)
+                        return -ENOMEM;
         }
 
         getttyname_harder(STDIN_FILENO, &tty);
@@ -360,22 +368,20 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                      "\a\r\n"
                      "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
-                     un, hn,
+                     un ?: username, hn,
                      tty ? " on " : "", strempty(tty),
                      format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
-                     message) < 0) {
-                r = -ENOMEM;
-                goto finish;
-        }
+                     message) < 0)
+                return -ENOMEM;
 
         setutxent();
 
         r = 0;
 
         while ((u = getutxent())) {
-                int q;
+                _cleanup_free_ char *buf = NULL;
                 const char *path;
-                char *buf = NULL;
+                int q;
 
                 if (u->ut_type != USER_PROCESS || u->ut_user[0] == 0)
                         continue;
@@ -384,27 +390,18 @@ int utmp_wall(const char *message, bool (*match_tty)(const char *tty)) {
                 if (path_startswith(u->ut_line, "/dev/"))
                         path = u->ut_line;
                 else {
-                        if (asprintf(&buf, "/dev/%.*s",
-                                     (int) sizeof(u->ut_line), u->ut_line) < 0) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (asprintf(&buf, "/dev/%.*s", (int) sizeof(u->ut_line), u->ut_line) < 0)
+                                return -ENOMEM;
 
                         path = buf;
                 }
 
-                if (!match_tty || match_tty(path))
-                        if ((q = write_to_terminal(path, text)) < 0)
+                if (!match_tty || match_tty(path)) {
+                        q = write_to_terminal(path, text);
+                        if (q < 0)
                                 r = q;
-
-                free(buf);
+                }
         }
-
-finish:
-        free(hn);
-        free(un);
-        free(tty);
-        free(text);
 
         return r;
 }

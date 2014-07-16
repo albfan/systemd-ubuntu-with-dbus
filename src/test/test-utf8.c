@@ -26,6 +26,7 @@ static void test_utf8_is_printable(void) {
         assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
         assert_se(utf8_is_printable("\342\204\242", 3));
         assert_se(!utf8_is_printable("\341\204", 2));
+        assert_se(utf8_is_printable("ąę", 4));
 }
 
 static void test_utf8_is_valid(void) {
@@ -40,22 +41,6 @@ static void test_ascii_is_valid(void) {
         assert_se(!ascii_is_valid("\341\204"));
 }
 
-static void test_ascii_filter(void) {
-        char *f;
-
-        f = ascii_filter("alsdjf\t\vbarr\nba z");
-        assert_se(streq(f, "alsdjf\t\vbarr\nba z"));
-        free(f);
-
-        f = ascii_filter("\342\204\242");
-        assert_se(streq(f, ""));
-        free(f);
-
-        f = ascii_filter("foo\341\204bar");
-        assert_se(streq(f, "foobar"));
-        free(f);
-}
-
 static void test_utf8_encoded_valid_unichar(void) {
         assert_se(utf8_encoded_valid_unichar("\342\204\242") == 3);
         assert_se(utf8_encoded_valid_unichar("\302\256") == 2);
@@ -65,12 +50,28 @@ static void test_utf8_encoded_valid_unichar(void) {
 
 }
 
+static void test_utf8_escaping(void) {
+        _cleanup_free_ char *p1, *p2, *p3;
+
+        p1 = utf8_escape_invalid("goo goo goo");
+        puts(p1);
+        assert_se(utf8_is_valid(p1));
+
+        p2 = utf8_escape_invalid("\341\204\341\204");
+        puts(p2);
+        assert_se(utf8_is_valid(p2));
+
+        p3 = utf8_escape_invalid("\341\204");
+        puts(p3);
+        assert_se(utf8_is_valid(p3));
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
         test_ascii_is_valid();
-        test_ascii_filter();
         test_utf8_encoded_valid_unichar();
+        test_utf8_escaping();
 
         return 0;
 }

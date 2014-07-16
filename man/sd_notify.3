@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_NOTIFY" "3" "" "systemd 208" "sd_notify"
+.TH "SD_NOTIFY" "3" "" "systemd 214" "sd_notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,7 +43,7 @@ parameter is non\-zero,
 \fBsd_notify()\fR
 will unset the
 \fI$NOTIFY_SOCKET\fR
-environment variable before returning (regardless whether the function call itself succeeded or not)\&. Further calls to
+environment variable before returning (regardless of whether the function call itself succeeded or not)\&. Further calls to
 \fBsd_notify()\fR
 will then fail, but the variable is no longer inherited by child processes\&.
 .PP
@@ -83,8 +83,12 @@ Tells systemd to update the watchdog timestamp\&. This is the keep\-alive ping t
 is enabled for it\&. See
 \fBsystemd.service\fR(5)
 for details\&. It is recommended to send this message if the
-\fIWATCHDOG_USEC=\fR
-environment variable has been set for the service process, in every half the time interval that is specified in the variable\&.
+\fI$WATCHDOG_PID\fR
+environment variable has been set to the PID of the service process, in every half the time interval that is specified in the
+\fI$WATCHDOG_USEC\fR
+environment variable\&. See
+\fBsd_watchdog_enabled\fR(3)
+for details\&.
 .RE
 .PP
 It is recommended to prefix variable names that are not shown in the list above with
@@ -109,7 +113,9 @@ On failure, these calls return a negative errno\-style error code\&. If
 was not set and hence no status data could be sent, 0 is returned\&. If the status was sent, these functions return with a positive return value\&. In order to support both, init systems that implement this scheme and those which do not, it is generally recommended to ignore the return value of this call\&.
 .SH "NOTES"
 .PP
-These functions are provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithms they implement are simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&.
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
 .PP
 Internally, these functions send a single datagram with the state string as payload to the
 \fBAF_UNIX\fR
@@ -119,25 +125,6 @@ environment variable\&. If the first character of
 \fI$NOTIFY_SOCKET\fR
 is
 "@", the string is understood as Linux abstract namespace socket\&. The datagram is accompanied by the process credentials of the sending daemon, using SCM_CREDENTIALS\&.
-.PP
-For details about the algorithms check the liberally licensed reference implementation sources:
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
-and
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
-.PP
-\fBsd_notify()\fR
-and
-\fBsd_notifyf()\fR
-are implemented in the reference implementation\*(Aqs
-sd\-daemon\&.c
-and
-sd\-daemon\&.h
-files\&. These interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
-file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree\&. For more details about the reference implementation see
-\fBsd-daemon\fR(3)\&.
-.PP
-If the reference implementation is used as drop\-in files and \-DDISABLE_SYSTEMD is set during compilation, these functions will always return 0 and otherwise become a NOP\&.
 .SH "ENVIRONMENT"
 .PP
 \fI$NOTIFY_SOCKET\fR
@@ -200,4 +187,5 @@ sd_notifyf(0, "STATUS=Failed to start up: %s\en"
 \fBsystemd\fR(1),
 \fBsd-daemon\fR(3),
 \fBdaemon\fR(7),
-\fBsystemd.service\fR(5)
+\fBsystemd.service\fR(5),
+\fBsd_watchdog_enabled\fR(3)

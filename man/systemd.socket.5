@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 208" "systemd.socket"
+.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 214" "systemd.socket"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,11 +45,14 @@ commands are executed in, and in
 \fBsystemd.kill\fR(5), which define the way the processes are terminated, and in
 \fBsystemd.resource-control\fR(5), which configure resource control settings for the processes of the socket\&.
 .PP
-For each socket file a matching service file (see
+For each socket file, a matching service file must exist, describing the service to start on incoming traffic on the socket (see
 \fBsystemd.service\fR(5)
-for details) must exist, describing the service to start on incoming traffic on the socket\&. Depending on the setting of
+for more information about \&.service files)\&. The name of the \&.service unit is by default the same as the name of the \&.socket unit, but can be altered with the
+\fBService=\fR
+option described below\&. Depending on the setting of the
 \fBAccept=\fR
-(see below), this must either be named like the socket unit, but with the suffix replaced; or it must be a template file named the same way\&. Example: a socket file
+option described below, this \&.service unit must either be named like the \&.socket unit, but with the suffix replaced, unless overridden with
+\fBService=\fR; or it must be a template unit named the same way\&. Example: a socket file
 foo\&.socket
 needs a matching service
 foo\&.service
@@ -77,12 +80,22 @@ and
 on
 shutdown\&.target\&. These ensure that socket units pull in basic system initialization, and are terminated cleanly prior to system shutdown\&. Only sockets involved with early boot or late system shutdown should disable this option\&.
 .PP
-Socket units may be used to implement on\-demand starting of services, as well as parallelized starting of services\&.
+Socket units will have a
+\fIBefore=\fR
+dependency on the service which they trigger added implicitly\&. No implicit
+\fIWantedBy=\fR
+or
+\fIRequiredBy=\fR
+dependency from the socket to the service is added\&. This means that the service may be started without the socket, in which case it must be able to open sockets by itself\&. To prevent this, an explicit
+\fIRequires=\fR
+dependency may be added\&.
+.PP
+Socket units may be used to implement on\-demand starting of services, as well as parallelized starting of services\&. See the blog stories linked at the end for an introduction\&.
 .PP
 Note that the daemon software configured for socket activation with socket units needs to be able to accept sockets from systemd, either via systemd\*(Aqs native socket passing interface (see
 \fBsd_listen_fds\fR(3)
 for details) or via the traditional
-\fBinetd\fR(8)\-style socket passing (i\&.e\&. sockets passed in via STDIN and STDOUT, using
+\fBinetd\fR(8)\-style socket passing (i\&.e\&. sockets passed in via standard input and output, using
 \fIStandardInput=socket\fR
 in the service file)\&.
 .SH "OPTIONS"
@@ -132,9 +145,12 @@ sockets\&.
 (i\&.e\&.
 \fIListenDatagram=\fR) to UDP\&.
 .sp
-These options may be specified more than once in which case incoming traffic on any of the sockets will trigger service activation, and all listed sockets will be passed to the service, regardless whether there is incoming traffic on them or not\&. If the empty string is assigned to any of these options, the list of addresses to listen on is reset, all prior uses of any of these options will have no effect\&.
+These options may be specified more than once in which case incoming traffic on any of the sockets will trigger service activation, and all listed sockets will be passed to the service, regardless of whether there is incoming traffic on them or not\&. If the empty string is assigned to any of these options, the list of addresses to listen on is reset, all prior uses of any of these options will have no effect\&.
 .sp
-If an IP address is used here, it is often desirable to listen on it before the interface it is configured on is up and running, and even regardless whether it will be up and running ever at all\&. To deal with this it is recommended to set the
+It is also possible to have more than one socket unit for the same service when using
+\fIService=\fR, and the service will receive all the sockets configured in all the socket units\&. Sockets configured in one unit are passed in the order of configuration, but no ordering between socket units is specified\&.
+.sp
+If an IP address is used here, it is often desirable to listen on it before the interface it is configured on is up and running, and even regardless of whether it will be up and running at any point\&. To deal with this, it is recommended to set the
 \fIFreeBind=\fR
 option described below\&.
 .RE
@@ -207,14 +223,19 @@ for details)\&. If this option is used, an automatic dependency from this socket
 is created\&.
 .RE
 .PP
-\fIDirectoryMode=\fR
+\fISocketUser=\fR, \fISocketGroup=\fR
 .RS 4
-If listening on a file system socket or FIFO, the parent directories are automatically created if needed\&. This option specifies the file system access mode used when creating these directories\&. Takes an access mode in octal notation\&. Defaults to 0755\&.
+Takes a UNIX user/group name\&. When specified all AF_UNIX sockets and FIFO nodes in the file system are owned by the specified user and group\&. If unset (the default), the nodes are owned by the root user/group (if run in system context) or the invoking user/group (if run in user context)\&. If only a user is specified but no group, then the group is derived from the user\*(Aqs default group\&.
 .RE
 .PP
 \fISocketMode=\fR
 .RS 4
 If listening on a file system socket or FIFO, this option specifies the file system access mode used when creating the file node\&. Takes an access mode in octal notation\&. Defaults to 0666\&.
+.RE
+.PP
+\fIDirectoryMode=\fR
+.RS 4
+If listening on a file system socket or FIFO, the parent directories are automatically created if needed\&. This option specifies the file system access mode used when creating these directories\&. Takes an access mode in octal notation\&. Defaults to 0755\&.
 .RE
 .PP
 \fIAccept=\fR
@@ -268,7 +289,7 @@ for details\&.)\&.
 .RS 4
 Takes an integer argument controlling the receive or send buffer sizes of this socket, respectively\&. This controls the SO_RCVBUF and SO_SNDBUF socket options (see
 \fBsocket\fR(7)
-for details\&.)\&.
+for details\&.)\&. The usual suffixes K, M, G are supported and are understood to the base of 1024\&.
 .RE
 .PP
 \fIIPTOS=\fR
@@ -321,9 +342,9 @@ for details\&.
 .PP
 \fIPipeSize=\fR
 .RS 4
-Takes an integer value\&. Controls the pipe buffer size of FIFOs configured in this socket unit\&. See
+Takes a size in bytes\&. Controls the pipe buffer size of FIFOs configured in this socket unit\&. See
 \fBfcntl\fR(2)
-for details\&.
+for details\&. The usual suffixes K, M, G are supported and are understood to the base of 1024\&.
 .RE
 .PP
 \fIMessageQueueMaxMessages=\fR, \fIMessageQueueMessageSize=\fR
@@ -399,12 +420,26 @@ to finish\&. If a command does not exit within the configured time, the socket w
 \fBSIGKILL\fR\&. (See
 \fBKillMode=\fR
 in
-\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to 90s\&.
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to
+\fITimeoutStartSec=\fR
+from the manager configuration file\&.
 .RE
 .PP
 \fIService=\fR
 .RS 4
-Specifies the service unit name to activate on incoming traffic\&. This defaults to the service that bears the same name as the socket (ignoring the different suffixes)\&. In most cases it should not be necessary to use this option\&.
+Specifies the service unit name to activate on incoming traffic\&. This setting is only allowed for sockets with
+\fIAccept=no\fR\&. It defaults to the service that bears the same name as the socket (with the suffix replaced)\&. In most cases, it should not be necessary to use this option\&.
+.RE
+.PP
+\fIRemoveOnStop=\fR
+.RS 4
+Takes a boolean argument\&. If enabled any file nodes created by this socket unit are removed when it is stopped\&. This applies to AF_UNIX sockets in the file system, POSIX message queues as well as FIFOs, as well as any symlinks to them configured with
+\fISymlinks=\fR\&. Normally it should not be necessary to use this option, and is not recommended as services might continue to run after the socket unit has been terminated and it should still be possible to communicate with them via their file system node\&. Defaults to off\&.
+.RE
+.PP
+\fISymlinks=\fR
+.RS 4
+Takes a list of file system paths\&. The specified paths will be created as symlinks to the AF_UNIX socket path or FIFO path of this socket unit\&. If this setting is used only one AF_UNIX socket in the file system or one FIFO may be configured for the socket unit\&. Use this option to manage one or more symlinked alias names for a socket, binding their lifecycle together\&. Defaults to the empty list\&.
 .RE
 .PP
 Check

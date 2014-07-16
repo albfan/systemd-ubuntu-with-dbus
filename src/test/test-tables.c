@@ -43,7 +43,6 @@
 #include "unit-name.h"
 #include "unit.h"
 #include "util.h"
-#include "syscall-list.h"
 
 #include "test-tables.h"
 
@@ -83,7 +82,7 @@ int main(int argc, char **argv) {
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);
         test_table(socket_result, SOCKET_RESULT);
         test_table(socket_state, SOCKET_STATE);
-        test_table(start_limit_action, SERVICE_START_LIMIT);
+        test_table(failure_action, SERVICE_FAILURE_ACTION);
         test_table(swap_exec_command, SWAP_EXEC_COMMAND);
         test_table(swap_result, SWAP_RESULT);
         test_table(swap_state, SWAP_STATE);
@@ -98,8 +97,6 @@ int main(int argc, char **argv) {
         test_table(unit_file_state, UNIT_FILE_STATE);
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
-
-        _test_table("syscall", syscall_to_name, syscall_from_name, syscall_max(), true);
 
         return EXIT_SUCCESS;
 }

@@ -21,9 +21,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <syslog.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <syslog.h>
+#include <sys/signalfd.h>
 #include <errno.h>
 
 #include "macro.h"
@@ -51,7 +52,9 @@ int log_set_target_from_string(const char *e);
 int log_set_max_level_from_string(const char *e);
 
 void log_show_color(bool b);
+bool log_get_show_color(void) _pure_;
 void log_show_location(bool b);
+bool log_get_show_location(void) _pure_;
 
 int log_show_color_from_string(const char *e);
 int log_show_location_from_string(const char *e);
@@ -75,7 +78,7 @@ int log_meta(
                 const char*file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_attr_(5,6);
+                const char *format, ...) _printf_(5,6);
 
 int log_metav(
                 int level,
@@ -83,7 +86,7 @@ int log_metav(
                 int line,
                 const char *func,
                 const char *format,
-                va_list ap) _printf_attr_(5,0);
+                va_list ap) _printf_(5,0);
 
 int log_meta_object(
                 int level,
@@ -92,7 +95,7 @@ int log_meta_object(
                 const char *func,
                 const char *object_name,
                 const char *object,
-                const char *format, ...) _printf_attr_(7,8);
+                const char *format, ...) _printf_(7,8);
 
 int log_metav_object(
                 int level,
@@ -102,14 +105,14 @@ int log_metav_object(
                 const char *object_name,
                 const char *object,
                 const char *format,
-                va_list ap) _printf_attr_(7,0);
+                va_list ap) _printf_(7,0);
 
 int log_struct_internal(
                 int level,
                 const char *file,
                 int line,
                 const char *func,
-                const char *format, ...) _printf_attr_(5,0) _sentinel_;
+                const char *format, ...) _printf_(5,0) _sentinel_;
 
 int log_oom_internal(
                 const char *file,
@@ -124,25 +127,35 @@ int log_dump_internal(
                 const char *func,
                 char *buffer);
 
-_noreturn_ void log_assert_failed(
+noreturn void log_assert_failed(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func);
 
-_noreturn_ void log_assert_failed_unreachable(
+noreturn void log_assert_failed_unreachable(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func);
 
-#define log_full(level, ...) log_meta(level,   __FILE__, __LINE__, __func__, __VA_ARGS__)
+void log_assert_failed_return(
+                const char *text,
+                const char *file,
+                int line,
+                const char *func);
 
-#define log_debug(...)   log_meta(LOG_DEBUG,   __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define log_info(...)    log_meta(LOG_INFO,    __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define log_notice(...)  log_meta(LOG_NOTICE,  __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define log_warning(...) log_meta(LOG_WARNING, __FILE__, __LINE__, __func__, __VA_ARGS__)
-#define log_error(...)   log_meta(LOG_ERR,     __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define log_full(level, ...) \
+do { \
+        if (log_get_max_level() >= (level)) \
+                log_meta((level), __FILE__, __LINE__, __func__, __VA_ARGS__); \
+} while (0)
+
+#define log_debug(...)   log_full(LOG_DEBUG,   __VA_ARGS__)
+#define log_info(...)    log_full(LOG_INFO,    __VA_ARGS__)
+#define log_notice(...)  log_full(LOG_NOTICE,  __VA_ARGS__)
+#define log_warning(...) log_full(LOG_WARNING, __VA_ARGS__)
+#define log_error(...)   log_full(LOG_ERR,     __VA_ARGS__)
 
 #define log_struct(level, ...) log_struct_internal(level, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
@@ -157,3 +170,5 @@ const char *log_target_to_string(LogTarget target) _const_;
 LogTarget log_target_from_string(const char *s) _pure_;
 
 #define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
+
+void log_received_signal(int level, const struct signalfd_siginfo *si);

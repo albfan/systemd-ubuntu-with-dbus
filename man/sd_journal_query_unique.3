@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_QUERY_UNIQUE" "3" "" "systemd 208" "sd_journal_query_unique"
+.TH "SD_JOURNAL_QUERY_UNIQUE" "3" "" "systemd 214" "sd_journal_query_unique"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,13 +29,13 @@ sd_journal_query_unique, sd_journal_enumerate_unique, sd_journal_restart_unique,
 .fi
 .ft
 .HP \w'int\ sd_journal_query_unique('u
-.BI "int sd_journal_query_unique(sd_journal*\ " "j" ", const\ char*\ " "field" ");"
+.BI "int sd_journal_query_unique(sd_journal\ *" "j" ", const\ char\ *" "field" ");"
 .HP \w'int\ sd_journal_enumerate_unique('u
-.BI "int sd_journal_enumerate_unique(sd_journal*\ " "j" ", const\ void**\ " "data" ", size_t*\ " "length" ");"
+.BI "int sd_journal_enumerate_unique(sd_journal\ *" "j" ", const\ void\ **" "data" ", size_t\ *" "length" ");"
 .HP \w'void\ sd_journal_restart_unique('u
-.BI "void sd_journal_restart_unique(sd_journal*\ " "j" ");"
+.BI "void sd_journal_restart_unique(sd_journal\ *" "j" ");"
 .HP \w'SD_JOURNAL_FOREACH_UNIQUE('u
-.BI "SD_JOURNAL_FOREACH_UNIQUE(sd_journal*\ " "j" ", const\ void*\ " "data" ", size_t\ " "length" ");"
+.BI "SD_JOURNAL_FOREACH_UNIQUE(sd_journal\ *" "j" ", const\ void\ *" "data" ", size_t\ " "length" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_query_unique()\fR
@@ -79,8 +79,8 @@ The
 \fBsd_journal_enumerate_unique()\fR
 and
 \fBsd_journal_restart_unique()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "EXAMPLES"
 .PP

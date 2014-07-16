@@ -56,6 +56,8 @@
 <ANCHOR id="g-udev-device-get-property-as-double" href="gudev/GUdevDevice.html#g-udev-device-get-property-as-double">
 <ANCHOR id="g-udev-device-get-property-as-boolean" href="gudev/GUdevDevice.html#g-udev-device-get-property-as-boolean">
 <ANCHOR id="g-udev-device-get-property-as-strv" href="gudev/GUdevDevice.html#g-udev-device-get-property-as-strv">
+<ANCHOR id="g-udev-device-get-sysfs-attr-keys" href="gudev/GUdevDevice.html#g-udev-device-get-sysfs-attr-keys">
+<ANCHOR id="g-udev-device-has-sysfs-attr" href="gudev/GUdevDevice.html#g-udev-device-has-sysfs-attr">
 <ANCHOR id="g-udev-device-get-sysfs-attr" href="gudev/GUdevDevice.html#g-udev-device-get-sysfs-attr">
 <ANCHOR id="g-udev-device-get-sysfs-attr-as-int" href="gudev/GUdevDevice.html#g-udev-device-get-sysfs-attr-as-int">
 <ANCHOR id="g-udev-device-get-sysfs-attr-as-uint64" href="gudev/GUdevDevice.html#g-udev-device-get-sysfs-attr-as-uint64">
@@ -83,8 +85,8 @@
 <ANCHOR id="g-udev-enumerator-execute" href="gudev/GUdevEnumerator.html#g-udev-enumerator-execute">
 <ANCHOR id="GUdevEnumerator.property-details" href="gudev/GUdevEnumerator.html#GUdevEnumerator.property-details">
 <ANCHOR id="GUdevEnumerator--client" href="gudev/GUdevEnumerator.html#GUdevEnumerator--client">
-<ANCHOR id="annotation-glossterm-array" href="gudev/annotation-glossary.html#annotation-glossterm-array">
 <ANCHOR id="annotation-glossterm-allow-none" href="gudev/annotation-glossary.html#annotation-glossterm-allow-none">
+<ANCHOR id="annotation-glossterm-array" href="gudev/annotation-glossary.html#annotation-glossterm-array">
 <ANCHOR id="annotation-glossterm-element-type" href="gudev/annotation-glossary.html#annotation-glossterm-element-type">
 <ANCHOR id="annotation-glossterm-transfer full" href="gudev/annotation-glossary.html#annotation-glossterm-transfer full">
 <ANCHOR id="annotation-glossterm-transfer none" href="gudev/annotation-glossary.html#annotation-glossterm-transfer none">

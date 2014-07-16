@@ -59,10 +59,7 @@ unsigned long long <span class="returnvalue">int</span> <a class="link" href="li
 <div class="refsect1">
 <a name="libudev-udev-queue.description"></a><h2>Description</h2>
 <p>
-The udev daemon processes events asynchronously. All events which do not have
-interdependencies run in parallel. This exports the current state of the
-event processing queue, and the current event sequence numbers from the kernel
-and the udev daemon.
+This exports the current state of the udev processing queue.
 </p>
 </div>
 <div class="refsect1">
@@ -118,7 +115,7 @@ the resources of the queue context will be released.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>the passed queue context if it has still an active reference, or <span class="type">NULL</span> otherwise.</td>
+<td><span class="type">NULL</span></td>
 </tr>
 </tbody>
 </table></div>
@@ -226,7 +223,8 @@ Check if udev is currently processing any events.
 <pre class="programlisting"><span class="returnvalue">int</span>                 udev_queue_get_seqnum_is_finished   (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>,
                                                          <em class="parameter"><code>unsigned long long <span class="type">int</span> seqnum</code></em>);</pre>
 <p>
-Check if udev is currently processing a given sequence number.
+This function is deprecated, it just returns the result of
+<a class="link" href="libudev-udev-queue.html#udev-queue-get-queue-is-empty" title="udev_queue_get_queue_is_empty ()"><code class="function">udev_queue_get_queue_is_empty()</code></a>.
 </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -244,7 +242,7 @@ Check if udev is currently processing a given sequence number.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a flag indicating if the given sequence number is currently active.</td>
+<td>a flag indicating if udev is currently handling events.</td>
 </tr>
 </tbody>
 </table></div>
@@ -257,7 +255,8 @@ Check if udev is currently processing a given sequence number.
                                                          <em class="parameter"><code>unsigned long long <span class="type">int</span> start</code></em>,
                                                          <em class="parameter"><code>unsigned long long <span class="type">int</span> end</code></em>);</pre>
 <p>
-Check if udev is currently processing any events in a given sequence number range.
+This function is deprecated, it just returns the result of
+<a class="link" href="libudev-udev-queue.html#udev-queue-get-queue-is-empty" title="udev_queue_get_queue_is_empty ()"><code class="function">udev_queue_get_queue_is_empty()</code></a>.
 </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -279,7 +278,7 @@ Check if udev is currently processing any events in a given sequence number rang
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a flag indicating if any of the sequence numbers in the given range is currently active.</td>
+<td>a flag indicating if udev is currently handling events.</td>
 </tr>
 </tbody>
 </table></div>
@@ -290,7 +289,7 @@ Check if udev is currently processing any events in a given sequence number rang
 <pre class="programlisting">struct <a class="link" href="libudev-udev-list.html#udev-list-entry" title="struct udev_list_entry"><span class="returnvalue">udev_list_entry</span></a> * udev_queue_get_queued_list_entry
                                                         (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);</pre>
 <p>
-Get the first entry of the list of queued events.
+This function is deprecated.
 </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -304,7 +303,7 @@ Get the first entry of the list of queued events.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a udev_list_entry.</td>
+<td>NULL.</td>
 </tr>
 </tbody>
 </table></div>
@@ -314,7 +313,7 @@ Get the first entry of the list of queued events.
 <a name="udev-queue-get-kernel-seqnum"></a><h3>udev_queue_get_kernel_seqnum ()</h3>
 <pre class="programlisting">unsigned long long <span class="returnvalue">int</span> udev_queue_get_kernel_seqnum     (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);</pre>
 <p>
-Get the current kernel event sequence number.
+This function is deprecated.
 </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -328,7 +327,7 @@ Get the current kernel event sequence number.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>the sequence number.</td>
+<td>0.</td>
 </tr>
 </tbody>
 </table></div>
@@ -338,7 +337,7 @@ Get the current kernel event sequence number.
 <a name="udev-queue-get-udev-seqnum"></a><h3>udev_queue_get_udev_seqnum ()</h3>
 <pre class="programlisting">unsigned long long <span class="returnvalue">int</span> udev_queue_get_udev_seqnum       (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);</pre>
 <p>
-Get the last known udev event sequence number.
+This function is deprecated.
 </p>
 <div class="variablelist"><table border="0" class="variablelist">
 <colgroup>
@@ -352,7 +351,7 @@ Get the last known udev event sequence number.
 </tr>
 <tr>
 <td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>the sequence number.</td>
+<td>0.</td>
 </tr>
 </tbody>
 </table></div>

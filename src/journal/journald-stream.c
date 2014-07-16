@@ -22,18 +22,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stddef.h>
-#include <sys/epoll.h>
 
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
+#include "sd-event.h"
 #include "socket-util.h"
+#include "selinux-util.h"
 #include "journald-server.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "journald-kmsg.h"
 #include "journald-console.h"
+#include "journald-wall.h"
 
 #define STDOUT_STREAMS_MAX 4096
 
@@ -70,14 +72,18 @@ struct StdoutStream {
         char buffer[LINE_MAX+1];
         size_t length;
 
+        sd_event_source *event_source;
+
         LIST_FIELDS(StdoutStream, stdout_stream);
 };
 
 static int stdout_stream_log(StdoutStream *s, const char *p) {
         struct iovec iovec[N_IOVEC_META_FIELDS + 5];
-        char *message = NULL, *syslog_priority = NULL, *syslog_facility = NULL, *syslog_identifier = NULL;
-        unsigned n = 0;
         int priority;
+        char syslog_priority[] = "PRIORITY=\0";
+        char syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(priority)];
+        _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
+        unsigned n = 0;
         char *label = NULL;
         size_t label_len = 0;
 
@@ -90,7 +96,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         priority = s->priority;
 
         if (s->level_prefix)
-                syslog_parse_priority((char**) &p, &priority, false);
+                syslog_parse_priority(&p, &priority, false);
 
         if (s->forward_to_syslog || s->server->forward_to_syslog)
                 server_forward_syslog(s->server, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
@@ -101,14 +107,18 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
         if (s->forward_to_console || s->server->forward_to_console)
                 server_forward_console(s->server, priority, s->identifier, p, &s->ucred);
 
+        if (s->server->forward_to_wall)
+                server_forward_wall(s->server, priority, s->identifier, p, &s->ucred);
+
         IOVEC_SET_STRING(iovec[n++], "_TRANSPORT=stdout");
 
-        if (asprintf(&syslog_priority, "PRIORITY=%i", priority & LOG_PRIMASK) >= 0)
-                IOVEC_SET_STRING(iovec[n++], syslog_priority);
+        syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
+        IOVEC_SET_STRING(iovec[n++], syslog_priority);
 
-        if (priority & LOG_FACMASK)
-                if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
-                        IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        if (priority & LOG_FACMASK) {
+                snprintf(syslog_facility, sizeof(syslog_facility), "SYSLOG_FACILITY=%i", LOG_FAC(priority));
+                IOVEC_SET_STRING(iovec[n++], syslog_facility);
+        }
 
         if (s->identifier) {
                 syslog_identifier = strappend("SYSLOG_IDENTIFIER=", s->identifier);
@@ -128,12 +138,6 @@ static int stdout_stream_log(StdoutStream *s, const char *p) {
 #endif
 
         server_dispatch_message(s->server, iovec, n, ELEMENTSOF(iovec), &s->ucred, NULL, label, label_len, s->unit_id, priority, 0);
-
-        free(message);
-        free(syslog_priority);
-        free(syslog_facility);
-        free(syslog_identifier);
-
         return 0;
 }
 
@@ -284,11 +288,17 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
         return 0;
 }
 
-int stdout_stream_process(StdoutStream *s) {
+static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        StdoutStream *s = userdata;
         ssize_t l;
         int r;
 
         assert(s);
+
+        if ((revents|EPOLLIN|EPOLLHUP) != (EPOLLIN|EPOLLHUP)) {
+                log_error("Got invalid event from epoll for stdout stream: %"PRIx32, revents);
+                goto terminate;
+        }
 
         l = read(s->fd, s->buffer+s->length, sizeof(s->buffer)-1-s->length);
         if (l < 0) {
@@ -297,24 +307,24 @@ int stdout_stream_process(StdoutStream *s) {
                         return 0;
 
                 log_warning("Failed to read from stream: %m");
-                return -errno;
+                goto terminate;
         }
 
         if (l == 0) {
-                r = stdout_stream_scan(s, true);
-                if (r < 0)
-                        return r;
-
-                return 0;
+                stdout_stream_scan(s, true);
+                goto terminate;
         }
 
         s->length += l;
         r = stdout_stream_scan(s, false);
         if (r < 0)
-                return r;
+                goto terminate;
 
         return 1;
 
+terminate:
+        stdout_stream_free(s);
+        return 0;
 }
 
 void stdout_stream_free(StdoutStream *s) {
@@ -323,15 +333,15 @@ void stdout_stream_free(StdoutStream *s) {
         if (s->server) {
                 assert(s->server->n_stdout_streams > 0);
                 s->server->n_stdout_streams --;
-                LIST_REMOVE(StdoutStream, stdout_stream, s->server->stdout_streams, s);
+                LIST_REMOVE(stdout_stream, s->server->stdout_streams, s);
         }
 
-        if (s->fd >= 0) {
-                if (s->server)
-                        epoll_ctl(s->server->epoll_fd, EPOLL_CTL_DEL, s->fd, NULL);
-
-                close_nointr_nofail(s->fd);
+        if (s->event_source) {
+                sd_event_source_set_enabled(s->event_source, SD_EVENT_OFF);
+                s->event_source = sd_event_source_unref(s->event_source);
         }
+
+        safe_close(s->fd);
 
 #ifdef HAVE_SELINUX
         if (s->security_context)
@@ -339,16 +349,21 @@ void stdout_stream_free(StdoutStream *s) {
 #endif
 
         free(s->identifier);
+        free(s->unit_id);
         free(s);
 }
 
-int stdout_stream_new(Server *s) {
+static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revents, void *userdata) {
+        Server *s = userdata;
         StdoutStream *stream;
         int fd, r;
-        socklen_t len;
-        struct epoll_event ev;
 
         assert(s);
+
+        if (revents != EPOLLIN) {
+                log_error("Got invalid event from epoll for stdout server fd: %"PRIx32, revents);
+                return -EIO;
+        }
 
         fd = accept4(s->stdout_fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (fd < 0) {
@@ -361,59 +376,61 @@ int stdout_stream_new(Server *s) {
 
         if (s->n_stdout_streams >= STDOUT_STREAMS_MAX) {
                 log_warning("Too many stdout streams, refusing connection.");
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return 0;
         }
 
         stream = new0(StdoutStream, 1);
         if (!stream) {
-                close_nointr_nofail(fd);
+                safe_close(fd);
                 return log_oom();
         }
 
         stream->fd = fd;
 
-        len = sizeof(stream->ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &stream->ucred, &len) < 0) {
+        r = getpeercred(fd, &stream->ucred);
+        if (r < 0) {
                 log_error("Failed to determine peer credentials: %m");
-                r = -errno;
                 goto fail;
         }
 
 #ifdef HAVE_SELINUX
-        if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
-                log_error("Failed to determine peer security context: %m");
+        if (use_selinux()) {
+                if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
+                        log_error("Failed to determine peer security context: %m");
+        }
 #endif
 
         if (shutdown(fd, SHUT_WR) < 0) {
                 log_error("Failed to shutdown writing side of socket: %m");
-                r = -errno;
                 goto fail;
         }
 
-        zero(ev);
-        ev.data.ptr = stream;
-        ev.events = EPOLLIN;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                log_error("Failed to add stream to event loop: %m");
-                r = -errno;
+        r = sd_event_add_io(s->event, &stream->event_source, fd, EPOLLIN, stdout_stream_process, stream);
+        if (r < 0) {
+                log_error("Failed to add stream to event loop: %s", strerror(-r));
+                goto fail;
+        }
+
+        r = sd_event_source_set_priority(stream->event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        if (r < 0) {
+                log_error("Failed to adjust stdout event source priority: %s", strerror(-r));
                 goto fail;
         }
 
         stream->server = s;
-        LIST_PREPEND(StdoutStream, stdout_stream, s->stdout_streams, stream);
+        LIST_PREPEND(stdout_stream, s->stdout_streams, stream);
         s->n_stdout_streams ++;
 
         return 0;
 
 fail:
         stdout_stream_free(stream);
-        return r;
+        return 0;
 }
 
 int server_open_stdout_socket(Server *s) {
         int r;
-        struct epoll_event ev;
 
         assert(s);
 
@@ -446,12 +463,16 @@ int server_open_stdout_socket(Server *s) {
         } else
                 fd_nonblock(s->stdout_fd, 1);
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.fd = s->stdout_fd;
-        if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, s->stdout_fd, &ev) < 0) {
-                log_error("Failed to add stdout server fd to epoll object: %m");
-                return -errno;
+        r = sd_event_add_io(s->event, &s->stdout_event_source, s->stdout_fd, EPOLLIN, stdout_stream_new, s);
+        if (r < 0) {
+                log_error("Failed to add stdout server fd to event source: %s", strerror(-r));
+                return r;
+        }
+
+        r = sd_event_source_set_priority(s->stdout_event_source, SD_EVENT_PRIORITY_NORMAL+10);
+        if (r < 0) {
+                log_error("Failed to adjust priority of stdout server event source: %s", strerror(-r));
+                return r;
         }
 
         return 0;

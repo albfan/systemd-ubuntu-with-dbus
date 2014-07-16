@@ -62,7 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "container", no_argument,       NULL, 'c'           },
                 { "vm",        optional_argument, NULL, 'v'           },
                 { "quiet",     no_argument,       NULL, 'q'           },
-                { NULL,        0,                 NULL, 0             }
+                {}
         };
 
         int c;
@@ -75,8 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -99,8 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
 
                 default:
-                        log_error("Unknown option code %c", c);
-                        return -EINVAL;
+                        assert_not_reached("Unhandled option");
                 }
         }
 
@@ -114,8 +112,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
         const char *id = NULL;
-        int r;
         int retval = EXIT_SUCCESS;
+        int r;
 
         /* This is mostly intended to be used for scripts which want
          * to detect whether we are being run in a virtualized
@@ -131,7 +129,7 @@ int main(int argc, char *argv[]) {
         switch (arg_mode) {
 
         case ANY_VIRTUALIZATION: {
-                Virtualization v;
+                int v;
 
                 v = detect_virtualization(&id);
                 if (v < 0) {

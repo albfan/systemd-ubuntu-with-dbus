@@ -37,6 +37,7 @@
 #include "strxcpyx.h"
 #include "store.h"
 #include "bootchart.h"
+#include "cgroup-util.h"
 
 /*
  * Alloc a static 4k buffer for stdio - primarily used to increase
@@ -61,7 +62,7 @@ void log_uptime(void) {
         char str[32];
         double uptime;
 
-        f = fopen("/proc/uptime", "r");
+        f = fopen("/proc/uptime", "re");
 
         if (!f)
                 return;
@@ -132,8 +133,6 @@ void log_sample(int sample, struct list_sample_data **ptr) {
         struct list_sample_data *sampledata;
         struct ps_sched_struct *ps_prev = NULL;
 
-
-
         sampledata = *ptr;
 
         /* all the per-process stuff goes here */
@@ -151,8 +150,8 @@ void log_sample(int sample, struct list_sample_data **ptr) {
                 /* block stuff */
                 vmstat = openat(procfd, "vmstat", O_RDONLY);
                 if (vmstat == -1) {
-                        perror("open /proc/vmstat");
-                        exit (EXIT_FAILURE);
+                        log_error("Failed to open /proc/vmstat: %m");
+                        exit(EXIT_FAILURE);
                 }
         }
 
@@ -183,8 +182,8 @@ vmstat_next:
                 /* overall CPU utilization */
                 schedstat = openat(procfd, "schedstat", O_RDONLY);
                 if (schedstat == -1) {
-                        perror("open /proc/schedstat");
-                        exit (EXIT_FAILURE);
+                        log_error("Failed to open /proc/schedstat: %m");
+                        exit(EXIT_FAILURE);
                 }
         }
 
@@ -257,17 +256,17 @@ schedstat_next:
                         char t[32];
                         struct ps_struct *parent;
 
-                        ps->next_ps = calloc(1, sizeof(struct ps_struct));
+                        ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps) {
-                                perror("calloc(ps_struct)");
+                                log_oom();
                                 exit (EXIT_FAILURE);
                         }
                         ps = ps->next_ps;
                         ps->pid = pid;
 
-                        ps->sample = calloc(1, sizeof(struct ps_sched_struct));
+                        ps->sample = new0(struct ps_sched_struct, 1);
                         if (!ps->sample) {
-                                perror("calloc(ps_struct)");
+                                log_oom();
                                 exit (EXIT_FAILURE);
                         }
                         ps->sample->sampledata = sampledata;
@@ -275,7 +274,7 @@ schedstat_next:
                         pscount++;
 
                         /* mark our first sample */
-                        ps->first = ps->sample;
+                        ps->first = ps->last = ps->sample;
                         ps->sample->runtime = atoll(rt);
                         ps->sample->waittime = atoll(wt);
 
@@ -317,6 +316,11 @@ schedstat_next:
 
                         ps->starttime = strtod(t, NULL) / 1000.0;
 
+                        if (arg_show_cgroup)
+                                /* if this fails, that's OK */
+                                cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER,
+                                                ps->pid, &ps->cgroup);
+
                         /* ppid */
                         sprintf(filename, "%d/stat", pid);
                         fd = openat(procfd, filename, O_RDONLY);
@@ -345,7 +349,7 @@ schedstat_next:
                         while ((parent->next_ps && parent->pid != ps->ppid))
                                 parent = parent->next_ps;
 
-                        if ((!parent) || (parent->pid != ps->ppid)) {
+                        if (parent->pid != ps->ppid) {
                                 /* orphan */
                                 ps->ppid = 1;
                                 parent = ps_first->next_ps;
@@ -393,10 +397,10 @@ schedstat_next:
                 if (!sscanf(buf, "%s %s %*s", rt, wt))
                         continue;
 
-                ps->sample->next = calloc(1, sizeof(struct ps_sched_struct));
+                ps->sample->next = new0(struct ps_sched_struct, 1);
                 if (!ps->sample) {
-                        perror("calloc(ps_struct)");
-                        exit (EXIT_FAILURE);
+                        log_oom();
+                        exit(EXIT_FAILURE);
                 }
                 ps->sample->next->prev = ps->sample;
                 ps->sample = ps->sample->next;

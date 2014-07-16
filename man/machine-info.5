@@ -1,5 +1,5 @@
 '\" t
-.TH "MACHINE\-INFO" "5" "" "systemd 208" "machine-info"
+.TH "MACHINE\-INFO" "5" "" "systemd 214" "machine-info"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,14 +28,14 @@ machine-info \- Local machine information file
 .PP
 The
 /etc/machine\-info
-file contains machine meta data\&.
+file contains machine metadata\&.
 .PP
 The basic file format of
 machine\-info
 is a newline\-separated list of environment\-like shell\-compatible variable assignments\&. It is possible to source the configuration from shell scripts, however, beyond mere variable assignments no shell features are supported, allowing applications to read the file without implementing a shell compatible execution engine\&.
 .PP
 /etc/machine\-info
-contains meta data about the machine that is set by the user or administrator\&.
+contains metadata about the machine that is set by the user or administrator\&.
 .PP
 Depending on the operating system other configuration files might be checked for machine information as well, however only as fallback\&.
 .PP
@@ -44,7 +44,7 @@ You may use
 to change the settings of this file from the command line\&.
 .SH "OPTIONS"
 .PP
-The following machine meta data parameters may be set using
+The following machine metadata parameters may be set using
 /etc/machine\-info:
 .PP
 \fIPRETTY_HOSTNAME=\fR

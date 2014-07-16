@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_CURSOR" "3" "" "systemd 208" "sd_journal_get_cursor"
+.TH "SD_JOURNAL_GET_CURSOR" "3" "" "systemd 214" "sd_journal_get_cursor"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,9 @@ sd_journal_get_cursor, sd_journal_test_cursor \- Get cursor string for or test c
 .fi
 .ft
 .HP \w'int\ sd_journal_get_cursor('u
-.BI "int sd_journal_get_cursor(sd_journal*\ " "j" ", char\ **\ " "cursor" ");"
+.BI "int sd_journal_get_cursor(sd_journal\ *" "j" ", char\ **" "cursor" ");"
 .HP \w'int\ sd_journal_test_cursor('u
-.BI "int sd_journal_test_cursor(sd_journal*\ " "j" ", const\ char\ *\ " "cursor" ");"
+.BI "int sd_journal_test_cursor(sd_journal\ *" "j" ", const\ char\ *" "cursor" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_cursor()\fR
@@ -63,8 +63,8 @@ The
 \fBsd_journal_get_cursor()\fR
 and
 \fBsd_journal_test_cursor()\fR
-interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-journal\fR\ \&\fBpkg-config\fR(1)
+interfaces are available as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
 file\&.
 .SH "SEE ALSO"
 .PP

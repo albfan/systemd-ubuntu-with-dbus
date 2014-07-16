@@ -22,20 +22,18 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <endian.h>
+#include "_sd-common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+_SD_BEGIN_DECLARATIONS;
 
 /* Types of message */
 
 enum {
         _SD_BUS_MESSAGE_TYPE_INVALID = 0,
-        SD_BUS_MESSAGE_TYPE_METHOD_CALL,
-        SD_BUS_MESSAGE_TYPE_METHOD_RETURN,
-        SD_BUS_MESSAGE_TYPE_METHOD_ERROR,
-        SD_BUS_MESSAGE_TYPE_SIGNAL,
+        SD_BUS_MESSAGE_METHOD_CALL,
+        SD_BUS_MESSAGE_METHOD_RETURN,
+        SD_BUS_MESSAGE_METHOD_ERROR,
+        SD_BUS_MESSAGE_SIGNAL,
         _SD_BUS_MESSAGE_TYPE_MAX
 };
 
@@ -66,88 +64,39 @@ enum {
         SD_BUS_TYPE_DICT_ENTRY_END   = '}',
 };
 
-/* Endianness */
+/* Well-known errors. Note that this is only a sanitized subset of the
+ * errors that the reference implementation generates. */
 
-enum {
-        _SD_BUS_INVALID_ENDIAN = 0,
-        SD_BUS_LITTLE_ENDIAN   = 'l',
-        SD_BUS_BIG_ENDIAN      = 'B',
-#if __BYTE_ORDER == __BIG_ENDIAN
-        SD_BUS_NATIVE_ENDIAN   = SD_BUS_BIG_ENDIAN,
-        SD_BUS_REVERSE_ENDIAN  = SD_BUS_LITTLE_ENDIAN
-#else
-        SD_BUS_NATIVE_ENDIAN   = SD_BUS_LITTLE_ENDIAN,
-        SD_BUS_REVERSE_ENDIAN  = SD_BUS_BIG_ENDIAN
-#endif
-};
+#define SD_BUS_ERROR_FAILED                     "org.freedesktop.DBus.Error.Failed"
+#define SD_BUS_ERROR_NO_MEMORY                  "org.freedesktop.DBus.Error.NoMemory"
+#define SD_BUS_ERROR_SERVICE_UNKNOWN            "org.freedesktop.DBus.Error.ServiceUnknown"
+#define SD_BUS_ERROR_NAME_HAS_NO_OWNER          "org.freedesktop.DBus.Error.NameHasNoOwner"
+#define SD_BUS_ERROR_NO_REPLY                   "org.freedesktop.DBus.Error.NoReply"
+#define SD_BUS_ERROR_IO_ERROR                   "org.freedesktop.DBus.Error.IOError"
+#define SD_BUS_ERROR_BAD_ADDRESS                "org.freedesktop.DBus.Error.BadAddress"
+#define SD_BUS_ERROR_NOT_SUPPORTED              "org.freedesktop.DBus.Error.NotSupported"
+#define SD_BUS_ERROR_LIMITS_EXCEEDED            "org.freedesktop.DBus.Error.LimitsExceeded"
+#define SD_BUS_ERROR_ACCESS_DENIED              "org.freedesktop.DBus.Error.AccessDenied"
+#define SD_BUS_ERROR_AUTH_FAILED                "org.freedesktop.DBus.Error.AuthFailed"
+#define SD_BUS_ERROR_NO_SERVER                  "org.freedesktop.DBus.Error.NoServer"
+#define SD_BUS_ERROR_TIMEOUT                    "org.freedesktop.DBus.Error.Timeout"
+#define SD_BUS_ERROR_NO_NETWORK                 "org.freedesktop.DBus.Error.NoNetwork"
+#define SD_BUS_ERROR_ADDRESS_IN_USE             "org.freedesktop.DBus.Error.AddressInUse"
+#define SD_BUS_ERROR_DISCONNECTED               "org.freedesktop.DBus.Error.Disconnected"
+#define SD_BUS_ERROR_INVALID_ARGS               "org.freedesktop.DBus.Error.InvalidArgs"
+#define SD_BUS_ERROR_FILE_NOT_FOUND             "org.freedesktop.DBus.Error.FileNotFound"
+#define SD_BUS_ERROR_FILE_EXISTS                "org.freedesktop.DBus.Error.FileExists"
+#define SD_BUS_ERROR_UNKNOWN_METHOD             "org.freedesktop.DBus.Error.UnknownMethod"
+#define SD_BUS_ERROR_UNKNOWN_OBJECT             "org.freedesktop.DBus.Error.UnknownObject"
+#define SD_BUS_ERROR_UNKNOWN_INTERFACE          "org.freedesktop.DBus.Error.UnknownInterface"
+#define SD_BUS_ERROR_UNKNOWN_PROPERTY           "org.freedesktop.DBus.Error.UnknownProperty"
+#define SD_BUS_ERROR_PROPERTY_READ_ONLY         "org.freedesktop.DBus.Error.PropertyReadOnly"
+#define SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN    "org.freedesktop.DBus.Error.UnixProcessIdUnknown"
+#define SD_BUS_ERROR_INVALID_SIGNATURE          "org.freedesktop.DBus.Error.InvalidSignature"
+#define SD_BUS_ERROR_INCONSISTENT_MESSAGE       "org.freedesktop.DBus.Error.InconsistentMessage"
+#define SD_BUS_ERROR_MATCH_RULE_NOT_FOUND       "org.freedesktop.DBus.Error.MatchRuleNotFound"
+#define SD_BUS_ERROR_MATCH_RULE_INVALID         "org.freedesktop.DBus.Error.MatchRuleInvalid"
 
-/* Flags */
-
-enum {
-        SD_BUS_MESSAGE_NO_REPLY_EXPECTED = 1,
-        SD_BUS_MESSAGE_NO_AUTO_START = 2
-};
-
-/* Header fields */
-
-enum {
-        _SD_BUS_MESSAGE_HEADER_INVALID = 0,
-        SD_BUS_MESSAGE_HEADER_PATH,
-        SD_BUS_MESSAGE_HEADER_INTERFACE,
-        SD_BUS_MESSAGE_HEADER_MEMBER,
-        SD_BUS_MESSAGE_HEADER_ERROR_NAME,
-        SD_BUS_MESSAGE_HEADER_REPLY_SERIAL,
-        SD_BUS_MESSAGE_HEADER_DESTINATION,
-        SD_BUS_MESSAGE_HEADER_SENDER,
-        SD_BUS_MESSAGE_HEADER_SIGNATURE,
-        SD_BUS_MESSAGE_HEADER_UNIX_FDS,
-        _SD_BUS_MESSAGE_HEADER_MAX
-};
-
-#define SD_BUS_INTROSPECT_DOCTYPE                                       \
-        "<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\"\n" \
-        "\"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
-
-#define SD_BUS_INTROSPECT_INTERFACE_PROPERTIES                          \
-        " <interface name=\"org.freedesktop.DBus.Properties\">\n"       \
-        "  <method name=\"Get\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
-        "   <arg name=\"value\" direction=\"out\" type=\"v\"/>\n"       \
-        "  </method>\n"                                                 \
-        "  <method name=\"GetAll\">\n"                                  \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"properties\" direction=\"out\" type=\"a{sv}\"/>\n" \
-        "  </method>\n"                                                 \
-        "  <method name=\"Set\">\n"                                     \
-        "   <arg name=\"interface\" direction=\"in\" type=\"s\"/>\n"    \
-        "   <arg name=\"property\" direction=\"in\" type=\"s\"/>\n"     \
-        "   <arg name=\"value\" direction=\"in\" type=\"v\"/>\n"        \
-        "  </method>\n"                                                 \
-        "  <signal name=\"PropertiesChanged\">\n"                       \
-        "   <arg type=\"s\" name=\"interface\"/>\n"                     \
-        "   <arg type=\"a{sv}\" name=\"changed_properties\"/>\n"        \
-        "   <arg type=\"as\" name=\"invalidated_properties\"/>\n"       \
-        "  </signal>\n"                                                 \
-        " </interface>\n"
-
-#define SD_BUS_INTROSPECT_INTERFACE_INTROSPECTABLE                      \
-        " <interface name=\"org.freedesktop.DBus.Introspectable\">\n"   \
-        "  <method name=\"Introspect\">\n"                              \
-        "   <arg name=\"data\" type=\"s\" direction=\"out\"/>\n"        \
-        "  </method>\n"                                                 \
-        " </interface>\n"
-
-#define SD_BUS_INTROSPECT_INTERFACE_PEER                                \
-        "<interface name=\"org.freedesktop.DBus.Peer\">\n"              \
-        " <method name=\"Ping\"/>\n"                                    \
-        " <method name=\"GetMachineId\">\n"                             \
-        "  <arg type=\"s\" name=\"machine_uuid\" direction=\"out\"/>\n" \
-        " </method>\n"                                                  \
-        "</interface>\n"
-
-#ifdef __cplusplus
-}
-#endif
+_SD_END_DECLARATIONS;
 
 #endif

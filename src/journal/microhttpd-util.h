@@ -22,7 +22,33 @@
 #pragma once
 
 #include <stdarg.h>
+#include <microhttpd.h>
 
 #include "macro.h"
 
-void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_attr_(2, 0);
+void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
+
+/* respond_oom() must be usable with return, hence this form. */
+#define respond_oom(connection) log_oom(), mhd_respond_oom(connection)
+
+int mhd_respondf(struct MHD_Connection *connection,
+                 unsigned code,
+                 const char *format, ...) _printf_(3,4);
+
+int mhd_respond(struct MHD_Connection *connection,
+                unsigned code,
+                const char *message);
+
+int mhd_respond_oom(struct MHD_Connection *connection);
+
+int check_permissions(struct MHD_Connection *connection, int *code);
+
+#ifdef HAVE_GNUTLS
+void log_func_gnutls(int level, const char *message);
+
+/* This is additionally filtered by our internal log level, so it
+ * should be set fairly high to capture all potentially interesting
+ * events without overwhelming detail.
+ */
+#define GNUTLS_LOG_LEVEL 6
+#endif

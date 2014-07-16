@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BOOTED" "3" "" "systemd 208" "sd_booted"
+.TH "SD_BOOTED" "3" "" "systemd 214" "sd_booted"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -39,28 +39,13 @@ checks whether the system was booted up using the systemd init system\&.
 On failure, this call returns a negative errno\-style error code\&. If the system was booted up with systemd as init system, this call returns a positive return value, zero otherwise\&.
 .SH "NOTES"
 .PP
-This function is provided by the reference implementation of APIs for new\-style daemons and distributed with the systemd package\&. The algorithm it implements is simple, and can easily be reimplemented in daemons if it is important to support this interface without using the reference implementation\&.
+These APIs are implemented as a shared library, which can be compiled and linked to with the
+\fBlibsystemd\fR\ \&\fBpkg-config\fR(1)
+file\&.
 .PP
 Internally, this function checks whether the directory
 /run/systemd/system/
 exists\&. A simple check like this can also be implemented trivially in shell or any other language\&.
-.PP
-For details about the algorithm check the liberally licensed reference implementation sources:
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/libsystemd-daemon/sd-daemon.c\fR\m[]
-and
-\m[blue]\fB\%http://cgit.freedesktop.org/systemd/systemd/plain/src/systemd/sd-daemon.h\fR\m[]
-.PP
-\fBsd_booted()\fR
-is implemented in the reference implementation\*(Aqs
-sd\-daemon\&.c
-and
-sd\-daemon\&.h
-files\&. These interfaces are available as shared library, which can be compiled and linked to with the
-\fBlibsystemd\-daemon\fR\ \&\fBpkg-config\fR(1)
-file\&. Alternatively, applications consuming these APIs may copy the implementation into their source tree\&. For more details about the reference implementation see
-\fBsd-daemon\fR(3)\&.
-.PP
-If the reference implementation is used as drop\-in files and \-DDISABLE_SYSTEMD is set during compilation, this function will always return 0 and otherwise become a NOP\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

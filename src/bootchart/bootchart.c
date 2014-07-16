@@ -72,23 +72,31 @@ int overrun = 0;
 static int exiting = 0;
 int sysfd=-1;
 
+#define DEFAULT_SAMPLES_LEN 500
+#define DEFAULT_HZ 25.0
+#define DEFAULT_SCALE_X 100.0 /* 100px = 1sec */
+#define DEFAULT_SCALE_Y 20.0  /* 16px = 1 process bar */
+#define DEFAULT_INIT "/sbin/init"
+#define DEFAULT_OUTPUT "/run/log"
+
 /* graph defaults */
 bool arg_entropy = false;
 bool initcall = true;
 bool arg_relative = false;
 bool arg_filter = true;
 bool arg_show_cmdline = false;
+bool arg_show_cgroup = false;
 bool arg_pss = false;
 int samples;
-int arg_samples_len = 500; /* we record len+1 (1 start sample) */
-double arg_hz = 25.0;   /* 20 seconds log time */
-double arg_scale_x = 100.0; /* 100px = 1sec */
-double arg_scale_y = 20.0;  /* 16px = 1 process bar */
+int arg_samples_len = DEFAULT_SAMPLES_LEN; /* we record len+1 (1 start sample) */
+double arg_hz = DEFAULT_HZ;
+double arg_scale_x = DEFAULT_SCALE_X;
+double arg_scale_y = DEFAULT_SCALE_Y;
 static struct list_sample_data *sampledata;
 struct list_sample_data *head;
 
-char arg_init_path[PATH_MAX] = "/sbin/init";
-char arg_output_path[PATH_MAX] = "/run/log";
+char arg_init_path[PATH_MAX] = DEFAULT_INIT;
+char arg_output_path[PATH_MAX] = DEFAULT_OUTPUT;
 
 static void signal_handler(int sig) {
         if (sig++)
@@ -113,6 +121,7 @@ static void parse_conf(void) {
                 { "Bootchart", "PlotEntropyGraph", config_parse_bool,   0, &arg_entropy     },
                 { "Bootchart", "ScaleX",           config_parse_double, 0, &arg_scale_x     },
                 { "Bootchart", "ScaleY",           config_parse_double, 0, &arg_scale_y     },
+                { "Bootchart", "ControlGroup",     config_parse_bool,   0, &arg_show_cgroup },
                 { NULL, NULL, NULL, 0, NULL }
         };
         _cleanup_fclose_ FILE *f;
@@ -133,6 +142,33 @@ static void parse_conf(void) {
                 strscpy(arg_output_path, sizeof(arg_output_path), output);
 }
 
+static void help(void) {
+        fprintf(stdout,
+                "Usage: %s [OPTIONS]\n\n"
+                "Options:\n"
+                "  -r, --rel             Record time relative to recording\n"
+                "  -f, --freq=FREQ       Sample frequency [%g]\n"
+                "  -n, --samples=N       Stop sampling at [%d] samples\n"
+                "  -x, --scale-x=N       Scale the graph horizontally [%g] \n"
+                "  -y, --scale-y=N       Scale the graph vertically [%g] \n"
+                "  -p, --pss             Enable PSS graph (CPU intensive)\n"
+                "  -e, --entropy         Enable the entropy_avail graph\n"
+                "  -o, --output=PATH     Path to output files [%s]\n"
+                "  -i, --init=PATH       Path to init executable [%s]\n"
+                "  -F, --no-filter       Disable filtering of unimportant or ephemeral processes\n"
+                "  -C, --cmdline         Display full command lines with arguments\n"
+                "  -c, --control-group   Display process control group\n"
+                "  -h, --help            Display this message\n\n"
+                "See bootchart.conf for more information.\n",
+                program_invocation_short_name,
+                DEFAULT_HZ,
+                DEFAULT_SAMPLES_LEN,
+                DEFAULT_SCALE_X,
+                DEFAULT_SCALE_Y,
+                DEFAULT_OUTPUT,
+                DEFAULT_INIT);
+}
+
 static int parse_args(int argc, char *argv[]) {
         static struct option options[] = {
                 {"rel",       no_argument,        NULL,  'r'},
@@ -143,6 +179,7 @@ static int parse_args(int argc, char *argv[]) {
                 {"init",      required_argument,  NULL,  'i'},
                 {"no-filter", no_argument,        NULL,  'F'},
                 {"cmdline",   no_argument,        NULL,  'C'},
+                {"control-group", no_argument,    NULL,  'c'},
                 {"help",      no_argument,        NULL,  'h'},
                 {"scale-x",   required_argument,  NULL,  'x'},
                 {"scale-y",   required_argument,  NULL,  'y'},
@@ -151,7 +188,7 @@ static int parse_args(int argc, char *argv[]) {
         };
         int c;
 
-        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FChx:y:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0) {
                 int r;
 
                 switch (c) {
@@ -169,6 +206,9 @@ static int parse_args(int argc, char *argv[]) {
                         break;
                 case 'C':
                         arg_show_cmdline = true;
+                        break;
+                case 'c':
+                        arg_show_cgroup = true;
                         break;
                 case 'n':
                         r = safe_atoi(optarg, &arg_samples_len);
@@ -203,24 +243,8 @@ static int parse_args(int argc, char *argv[]) {
                         arg_entropy = true;
                         break;
                 case 'h':
-                        fprintf(stderr, "Usage: %s [OPTIONS]\n", argv[0]);
-                        fprintf(stderr, " --rel,       -r          Record time relative to recording\n");
-                        fprintf(stderr, " --freq,      -f f        Sample frequency [%f]\n", arg_hz);
-                        fprintf(stderr, " --samples,   -n N        Stop sampling at [%d] samples\n", arg_samples_len);
-                        fprintf(stderr, " --scale-x,   -x N        Scale the graph horizontally [%f] \n", arg_scale_x);
-                        fprintf(stderr, " --scale-y,   -y N        Scale the graph vertically [%f] \n", arg_scale_y);
-                        fprintf(stderr, " --pss,       -p          Enable PSS graph (CPU intensive)\n");
-                        fprintf(stderr, " --entropy,   -e          Enable the entropy_avail graph\n");
-                        fprintf(stderr, " --output,    -o [PATH]   Path to output files [%s]\n", arg_output_path);
-                        fprintf(stderr, " --init,      -i [PATH]   Path to init executable [%s]\n", arg_init_path);
-                        fprintf(stderr, " --no-filter, -F          Disable filtering of processes from the graph\n");
-                        fprintf(stderr, "                          that are of less importance or short-lived\n");
-                        fprintf(stderr, " --cmdline,   -C          Display the full command line with arguments\n");
-                        fprintf(stderr, "                          of processes, instead of only the process name\n");
-                        fprintf(stderr, " --help,      -h          Display this message\n");
-                        fprintf(stderr, "See bootchart.conf for more information.\n");
+                        help();
                         exit (EXIT_SUCCESS);
-                        break;
                 default:
                         break;
                 }
@@ -234,8 +258,7 @@ static int parse_args(int argc, char *argv[]) {
         return 0;
 }
 
-static void do_journal_append(char *file)
-{
+static void do_journal_append(char *file) {
         struct iovec iovec[5];
         int r, f, j = 0;
         ssize_t n;
@@ -254,20 +277,20 @@ static void do_journal_append(char *file)
 
         p = malloc(9 + BOOTCHART_MAX);
         if (!p) {
-                r = log_oom();
+                log_oom();
                 return;
         }
 
         memcpy(p, "BOOTCHART=", 10);
 
-        f = open(file, O_RDONLY);
+        f = open(file, O_RDONLY|O_CLOEXEC);
         if (f < 0) {
-                log_error("Failed to read bootchart data: %m\n");
+                log_error("Failed to read bootchart data: %m");
                 return;
         }
         n = loop_read(f, p + 10, BOOTCHART_MAX, false);
         if (n < 0) {
-                log_error("Failed to read bootchart data: %s\n", strerror(-n));
+                log_error("Failed to read bootchart data: %s", strerror(-n));
                 close(f);
                 return;
         }
@@ -319,10 +342,10 @@ int main(int argc, char *argv[]) {
         (void) setrlimit(RLIMIT_NOFILE, &rlim);
 
         /* start with empty ps LL */
-        ps_first = calloc(1, sizeof(struct ps_struct));
+        ps_first = new0(struct ps_struct, 1);
         if (!ps_first) {
-                perror("calloc(ps_struct)");
-                exit(EXIT_FAILURE);
+                log_oom();
+                return EXIT_FAILURE;
         }
 
         /* handle TERM/INT nicely */
@@ -332,7 +355,7 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
-        LIST_HEAD_INIT(struct list_sample_data, head);
+        LIST_HEAD_INIT(head);
 
         /* main program loop */
         for (samples = 0; !exiting && samples < arg_samples_len; samples++) {
@@ -357,11 +380,11 @@ int main(int argc, char *argv[]) {
                         t = time(NULL);
                         strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                         snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                        of = fopen(output_file, "w");
+                        of = fopen(output_file, "we");
                 }
 
                 if (sysfd < 0)
-                        sysfd = open("/sys", O_RDONLY);
+                        sysfd = open("/sys", O_RDONLY|O_CLOEXEC);
 
                 if (!build)
                         parse_env_file("/etc/os-release", NEWLINE,
@@ -398,15 +421,15 @@ int main(int argc, char *argv[]) {
                                         /* caught signal, probably HUP! */
                                         break;
                                 }
-                                perror("nanosleep()");
-                                exit (EXIT_FAILURE);
+                                log_error("nanosleep() failed: %m");
+                                exit(EXIT_FAILURE);
                         }
                 } else {
                         overrun++;
                         /* calculate how many samples we lost and scrap them */
                         arg_samples_len -= (int)(newint_ns / interval);
                 }
-                LIST_PREPEND(struct list_sample_data, link, head, sampledata);
+                LIST_PREPEND(link, head, sampledata);
         }
 
         /* do some cleanup, close fd's */
@@ -425,7 +448,7 @@ int main(int argc, char *argv[]) {
                 t = time(NULL);
                 strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
                 snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
-                of = fopen(output_file, "w");
+                of = fopen(output_file, "we");
         }
 
         if (!of) {
@@ -460,9 +483,11 @@ int main(int argc, char *argv[]) {
                         old->sample = old->sample->next;
                         free(oldsample);
                 }
+                free(old->cgroup);
                 free(old->sample);
                 free(old);
         }
+        free(ps->cgroup);
         free(ps->sample);
         free(ps);
 
