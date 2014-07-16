@@ -1,7 +1,6 @@
 From: Tollef Fog Heen <tfheen@err.no>
 Date: Mon, 28 Oct 2013 14:31:37 +0100
-Subject: Make 99-systemd.rules check for /run/systemd/systemd instead of the
- ill-named cgroups directory.
+Subject: Skip 99-systemd.rules when not running systemd as init.
 
 ---
  rules/99-systemd.rules.in | 1 +
