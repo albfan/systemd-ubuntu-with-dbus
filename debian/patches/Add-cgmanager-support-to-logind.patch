@@ -248,7 +248,7 @@ Index: systemd-204/src/shared/cgmanager.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
 +++ systemd-204/src/shared/cgmanager.c	2014-06-18 23:20:04.942249484 -0400
-@@ -0,0 +1,247 @@
+@@ -0,0 +1,246 @@
 +/*
 + * lxc: linux Container library
 + *
@@ -391,7 +391,6 @@ Index: systemd-204/src/shared/cgmanager.c
 +		log_error("cgmanager: cgm_get for controller=%s, cgroup_path=%s failed: %s",
 +		          controller, cgroup_path, nerr->message);
 +		nih_free(nerr);
-+		nih_free(result);
 +		return NULL;
 +	}
 +
