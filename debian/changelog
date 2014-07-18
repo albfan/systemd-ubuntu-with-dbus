@@ -1,7 +1,11 @@
 systemd (208-7) UNRELEASED; urgency=medium
 
+  [ Michael Biebl ]
   * Mask remaining services provided by the initscripts package and document
     in more detail why certain services have been masked. (Closes: #659264)
+
+  [ Jon Severinsson ]
+  * Cherry-pick upstream fix for journal file permissions.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
