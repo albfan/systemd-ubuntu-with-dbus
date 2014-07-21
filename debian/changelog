@@ -1,4 +1,4 @@
-systemd (208-6ubuntu1) UNRELEASED; urgency=medium
+systemd (208-6ubuntu1) utopic; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Add patches for specifying an alternate /etc/machine-id location, skip
@@ -36,7 +36,7 @@ systemd (208-6ubuntu1) UNRELEASED; urgency=medium
     - systemd Conflicts/Replaces/Provides systemd-services.
     - Remove obsolete systemd-logind upstart job.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 17:29:00 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 21 Jul 2014 12:56:58 +0200
 
 systemd (208-7) UNRELEASED; urgency=medium
 
