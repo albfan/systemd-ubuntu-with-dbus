@@ -27,6 +27,8 @@ systemd (208-6ubuntu1) UNRELEASED; urgency=medium
       for those in plymouth.
     - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Re-add systemd-shim alternative dependency to libpam-systemd, and
+      version it to ensure cgmanager support. (LP: #1343802)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
