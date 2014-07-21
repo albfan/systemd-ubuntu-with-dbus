@@ -1,6 +1,6 @@
 #!/bin/sh
-# autopkgtest check: Test various libsystemd* APIs
-# (C) 2013 Canonical Ltd.
+# autopkgtest check: Test build against libsystemd-login-dev
+# (C) 2014 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 
 set -e
@@ -19,21 +19,15 @@ int main(int argc, char **argv)
     int res;
 
     res = sd_login_monitor_new(NULL, &mon);
-    if (res < 0) {
-        fprintf(stderr, "sd_login_monitor_new failed with value %i\n", res);
-        return 1;
-    }
-
-    assert(sd_login_monitor_get_fd(mon) > 0);
-
-    sd_login_monitor_unref(mon);
+    if (res >= 0)
+        sd_login_monitor_unref(mon);
 
     return 0;
 }
 EOF
 
 gcc -Wall -Werror -o loginmonitor loginmonitor.c `pkg-config --cflags --libs libsystemd-login`
-echo "loginmonitor build: OK"
+echo "build: OK"
 [ -x loginmonitor ]
 ./loginmonitor
-echo "loginmonitor run: OK"
+echo "run: OK"

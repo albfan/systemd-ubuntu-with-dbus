@@ -7,6 +7,13 @@ systemd (208-7) UNRELEASED; urgency=medium
   [ Jon Severinsson ]
   * Cherry-pick upstream fix for journal file permissions.
 
+  [ Martin Pitt ]
+  * Rename "api" autopkgtest to "build-login", and stop requiring that
+    sd_login_monitor_new() succeeds. It doesn't in many environments like
+    schroot or after upgrades from < 204, and the main point of the test is
+    to check that libsystemd-login-dev has correct contents and dependencies.
+    Drop "isolation-machine" requirement.
+
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
 systemd (208-6) unstable; urgency=medium
