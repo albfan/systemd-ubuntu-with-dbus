@@ -29,6 +29,8 @@ systemd (208-6ubuntu1) UNRELEASED; urgency=medium
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
     - Re-add systemd-shim alternative dependency to libpam-systemd, and
       version it to ensure cgmanager support. (LP: #1343802)
+    - Revert 2d54bc3: Drop patches to make logind D-Bus activatable; this
+      was wrong to do in Debian, as it's necessary for non-systemd pid 1.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
