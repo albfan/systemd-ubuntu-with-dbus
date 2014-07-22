@@ -520,3 +520,4 @@ Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 core-transaction-fix-cycle-break-attempts-outside-tr.patch
 tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
+Map-rcS.d-init-script-dependencies-to-their-systemd-.patch

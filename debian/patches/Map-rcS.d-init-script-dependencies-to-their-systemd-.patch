@@ -1,0 +1,25 @@
+From: Jon Severinsson <jon@severinsson.net>
+Date: Fri, 11 Jul 2014 02:15:37 +0200
+Subject: Map rcS.d init script dependencies to their systemd equivalent.
+
+---
+ src/core/service.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/core/service.c b/src/core/service.c
+index dda34a7..b3f48b4 100644
+--- a/src/core/service.c
++++ b/src/core/service.c
+@@ -370,6 +370,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+                 "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
+                 "syslog",               SPECIAL_SYSLOG_TARGET,
+                 "time",                 SPECIAL_TIME_SYNC_TARGET,
++                /* special rcS init scripts */
++                "cryptdisks",           "cryptsetup.target",
++                "mountall",             SPECIAL_LOCAL_FS_TARGET,
++                "mountnfs",             SPECIAL_REMOTE_FS_TARGET,
++                "checkroot",            "systemd-remount-fs.service",
++                "dbus",                 "dbus.socket",
+         };
+ 
+         unsigned i;
