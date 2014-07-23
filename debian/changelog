@@ -7,6 +7,8 @@ systemd (208-7) UNRELEASED; urgency=medium
   [ Jon Severinsson ]
   * Cherry-pick upstream fix for journal file permissions.
   * Map some rcS.d init script dependencies to their systemd equivalent.
+  * Update Depends on initscripts to the version with a systemd-compatible
+    mountnfs ifup hook. (Closes: #746358)
 
   [ Martin Pitt ]
   * Rename "api" autopkgtest to "build-login", and stop requiring that
