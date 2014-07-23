@@ -2,6 +2,5 @@ Tests: timedated hostnamed localed-locale localed-x11-keymap logind
 Depends: systemd, libpam-systemd, acl
 Restrictions: needs-root isolation-machine
 
-Tests: api
-Depends: systemd, libpam-systemd, libsystemd-login-dev, build-essential, pkg-config
-Restrictions: isolation-machine
+Tests: build-login
+Depends: libsystemd-login-dev, build-essential, pkg-config

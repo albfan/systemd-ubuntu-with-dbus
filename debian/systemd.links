@@ -46,11 +46,7 @@
 /dev/null /lib/systemd/system/umountnfs.service
 /dev/null /lib/systemd/system/umountroot.service
 /dev/null /lib/systemd/system/checkfs.service
-# We need checkroot as synchronisation point for LSB/SysV init scripts,
-# so symlink it to remount-rootfs
-/lib/systemd/system/systemd-remount-fs.service /lib/systemd/system/checkroot.service
-# checkroot-bootclean cleans up directories before mounting a tmpfs
-# over it. As systemd handles mounts differently, mask this service.
+/dev/null /lib/systemd/system/checkroot.service
 /dev/null /lib/systemd/system/checkroot-bootclean.service
 
 # We use the built-in cryptsetup support
