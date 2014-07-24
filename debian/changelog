@@ -1,6 +1,7 @@
 systemd (214-1) UNRELEASED; urgency=medium
 
   * New upstream release v214.
+   (Closes: #750793, #749268, #747939)
 
   [ Jon Severinsson ]
   * Import upstream v214-stable patch series.
@@ -21,6 +22,9 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Add support for rcS.d init scripts to the sysv-generator.
     - Do not order rcS.d services after local-fs.target if they do not
       explicitly depend on $local_fs.
+    - Map rcS.d init script dependencies to their systemd equivalent.
+    - Special-case some dependencies for sysv init scripts for better
+      backwards compatibility. (Closes: #726027, #738965).
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
