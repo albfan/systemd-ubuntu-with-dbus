@@ -98,3 +98,5 @@ more-cd-aliases.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 Add-support-for-TuxOnIce-hibernation.patch
+Add-support-for-rcS.d-init-scripts-to-the-sysv-gener.patch
+Do-not-generate-systemd-units-from-sysv-init-scripts.patch

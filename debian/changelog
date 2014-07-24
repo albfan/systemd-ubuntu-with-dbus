@@ -18,6 +18,7 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Add new system group "input" used by udev rules in udev postinst.
   * Try-restart networkd, resolved, and timesyncd after an upgrade.
   * Do not force-enable default-on services on every upgrade.
+  * Add support for rcS.d init scripts to the sysv-generator.
 
   [ Sjoerd Simons ]
   * debian/patches/shared-include-stdbool.h-in-mkdir.h.patch
