@@ -1606,7 +1606,7 @@ systemd (208-7) unstable; urgency=medium
   * Install zsh completions to the correct place. (Closes: #717540)
 
   [ Jon Severinsson ]
-  * Cherry-pick upstream fix for journal file permissions.
+  * Cherry-pick upstream fix for journal file permissions. (Closes: #755062)
   * Map some rcS.d init script dependencies to their systemd equivalent.
   * Update Depends on initscripts to the version with a systemd-compatible
     mountnfs ifup hook. (Closes: #746358)
