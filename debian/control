@@ -45,7 +45,8 @@ Section: admin
 Priority: optional
 Recommends: libpam-systemd
 Suggests: systemd-ui
-Pre-Depends: ${misc:Pre-Depends}
+Pre-Depends: ${shlibs:Pre-Depends},
+             ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd-login0 (= ${binary:Version}),
@@ -158,9 +159,9 @@ Architecture: linux-any
 Multi-Arch: same
 Section: libs
 Priority: optional
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
+Pre-Depends: ${shlibs:Depends},
+             ${misc:Pre-Depends}
+Depends: ${misc:Depends}
 Description: systemd utility library
  The sd-daemon library provides a reference implementation of various
  APIs for new-style daemons, as implemented by the systemd init system.

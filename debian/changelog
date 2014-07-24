@@ -16,6 +16,8 @@ systemd (208-7) UNRELEASED; urgency=medium
     when the preinst script is run. (Closes: #755746)
   * Add Pre-Depends on systemd to systemd-sysv, to avoid risking that the
     sysv-compatible symlinks become dangling on a partial install.
+  * Ensure that systemctl is usable right after being unpacked, by adding the
+    required Pre-Depends to systemd and libsystemd-daemon0. (Closes: #753589)
 
   [ Martin Pitt ]
   * Rename "api" autopkgtest to "build-login", and stop requiring that
