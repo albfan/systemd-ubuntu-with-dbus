@@ -32,7 +32,7 @@ usr/share/man/man5/
 usr/share/man/man7/
 usr/share/man/man8/
 usr/share/bash-completion/
-usr/share/zsh/site-functions/
+usr/share/zsh/vendor-completions/
 usr/share/dbus-1/
 usr/share/doc/
 usr/share/pkgconfig/systemd.pc

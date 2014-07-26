@@ -3,6 +3,7 @@ systemd (208-7) UNRELEASED; urgency=medium
   [ Michael Biebl ]
   * Mask remaining services provided by the initscripts package and document
     in more detail why certain services have been masked. (Closes: #659264)
+  * Install zsh completions to the correct place. (Closes: #717540)
 
   [ Jon Severinsson ]
   * Cherry-pick upstream fix for journal file permissions.
