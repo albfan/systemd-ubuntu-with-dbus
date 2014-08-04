@@ -107,6 +107,7 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version}),
          libpam-runtime (>= 1.0.1-6),
+         dbus,
          systemd-sysv
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
