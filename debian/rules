@@ -31,7 +31,9 @@ endif
 CONFFLAGS_deb = \
 	--enable-selinux \
 	--enable-introspection \
-	--enable-gtk-doc
+	--enable-gtk-doc \
+	PYTHON=python3 \
+	$(NULL)
 
 CONFFLAGS_udeb = \
 	--disable-selinux \
@@ -219,7 +221,7 @@ override_dh_strip:
 
 %:
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
-	dh $@ --with autoreconf,gir,python2
+	dh $@ --with autoreconf,gir,python3
 else
-	dh $@ --with autoreconf,python2 $(BOOTSTRAP_DH_FLAGS)
+	dh $@ --with autoreconf,python3 $(BOOTSTRAP_DH_FLAGS)
 endif

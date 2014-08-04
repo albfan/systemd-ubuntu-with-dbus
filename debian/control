@@ -37,7 +37,7 @@ Build-Depends: debhelper (>= 9),
                libblkid-dev (>= 2.20),
                libgirepository1.0-dev (>= 1.31.1),
                gobject-introspection (>= 1.31.1),
-               python-dev,
+               python3-all-dev,
                libglib2.0-doc
 
 Package: systemd
@@ -343,15 +343,15 @@ Description: libgudev-1.0 development files
  This package contains the files needed for developing applications that
  use libgudev-1.0.
 
-Package: python-systemd
+Package: python3-systemd
 Section: python
 Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         ${python:Depends}
-Description: python bindings for systemd
- This package contains Python bindings for the systemd libraries.
+         ${python3:Depends}
+Description: Python 3 bindings for systemd
+ This package contains Python 3 bindings for the systemd libraries.
 
 Package: systemd-dbg
 Architecture: linux-any
