@@ -24,6 +24,7 @@ systemd (208-7) UNRELEASED; urgency=medium
   * Build python3-systemd for Python 3 bindings. Drop python-systemd; it does
     not have any reverse dependencies, and we want to encourage moving to
     Python 3. (LP: #1258089)
+  * Add simple autopkgtest for python3-systemd.
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
