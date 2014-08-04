@@ -19,6 +19,8 @@ systemd (208-7) UNRELEASED; urgency=medium
     schroot or after upgrades from < 204, and the main point of the test is
     to check that libsystemd-login-dev has correct contents and dependencies.
     Drop "isolation-machine" requirement.
+  * Use glibc's xattr support instead of requiring libattr. Fixes FTBFS with
+    latest glibc and libattr. Cherrypicked from trunk. (Closes: #756097)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 

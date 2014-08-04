@@ -478,6 +478,9 @@ Reset-signal-mask-on-re-exec-to-init.patch
 core-clean-up-signal-reset-logic-when-reexec.patch
 util-treat-fuse.sshfs-as-a-network-filesystem.patch
 
+## Cherry-picked from trunk
+build-sys-use-glibc-s-xattr-support-instead-of-requi.patch
+
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
 Make-systemctl-enable-disable-call-update-rc.d-for-s.patch
