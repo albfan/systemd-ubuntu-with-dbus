@@ -28,6 +28,7 @@ systemd (215-5ubuntu1) UNRELEASED; urgency=medium
       systemd becomes our default init.
     - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
       device setup, and thus is be compatible with systemd, too.
+    - Add HP ProLiant Server Cartridge power control support.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.

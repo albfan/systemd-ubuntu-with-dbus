@@ -1,0 +1,20 @@
+From: Dann Frazier <dann.frazier@canonical.com>
+Date: Sun, 12 Oct 2014 16:24:22 +0200
+Subject: Add support for ProLiant Server Cartridge power buttons
+
+---
+ src/login/70-power-switch.rules | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/login/70-power-switch.rules b/src/login/70-power-switch.rules
+index 36fb827..a11c9f4 100644
+--- a/src/login/70-power-switch.rules
++++ b/src/login/70-power-switch.rules
+@@ -9,5 +9,7 @@ ACTION=="remove", GOTO="power_switch_end"
+ 
+ SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="acpi", TAG+="power-switch"
+ SUBSYSTEM=="input", KERNEL=="event*", KERNELS=="thinkpad_acpi", TAG+="power-switch"
++SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="platform", KERNELS=="gpio_keys.6", PROGRAM="/bin/cat /proc/device-tree/model", RESULT=="HP ProLiant m400 Server Cartridge", TAG+="power-switch"
++SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="platform", KERNELS=="gpio_keys.12", ATTRS{keys}=="116", PROGRAM="/bin/cat /proc/device-tree/model", RESULT=="HP ProLiant m800 Server Cartridge", TAG+="power-switch"
+ 
+ LABEL="power_switch_end"
