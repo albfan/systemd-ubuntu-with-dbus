@@ -1,5 +1,6 @@
 systemd (208-7ubuntu1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt]
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Add patches for specifying an alternate /etc/machine-id location, skip
       tests that fail on buildds (presumably due to missing /etc/hostname),
@@ -32,6 +33,10 @@ systemd (208-7ubuntu1) UNRELEASED; urgency=medium
 
   * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf
     (LP: #1320534, Closes: #674755).
+
+  [ Manoj Iyer ]
+  * Add HP ProLiant m800 Server Cartridge power control support. The cartridge
+    uses gpio_keys.12 to emulate shutdown. (LP: #1347776)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sat, 26 Apr 2014 17:29:00 +0200
 

@@ -1,0 +1,15 @@
+Description: Add HP ProLiant m800 Server Cartridge power control support. The cartridge uses gpio_keys.12 to emulate shutdown.
+Author: Manoj Iyer <manoj.iyer@canonical.com>
+Bug-Ubuntu: https://launchpad.net/bugs/1347776
+
+Index: systemd/src/login/70-power-switch.rules
+===================================================================
+--- systemd.orig/src/login/70-power-switch.rules
++++ systemd/src/login/70-power-switch.rules
+@@ -9,5 +9,6 @@ ACTION=="remove", GOTO="power_switch_end
+ 
+ SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="acpi", TAG+="power-switch"
+ SUBSYSTEM=="input", KERNEL=="event*", KERNELS=="thinkpad_acpi", TAG+="power-switch"
++SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="platform", KERNELS=="gpio_keys.12", ATTRS{keys}=="116", PROGRAM="/bin/cat /proc/device-tree/model", RESULT=="HP ProLiant m800 Server Cartridge", TAG+="power-switch"
+ 
+ LABEL="power_switch_end"
