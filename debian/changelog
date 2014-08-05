@@ -26,6 +26,7 @@ systemd (215-6ubuntu1) UNRELEASED; urgency=medium
       (LP: #1320534, Closes: #674755).
     - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
       device setup, and thus is be compatible with systemd, too.
+    - Add HP ProLiant Server Cartridge power control support.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
