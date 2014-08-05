@@ -18,6 +18,7 @@ systemd (218-1ubuntu1) UNRELEASED; urgency=medium
       for those in plymouth.
     - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Add HP ProLiant Server Cartridge power control support.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
