@@ -29,6 +29,9 @@ systemd (208-7) UNRELEASED; urgency=medium
   * Fix /dev/cdrom symlink to appear for all types of drives, not just for
     pure CD-ROM ones. Also, fix the symlinks to stay after change events.
     (LP: #1323777)
+  * 75-persistent-net-generator.rules: Adjust Ravello interfaces; they don't
+    violate the assignment schema, they should just not be persistent.
+    Thanks to Boris Figovsky. (Closes: #747475, LP: #1317776)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 

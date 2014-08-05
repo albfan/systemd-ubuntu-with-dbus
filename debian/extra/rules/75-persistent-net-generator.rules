@@ -67,8 +67,6 @@ ENV{MATCHADDR}=="52:54:4c:*", GOTO="globally_administered_whitelist"
 ENV{MATCHADDR}=="52:54:ab:*", GOTO="globally_administered_whitelist"
 # Kingston Technologies
 ENV{MATCHADDR}=="e2:0c:0f:*", GOTO="globally_administered_whitelist"
-# Ravello Systems
-ENV{MATCHADDR}=="2c:c2:60:*", GOTO="globally_administered_whitelist"
 
 
 # ignore interfaces with locally administered or null MAC addresses
@@ -96,6 +94,9 @@ ENV{MATCHADDR}=="60:45:bd:*", ENV{MATCHADDR}=""
 ENV{MATCHADDR}=="7c:1e:52:*", ENV{MATCHADDR}=""
 ENV{MATCHADDR}=="7c:Ed:8d:*", ENV{MATCHADDR}=""
 ENV{MATCHADDR}=="Dc:B4:c4:*", ENV{MATCHADDR}=""
+
+# ignore Ravello virtual interfaces
+ENV{MATCHADDR}=="2c:c2:60:*", ENV{MATCHADDR}=""
 
 LABEL="globally_administered_whitelist"
 
