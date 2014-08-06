@@ -87,6 +87,26 @@ warn_if_interactive() {
   sleep 60
 }
 
+make_static_nodes() {
+  [ -e /lib/modules/$(uname -r)/modules.devname ] || return 0
+  [ -x /bin/kmod ] || return 0
+
+  /bin/kmod static-nodes --format=tmpfiles | \
+  while read type name mode uid gid age arg; do
+    [ -e $name ] && continue
+    case "$type" in
+      c|b) mknod -m $mode $name $type $(echo $arg | sed 's/:/ /') ;;
+      d) mkdir $name ;;
+      *) echo "unparseable line ($type $name $mode $uid $gid $age $arg)" >&2 ;;
+    esac
+
+    if [ -x /sbin/restorecon ]; then
+      /sbin/restorecon $name
+    fi
+  done
+}
+
+
 ##############################################################################
 
 [ -x /sbin/udevd ] || exit 0
@@ -162,6 +182,8 @@ case "$1" in
 	mount_devtmpfs
 	[ -d /proc/1 ] || mount -n /proc
     fi
+
+    make_static_nodes
 
     # clean up parts of the database created by the initramfs udev
     udevadm info --cleanup-db
