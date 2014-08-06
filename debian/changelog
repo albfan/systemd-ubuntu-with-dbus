@@ -45,6 +45,9 @@ systemd (208-7) UNRELEASED; urgency=medium
     to ensure cgmanager support. (Closes: #754984, LP: #1343802)
   * Convert udev-finish.upstart from a task to a job, to avoid hangs with
     startpar. (Closes: #756631)
+  * Add debian/extra/60-keyboard.hwdb: Latest keymaps from upstream git.
+    This makes it trivial to backport keymap fixes to stable releases.
+    (Closes: #657809; LP: #1322770, #1339998)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
