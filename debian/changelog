@@ -43,6 +43,8 @@ systemd (208-7) UNRELEASED; urgency=medium
   * Reinstate patches to make logind D-BUS activatable.
   * Re-add systemd-shim alternative dependency to libpam-systemd. Version it
     to ensure cgmanager support. (Closes: #754984, LP: #1343802)
+  * Convert udev-finish.upstart from a task to a job, to avoid hangs with
+    startpar. (Closes: #756631)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
