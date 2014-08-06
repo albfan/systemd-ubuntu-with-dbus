@@ -1,4 +1,4 @@
-systemd (208-7) UNRELEASED; urgency=medium
+systemd (208-7) unstable; urgency=medium
 
   [ Michael Biebl ]
   * Mask remaining services provided by the initscripts package and document
@@ -51,7 +51,7 @@ systemd (208-7) UNRELEASED; urgency=medium
   * udev.init: Create static device nodes, as this moved out of udevd.
     Thanks to Michael Biebl for the script! (Closes: #749021)
 
- -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
+ -- Martin Pitt <mpitt@debian.org>  Wed, 06 Aug 2014 13:33:22 +0200
 
 systemd (208-6) unstable; urgency=medium
 
