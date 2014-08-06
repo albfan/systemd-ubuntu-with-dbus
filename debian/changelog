@@ -33,6 +33,8 @@ systemd (208-7) UNRELEASED; urgency=medium
     violate the assignment schema, they should just not be persistent.
     Thanks to Boris Figovsky. (Closes: #747475, LP: #1317776)
   * Reinstate patches to make logind D-BUS activatable.
+  * Re-add systemd-shim alternative dependency to libpam-systemd. Version it
+    to ensure cgmanager support. (Closes: #754984, LP: #1343802)
 
  -- Michael Biebl <biebl@debian.org>  Thu, 17 Jul 2014 00:48:14 +0200
 
