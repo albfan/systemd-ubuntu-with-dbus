@@ -1,3 +1,9 @@
+systemd (208-8) UNRELEASED; urgency=medium
+
+  * Fix duplicate line in copyright. (Closes: #756899)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
+
 systemd (208-7) unstable; urgency=medium
 
   [ Michael Biebl ]
