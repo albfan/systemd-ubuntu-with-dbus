@@ -1,9 +1,9 @@
-systemd (208-7ubuntu4) UNRELEASED; urgency=medium
+systemd (208-7ubuntu4) utopic; urgency=medium
 
   * Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
     device setup, and thus should be compatible with systemd, too.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Aug 2014 07:10:26 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 07 Aug 2014 07:11:28 +0200
 
 systemd (208-7ubuntu3) utopic; urgency=medium
 
