@@ -60,7 +60,7 @@ Depends: ${shlibs:Depends},
          acl,
          adduser,
          libcap2-bin
-Breaks: lvm2 (<< 2.02.104-1),
+Breaks: lvm2 (<< 2.02.84-1),
         lsb-base (<< 4.1+Debian4),
         systemd-shim (<< 8-2)
 Conflicts: klogd, systemd-services
