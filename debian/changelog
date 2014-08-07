@@ -22,6 +22,8 @@ systemd (217-1ubuntu1) UNRELEASED; urgency=medium
       for those in plymouth.
     - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
+      device setup, and thus is be compatible with systemd, too.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
