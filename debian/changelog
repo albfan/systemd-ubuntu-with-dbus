@@ -1,4 +1,4 @@
-systemd (208-7ubuntu3) UNRELEASED; urgency=medium
+systemd (208-7ubuntu3) utopic; urgency=medium
 
   * Make libpam-systemd prefer systemd-shim over systemd-sysv for now, as
     otherwise large swathes of build-dependency trees fail to install when
