@@ -9,8 +9,13 @@
 /lib/systemd/system/systemd-modules-load.service /lib/systemd/system/kmod.service
 /etc/modules /etc/modules-load.d/modules.conf
 
+# X server and ICE socket directories are created by /usr/lib/tmpfiles.d/x11.conf
 /dev/null /lib/systemd/system/x11-common.service
+
+# systemd sets the hostname internally during early boot
 /dev/null /lib/systemd/system/hostname.service
+
+# /run/nologin is handled by systemd-user-sessions.service
 /dev/null /lib/systemd/system/rmnologin.service
 /dev/null /lib/systemd/system/bootmisc.service
 
@@ -30,18 +35,18 @@
 /dev/null /lib/systemd/system/hwclockfirst.service
 
 # We use native mount support so mask those services
-# TODO: check if any sysv init script depends on those facilities
+# TODO: check if any SysV init scripts depend on those facilities
 /dev/null /lib/systemd/system/mountkernfs.service
 /dev/null /lib/systemd/system/mountdevsubfs.service
 /dev/null /lib/systemd/system/mountall.service
 /dev/null /lib/systemd/system/mountall-bootclean.service
 /dev/null /lib/systemd/system/mountnfs.service
 /dev/null /lib/systemd/system/mountnfs-bootclean.service
+/dev/null /lib/systemd/system/umountfs.service
+/dev/null /lib/systemd/system/umountnfs.service
+/dev/null /lib/systemd/system/umountroot.service
 /dev/null /lib/systemd/system/checkfs.service
-# We need checkroot as synchronisation point, so symlink it to remount-rootfs
-/lib/systemd/system/systemd-remount-fs.service /lib/systemd/system/checkroot.service
-# checkroot-bootclean cleans up directories before mounting a tmpfs
-# over it. As systemd handles mounts differently, mask this service.
+/dev/null /lib/systemd/system/checkroot.service
 /dev/null /lib/systemd/system/checkroot-bootclean.service
 
 # We use the built-in cryptsetup support
@@ -53,8 +58,26 @@
 /dev/null /lib/systemd/system/single.service
 /dev/null /lib/systemd/system/killprocs.service
 
+# Those services are useless under systemd. Mask them so they can't
+# be run manually by accident.
+/dev/null /lib/systemd/system/sendsigs.service
+/dev/null /lib/systemd/system/halt.service
+/dev/null /lib/systemd/system/reboot.service
+
+# The motd SysV init script is no longer required to create the dynamic part of
+# /etc/motd to display the uname information as pam_exec is used for that now.
+# An explicit Breaks against older versions of login, which still use
+# /run/motd.dynamic, is not necessary, as pam_motd will silently ignore it if
+# that file is missing and simply display nothing.
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=735521
+/dev/null /lib/systemd/system/motd.service
+
+# We have the journal to handle kernel messages from early boot
+/dev/null /lib/systemd/system/bootlogs.service
+
 # Run fixups early
 /lib/systemd/system/debian-fixup.service /lib/systemd/system/sysinit.target.wants/debian-fixup.service
+
 # Compat symlink
 /lib/systemd/systemd /bin/systemd
 

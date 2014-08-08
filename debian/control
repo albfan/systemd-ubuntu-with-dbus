@@ -30,15 +30,14 @@ Build-Depends: debhelper (>= 9),
                libwrap0-dev,
                libselinux1-dev (>= 2.1.9),
                libacl1-dev,
-               libattr1-dev,
                liblzma-dev,
                libgcrypt11-dev,
                libkmod-dev (>= 14),
                libblkid-dev (>= 2.20),
                libgirepository1.0-dev (>= 1.31.1),
                gobject-introspection (>= 1.31.1),
-               python-dev,
-               python-lxml,
+               python3-all-dev,
+               python3-lxml,
                libglib2.0-doc
 
 Package: systemd
@@ -47,18 +46,19 @@ Section: admin
 Priority: optional
 Recommends: libpam-systemd
 Suggests: systemd-ui
-Pre-Depends: ${misc:Pre-Depends}
+Pre-Depends: ${shlibs:Pre-Depends},
+             ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          libsystemd0 (= ${binary:Version}),
          util-linux (>= 2.19.1-2),
-         initscripts (>= 2.88dsf-17),
+         initscripts (>= 2.88dsf-53.2),
          sysv-rc,
          udev,
          acl,
          adduser,
          libcap2-bin
-Breaks: lvm2 (<< 2.02.84-1),
+Breaks: lvm2 (<< 2.02.104-1),
         lsb-base (<< 4.1+Debian4)
 Conflicts: klogd
 Description: system and service manager
@@ -82,6 +82,7 @@ Conflicts: sysvinit-core,
 Replaces: sysvinit (<< 2.88dsf-44~),
           sysvinit-core,
           upstart
+Pre-Depends: systemd
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version})
@@ -108,7 +109,8 @@ Depends: ${shlibs:Depends},
          ${misc:Depends},
          systemd (= ${binary:Version}),
          libpam-runtime (>= 1.0.1-6),
-         systemd-sysv
+         dbus,
+         systemd-sysv | systemd-shim (>= 6-4)
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
@@ -130,9 +132,9 @@ Architecture: linux-any
 Multi-Arch: same
 Section: libs
 Priority: optional
-Pre-Depends: ${misc:Pre-Depends}
-Depends: ${shlibs:Depends},
-         ${misc:Depends}
+Pre-Depends: ${shlibs:Depends},
+             ${misc:Pre-Depends}
+Depends: ${misc:Depends}
 Description: systemd utility library
  The libsystemd0 library provides interfaces to various systemd components
 
@@ -377,15 +379,15 @@ Description: libgudev-1.0 development files
  This package contains the files needed for developing applications that
  use libgudev-1.0.
 
-Package: python-systemd
+Package: python3-systemd
 Section: python
 Priority: optional
 Architecture: linux-any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         ${python:Depends}
-Description: python bindings for systemd
- This package contains Python bindings for the systemd libraries.
+         ${python3:Depends}
+Description: Python 3 bindings for systemd
+ This package contains Python 3 bindings for the systemd libraries.
 
 Package: systemd-dbg
 Architecture: linux-any

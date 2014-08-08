@@ -12,6 +12,7 @@ endif
 CONFFLAGS = \
 	--with-rootprefix= \
 	--with-rootlibdir=/lib/$(DEB_HOST_MULTIARCH) \
+	--with-zshcompletiondir=/usr/share/zsh/vendor-completions \
 	--with-sysvinit-path=/etc/init.d \
 	--with-sysvrcnd-path=/etc \
 	--with-firmware-path=/lib/firmware \
@@ -32,7 +33,9 @@ CONFFLAGS_deb = \
 	--enable-selinux \
 	--enable-introspection \
 	--enable-gtk-doc \
-	--enable-compat-libs
+	--enable-compat-libs \
+	PYTHON=python3 \
+	$(NULL)
 
 CONFFLAGS_udeb = \
 	--disable-selinux \
@@ -97,7 +100,7 @@ override_dh_install:
 	rm -f debian/install/*/etc/init.d/README
 	rm -f debian/install/*/usr/share/man/man8/kernel-install.8
 	rm -f debian/install/*/usr/bin/kernel-install
-	rm -f debian/install/*/usr/share/zsh/site-functions/_kernel-install
+	rm -f debian/install/*/usr/share/zsh/vendor-completions/_kernel-install
 	rm -f debian/install/*/usr/share/bash-completion/completions/kernel-install
 	rm -rf debian/install/*/usr/lib/kernel/install.d
 	rm -rf debian/install/*/etc/rpm/
@@ -173,6 +176,8 @@ override_dh_install:
 	mv debian/libsystemd-dev/usr/share/man/man3/sd-readahead.3 \
 		debian/libsystemd-dev/usr/share/man/man3/sd_readahead.3 \
 		debian/systemd/usr/share/man/man3/
+	install --mode=755 debian/systemd-logind-launch \
+		debian/systemd/lib/systemd/
 	# remove duplicates
 	# files shipped by systemd-sysv / sysvinit
 	rm debian/systemd/usr/share/man/man1/init.1
@@ -216,6 +221,13 @@ override_dh_installinit:
 	dh_installinit --name=udevmonitor --no-start
 	dh_installinit --name=udev-fallback-graphics --no-start
 
+# The SysV compat tools (which are symlinks to systemctl) are
+# quasi-essential, so add its dependencies to Pre-Depends
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=753589
+override_dh_shlibdeps:
+	dh_shlibdeps -psystemd -- -dPre-Depends -edebian/systemd/bin/systemctl -dDepends
+	dh_shlibdeps --remaining-packages
+
 override_dh_makeshlibs:
 	dh_makeshlibs -plibudev1 --add-udeb=libudev1-udeb
 	dh_makeshlibs --remaining-packages
@@ -233,7 +245,7 @@ override_dh_strip:
 
 %:
 ifeq (,$(findstring stage1,$(DEB_BUILD_PROFILES)))
-	dh $@ --with autoreconf,gir,python2 --parallel
+	dh $@ --with autoreconf,gir,python3 --parallel
 else
-	dh $@ --with autoreconf,python2 $(BOOTSTRAP_DH_FLAGS)
+	dh $@ --with autoreconf,python3 $(BOOTSTRAP_DH_FLAGS)
 endif

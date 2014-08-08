@@ -203,8 +203,8 @@ mv_conffile() {
 
 mask_systemd_service() {
   if [ -x '/bin/systemctl' -a -d '/run/systemd/system/' ]; then
-    ln -s /dev/null /run/systemd/system/systemd-udevd.service
-    ln -s /dev/null /run/systemd/system/udev.service
+    ln -sf /dev/null /run/systemd/system/systemd-udevd.service
+    ln -sf /dev/null /run/systemd/system/udev.service
     systemctl daemon-reload || true
   fi
 }

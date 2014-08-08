@@ -72,7 +72,9 @@ Run-update-rc.d-defaults-before-update-rc.d-enable-d.patch
 don-t-try-to-start-autovt-units-when-not-running-wit.patch
 timedated-don-t-rely-on-usr-being-mounted-in-the-ini.patch
 fstab-generator-don-t-rely-on-usr-being-mounted-in-t.patch
-Make-hostnamed-localed-timedated-D-Bus-activatable.patch
+Make-logind-hostnamed-localed-timedated-D-Bus-activa.patch
+Launch-logind-via-a-shell-wrapper.patch
+Start-logind-on-demand-via-libpam-systemd.patch
 Update-localed-to-use-the-Debian-config-files.patch
 Add-note-to-udev.conf-that-changes-to-that-file-requ.patch
 Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
@@ -95,3 +97,4 @@ Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
+Add-support-for-TuxOnIce-hibernation.patch

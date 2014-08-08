@@ -26,6 +26,67 @@ systemd (214-1) UNRELEASED; urgency=medium
 
  -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
 
+systemd (208-8) UNRELEASED; urgency=medium
+
+  * Fix duplicate line in copyright. (Closes: #756899)
+
+ -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
+
+systemd (208-7) unstable; urgency=medium
+
+  [ Michael Biebl ]
+  * Mask remaining services provided by the initscripts package and document
+    in more detail why certain services have been masked. (Closes: #659264)
+  * Install zsh completions to the correct place. (Closes: #717540)
+
+  [ Jon Severinsson ]
+  * Cherry-pick upstream fix for journal file permissions.
+  * Map some rcS.d init script dependencies to their systemd equivalent.
+  * Update Depends on initscripts to the version with a systemd-compatible
+    mountnfs ifup hook. (Closes: #746358)
+  * Add Breaks on lvm2 versions without native systemd support.
+    (Closes: #678438, #692120)
+  * Do not fail udev upgrades if the udev service is already runtime-masked
+    when the preinst script is run. (Closes: #755746)
+  * Add Pre-Depends on systemd to systemd-sysv, to avoid risking that the
+    sysv-compatible symlinks become dangling on a partial install.
+  * Ensure that systemctl is usable right after being unpacked, by adding the
+    required Pre-Depends to systemd and libsystemd-daemon0. (Closes: #753589)
+  * Add support for TuxOnIce hibernation. (Closes: #746463)
+
+  [ Martin Pitt ]
+  * Rename "api" autopkgtest to "build-login", and stop requiring that
+    sd_login_monitor_new() succeeds. It doesn't in many environments like
+    schroot or after upgrades from < 204, and the main point of the test is
+    to check that libsystemd-login-dev has correct contents and dependencies.
+    Drop "isolation-machine" requirement.
+  * Use glibc's xattr support instead of requiring libattr. Fixes FTBFS with
+    latest glibc and libattr. Cherrypicked from trunk. Drop libattr1-dev build
+    dependency. (Closes: #756097)
+  * Build python3-systemd for Python 3 bindings. Drop python-systemd; it does
+    not have any reverse dependencies, and we want to encourage moving to
+    Python 3. (LP: #1258089)
+  * Add simple autopkgtest for python3-systemd.
+  * Add dbus dependency to libpam-systemd. (Closes: #755968)
+  * Fix /dev/cdrom symlink to appear for all types of drives, not just for
+    pure CD-ROM ones. Also, fix the symlinks to stay after change events.
+    (LP: #1323777)
+  * 75-persistent-net-generator.rules: Adjust Ravello interfaces; they don't
+    violate the assignment schema, they should just not be persistent.
+    Thanks to Boris Figovsky. (Closes: #747475, LP: #1317776)
+  * Reinstate patches to make logind D-BUS activatable.
+  * Re-add systemd-shim alternative dependency to libpam-systemd. Version it
+    to ensure cgmanager support. (Closes: #754984, LP: #1343802)
+  * Convert udev-finish.upstart from a task to a job, to avoid hangs with
+    startpar. (Closes: #756631)
+  * Add debian/extra/60-keyboard.hwdb: Latest keymaps from upstream git.
+    This makes it trivial to backport keymap fixes to stable releases.
+    (Closes: #657809; LP: #1322770, #1339998)
+  * udev.init: Create static device nodes, as this moved out of udevd.
+    Thanks to Michael Biebl for the script! (Closes: #749021)
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 06 Aug 2014 13:33:22 +0200
+
 systemd (208-6) unstable; urgency=medium
 
   [ Jon Severinsson ]
