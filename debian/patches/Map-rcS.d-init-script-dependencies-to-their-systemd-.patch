@@ -3,16 +3,17 @@ Date: Fri, 11 Jul 2014 02:15:37 +0200
 Subject: Map rcS.d init script dependencies to their systemd equivalent.
 
 ---
- src/core/service.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ src/sysv-generator/sysv-generator.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/src/core/service.c b/src/core/service.c
-index dda34a7..b3f48b4 100644
---- a/src/core/service.c
-+++ b/src/core/service.c
-@@ -370,6 +370,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+--- a/src/sysv-generator/sysv-generator.c
++++ b/src/sysv-generator/sysv-generator.c
+@@ -248,8 +248,15 @@
+                 "named",                SPECIAL_NSS_LOOKUP_TARGET,
+                 "portmap",              SPECIAL_RPCBIND_TARGET,
                  "remote_fs",            SPECIAL_REMOTE_FS_TARGET,
-                 "syslog",               SPECIAL_SYSLOG_TARGET,
+-                "syslog",               NULL,
++                "syslog",               "systemd-journald-dev-log.socket",
                  "time",                 SPECIAL_TIME_SYNC_TARGET,
 +                /* special rcS init scripts */
 +                "cryptdisks",           "cryptsetup.target",
@@ -20,6 +21,7 @@ index dda34a7..b3f48b4 100644
 +                "mountnfs",             SPECIAL_REMOTE_FS_TARGET,
 +                "checkroot",            "systemd-remount-fs.service",
 +                "dbus",                 "dbus.socket",
++
          };
  
          unsigned i;
