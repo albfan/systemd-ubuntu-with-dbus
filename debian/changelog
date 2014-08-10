@@ -23,8 +23,10 @@ systemd (214-1) UNRELEASED; urgency=medium
   * Install the new busctl binary and translations
   * Explicitly disable microhttp so the package build doesn't fail if the
     required dependencies for it happen to be installed.
+  * debian/control: Make udev break plymouth (<< 0.9.0-7) as older plymouths
+    assume udev implementation details that have changed slightly since v213
 
- -- Jon Severinsson <jon@severinsson.net>  Sun, 16 Jul 2014 20:00:00 +0200
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 10 Aug 2014 10:42:30 +0200
 
 systemd (208-8) UNRELEASED; urgency=medium
 
