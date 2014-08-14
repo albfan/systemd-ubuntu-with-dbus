@@ -480,6 +480,7 @@ util-treat-fuse.sshfs-as-a-network-filesystem.patch
 
 ## Cherry-picked from trunk
 build-sys-use-glibc-s-xattr-support-instead-of-requi.patch
+logind-revert-lazy-session-activation.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
