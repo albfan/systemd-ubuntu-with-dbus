@@ -1,3 +1,11 @@
+systemd (208-7ubuntu5) UNRELEASED; urgency=medium
+
+  [ Dann Frazier ]
+  * Add support for HP ProLiant m400 Server Cartridge soft powerdown
+    (LP: #1354306)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 19 Aug 2014 08:02:25 +0200
+
 systemd (208-7ubuntu4) utopic; urgency=medium
 
   * Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
