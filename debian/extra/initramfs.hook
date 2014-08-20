@@ -66,8 +66,3 @@ for program in ata_id scsi_id; do
   copy_exec /lib/udev/$program /lib/udev
 done
 copy_exec /sbin/blkid /sbin
-
-if [ -x /lib/udev/vio_type ]; then
-  copy_exec /lib/udev/vio_type /lib/udev
-fi
-
