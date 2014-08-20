@@ -1,10 +1,16 @@
 systemd (208-8) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Fix duplicate line in copyright. (Closes: #756899)
   * Drop --disable-xattr configure option for udeb, does not exist any more.
   * Add Turkish debconf translations. Thanks Mert Dirik! (Closes: #757498)
   * Backport fix for lazy session-activation on non-seat0 seats.
     (LP: #1355331)
+
+  [ Michael Biebl ]
+  * Use "kmod static-nodes --output=/proc/self/fd/1" in make_static_nodes() as
+    we can't rely on /dev/stdout to exist at this point during boot.
+    (Closes: #757830)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 

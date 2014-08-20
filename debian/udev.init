@@ -91,7 +91,7 @@ make_static_nodes() {
   [ -e /lib/modules/$(uname -r)/modules.devname ] || return 0
   [ -x /bin/kmod ] || return 0
 
-  /bin/kmod static-nodes --format=tmpfiles | \
+  /bin/kmod static-nodes --format=tmpfiles --output=/proc/self/fd/1 | \
   while read type name mode uid gid age arg; do
     [ -e $name ] && continue
     case "$type" in
