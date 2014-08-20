@@ -11,6 +11,9 @@ systemd (208-8) UNRELEASED; urgency=medium
   * Use "kmod static-nodes --output=/proc/self/fd/1" in make_static_nodes() as
     we can't rely on /dev/stdout to exist at this point during boot.
     (Closes: #757830)
+  * Fix udev SysV init script and d-i start script to not write to
+    /sys/kernel/uevent_helper unconditionally to not fail on a kernel with
+    CONFIG_UEVENT_HELPER unset. (Closes: #756312)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 
