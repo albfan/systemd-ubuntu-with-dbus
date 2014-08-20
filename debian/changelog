@@ -1,4 +1,4 @@
-systemd (208-8) UNRELEASED; urgency=medium
+systemd (208-8) unstable; urgency=medium
 
   [ Martin Pitt ]
   * Fix duplicate line in copyright. (Closes: #756899)
@@ -29,7 +29,7 @@ systemd (208-8) UNRELEASED; urgency=medium
     message triggers the start of the syslog service and its dependencies
     which conflicts with emergency.target. (Closes: #755581)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
+ -- Michael Biebl <biebl@debian.org>  Thu, 21 Aug 2014 00:14:21 +0200
 
 systemd (208-7) unstable; urgency=medium
 
