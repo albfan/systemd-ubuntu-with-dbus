@@ -25,6 +25,9 @@ systemd (208-8) UNRELEASED; urgency=medium
     Otherwise if rescue mode is selected during boot and the emergency mode
     is triggered (e.g. via a broken fstab entry), we have two sulogin
     processes fighting over the tty. (Closes: #757072)
+  * Stop syslog.socket when entering emergency mode as otherwise every log
+    message triggers the start of the syslog service and its dependencies
+    which conflicts with emergency.target. (Closes: #755581)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 

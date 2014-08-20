@@ -571,3 +571,4 @@ Add-run-initctl-support-to-SysV-compat-tools.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Add-support-for-TuxOnIce-hibernation.patch
 Make-emergency.service-conflict-with-rescue.service.patch
+Stop-syslog.socket-when-entering-emergency-mode.patch
