@@ -14,6 +14,8 @@ systemd (208-8) UNRELEASED; urgency=medium
   * Fix udev SysV init script and d-i start script to not write to
     /sys/kernel/uevent_helper unconditionally to not fail on a kernel with
     CONFIG_UEVENT_HELPER unset. (Closes: #756312)
+  * Add Breaks: kmod (<< 14) to udev to make sure we have a kmod version
+    supporting the static-nodes command.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 
