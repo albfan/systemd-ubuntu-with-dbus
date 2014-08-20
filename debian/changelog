@@ -20,6 +20,7 @@ systemd (208-8) UNRELEASED; urgency=medium
     versions rely on kmod-static-nodes.service being provided by systemd.
     (Closes: #757777)
   * Updated upstream v208-stable patch series to 53b1b6c.
+  * Cherry-pick upstream fix to ignore temporary dpkg files. (Closes: #757302)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 

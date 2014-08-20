@@ -524,6 +524,7 @@ analyze-fix-crash-on-invalid-commandline.patch
 ## Cherry-picked from trunk:
 build-sys-use-glibc-s-xattr-support-instead-of-requi.patch
 login-revert-lazy-session-activation-on-non-VT-seats.patch
+util-avoid-considering-dpkg-temporary-files-relevant.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
