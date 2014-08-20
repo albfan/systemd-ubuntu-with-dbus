@@ -525,6 +525,8 @@ analyze-fix-crash-on-invalid-commandline.patch
 build-sys-use-glibc-s-xattr-support-instead-of-requi.patch
 login-revert-lazy-session-activation-on-non-VT-seats.patch
 util-avoid-considering-dpkg-temporary-files-relevant.patch
+tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
+logind-if-a-user-is-sitting-in-front-of-the-computer.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
@@ -560,13 +562,11 @@ Order-remote-fs.target-after-local-fs.target.patch
 Load-sg-module-from-80-drivers.rules.patch
 Updates-to-default-device-permissions.patch
 Set-default-polling-interval-on-removable-devices-as.patch
-logind-if-a-user-is-sitting-in-front-of-the-computer.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
 Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
-tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Add-support-for-TuxOnIce-hibernation.patch

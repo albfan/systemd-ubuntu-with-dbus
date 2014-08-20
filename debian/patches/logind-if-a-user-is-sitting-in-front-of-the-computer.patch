@@ -3,6 +3,7 @@ Date: Thu, 26 Sep 2013 18:31:37 +0000
 Subject: logind: if a user is sitting in front of the computer and can
  shutdown the machine anyway he should also be able to reboot it
 
+(cherry picked from commit 299404a19f26aa4f203042d8285ee0b7afa5bf40)
 ---
  src/login/org.freedesktop.login1.policy.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
