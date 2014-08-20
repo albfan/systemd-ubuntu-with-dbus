@@ -1,0 +1,22 @@
+From: Christian Hesse <mail@eworm.de>
+Date: Tue, 1 Jul 2014 10:22:51 +0200
+Subject: man/sd_journal_get_data: fix variable naming in example
+
+(cherry picked from commit 02ea24ca2a0aac854c4e9e7d712f6464c8b29e4a)
+---
+ man/sd_journal_get_data.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/sd_journal_get_data.xml b/man/sd_journal_get_data.xml
+index 6ed52b5..7f90fc3 100644
+--- a/man/sd_journal_get_data.xml
++++ b/man/sd_journal_get_data.xml
+@@ -225,7 +225,7 @@
+                 <programlisting>...
+ int print_fields(sd_journal *j) {
+         const void *data;
+-        size_t l;
++        size_t length;
+         SD_JOURNAL_FOREACH_DATA(j, data, length)
+                 printf("%.*s\n", (int) length, data);
+ }

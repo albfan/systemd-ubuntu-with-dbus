@@ -1,0 +1,50 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Fri, 4 Jul 2014 03:07:20 +0200
+Subject: units: conditionalize static device node logic on CAP_SYS_MODULES
+ instead of CAP_MKNOD
+
+npsawn containers generally have CAP_MKNOD, since this is required
+to make PrviateDevices= work. Thus, it's not useful anymore to
+conditionalize the kmod static device node units.
+
+Use CAP_SYS_MODULES instead which is not available for nspawn
+containers. However, the static device node logic is only done for being
+able to autoload modules with it, and if we can't do that there's no
+point in doing it.
+
+(cherry picked from commit e0c74691c41a204eba2fd5f39615049fc9ff1648)
+(cherry picked from commit fce5e80589911d813dd13d1d0d64df96e0ab7939)
+
+Conflicts:
+	units/systemd-tmpfiles-setup-dev.service.in
+---
+ units/kmod-static-nodes.service.in          | 2 +-
+ units/systemd-tmpfiles-setup-dev.service.in | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/units/kmod-static-nodes.service.in b/units/kmod-static-nodes.service.in
+index 368f980..0934a87 100644
+--- a/units/kmod-static-nodes.service.in
++++ b/units/kmod-static-nodes.service.in
+@@ -9,7 +9,7 @@
+ Description=Create list of required static device nodes for the current kernel
+ DefaultDependencies=no
+ Before=sysinit.target systemd-tmpfiles-setup-dev.service
+-ConditionCapability=CAP_MKNOD
++ConditionCapability=CAP_SYS_MODULE
+ ConditionPathExists=/lib/modules/%v/modules.devname
+ 
+ [Service]
+diff --git a/units/systemd-tmpfiles-setup-dev.service.in b/units/systemd-tmpfiles-setup-dev.service.in
+index 579e7c6..11c5ce2 100644
+--- a/units/systemd-tmpfiles-setup-dev.service.in
++++ b/units/systemd-tmpfiles-setup-dev.service.in
+@@ -10,7 +10,7 @@ Description=Create static device nodes in /dev
+ Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+ DefaultDependencies=no
+ Before=sysinit.target local-fs-pre.target systemd-udevd.service
+-ConditionCapability=CAP_MKNOD
++ConditionCapability=CAP_SYS_MODULE
+ 
+ [Service]
+ Type=oneshot

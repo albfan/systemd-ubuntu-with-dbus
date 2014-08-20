@@ -1,0 +1,24 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 30 Jun 2014 21:44:05 +0200
+Subject: units: skip mounting /tmp if it is a symlink
+
+We shouldn't get confused if people have symlinked /tmp somewhere, so
+let's simply skip the mount then.
+
+(cherry picked from commit 8ebf02d6f382ce1ac7e0d44a713b8795a07b08cd)
+---
+ units/tmp.mount | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/units/tmp.mount b/units/tmp.mount
+index 99a3ba3..00a0d28 100644
+--- a/units/tmp.mount
++++ b/units/tmp.mount
+@@ -9,6 +9,7 @@
+ Description=Temporary Directory
+ Documentation=man:hier(7)
+ Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
++ConditionPathIsSymbolicLink=!/tmp
+ DefaultDependencies=no
+ Conflicts=umount.target
+ Before=local-fs.target umount.target

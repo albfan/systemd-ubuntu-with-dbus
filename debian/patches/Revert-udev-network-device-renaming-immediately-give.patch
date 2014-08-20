@@ -16,10 +16,10 @@ this old hack to make the renaming less likely to fail.
  1 file changed, 41 insertions(+), 3 deletions(-)
 
 diff --git a/src/udev/udev-event.c b/src/udev/udev-event.c
-index 3db2cb7..c768d12 100644
+index 37b545b..18f66ec 100644
 --- a/src/udev/udev-event.c
 +++ b/src/udev/udev-event.c
-@@ -750,6 +750,7 @@ static int rename_netif(struct udev_event *event)
+@@ -752,6 +752,7 @@ static int rename_netif(struct udev_event *event)
          struct udev_device *dev = event->dev;
          int sk;
          struct ifreq ifr;
@@ -27,7 +27,7 @@ index 3db2cb7..c768d12 100644
          int err;
  
          log_debug("changing net interface name from '%s' to '%s'\n",
-@@ -766,12 +767,49 @@ static int rename_netif(struct udev_event *event)
+@@ -768,12 +769,49 @@ static int rename_netif(struct udev_event *event)
          strscpy(ifr.ifr_name, IFNAMSIZ, udev_device_get_sysname(dev));
          strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
          err = ioctl(sk, SIOCSIFNAME, &ifr);

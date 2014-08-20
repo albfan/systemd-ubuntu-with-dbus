@@ -1,0 +1,27 @@
+From: Tom Hirst <tom.hirst@ipe-systems.co.uk>
+Date: Wed, 25 Jun 2014 11:57:11 +0000
+Subject: rules: don't enable usb pm for Avocent devices
+
+The Avocent KVM over IP devices doesn't work correctly with USB power
+management enabled.
+
+(cherry picked from commit 52fb538361053f8c4abce0e40cd0bae3d28ceb16)
+---
+ rules/42-usb-hid-pm.rules | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/rules/42-usb-hid-pm.rules b/rules/42-usb-hid-pm.rules
+index 3fd6e8a..483a781 100644
+--- a/rules/42-usb-hid-pm.rules
++++ b/rules/42-usb-hid-pm.rules
+@@ -11,10 +11,6 @@ ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Mouse", ATTR{serial}==
+ ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Tablet", ATTR{serial}=="42", TEST=="power/control", ATTR{power/control}="auto"
+ ACTION=="add", SUBSYSTEM=="usb", ATTR{product}=="QEMU USB Keyboard", ATTR{serial}=="42", TEST=="power/control", ATTR{power/control}="auto"
+ 
+-# Catch-all for Avocent HID devices. Keyed off interface in order to only
+-# trigger on HID class devices.
+-ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="0624", ATTR{bInterfaceClass}=="03", TEST=="../power/control", ATTR{../power/control}="auto"
+-
+ # Dell DRAC 4
+ ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="413c", ATTR{idProduct}=="2500", TEST=="power/control", ATTR{power/control}="auto"
+ 

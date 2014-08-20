@@ -19,6 +19,7 @@ systemd (208-8) UNRELEASED; urgency=medium
   * Add Breaks: systemd (<< 208) to udev to avoid partial upgrades. Newer udev
     versions rely on kmod-static-nodes.service being provided by systemd.
     (Closes: #757777)
+  * Updated upstream v208-stable patch series to 53b1b6c.
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
 

@@ -11,12 +11,12 @@ will fail, so add a condition to check if the binary is available.
  1 file changed, 1 insertion(+)
 
 diff --git a/units/kmod-static-nodes.service.in b/units/kmod-static-nodes.service.in
-index ff4017b..718d77b 100644
+index 0934a87..076e316 100644
 --- a/units/kmod-static-nodes.service.in
 +++ b/units/kmod-static-nodes.service.in
 @@ -11,6 +11,7 @@ DefaultDependencies=no
  Before=sysinit.target systemd-tmpfiles-setup-dev.service
- ConditionCapability=CAP_MKNOD
+ ConditionCapability=CAP_SYS_MODULE
  ConditionPathExists=/lib/modules/%v/modules.devname
 +ConditionFileIsExecutable=@KMOD@
  

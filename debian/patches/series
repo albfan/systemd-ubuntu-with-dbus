@@ -477,10 +477,53 @@ shared-fix-search_and_fopen-with-alternate-roots.patch
 Reset-signal-mask-on-re-exec-to-init.patch
 core-clean-up-signal-reset-logic-when-reexec.patch
 util-treat-fuse.sshfs-as-a-network-filesystem.patch
+units-systemd-sysctl.service.in-run-after-load-modul.patch
+man-document-statically-loading-modules-for-sysctl-s.patch
+man-also-describe-an-udev-rule-for-bridge-sysctl.patch
+util-do-not-strip-dev-prefix-twice.patch
+core-transaction-avoid-misleading-error-message-when.patch
+core-snapshot-log-info-when-snapshots-are-created-an.patch
+vconsole-also-copy-character-maps-not-just-fonts-fro.patch
+core-You-can-not-put-the-cached-result-of-use_smack-.patch
+cryptsetup-don-t-add-unit-dependency-on-dev-null-dev.patch
+man-fix-path-in-crypttab-5.patch
+core-transaction-fix-cycle-break-attempts-outside-tr.patch
+journald-make-MaxFileSec-really-default-to-1month.patch
+rules-don-t-enable-usb-pm-for-Avocent-devices.patch
+units-remove-RefuseManualStart-from-units-which-are-.patch
+units-skip-mounting-tmp-if-it-is-a-symlink.patch
+man-sd_journal_next-fix-argument-in-example.patch
+man-sd_journal_get_data-fix-variable-naming-in-examp.patch
+hwdb-Update-database-of-Bluetooth-company-identi-495.patch
+hwdb-update-496.patch
+units-conditionalize-static-device-node-logic-on-CAP.patch
+units-conditionalize-configfs-and-debugfs-with-CAP_S.patch
+machine-don-t-return-uninitialized-variable.patch
+vconsole-setup-run-setfont-before-loadkeys.patch
+vconsole-setup-fix-inverted-error-messages.patch
+util-consider-0x7F-a-control-chracter-which-it-is-DE.patch
+service-flush-status-text-and-errno-values-each-time.patch
+accelerometer-Don-t-wait-for-new-data-from-the-senso.patch
+journal-compress-simplify-compress_blob.patch
+journal-compress-add-stream-compression-decompressio.patch
+journal-compress-improve-xz-compression-performance.patch
+hostnamed-add-a-new-chassis-type-for-watches.patch
+hostnamed-update-documentation-with-new-watch-chassi.patch
+units-make-ExecStopPost-action-part-of-ExecStart.patch
+shell-completion-man-beef-up-chassis-completions-and.patch
+rules-consistently-use-instead-of.patch
+rules-uaccess-add-ID_SOFTWARE_RADIO.patch
+journal-allow-files-with-no-data-whatsoever.patch
+units-serial-getty-.service-use-the-default-RestartS.patch
+build-sys-don-t-move-libgudev-to-lib.patch
+core-nicer-message-when-inotify-watches-are-exhauste.patch
+journal-reduce-test-journal-send-timeout-from-10s-to.patch
+socket-add-SocketUser-and-SocketGroup-for-chown-ing-.patch
+analyze-fix-crash-on-invalid-commandline.patch
 
-## Cherry-picked from trunk
+## Cherry-picked from trunk:
 build-sys-use-glibc-s-xattr-support-instead-of-requi.patch
-logind-revert-lazy-session-activation.patch
+login-revert-lazy-session-activation-on-non-VT-seats.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
@@ -505,7 +548,6 @@ Revert-udev-network-device-renaming-immediately-give.patch
 udev-hwdb-Store-binary-database-in-libdir-not-in-etc.patch
 Make-99-systemd.rules-check-for-run-systemd-systemd-.patch
 Make-net.ifnames-opt-in-instead-of-opt-out.patch
-Don-t-move-libgudev-to-lib.patch
 Use-different-default-paths-for-various-binaries.patch
 Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch
 Avoid-reloading-services-when-shutting-down.patch
@@ -524,7 +566,6 @@ more-cd-aliases.patch
 Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
-core-transaction-fix-cycle-break-attempts-outside-tr.patch
 tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Add-support-for-TuxOnIce-hibernation.patch

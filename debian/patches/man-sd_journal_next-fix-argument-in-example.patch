@@ -1,0 +1,32 @@
+From: Christian Hesse <mail@eworm.de>
+Date: Tue, 1 Jul 2014 10:22:50 +0200
+Subject: man/sd_journal_next: fix argument in example
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+The example does not compile, it fails with:
+
+error: passing argument 3 of ‘sd_journal_get_data’ from incompatible
+pointer type
+
+Cast to (const void **) to avoid this.
+
+(cherry picked from commit 8959ae0d4cc7921293a21182693b7d953f6cce9b)
+---
+ man/sd_journal_next.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/sd_journal_next.xml b/man/sd_journal_next.xml
+index 1409b0d..750282c 100644
+--- a/man/sd_journal_next.xml
++++ b/man/sd_journal_next.xml
+@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
+                 const char *d;
+                 size_t l;
+ 
+-                r = sd_journal_get_data(j, "MESSAGE", &amp;d, &amp;l);
++                r = sd_journal_get_data(j, "MESSAGE", (const void **)&amp;d, &amp;l);
+                 if (r &lt; 0) {
+                         fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
+                         continue;

@@ -1,0 +1,29 @@
+From: =?utf-8?q?Cristian_Rodr=C3=ADguez?= <crrodriguez@opensuse.org>
+Date: Sat, 23 Mar 2013 03:54:16 +0100
+Subject: units/systemd-sysctl.service.in: run after load-modules
+
+Modules might or will register new sysctl options.
+
+[zj: This mechanism of adding modules just to reliably set sysctl
+attributes is not ideal. Nevertheless, sysctl for dynamically created
+attributes is simply broken, and this is the easiest workaround.]
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1022977
+https://bugzilla.novell.com/show_bug.cgi?id=725412
+(cherry picked from commit 0b73eab7a2185ae0377650e3fdb8208347a8a575)
+---
+ units/systemd-sysctl.service.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/units/systemd-sysctl.service.in b/units/systemd-sysctl.service.in
+index 5baf22c..b8e8175 100644
+--- a/units/systemd-sysctl.service.in
++++ b/units/systemd-sysctl.service.in
+@@ -11,6 +11,7 @@ Documentation=man:systemd-sysctl.service(8) man:sysctl.d(5)
+ DefaultDependencies=no
+ Conflicts=shutdown.target
+ After=systemd-readahead-collect.service systemd-readahead-replay.service
++After=systemd-modules-load.service
+ Before=sysinit.target shutdown.target
+ ConditionPathIsReadWrite=/proc/sys/
+ ConditionDirectoryNotEmpty=|/lib/sysctl.d
