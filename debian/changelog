@@ -1,4 +1,4 @@
-systemd (208-8ubuntu1) UNRELEASED; urgency=medium
+systemd (208-8ubuntu1) utopic; urgency=medium
 
   [ Martin Pitt ]
   * Merge with Debian unstable.
@@ -8,7 +8,7 @@ systemd (208-8ubuntu1) UNRELEASED; urgency=medium
   * Add support for HP ProLiant m400 Server Cartridge soft powerdown
     (LP: #1354306)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 19 Aug 2014 08:02:25 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 21 Aug 2014 07:58:30 +0200
 
 systemd (208-8) unstable; urgency=medium
 
