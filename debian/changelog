@@ -2,6 +2,7 @@ systemd (208-8ubuntu1) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
   * Merge with Debian unstable.
+  * debian/gbp.conf: Put ubuntu tags in the ubuntu/ namespace.
 
   [ Dann Frazier ]
   * Add support for HP ProLiant m400 Server Cartridge soft powerdown
