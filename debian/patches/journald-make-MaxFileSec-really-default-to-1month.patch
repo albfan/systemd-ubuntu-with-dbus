@@ -1,0 +1,33 @@
+From: =?utf-8?q?Micha=C5=82_Bartoszkiewicz?= <mbartoszkiewicz@gmail.com>
+Date: Thu, 26 Jun 2014 22:11:35 +0200
+Subject: journald: make MaxFileSec really default to 1month
+
+journald.conf(5) states that the default for MaxFileSec is one month,
+but the code didn't respect that.
+
+(cherry picked from commit e150e82097211f09b911c7784a89ef9efed713ca)
+---
+ src/journal/journald-server.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
+index 0b31d10..1e93670 100644
+--- a/src/journal/journald-server.c
++++ b/src/journal/journald-server.c
+@@ -67,6 +67,7 @@
+ #define DEFAULT_SYNC_INTERVAL_USEC (5*USEC_PER_MINUTE)
+ #define DEFAULT_RATE_LIMIT_INTERVAL (30*USEC_PER_SEC)
+ #define DEFAULT_RATE_LIMIT_BURST 1000
++#define DEFAULT_MAX_FILE_USEC USEC_PER_MONTH
+ 
+ #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
+ 
+@@ -1486,6 +1487,8 @@ int server_init(Server *s) {
+ 
+         s->forward_to_syslog = true;
+ 
++        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
++
+         s->max_level_store = LOG_DEBUG;
+         s->max_level_syslog = LOG_DEBUG;
+         s->max_level_kmsg = LOG_NOTICE;

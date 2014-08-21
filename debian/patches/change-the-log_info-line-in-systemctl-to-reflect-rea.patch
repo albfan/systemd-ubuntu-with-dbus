@@ -7,10 +7,10 @@ Subject: change the log_info() line in systemctl to reflect reality
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index a5624a8..f3be0f1 100644
+index 2a69c65..9c9f0ac 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4298,7 +4298,7 @@ static int enable_sysv_units(char **args) {
+@@ -4300,7 +4300,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  /* Mark this entry, so that we don't try enabling it as native unit */
                  args[f] = (char*) "";
  

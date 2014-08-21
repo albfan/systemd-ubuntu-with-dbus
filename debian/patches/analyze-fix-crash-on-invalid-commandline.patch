@@ -1,0 +1,29 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 9 Aug 2014 09:53:34 -0400
+Subject: analyze: fix crash on invalid commandline
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1128360
+---
+ src/analyze/systemd-analyze.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/analyze/systemd-analyze.c b/src/analyze/systemd-analyze.c
+index 25f8ad6..db5d6e6 100644
+--- a/src/analyze/systemd-analyze.c
++++ b/src/analyze/systemd-analyze.c
+@@ -1236,13 +1236,14 @@ static int set_log_level(DBusConnection *bus, char **args) {
+         assert(bus);
+         assert(args);
+ 
++        dbus_error_init(&error);
++
+         if (strv_length(args) != 1) {
+                 log_error("This command expects one argument only.");
+                 return -E2BIG;
+         }
+ 
+         value = args[0];
+-        dbus_error_init(&error);
+ 
+         m = dbus_message_new_method_call("org.freedesktop.systemd1",
+                                          "/org/freedesktop/systemd1",

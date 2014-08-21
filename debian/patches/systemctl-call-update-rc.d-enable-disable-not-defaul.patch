@@ -7,10 +7,10 @@ Subject: systemctl: call update-rc.d enable|disable, not defaults|remove
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 863129d..a5a4d2b 100644
+index e3c2b19..42c1d13 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4301,7 +4301,7 @@ static int enable_sysv_units(char **args) {
+@@ -4303,7 +4303,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  log_info("Synchronizing state for %s with sysvinit using update-rc.d...", name);
  
                  argv[c++] = path_get_file_name(p);

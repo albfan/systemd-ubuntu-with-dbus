@@ -1,0 +1,46 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sun, 22 Jun 2014 14:04:23 -0400
+Subject: core/transaction: avoid misleading error message when unit not found
+
+There's no point in telling the user to look at the logs when
+an attempt to load the unit file failed with ENOENT.
+
+https://bugzilla.redhat.com/show_bug.cgi?id=996133
+(cherry picked from commit 04ef5b03f64d3824a51a2a903548af029a006744)
+
+Conflicts:
+	TODO
+	src/core/transaction.c
+---
+ src/core/transaction.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/src/core/transaction.c b/src/core/transaction.c
+index 203070f..10d7602 100644
+--- a/src/core/transaction.c
++++ b/src/core/transaction.c
+@@ -861,12 +861,18 @@ int transaction_add_job_and_dependencies(
+         }
+ 
+         if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
+-                dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
+-                               "Unit %s failed to load: %s. "
+-                               "See system logs and 'systemctl status %s' for details.",
+-                               unit->id,
+-                               strerror(-unit->load_error),
+-                               unit->id);
++                if (unit->load_error == -ENOENT)
++                        dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
++                                       "Unit %s failed to load: %s.",
++                                       unit->id,
++                                       strerror(-unit->load_error));
++                else
++                        dbus_set_error(e, BUS_ERROR_LOAD_FAILED,
++                                       "Unit %s failed to load: %s. "
++                                       "See system logs and 'systemctl status %s' for details.",
++                                       unit->id,
++                                       strerror(-unit->load_error),
++                                       unit->id);
+                 return -EINVAL;
+         }
+ 

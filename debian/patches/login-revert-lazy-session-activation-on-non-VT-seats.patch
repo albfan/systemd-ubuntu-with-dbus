@@ -1,0 +1,32 @@
+From: David Herrmann <dh.herrmann@gmail.com>
+Date: Thu, 28 Nov 2013 10:52:18 +0100
+Subject: login: revert lazy session-activation on non-VT seats
+
+Existing applications like gdm already depend on new sessions to get
+immediately activated on seats without VTs. Fixes a bug reported as:
+  [systemd-devel] systemd 208:trouble with inactive user sessions at non-seat0 seats
+
+This patch restores the original behavior. We either need to add a new
+flag for session-creation or some other heuristic to avoid activating new
+sessions in the future.
+
+(cherry picked from commit 3fdb2494c1e24c0a020f5b54022d2c751fd26f50)
+---
+ src/login/logind-seat.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/login/logind-seat.c b/src/login/logind-seat.c
+index b581925..030df40 100644
+--- a/src/login/logind-seat.c
++++ b/src/login/logind-seat.c
+@@ -419,8 +419,8 @@ int seat_attach_session(Seat *s, Session *session) {
+         seat_send_changed(s, "Sessions\0");
+ 
+         /* On seats with VTs, the VT logic defines which session is active. On
+-         * seats without VTs, we automatically activate the first session. */
+-        if (!seat_has_vts(s) && !s->active)
++         * seats without VTs, we automatically activate new sessions. */
++        if (!seat_has_vts(s))
+                 seat_set_active(s, session);
+ 
+         return 0;

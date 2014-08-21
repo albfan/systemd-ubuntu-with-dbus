@@ -1,0 +1,56 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Mon, 23 Jun 2014 19:18:44 +0200
+Subject: cryptsetup: don't add unit dependency on /dev/null devices when it
+ is listed as password file
+
+As special magic, don't create device dependencies for /dev/null. Of
+course, there might be similar devices we might want to include, but
+given that none of them really make sense to specify as password source
+there's really no point in checking for anything else here.
+
+https://bugs.freedesktop.org/show_bug.cgi?id=75816
+(cherry picked from commit bde29068aa3815c88190a91e9867605a0aeaf9c4)
+
+Conflicts:
+	src/cryptsetup/cryptsetup-generator.c
+---
+ src/cryptsetup/cryptsetup-generator.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/src/cryptsetup/cryptsetup-generator.c b/src/cryptsetup/cryptsetup-generator.c
+index 11e5268..1b5f8be 100644
+--- a/src/cryptsetup/cryptsetup-generator.c
++++ b/src/cryptsetup/cryptsetup-generator.c
+@@ -30,6 +30,7 @@
+ #include "virt.h"
+ #include "strv.h"
+ #include "fileio.h"
++#include "path-util.h"
+ 
+ static const char *arg_dest = "/tmp";
+ static bool arg_enabled = true;
+@@ -137,14 +138,17 @@ static int create_disk(
+                         if (uu == NULL)
+                                 return log_oom();
+ 
+-                        if (is_device_path(uu)) {
+-                                _cleanup_free_ char *dd = unit_name_from_path(uu, ".device");
+-                                if (dd == NULL)
+-                                        return log_oom();
++                        if (!path_equal(uu, "/dev/null")) {
++
++                                if (is_device_path(uu)) {
++                                        _cleanup_free_ char *dd = unit_name_from_path(uu, ".device");
++                                        if (dd == NULL)
++                                                return log_oom();
+ 
+-                                fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
+-                        } else
+-                                fprintf(f, "RequiresMountsFor=%s\n", password);
++                                        fprintf(f, "After=%1$s\nRequires=%1$s\n", dd);
++                                } else
++                                        fprintf(f, "RequiresMountsFor=%s\n", password);
++                        }
+                 }
+         }
+ 

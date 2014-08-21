@@ -1,0 +1,24 @@
+From: Lennart Poettering <lennart@poettering.net>
+Date: Wed, 9 Jul 2014 13:20:05 +0200
+Subject: hostnamed: add a new chassis type for watches
+
+(cherry picked from commit c49e59c1831f20fe02276d7bc6ba7d23d24c4ab3)
+(cherry picked from commit 6f977a8c14c4cec72a85f20d0986daa391dd3319)
+---
+ src/hostname/hostnamed.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
+index 0c24b65..769f25c 100644
+--- a/src/hostname/hostnamed.c
++++ b/src/hostname/hostnamed.c
+@@ -155,7 +155,8 @@ static bool valid_chassis(const char *chassis) {
+                         "laptop\0"
+                         "server\0"
+                         "tablet\0"
+-                        "handset\0",
++                        "handset\0"
++                        "watch\0",
+                         chassis);
+ }
+ 

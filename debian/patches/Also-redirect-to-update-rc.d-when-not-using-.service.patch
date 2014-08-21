@@ -9,10 +9,10 @@ enable rsyslog.service)
  1 file changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index f3be0f1..ea36b48 100644
+index 9c9f0ac..ab92fc7 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4255,9 +4255,6 @@ static int enable_sysv_units(char **args) {
+@@ -4257,9 +4257,6 @@ static int enable_sysv_units(const char *verb, char **args) {
  
                  name = args[f];
  
@@ -22,7 +22,7 @@ index f3be0f1..ea36b48 100644
                  if (path_is_absolute(name))
                          continue;
  
-@@ -4289,7 +4286,8 @@ static int enable_sysv_units(char **args) {
+@@ -4291,7 +4288,8 @@ static int enable_sysv_units(const char *verb, char **args) {
                          goto finish;
                  }
  

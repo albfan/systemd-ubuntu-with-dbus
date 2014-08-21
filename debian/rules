@@ -57,7 +57,6 @@ CONFFLAGS_udeb = \
 	--disable-localed \
 	--disable-polkit \
 	--disable-acl \
-	--disable-xattr \
 	--disable-gudev \
 	--disable-manpages \
 	--without-python

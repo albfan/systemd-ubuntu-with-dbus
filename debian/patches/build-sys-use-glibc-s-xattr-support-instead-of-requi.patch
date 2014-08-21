@@ -1,8 +1,6 @@
-From bc3d33edd2b227c17ae338bf147067bdfafe299c Mon Sep 17 00:00:00 2001
 From: Kay Sievers <kay@vrfy.org>
 Date: Wed, 28 May 2014 17:36:40 +0800
-Subject: [PATCH] build-sys: use glibc's xattr support instead of requiring
- libattr
+Subject: build-sys: use glibc's xattr support instead of requiring libattr
 
 (cherry picked from commit d2edfae0f9bdbecf6a8518e2a5bcf06f470e0d9e)
 ---
@@ -90,7 +88,7 @@ index 9605b38..4b0b45b 100644
          QRENCODE:                ${have_qrencode}
          MICROHTTPD:              ${have_microhttpd}
 diff --git a/src/core/mount-setup.c b/src/core/mount-setup.c
-index cff83d3..12b7ed3 100644
+index 5c6edfd..6843183 100644
 --- a/src/core/mount-setup.c
 +++ b/src/core/mount-setup.c
 @@ -87,10 +87,8 @@ static const MountPoint mount_table[] = {
@@ -105,7 +103,7 @@ index cff83d3..12b7ed3 100644
            NULL,       MNT_IN_CONTAINER },
          { "pstore",     "/sys/fs/pstore",            "pstore",     NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
 diff --git a/src/core/socket.c b/src/core/socket.c
-index 8e02c03..3bd4532 100644
+index 1bf1f05..66af49d 100644
 --- a/src/core/socket.c
 +++ b/src/core/socket.c
 @@ -28,9 +28,7 @@
@@ -120,7 +118,7 @@ index 8e02c03..3bd4532 100644
  #include "unit.h"
  #include "socket.h"
 diff --git a/src/journal/journal-file.c b/src/journal/journal-file.c
-index 2d2d289..010dda1 100644
+index 2d79dce..dd63803 100644
 --- a/src/journal/journal-file.c
 +++ b/src/journal/journal-file.c
 @@ -26,10 +26,7 @@
@@ -135,7 +133,7 @@ index 2d2d289..010dda1 100644
  
  #include "journal-def.h"
  #include "journal-file.h"
-@@ -2513,7 +2510,6 @@ int journal_file_open(
+@@ -2507,7 +2504,6 @@ int journal_file_open(
          }
  
          if (f->last_stat.st_size == 0 && f->writable) {
@@ -143,7 +141,7 @@ index 2d2d289..010dda1 100644
                  uint64_t crtime;
  
                  /* Let's attach the creation time to the journal file,
-@@ -2528,7 +2524,6 @@ int journal_file_open(
+@@ -2522,7 +2518,6 @@ int journal_file_open(
  
                  crtime = htole64((uint64_t) now(CLOCK_REALTIME));
                  fsetxattr(f->fd, "user.crtime_usec", &crtime, sizeof(crtime), XATTR_CREATE);
@@ -195,6 +193,3 @@ index 695e518..442120a 100644
  }
  
  static int journal_file_empty(int dir_fd, const char *name) {
--- 
-2.0.1
-

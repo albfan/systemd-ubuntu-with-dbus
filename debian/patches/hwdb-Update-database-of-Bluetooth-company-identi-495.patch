@@ -1,0 +1,46 @@
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Thu, 3 Jul 2014 16:13:48 +0200
+Subject: hwdb: Update database of Bluetooth company identifiers
+
+(cherry picked from commit 063e36db8aed7b54100b33089deb6d2e86d516b9)
+---
+ hwdb/20-bluetooth-vendor-product.hwdb | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/hwdb/20-bluetooth-vendor-product.hwdb b/hwdb/20-bluetooth-vendor-product.hwdb
+index 377748a..9f3136a 100644
+--- a/hwdb/20-bluetooth-vendor-product.hwdb
++++ b/hwdb/20-bluetooth-vendor-product.hwdb
+@@ -1045,7 +1045,31 @@ bluetooth:v0159*
+  ID_VENDOR_FROM_DATABASE=ChefSteps, Inc.
+ 
+ bluetooth:v015A*
+- ID_VENDOR_FROM_DATABASE=micus AG
++ ID_VENDOR_FROM_DATABASE=micas AG
+ 
+ bluetooth:v015B*
+  ID_VENDOR_FROM_DATABASE=Biomedical Research Ltd.
++
++bluetooth:v015C*
++ ID_VENDOR_FROM_DATABASE=Pitius Tec S.L.
++
++bluetooth:v015D*
++ ID_VENDOR_FROM_DATABASE=Estimote, Inc.
++
++bluetooth:v015E*
++ ID_VENDOR_FROM_DATABASE=Unikey Technologies, Inc.
++
++bluetooth:v015F*
++ ID_VENDOR_FROM_DATABASE=Timer Cap Co.
++
++bluetooth:v0160*
++ ID_VENDOR_FROM_DATABASE=AwoX
++
++bluetooth:v0161*
++ ID_VENDOR_FROM_DATABASE=yikes
++
++bluetooth:v0162*
++ ID_VENDOR_FROM_DATABASE=MADSGlobal NZ Ltd.
++
++bluetooth:v0163*
++ ID_VENDOR_FROM_DATABASE=PCH International

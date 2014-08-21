@@ -1,0 +1,58 @@
+From: =?utf-8?q?Zbigniew_J=C4=99drzejewski-Szmek?= <zbyszek@in.waw.pl>
+Date: Sat, 28 Jun 2014 00:06:30 -0400
+Subject: units: remove RefuseManualStart from units which are always around
+
+In a normal running system, non-passive targets and units used during
+early bootup are always started. So refusing "manual start" for them
+doesn't make any difference, because a "start" command doesn't cause
+any action.
+
+In early boot however, the administrator might want to start on
+of those targets or services by hand. We shouldn't interfere with that.
+
+Note: in case of systemd-tmpfiles-setup.service, really running the
+unit after system is up would break the system. So e.g. restarting
+should not be allowed. The unit has "RefuseManualStop=yes", which
+prevents restart too.
+
+(cherry picked from commit 0fdeb6e011dfdb17636c81e2d7e0d632186359ce)
+
+Conflicts:
+	units/systemd-tmpfiles-setup.service.in
+	units/user/basic.target
+---
+ units/basic.target                      | 1 -
+ units/sysinit.target                    | 1 -
+ units/systemd-tmpfiles-setup.service.in | 1 -
+ 3 files changed, 3 deletions(-)
+
+diff --git a/units/basic.target b/units/basic.target
+index d7c68f4..b890d48 100644
+--- a/units/basic.target
++++ b/units/basic.target
+@@ -11,4 +11,3 @@ Documentation=man:systemd.special(7)
+ Requires=sysinit.target
+ Wants=sockets.target timers.target paths.target slices.target
+ After=sysinit.target sockets.target timers.target paths.target slices.target
+-RefuseManualStart=yes
+diff --git a/units/sysinit.target b/units/sysinit.target
+index 8f4fb8f..ec33503 100644
+--- a/units/sysinit.target
++++ b/units/sysinit.target
+@@ -11,4 +11,3 @@ Documentation=man:systemd.special(7)
+ Conflicts=emergency.service emergency.target
+ Wants=local-fs.target swap.target
+ After=local-fs.target swap.target emergency.service emergency.target
+-RefuseManualStart=yes
+diff --git a/units/systemd-tmpfiles-setup.service.in b/units/systemd-tmpfiles-setup.service.in
+index 01043b7..136520b 100644
+--- a/units/systemd-tmpfiles-setup.service.in
++++ b/units/systemd-tmpfiles-setup.service.in
+@@ -18,7 +18,6 @@ ConditionDirectoryNotEmpty=|/lib/tmpfiles.d
+ ConditionDirectoryNotEmpty=|/usr/local/lib/tmpfiles.d
+ ConditionDirectoryNotEmpty=|/etc/tmpfiles.d
+ ConditionDirectoryNotEmpty=|/run/tmpfiles.d
+-RefuseManualStart=yes
+ RefuseManualStop=yes
+ 
+ [Service]
