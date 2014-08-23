@@ -11,10 +11,10 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/x-display-manager.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 9c86bcf..1e33415 100644
+index cdd412e..0bbd79a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -497,6 +497,12 @@ nodist_systemunit_DATA = \
+@@ -465,6 +465,12 @@ nodist_systemunit_DATA = \
  	units/initrd-switch-root.service \
  	units/systemd-nspawn@.service
  

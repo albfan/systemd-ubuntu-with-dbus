@@ -52,11 +52,38 @@ systemd (214-1) UNRELEASED; urgency=medium
 
  -- Sjoerd Simons <sjoerd@debian.org>  Sun, 10 Aug 2014 10:42:30 +0200
 
-systemd (208-8) UNRELEASED; urgency=medium
+systemd (208-8) unstable; urgency=medium
 
+  [ Martin Pitt ]
   * Fix duplicate line in copyright. (Closes: #756899)
+  * Drop --disable-xattr configure option for udeb, does not exist any more.
+  * Add Turkish debconf translations. Thanks Mert Dirik! (Closes: #757498)
+  * Backport fix for lazy session-activation on non-seat0 seats.
+    (LP: #1355331)
 
- -- Martin Pitt <mpitt@debian.org>  Thu, 07 Aug 2014 08:31:38 +0200
+  [ Michael Biebl ]
+  * Use "kmod static-nodes --output=/proc/self/fd/1" in make_static_nodes() as
+    we can't rely on /dev/stdout to exist at this point during boot.
+    (Closes: #757830)
+  * Fix udev SysV init script and d-i start script to not write to
+    /sys/kernel/uevent_helper unconditionally to not fail on a kernel with
+    CONFIG_UEVENT_HELPER unset. (Closes: #756312)
+  * Add Breaks: kmod (<< 14) to udev to make sure we have a kmod version
+    supporting the static-nodes command.
+  * Add Breaks: systemd (<< 208) to udev to avoid partial upgrades. Newer udev
+    versions rely on kmod-static-nodes.service being provided by systemd.
+    (Closes: #757777)
+  * Updated upstream v208-stable patch series to 53b1b6c.
+  * Cherry-pick upstream fix to ignore temporary dpkg files. (Closes: #757302)
+  * Make emergency.service conflict with rescue.service.
+    Otherwise if rescue mode is selected during boot and the emergency mode
+    is triggered (e.g. via a broken fstab entry), we have two sulogin
+    processes fighting over the tty. (Closes: #757072)
+  * Stop syslog.socket when entering emergency mode as otherwise every log
+    message triggers the start of the syslog service and its dependencies
+    which conflicts with emergency.target. (Closes: #755581)
+
+ -- Michael Biebl <biebl@debian.org>  Thu, 21 Aug 2014 00:14:21 +0200
 
 systemd (208-7) unstable; urgency=medium
 
