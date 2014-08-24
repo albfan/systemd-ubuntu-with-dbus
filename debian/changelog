@@ -1,4 +1,4 @@
-systemd (214-1) UNRELEASED; urgency=medium
+systemd (214-1) experimental; urgency=medium
 
   * New upstream release v214.
    (Closes: #750793, #749268, #747939)
@@ -50,7 +50,7 @@ systemd (214-1) UNRELEASED; urgency=medium
   * debian/rules: explicitely configure the maximum system uid/gids instead of
     relying on autodetection
 
- -- Sjoerd Simons <sjoerd@debian.org>  Sun, 10 Aug 2014 10:42:30 +0200
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 24 Aug 2014 14:54:27 +0200
 
 systemd (208-8) unstable; urgency=medium
 
