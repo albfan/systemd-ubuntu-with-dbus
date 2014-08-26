@@ -51,7 +51,7 @@ systemd (214-1) experimental; urgency=medium
   * debian/control: Remove b-d on librwap0-dev
   * debian/control: Bump libkmod-dev b-d to >= 15
   * debian/rules: Drop outdated --enable-tcpwrap
-  * debian/rules: Explicitely turn off rfkill, networkd, timesyncd and resolved
+  * debian/rules: Explicitly turn off rfkill, networkd, timesyncd and resolved
     for the udeb build
   * debian/rules: Use the debian ntp pool as default ntp servers
   * debian/rules: explicitely configure the maximum system uid/gids instead of
