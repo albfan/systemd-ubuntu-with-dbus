@@ -1,5 +1,5 @@
 '\" t
-.TH "OS\-RELEASE" "5" "" "systemd 214" "os-release"
+.TH "OS\-RELEASE" "5" "" "systemd 215" "os-release"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -24,33 +24,52 @@ os-release \- Operating system identification
 .SH "SYNOPSIS"
 .PP
 /etc/os\-release
+.PP
+/usr/lib/os\-release
 .SH "DESCRIPTION"
 .PP
 The
 /etc/os\-release
-file contains operating system identification data\&.
+and
+/usr/lib/os\-release
+files contain operating system identification data\&.
 .PP
 The basic file format of
 os\-release
 is a newline\-separated list of environment\-like shell\-compatible variable assignments\&. It is possible to source the configuration from shell scripts, however, beyond mere variable assignments, no shell features are supported (this means variable expansion is explicitly not supported), allowing applications to read the file without implementing a shell compatible execution engine\&. Variable assignment values should be enclosed in double or single quotes if they include spaces, semicolons or other special characters outside of A\-Z, a\-z, 0\-9\&. All strings should be in UTF\-8 format, and non\-printable characters should not be used\&. If double or single quotes or backslashes are to be used within variable assignments, they should be escaped with backslashes, following shell style\&. It is not supported to concatenate multiple individually quoted strings\&. Lines beginning with "#" shall be ignored as comments\&.
 .PP
+The file
 /etc/os\-release
-contains data that is defined by the operating system vendor and should not be changed by the administrator\&.
+takes precedence over
+/usr/lib/os\-release\&. Applications should check for the former, and exclusively use its data if it exists, and only fall back to
+/usr/lib/os\-release
+if it is missing\&. Applications should not read data from both files at the same time\&.
+/usr/lib/os\-release
+is the recommended place to store OS release information as part of vendor trees\&. Frequently,
+/etc/os\-release
+is simply a symlink to
+/usr/lib/os\-release, to provide compatibility with applications only looking at
+/etc\&.
+.PP
+os\-release
+contains data that is defined by the operating system vendor and should generally not be changed by the administrator\&.
 .PP
 As this file only encodes names and identifiers it should not be localized\&.
 .PP
-The file
+The
 /etc/os\-release
-might be a symlink to another file, but it is important that the file is available from earliest boot on, and hence must be located on the root file system\&.
+and
+/usr/lib/os\-release
+files might be symlinks to other files, but it is important that the file is available from earliest boot on, and hence must be located on the root file system\&.
 .PP
 For a longer rationale for
-/etc/os\-release
+os\-release
 please refer to the
 \m[blue]\fBAnnouncement of /etc/os\-release\fR\m[]\&\s-2\u[1]\d\s+2\&.
 .SH "OPTIONS"
 .PP
 The following OS identifications parameters may be set using
-/etc/os\-release:
+os\-release:
 .PP
 \fINAME=\fR
 .RS 4

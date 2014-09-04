@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 214" "systemd.special"
+.TH "SYSTEMD\&.SPECIAL" "7" "" "systemd 215" "systemd.special"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -27,6 +27,7 @@ basic\&.target,
 bluetooth\&.target,
 ctrl\-alt\-del\&.target,
 cryptsetup\&.target,
+cryptsetup\-pre\&.target,
 dbus\&.service,
 dbus\&.socket,
 default\&.target,
@@ -206,10 +207,10 @@ to
 sysroot\-usr\&.mount
 and all mount points found in
 /etc/fstab
-that have the
-\fBauto\fR
-and
+that have
 \fBx\-initrd\&.mount\fR
+and not have
+\fBnoauto\fR
 mount options set\&.
 .RE
 .PP
@@ -491,6 +492,11 @@ Note that these passive units cannot be started manually, i\&.e\&.
 "systemctl start time\-sync\&.target"
 will fail with an error\&. They can only be pulled in by dependency\&. This is enforced since they exist for ordering purposes only and thus are not useful as only unit within a transaction\&.
 .PP
+cryptsetup\-pre\&.target
+.RS 4
+This passive target unit may be pulled in by services that want to run before any encrypted block device is set up\&. All encrypted block devices are set up after this target has been reached\&. Since the shutdown order is implicitly the reverse start\-up order between units, this target is particularly useful to ensure that a service is shut down only after all encrypted block devices are fully stopped\&.
+.RE
+.PP
 local\-fs\-pre\&.target
 .RS 4
 This target unit is automatically ordered before all local mount points marked with
@@ -618,7 +624,7 @@ By default, all user processes and services started on behalf of the user, inclu
 .PP
 machine\&.slice
 .RS 4
-By defalt, all virtual machines and containers registered with
+By default, all virtual machines and containers registered with
 \fBsystemd\-machined\fR
 are found in this slice\&.
 .RE

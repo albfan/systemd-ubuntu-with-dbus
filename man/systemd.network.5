@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 214" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 215" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -48,6 +48,7 @@ take precedence over files with the same name in
 with the same name as a configuration file in
 /usr/lib, pointing to
 /dev/null, disables the configuration file entirely\&.
+.SH "[MATCH] SECTION OPTIONS"
 .PP
 The network file contains a
 "[Match]"
@@ -126,6 +127,7 @@ in
 \fBsystemd.unit\fR(5)
 for details\&.
 .RE
+.SH "[NETWORK] SECTION OPTIONS"
 .PP
 The
 "[Network]"
@@ -138,7 +140,17 @@ A description of the device\&. This is only used for presentation purposes\&.
 .PP
 \fIDHCP=\fR
 .RS 4
-A boolean\&. When true, enables basic DHCPv4 support\&.
+Enables DHCPv4 and/or DHCPv6 support\&. Accepts
+"both",
+"none",
+"v4"
+or
+"v6"\&.
+.RE
+.PP
+\fIDHCPServer=\fR
+.RS 4
+A boolean\&. Enables a basic DHCPv4 server on the device\&. Mostly useful for handing out leases to container instances\&.
 .RE
 .PP
 \fIIPv4LL=\fR
@@ -154,6 +166,8 @@ A static IPv4 or IPv6 address and its prefix length, separated by a
 "/"
 character\&. Specify this key more than once to configure several addresses\&. The format of the address must be as described in
 \fBinet_pton\fR(3)\&. This is a short\-hand for an [Address] section only containing an Address key (see below)\&. This option may be specified more than once\&.
+.sp
+If the specified address is 0\&.0\&.0\&.0 (for IPv4) or [::] (for IPv6), a new address range of the requested size is automatically allocated from a system\-wide pool of unused ranges\&. The allocated range is checked against all current network interfaces and all known network configuration files to avoid address range conflicts\&. The default system\-wide pool consists of 192\&.168\&.0\&.0/16, 172\&.16\&.0\&.0/12 and 10\&.0\&.0\&.0/8 for IPv4, and fc00::/7 for IPv6\&. This functionality is useful to manage a large number of dynamically created network interfaces with the same network configuration and automatic address range assignment\&.
 .RE
 .PP
 \fIGateway=\fR
@@ -188,6 +202,17 @@ The name of a VLAN to create on the link\&. This option may be specified more th
 The name of a MACVLAN to create on the link\&. This option may be specified more than once\&.
 .RE
 .PP
+\fIVXLAN=\fR
+.RS 4
+The name of a VXLAN to create on the link\&. This option may be specified more than once\&.
+.RE
+.PP
+\fITunnel=\fR
+.RS 4
+The name of a Tunnel to create on the link\&. This option may be specified more than once\&.
+.RE
+.SH "[ADDRESS] SECTION OPTIONS"
+.PP
 An
 "[Address]"
 section accepts the following keys\&. Specify several
@@ -213,6 +238,7 @@ key\&.
 .RS 4
 An address label\&.
 .RE
+.SH "[ROUTE] SECTION OPTIONS"
 .PP
 The
 "[Route]"
@@ -231,9 +257,10 @@ section\&. This key is mandatory\&.
 .RS 4
 The destination prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If ommitted, a full\-length host route is assumed\&.
 .RE
+.SH "[DHCP] SECTION OPTIONS"
 .PP
 The
-"[DHCPv4]"
+"[DHCP]"
 section accepts the following keys:
 .PP
 \fIUseDNS=\fR
@@ -246,9 +273,19 @@ When true (the default), the DNS servers received from the DHCP server will be u
 When true, the interface maximum transmission unit from the DHCP server will be used on the current link\&. Defaults to false\&.
 .RE
 .PP
+\fISendHostname=\fR
+.RS 4
+When true (the default), the machine\*(Aqs hostname will be sent to the DHCP server
+.RE
+.PP
 \fIUseHostname=\fR
 .RS 4
 When true (the default), the hostname received from the DHCP server will be used as the transient hostname\&.
+.RE
+.PP
+\fIUseRoutes=\fR
+.RS 4
+When true (the default), the static routes will be requested from the DHCP server and added to the routing table with metric of 1024\&.
 .RE
 .PP
 \fICriticalConnection=\fR
@@ -319,6 +356,70 @@ Name=enp2s0
 
 [Network]
 Bridge=bridge0
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&5.\ \&/etc/systemd/network/ipip.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=em1
+
+[Network]
+Tunnel=ipip\-tun
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&6.\ \&/etc/systemd/network/sit.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=em1
+
+[Network]
+Tunnel=sit\-tun
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&7.\ \&/etc/systemd/network/gre.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=em1
+
+[Network]
+Tunnel=gre\-tun
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&8.\ \&/etc/systemd/network/vti.network\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+[Match]
+Name=em1
+
+[Network]
+Tunnel=vti\-tun
 .fi
 .if n \{\
 .RE

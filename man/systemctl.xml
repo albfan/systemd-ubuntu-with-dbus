@@ -288,6 +288,8 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <command>snapshot</command>,
           <command>is-active</command>,
           <command>is-failed</command>,
+          <command>is-enabled</command>,
+          <command>is-system-running</command>,
           <command>enable</command> and
         <command>disable</command>.</para>
         </listitem>
@@ -473,6 +475,20 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <command>set-property</command>, make changes only
           temporarily, so that they are lost on the next
           reboot.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--preset-mode=</option></term>
+
+        <listitem>
+          <para>Takes one of <literal>full</literal> (the default),
+          <literal>enable-only</literal>,
+          <literal>disable-only</literal>. When used with the
+          <command>preset</command> or <command>preset-all</command>
+          commands, controls whether units shall be disabled and
+          enabled according to the preset rules, or only enabled, or
+          only disabled.</para>
         </listitem>
       </varlistentry>
 
@@ -1025,13 +1041,32 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             command line, to the defaults configured in the preset
             policy files. This has the same effect as
             <command>disable</command> or <command>enable</command>,
-            depending how the unit is listed in the preset files. For
-            more information on the preset policy format, see
+            depending how the unit is listed in the preset files.</para>
+
+            <para>Use <option>--preset-mode=</option> to control
+            whether units shall be enabled and disabled, or only
+            enabled, or only disabled.</para>
+
+            <para>For more information on the preset policy format,
+            see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             For more information on the concept of presets, please
-            consult the
-            <ulink url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
+            consult the <ulink
+            url="http://freedesktop.org/wiki/Software/systemd/Preset">Preset</ulink>
             document.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>preset-all</command></term>
+
+          <listitem>
+            <para>Resets all installed unit files to the defaults
+            configured in the preset policy file (see above).</para>
+
+            <para>Use <option>--preset-mode=</option> to control
+            whether units shall be enabled and disabled, or only
+            enabled, or only disabled.</para>
           </listitem>
         </varlistentry>
 
@@ -1267,6 +1302,20 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
 
       <variablelist>
         <varlistentry>
+          <term><command>is-system-running</command></term>
+
+          <listitem>
+            <para>Checks whether the system is running. This returns
+            success when the system is fully up and running, meaning
+            not in startup, shutdown or maintainance mode. Failure is
+            returned otherwise. In addition, the current state is
+            printed in a short string to standard output. Use
+            <option>--quiet</option> to suppress output of this state
+            string.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>default</command></term>
 
           <listitem>
@@ -1274,6 +1323,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <command>isolate default.target</command>.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><command>rescue</command></term>
 

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 214" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 215" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -522,10 +522,9 @@ Takes a boolean argument or
 "full"\&. If true, mounts the
 /usr
 directory read\-only for processes invoked by this unit\&. If set to
-"full"
-the
+"full", the
 /etc
-is mounted read\-only, too\&. This setting ensures that any modification of the vendor supplied operating system (and optionally its configuration) is prohibited for the service\&. It is recommended to enable this setting for all long\-running services, unless they are involved with system updates or need to modify the operating system in other ways\&. Note however, that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
+directory is mounted read\-only, too\&. This setting ensures that any modification of the vendor supplied operating system (and optionally its configuration) is prohibited for the service\&. It is recommended to enable this setting for all long\-running services, unless they are involved with system updates or need to modify the operating system in other ways\&. Note however that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
 \fICapabilityBoundingSet=\fR\&. Defaults to off\&.
 .RE
 .PP
@@ -537,8 +536,7 @@ Takes a boolean argument or
 and
 /run/user
 are made inaccessible and empty for processes invoked by this unit\&. If set to
-"read\-only"
-the two directores are made read\-only instead\&. It is recommended to enable this setting for all long\-running services (in particular network\-facing ones), to ensure they cannot get access to private user data, unless the services actually require access to the user\*(Aqs private data\&. Note however, that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
+"read\-only", the two directores are made read\-only instead\&. It is recommended to enable this setting for all long\-running services (in particular network\-facing ones), to ensure they cannot get access to private user data, unless the services actually require access to the user\*(Aqs private data\&. Note however that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
 \fICapabilityBoundingSet=\fR\&. Defaults to off\&.
 .RE
 .PP

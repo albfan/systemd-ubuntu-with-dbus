@@ -288,7 +288,7 @@ static int locale_write_data(Context *c) {
         int r, p;
         char **l = NULL;
 
-        r = load_env_file("/etc/locale.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -393,7 +393,7 @@ static int vconsole_write_data(Context *c) {
         int r;
         _cleanup_strv_free_ char **l = NULL;
 
-        r = load_env_file("/etc/vconsole.conf", NULL, &l);
+        r = load_env_file(NULL, "/etc/vconsole.conf", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -712,15 +712,16 @@ static int find_legacy_keymap(Context *c, char **new_keymap) {
                         }
                 }
 
-                if (matching > 0 &&
-                    streq_ptr(c->x11_model, a[2])) {
-                        matching++;
-
-                        if (streq_ptr(c->x11_variant, a[3])) {
+                if (matching > 0) {
+                        if (isempty(c->x11_model) || streq_ptr(c->x11_model, a[2])) {
                                 matching++;
 
-                                if (streq_ptr(c->x11_options, a[4]))
+                                if (streq_ptr(c->x11_variant, a[3])) {
                                         matching++;
+
+                                        if (streq_ptr(c->x11_options, a[4]))
+                                                matching++;
+                                }
                         }
                 }
 

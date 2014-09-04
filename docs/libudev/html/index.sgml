@@ -113,6 +113,8 @@
 <ANCHOR id="udev-queue-get-queued-list-entry" href="libudev/libudev-udev-queue.html#udev-queue-get-queued-list-entry">
 <ANCHOR id="udev-queue-get-kernel-seqnum" href="libudev/libudev-udev-queue.html#udev-queue-get-kernel-seqnum">
 <ANCHOR id="udev-queue-get-udev-seqnum" href="libudev/libudev-udev-queue.html#udev-queue-get-udev-seqnum">
+<ANCHOR id="udev-queue-get-fd" href="libudev/libudev-udev-queue.html#udev-queue-get-fd">
+<ANCHOR id="udev-queue-flush" href="libudev/libudev-udev-queue.html#udev-queue-flush">
 <ANCHOR id="libudev-udev-hwdb" href="libudev/libudev-udev-hwdb.html">
 <ANCHOR id="libudev-udev-hwdb.synopsis" href="libudev/libudev-udev-hwdb.html#libudev-udev-hwdb.synopsis">
 <ANCHOR id="libudev-udev-hwdb.description" href="libudev/libudev-udev-hwdb.html#libudev-udev-hwdb.description">

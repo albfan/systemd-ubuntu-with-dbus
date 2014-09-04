@@ -19,32 +19,16 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm214188131520"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="sysctl.d"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sysctl.d — Configure kernel parameters at boot</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/sysctl.d/*.conf</code></p><p><code class="filename">/run/sysctl.d/*.conf</code></p><p><code class="filename">/usr/lib/sysctl.d/*.conf</code></p></div><div class="refsect1"><a name="idm214178788384"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>At boot,
                 <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>
                 reads configuration files from the above directories
                 to configure
                 <a href="sysctl.html"><span class="citerefentry"><span class="refentrytitle">sysctl</span>(8)</span></a>
-                kernel parameters.</p></div><div class="refsect1"><a name="idm214188802640"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
+                kernel parameters.</p></div><div class="refsect1"><a name="idm214180384960"></a><h2 id="Configuration Format">Configuration Format<a class="headerlink" title="Permalink to this headline" href="#Configuration%20Format">¶</a></h2><p>The configuration files contain a list of
                 variable assignments, separated by newlines. Empty
                 lines and lines whose first non-whitespace character
                 is "<code class="literal">#</code>" or "<code class="literal">;</code>" are
-                ignored.</p><p>Note that either "<code class="literal">/</code>" or
-                "<code class="literal">.</code>" may be used as separators within
-                sysctl variable names. If the first separator is a
-                slash, remaining slashes and dots are left intact. If
-                the first separator is a dot, dots and slashes are
-                interchanged. "<code class="literal">kernel.domainname=foo</code>"
-                and "<code class="literal">kernel/domainname=foo</code>" are
-                equivalent and will cause "<code class="literal">foo</code>" to
-                be written to
-                <code class="filename">/proc/sys/kernel/domainname</code>.
-                Either
-                "<code class="literal">net.ipv4.conf.enp3s0/200.forwarding</code>"
-                or
-                "<code class="literal">net/ipv4/conf/enp3s0.200/forwarding</code>"
-                may be used to refer to
-                <code class="filename">/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</code>.
-                </p><p>Each configuration file shall be named in the
+                ignored.</p><p>Each configuration file shall be named in the
                 style of <code class="filename"><em class="replaceable"><code>program</code></em>.conf</code>.
                 Files in <code class="filename">/etc/</code> override files
                 with the same name in <code class="filename">/usr/lib/</code>
@@ -63,7 +47,23 @@
                 lexicographically latest name will be applied. It is
                 recommended to prefix all filenames with a two-digit
                 number and a dash, to simplify the ordering of the
-                files.</p><p>If the administrator wants to disable a
+                files.</p><p>Note that either "<code class="literal">/</code>" or
+                "<code class="literal">.</code>" may be used as separators within
+                sysctl variable names. If the first separator is a
+                slash, remaining slashes and dots are left intact. If
+                the first separator is a dot, dots and slashes are
+                interchanged. "<code class="literal">kernel.domainname=foo</code>"
+                and "<code class="literal">kernel/domainname=foo</code>" are
+                equivalent and will cause "<code class="literal">foo</code>" to
+                be written to
+                <code class="filename">/proc/sys/kernel/domainname</code>.
+                Either
+                "<code class="literal">net.ipv4.conf.enp3s0/200.forwarding</code>"
+                or
+                "<code class="literal">net/ipv4/conf/enp3s0.200/forwarding</code>"
+                may be used to refer to
+                <code class="filename">/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</code>.
+                </p><p>If the administrator wants to disable a
                 configuration file supplied by the vendor, the
                 recommended way is to place a symlink to
                 <code class="filename">/dev/null</code> in
@@ -76,11 +76,36 @@
                 specifically,
                 <code class="filename">net.ipv4.conf.*</code>,
                 <code class="filename">net.ipv6.conf.*</code>,
-                <code class="filename">net.ipv4.neigh.*</code> and <code class="filename">net.ipv6.neigh.*</code>)</p></div><div class="refsect1"><a name="idm214188146352"></a><h2 id="Example">Example<a class="headerlink" title="Permalink to this headline" href="#Example">¶</a></h2><div class="example"><a name="idm214189983344"></a><p class="title"><b>Example 1. /etc/sysctl.d/domain-name.conf example:</b></p><div class="example-contents"><pre class="programlisting"># Set kernel YP domain name
-kernel.domainname=example.com</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214189776704"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                <code class="filename">net.ipv4.neigh.*</code> and <code class="filename">net.ipv6.neigh.*</code>).</p><p>Many sysctl parameters only become available
+                when certain kernel modules are loaded. Modules are
+                usually loaded on demand, e.g. when certain hardware
+                is plugged in or network brought up. This means that
+                <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a> which runs
+                during early boot will not configure such parameters
+                if they become available after it has run. To
+                set such parameters, it is recommended to add
+                an <a href="udev.html"><span class="citerefentry"><span class="refentrytitle">udev</span>(7)</span></a> rule to set those parameters when they become
+                available. Alternatively, a slightly simpler and
+                less efficient option is to add the module to
+                <a href="modules-load.d.html"><span class="citerefentry"><span class="refentrytitle">modules-load.d</span>(5)</span></a>, causing it to be loaded statically
+                before sysctl settings are applied (see
+                example below).</p></div><div class="refsect1"><a name="idm214180508656"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm214180507984"></a><p class="title"><b>Example 1. Set kernel YP domain name</b></p><div class="example-contents"><p><code class="filename">/etc/sysctl.d/domain-name.conf</code>:
+                        </p><pre class="programlisting">kernel.domainname=example.com</pre></div></div><br class="example-break"><div class="example"><a name="idm214180505408"></a><p class="title"><b>Example 2. Disable packet filter on bridged packets (method one)</b></p><div class="example-contents"><p><code class="filename">/etc/udev/rules.d/99-bridge.conf</code>:
+                        </p><pre class="programlisting">ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
+</pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
+                        </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-call-arptables = 0
+</pre></div></div><br class="example-break"><div class="example"><a name="idm214180493760"></a><p class="title"><b>Example 3. Disable packet filter on bridged packets (method two)</b></p><div class="example-contents"><p><code class="filename">/etc/modules-load.d/bridge.conf</code>:
+                        </p><pre class="programlisting">bridge</pre><p><code class="filename">/etc/sysctl.d/bridge.conf</code>:
+                        </p><pre class="programlisting">net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-call-arptables = 0
+</pre></div></div><br class="example-break"></div><div class="refsect1"><a name="idm214180489376"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-sysctl.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-sysctl.service</span>(8)</span></a>,
                         <a href="systemd-delta.html"><span class="citerefentry"><span class="refentrytitle">systemd-delta</span>(1)</span></a>,
                         <a href="sysctl.html"><span class="citerefentry"><span class="refentrytitle">sysctl</span>(8)</span></a>,
                         <a href="sysctl.conf.html"><span class="citerefentry"><span class="refentrytitle">sysctl.conf</span>(5)</span></a>
+                        <a href="modprobe.html"><span class="citerefentry"><span class="refentrytitle">modprobe</span>(8)</span></a>
                 </p></div></div></body></html>

@@ -24,3 +24,6 @@
 #include <stdio.h>
 
 int generator_write_fsck_deps(FILE *f, const char *dest, const char *what, const char *where, const char *type);
+
+int generator_write_timeouts(const char *dir, const char *what, const char *where,
+                             const char *opts, char **filtered);

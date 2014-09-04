@@ -1,0 +1,42 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd-sysusers</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd-sysusers"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-sysusers, systemd-sysusers.service — Allocate system users and groups</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-sysusers</code>  [OPTIONS...] [<em class="replaceable"><code>CONFIGFILE</code></em>...]</p></div><p><code class="filename">systemd-sysusers.service</code></p></div><div class="refsect1"><a name="idm214168665600"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-sysusers</strong></span> creates
+                system users and groups, based on the file format and
+                location specified in
+                <a href="sysusers.d.html"><span class="citerefentry"><span class="refentrytitle">sysusers.d</span>(5)</span></a>.
+                </p><p>If invoked with no arguments, it applies all
+                directives from all files found. If one or more
+                filenames are passed on the command line, only the
+                directives in these files are applied. If only the
+                basename of a file is specified, all directories as
+                specified in
+                <a href="sysusers.d.html"><span class="citerefentry"><span class="refentrytitle">sysusers.d</span>(5)</span></a>
+                are searched for a matching file.</p></div><div class="refsect1"><a name="idm214168661280"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--root=root"><span class="term"><code class="option">--root=<em class="replaceable"><code>root</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#--root=root">¶</a></dt><dd><p>Takes a directory path
+                                as an argument. All paths will be
+                                prefixed with the given alternate <em class="replaceable"><code>root</code></em>
+                                path, including config search paths.
+                                </p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm214168655488"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm214172553520"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="sysusers.d.html"><span class="citerefentry"><span class="refentrytitle">sysusers.d</span>(5)</span></a>
+                </p></div></div></body></html>

@@ -19,10 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
                 <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
                 <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214195915600"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214176829472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
                 mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</p><p>This man page lists the configuration options
@@ -39,7 +39,7 @@
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
-                type.</p></div><div class="refsect1"><a name="idm214194423040"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
+                type.</p></div><div class="refsect1"><a name="idm214178282400"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
                                 not set, defaults to the root directory
@@ -677,8 +677,8 @@
                                 mounts the <code class="filename">/usr</code>
                                 directory read-only for processes
                                 invoked by this unit. If set to
-                                "<code class="literal">full</code>" the
-                                <code class="filename">/etc</code> is mounted
+                                "<code class="literal">full</code>", the
+                                <code class="filename">/etc</code> directory is mounted
                                 read-only, too. This setting ensures
                                 that any modification of the vendor
                                 supplied operating system (and
@@ -688,7 +688,7 @@
                                 all long-running services, unless they
                                 are involved with system updates or
                                 need to modify the operating system in
-                                other ways. Note however, that
+                                other ways. Note however that
                                 processes retaining the CAP_SYS_ADMIN
                                 capability can undo the effect of this
                                 setting. This setting is hence
@@ -704,7 +704,7 @@
                                 <code class="filename">/run/user</code> are
                                 made inaccessible and empty for
                                 processes invoked by this unit. If set
-                                to "<code class="literal">read-only</code>" the
+                                to "<code class="literal">read-only</code>", the
                                 two directores are made read-only
                                 instead. It is recommended to enable
                                 this setting for all long-running
@@ -712,7 +712,7 @@
                                 ones), to ensure they cannot get access
                                 to private user data, unless the
                                 services actually require access to
-                                the user's private data. Note however,
+                                the user's private data. Note however
                                 that processes retaining the
                                 CAP_SYS_ADMIN capability can undo the
                                 effect of this setting. This setting
@@ -998,7 +998,7 @@
                                 directories that require more complex
                                 or different configuration or lifetime
                                 guarantees, please consider using
-                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214191115952"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
+                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214175926544"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
                 a clean environment in which select variables
                 listed below are set. System processes started by systemd
                 do not inherit variables from PID 1, but processes
@@ -1068,7 +1068,7 @@
                 <code class="varname">systemd.setenv=</code> (see
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>). Additional
                 variables may also be set through PAM,
-                cf. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214191076464"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                cf. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214175887296"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,

@@ -1,0 +1,64 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>coredumpctl</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="coredumpctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>coredumpctl — Retrieve coredumps from the journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">coredumpctl</code>  [OPTIONS...] {COMMAND} [PID|COMM|EXE|MATCH...]</p></div></div><div class="refsect1"><a name="idm214194795776"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>coredumpctl</strong></span> may be used to
+                retrieve coredumps from
+                <a href="systemd-journald.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214194840048"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-legend"><span class="term"><code class="option">--no-legend</code></span><a class="headerlink" title="Permalink to this term" href="#--no-legend">¶</a></dt><dd><p>Do not print the column headers.
+                                </p></dd><dt id="-1"><span class="term"><code class="option">-1</code></span><a class="headerlink" title="Permalink to this term" href="#-1">¶</a></dt><dd><p>Show information of a
+                                single coredump only, instead of
+                                listing all known coredumps.
+                                </p></dd><dt id="-F"><span class="term"><code class="option">-F</code>, </span><span class="term"><code class="option">--field=</code></span><a class="headerlink" title="Permalink to this term" href="#-F">¶</a></dt><dd><p>Print all possible
+                                data values the specified field
+                                takes in matching coredump entries of the
+                                journal.</p></dd><dt id="-o"><span class="term"><code class="option">-o</code>, </span><span class="term"><code class="option">--output=FILE</code></span><a class="headerlink" title="Permalink to this term" href="#-o">¶</a></dt><dd><p>Write the core to
+                                <code class="option">FILE</code>.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div><p>The following commands are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="list"><span class="term"><span class="command"><strong>list</strong></span></span><a class="headerlink" title="Permalink to this term" href="#list">¶</a></dt><dd><p>List coredumps
+                                captured in the journal matching
+                                specified characteristics. If no
+                                command is specified, this is the
+                                implied default.</p></dd><dt id="info"><span class="term"><span class="command"><strong>info</strong></span></span><a class="headerlink" title="Permalink to this term" href="#info">¶</a></dt><dd><p>Show detailed
+                                information about coredumps captured
+                                in the journal.</p></dd><dt id="dump"><span class="term"><span class="command"><strong>dump</strong></span></span><a class="headerlink" title="Permalink to this term" href="#dump">¶</a></dt><dd><p>Extract the last coredump
+                                matching specified characteristics.
+                                The coredump will be written on standard output,
+                                unless an output file is specified with
+                                <code class="option">-o/--output</code>.
+                                </p></dd><dt id="gdb"><span class="term"><span class="command"><strong>gdb</strong></span></span><a class="headerlink" title="Permalink to this term" href="#gdb">¶</a></dt><dd><p>Invoke the GNU
+                                debugger on the last coredump matching
+                                specified characteristics.
+                                </p></dd></dl></div></div><div class="refsect1"><a name="idm214194937296"></a><h2 id="Matching">Matching<a class="headerlink" title="Permalink to this headline" href="#Matching">¶</a></h2><p>A match can be:</p><div class="variablelist"><dl class="variablelist"><dt id="PID"><span class="term"><em class="replaceable"><code>PID</code></em></span><a class="headerlink" title="Permalink to this term" href="#PID">¶</a></dt><dd><p>Process ID of the
+                                process that dumped
+                                core. An integer.</p></dd><dt id="COMM"><span class="term"><em class="replaceable"><code>COMM</code></em></span><a class="headerlink" title="Permalink to this term" href="#COMM">¶</a></dt><dd><p>Name of the executable
+                                (matches <code class="option">COREDUMP_COMM=</code>).
+                                Must not contain slashes.
+                                </p></dd><dt id="EXE"><span class="term"><em class="replaceable"><code>EXE</code></em></span><a class="headerlink" title="Permalink to this term" href="#EXE">¶</a></dt><dd><p>Path to the executable
+                                (matches <code class="option">COREDUMP_EXE=</code>).
+                                Must contain at least one slash.
+                                </p></dd><dt id="MATCH"><span class="term"><em class="replaceable"><code>MATCH</code></em></span><a class="headerlink" title="Permalink to this term" href="#MATCH">¶</a></dt><dd><p>General journalctl predicates
+                                (see <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>).
+                                Must contain an equal sign.
+                                </p></dd></dl></div></div><div class="refsect1"><a name="idm214194927856"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero failure
+                code is returned. Not finding any matching coredumps is treated
+                as failure.
+                </p></div><div class="refsect1"><a name="idm214194926480"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
+                        <a href="gdb.html"><span class="citerefentry"><span class="refentrytitle">gdb</span>(1)</span></a>
+                </p></div></div></body></html>

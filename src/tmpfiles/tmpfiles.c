@@ -103,6 +103,8 @@ typedef struct Item {
 
         bool keep_first_level:1;
 
+        bool force:1;
+
         bool done:1;
 } Item;
 
@@ -492,20 +494,19 @@ static int item_set_perms(Item *i, const char *path) {
 }
 
 static int write_one_file(Item *i, const char *path) {
-        int flags;
-        int fd = -1;
+        _cleanup_close_ int fd = -1;
+        int flags, r = 0;
         struct stat st;
-        int r = 0;
 
         assert(i);
         assert(path);
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND :
-                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC : 0;
+        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND|O_NOFOLLOW :
+                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
 
-        RUN_WITH_UMASK(0) {
+        RUN_WITH_UMASK(0000) {
                 label_context_set(path, S_IFREG);
-                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY|O_NOFOLLOW, i->mode);
+                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 label_context_clear();
         }
 
@@ -523,22 +524,19 @@ static int write_one_file(Item *i, const char *path) {
                 size_t l;
 
                 unescaped = cunescape(i->argument);
-                if (unescaped == NULL) {
-                        safe_close(fd);
+                if (!unescaped)
                         return log_oom();
-                }
 
                 l = strlen(unescaped);
                 n = write(fd, unescaped, l);
 
                 if (n < 0 || (size_t) n < l) {
                         log_error("Failed to write file %s: %s", path, n < 0 ? strerror(-n) : "Short write");
-                        safe_close(fd);
                         return n < 0 ? n : -EIO;
                 }
         }
 
-        safe_close(fd);
+        fd = safe_close(fd);
 
         if (stat(path, &st) < 0) {
                 log_error("stat(%s) failed: %m", path);
@@ -669,10 +667,29 @@ static int create_item(Item *i) {
                 break;
 
         case COPY_FILES:
-                r = copy_tree(i->argument, i->path);
+                r = copy_tree(i->argument, i->path, false);
                 if (r < 0) {
-                        log_error("Failed to copy files: %s", strerror(-r));
-                        return r;
+                        struct stat a, b;
+
+                        if (r != -EEXIST) {
+                                log_error("Failed to copy files to %s: %s", i->path, strerror(-r));
+                                return -r;
+                        }
+
+                        if (stat(i->argument, &a) < 0) {
+                                log_error("stat(%s) failed: %m", i->argument);
+                                return -errno;
+                        }
+
+                        if (stat(i->path, &b) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+
+                        if ((a.st_mode ^ b.st_mode) & S_IFMT) {
+                                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                                return 0;
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -693,22 +710,24 @@ static int create_item(Item *i) {
 
                 RUN_WITH_UMASK(0000) {
                         mkdir_parents_label(i->path, 0755);
-                        r = mkdir(i->path, i->mode);
+                        r = mkdir_label(i->path, i->mode);
                 }
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create directory %s: %m", i->path);
-                        return -errno;
-                }
+                if (r < 0) {
+                        if (r != -EEXIST) {
+                                log_error("Failed to create directory %s: %s", i->path, strerror(-r));
+                                return r;
+                        }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
 
-                if (!S_ISDIR(st.st_mode)) {
-                        log_error("%s is not a directory.", i->path);
-                        return -EEXIST;
+                        if (!S_ISDIR(st.st_mode)) {
+                                log_debug("%s already exists and is not a directory.", i->path);
+                                return 0;
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -720,22 +739,41 @@ static int create_item(Item *i) {
         case CREATE_FIFO:
 
                 RUN_WITH_UMASK(0000) {
+                        label_context_set(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
+                        label_context_clear();
                 }
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create fifo %s: %m", i->path);
-                        return -errno;
-                }
+                if (r < 0) {
+                        if (errno != EEXIST) {
+                                log_error("Failed to create fifo %s: %m", i->path);
+                                return -errno;
+                        }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
 
-                if (!S_ISFIFO(st.st_mode)) {
-                        log_error("%s is not a fifo.", i->path);
-                        return -EEXIST;
+                        if (!S_ISFIFO(st.st_mode)) {
+
+                                if (i->force) {
+
+                                        RUN_WITH_UMASK(0000) {
+                                                label_context_set(i->path, S_IFIFO);
+                                                r = mkfifo_atomic(i->path, i->mode);
+                                                label_context_clear();
+                                        }
+
+                                        if (r < 0) {
+                                                log_error("Failed to create fifo %s: %s", i->path, strerror(-r));
+                                                return r;
+                                        }
+                                } else {
+                                        log_debug("%s is not a fifo.", i->path);
+                                        return 0;
+                                }
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -744,31 +782,40 @@ static int create_item(Item *i) {
 
                 break;
 
-        case CREATE_SYMLINK: {
-                _cleanup_free_ char *x = NULL;
+        case CREATE_SYMLINK:
 
                 label_context_set(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
                 label_context_clear();
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
-                        return -errno;
-                }
-
-                r = readlink_malloc(i->path, &x);
                 if (r < 0) {
-                        log_error("readlink(%s) failed: %s", i->path, strerror(-r));
-                        return -errno;
-                }
+                        _cleanup_free_ char *x = NULL;
 
-                if (!streq(i->argument, x)) {
-                        log_error("%s is not the right symlink.", i->path);
-                        return -EEXIST;
+                        if (errno != EEXIST) {
+                                log_error("symlink(%s, %s) failed: %m", i->argument, i->path);
+                                return -errno;
+                        }
+
+                        r = readlink_malloc(i->path, &x);
+                        if (r < 0 || !streq(i->argument, x)) {
+
+                                if (i->force) {
+                                        label_context_set(i->path, S_IFLNK);
+                                        r = symlink_atomic(i->argument, i->path);
+                                        label_context_clear();
+
+                                        if (r < 0) {
+                                                log_error("symlink(%s, %s) failed: %s", i->argument, i->path, strerror(-r));
+                                                return r;
+                                        }
+                                } else {
+                                        log_debug("%s is not a symlink or does not point to the correct path.", i->path);
+                                        return 0;
+                                }
+                        }
                 }
 
                 break;
-        }
 
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE: {
@@ -784,7 +831,7 @@ static int create_item(Item *i) {
                         return 0;
                 }
 
-                file_type = (i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
+                file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
                 RUN_WITH_UMASK(0000) {
                         label_context_set(i->path, file_type);
@@ -792,19 +839,42 @@ static int create_item(Item *i) {
                         label_context_clear();
                 }
 
-                if (r < 0 && errno != EEXIST) {
-                        log_error("Failed to create device node %s: %m", i->path);
-                        return -errno;
-                }
+                if (r < 0) {
+                        if (errno == EPERM) {
+                                log_debug("We lack permissions, possibly because of cgroup configuration; "
+                                          "skipping creation of device node %s.", i->path);
+                                return 0;
+                        }
 
-                if (stat(i->path, &st) < 0) {
-                        log_error("stat(%s) failed: %m", i->path);
-                        return -errno;
-                }
+                        if (errno != EEXIST) {
+                                log_error("Failed to create device node %s: %m", i->path);
+                                return -errno;
+                        }
 
-                if ((st.st_mode & S_IFMT) != file_type) {
-                        log_error("%s is not a device node.", i->path);
-                        return -EEXIST;
+                        if (stat(i->path, &st) < 0) {
+                                log_error("stat(%s) failed: %m", i->path);
+                                return -errno;
+                        }
+
+                        if ((st.st_mode & S_IFMT) != file_type) {
+
+                                if (i->force) {
+
+                                        RUN_WITH_UMASK(0000) {
+                                                label_context_set(i->path, file_type);
+                                                r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
+                                                label_context_clear();
+                                        }
+
+                                        if (r < 0) {
+                                                log_error("Failed to create device node %s: %s", i->path, strerror(-r));
+                                                return r;
+                                        }
+                                } else {
+                                        log_debug("%s is not a device node.", i->path);
+                                        return 0;
+                                }
+                        }
                 }
 
                 r = item_set_perms(i, i->path);
@@ -1021,7 +1091,9 @@ static int process_item(Item *i) {
 }
 
 static void item_free(Item *i) {
-        assert(i);
+
+        if (!i)
+                return;
 
         free(i->path);
         free(i->argument);
@@ -1123,10 +1195,17 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return -EIO;
         }
 
-        if (strlen(action) > 2 || (strlen(action) > 1 && action[1] != '!')) {
-                log_error("[%s:%u] Unknown modifier '%s'", fname, line, action);
+        if (isempty(action)) {
+                log_error("[%s:%u] Command too short '%s'.", fname, line, action);
                 return -EINVAL;
-        } else if (strlen(action) > 1 && !arg_boot)
+        }
+
+        if (strlen(action) > 1 && !in_charset(action+1, "!+")) {
+                log_error("[%s:%u] Unknown modifiers in command '%s'", fname, line, action);
+                return -EINVAL;
+        }
+
+        if (strchr(action+1, '!') && !arg_boot)
                 return 0;
 
         type = action[0];
@@ -1134,6 +1213,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         i = new0(Item, 1);
         if (!i)
                 return log_oom();
+
+        i->force = !!strchr(action+1, '+');
 
         r = specifier_printf(path, specifier_table, NULL, &i->path);
         if (r < 0) {
@@ -1150,7 +1231,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         }
 
-        switch(type) {
+        switch (type) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
@@ -1168,10 +1249,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case CREATE_SYMLINK:
                 if (!i->argument) {
-                        log_error("[%s:%u] Symlink file requires argument.", fname, line);
-                        return -EBADMSG;
+                        i->argument = strappend("/usr/share/factory", i->path);
+                        if (!i->argument)
+                                return log_oom();
                 }
-
                 break;
 
         case WRITE_FILE:
@@ -1183,8 +1264,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         case COPY_FILES:
                 if (!i->argument) {
-                        log_error("[%s:%u] Copy files requires argument.", fname, line);
-                        return -EBADMSG;
+                        i->argument = strappend("/usr/share/factory", i->path);
+                        if (!i->argument)
+                                return log_oom();
                 }
 
                 if (!path_is_absolute(i->argument)) {
@@ -1214,7 +1296,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         default:
-                log_error("[%s:%u] Unknown file type '%c'.", fname, line, type);
+                log_error("[%s:%u] Unknown command type '%c'.", fname, line, type);
                 return -EBADMSG;
         }
 
@@ -1413,9 +1495,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
+                        free(arg_root);
                         arg_root = path_make_absolute_cwd(optarg);
                         if (!arg_root)
                                 return log_oom();
+
                         path_kill_slashes(arg_root);
                         break;
 
@@ -1513,7 +1597,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                goto finish;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();

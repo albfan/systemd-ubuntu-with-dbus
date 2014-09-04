@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 214" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 215" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -512,7 +512,7 @@ mode\&. This value defaults to 0 (job timeouts disabled), except for device unit
 in service units) as the job timeout has no effect on the unit itself, only on the job that might be pending for it\&. Or in other words: unit\-specific timeouts are useful to abort unit state changes, and revert them\&. The job timeout set with this option however is useful to abort only the job waiting for the unit state to change\&.
 .RE
 .PP
-\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
+\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionNeedsUpdate=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
 .RS 4
 Before starting a unit verify that the specified condition is true\&. If it is not true, the starting of the unit will be skipped, however all ordering dependencies of it are still respected\&. A failing condition will not result in the unit being moved into a failure state\&. The condition is checked at the time the queued start job is to be executed\&.
 .sp
@@ -597,6 +597,25 @@ may be used to check whether the system has AC power, or is exclusively battery 
 \fItrue\fR, the condition will hold only if at least one AC connector of the system is connected to a power source, or if no AC connectors are known\&. Conversely, if set to
 \fIfalse\fR, the condition will hold only if there is at least one AC connector known and all AC connectors are disconnected from a power source\&.
 .sp
+\fIConditionNeedsUpdate=\fR
+takes one of
+/var
+or
+/etc
+as argument, possibly prefixed with a
+"!"
+(for inverting the condition)\&. This condition may be used to conditionalize units on whether the specified directory requires an update because
+/usr\*(Aqs modification time is newer than the stamp file
+\&.updated
+in the specified directory\&. This is useful to implement offline updates of the vendor operating system resources in
+/usr
+that require updating of
+/etc
+or
+/var
+on the next following boot\&. Units making use of this condition should order themselves before
+\fBsystemd-update-done.service\fR(8), to make sure they run before the stamp files\*(Aqs modification time gets reset indicating a completed update\&.
+.sp
 With
 \fIConditionPathExists=\fR
 a file existence condition is checked before a unit is started\&. If the specified absolute path name does not exist, the condition will fail\&. If the absolute path name passed to
@@ -653,7 +672,7 @@ If multiple conditions are specified, the unit will be executed if all of them a
 .PP
 \fISourcePath=\fR
 .RS 4
-A path to a configuration file this unit has been generated from\&. This is primarily useful for implementation of generator tools that convert configuration from an external configuration file format into native unit files\&. Thus functionality should not be used in normal units\&.
+A path to a configuration file this unit has been generated from\&. This is primarily useful for implementation of generator tools that convert configuration from an external configuration file format into native unit files\&. This functionality should not be used in normal units\&.
 .RE
 .SH "[INSTALL] SECTION OPTIONS"
 .PP
@@ -723,6 +742,11 @@ and
 will automatically install/uninstall units listed in this option as well\&.
 .sp
 This option may be used more than once, or a space\-separated list of unit names may be given\&.
+.RE
+.PP
+\fIDefaultInstance=\fR
+.RS 4
+In template unit files, this specifies for which instance the unit shall be enabled if the template is enabled without any explicitly set instance\&. This option has no effect in non\-template unit files\&. The specified string must be usable as instance identifier\&.
 .RE
 .PP
 The following specifiers are interpreted in the Install section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v\&. For their meaning see the next section\&.

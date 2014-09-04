@@ -89,6 +89,7 @@
 #include "gpt.h"
 #include "siphash24.h"
 #include "copy.h"
+#include "base-filesystem.h"
 
 #ifdef HAVE_SECCOMP
 #include "seccomp-util.h"
@@ -824,7 +825,7 @@ static int setup_timezone(const char *dest) {
 }
 
 static int setup_resolv_conf(const char *dest) {
-        char _cleanup_free_ *where = NULL;
+        _cleanup_free_ char *where = NULL;
 
         assert(dest);
 
@@ -1863,21 +1864,24 @@ static int setup_macvlan(pid_t pid) {
         return 0;
 }
 
-static int audit_still_doesnt_work_in_containers(void) {
+static int setup_seccomp(void) {
 
 #ifdef HAVE_SECCOMP
+        static const int blacklist[] = {
+                SCMP_SYS(kexec_load),
+                SCMP_SYS(open_by_handle_at),
+                SCMP_SYS(init_module),
+                SCMP_SYS(finit_module),
+                SCMP_SYS(delete_module),
+                SCMP_SYS(iopl),
+                SCMP_SYS(ioperm),
+                SCMP_SYS(swapon),
+                SCMP_SYS(swapoff),
+        };
+
         scmp_filter_ctx seccomp;
+        unsigned i;
         int r;
-
-        /*
-           Audit is broken in containers, much of the userspace audit
-           hookup will fail if running inside a container. We don't
-           care and just turn off creation of audit sockets.
-
-           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
-           with EAFNOSUPPORT which audit userspace uses as indication
-           that audit is disabled in the kernel.
-         */
 
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
@@ -1888,6 +1892,26 @@ static int audit_still_doesnt_work_in_containers(void) {
                 log_error("Failed to add secondary archs to seccomp filter: %s", strerror(-r));
                 goto finish;
         }
+
+        for (i = 0; i < ELEMENTSOF(blacklist); i++) {
+                r = seccomp_rule_add(seccomp, SCMP_ACT_ERRNO(EPERM), blacklist[i], 0);
+                if (r == -EFAULT)
+                        continue; /* unknown syscall */
+                if (r < 0) {
+                        log_error("Failed to block syscall: %s", strerror(-r));
+                        goto finish;
+                }
+        }
+
+        /*
+           Audit is broken in containers, much of the userspace audit
+           hookup will fail if running inside a container. We don't
+           care and just turn off creation of audit sockets.
+
+           This will make socket(AF_NETLINK, *, NETLINK_AUDIT) fail
+           with EAFNOSUPPORT which audit userspace uses as indication
+           that audit is disabled in the kernel.
+         */
 
         r = seccomp_rule_add(
                         seccomp,
@@ -2644,20 +2668,31 @@ static int change_uid_gid(char **_home) {
 }
 
 /*
- * Return 0 in case the container is being rebooted, has been shut
- * down or exited successfully. On failures a negative value is
- * returned.
+ * Return values:
+ * < 0 : wait_for_terminate() failed to get the state of the
+ *       container, the container was terminated by a signal, or
+ *       failed for an unknown reason.  No change is made to the
+ *       container argument.
+ * > 0 : The program executed in the container terminated with an
+ *       error.  The exit code of the program executed in the
+ *       container is returned.  No change is made to the container
+ *       argument.
+ *   0 : The container is being rebooted, has been shut down or exited
+ *       successfully.  The container argument has been set to either
+ *       CONTAINER_TERMINATED or CONTAINER_REBOOTED.
  *
- * The status of the container "CONTAINER_TERMINATED" or
- * "CONTAINER_REBOOTED" will be saved in the container argument
+ * That is, success is indicated by a return value of zero, and an
+ * error is indicated by a non-zero value.
  */
 static int wait_for_container(pid_t pid, ContainerStatus *container) {
         int r;
         siginfo_t status;
 
         r = wait_for_terminate(pid, &status);
-        if (r < 0)
+        if (r < 0) {
+                log_warning("Failed to wait for container: %s", strerror(-r));
                 return r;
+        }
 
         switch (status.si_code) {
         case CLD_EXITED:
@@ -2671,7 +2706,6 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
                 } else {
                         log_error("Container %s failed with error code %i.",
                                   arg_machine, status.si_status);
-                        r = -1;
                 }
                 break;
 
@@ -2799,7 +2833,7 @@ int main(int argc, char *argv[]) {
 
                 if (arg_boot) {
                         if (path_is_os_tree(arg_directory) <= 0) {
-                                log_error("Directory %s doesn't look like an OS root directory (/etc/os-release is missing). Refusing.", arg_directory);
+                                log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", arg_directory);
                                 goto finish;
                         }
                 } else {
@@ -3008,6 +3042,12 @@ int main(int argc, char *argv[]) {
                                           srv_device, srv_device_rw) < 0)
                                 goto child_fail;
 
+                        r = base_filesystem_create(arg_directory);
+                        if (r < 0) {
+                                log_error("Failed to create the base filesystem: %s", strerror(-r));
+                                goto child_fail;
+                        }
+
                         /* Turn directory into bind mount */
                         if (mount(arg_directory, arg_directory, "bind", MS_BIND|MS_REC, NULL) < 0) {
                                 log_error("Failed to make bind mount: %m");
@@ -3033,7 +3073,7 @@ int main(int argc, char *argv[]) {
 
                         dev_setup(arg_directory);
 
-                        if (audit_still_doesnt_work_in_containers() < 0)
+                        if (setup_seccomp() < 0)
                                 goto child_fail;
 
                         if (setup_dev_console(arg_directory, console) < 0)
@@ -3230,75 +3270,93 @@ int main(int argc, char *argv[]) {
                  * join its cgroup which might limit what it can do */
                 r = eventfd_child_succeeded(eventfds[1]);
                 eventfds[1] = safe_close(eventfds[1]);
-                if (r < 0)
-                        goto check_container_status;
 
-                r = register_machine(pid);
-                if (r < 0)
-                        goto finish;
+                if (r >= 0) {
+                        r = register_machine(pid);
+                        if (r < 0)
+                                goto finish;
 
-                r = move_network_interfaces(pid);
-                if (r < 0)
-                        goto finish;
+                        r = move_network_interfaces(pid);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_veth(pid, veth_name);
-                if (r < 0)
-                        goto finish;
+                        r = setup_veth(pid, veth_name);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_bridge(veth_name);
-                if (r < 0)
-                        goto finish;
+                        r = setup_bridge(veth_name);
+                        if (r < 0)
+                                goto finish;
 
-                r = setup_macvlan(pid);
-                if (r < 0)
-                        goto finish;
+                        r = setup_macvlan(pid);
+                        if (r < 0)
+                                goto finish;
 
-                /* Block SIGCHLD here, before notifying child.
-                 * process_pty() will handle it with the other signals. */
-                r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
-                if (r < 0)
-                        goto finish;
+                        /* Block SIGCHLD here, before notifying child.
+                         * process_pty() will handle it with the other signals. */
+                        r = sigprocmask(SIG_BLOCK, &mask_chld, NULL);
+                        if (r < 0)
+                                goto finish;
 
-                /* Reset signal to default */
-                r = default_signals(SIGCHLD, -1);
-                if (r < 0)
-                        goto finish;
+                        /* Reset signal to default */
+                        r = default_signals(SIGCHLD, -1);
+                        if (r < 0)
+                                goto finish;
 
-                /* Notify the child that the parent is ready with all
-                 * its setup, and that the child can now hand over
-                 * control to the code to run inside the container. */
-                r = eventfd_send_state(eventfds[0],
-                                       EVENTFD_PARENT_SUCCEEDED);
-                eventfds[0] = safe_close(eventfds[0]);
-                if (r < 0)
-                        goto finish;
+                        /* Notify the child that the parent is ready with all
+                         * its setup, and that the child can now hand over
+                         * control to the code to run inside the container. */
+                        r = eventfd_send_state(eventfds[0], EVENTFD_PARENT_SUCCEEDED);
+                        eventfds[0] = safe_close(eventfds[0]);
+                        if (r < 0)
+                                goto finish;
 
-                k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
-                if (k < 0) {
-                        r = EXIT_FAILURE;
-                        break;
+                        k = process_pty(master, &mask, arg_boot ? pid : 0, SIGRTMIN+3);
+                        if (k < 0) {
+                                r = EXIT_FAILURE;
+                                break;
+                        }
+
+                        if (!arg_quiet)
+                                putc('\n', stdout);
+
+                        /* Kill if it is not dead yet anyway */
+                        terminate_machine(pid);
                 }
 
-                if (!arg_quiet)
-                        putc('\n', stdout);
-
-                /* Kill if it is not dead yet anyway */
-                terminate_machine(pid);
-
-check_container_status:
-                /* Redundant, but better safe than sorry */
+                /* Normally redundant, but better safe than sorry */
                 kill(pid, SIGKILL);
 
                 r = wait_for_container(pid, &container_status);
                 pid = 0;
 
                 if (r < 0) {
+                        /* We failed to wait for the container, or the
+                         * container exited abnormally */
                         r = EXIT_FAILURE;
                         break;
-                } else if (container_status == CONTAINER_TERMINATED)
+                } else if (r > 0 || container_status == CONTAINER_TERMINATED)
+                        /* The container exited with a non-zero
+                         * status, or with zero status and no reboot
+                         * was requested. */
                         break;
 
                 /* CONTAINER_REBOOTED, loop again */
+
+                if (arg_keep_unit) {
+                        /* Special handling if we are running as a
+                         * service: instead of simply restarting the
+                         * machine we want to restart the entire
+                         * service, so let's inform systemd about this
+                         * with the special exit code 133. The service
+                         * file uses RestartForceExitStatus=133 so
+                         * that this results in a full nspawn
+                         * restart. This is necessary since we might
+                         * have cgroup parameters set we want to have
+                         * flushed out. */
+                        r = 133;
+                        break;
+                }
         }
 
 finish:

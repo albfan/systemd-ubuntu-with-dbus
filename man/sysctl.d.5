@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSCTL\&.D" "5" "" "systemd 214" "sysctl.d"
+.TH "SYSCTL\&.D" "5" "" "systemd 215" "sysctl.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,6 +43,20 @@ or
 ";"
 are ignored\&.
 .PP
+Each configuration file shall be named in the style of
+\fIprogram\fR\&.conf\&. Files in
+/etc/
+override files with the same name in
+/usr/lib/
+and
+/run/\&. Files in
+/run/
+override files with the same name in
+/usr/lib/\&. Packages should install their configuration files in
+/usr/lib/\&. Files in
+/etc/
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
+.PP
 Note that either
 "/"
 or
@@ -61,20 +75,6 @@ or
 may be used to refer to
 /proc/sys/net/ipv4/conf/enp3s0\&.200/forwarding\&.
 .PP
-Each configuration file shall be named in the style of
-\fIprogram\fR\&.conf\&. Files in
-/etc/
-override files with the same name in
-/usr/lib/
-and
-/run/\&. Files in
-/run/
-override files with the same name in
-/usr/lib/\&. Packages should install their configuration files in
-/usr/lib/\&. Files in
-/etc/
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same variable name, the entry in the file with the lexicographically latest name will be applied\&. It is recommended to prefix all filenames with a two\-digit number and a dash, to simplify the ordering of the files\&.
-.PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
 in
@@ -88,17 +88,81 @@ net\&.ipv4\&.conf\&.*,
 net\&.ipv6\&.conf\&.*,
 net\&.ipv4\&.neigh\&.*
 and
-net\&.ipv6\&.neigh\&.*)
-.SH "EXAMPLE"
+net\&.ipv6\&.neigh\&.*)\&.
 .PP
-\fBExample\ \&1.\ \&/etc/sysctl.d/domain-name.conf example:\fR
+Many sysctl parameters only become available when certain kernel modules are loaded\&. Modules are usually loaded on demand, e\&.g\&. when certain hardware is plugged in or network brought up\&. This means that
+\fBsystemd-sysctl.service\fR(8)
+which runs during early boot will not configure such parameters if they become available after it has run\&. To set such parameters, it is recommended to add an
+\fBudev\fR(7)
+rule to set those parameters when they become available\&. Alternatively, a slightly simpler and less efficient option is to add the module to
+\fBmodules-load.d\fR(5), causing it to be loaded statically before sysctl settings are applied (see example below)\&.
+.SH "EXAMPLES"
+.PP
+\fBExample\ \&1.\ \&Set kernel YP domain name\fR
+.PP
+/etc/sysctl\&.d/domain\-name\&.conf:
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-# Set kernel YP domain name
 kernel\&.domainname=example\&.com
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&2.\ \&Disable packet filter on bridged packets (method one)\fR
+.PP
+/etc/udev/rules\&.d/99\-bridge\&.conf:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd\-sysctl \-\-prefix=/proc/sys/net/bridge"
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+/etc/sysctl\&.d/bridge\&.conf:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+net\&.bridge\&.bridge\-nf\-call\-ip6tables = 0
+net\&.bridge\&.bridge\-nf\-call\-iptables = 0
+net\&.bridge\&.bridge\-nf\-call\-arptables = 0
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&3.\ \&Disable packet filter on bridged packets (method two)\fR
+.PP
+/etc/modules\-load\&.d/bridge\&.conf:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+bridge
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+/etc/sysctl\&.d/bridge\&.conf:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+net\&.bridge\&.bridge\-nf\-call\-ip6tables = 0
+net\&.bridge\&.bridge\-nf\-call\-iptables = 0
+net\&.bridge\&.bridge\-nf\-call\-arptables = 0
 .fi
 .if n \{\
 .RE
@@ -109,4 +173,4 @@ kernel\&.domainname=example\&.com
 \fBsystemd-sysctl.service\fR(8),
 \fBsystemd-delta\fR(1),
 \fBsysctl\fR(8),
-\fBsysctl.conf\fR(5)
+\fBsysctl.conf\fR(5)\fBmodprobe\fR(8)

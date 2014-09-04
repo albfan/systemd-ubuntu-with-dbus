@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.JOURNAL\-FIELDS" "7" "" "systemd 214" "systemd.journal-fields"
+.TH "SYSTEMD\&.JOURNAL\-FIELDS" "7" "" "systemd 215" "systemd.journal-fields"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -198,7 +198,7 @@ coredump kernel helper:
 \fICOREDUMP_UNIT=\fR, \fICOREDUMP_USER_UNIT=\fR
 .RS 4
 Used to annotate messages containing coredumps from system and session units\&. See
-\fBsystemd-coredumpctl\fR(1)\&.
+\fBcoredumpctl\fR(1)\&.
 .RE
 .PP
 Priviledged programs (currently UID 0) may attach
@@ -263,7 +263,7 @@ The monotonic time (\fBCLOCK_MONOTONIC\fR) at the point in time the entry was re
 \fBjournalctl\fR(1),
 \fBjournald.conf\fR(5),
 \fBsd-journal\fR(3),
-\fBsystemd-coredumpctl\fR(1),
+\fBcoredumpctl\fR(1),
 \fBsystemd.directives\fR(7)
 .SH "NOTES"
 .IP " 1." 4

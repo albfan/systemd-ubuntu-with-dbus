@@ -78,6 +78,11 @@
                 <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the configuration file entirely.</para>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Match] Section Options</title>
+
                 <para>A virtual network device is only created if the
                 <literal>[Match]</literal> section matches the current
                 environment, or if the section is empty. The following keys are accepted:</para>
@@ -127,10 +132,22 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[NetDev] Section Options</title>
+
                         <para>The <literal>[NetDev]</literal> section accepts the following
                         keys:</para>
 
                         <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Description=</varname></term>
+                                        <listitem>
+                                                <para>A free-form description of the netdev.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
                                 <varlistentry>
                                         <term><varname>Name=</varname></term>
                                         <listitem>
@@ -142,12 +159,38 @@
                                         <term><varname>Kind=</varname></term>
                                         <listitem>
                                                 <para>The netdev kind. Currently, <literal>bridge</literal>,
-                                                <literal>bond</literal>, <literal>vlan</literal> and
-                                                <literal>macvlan</literal> are supported. This option
-                                                is compulsory.</para>
+                                                <literal>bond</literal>, <literal>vlan</literal>,
+                                                <literal>macvlan</literal>, <literal>vxlan</literal>,
+                                                <literal>ipip</literal>, <literal>gre</literal>,
+                                                <literal>sit</literal>, <literal>vti</literal>,
+                                                <literal>veth</literal>, and <literal>dummy</literal>
+                                                are supported. This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MTUBytes=</varname></term>
+                                        <listitem>
+                                                <para>The maximum transmission unit in bytes to
+                                                set for the device. The usual suffixes K, M, G,
+                                                are supported and are understood to the base of
+                                                1024.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MACAddress=</varname></term>
+                                        <listitem>
+                                                <para>The MAC address to use for the device.
+                                                If none is given, one is generated based on
+                                                the interface name and the
+                                                <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+        </refsect1>
+
+        <refsect1>
+                <title>[VLAN] Section Options</title>
 
                         <para>The <literal>[VLAN]</literal> section only applies for netdevs of kind <literal>vlan</literal>,
                         and accepts the following key:</para>
@@ -161,6 +204,11 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[MACVLAN] Section Options</title>
 
                         <para>The <literal>[MACVLAN]</literal> section only applies for netdevs of kind
                         <literal>macvlan</literal>, and accepts the following key:</para>
@@ -177,6 +225,173 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+        <refsect1>
+                <title>[VXLAN] Section Options</title>
+                        <para>The <literal>[VXLAN]</literal> section only applies for netdevs of kind
+                        <literal>vxlan</literal>, and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Id=</varname></term>
+                                        <listitem>
+                                                <para>The VXLAN ID to use.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Group=</varname></term>
+                                        <listitem>
+                                                <para>An assigned multicast group IP address.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TOS=</varname></term>
+                                        <listitem>
+                                                <para>The Type Of Service byte value for a vxlan interface.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TTL=</varname></term>
+                                        <listitem>
+                                                <para>A fixed Time To Live N on Virtual eXtensible Local Area Network packets.
+                                                N is a number in the range 1-255. 0 is a special value meaning that packets
+                                                inherit the TTL value.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MacLearning=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables dynamic MAC learning
+                                                to discover remote MAC addresses.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+        <refsect1>
+                <title>[Tunnel] Section Options</title>
+
+                        <para>The <literal>[Tunnel]</literal> section only applies for netdevs of kind
+                        <literal>ipip</literal>, <literal>sit</literal>, <literal>gre</literal> and
+                        <literal>vti</literal> and accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Local=</varname></term>
+                                        <listitem>
+                                                <para>A static local address for tunneled packets.
+                                                It must be an address on another interface of this host.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Remote=</varname></term>
+                                        <listitem>
+                                                <para>The remote endpoint of the tunnel.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TOS=</varname></term>
+                                        <listitem>
+                                                <para>The Type Of Service byte value for a tunnel interface.
+                                                For details about the TOS see the
+                                                <ulink url="http://tools.ietf.org/html/rfc1349">
+                                                Type of Service in the Internet Protocol Suite
+                                                </ulink> document.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>TTL=</varname></term>
+                                        <listitem>
+                                                <para>A fixed Time To Live N on tunneled packets.
+                                                N is a number in the range 1-255. 0 is a special value meaning that packets
+                                                inherit the TTL value. The default value for IPv4 tunnels is: inherit.
+                                                The default value for IPv6 tunnels is: 64.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>DiscoverPathMTU=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, enables Path MTU Discovery on the tunnel.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+        <refsect1>
+                <title>[Peer] Section Options</title>
+
+                        <para>The <literal>[Peer]</literal> section only applies for netdevs of kind <literal>veth</literal>
+                        and accepts the following key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Name=</varname></term>
+                                        <listitem>
+                                                <para>The interface name used when creating the netdev.
+                                                This option is compulsory.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MACAddress=</varname></term>
+                                        <listitem>
+                                                <para>The peer MACAddress, if not set it is generated in the same
+                                                way as the MAC address of the main interface.</para>
+                                        </listitem>
+                                </varlistentry>
+                        </variablelist>
+        </refsect1>
+        <refsect1>
+                <title>[Tun] Section Options</title>
+
+                        <para>The <literal>[Tun]</literal> section only applies for netdevs of kind
+                        <literal>tun</literal>, and accepts the following keys:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>OneQueue=</varname></term>
+                                        <listitem><para>Takes a boolean argument. Configures whether
+                                        all packets are queued at the device (enabled), or a fixed number
+                                        of packets are queued at the device and the rest at the
+                                        <literal>qdisc</literal>. Defaults to <literal>no</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>MultiQueue=</varname></term>
+                                        <listitem><para>Takes a boolean argument. Configures whether to
+                                        use multiple file descriptors (queues) to parallelize packets
+                                        sending and receiving. Defaults to <literal>no</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>PacketInfo=</varname></term>
+                                        <listitem><para>Takes a boolean argument. Configures whether packets
+                                        should be prepened with four extra bytes (two flag bytes and two
+                                        protocol bytes). If disabled it indicates that the packets will be
+                                        pure IP packets. Defaults to <literal>no</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>User=</varname></term>
+                                        <listitem><para>User to grant access to the <filename>/dev/net/tun</filename>
+                                        device.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Group=</varname></term>
+                                        <listitem><para>Group to grant access to the <filename>/dev/net/tun</filename>
+                                        device.</para>
+                                        </listitem>
+                                </varlistentry>
+
+                        </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[Tap] Section Options</title>
+
+                        <para>The <literal>[Tap]</literal> section only applies for netdevs of kind
+                        <literal>tap</literal>, and accepts the same keys as the
+                        <literal>[Tun]</literal> section.</para>
         </refsect1>
 
         <refsect1>
@@ -202,9 +417,84 @@ Kind=vlan
 [VLAN]
 Id=1</programlisting>
                 </example>
+                <example>
+                        <title>/etc/systemd/network/ipip.netdev</title>
+                        <programlisting>[NetDev]
+Name=ipip-tun
+Kind=ipip
+MTUBytes=1480
+
+[Tunnel]
+Local=192.168.223.238
+Remote=192.169.224.239
+TTL=64</programlisting>
+                </example>
+                <example>
+                  <title>/etc/systemd/network/tap.netdev</title>
+                  <programlisting>[NetDev]
+Name=tap-test
+Kind=tap
+
+[Tap]
+MultiQueue=true
+PacketInfo=true</programlisting> </example>
+
+                <example>
+                        <title>/etc/systemd/network/sit.netdev</title>
+                        <programlisting>[NetDev]
+Name=sit-tun
+Kind=sit
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/gre.netdev</title>
+                        <programlisting>[NetDev]
+Name=gre-tun
+Kind=gre
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/vti.netdev</title>
+
+                        <programlisting>[NetDev]
+Name=vti-tun
+Kind=vti
+MTUBytes=1480
+
+[Tunnel]
+Local=10.65.223.238
+Remote=10.65.223.239</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/veth.netdev</title>
+                        <programlisting>[NetDev]
+Name=veth-test
+Kind=veth
+
+[Peer]
+Name=veth-peer</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/dummy.netdev</title>
+                        <programlisting>[NetDev]
+Name=dummy-test
+Kind=dummy
+MACAddress=12:34:56:78:9a:bc</programlisting>
+                </example>
 
         </refsect1>
-
         <refsect1>
                 <title>See Also</title>
                 <para>

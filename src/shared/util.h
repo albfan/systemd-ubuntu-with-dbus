@@ -515,6 +515,8 @@ bool plymouth_running(void);
 bool hostname_is_valid(const char *s) _pure_;
 char* hostname_cleanup(char *s, bool lowercase);
 
+bool machine_name_is_valid(const char *s) _pure_;
+
 char* strshorten(char *s, size_t l);
 
 int terminal_vhangup_fd(int fd);
@@ -523,6 +525,8 @@ int terminal_vhangup(const char *name);
 int vt_disallocate(const char *name);
 
 int symlink_atomic(const char *from, const char *to);
+int mknod_atomic(const char *path, mode_t mode, dev_t dev);
+int mkfifo_atomic(const char *path, mode_t mode);
 
 int fchmod_umask(int fd, mode_t mode);
 
@@ -543,7 +547,6 @@ int glob_extend(char ***strv, const char *path);
 
 int dirent_ensure_type(DIR *d, struct dirent *de);
 
-int in_search_path(const char *path, char **search);
 int get_files_in_directory(const char *path, char ***list);
 
 char *strjoin(const char *x, ...) _sentinel_;
@@ -666,14 +669,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 #define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 _malloc_  _alloc_(1, 2) static inline void *malloc_multiply(size_t a, size_t b) {
-        if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
+        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
                 return NULL;
 
         return malloc(a * b);
 }
 
+_alloc_(2, 3) static inline void *realloc_multiply(void *p, size_t a, size_t b) {
+        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
+                return NULL;
+
+        return realloc(p, a * b);
+}
+
 _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_t b) {
-        if (_unlikely_(b == 0 || a > ((size_t) -1) / b))
+        if (_unlikely_(b != 0 && a > ((size_t) -1) / b))
                 return NULL;
 
         return memdup(p, a * b);
@@ -946,3 +956,10 @@ int update_reboot_param_file(const char *param);
 int umount_recursive(const char *target, int flags);
 
 int bind_remount_recursive(const char *prefix, bool ro);
+
+int fflush_and_check(FILE *f);
+
+char *tempfn_xxxxxx(const char *p);
+char *tempfn_random(const char *p);
+
+bool is_localhost(const char *hostname);

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm214184384128"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.service — Service unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code></p></div><div class="refsect1"><a name="idm214197490064"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 <code class="filename">.service</code> encodes information
                 about a process controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -62,7 +62,7 @@
                 comprehensive but not 100%. For details about the
                 incompatibilities, see the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities" target="_top">Incompatibilities
                 with SysV</a> document.
-                </p></div><div class="refsect1"><a name="idm214188267056"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
+                </p></div><div class="refsect1"><a name="idm214201426880"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Service files must include a
                 "<code class="literal">[Service]</code>" section, which carries
                 information about the service and the process it
                 supervises. A number of options that may be used in
@@ -554,10 +554,15 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 will be restarted regardless of
                                 whether it exited cleanly or not, got
                                 terminated abnormally by a signal, or
-                                hit a timeout.</p><div class="table"><a name="idm214183204432"></a><p class="title"><b>Table 1. Exit causes and the effect of the <code class="varname">Restart=</code> settings on them</b></p><div class="table-contents"><table summary="Exit causes and the effect of the Restart= settings on them" border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Restart settings/Exit causes</th><th><code class="option">no</code></th><th><code class="option">always</code></th><th><code class="option">on-success</code></th><th><code class="option">on-failure</code></th><th><code class="option">on-abnormal</code></th><th><code class="option">on-abort</code></th><th><code class="option">on-watchdog</code></th></tr></thead><tbody><tr><td>Clean exit code or signal</td><td> </td><td>X</td><td>X</td><td> </td><td> </td><td> </td><td> </td></tr><tr><td>Unclean exit code</td><td> </td><td>X</td><td> </td><td>X</td><td> </td><td> </td><td> </td></tr><tr><td>Unclean signal</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td>X</td><td> </td></tr><tr><td>Timeout</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td> </td></tr><tr><td>Watchdog</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td>X</td></tr></tbody></table></div></div><br class="table-break"><p>In addition to the above settings,
-                                the service will not be restarted if the
-                                exit code or signal is specified in
+                                hit a timeout.</p><div class="table"><a name="idm214196309824"></a><p class="title"><b>Table 1. Exit causes and the effect of the <code class="varname">Restart=</code> settings on them</b></p><div class="table-contents"><table summary="Exit causes and the effect of the Restart= settings on them" border="1"><colgroup><col class="path"><col class="expl"></colgroup><thead><tr><th>Restart settings/Exit causes</th><th><code class="option">no</code></th><th><code class="option">always</code></th><th><code class="option">on-success</code></th><th><code class="option">on-failure</code></th><th><code class="option">on-abnormal</code></th><th><code class="option">on-abort</code></th><th><code class="option">on-watchdog</code></th></tr></thead><tbody><tr><td>Clean exit code or signal</td><td> </td><td>X</td><td>X</td><td> </td><td> </td><td> </td><td> </td></tr><tr><td>Unclean exit code</td><td> </td><td>X</td><td> </td><td>X</td><td> </td><td> </td><td> </td></tr><tr><td>Unclean signal</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td>X</td><td> </td></tr><tr><td>Timeout</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td> </td></tr><tr><td>Watchdog</td><td> </td><td>X</td><td> </td><td>X</td><td>X</td><td> </td><td>X</td></tr></tbody></table></div></div><br class="table-break"><p>As exceptions to the setting
+                                above the service will not be
+                                restarted if the exit code or signal
+                                is specified in
                                 <code class="varname">RestartPreventExitStatus=</code>
+                                (see below). Also, the services will
+                                always be restarted if the exit code
+                                or signal is specified in
+                                <code class="varname">RestartForceExitStatus=</code>
                                 (see below).</p><p>Setting this to
                                 <code class="option">on-failure</code> is the
                                 recommended choice for long-running
@@ -565,8 +570,8 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 reliability by attempting automatic
                                 recovery from errors. For services
                                 that shall be able to terminate on
-                                their own choice (and avoiding
-                                immediate restart)
+                                their own choice (and avoid
+                                immediate restarting),
                                 <code class="option">on-abnormal</code> is an
                                 alternative choice.</p></dd><dt id="SuccessExitStatus="><span class="term"><code class="varname">SuccessExitStatus=</code></span><a class="headerlink" title="Permalink to this term" href="#SuccessExitStatus=">¶</a></dt><dd><p>Takes a list of exit
                                 status definitions that when returned
@@ -578,7 +583,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 definitions can either be numeric exit
                                 codes or termination signal names,
                                 separated by spaces. For example:
-                                </p><pre class="programlisting">SuccessExitStatus=1 2 8 <code class="constant">SIGKILL</code></pre><p>
+                                </p><pre class="programlisting">SuccessExitStatus=1 2 8 SIGKILL</pre><p>
                                 ensures that exit codes 1, 2, 8 and
                                 the termination signal
                                 <code class="constant">SIGKILL</code> are
@@ -609,9 +614,8 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 spaces. Defaults to the empty list, so
                                 that, by default, no exit status is
                                 excluded from the configured restart
-                                logic. Example:
-                                "<code class="literal">RestartPreventExitStatus=1 6
-                                SIGABRT</code>", ensures that exit
+                                logic. For example:
+                                </p><pre class="programlisting">RestartPreventExitStatus=1 6 SIGABRT</pre><p> ensures that exit
                                 codes 1 and 6 and the termination
                                 signal <code class="constant">SIGABRT</code> will
                                 not result in automatic service
@@ -622,7 +626,14 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 string is assigned to this option, the
                                 list is reset and all prior assignments
                                 of this option will have no
-                                effect.</p></dd><dt id="PermissionsStartOnly="><span class="term"><code class="varname">PermissionsStartOnly=</code></span><a class="headerlink" title="Permalink to this term" href="#PermissionsStartOnly=">¶</a></dt><dd><p>Takes a boolean
+                                effect.</p></dd><dt id="RestartForceExitStatus="><span class="term"><code class="varname">RestartForceExitStatus=</code></span><a class="headerlink" title="Permalink to this term" href="#RestartForceExitStatus=">¶</a></dt><dd><p>Takes a list of exit
+                                status definitions that when returned
+                                by the main service process will force
+                                automatic service restarts, regardless
+                                of the restart setting configured with
+                                <code class="varname">Restart=</code>. The
+                                argument format is similar to
+                                <code class="varname">RestartPreventExitStatus=</code>.</p></dd><dt id="PermissionsStartOnly="><span class="term"><code class="varname">PermissionsStartOnly=</code></span><a class="headerlink" title="Permalink to this term" href="#PermissionsStartOnly=">¶</a></dt><dd><p>Takes a boolean
                                 argument. If true, the permission-related
                                 execution options, as
                                 configured with
@@ -811,7 +822,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm214183108928"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
+                for more settings.</p></div><div class="refsect1"><a name="idm214196210688"></a><h2 id="Compatibility Options">Compatibility Options<a class="headerlink" title="Permalink to this headline" href="#Compatibility%20Options">¶</a></h2><p>The following options are also available in the
                 "<code class="literal">[Service]</code>" section, but exist purely
                 for compatibility reasons and should not be used in
                 newly written service files.</p><div class="variablelist"><dl class="variablelist"><dt id="SysVStartPriority="><span class="term"><code class="varname">SysVStartPriority=</code></span><a class="headerlink" title="Permalink to this term" href="#SysVStartPriority=">¶</a></dt><dd><p>Set the SysV start
@@ -832,7 +843,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</pre><p>This will execute
                                 instead. For more details, see
                                 <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>.
                                 If used, pass an integer value in the
-                                range 0-99.</p></dd></dl></div></div><div class="refsect1"><a name="idm214183102224"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                range 0-99.</p></dd></dl></div></div><div class="refsect1"><a name="idm214196203136"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,

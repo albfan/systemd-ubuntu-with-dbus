@@ -1,5 +1,5 @@
 '\" t
-.TH "CRYPTTAB" "5" "" "systemd 214" "crypttab"
+.TH "CRYPTTAB" "5" "" "systemd 215" "crypttab"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -58,12 +58,12 @@ may prevent boot completion if the system does not have enough entropy to genera
 .PP
 The fourth field, if present, is a comma\-delimited list of options\&. The following options are recognized:
 .PP
-\fIdiscard\fR
+\fBdiscard\fR
 .RS 4
 Allow discard requests to be passed through the encrypted block device\&. This improves performance on SSD storage but has security implications\&.
 .RE
 .PP
-\fIcipher=\fR
+\fBcipher=\fR
 .RS 4
 Specifies the cipher to use\&. See
 \fBcryptsetup\fR(8)
@@ -71,149 +71,149 @@ for possible values and the default value of this option\&. A cipher with unpred
 "aes\-cbc\-essiv:sha256", is recommended\&.
 .RE
 .PP
-\fIhash=\fR
+\fBhash=\fR
 .RS 4
 Specifies the hash to use for password hashing\&. See
 \fBcryptsetup\fR(8)
 for possible values and the default value of this option\&.
 .RE
 .PP
-\fIkeyfile\-offset=\fR
+\fBkeyfile\-offset=\fR
 .RS 4
 Specifies the number of bytes to skip at the start of the key file\&. See
 \fBcryptsetup\fR(8)
 for possible values and the default value of this option\&.
 .RE
 .PP
-\fIkeyfile\-size=\fR
+\fBkeyfile\-size=\fR
 .RS 4
 Specifies the maximum number of bytes to read from the key file\&. See
 \fBcryptsetup\fR(8)
 for possible values and the default value of this option\&. This option is ignored in plain encryption mode, as the key file size is then given by the key size\&.
 .RE
 .PP
-\fIkey\-slot=\fR
+\fBkey\-slot=\fR
 .RS 4
 Specifies the key slot to compare the passphrase or key against\&. If the key slot does not match the given passphrase or key, but another would, the setup of the device will fail regardless\&. This option implies
-\fIluks\fR\&. See
+\fBluks\fR\&. See
 \fBcryptsetup\fR(8)
 for possible values\&. The default is to try all key slots in sequential order\&.
 .RE
 .PP
-\fIluks\fR
+\fBluks\fR
 .RS 4
 Force LUKS mode\&. When this mode is used, the following options are ignored since they are provided by the LUKS header on the device:
-\fIcipher=\fR,
-\fIhash=\fR,
-\fIsize=\fR\&.
+\fBcipher=\fR,
+\fBhash=\fR,
+\fBsize=\fR\&.
 .RE
 .PP
-\fInoauto\fR
+\fBnoauto\fR
 .RS 4
 This device will not be automatically unlocked on boot\&.
 .RE
 .PP
-\fInofail\fR
+\fBnofail\fR
 .RS 4
 The system will not wait for the device to show up and be unlocked at boot, and not fail the boot if it does not show up\&.
 .RE
 .PP
-\fIplain\fR
+\fBplain\fR
 .RS 4
 Force plain encryption mode\&.
 .RE
 .PP
-\fIread\-only\fR, \fIreadonly\fR
+\fBread\-only\fR, \fBreadonly\fR
 .RS 4
 Set up the encrypted block device in read\-only mode\&.
 .RE
 .PP
-\fIsize=\fR
+\fBsize=\fR
 .RS 4
 Specifies the key size in bits\&. See
 \fBcryptsetup\fR(8)
 for possible values and the default value of this option\&.
 .RE
 .PP
-\fIswap\fR
+\fBswap\fR
 .RS 4
 The encrypted block device will be used as a swap device, and will be formatted accordingly after setting up the encrypted block device, with
 \fBmkswap\fR(8)\&. This option implies
-\fIplain\fR\&.
+\fBplain\fR\&.
 .sp
 WARNING: Using the
-\fIswap\fR
+\fBswap\fR
 option will destroy the contents of the named partition during every boot, so make sure the underlying block device is specified correctly\&.
 .RE
 .PP
-\fItcrypt\fR
+\fBtcrypt\fR
 .RS 4
 Use TrueCrypt encryption mode\&. When this mode is used, the following options are ignored since they are provided by the TrueCrypt header on the device or do not apply:
-\fIcipher=\fR,
-\fIhash=\fR,
-\fIkeyfile\-offset=\fR,
-\fIkeyfile\-size=\fR,
-\fIsize=\fR\&.
+\fBcipher=\fR,
+\fBhash=\fR,
+\fBkeyfile\-offset=\fR,
+\fBkeyfile\-size=\fR,
+\fBsize=\fR\&.
 .sp
 When this mode is used, the passphrase is read from the key file given in the third field\&. Only the first line of this file is read, excluding the new line character\&.
 .sp
 Note that the TrueCrypt format uses both passphrase and key files to derive a password for the volume\&. Therefore, the passphrase and all key files need to be provided\&. Use
-\fItcrypt\-keyfile=\fR
+\fBtcrypt\-keyfile=\fR
 to provide the absolute path to all key files\&. When using an empty passphrase in combination with one or more key files, use
 "/dev/null"
 as the password file in the third field\&.
 .RE
 .PP
-\fItcrypt\-hidden\fR
+\fBtcrypt\-hidden\fR
 .RS 4
 Use the hidden TrueCrypt volume\&. This option implies
-\fItcrypt\fR\&.
+\fBtcrypt\fR\&.
 .sp
 This will map the hidden volume that is inside of the volume provided in the second field\&. Please note that there is no protection for the hidden volume if the outer volume is mounted instead\&. See
 \fBcryptsetup\fR(8)
 for more information on this limitation\&.
 .RE
 .PP
-\fItcrypt\-keyfile=\fR
+\fBtcrypt\-keyfile=\fR
 .RS 4
 Specifies the absolute path to a key file to use for a TrueCrypt volume\&. This implies
-\fItcrypt\fR
+\fBtcrypt\fR
 and can be used more than once to provide several key files\&.
 .sp
 See the entry for
-\fItcrypt\fR
+\fBtcrypt\fR
 on the behavior of the passphrase and key files when using TrueCrypt encryption mode\&.
 .RE
 .PP
-\fItcrypt\-system\fR
+\fBtcrypt\-system\fR
 .RS 4
 Use TrueCrypt in system encryption mode\&. This option implies
-\fItcrypt\fR\&.
+\fBtcrypt\fR\&.
 .RE
 .PP
-\fItimeout=\fR
+\fBtimeout=\fR
 .RS 4
 Specifies the timeout for querying for a password\&. If no unit is specified, seconds is used\&. Supported units are s, ms, us, min, h, d\&. A timeout of 0 waits indefinitely (which is the default)\&.
 .RE
 .PP
-\fItmp\fR
+\fBtmp\fR
 .RS 4
 The encrypted block device will be prepared for using it as
 /tmp; it will be formatted using
 \fBmke2fs\fR(8)\&. This option implies
-\fIplain\fR\&.
+\fBplain\fR\&.
 .sp
 WARNING: Using the
-\fItmp\fR
+\fBtmp\fR
 option will destroy the contents of the named partition during every boot, so make sure the underlying block device is specified correctly\&.
 .RE
 .PP
-\fItries=\fR
+\fBtries=\fR
 .RS 4
 Specifies the maximum number of times the user is queried for a password\&. The default is 3\&. If set to 0, the user is queried for a password indefinitely\&.
 .RE
 .PP
-\fIverify\fR
+\fBverify\fR
 .RS 4
 If the encryption password is read from console, it has to be entered twice to prevent typos\&.
 .RE
@@ -233,7 +233,7 @@ Set up four encrypted block devices\&. One using LUKS for normal storage, anothe
 luks       UUID=2505567a\-9e27\-4efe\-a4d5\-15ad146c258b
 swap       /dev/sda7       /dev/urandom             swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /null                    tcrypt\-hidden,tcrypt\-keyfile=/etc/keyfile
+hidden     /mnt/tc_hidden  /dev/null                tcrypt\-hidden,tcrypt\-keyfile=/etc/keyfile
 .fi
 .if n \{\
 .RE

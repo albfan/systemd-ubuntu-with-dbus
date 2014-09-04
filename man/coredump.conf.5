@@ -1,0 +1,84 @@
+'\" t
+.TH "COREDUMP\&.CONF" "5" "" "systemd 215" "coredump.conf"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+coredump.conf \- Coredump storage configuration file
+.SH "SYNOPSIS"
+.PP
+/etc/systemd/coredump\&.conf
+.SH "DESCRIPTION"
+.PP
+This file configures the behaviour of
+\fBsystemd\-coredump\fR, a handler for core dumps invoked by the kernel\&.
+.SH "OPTIONS"
+.PP
+All options are configured in the
+"[Coredump]"
+section:
+.PP
+\fIStorage=\fR
+.RS 4
+Controls where to store cores\&. One of
+"none",
+"external",
+"journal", and
+"both"\&. When
+"none", the coredumps will be logged but not stored permanently\&. When
+"external"
+(the default), cores will be stored in
+/var/lib/systemd/coredump\&. When
+"journal", cores will be stored in the journal and rotated following normal journal rotation patterns\&. When
+"both", cores will be stored in both locations\&.
+.sp
+When cores are stored in the journal, they might be compressed following journal compression settings, see
+\fBjournald.conf\fR(5)\&. When cores are stored externally, they will be compressed by default, see below\&.
+.RE
+.PP
+\fICompress=\fR
+.RS 4
+Controls the type of compression for external storage\&. Takes a boolean argument, defaults to
+"yes"\&.
+.RE
+.PP
+\fIProcessSizeMax=\fR
+.RS 4
+The maximum size in bytes of a core which will be processed\&. Coredumps exceeding this size will be logged, but the backtrace will not be generated and the core will not be stored\&.
+.RE
+.PP
+\fIExternalSizeMax=\fR, \fIJournalSizeMax=\fR
+.RS 4
+The maximum (uncompressed) size in bytes of a core to be saved\&.
+.RE
+.PP
+\fIMaxUse=\fR, \fIKeepFree=\fR
+.RS 4
+Enforce limits on the disk space taken up by externally stored coredumps\&.
+\fBMaxUse=\fR
+makes sure that old coredumps are removed as soon as the total disk space taken up by coredumps grows beyond this limit (defaults to 10% of the total disk size)\&.
+\fBKeepFree=\fR
+controls how much disk space to keep free at least (defaults to 15% of the total disk size)\&. Note that the disk space used by coredumps might temporarily exceed these limits while coredumps are processed\&. Note that old coredumps are also removed based on on time via
+\fBsystemd-tmpfiles\fR(8)\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd-journald.service\fR(8),
+\fBcoredumpctl\fR(1),
+\fBsystemd-tmpfiles\fR(8)

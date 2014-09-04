@@ -22,15 +22,16 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <lzma.h>
 
-#include "macro.h"
 #include "compress.h"
+#include "macro.h"
+#include "util.h"
 
 bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_size) {
-        lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
-        bool b = false;
+        size_t out_pos = 0;
 
         assert(src);
         assert(src_size > 0);
@@ -40,30 +41,17 @@ bool compress_blob(const void *src, uint64_t src_size, void *dst, uint64_t *dst_
         /* Returns false if we couldn't compress the data or the
          * compressed result is longer than the original */
 
-        ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_NONE);
+        ret = lzma_easy_buffer_encode(LZMA_PRESET_DEFAULT, LZMA_CHECK_NONE, NULL,
+                                      src, src_size, dst, &out_pos, src_size);
         if (ret != LZMA_OK)
                 return false;
 
-        s.next_in = src;
-        s.avail_in = src_size;
-        s.next_out = dst;
-        s.avail_out = src_size;
-
-        /* Does it fit? */
-        if (lzma_code(&s, LZMA_FINISH) != LZMA_STREAM_END)
-                goto fail;
-
         /* Is it actually shorter? */
-        if (s.avail_out == 0)
-                goto fail;
+        if (out_pos == src_size)
+                return false;
 
-        *dst_size = src_size - s.avail_out;
-        b = true;
-
-fail:
-        lzma_end(&s);
-
-        return b;
+        *dst_size = out_pos;
+        return true;
 }
 
 bool uncompress_blob(const void *src, uint64_t src_size,
@@ -213,4 +201,150 @@ fail:
         lzma_end(&s);
 
         return b;
+}
+
+int compress_stream(int fdf, int fdt, uint32_t preset, off_t max_bytes) {
+        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret;
+
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        lzma_action action = LZMA_RUN;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        ret = lzma_easy_encoder(&s, preset, LZMA_CHECK_CRC64);
+        if (ret != LZMA_OK) {
+                log_error("Failed to initialize XZ encoder: code %d", ret);
+                return -EINVAL;
+        }
+
+        for (;;) {
+                if (s.avail_in == 0 && action == LZMA_RUN) {
+                        size_t m = sizeof(buf);
+                        ssize_t n;
+
+                        if (max_bytes != -1 && m > (size_t) max_bytes)
+                                m = max_bytes;
+
+                        n = read(fdf, buf, m);
+                        if (n < 0)
+                                return -errno;
+                        if (n == 0)
+                                action = LZMA_FINISH;
+                        else {
+                                s.next_in = buf;
+                                s.avail_in = n;
+
+                                if (max_bytes != -1) {
+                                        assert(max_bytes >= n);
+                                        max_bytes -= n;
+                                }
+                        }
+                }
+
+                if (s.avail_out == 0) {
+                        s.next_out = out;
+                        s.avail_out = sizeof(out);
+                }
+
+                ret = lzma_code(&s, action);
+                if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
+                        log_error("Compression failed: code %d", ret);
+                        return -EBADMSG;
+                }
+
+                if (s.avail_out == 0 || ret == LZMA_STREAM_END) {
+                        ssize_t n, k;
+
+                        n = sizeof(out) - s.avail_out;
+
+                        errno = 0;
+                        k = loop_write(fdt, out, n, false);
+                        if (k < 0)
+                                return k;
+                        if (k != n)
+                                return errno ? -errno : -EIO;
+
+                        if (ret == LZMA_STREAM_END) {
+                                log_debug("Compression finished (%zu -> %zu bytes, %.1f%%)",
+                                          s.total_in, s.total_out,
+                                          (double) s.total_out / s.total_in * 100);
+
+                                return 0;
+                        }
+                }
+        }
+}
+
+int decompress_stream(int fdf, int fdt, off_t max_bytes) {
+        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        lzma_ret ret;
+
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        lzma_action action = LZMA_RUN;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
+        if (ret != LZMA_OK) {
+                log_error("Failed to initialize XZ decoder: code %d", ret);
+                return -EINVAL;
+        }
+
+        for (;;) {
+                if (s.avail_in == 0 && action == LZMA_RUN) {
+                        ssize_t n;
+
+                        n = read(fdf, buf, sizeof(buf));
+                        if (n < 0)
+                                return -errno;
+                        if (n == 0)
+                                action = LZMA_FINISH;
+                        else {
+                                s.next_in = buf;
+                                s.avail_in = n;
+                        }
+                }
+
+                if (s.avail_out == 0) {
+                        s.next_out = out;
+                        s.avail_out = sizeof(out);
+                }
+
+                ret = lzma_code(&s, action);
+                if (ret != LZMA_OK && ret != LZMA_STREAM_END) {
+                        log_error("Decompression failed: code %d", ret);
+                        return -EBADMSG;
+                }
+
+                if (s.avail_out == 0 || ret == LZMA_STREAM_END) {
+                        ssize_t n, k;
+
+                        n = sizeof(out) - s.avail_out;
+
+                        if (max_bytes != -1) {
+                                if (max_bytes < n)
+                                        return -E2BIG;
+
+                                max_bytes -= n;
+                        }
+
+                        errno = 0;
+                        k = loop_write(fdt, out, n, false);
+                        if (k < 0)
+                                return k;
+                        if (k != n)
+                                return errno ? -errno : -EIO;
+
+                        if (ret == LZMA_STREAM_END) {
+                                log_debug("Decompression finished (%zu -> %zu bytes, %.1f%%)",
+                                          s.total_in, s.total_out,
+                                          (double) s.total_out / s.total_in * 100);
+
+                                return 0;
+                        }
+                }
+        }
 }

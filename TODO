@@ -4,23 +4,11 @@ Bugfixes:
 
 * Should systemctl status \* work on all unit types, not just .service?
 
-* enabling an instance unit creates a pointless link, and
-  the unit will be started with getty@getty.service:
-    $ systemctl enable getty@.service
-    ln -s '/usr/lib/systemd/system/getty@.service' '/etc/systemd/system/getty.target.wants/getty@.service'
-
 * Dangling symlinks of .automount unit files in .wants/ directories, set up
   automount points even when the original .automount file did not exist
   anymore. Only the .mount unit was still around.
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
-
-* shorten the message to sane length:
-
-  Cannot add dependency job for unit display-manager.service, ignoring: Unit display-manager.service failed to load: No such file or directory. See system logs and 'systemctl status display-manager.service' for details.
-
-* sd_bus_unref() is broken regarding self-references and "pseudo thread-safety".
-  See the comment in sd_bus_unref() for more..
 
 External:
 * Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
@@ -30,7 +18,28 @@ External:
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
+* Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
+
 Features:
+
+* new component "systemd-first-boot" which asks for locale, timezone,
+  root password on first boot if the configuration for that has not
+  been provisioned yet. Similar in style to what the distros have, but
+  minimalist, text-only /dev/console stuff.
+
+* Add a new verb "systemctl top"
+
+* order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
+
+* refuse mounting on symlinks
+
+* logind: allow users to kill or lock their own sessions
+
+* support empty /etc boots nicely:
+  - nspawn/gpt-generator: introduce new gpt partition type for /usr
+  - nspawn: add --mode=auto,stateful,stateless,volatile
+  - fstab-generator: support auot/stateful/stateless/volatile on the kernel cmdline, too
+  - fstab-generator: add support for usr= in addition to root= on the kernel cmdline
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
@@ -41,26 +50,20 @@ Features:
 
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
 
-* timesyncd:
-  - hookup with networkd: NTP servers from dhcp
+* timesyncd - hookup with networkd: NTP servers from dhcp
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
 * figure out a nice way how we can let the admin know what child/sibling unit causes cgroup membership for a specific unit
 
-* add a kernel command line option to enable the debug shell
-
 * journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
 
 * set NOTIFY_SOCKET also for control processes
 
-* drop parsing of chkconfig header lines from service.c
-
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
-* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services they run added to the initial transaction and thus confuse Type=idle.
-
-* Add RPM macros for registering/unregistering binfmt drop-ins
+* For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
+  they run added to the initial transaction and thus confuse Type=idle.
 
 * Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
@@ -85,10 +88,6 @@ Features:
   lazily. Encode just enough information in the file name, so that we
   do not have to open it to know that it is not interesting for us, for
   the most common operations.
-
-* support transient mount units
-
-* add an "input" group to udev logic and add all input devices to it
 
 * add generator that pulls in systemd-network from containers when
   CAP_NET_ADMIN is set, more than the loopback device is defined, even
@@ -223,12 +222,6 @@ Features:
   - add 'set -e' to scripts in test/
   - make stuff in test/ work with separate output dir
 
-* systemctl delete x.snapshot leaves no trace in logs (at least at default level).
-
-* make the coredump collector tool move itself into the user's cgroup
-  so that the coredump is properly written to the user's own journal
-  file.
-
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead
   /etc should always override /run+/usr and also any symlink
@@ -265,8 +258,6 @@ Features:
 * think about window-manager-run-as-user-service problem: exit 0 → activate shutdown.target; exit != 0 → restart service
 
 * use "log level" rather than "log priority" everywhere
-
-* timedate: have global on/off switches for auto-time (NTP), and auto-timezone that connman can subscribe to.
 
 * merge unit_kill_common() and unit_kill_context()
 
@@ -374,7 +365,6 @@ Features:
     about it. Should fix both to print nice actionable messages.
   - print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
-  - systemctl enable: improve the success messages (i.e. more human readable, less shell-like)
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
   - support "systemctl stop foobar@.service" to stop all units matching a certain template
@@ -385,13 +375,8 @@ Features:
 * unit install:
   - "systemctl mask" should find all names by which a unit is accessible
     (i.e. by scanning for symlinks to it) and link them all to /dev/null
-  - "systemctl disable" of a unit instance removes all symlinks, but should
-    only remove the instance symlink (systemctl disable of a template
-    unit however should remove them all).
   - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
   - systemctl: maybe add "systemctl add-wants" or so...
-
-* deal with sendmail/postfix exclusivity
 
 * timer units:
   - timer units should get the ability to trigger when:
@@ -411,13 +396,6 @@ Features:
   mode, it will never touch the RTC if the no reliable time source is active or the
   user did not request anything like it.
 
-* libunwind support for coredump pattern hook, and includes this in
-  the message for coredumps. After all, libunwind is now capable to
-  unwind coredumps since a few weeks ago. This probably requires that
-  we have nice support for multi-line messages on display in
-  logs-show.c. Alternatively: use libelfutil, which seems to be the
-  better supported alternative.
-
 * add libsystemd-password or so to query passwords during boot using the password agent logic
 
 * If we show an error about a unit (such as not showing up) and it has no Description string, then show a description string generated form the reverse of unit_name_mangle().
@@ -426,18 +404,9 @@ Features:
 * fedup: do not delete initrd on switch-root
 * fedup: generator
 
-* timedated: refuse time changes when NTP is on
-
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?), get rid of systemd-update-utmp-runlevel
-
-* add "factory" instructions to setup an empty /etc + /var
-    - used to setup a new container from a shared /usr
-    - superset of tmpfiles model
-    - instructions shipped by packages and stored in /usr/lib/
-    - compose /etc/passwd and /etc/group, copy files
-    - able to create uid + gid used by packages, for file ownership
 
 * make repeated alt-ctrl-del presses printing a dump, or even force a reboot without
   waiting for the timeout
@@ -464,20 +433,13 @@ Features:
 
 * make timer units go away after they elapsed
 
-* http://lists.freedesktop.org/archives/systemd-devel/2012-September/006502.html
-  (network and remote-fs on shutdown)
-
 * come up with a nice way to write queue/read_ahead_kb for a block device without interfering with readahead
 
 * move PID 1 segfaults to /var/lib/systemd/coredump?
 
 * create /sbin/init symlinks from the build system
 
-* Query Paul Moore about relabelling socket fds while they are open
-
 * allow writing multiple conditions in unit files on one line
-
-* explore multiple service instances per listening socket idea
 
 * MountFlags=shared acts as MountFlags=slave right now.
 
@@ -549,7 +511,6 @@ Features:
 * when a bus name of a service disappears from the bus make sure to queue further activation requests
 
 * tmpfiles:
-  - check systemd-tmpfiles for selinux context hookup for mknod(), symlink() and similar
   - apply "x" on "D" too (see patch from William Douglas)
 
 * for services: do not set $HOME in services unless requested
@@ -588,8 +549,6 @@ Features:
   - readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
   - readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
 
-* add support for /bin/mount -s
-
 * GC unreferenced jobs (such as .device jobs)
 
 * write blog stories about:
@@ -614,8 +573,6 @@ Features:
   - hooking a script into various stages of shutdown/rearly booot
 
 * allow port=0 in .socket units
-
-* support systemd.mask= on the kernel command line.
 
 * recreate systemd's D-Bus private socket file on SIGUSR2
 
@@ -660,12 +617,11 @@ Features:
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - set lifetime on the address acquired from dhcp
-   - patch kernel to support module alias for tunnel device (ipip/sit/gre),
-     then remove remove libkmod dependency and CAP_SYS_MODULE
    - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
    - add tun/tap netdev support
    - add more attribute support for SIT tunnel
+   - make metric of routes configurable
+   - work with non-ethernet devices
 
 * networkd-wait-online:
    - make operstates to wait for configurable?
@@ -674,6 +630,22 @@ Features:
    - figure out how much we can increase Maximum Message Size
    - export timezone information
    - FORCERENEW
+
+* dhcp6:
+   - add functions to set previously stored IPv6 addresses on startup and get
+     them at shutdown; store them in client->ia_na
+   - write more test cases
+   - implement and do duplicate address detection, see rfc 4862, 5.4.
+   - implement reconfigure support, see 5.3., 15.11. and 22.20.
+   - implement information request, see 1.2. and 18.1.5.
+   - implement support for temporary adressess (IA_TA)
+   - implement elapsed time option
+   - implement dhcpv6 authentication
+   - investigate the usefulness of Confirm messages; i.e. are there any
+     situations where the link changes without any loss in carrier detection
+     or interface down
+   - some servers don't do rapid commit without a filled in IA_NA, verify
+     this behavior
 
 External:
 

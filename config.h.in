@@ -49,6 +49,30 @@
    */
 #undef HAVE_DECL_GETTID
 
+/* Define to 1 if you have the declaration of `IFLA_BOND_AD_INFO', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IFLA_BOND_AD_INFO
+
+/* Define to 1 if you have the declaration of `IFLA_BRIDGE_VLAN_INFO', and to
+   0 if you don't. */
+#undef HAVE_DECL_IFLA_BRIDGE_VLAN_INFO
+
+/* Define to 1 if you have the declaration of
+   `IFLA_IPTUN_6RD_RELAY_PREFIXLEN', and to 0 if you don't. */
+#undef HAVE_DECL_IFLA_IPTUN_6RD_RELAY_PREFIXLEN
+
+/* Define to 1 if you have the declaration of `IFLA_PHYS_PORT_ID', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IFLA_PHYS_PORT_ID
+
+/* Define to 1 if you have the declaration of `IFLA_VLAN_PROTOCOL', and to 0
+   if you don't. */
+#undef HAVE_DECL_IFLA_VLAN_PROTOCOL
+
+/* Define to 1 if you have the declaration of `IFLA_VXLAN_LOCAL6', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IFLA_VXLAN_LOCAL6
+
 /* Define to 1 if you have the declaration of `LO_FLAGS_PARTSCAN', and to 0 if
    you don't. */
 #undef HAVE_DECL_LO_FLAGS_PARTSCAN
@@ -67,6 +91,12 @@
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
+
+/* ELFUTILS available */
+#undef HAVE_ELFUTILS
+
+/* Define to 1 if you have the <elfutils/libdwfl.h> header file. */
+#undef HAVE_ELFUTILS_LIBDWFL_H
 
 /* Define to 1 if you have the `fanotify_init' function. */
 #undef HAVE_FANOTIFY_INIT
@@ -115,6 +145,9 @@
 
 /* Define if libcryptsetup is available */
 #undef HAVE_LIBCRYPTSETUP
+
+/* Define to 1 if you have the `dw' library (-ldw). */
+#undef HAVE_LIBDW
 
 /* Define to 1 if you have the <linux/btrfs.h> header file. */
 #undef HAVE_LINUX_BTRFS_H

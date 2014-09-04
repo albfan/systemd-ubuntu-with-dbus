@@ -1,5 +1,5 @@
 '\" t
-.TH "TMPFILES\&.D" "5" "" "systemd 214" "tmpfiles.d"
+.TH "TMPFILES\&.D" "5" "" "systemd 215" "tmpfiles.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -72,7 +72,7 @@ override files with the same name in
 /usr/lib/tmpfiles\&.d\&. Packages should install their configuration files in
 /usr/lib/tmpfiles\&.d\&. Files in
 /etc/tmpfiles\&.d
-are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries will be logged as errors\&. When two lines are prefix and suffix of each other, then the prefix is always processed first, the suffix later\&. Otherwise the files/directories are processed in the order they are listed\&.
+are reserved for the local administrator, who may use this logic to override the configuration files installed by vendor packages\&. All configuration files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same path, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries will be logged as errors\&. When two lines are prefix and suffix of each other, then the prefix is always processed first, the suffix later\&. Otherwise, the files/directories are processed in the order they are listed\&.
 .PP
 If the administrator wants to disable a configuration file supplied by the vendor, the recommended way is to place a symlink to
 /dev/null
@@ -124,29 +124,41 @@ Create a directory if it does not exist yet\&.
 Create or empty a directory\&.
 .RE
 .PP
-\fIp\fR
+\fIp\fR, \fIp+\fR
 .RS 4
-Create a named pipe (FIFO) if it does not exist yet\&.
+Create a named pipe (FIFO) if it does not exist yet\&. If suffixed with
+\fI+\fR
+and a file already exists where the pipe is to be created, it will be removed and be replaced by the pipe\&.
 .RE
 .PP
-\fIL\fR
+\fIL\fR, \fIL+\fR
 .RS 4
-Create a symlink if it does not exist yet\&.
+Create a symlink if it does not exist yet\&. If suffixed with
+\fI+\fR
+and a file already exists where the symlink is to be created, it will be removed and be replaced by the symlink\&. If the argument is omitted, symlinks to files with the same name residing in the directory
+/usr/share/factory/
+are created\&.
 .RE
 .PP
-\fIc\fR
+\fIc\fR, \fIc+\fR
 .RS 4
-Create a character device node if it does not exist yet\&.
+Create a character device node if it does not exist yet\&. If suffixed with
+\fI+\fR
+and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&.
 .RE
 .PP
-\fIb\fR
+\fIb\fR, \fIb+\fR
 .RS 4
-Create a block device node if it does not exist yet\&.
+Create a block device node if it does not exist yet\&. If suffixed with
+\fI+\fR
+and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&.
 .RE
 .PP
 \fIC\fR
 .RS 4
-Recursively copy a file or directory, if the destination files or directories don\*(Aqt exist yet\&.
+Recursively copy a file or directory, if the destination files or directories do not exist yet\&. Note that this command will not descend into subdirectories if the destination directory already exists\&. Instead, the entire copy operation is skipped\&. If the argument is omitted, files from the source directory
+/usr/share/factory/
+with the same name are copied\&.
 .RE
 .PP
 \fIx\fR
@@ -290,8 +302,7 @@ lines, if omitted or when set to
 lines\&.
 .PP
 Optionally, if prefixed with
-"~"
-the access mode is masked based on the already set access bits for existing file or directories: if the existing file has all executable bits unset then all executable bits are removed from the new access mode, too\&. Similar, if all read bits are removed from the old access mode they will be removed from the new access mode too, and if all write bits are removed, they will be removed from the new access mode too\&. In addition the sticky/suid/gid bit is removed unless applied to a directory\&. This functionality is particularly useful in conjunction with
+"~", the access mode is masked based on the already set access bits for existing file or directories: if the existing file has all executable bits unset, all executable bits are removed from the new access mode, too\&. Similarly, if all read bits are removed from the old access mode, they will be removed from the new access mode too, and if all write bits are removed, they will be removed from the new access mode too\&. In addition, the sticky/SUID/SGID bit is removed unless applied to a directory\&. This functionality is particularly useful in conjunction with
 \fIZ\fR\&.
 .SS "UID, GID"
 .PP
@@ -339,8 +350,7 @@ determines the major/minor of the device node, with major and minor formatted as
 \fIF\fR, and
 \fIw\fR
 may be used to specify a short string that is written to the file, suffixed by a newline\&. For
-\fIC\fR
-specifies the source file or directory\&. Ignored for all other lines\&.
+\fIC\fR, specifies the source file or directory\&. Ignored for all other lines\&.
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/tmpfiles.d/screen.conf example\fR

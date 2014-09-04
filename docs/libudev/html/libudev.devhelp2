@@ -105,6 +105,8 @@
     <keyword type="function" name="udev_queue_get_queued_list_entry ()" link="libudev-udev-queue.html#udev-queue-get-queued-list-entry"/>
     <keyword type="function" name="udev_queue_get_kernel_seqnum ()" link="libudev-udev-queue.html#udev-queue-get-kernel-seqnum"/>
     <keyword type="function" name="udev_queue_get_udev_seqnum ()" link="libudev-udev-queue.html#udev-queue-get-udev-seqnum"/>
+    <keyword type="function" name="udev_queue_get_fd ()" link="libudev-udev-queue.html#udev-queue-get-fd"/>
+    <keyword type="function" name="udev_queue_flush ()" link="libudev-udev-queue.html#udev-queue-flush"/>
     <keyword type="struct" name="struct udev_hwdb" link="libudev-udev-hwdb.html#udev-hwdb"/>
     <keyword type="function" name="udev_hwdb_ref ()" link="libudev-udev-hwdb.html#udev-hwdb-ref"/>
     <keyword type="function" name="udev_hwdb_unref ()" link="libudev-udev-hwdb.html#udev-hwdb-unref"/>

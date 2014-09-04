@@ -238,7 +238,7 @@ char **path_strv_make_absolute_cwd(char **l) {
         return l;
 }
 
-char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
+char **path_strv_resolve(char **l, const char *prefix) {
         char **s;
         unsigned k = 0;
         bool enomem = false;
@@ -323,12 +323,12 @@ char **path_strv_canonicalize_absolute(char **l, const char *prefix) {
         return l;
 }
 
-char **path_strv_canonicalize_absolute_uniq(char **l, const char *prefix) {
+char **path_strv_resolve_uniq(char **l, const char *prefix) {
 
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_canonicalize_absolute(l, prefix))
+        if (!path_strv_resolve(l, prefix))
                 return NULL;
 
         return strv_uniq(l);
@@ -442,7 +442,7 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
         };
 
         int mount_id, mount_id_parent;
-        char *parent;
+        _cleanup_free_ char *parent = NULL;
         struct stat a, b;
         int r;
 
@@ -473,7 +473,6 @@ int path_is_mount_point(const char *t, bool allow_symlink) {
 
         h.handle.handle_bytes = MAX_HANDLE_SZ;
         r = name_to_handle_at(AT_FDCWD, parent, &h.handle, &mount_id_parent, 0);
-        free(parent);
         if (r < 0) {
                 /* The parent can't do name_to_handle_at() but the
                  * directory we are interested in can? If so, it must
@@ -504,7 +503,6 @@ fallback:
                 return r;
 
         r = lstat(parent, &b);
-        free(parent);
         if (r < 0)
                 return -errno;
 
@@ -526,18 +524,24 @@ int path_is_os_tree(const char *path) {
         char *p;
         int r;
 
-        /* We use /etc/os-release as flag file if something is an OS */
+        /* We use /usr/lib/os-release as flag file if something is an OS */
+        p = strappenda(path, "/usr/lib/os-release");
+        r = access(p, F_OK);
 
+        if (r >= 0)
+                return 1;
+
+        /* Also check for the old location in /etc, just in case. */
         p = strappenda(path, "/etc/os-release");
         r = access(p, F_OK);
 
-        return r < 0 ? 0 : 1;
+        return r >= 0;
 }
 
 int find_binary(const char *name, char **filename) {
         assert(name);
 
-        if (strchr(name, '/')) {
+        if (is_path(name)) {
                 if (access(name, X_OK) < 0)
                         return -errno;
 
@@ -622,8 +626,25 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
 }
 
 int fsck_exists(const char *fstype) {
+        _cleanup_free_ char *p = NULL, *d = NULL;
         const char *checker;
+        int r;
 
         checker = strappenda("fsck.", fstype);
-        return find_binary(checker, NULL);
+
+        r = find_binary(checker, &p);
+        if (r < 0)
+                return r;
+
+        /* An fsck that is linked to /bin/true is a non-existant
+         * fsck */
+
+        r = readlink_malloc(p, &d);
+        if (r >= 0 &&
+            (path_equal(d, "/bin/true") ||
+             path_equal(d, "/usr/bin/true") ||
+             path_equal(d, "/dev/null")))
+                return -ENOENT;
+
+        return 0;
 }

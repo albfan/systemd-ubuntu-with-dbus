@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_WATCHDOG_ENABLED" "3" "" "systemd 214" "sd_watchdog_enabled"
+.TH "SD_WATCHDOG_ENABLED" "3" "" "systemd 215" "sd_watchdog_enabled"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ sd_watchdog_enabled \- Check whether the service manager expects watchdog keep\-
 .fi
 .ft
 .HP \w'int\ sd_watchdog_enabled('u
-.BI "int sd_watchdog_enabled(int\ " "unset_environment" ", const\ uint64_t\ *" "usec" ");"
+.BI "int sd_watchdog_enabled(int\ " "unset_environment" ", uint64_t\ *" "usec" ");"
 .SH "DESCRIPTION"
 .PP
 \fBsd_watchdog_enabled()\fR

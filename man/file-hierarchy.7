@@ -1,0 +1,637 @@
+'\" t
+.TH "FILE\-HIERARCHY" "7" "" "systemd 215" "file-hierarchy"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+file-hierarchy \- File system hierarchy overview
+.SH "DESCRIPTION"
+.PP
+Operating systems using the
+\fBsystemd\fR(1)
+system and service manager are organized based on a file system hierarchy inspired by UNIX, more specifically the hierarchy described in the
+\m[blue]\fBFile System Hierarchy\fR\m[]\&\s-2\u[1]\d\s+2
+specification and
+\fBhier\fR(7)\&. This manual page describes a more minimal, modernized subset of these specifications that defines more strictly the suggestions and restrictions systemd makes on the file system hierarchy\&.
+.PP
+Many of the paths described here are queriable with the
+\fBsystemd-path\fR(1)
+tool\&.
+.SH "GENERAL STRUCTURE"
+.PP
+/
+.RS 4
+The file system root\&. Usually writable, but this is not required\&. Possibly a temporary file system ("tmpfs")\&. Not shared with other hosts (unless read\-only)\&.
+.RE
+.PP
+/boot
+.RS 4
+The boot partition used for bringing up the system\&. On EFI systems this is possibly the EFI System Partition, also see
+\fBsystemd-efi-boot-generator\fR(8)\&. This directory is usually strictly local to the host, and should be considered read\-only, except when a new kernel or boot loader is installed\&. This directory only exists on systems that run on physical or emulated hardware that requires boot loaders\&.
+.RE
+.PP
+/etc
+.RS 4
+System\-specific configuration\&. This directory may or may not be read\-only\&. Frequently, this directory is pre\-populated with vendor\-supplied configuration files, but applications should not make assumptions about this directory being fully populated or populated at all, and should fall back to defaults if configuration is missing\&.
+.RE
+.PP
+/home
+.RS 4
+The location for normal user\*(Aqs home directories\&. Possibly shared with other systems, and never read\-only\&. This directory should only be used for normal users, never for system users\&. This directory and possibly the directories contained within it might only become available or writable in late boot or even only after user authentication\&. This directory might be placed on limited\-functionality network file systems, hence applications should not assume the full set of file API is available on this directory\&. Applications should generally not reference this directory directly, but via the per\-user
+\fI$HOME\fR
+environment variable, or via the home directory field of the user database\&.
+.RE
+.PP
+/root
+.RS 4
+The home directory of the root user\&. The root user\*(Aqs home directory is located outside of
+/home
+in order to make sure the root user may log in even without
+/home
+being available and mounted\&.
+.RE
+.PP
+/srv
+.RS 4
+The place to store general server payload, managed by the administrator\&. No restrictions are made how this directory is organized internally\&. Generally writable, and possibly shared among systems\&. This directory might become available or writable only very late during boot\&.
+.RE
+.PP
+/tmp
+.RS 4
+The place for small temporary files\&. This directory is usually mounted as a
+"tmpfs"
+instance, and should hence not be used for larger files\&. (Use
+/var/tmp
+for larger files\&.) Since the directory is accessible to other users of the system it is essential that this directory is only written to with the
+\fBmkstemp\fR(3),
+\fBmkdtemp\fR(3)
+and related calls\&. This directory is usually flushed at boot\-up\&. Also, files that are not accessed within a certain time are usually automatically deleted\&. If applications find the environment variable
+\fI$TMPDIR\fR
+set they should prefer using the directory specified in it over directly referencing
+/tmp
+(see
+\fBenviron\fR(7)
+for details)\&.
+.RE
+.SH "RUNTIME DATA"
+.PP
+/run
+.RS 4
+A
+"tmpfs"
+file system for system packages to place runtime data in\&. This directory is flushed on boot, and generally writable for privileged programs only\&. Always writable\&.
+.RE
+.PP
+/run/log
+.RS 4
+Runtime system logs\&. System components may place private logs in this directory\&. Always writable, even when
+/var/log
+might not be accessible yet\&.
+.RE
+.PP
+/run/user
+.RS 4
+Contains per\-user runtime directories, each usually individually mounted
+"tmpfs"
+instances\&. Always writable, flushed at each reboot and when the user logs out\&. User code should not reference this directory directly, but via the
+\fI$XDG_RUNTIME_DIR\fR
+environment variable, as documented in the
+\m[blue]\fBXDG Base Directory Specification\fR\m[]\&\s-2\u[2]\d\s+2\&.
+.RE
+.SH "VENDOR-SUPPLIED OPERATING SYSTEM RESOURCES"
+.PP
+/usr
+.RS 4
+Vendor\-supplied operating system resources\&. Usually read\-only, but this is not required\&. Possibly shared between multiple hosts\&. This directory should not be modified by the administrator, except when installing or removing vendor\-supplied packages\&.
+.RE
+.PP
+/usr/bin
+.RS 4
+Binaries and executables for user commands, that shall appear in the
+\fI$PATH\fR
+search path\&. It is recommended not to place binaries in this directory that are not useful for invocation from a shell (such as daemon binaries); these should be placed in a subdirectory of
+/usr/lib
+instead\&.
+.RE
+.PP
+/usr/include
+.RS 4
+C and C++ API header files of system libraries\&.
+.RE
+.PP
+/usr/lib
+.RS 4
+Static, private vendor data that is compatible with all architectures (though not necessarily architecture\-independent)\&. Note that this includes internal executables or other binaries that are not regularly invoked from a shell\&. Such binaries may be for any architecture supported by the system\&. Do not place public libraries in this directory, use
+\fI$libdir\fR
+(see below), instead\&.
+.RE
+.PP
+/usr/lib/\fIarch\-id\fR
+.RS 4
+Location for placing dynamic libraries, also called
+\fI$libdir\fR\&. The architecture identifier to use is defined on
+\m[blue]\fBMultiarch Architecture Specifiers (Tuples)\fR\m[]\&\s-2\u[3]\d\s+2
+list\&. Legacy locations of
+\fI$libdir\fR
+are
+/usr/lib,
+/usr/lib64\&. This directory should not be used for package\-specific data, unless this data is architecture\-dependent, too\&. To query
+\fI$libdir\fR
+for the primary architecture of the system, invoke:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# pkg\-config \-\-variable=libdir systemd
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+or
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# systemd\-path system\-library\-arch
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.RE
+.PP
+/usr/share
+.RS 4
+Resources shared between multiple packages, such as documentation, man pages, time zone information, fonts and other resources\&. Usually, the precise location and format of files stored below this directory is subject to specifications that ensure interoperability\&.
+.RE
+.PP
+/usr/share/doc
+.RS 4
+Documentation for the operating system or system packages\&.
+.RE
+.PP
+/usr/share/factory/etc
+.RS 4
+Repository for vendor\-supplied default configuration files\&. This directory should be populated with pristine vendor versions of all configuration files that may be placed in
+/etc\&. This is useful to compare the local configuration of a system with vendor defaults and to populate the local configuration with defaults\&.
+.RE
+.PP
+/usr/share/factory/var
+.RS 4
+Similar to
+/usr/share/factory/etc
+but for vendor versions of files in the variable, persistent data directory
+/var\&.
+.RE
+.SH "PERSISTENT VARIABLE SYSTEM DATA"
+.PP
+/var
+.RS 4
+Persistent, variable system data\&. Must be writable\&. This directory might be pre\-populated with vendor\-supplied data, but applications should be able to reconstruct necessary files and directories in this subhierarchy should they be missing, as the system might start up without this directory being populated\&. Persistency is recommended, but optional, to support ephemeral systems\&. This directory might become available or writable only very late during boot\&. Components that are required to operate during early boot hence shall not unconditionally rely on this directory\&.
+.RE
+.PP
+/var/cache
+.RS 4
+Persistent system cache data\&. System components may place non\-essential data in this directory\&. Flushing this directory should have no effect on operation of programs, except for increased runtimes necessary to rebuild these caches\&.
+.RE
+.PP
+/var/lib
+.RS 4
+Persistent system data\&. System components may place private data in this directory\&.
+.RE
+.PP
+/var/log
+.RS 4
+Persistent system logs\&. System components may place private logs in this directory, though it is recommended to do most logging via the
+\fBsyslog\fR(3)
+and
+\fBsd_journal_print\fR(3)
+calls\&.
+.RE
+.PP
+/var/spool
+.RS 4
+Persistent system spool data, such as printer or mail queues\&.
+.RE
+.PP
+/var/tmp
+.RS 4
+The place for larger and persistent temporary files\&. In contrast to
+/tmp
+this directory is usually mounted from a persistent physical file system and can thus accept larger files\&. (Use
+/tmp
+for smaller files\&.) This directory is generally not flushed at boot\-up, but time\-based cleanup of files that have not been accessed for a certain time is applied\&. The same security restrictions as with
+/tmp
+apply, and hence only
+\fBmkstemp\fR(3),
+\fBmkdtemp\fR(3)
+or similar calls should be used to make use of this directory\&. If applications find the environment variable
+\fI$TMPDIR\fR
+set they should prefer using the directory specified in it over directly referencing
+/var/tmp
+(see
+\fBenviron\fR(7)
+for details)\&.
+.RE
+.SH "VIRTUAL KERNEL AND API FILE SYSTEMS"
+.PP
+/dev
+.RS 4
+The root directory for device nodes\&. Usually this directory is mounted as a
+"devtmpfs"
+instance, but might be of a different type in sandboxed/containerized setups\&. This directory is managed jointly by the kernel and
+\fBsystemd-udevd\fR(8), and should not be written to by other components\&. A number of special purpose virtual file systems might be mounted below this directory\&.
+.RE
+.PP
+/dev/shm
+.RS 4
+Place for POSIX shared memory segments, as created via
+\fBshm_open\fR(3)\&. This directory is flushed on boot, and is a
+"tmpfs"
+file system\&. Since all users have write access to this directory, special care should be taken to avoid name clashes and vulnerabilities\&. For normal users, shared memory segments in this directory are usually deleted when the user logs out\&. Usually it is a better idea to use memory mapped files in
+/run
+(for system programs) or
+\fI$XDG_RUNTIME_DIR\fR
+(for user programs) instead of POSIX shared memory segments, since those directories are not world\-writable and hence not vulnerable to security\-sensitive name clashes\&.
+.RE
+.PP
+/proc
+.RS 4
+A virtual kernel file system exposing the process list and other functionality\&. This file system is mostly an API to interface with the kernel and not a place where normal files may be stored\&. For details, see
+\fBproc\fR(5)\&. A number of special purpose virtual file systems might be mounted below this directory\&.
+.RE
+.PP
+/proc/sys
+.RS 4
+A hierarchy below
+/proc
+that exposes a number of kernel tunables\&. The primary way to configure the settings in this API file tree is via
+\fBsysctl.d\fR(5)
+files\&. In sandboxed/containerized setups this directory is generally mounted read\-only\&.
+.RE
+.PP
+/sys
+.RS 4
+A virtual kernel file system exposing discovered devices and other functionality\&. This file system is mostly an API to interface with the kernel and not a place where normal files may be stored\&. In sandboxed/containerized setups this directory is generally mounted read\-only\&. A number of special purpose virtual file systems might be mounted below this directory\&.
+.RE
+.SH "COMPATIBILITY SYMLINKS"
+.PP
+/bin, /sbin, /usr/sbin
+.RS 4
+These compatibility symlinks point to
+/usr/bin, ensuring that scripts and binaries referencing these legacy paths correctly find their binaries\&.
+.RE
+.PP
+/lib
+.RS 4
+This compatibility symlink points to
+/usr/lib, ensuring that programs referencing this legacy path correctly find their resources\&.
+.RE
+.PP
+/lib64
+.RS 4
+On some architecture ABIs this compatibility symlink points to
+\fI$libdir\fR, ensuring that binaries referencing this legacy path correctly find their dynamic loader\&. This symlink only exists on architectures whose ABI places the dynamic loader in this path\&.
+.RE
+.PP
+/var/run
+.RS 4
+This compatibility symlink points to
+/run, ensuring that programs referencing this legacy path correctly find their runtime data\&.
+.RE
+.SH "HOME DIRECTORY"
+.PP
+User applications may want to place files and directories in the user\*(Aqs home directory\&. They should follow the following basic structure\&. Note that some of these directories are also standardized (though more weakly) by the
+\m[blue]\fBXDG Base Directory Specification\fR\m[]\&\s-2\u[2]\d\s+2\&. Additional locations for high\-level user resources are defined by
+\m[blue]\fBxdg\-user\-dirs\fR\m[]\&\s-2\u[4]\d\s+2\&.
+.PP
+~/\&.cache
+.RS 4
+Persistent user cache data\&. User programs may place non\-essential data in this directory\&. Flushing this directory should have no effect on operation of programs, except for increased runtimes necessary to rebuild these caches\&. If an application finds
+\fI$XDG_CACHE_HOME\fR
+set is should use the directory specified in it instead of this directory\&.
+.RE
+.PP
+~/\&.config
+.RS 4
+Application configuration and state\&. When a new user is created this directory will be empty or not exist at all\&. Applications should fall back to defaults should their configuration or state in this directory be missing\&. If an application finds
+\fI$XDG_CONFIG_HOME\fR
+set is should use the directory specified in it instead of this directory\&.
+.RE
+.PP
+~/\&.local/bin
+.RS 4
+Executables that shall appear in the user\*(Aqs
+\fI$PATH\fR
+search path\&. It is recommended not to place executables in this directory that are not useful for invocation from a shell; these should be placed in a subdirectory of
+~/\&.local/lib
+instead\&. Care should be taken when placing architecture\-dependent binaries in this place which might be problematic if the home directory is shared between multiple hosts with different architectures\&.
+.RE
+.PP
+~/\&.local/lib
+.RS 4
+Static, private vendor data that is compatible with all architectures\&.
+.RE
+.PP
+~/\&.local/lib/\fIarch\-id\fR
+.RS 4
+Location for placing public dynamic libraries\&. The architecture identifier to use, is defined on
+\m[blue]\fBMultiarch Architecture Specifiers (Tuples)\fR\m[]\&\s-2\u[3]\d\s+2
+list\&.
+.RE
+.PP
+~/\&.local/share
+.RS 4
+Resources shared between multiple packages, such as fonts or artwork\&. Usually, the precise location and format of files stored below this directory is subject to specifications that ensure interoperability\&. If an application finds
+\fI$XDG_DATA_HOME\fR
+set is should use the directory specified in it instead of this directory\&.
+.RE
+.SH "UNPRIVILEGED WRITE ACCESS"
+.PP
+Unprivileged processes generally lack write access to most of the hierarchy\&.
+.PP
+The exceptions for normal users are
+/tmp,
+/var/tmp,
+/dev/shm, as well as the home directory
+\fI$HOME\fR
+(usually found below
+/home) and the runtime directory
+\fI$XDG_RUNTIME_DIR\fR
+(found below
+/run/user) of the user, which are all writable\&.
+.PP
+For unprivileged system processes only
+/tmp,
+/var/tmp
+and
+/dev/shm
+are writable\&. If an unprivileged system process needs a private, writable directory in
+/var
+or
+/run, it is recommended to either create it before dropping privileges in the daemon code, to create it via
+\fBtmpfiles.d\fR(5)
+fragments during boot, or via the
+\fIRuntimeDirectory=\fR
+directive of service units (see
+\fBsystemd.unit\fR(5)
+for details)\&.
+.SH "NODE TYPES"
+.PP
+Unix file systems support different types of file nodes, including regular files, directories, symlinks, character and block device nodes, sockets and FIFOs\&.
+.PP
+It is strongly recommended that
+/dev
+is the only location below which device nodes shall be placed\&. Similar,
+/run
+shall be the only location to place sockets and FIFOs\&. Regular files, directories and symlinks may be used in all directories\&.
+.SH "SYSTEM PACKAGES"
+.PP
+Developers of system packages should follow strict rules when placing their own files in the file system\&. The following table lists recommended locations for specific types of files supplied by the vendor\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&1.\ \&System Package Vendor Files Locations
+.TS
+allbox tab(:);
+lB lB.
+T{
+Directory
+T}:T{
+Purpose
+T}
+.T&
+l l
+l l
+l l
+l l
+l l.
+T{
+/usr/bin
+T}:T{
+Package executables that shall appear in the \fI$PATH\fR executable search path, compiled for any of the supported architectures compatible with the operating system\&. It is not recommended to place internal binaries or binaries that are not commonly invoked from the shell in this directory, such as daemon binaries\&. As this directory is shared with most other packages of the system special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package\*(Aqs files\&.
+T}
+T{
+/usr/lib/\fIarch\-id\fR
+T}:T{
+Public shared libraries of the package\&. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes\&.
+T}
+T{
+/usr/lib/\fIpackage\fR
+T}:T{
+Private, static vendor resources of the package, including private binaries and libraries, or any other kind of read\-only vendor data\&.
+T}
+T{
+/usr/lib/\fIarch\-id\fR/\fIpackage\fR
+T}:T{
+Private other vendor resources of the package that are architecture\-specific and cannot be shared between architectures\&. Note that this generally does not include private executables since binaries of a specific architecture may be freely invoked from any other supported system architecture\&.
+T}
+T{
+/usr/include/\fIpackage\fR
+T}:T{
+Public C/C++ APIs of public shared libraries of the package\&.
+T}
+.TE
+.sp 1
+.PP
+Additional static vendor files may be installed in the
+/usr/share
+hierarchy, to the locations defined by the various relevant specifications\&.
+.PP
+During runtime and for local configuration and state additional directories are defined:
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&2.\ \&System Package Variable Files Locations
+.TS
+allbox tab(:);
+lB lB.
+T{
+Directory
+T}:T{
+Purpose
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+/etc/\fIpackage\fR
+T}:T{
+System\-specific configuration for the package\&. It is recommended to default to safe fallbacks if this configuration is missing, if this is possible\&. Alternatively, a \fBtmpfiles.d\fR(5) fragment may be used to copy or symlink the necessary files and directories from /usr/share/factory during boot, via the "L" or "C" directives\&.
+T}
+T{
+/run/\fIpackage\fR
+T}:T{
+Runtime data for the package\&. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot\&. Alternatively, a \fBtmpfiles.d\fR(5) fragment may be used to create the necessary directories during boot\&. Alternatively, the \fIRuntimeDirectory=\fR directive of service units may be used (see \fBsystemd.unit\fR(5) for details\&.)
+T}
+T{
+/run/log/\fIpackage\fR
+T}:T{
+Runtime log data for the package\&. As above, the package needs to make sure to create this directory if necessary, as it will be flushed on every boot\&.
+T}
+T{
+/var/cache/\fIpackage\fR
+T}:T{
+Persistent cache data of the package\&. If this directory is flushed the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files\&. The application must be capable of recreating this directory should it be missing and necessary\&.
+T}
+T{
+/var/lib/\fIpackage\fR
+T}:T{
+Persistent private data of the package\&. This is the primary place to put persistent data that does not fall into the other categories listed\&. Packages should be able to create the necessary subdirectories in this tree on their own, since the directory might be missing on boot\&. Alternatively, a \fBtmpfiles.d\fR(5) fragment may be used to create the necessary directories during boot\&.
+T}
+T{
+/var/log/\fIpackage\fR
+T}:T{
+Persistent log data of the package\&. As above, the package should make sure to create this directory if necessary, as it might be missing\&.
+T}
+T{
+/var/spool/\fIpackage\fR
+T}:T{
+Persistent spool/queue data of the package\&. As above, the package should make sure to create this directory if necessary, as it might be missing\&.
+T}
+.TE
+.sp 1
+.SH "USER PACKAGES"
+.PP
+Programs running in user context should follow strict rules when placing their own files in the user\*(Aqs home directory\&. The following table lists recommended locations in the home directory for specific types of files supplied by the vendor if the application is installed in the home directory\&. (Note however, that user applications installed system\-wide should follow the rules outlined above regarding placing vendor files\&.)
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&3.\ \&User Package Vendor File Locations
+.TS
+allbox tab(:);
+lB lB.
+T{
+Directory
+T}:T{
+Purpose
+T}
+.T&
+l l
+l l
+l l
+l l.
+T{
+~/\&.local/bin
+T}:T{
+Package executables that shall appear in the \fI$PATH\fR executable search path\&. It is not recommended to place internal executables or executables that are not commonly invoked from the shell in this directory, such as daemon executables\&. As this directory is shared with most other packages of the user special care should be taken to pick unique names for files placed here, that are unlikely to clash with other package\*(Aqs files\&.
+T}
+T{
+~/\&.local/lib/\fIarch\-id\fR
+T}:T{
+Public shared libraries of the package\&. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes\&.
+T}
+T{
+~/\&.local/lib/\fIpackage\fR
+T}:T{
+Private, static vendor resources of the package, compatible wih any architecture, or any other kind of read\-only vendor data\&.
+T}
+T{
+~/\&.local/lib/\fIarch\-id\fR/\fIpackage\fR
+T}:T{
+Private other vendor resources of the package that are architecture\-specific and cannot be shared between architectures\&.
+T}
+.TE
+.sp 1
+.PP
+Additional static vendor files may be installed in the
+~/\&.local/share
+hierarchy, to the locations defined by the various relevant specifications\&.
+.PP
+During runtime and for local configuration and state additional directories are defined:
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&4.\ \&User Package Variable File Locations
+.TS
+allbox tab(:);
+lB lB.
+T{
+Directory
+T}:T{
+Purpose
+T}
+.T&
+l l
+l l
+l l.
+T{
+~/\&.config/\fIpackage\fR
+T}:T{
+User\-specific configuration and state for the package\&. It is required to default to safe fallbacks if this configuration is missing\&.
+T}
+T{
+\fI$XDG_RUNTIME_DIR\fR/\fIpackage\fR
+T}:T{
+User runtime data for the package\&.
+T}
+T{
+~/\&.cache/\fIpackage\fR
+T}:T{
+Persistent cache data of the package\&. If this directory is flushed the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files\&. The application must be capable of recreating this directory should it be missing and necessary\&.
+T}
+.TE
+.sp 1
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBhier\fR(7),
+\fBsystemd-path\fR(1),
+\fBsystemd-efi-boot-generator\fR(8),
+\fBsysctl.d\fR(5),
+\fBtmpfiles.d\fR(5),
+\fBpkg-config\fR(1),
+\fBsystemd.unit\fR(5)
+.SH "NOTES"
+.IP " 1." 4
+File System Hierarchy
+.RS 4
+\%http://refspecs.linuxfoundation.org/FHS_2.3/fhs-2.3.html
+.RE
+.IP " 2." 4
+XDG Base Directory Specification
+.RS 4
+\%http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
+.RE
+.IP " 3." 4
+Multiarch Architecture Specifiers (Tuples)
+.RS 4
+\%https://wiki.debian.org/Multiarch/Tuples
+.RE
+.IP " 4." 4
+xdg-user-dirs
+.RS 4
+\%http://www.freedesktop.org/wiki/Software/xdg-user-dirs/
+.RE

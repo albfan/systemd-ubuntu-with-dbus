@@ -1,5 +1,5 @@
 '\" t
-.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 214" "kernel-command-line"
+.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 215" "kernel-command-line"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -43,6 +43,12 @@ Parameters understood by the system and service manager to control system behavi
 \fBsystemd\fR(1)\&.
 .RE
 .PP
+\fIsystemd\&.mask=\fR, \fIsystemd\&.wants=\fR, \fIsystemd\&.debug\-shell\fR
+.RS 4
+Additional parameters understood by
+\fBsystemd-debug-generator\fR(8), to mask or start specific units at boot, or invoke a debug shell on tty9\&.
+.RE
+.PP
 \fIsystemd\&.restore_state=\fR
 .RS 4
 This parameter is understood by several system tools to control whether or not they should restore system state from the previous boot\&. For details, see
@@ -75,15 +81,9 @@ Parameters understood by the system and service manager to control locale and la
 \fBsystemd\fR(1)\&.
 .RE
 .PP
-\fIfsck\&.mode=\fR
+\fIfsck\&.mode=\fR, \fIfsck\&.repair=\fR
 .RS 4
-Parameter understood by the file system checker services\&. For details, see
-\fBsystemd-fsck@.service\fR(8)\&.
-.RE
-.PP
-\fIfsck\&.repair=\fR
-.RS 4
-Parameter understood by the file system checker services\&. For details, see
+Parameters understood by the file system checker services\&. For details, see
 \fBsystemd-fsck@.service\fR(8)\&.
 .RE
 .PP
@@ -131,6 +131,18 @@ logic at boot\&. For details, see
 \fBsystemd-fstab-generator\fR(8)\&.
 .RE
 .PP
+\fIroot=\fR, \fIrootfstype=\fR, \fIrootfsflags=\fR, \fIro\fR, \fIrw\fR
+.RS 4
+Configures the root file system and its file system type and mount options, as well as whether it shall be mounted read\-only or read\-writable initially\&. For details, see
+\fBsystemd-fstab-generator\fR(8)\&.
+.RE
+.PP
+\fIsystemd\&.gpt_auto=\fR, \fIrd\&.systemd\&.gpt_auto=\fR
+.RS 4
+Configures whether GPT based partition auto\-discovery shall be attempted\&. For details, see
+\fBsystemd-gpt-auto-generator\fR(8)\&.
+.RE
+.PP
 \fImodules\-load=\fR, \fIrd\&.modules\-load=\fR
 .RS 4
 Load a specific kernel module early at boot\&. For details, see
@@ -141,6 +153,7 @@ Load a specific kernel module early at boot\&. For details, see
 \fBsystemd\fR(1),
 \fBbootparam\fR(7),
 \fBdracut.cmdline\fR(7),
+\fBsystemd-debug-generator\fR(8),
 \fBsystemd-fsck@.service\fR(8),
 \fBsystemd-quotacheck.service\fR(8),
 \fBsystemd-journald.service\fR(8),
@@ -149,7 +162,10 @@ Load a specific kernel module early at boot\&. For details, see
 \fBplymouth\fR(8),
 \fBsystemd-cryptsetup-generator\fR(8),
 \fBsystemd-fstab-generator\fR(8),
-\fBsystemd-modules-load.service\fR(8)\fBsystemd-backlight@.service\fR(8)\fBsystemd-rfkill@.service\fR(8)
+\fBsystemd-gpt-auto-generator\fR(8),
+\fBsystemd-modules-load.service\fR(8),
+\fBsystemd-backlight@.service\fR(8),
+\fBsystemd-rfkill@.service\fR(8)
 .SH "NOTES"
 .IP " 1." 4
 kernel-parameters.txt

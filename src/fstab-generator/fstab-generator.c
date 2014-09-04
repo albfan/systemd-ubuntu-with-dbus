@@ -44,6 +44,7 @@ static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
 
+
 static int mount_find_pri(struct mntent *me, int *ret) {
         char *end, *pri;
         unsigned long r;
@@ -128,6 +129,11 @@ static int add_swap(const char *what, struct mntent *me) {
                 return -errno;
         }
 
+        /* use what as where, to have a nicer error message */
+        r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
+        if (r < 0)
+                return r;
+
         if (!noauto) {
                 lnk = strjoin(arg_dest, "/" SPECIAL_SWAP_TARGET ".wants/", name, NULL);
                 if (!lnk)
@@ -173,7 +179,8 @@ static int add_mount(
 
         _cleanup_free_ char
                 *name = NULL, *unit = NULL, *lnk = NULL,
-                *automount_name = NULL, *automount_unit = NULL;
+                *automount_name = NULL, *automount_unit = NULL,
+                *filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -245,8 +252,12 @@ static int add_mount(
         if (!isempty(fstype) && !streq(fstype, "auto"))
                 fprintf(f, "Type=%s\n", fstype);
 
-        if (!isempty(opts) && !streq(opts, "defaults"))
-                fprintf(f, "Options=%s\n", opts);
+        r = generator_write_timeouts(arg_dest, what, where, opts, &filtered);
+        if (r < 0)
+                return r;
+
+        if (!isempty(filtered) && !streq(filtered, "defaults"))
+                fprintf(f, "Options=%s\n", filtered);
 
         fflush(f);
         if (ferror(f)) {
@@ -402,7 +413,8 @@ static int parse_fstab(bool initrd) {
 }
 
 static int add_root_mount(void) {
-        _cleanup_free_ char *o = NULL, *what = NULL;
+        _cleanup_free_ char *what = NULL;
+        const char *opts;
 
         if (isempty(arg_root_what)) {
                 log_debug("Could not find a root= entry on the kernel commandline.");
@@ -416,23 +428,19 @@ static int add_root_mount(void) {
         }
 
         if (!arg_root_options)
-                o = strdup(arg_root_rw > 0 ? "rw" : "ro");
-        else {
-                if (arg_root_rw >= 0 ||
-                    (!mount_test_option(arg_root_options, "ro") &&
-                     !mount_test_option(arg_root_options, "rw")))
-                        o = strjoin(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro", NULL);
-                else
-                        o = strdup(arg_root_options);
-        }
-        if (!o)
-                return log_oom();
+                opts = arg_root_rw > 0 ? "rw" : "ro";
+        else if (arg_root_rw >= 0 ||
+                 (!mount_test_option(arg_root_options, "ro") &&
+                  !mount_test_option(arg_root_options, "rw")))
+                opts = strappenda3(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+        else
+                opts = arg_root_options;
 
         log_debug("Found entry what=%s where=/sysroot type=%s", what, strna(arg_root_fstype));
         return add_mount(what,
                          "/sysroot",
                          arg_root_fstype,
-                         o,
+                         opts,
                          1,
                          false,
                          false,
@@ -486,8 +494,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (startswith(key, "fstab.") || startswith(key, "rd.fstab."))
-                log_warning("Unknown kernel switch %s. Ignoring.", key);
 
         return 0;
 }
@@ -520,6 +526,8 @@ int main(int argc, char *argv[]) {
         if (arg_fstab_enabled) {
                 int k;
 
+                log_debug("Parsing /etc/fstab");
+
                 /* Parse the local /etc/fstab, possibly from the initrd */
                 k = parse_fstab(false);
                 if (k < 0)
@@ -527,6 +535,8 @@ int main(int argc, char *argv[]) {
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd()) {
+                        log_debug("Parsing /sysroot/etc/fstab");
+
                         k = parse_fstab(true);
                         if (k < 0)
                                 r = k;
