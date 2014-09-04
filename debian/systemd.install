@@ -9,6 +9,7 @@ bin/systemd-ask-password
 bin/systemd-machine-id-setup
 bin/systemd-tmpfiles
 bin/systemd-inhibit
+bin/systemd-escape
 lib/systemd/
 lib/udev/rules.d/70-uaccess.rules
 lib/udev/rules.d/73-seat-late.rules
@@ -23,6 +24,7 @@ usr/bin/systemd-cat
 usr/bin/systemd-detect-virt
 usr/bin/systemd-delta
 usr/bin/systemd-run
+usr/bin/systemd-path
 usr/bin/busctl
 usr/bin/timedatectl
 usr/bin/localectl

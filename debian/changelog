@@ -17,6 +17,7 @@ systemd (215-1) UNRELEASED; urgency=medium
     is disabled.
   * Make /run/lock tmpfs an API fs so it is available during early boot.
     (Closes: #751392)
+  * Install new systemd-path and systemd-escape binaries.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
