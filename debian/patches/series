@@ -87,6 +87,7 @@ initrd-parse-etc.service-ignore-return-code-of-daemo.patch
 
 ## Cherry-picked patches:
 util-avoid-considering-dpkg-temporary-files-relevant.patch
+libudev-fix-symbol-version-for-udev_queue_flush-and-.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

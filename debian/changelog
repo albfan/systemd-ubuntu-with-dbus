@@ -7,6 +7,8 @@ systemd (215-1) UNRELEASED; urgency=medium
     per-user tmpfs via logind.
   * Don't rely on new mount from experimental for now and re-add the patch
     which updates the documentation accordingly.
+  * Cherry-pick upstream fix to use correct versions for the new symbols that
+    were introduced in libudev.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
