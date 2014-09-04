@@ -2,6 +2,8 @@ systemd (214-2) UNRELEASED; urgency=medium
 
   * Drop our Debian-specific run-user.mount unit as upstream now creates a
     per-user tmpfs via logind.
+  * Don't rely on new mount from experimental for now and re-add the patch
+    which updates the documentation accordingly.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
