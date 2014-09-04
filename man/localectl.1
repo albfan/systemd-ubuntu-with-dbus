@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALECTL" "1" "" "systemd 214" "localectl"
+.TH "LOCALECTL" "1" "" "systemd 215" "localectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -57,8 +57,10 @@ is invoked and this option is passed, then the keymap will not be converted from
 .PP
 \fB\-H\fR, \fB\-\-host=\fR
 .RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
+"@", to connect to\&. The hostname may optionally be suffixed by a container name, separated by
+":", which connects directly to a specific container on the specified host\&. This will use SSH to talk to the remote machine manager instance\&. Container names may be enumerated with
+\fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

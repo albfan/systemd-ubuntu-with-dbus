@@ -1,0 +1,64 @@
+'\" t
+.TH "SYSTEMD\-SYSUSERS" "8" "" "systemd 215" "systemd-sysusers"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+systemd-sysusers, systemd-sysusers.service \- Allocate system users and groups
+.SH "SYNOPSIS"
+.HP \w'\fBsystemd\-sysusers\fR\ 'u
+\fBsystemd\-sysusers\fR [OPTIONS...] [\fICONFIGFILE\fR...]
+.PP
+systemd\-sysusers\&.service
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-sysusers\fR
+creates system users and groups, based on the file format and location specified in
+\fBsysusers.d\fR(5)\&.
+.PP
+If invoked with no arguments, it applies all directives from all files found\&. If one or more filenames are passed on the command line, only the directives in these files are applied\&. If only the basename of a file is specified, all directories as specified in
+\fBsysusers.d\fR(5)
+are searched for a matching file\&.
+.SH "OPTIONS"
+.PP
+The following options are understood:
+.PP
+\fB\-\-root=\fR\fB\fIroot\fR\fR
+.RS 4
+Takes a directory path as an argument\&. All paths will be prefixed with the given alternate
+\fIroot\fR
+path, including config search paths\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
+.SH "EXIT STATUS"
+.PP
+On success, 0 is returned, a non\-zero failure code otherwise\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsysusers.d\fR(5)

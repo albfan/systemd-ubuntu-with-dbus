@@ -1,0 +1,109 @@
+'\" t
+.TH "SYSUSERS\&.D" "5" "" "systemd 215" "sysusers.d"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+sysusers.d \- Declarative allocation of system users and groups
+.SH "SYNOPSIS"
+.PP
+/usr/lib/sysusers\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+\fBsystemd\-sysusers\fR
+uses the files from
+/usr/lib/sysusers\&.d/
+to create system users and groups at package installation or boot time\&. This tool may be used for allocating system users and groups only, it is not useful for creating non\-system users and groups, as it accessed
+/etc/passwd
+and
+/etc/group
+directly, bypassing any more complex user database, for example any database involving NIS or LDAP\&.
+.SH "FILE FORMAT"
+.PP
+Each file shall be named in the style of
+\fIpackage\fR\&.conf\&.
+.PP
+All files are sorted by their filename in lexicographic order, regardless of which of the directories they reside in\&. If multiple files specify the same user or group, the entry in the file with the lexicographically earliest name will be applied, all all other conflicting entries will be logged as errors\&. Users and groups are processed in the order they are listed\&.
+.PP
+The file format is one line per user or group containing name, ID and GECOS field description:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# Type Name ID GECOS
+u httpd 440 "HTTP User"
+u authd /usr/bin/authd "Authorization user"
+g input \- \-
+m authd input
+.fi
+.if n \{\
+.RE
+.\}
+.SS "Type"
+.PP
+The type consists of a single letter\&. The following line types are understood:
+.PP
+\fIu\fR
+.RS 4
+Create a system user and group of the specified name should they not exist yet\&. The user\*(Aqs primary group will be set to the group bearing the same name\&. The user\*(Aqs shell will be set to
+/sbin/login, the home directory to
+/\&. The account will be created disabled, so that logins are not allowed\&.
+.RE
+.PP
+\fIg\fR
+.RS 4
+Create a system group of the specified name should it not exist yet\&. Note that
+\fIu\fR
+implicitly create a matching group\&. The group will be created with no password set\&.
+.RE
+.PP
+\fIm\fR
+.RS 4
+Add a user to a group\&. If the user or group are not existing yet, they will be implicitly created\&.
+.RE
+.SS "Name"
+.PP
+The name field specifies the user or group name\&. It should be be shorter than 256 characters and avoid any non\-ASCII characters, and not begin with a numeric character\&. It is strongly recommended to pick user and group names that are unlikely to clash with normal users created by the administrator\&. A good scheme to guarantee this is by prefixing all system and group names with the underscore, and avoiding too generic names\&.
+.PP
+For
+\fIm\fR
+lines this field should contain the user name to add to a group\&.
+.SS "ID"
+.PP
+For
+\fIu\fR
+and
+\fIg\fR
+the numeric 32bit UID or GID of the user/group\&. Do not use IDs 65535 or 4294967295, as they have special placeholder meanings\&. Specify "\-" for automatic UID/GID allocation for the user or group\&. Alternatively, specify an absolute path in the file system\&. In this case the UID/GID is read from the path\*(Aqs owner/group\&. This is useful to create users whose UID/GID match the owners of pre\-existing files (such as SUID or SGID binaries)\&.
+.PP
+For
+\fIm\fR
+lines this field should contain the group name to add to a user to\&.
+.SS "GECOS"
+.PP
+A short, descriptive string for users to be created, enclosed in quotation marks\&. Note that this field may not contain colons\&.
+.PP
+Only applies to lines of type
+\fIu\fR
+and should otherwise be left unset\&.
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-sysusers\fR(8)

@@ -1,0 +1,53 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>systemd-update-done.service</title><meta name="generator" content="DocBook XSL Stylesheets V1.78.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><style>
+    a.headerlink {
+      color: #c60f0f;
+      font-size: 0.8em;
+      padding: 0 4px 0 4px;
+      text-decoration: none;
+      visibility: hidden;
+    }
+
+    a.headerlink:hover {
+      background-color: #c60f0f;
+      color: white;
+    }
+
+    h1:hover > a.headerlink, h2:hover > a.headerlink, h3:hover > a.headerlink, dt:hover > a.headerlink {
+      visibility: visible;
+    }
+  </style><a href="index.html">Index </a>·
+  <a href="systemd.directives.html">Directives </a>·
+  <a href="../python-systemd/index.html">Python </a>·
+  <a href="../libudev/index.html">libudev </a>·
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd-update-done.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-update-done.service, systemd-update-done — Mark <code class="filename">/etc</code> and <code class="filename">/var</code> fully updated</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-update-done.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-update-done</code></p></div><div class="refsect1"><a name="idm214182720160"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-update-done.service</code>
+                is a service that is invoked as part of the first boot
+                after the vendor operating system resources in
+                <code class="filename">/usr</code> have been updated. This is
+                useful to implement offline updates of
+                <code class="filename">/usr</code> which might requires updates
+                to <code class="filename">/etc</code> or
+                <code class="filename">/var</code> on the following boot.</p><p><code class="filename">systemd-update-done.service</code>
+                updates the file modification time (mtime) of the
+                stamp files <code class="filename">/etc/.updated</code> and
+                <code class="filename">/var/.updated</code> to the modification
+                time of the <code class="filename">/usr</code> directory,
+                unless the stamp files are already newer.</p><p>Services that shall run after offline upgrades
+                of <code class="filename">/usr</code> should order themselves
+                before
+                <code class="filename">systemd-update-done.service</code>, and
+                use the <code class="varname">ConditionNeedsUpdate=</code> (see
+                <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>)
+                condition to make sure to run when
+                <code class="filename">/etc</code> or <code class="filename">/var</code>
+                are older than <code class="filename">/usr</code> according to
+                the modification times of the files described
+                above. This requires that updates to
+                <code class="filename">/usr</code> are always followed by an
+                update of the modification time of
+                <code class="filename">/usr</code>, for example by invoking
+                <a href="touch.html"><span class="citerefentry"><span class="refentrytitle">touch</span>(1)</span></a>
+                on it.</p></div><div class="refsect1"><a name="idm214186603664"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                        <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
+                        <a href="touch.html"><span class="citerefentry"><span class="refentrytitle">touch</span>(1)</span></a>
+                </p></div></div></body></html>

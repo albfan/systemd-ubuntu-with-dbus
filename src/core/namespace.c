@@ -42,6 +42,7 @@
 #include "mkdir.h"
 #include "dev-setup.h"
 #include "def.h"
+#include "label.h"
 
 typedef enum MountMode {
         /* This is ordered by priority! */
@@ -68,6 +69,7 @@ static int append_mounts(BindMount **p, char **strv, MountMode mode) {
         STRV_FOREACH(i, strv) {
 
                 (*p)->ignore = false;
+                (*p)->done = false;
 
                 if ((mode == INACCESSIBLE || mode == READONLY || mode == READWRITE) && (*i)[0] == '-') {
                         (*p)->ignore = true;
@@ -223,7 +225,10 @@ static int mount_dev(BindMount *m) {
                         goto fail;
                 }
 
+                label_context_set(d, st.st_mode);
                 r = mknod(dn, st.st_mode, st.st_rdev);
+                label_context_clear();
+
                 if (r < 0) {
                         r = -errno;
                         goto fail;
@@ -329,7 +334,7 @@ static int make_read_only(BindMount *m) {
 
         if (IN_SET(m->mode, INACCESSIBLE, READONLY))
                 r = bind_remount_recursive(m->path, true);
-        else if (m->mode == READWRITE)
+        else if (IN_SET(m->mode, READWRITE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV))
                 r = bind_remount_recursive(m->path, false);
         else
                 r = 0;
@@ -371,7 +376,7 @@ int setup_namespace(
                 (protect_system == PROTECT_SYSTEM_FULL ? 1 : 0);
 
         if (n > 0) {
-                m = mounts = (BindMount *) alloca(n * sizeof(BindMount));
+                m = mounts = (BindMount *) alloca0(n * sizeof(BindMount));
                 r = append_mounts(&m, read_write_dirs, READWRITE);
                 if (r < 0)
                         return r;

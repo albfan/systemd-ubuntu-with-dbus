@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 214" "systemd.mount"
+.TH "SYSTEMD\&.MOUNT" "5" "" "systemd 215" "systemd.mount"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -86,35 +86,63 @@ When reading
 a few special mount options are understood by systemd which influence how dependencies are created for mount points from
 /etc/fstab\&. systemd will create a dependency of type
 \fBWants\fR
-from either
+or
+\fBRequires\fR
+(see option
+\fBnofail\fR
+below), from either
 local\-fs\&.target
 or
-remote\-fs\&.target, depending whether the file system is local or remote\&. If
+remote\-fs\&.target, depending whether the file system is local or remote\&.
+.PP
 \fBx\-systemd\&.automount\fR
-is set, an automount unit will be created for the file system\&. See
+.RS 4
+An automount unit will be created for the file system\&. See
 \fBsystemd.automount\fR(5)
-for details\&. If
+for details\&.
+.RE
+.PP
 \fBx\-systemd\&.device\-timeout=\fR
-is specified, it may be used to configure how long systemd should wait for a device to show up before giving up on an entry from
-/etc/fstab\&. Specify a time in seconds or explicitly specify a unit as
+.RS 4
+Configure how long systemd should wait for a device to show up before giving up on an entry from
+/etc/fstab\&. Specify a time in seconds or explicitly append a unit as
 "s",
 "min",
 "h",
 "ms"\&.
+.sp
+Note that this option can only be used in
+/etc/fstab, and will be ignored when part of
+\fIOptions=\fR
+setting in a unit file\&.
+.RE
 .PP
-If
+\fBnofail\fR, \fBfail\fR
+.RS 4
+With
 \fBnofail\fR
-is given, this mount will be only wanted, not required, by the
+this mount will be only wanted, not required, by the
 local\-fs\&.target\&. This means that the boot will continue even if this mount point is not mounted successfully\&. Option
 \fBfail\fR
 has the opposite meaning and is the default\&.
+.RE
 .PP
-If
-\fBnoauto\fR
-is given, this mount will not be added as a dependency for
+\fBnoauto\fR, \fBauto\fR
+.RS 4
+With
+\fBnoauto\fR, this mount will not be added as a dependency for
 local\-fs\&.target\&. This means that it will not be mounted automatically during boot, unless it is pulled in by some other unit\&. Option
 \fBauto\fR
 has the opposite meaning and is the default\&.
+.RE
+.PP
+\fBx\-initrd\&.mount\fR
+.RS 4
+An additional filesystem to be mounted in the initramfs\&. See
+initrd\-fs\&.target
+description in
+\fBsystemd.special\fR(7)\&.
+.RE
 .PP
 If a mount point is configured in both
 /etc/fstab
@@ -155,6 +183,16 @@ for details\&. This setting is optional\&.
 \fIOptions=\fR
 .RS 4
 Mount options to use when mounting\&. This takes a comma\-separated list of options\&. This setting is optional\&.
+.RE
+.PP
+\fISloppyOptions=\fR
+.RS 4
+Takes a boolean argument\&. If true, parsing of the options specified in
+\fIOptions=\fR
+is relaxed, and unknown mount options are tolerated\&. This corresponds with
+\fBmount\fR(8)\*(Aqs
+\fI\-s\fR
+switch\&. Defaults to off\&.
 .RE
 .PP
 \fIDirectoryMode=\fR

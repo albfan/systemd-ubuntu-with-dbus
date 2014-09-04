@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 214" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 215" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -77,6 +77,8 @@ specification\&.
 As a safety check
 \fBsystemd\-nspawn\fR
 will verify the existence of
+/usr/lib/os\-release
+or
 /etc/os\-release
 in the container tree before starting the container (see
 \fBos-release\fR(5))\&. It might be necessary to add this file to the container tree manually if the OS of the container is too old to contain this file out\-of\-the\-box\&.

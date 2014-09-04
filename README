@@ -115,13 +115,14 @@ REQUIREMENTS:
         libcryptsetup (optional)
         libaudit (optional)
         libacl (optional)
-        libattr (optional)
         libselinux (optional)
         liblzma (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
         libpython (optional)
+        gobject-introspection > 1.40.0 (optional)
+        elfutils >= 158 (optional)
         make, gcc, and similar tools
 
         During runtime, you need the following additional
@@ -168,7 +169,7 @@ USERS AND GROUPS:
         even in the very early boot stages, where no other databases
         and network are available:
 
-        tty, dialout, kmem, video, audio, lp, cdrom, tape, disk
+        audio, cdrom, dialout, disk, input, kmem, lp, tape, tty, video
 
         During runtime, the journal daemon requires the
         "systemd-journal" system group to exist. New journal files will
@@ -187,16 +188,16 @@ USERS AND GROUPS:
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
-        Similar, the NTP daemon requires the "systemd-timesync" system
+        Similarly, the NTP daemon requires the "systemd-timesync" system
         user and group to exist.
 
-        Similar, the network management daemon requires the
+        Similarly, the network management daemon requires the
         "systemd-network" system user and group to exist.
 
-        Similar, the name resolution daemon requires the
+        Similarly, the name resolution daemon requires the
         "systemd-resolve" system user and group to exist.
 
-        Similar, the kdbus dbus1 proxy daemon requires the
+        Similarly, the kdbus dbus1 proxy daemon requires the
         "systemd-bus-proxy" system user and group to exist.
 
 WARNINGS:

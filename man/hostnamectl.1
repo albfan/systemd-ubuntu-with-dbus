@@ -1,5 +1,5 @@
 '\" t
-.TH "HOSTNAMECTL" "1" "" "systemd 214" "hostnamectl"
+.TH "HOSTNAMECTL" "1" "" "systemd 215" "hostnamectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ hostnamectl \- Control the system hostname
 \fBhostnamectl\fR
 may be used to query and change the system hostname and related settings\&.
 .PP
-This tool distinguishes three different hostnames: the high\-level "pretty" hostname which might include all kinds of special characters (e\&.g\&. "Lennart\*(Aqs Laptop"), the static hostname which is used to initialize the kernel hostname at boot (e\&.g\&. "lennarts\-laptop"), and the transient hostname which is a default received from network configuration\&. If a static hostname is set, and is valid (something other than localhost) then the transient hostname is not used\&.
+This tool distinguishes three different hostnames: the high\-level "pretty" hostname which might include all kinds of special characters (e\&.g\&. "Lennart\*(Aqs Laptop"), the static hostname which is used to initialize the kernel hostname at boot (e\&.g\&. "lennarts\-laptop"), and the transient hostname which is a default received from network configuration\&. If a static hostname is set, and is valid (something other than localhost), then the transient hostname is not used\&.
 .PP
 Note that the pretty hostname has little restrictions on the characters used, while the static and transient hostnames are limited to the usually accepted characters of Internet domain names\&.
 .PP
@@ -67,8 +67,10 @@ If used with
 .PP
 \fB\-H\fR, \fB\-\-host=\fR
 .RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
+"@", to connect to\&. The hostname may optionally be suffixed by a container name, separated by
+":", which connects directly to a specific container on the specified host\&. This will use SSH to talk to the remote machine manager instance\&. Container names may be enumerated with
+\fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

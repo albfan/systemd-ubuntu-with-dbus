@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 214" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 215" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -41,6 +41,12 @@ systemd.index \- List all manpages from the systemd project
 
 .SH "C"
 .PP
+\fBcoredump.conf\fR(5)
+\-\- Coredump storage configuration file
+.br
+\fBcoredumpctl\fR(1)
+\-\- Retrieve coredumps from the journal
+.br
 \fBcrypttab\fR(5)
 \-\- Configuration for encrypted block devices
 .br
@@ -49,6 +55,12 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBdaemon\fR(7)
 \-\- Writing and packaging system daemons
+.br
+
+.SH "F"
+.PP
+\fBfile-hierarchy\fR(7)
+\-\- File system hierarchy overview
 .br
 
 .SH "H"
@@ -887,9 +899,6 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-cgtop\fR(1)
 \-\- Show top control groups by their resource usage
 .br
-\fBsystemd-coredumpctl\fR(1)
-\-\- Retrieve coredumps from the journal
-.br
 \fBsystemd-cryptsetup\fR(8)
 \-\- Full disk decryption logic
 .br
@@ -898,6 +907,9 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-cryptsetup@.service\fR(8)
 \-\- Full disk decryption logic
+.br
+\fBsystemd-debug-generator\fR(8)
+\-\- Generator for enabling a runtime debug shell and masking specific units at boot
 .br
 \fBsystemd-delta\fR(1)
 \-\- Find overridden configuration files
@@ -1025,6 +1037,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-nspawn\fR(1)
 \-\- Spawn a namespace container for debugging, testing and building
 .br
+\fBsystemd-path\fR(1)
+\-\- List and query system and user paths
+.br
 \fBsystemd-poweroff.service\fR(8)
 \-\- System shutdown logic
 .br
@@ -1115,6 +1130,12 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-system.conf\fR(5)
 \-\- System and session service manager configuration file
 .br
+\fBsystemd-sysusers\fR(8)
+\-\- Allocate system users and groups
+.br
+\fBsystemd-sysusers.service\fR(8)
+\-\- Allocate system users and groups
+.br
 \fBsystemd-timedated\fR(8)
 \-\- Time and date bus mechanism
 .br
@@ -1156,6 +1177,12 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-udevd.service\fR(8)
 \-\- Device event managing daemon
+.br
+\fBsystemd-update-done\fR(8)
+\-\- Mark
+.br
+\fBsystemd-update-done.service\fR(8)
+\-\- Mark
 .br
 \fBsystemd-update-utmp\fR(8)
 \-\- Write audit and utmp updates at bootup, runlevel changes and shutdown
@@ -1253,6 +1280,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd.unit\fR(5)
 \-\- Unit configuration
 .br
+\fBsysusers.d\fR(5)
+\-\- Declarative allocation of system users and groups
+.br
 
 .SH "T"
 .PP
@@ -1285,4 +1315,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 403 entries, referring to 173 individual manual pages\&.
+This index contains 412 entries, referring to 180 individual manual pages\&.

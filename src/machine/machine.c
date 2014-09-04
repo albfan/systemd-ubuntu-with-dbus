@@ -176,12 +176,13 @@ int machine_save(Machine *m) {
                         m->timestamp.realtime,
                         m->timestamp.monotonic);
 
-        fflush(f);
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto finish;
 
-        if (ferror(f) || rename(temp_path, m->state_file) < 0) {
+        if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
-                unlink(m->state_file);
-                unlink(temp_path);
+                goto finish;
         }
 
         if (m->unit) {
@@ -195,8 +196,12 @@ int machine_save(Machine *m) {
         }
 
 finish:
-        if (r < 0)
+        if (r < 0) {
+                if (temp_path)
+                        unlink(temp_path);
+
                 log_error("Failed to save machine data %s: %s", m->state_file, strerror(-r));
+        }
 
         return r;
 }
@@ -355,10 +360,12 @@ static int machine_stop_scope(Machine *m) {
         if (!m->unit)
                 return 0;
 
-        r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
-                return r;
+        if (!m->registered) {
+                r = manager_stop_unit(m->manager, m->unit, &error, &job);
+                if (r < 0) {
+                        log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
+                        return r;
+                }
         }
 
         free(m->scope_job);

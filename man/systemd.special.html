@@ -19,10 +19,11 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd.special"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.special — Special systemd units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">basic.target</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.special"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.special — Special systemd units</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">basic.target</code>,
                 <code class="filename">bluetooth.target</code>,
                 <code class="filename">ctrl-alt-del.target</code>,
                 <code class="filename">cryptsetup.target</code>,
+                <code class="filename">cryptsetup-pre.target</code>,
                 <code class="filename">dbus.service</code>,
                 <code class="filename">dbus.socket</code>,
                 <code class="filename">default.target</code>,
@@ -76,9 +77,9 @@
                 <code class="filename">-.slice</code>,
                 <code class="filename">system.slice</code>,
                 <code class="filename">user.slice</code>,
-                <code class="filename">machine.slice</code></p></div><div class="refsect1"><a name="idm214190107648"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A few units are treated specially by
+                <code class="filename">machine.slice</code></p></div><div class="refsect1"><a name="idm214177962192"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A few units are treated specially by
                 systemd. They have special internal semantics and
-                cannot be renamed.</p></div><div class="refsect1"><a name="idm214190106304"></a><h2 id="Special System Units">Special System Units<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="basic.target"><span class="term"><code class="filename">basic.target</code></span><a class="headerlink" title="Permalink to this term" href="#basic.target">¶</a></dt><dd><p>A special target unit
+                cannot be renamed.</p></div><div class="refsect1"><a name="idm214177960848"></a><h2 id="Special System Units">Special System Units<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="basic.target"><span class="term"><code class="filename">basic.target</code></span><a class="headerlink" title="Permalink to this term" href="#basic.target">¶</a></dt><dd><p>A special target unit
                                         covering basic boot-up.</p><p>systemd automatically
                                         adds dependencies of the types
                                         <code class="varname">Requires=</code>
@@ -183,11 +184,10 @@
                                         <code class="filename">sysroot-usr.mount</code>
                                         and all mount points found in
                                         <code class="filename">/etc/fstab</code>
-                                        that have the
-                                        <code class="option">auto</code> and
+                                        that have
                                         <code class="option">x-initrd.mount</code>
-                                        mount options set.
-                                        </p></dd><dt id="kbrequest.target"><span class="term"><code class="filename">kbrequest.target</code></span><a class="headerlink" title="Permalink to this term" href="#kbrequest.target">¶</a></dt><dd><p>systemd starts this
+                                        and not have <code class="option">noauto</code>
+                                        mount options set.</p></dd><dt id="kbrequest.target"><span class="term"><code class="filename">kbrequest.target</code></span><a class="headerlink" title="Permalink to this term" href="#kbrequest.target">¶</a></dt><dd><p>systemd starts this
                                         target whenever Alt+ArrowUp is
                                         pressed on the console. This
                                         is a good candidate to be
@@ -418,7 +418,7 @@
                                         their mount unit, which is
                                         implicitly done when
                                         <code class="varname">DefaultDependencies=yes</code>
-                                        is set (the default).</p></dd></dl></div></div><div class="refsect1"><a name="idm214185044752"></a><h2 id="Special System Units for Devices">Special System Units for Devices<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units%20for%20Devices">¶</a></h2><p>Some target units are automatically pulled in as
+                                        is set (the default).</p></dd></dl></div></div><div class="refsect1"><a name="idm214172840096"></a><h2 id="Special System Units for Devices">Special System Units for Devices<a class="headerlink" title="Permalink to this headline" href="#Special%20System%20Units%20for%20Devices">¶</a></h2><p>Some target units are automatically pulled in as
                 devices of certain kinds show up in the system. These
                 may be used to automatically activate various services
                 based on the specific type of the available
@@ -453,7 +453,7 @@
                                         boot.</p><p>This may be used to pull
                                         in audio management daemons
                                         dynamically when audio
-                                        hardware is found.</p></dd></dl></div></div><div class="refsect1"><a name="idm214185031600"></a><h2 id="Special Passive System Units ">Special Passive System Units <a class="headerlink" title="Permalink to this headline" href="#Special%20Passive%20System%20Units%20">¶</a></h2><p>A number of special system targets are defined
+                                        hardware is found.</p></dd></dl></div></div><div class="refsect1"><a name="idm214172826944"></a><h2 id="Special Passive System Units ">Special Passive System Units <a class="headerlink" title="Permalink to this headline" href="#Special%20Passive%20System%20Units%20">¶</a></h2><p>A number of special system targets are defined
                 that can be used to properly order boot-up of optional
                 services. These targets are generally not part of the
                 initial boot transaction, unless they are explicitly
@@ -472,7 +472,22 @@
                 error. They can only be pulled in by dependency. This
                 is enforced since they exist for ordering purposes
                 only and thus are not useful as only unit within a
-                transaction.</p><div class="variablelist"><dl class="variablelist"><dt id="local-fs-pre.target"><span class="term"><code class="filename">local-fs-pre.target</code></span><a class="headerlink" title="Permalink to this term" href="#local-fs-pre.target">¶</a></dt><dd><p>This target unit is
+                transaction.</p><div class="variablelist"><dl class="variablelist"><dt id="cryptsetup-pre.target"><span class="term"><code class="filename">cryptsetup-pre.target</code></span><a class="headerlink" title="Permalink to this term" href="#cryptsetup-pre.target">¶</a></dt><dd><p>This passive target unit
+                                        may be pulled in by services
+                                        that want to run before any
+                                        encrypted block device is set
+                                        up. All encrypted block
+                                        devices are set up after this
+                                        target has been reached. Since
+                                        the shutdown order is
+                                        implicitly the reverse
+                                        start-up order between units,
+                                        this target is particularly
+                                        useful to ensure that a
+                                        service is shut down only
+                                        after all encrypted block
+                                        devices are fully
+                                        stopped.</p></dd><dt id="local-fs-pre.target"><span class="term"><code class="filename">local-fs-pre.target</code></span><a class="headerlink" title="Permalink to this term" href="#local-fs-pre.target">¶</a></dt><dd><p>This target unit is
                                         automatically ordered before
                                         all local mount points marked
                                         with <code class="option">auto</code>
@@ -601,7 +616,7 @@
                                         init script service units with
                                         an LSB header referring to the
                                         "<code class="literal">$time</code>"
-                                        facility. </p></dd></dl></div></div><div class="refsect1"><a name="idm214184985344"></a><h2 id="Special User Units">Special User Units<a class="headerlink" title="Permalink to this headline" href="#Special%20User%20Units">¶</a></h2><p>When systemd runs as a user instance, the
+                                        facility. </p></dd></dl></div></div><div class="refsect1"><a name="idm214172785472"></a><h2 id="Special User Units">Special User Units<a class="headerlink" title="Permalink to this headline" href="#Special%20User%20Units">¶</a></h2><p>When systemd runs as a user instance, the
                 following special units are available, which have
                 similar definitions as their system counterparts:
                 <code class="filename">default.target</code>,
@@ -626,7 +641,7 @@
                                         which in turn should be
                                         conflicted by all units that
                                         want to be shut down on
-                                        user service manager exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm214184972448"></a><h2 id="Special Slice Units">Special Slice Units<a class="headerlink" title="Permalink to this headline" href="#Special%20Slice%20Units">¶</a></h2><p>There are four "<code class="literal">.slice</code>" units
+                                        user service manager exit.</p></dd></dl></div></div><div class="refsect1"><a name="idm214172772576"></a><h2 id="Special Slice Units">Special Slice Units<a class="headerlink" title="Permalink to this headline" href="#Special%20Slice%20Units">¶</a></h2><p>There are four "<code class="literal">.slice</code>" units
                 which form the basis of the hierarchy for assignment
                 of resources for services, users, and virtual machines
                 or containers.</p><div class="variablelist"><dl class="variablelist"><dt id="-.slice"><span class="term"><code class="filename">-.slice</code></span><a class="headerlink" title="Permalink to this term" href="#-.slice">¶</a></dt><dd><p>The root slice is the
@@ -642,12 +657,12 @@
                                         on behalf of the user,
                                         including the per-user systemd
                                         instance are found in this
-                                        slice.</p></dd><dt id="machine.slice"><span class="term"><code class="filename">machine.slice</code></span><a class="headerlink" title="Permalink to this term" href="#machine.slice">¶</a></dt><dd><p>By defalt, all virtual
+                                        slice.</p></dd><dt id="machine.slice"><span class="term"><code class="filename">machine.slice</code></span><a class="headerlink" title="Permalink to this term" href="#machine.slice">¶</a></dt><dd><p>By default, all virtual
                                         machines and containers
                                         registered with
                                         <span class="command"><strong>systemd-machined</strong></span>
                                         are found in this slice.
-                                        </p></dd></dl></div></div><div class="refsect1"><a name="idm214184959984"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                        </p></dd></dl></div></div><div class="refsect1"><a name="idm214172760096"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,

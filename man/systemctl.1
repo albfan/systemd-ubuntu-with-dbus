@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 214" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 215" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -180,6 +180,8 @@ Suppress output to standard output in
 \fBsnapshot\fR,
 \fBis\-active\fR,
 \fBis\-failed\fR,
+\fBis\-enabled\fR,
+\fBis\-system\-running\fR,
 \fBenable\fR
 and
 \fBdisable\fR\&.
@@ -310,6 +312,19 @@ Similarly, when used with
 \fBset\-property\fR, make changes only temporarily, so that they are lost on the next reboot\&.
 .RE
 .PP
+\fB\-\-preset\-mode=\fR
+.RS 4
+Takes one of
+"full"
+(the default),
+"enable\-only",
+"disable\-only"\&. When used with the
+\fBpreset\fR
+or
+\fBpreset\-all\fR
+commands, controls whether units shall be disabled and enabled according to the preset rules, or only enabled, or only disabled\&.
+.RE
+.PP
 \fB\-n\fR, \fB\-\-lines=\fR
 .RS 4
 When used with
@@ -332,8 +347,10 @@ When used with
 .PP
 \fB\-H\fR, \fB\-\-host=\fR
 .RS 4
-Execute the operation remotely\&. Specify a hostname, or username and hostname separated by
-"@", to connect to\&. This will use SSH to talk to the remote machine manager instance\&.
+Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
+"@", to connect to\&. The hostname may optionally be suffixed by a container name, separated by
+":", which connects directly to a specific container on the specified host\&. This will use SSH to talk to the remote machine manager instance\&. Container names may be enumerated with
+\fBmachinectl \-H \fR\fB\fIHOST\fR\fR\&.
 .RE
 .PP
 \fB\-M\fR, \fB\-\-machine=\fR
@@ -727,10 +744,25 @@ section of the unit file\&.
 Reset one or more unit files, as specified on the command line, to the defaults configured in the preset policy files\&. This has the same effect as
 \fBdisable\fR
 or
-\fBenable\fR, depending how the unit is listed in the preset files\&. For more information on the preset policy format, see
+\fBenable\fR, depending how the unit is listed in the preset files\&.
+.sp
+Use
+\fB\-\-preset\-mode=\fR
+to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
+.sp
+For more information on the preset policy format, see
 \fBsystemd.preset\fR(5)\&. For more information on the concept of presets, please consult the
 \m[blue]\fBPreset\fR\m[]\&\s-2\u[1]\d\s+2
 document\&.
+.RE
+.PP
+\fBpreset\-all\fR
+.RS 4
+Resets all installed unit files to the defaults configured in the preset policy file (see above)\&.
+.sp
+Use
+\fB\-\-preset\-mode=\fR
+to control whether units shall be enabled and disabled, or only enabled, or only disabled\&.
 .RE
 .PP
 \fBmask \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -848,6 +880,13 @@ Reexecute the systemd manager\&. This will serialize the manager state, reexecut
 \fBdaemon\-reload\fR\&. While the daemon is being reexecuted, all sockets systemd listening on behalf of user configuration will stay accessible\&.
 .RE
 .SS "System Commands"
+.PP
+\fBis\-system\-running\fR
+.RS 4
+Checks whether the system is running\&. This returns success when the system is fully up and running, meaning not in startup, shutdown or maintainance mode\&. Failure is returned otherwise\&. In addition, the current state is printed in a short string to standard output\&. Use
+\fB\-\-quiet\fR
+to suppress output of this state string\&.
+.RE
 .PP
 \fBdefault\fR
 .RS 4

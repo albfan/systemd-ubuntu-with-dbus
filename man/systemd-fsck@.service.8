@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 214" "systemd-fsck@.service"
+.TH "SYSTEMD\-FSCK@\&.SERVICE" "8" "" "systemd 215" "systemd-fsck@.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,14 +31,26 @@ systemd\-fsck\-root\&.service
 .SH "DESCRIPTION"
 .PP
 systemd\-fsck@\&.service
-is a service responsible for file system checks\&. It is instantiated for each device that requires a file system check\&.
+and
 systemd\-fsck\-root\&.service
-is responsible for file system checks on the root file system\&. The root file system check is performed before the other file systems\&. Either service is enabled at boot if passno in
+are services responsible for file system checks\&. They are instantiated for each device that is configured for file system checking\&.
+systemd\-fsck\-root\&.service
+is responsible for file system checks on the root file system, but in only if the root filesystem wasn\*(Aqt checked in the initramfs\&.
+systemd\-fsck@\&.service
+is used for all other file systems and for the root file system in the initramfs\&.
+.PP
+Those services are started at boot if
+\fBpassno\fR
+in
 /etc/fstab
-for the file system is set to a value greater than zero\&.
+for the file system is set to a value greater than zero\&. The file system check for root is performed before the other file systems\&. Other file systems may be checked in parallel, except when they are one the same rotating disk\&.
 .PP
 systemd\-fsck
-will forward file system checking progress to the console\&. If a file system check fails, emergency mode is activated, by isolating to
+does not know any details about specific filesystems, and simply executes file system checkers specific to each filesystem type (/sbin/fsck\&.*)\&. This helper will decide if the filesystem should actually be checked based on the time since last check, number of mounts, unclean unmount, etc\&.
+.PP
+systemd\-fsck
+will forward file system checking progress to the console\&. If a file system check fails for a service without
+\fBnofail\fR, emergency mode is activated, by isolating to
 emergency\&.target\&.
 .SH "KERNEL COMMAND LINE"
 .PP
@@ -74,4 +86,12 @@ will answer no to all questions\&.
 .PP
 \fBsystemd\fR(1),
 \fBfsck\fR(8),
-\fBsystemd-quotacheck.service\fR(8)
+\fBsystemd-quotacheck.service\fR(8),
+\fBfsck.btrfs\fR(8),
+\fBfsck.cramfs\fR(8),
+\fBfsck.ext4\fR(8),
+\fBfsck.fat\fR(8),
+\fBfsck.hfsplus\fR(8),
+\fBfsck.minix\fR(8),
+\fBfsck.ntfs\fR(8),
+\fBfsck.xfs\fR(8)

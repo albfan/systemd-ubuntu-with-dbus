@@ -108,6 +108,13 @@ static int context_read_data(Context *c) {
                            "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                            "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
                            NULL);
+        if (r == -ENOENT) {
+                r = parse_env_file("/usr/lib/os-release", NEWLINE,
+                                   "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                                   "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                                   NULL);
+        }
+
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -251,7 +258,7 @@ static char* context_fallback_icon_name(Context *c) {
 }
 
 static bool hostname_is_useful(const char *hn) {
-        return !isempty(hn) && !streq(hn, "localhost");
+        return !isempty(hn) && !is_localhost(hn);
 }
 
 static int context_update_kernel_hostname(Context *c) {
@@ -312,7 +319,7 @@ static int context_write_data_machine_info(Context *c) {
 
         assert(c);
 
-        r = load_env_file("/etc/machine-info", NULL, &l);
+        r = load_env_file(NULL, "/etc/machine-info", NULL, &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 

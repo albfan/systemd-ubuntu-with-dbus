@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 214" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 215" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -583,13 +583,15 @@ X
 T}
 .TE
 .sp 1
-In addition to the above settings, the service will not be restarted if the exit code or signal is specified in
+As exceptions to the setting above the service will not be restarted if the exit code or signal is specified in
 \fIRestartPreventExitStatus=\fR
+(see below)\&. Also, the services will always be restarted if the exit code or signal is specified in
+\fIRestartForceExitStatus=\fR
 (see below)\&.
 .sp
 Setting this to
 \fBon\-failure\fR
-is the recommended choice for long\-running services, in order to increase reliability by attempting automatic recovery from errors\&. For services that shall be able to terminate on their own choice (and avoiding immediate restart)
+is the recommended choice for long\-running services, in order to increase reliability by attempting automatic recovery from errors\&. For services that shall be able to terminate on their own choice (and avoid immediate restarting),
 \fBon\-abnormal\fR
 is an alternative choice\&.
 .RE
@@ -606,7 +608,7 @@ Takes a list of exit status definitions that when returned by the main service p
 .RS 4
 .\}
 .nf
-SuccessExitStatus=1 2 8 \fBSIGKILL\fR
+SuccessExitStatus=1 2 8 SIGKILL
 .fi
 .if n \{\
 .RE
@@ -627,10 +629,28 @@ This option may appear more than once, in which case the list of successful exit
 \fIRestartPreventExitStatus=\fR
 .RS 4
 Takes a list of exit status definitions that when returned by the main service process will prevent automatic service restarts, regardless of the restart setting configured with
-\fIRestart=\fR\&. Exit status definitions can either be numeric exit codes or termination signal names, and are separated by spaces\&. Defaults to the empty list, so that, by default, no exit status is excluded from the configured restart logic\&. Example:
-"RestartPreventExitStatus=1 6 SIGABRT", ensures that exit codes 1 and 6 and the termination signal
+\fIRestart=\fR\&. Exit status definitions can either be numeric exit codes or termination signal names, and are separated by spaces\&. Defaults to the empty list, so that, by default, no exit status is excluded from the configured restart logic\&. For example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+RestartPreventExitStatus=1 6 SIGABRT
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+ensures that exit codes 1 and 6 and the termination signal
 \fBSIGABRT\fR
 will not result in automatic service restarting\&. This option may appear more than once, in which case the list of restart\-preventing statuses is merged\&. If the empty string is assigned to this option, the list is reset and all prior assignments of this option will have no effect\&.
+.RE
+.PP
+\fIRestartForceExitStatus=\fR
+.RS 4
+Takes a list of exit status definitions that when returned by the main service process will force automatic service restarts, regardless of the restart setting configured with
+\fIRestart=\fR\&. The argument format is similar to
+\fIRestartPreventExitStatus=\fR\&.
 .RE
 .PP
 \fIPermissionsStartOnly=\fR

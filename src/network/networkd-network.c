@@ -69,6 +69,10 @@ static int network_load_one(Manager *manager, const char *filename) {
         if (!network->macvlans)
                 return log_oom();
 
+        network->vxlans = hashmap_new(uint64_hash_func, uint64_compare_func);
+        if (!network->vxlans)
+                return log_oom();
+
         network->addresses_by_section = hashmap_new(uint64_hash_func, uint64_compare_func);
         if (!network->addresses_by_section)
                 return log_oom();
@@ -85,6 +89,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_dns = true;
         network->dhcp_hostname = true;
         network->dhcp_domainname = true;
+        network->dhcp_routes = true;
+        network->dhcp_sendhost = true;
 
         r = config_parse(NULL, filename, file, "Match\0Network\0Address\0Route\0DHCPv4\0", config_item_perf_lookup,
                         (void*) network_network_gperf_lookup, false, false, network);
@@ -175,6 +181,8 @@ void network_free(Network *network) {
 
         netdev_unref(network->bond);
 
+        netdev_unref(network->tunnel);
+
         HASHMAP_FOREACH(netdev, network->vlans, i)
                 netdev_unref(netdev);
         hashmap_free(network->vlans);
@@ -182,6 +190,10 @@ void network_free(Network *network) {
         HASHMAP_FOREACH(netdev, network->macvlans, i)
                 netdev_unref(netdev);
         hashmap_free(network->macvlans);
+
+        HASHMAP_FOREACH(netdev, network->vxlans, i)
+                netdev_unref(netdev);
+        hashmap_free(network->vxlans);
 
         while ((route = network->static_routes))
                 route_free(route);
@@ -223,7 +235,7 @@ int network_get(Manager *manager, struct udev_device *device,
                                      udev_device_get_property_value(device, "ID_NET_DRIVER"),
                                      udev_device_get_devtype(device),
                                      ifname)) {
-                        log_debug("%*s: found matching network '%s'", IFNAMSIZ, ifname,
+                        log_debug("%-*s: found matching network '%s'", IFNAMSIZ, ifname,
                                   network->filename);
                         *ret = network;
                         return 0;
@@ -322,6 +334,15 @@ int config_parse_netdev(const char *unit,
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                                    "Can not add MACVLAN to network: %s", rvalue);
+                        return 0;
+                }
+
+                break;
+        case NETDEV_KIND_VXLAN:
+                r = hashmap_put(network->vxlans, netdev->ifname, netdev);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Can not add VXLAN to network: %s", rvalue);
                         return 0;
                 }
 

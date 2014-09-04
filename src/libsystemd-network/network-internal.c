@@ -28,27 +28,40 @@
 #include "siphash24.h"
 #include "libudev-private.h"
 #include "network-internal.h"
+#include "dhcp-lease-internal.h"
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
 #include "condition.h"
 
-#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
-
-int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
-        size_t l, sz = 0;
+const char *net_get_name(struct udev_device *device) {
         const char *name = NULL, *field = NULL;
-        int r;
-        uint8_t *v;
+
+        assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT",
+                       "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
                 name = udev_device_get_property_value(device, field);
                 if (name)
                         break;
         }
 
+        return name;
+}
+
+#define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
+
+int net_get_unique_predictable_data(struct udev_device *device, uint8_t result[8]) {
+        size_t l, sz = 0;
+        const char *name = NULL;
+        int r;
+        uint8_t *v;
+
+        assert(device);
+
+        name = net_get_name(device);
         if (!name)
                 return -ENOENT;
 
@@ -179,7 +192,7 @@ int config_parse_ifname(const char *unit,
                         void *userdata) {
 
         char **s = data;
-        char *n;
+        _cleanup_free_ char *n = NULL;
 
         assert(filename);
         assert(lvalue);
@@ -198,12 +211,11 @@ int config_parse_ifname(const char *unit,
         }
 
         free(*s);
-        if (*n)
+        if (*n) {
                 *s = n;
-        else {
-                free(n);
+                n = NULL;
+        } else
                 *s = NULL;
-        }
 
         return 0;
 }
@@ -418,6 +430,93 @@ int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *s
         *ret_size = size;
         *ret = addresses;
         addresses = NULL;
+
+        return 0;
+}
+
+void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {
+        unsigned i;
+
+        assert(f);
+        assert(key);
+        assert(routes);
+        assert(size);
+
+        fprintf(f, "%s=", key);
+
+        for (i = 0; i < size; i++)
+                fprintf(f, "%s/%" PRIu8 ",%s%s", inet_ntoa(routes[i].dst_addr),
+                        routes[i].dst_prefixlen, inet_ntoa(routes[i].gw_addr),
+                        (i < (size - 1)) ? " ": "");
+
+        fputs("\n", f);
+}
+
+int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
+        _cleanup_free_ struct sd_dhcp_route *routes = NULL;
+        size_t size = 0, allocated = 0;
+        char *word, *state;
+        size_t len;
+
+        assert(ret);
+        assert(ret_size);
+        assert(ret_allocated);
+        assert(string);
+
+        FOREACH_WORD(word, len, string, state) {
+                /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
+                _cleanup_free_ char* entry = NULL;
+                char *tok, *tok_end;
+                unsigned n;
+                int r;
+
+                if (!GREEDY_REALLOC(routes, allocated, size + 1))
+                        return -ENOMEM;
+
+                entry = strndup(word, len);
+                if(!entry)
+                        return -ENOMEM;
+
+                tok = entry;
+
+                /* get the subnet */
+                tok_end = strchr(tok, '/');
+                if (!tok_end)
+                        continue;
+                *tok_end = '\0';
+
+                r = inet_aton(tok, &routes[size].dst_addr);
+                if (r == 0)
+                        continue;
+
+                tok = tok_end + 1;
+
+                /* get the prefixlen */
+                tok_end = strchr(tok, ',');
+                if (!tok_end)
+                        continue;
+
+                *tok_end = '\0';
+
+                r = safe_atou(tok, &n);
+                if (r < 0 || n > 32)
+                        continue;
+
+                routes[size].dst_prefixlen = (uint8_t) n;
+                tok = tok_end + 1;
+
+                /* get the gateway */
+                r = inet_aton(tok, &routes[size].gw_addr);
+                if (r == 0)
+                        continue;
+
+                size++;
+        }
+
+        *ret_size = size;
+        *ret_allocated = allocated;
+        *ret = routes;
+        routes = NULL;
 
         return 0;
 }

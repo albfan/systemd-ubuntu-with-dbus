@@ -38,9 +38,12 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
             BPF_STMT(BPF_LD + BPF_W + BPF_LEN, 0),                                 /* A <- packet length */
             BPF_JUMP(BPF_JMP + BPF_JGE + BPF_K, sizeof(DHCPPacket), 1, 0),         /* packet >= DHCPPacket ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-            /* TODO: match ip.version */
             BPF_STMT(BPF_LD + BPF_B + BPF_ABS, offsetof(DHCPPacket, ip.protocol)), /* A <- IP protocol */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 1, 0),                /* IP protocol == UDP ? */
+            BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
+            BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, ip.frag_off)), /* A <- Flags + Fragment offset */
+            BPF_STMT(BPF_ALU + BPF_AND + BPF_K, 0x1fff),                           /* A <- A & 0x1fff */
+            BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                          /* A == 0 ? */
             BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
             BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, udp.dest)),    /* A <- UDP destination port */
             BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, DHCP_PORT_CLIENT, 1, 0),           /* UDP destination port == DHCP client port ? */
@@ -68,7 +71,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
             .filter = filter
         };
         _cleanup_close_ int s = -1;
-        int r, one = 1;
+        int r, on = 1;
 
         assert(index > 0);
         assert(link);
@@ -77,7 +80,7 @@ int dhcp_network_bind_raw_socket(int index, union sockaddr_union *link,
         if (s < 0)
                 return -errno;
 
-        r = setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &one, sizeof(one));
+        r = setsockopt (s, SOL_PACKET, PACKET_AUXDATA, &on, sizeof(on));
         if (r < 0)
                 return -errno;
 
@@ -117,6 +120,22 @@ int dhcp_network_bind_udp_socket(be32_t address, uint16_t port) {
         r = setsockopt(s, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
         if (r < 0)
                 return -errno;
+
+        if (address == INADDR_ANY) {
+                int on = 1;
+
+                r = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+
+                r = setsockopt(s, IPPROTO_IP, IP_PKTINFO, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+
+                r = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &on, sizeof(on));
+                if (r < 0)
+                        return -errno;
+        }
 
         r = bind(s, &src.sa, sizeof(src.in));
         if (r < 0)

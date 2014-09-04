@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.LINK" "5" "" "systemd 214" "systemd.link"
+.TH "SYSTEMD\&.LINK" "5" "" "systemd 215" "systemd.link"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,6 +50,7 @@ The link file contains a
 section, which determines if a given link file may be applied to a given device; and a
 "[Link]"
 section specifying how the device should be configured\&. The first (in lexical order) of the link files that matches a given device is applied\&.
+.SH "[MATCH] SECTION OPTIONS"
 .PP
 A link file is said to match a device if each of the entries in the
 "[Match]"
@@ -116,6 +117,7 @@ in
 \fBsystemd.unit\fR(5)
 for details\&.
 .RE
+.SH "[LINK] SECTION OPTIONS"
 .PP
 The
 "[Link]"

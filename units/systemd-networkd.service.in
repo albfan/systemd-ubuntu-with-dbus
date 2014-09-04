@@ -8,11 +8,12 @@
 [Unit]
 Description=Network Service
 Documentation=man:systemd-networkd.service(8)
-DefaultDependencies=no
-After=dbus.service network-pre.target
-Before=network.target
-Wants=network.target
 ConditionCapability=CAP_NET_ADMIN
+DefaultDependencies=no
+After=dbus.service network-pre.target systemd-sysusers.service
+Before=network.target multi-user.target shutdown.target
+Conflicts=shutdown.target
+Wants=network.target
 
 [Service]
 Type=notify
@@ -25,5 +26,4 @@ ProtectHome=yes
 WatchdogSec=1min
 
 [Install]
-Also=systemd-networkd-wait-online.service
 WantedBy=multi-user.target

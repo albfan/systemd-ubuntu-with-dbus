@@ -27,33 +27,26 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "list.h"
-
-#define VLANID_MAX 4094
+#include "siphash24.h"
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",
         [NETDEV_KIND_MACVLAN] = "macvlan",
+        [NETDEV_KIND_VXLAN] = "vxlan",
         [NETDEV_KIND_IPIP] = "ipip",
         [NETDEV_KIND_GRE] = "gre",
         [NETDEV_KIND_SIT] = "sit",
         [NETDEV_KIND_VETH] = "veth",
-        [NETDEV_KIND_VTI] = "vti"
+        [NETDEV_KIND_VTI] = "vti",
+        [NETDEV_KIND_DUMMY] = "dummy",
+        [NETDEV_KIND_TUN] = "tun",
+        [NETDEV_KIND_TAP] = "tap",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_netdev_kind, netdev_kind, NetDevKind, "Failed to parse netdev kind");
-
-static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
-        [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
-        [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
-        [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",
-        [NETDEV_MACVLAN_MODE_PASSTHRU] = "passthru",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *m = NULL;
@@ -92,6 +85,11 @@ static void netdev_free(NetDev *netdev) {
 
         free(netdev->description);
         free(netdev->ifname);
+        free(netdev->ifname_peer);
+        free(netdev->mac);
+        free(netdev->mac_peer);
+        free(netdev->user_name);
+        free(netdev->group_name);
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
@@ -190,13 +188,16 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_rtnl_message_hand
                 return r;
         }
 
+        link_ref(link);
+
         log_debug_netdev(netdev, "enslaving link '%s'", link->ifname);
 
         return 0;
 }
 
 static int netdev_enter_ready(NetDev *netdev) {
-        netdev_enslave_callback *callback;
+        netdev_enslave_callback *callback, *callback_next;
+        int r;
 
         assert(netdev);
         assert(netdev->ifname);
@@ -208,16 +209,24 @@ static int netdev_enter_ready(NetDev *netdev) {
 
         log_info_netdev(netdev, "netdev ready");
 
-        LIST_FOREACH(callbacks, callback, netdev->callbacks) {
+        LIST_FOREACH_SAFE(callbacks, callback, callback_next, netdev->callbacks) {
                 /* enslave the links that were attempted to be enslaved before the
                  * link was ready */
-                netdev_enslave_ready(netdev, callback->link, callback->callback);
+                r = netdev_enslave_ready(netdev, callback->link, callback->callback);
+                if (r < 0)
+                        return r;
+
+                LIST_REMOVE(callbacks, netdev->callbacks, callback);
+                link_unref(callback->link);
+                free(callback);
         }
 
         return 0;
 }
+
+/* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userdata) {
-        NetDev *netdev = userdata;
+        _cleanup_netdev_unref_ NetDev *netdev = userdata;
         int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
@@ -235,42 +244,12 @@ static int netdev_create_handler(sd_rtnl *rtnl, sd_rtnl_message *m, void *userda
         return 1;
 }
 
-int config_parse_tunnel_address(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
-        NetDev *n = data;
-        unsigned char family = AF_INET;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = net_parse_inaddr(rvalue, &family, n);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Tunnel address is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-       return 0;
-}
-
-static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
+static int netdev_create(NetDev *netdev) {
         _cleanup_rtnl_message_unref_ sd_rtnl_message *req = NULL;
         const char *kind;
         int r;
 
         assert(netdev);
-        assert(!(netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN) ||
-               (link && callback));
         assert(netdev->ifname);
         assert(netdev->manager);
         assert(netdev->manager->rtnl);
@@ -283,16 +262,6 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if (link) {
-                r = sd_rtnl_message_append_u32(req, IFLA_LINK, link->ifindex);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_LINK attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
         r = sd_rtnl_message_append_string(req, IFLA_IFNAME, netdev->ifname);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -301,13 +270,23 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if(netdev->mtu) {
+        if (netdev->mtu) {
                 r = sd_rtnl_message_append_u32(req, IFLA_MTU, netdev->mtu);
                 if (r < 0) {
                         log_error_netdev(netdev,
                                          "Could not append IFLA_MTU attribute: %s",
                                          strerror(-r));
                         return r;
+                }
+        }
+
+        if (netdev->mac) {
+                r = sd_rtnl_message_append_ether_addr(req, IFLA_ADDRESS, netdev->mac);
+                if (r < 0) {
+                        log_error_netdev(netdev,
+                                         "Colud not append IFLA_ADDRESS attribute: %s",
+                                         strerror(-r));
+                    return r;
                 }
         }
 
@@ -333,26 +312,6 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if (netdev->vlanid <= VLANID_MAX) {
-                r = sd_rtnl_message_append_u16(req, IFLA_VLAN_ID, netdev->vlanid);
-                if (r < 0) {
-                        log_error_netdev(netdev,
-                                         "Could not append IFLA_VLAN_ID attribute: %s",
-                                         strerror(-r));
-                        return r;
-                }
-        }
-
-        if (netdev->macvlan_mode != _NETDEV_MACVLAN_MODE_INVALID) {
-        r = sd_rtnl_message_append_u32(req, IFLA_MACVLAN_MODE, netdev->macvlan_mode);
-        if (r < 0) {
-                log_error_netdev(netdev,
-                                 "Could not append IFLA_MACVLAN_MODE attribute: %s",
-                                 strerror(-r));
-                        return r;
-                }
-        }
-
         r = sd_rtnl_message_close_container(req);
         if (r < 0) {
                 log_error_netdev(netdev,
@@ -369,15 +328,14 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
                 return r;
         }
 
-        if (link)
-                r = sd_rtnl_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
-        else
-                r = sd_rtnl_call_async(netdev->manager->rtnl, req, &netdev_create_handler, netdev, 0, NULL);
+        r = sd_rtnl_call_async(netdev->manager->rtnl, req, &netdev_create_handler, netdev, 0, NULL);
         if (r < 0) {
                 log_error_netdev(netdev,
                                  "Could not send rtnetlink message: %s", strerror(-r));
                 return r;
         }
+
+        netdev_ref(netdev);
 
         log_debug_netdev(netdev, "creating netdev");
 
@@ -386,17 +344,25 @@ static int netdev_create(NetDev *netdev, Link *link, sd_rtnl_message_handler_t c
         return 0;
 }
 
+/* the callback must be called, possibly after a timeout, as otherwise the Link will hang */
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback) {
         int r;
 
-        if (netdev->kind == NETDEV_KIND_VLAN || netdev->kind == NETDEV_KIND_MACVLAN)
-                return netdev_create(netdev, link, callback);
-
-        if(netdev->kind == NETDEV_KIND_IPIP ||
-           netdev->kind == NETDEV_KIND_GRE ||
-           netdev->kind ==  NETDEV_KIND_SIT ||
-           netdev->kind ==  NETDEV_KIND_VTI)
-                return netdev_create_tunnel(link, netdev_create_handler);
+        switch(netdev->kind) {
+        case NETDEV_KIND_VLAN:
+                return netdev_create_vlan(netdev, link, callback);
+        case NETDEV_KIND_MACVLAN:
+                return netdev_create_macvlan(netdev, link, callback);
+        case NETDEV_KIND_VXLAN:
+                return netdev_create_vxlan(netdev, link, callback);
+        case NETDEV_KIND_IPIP:
+        case NETDEV_KIND_GRE:
+        case NETDEV_KIND_SIT:
+        case NETDEV_KIND_VTI:
+                return netdev_create_tunnel(netdev, link, callback);
+        default:
+                break;
+        }
 
         if (netdev->state == NETDEV_STATE_READY) {
                 r = netdev_enslave_ready(netdev, link, callback);
@@ -412,6 +378,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callbac
 
                 cb->callback = callback;
                 cb->link = link;
+                link_ref(link);
 
                 LIST_PREPEND(callbacks, netdev->callbacks, cb);
         }
@@ -493,15 +460,21 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
                 return r;
         }
 
-        kind = netdev_kind_to_string(netdev->kind);
-        if (!kind) {
-                log_error_netdev(netdev, "Could not get kind");
-                netdev_enter_failed(netdev);
-                return -EINVAL;
+        if (netdev->kind == NETDEV_KIND_TAP)
+                /* the kernel does not distinguish between tun and tap */
+                kind = "tun";
+        else {
+                kind = netdev_kind_to_string(netdev->kind);
+                if (!kind) {
+                        log_error_netdev(netdev, "Could not get kind");
+                        netdev_enter_failed(netdev);
+                        return -EINVAL;
+                }
         }
 
         if (!streq(kind, received_kind)) {
-                log_error_netdev(netdev, "Received newlink with wrong KIND %s, "
+                log_error_netdev(netdev,
+                                 "Received newlink with wrong KIND %s, "
                                  "expected %s", received_kind, kind);
                 netdev_enter_failed(netdev);
                 return r;
@@ -512,6 +485,52 @@ int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *message) {
         log_debug_netdev(netdev, "netdev has index %d", netdev->ifindex);
 
         netdev_enter_ready(netdev);
+
+        return 0;
+}
+
+#define HASH_KEY SD_ID128_MAKE(52,e1,45,bd,00,6f,29,96,21,c6,30,6d,83,71,04,48)
+
+static int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
+        _cleanup_free_ struct ether_addr *mac = NULL;
+        uint8_t result[8];
+        size_t l, sz;
+        uint8_t *v;
+        int r;
+
+        assert(ifname);
+        assert(ret);
+
+        mac = new0(struct ether_addr, 1);
+        if (!mac)
+                return -ENOMEM;
+
+        l = strlen(ifname);
+        sz = sizeof(sd_id128_t) + l;
+        v = alloca(sz);
+
+        /* fetch some persistent data unique to the machine */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this machine) to this
+         * netdev */
+        memcpy(v + sizeof(sd_id128_t), ifname, l);
+
+        /* Let's hash the host machine ID plus the container name. We
+         * use a fixed, but originally randomly created hash key here. */
+        siphash24(result, v, sz, HASH_KEY.bytes);
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, result, ETH_ALEN);
+
+        /* see eth_random_addr in the kernel */
+        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+
+        *ret = mac;
+        mac = NULL;
 
         return 0;
 }
@@ -547,9 +566,12 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->kind = _NETDEV_KIND_INVALID;
         netdev->macvlan_mode = _NETDEV_MACVLAN_MODE_INVALID;
         netdev->vlanid = VLANID_MAX + 1;
+        netdev->vxlanid = VXLAN_VID_MAX + 1;
         netdev->tunnel_pmtudisc = true;
+        netdev->learning = true;
 
-        r = config_parse(NULL, filename, file, "Match\0NetDev\0VLAN\0MACVLAN\0Tunnel\0Peer\0",
+        r = config_parse(NULL, filename, file,
+                         "Match\0NetDev\0VLAN\0MACVLAN\0VXLAN\0Tunnel\0Peer\0Tun\0Tap\0",
                          config_item_perf_lookup, (void*) network_netdev_gperf_lookup,
                          false, false, netdev);
         if (r < 0) {
@@ -557,9 +579,41 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
         }
 
-        if (netdev->kind == _NETDEV_KIND_INVALID) {
+        switch (netdev->kind) {
+        case _NETDEV_KIND_INVALID:
                 log_warning("NetDev without Kind configured in %s. Ignoring", filename);
                 return 0;
+        case NETDEV_KIND_VLAN:
+                if (netdev->vlanid > VLANID_MAX) {
+                        log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        case NETDEV_KIND_VXLAN:
+                if (netdev->vxlanid > VXLAN_VID_MAX) {
+                        log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        case NETDEV_KIND_IPIP:
+        case NETDEV_KIND_GRE:
+        case NETDEV_KIND_SIT:
+        case NETDEV_KIND_VTI:
+                if (netdev->local.in.s_addr == INADDR_ANY) {
+                        log_warning("Tunnel without local address configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                if (netdev->remote.in.s_addr == INADDR_ANY) {
+                        log_warning("Tunnel without remote address configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                if (netdev->family != AF_INET) {
+                        log_warning("Tunnel with invalid address family configured in %s. Ignoring", filename);
+                        return 0;
+                }
+                break;
+        default:
+                break;
         }
 
         if (!netdev->ifname) {
@@ -567,13 +621,14 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
-        if (netdev->kind == NETDEV_KIND_VLAN && netdev->vlanid > VLANID_MAX) {
-                log_warning("VLAN without valid Id configured in %s. Ignoring", filename);
+        if (netdev->kind != NETDEV_KIND_VLAN && netdev->vlanid <= VLANID_MAX) {
+                log_warning("VLAN Id configured for a %s in %s. Ignoring",
+                            netdev_kind_to_string(netdev->kind), filename);
                 return 0;
         }
 
-        if (netdev->kind != NETDEV_KIND_VLAN && netdev->vlanid <= VLANID_MAX) {
-                log_warning("VLAN Id configured for a %s in %s. Ignoring",
+        if (netdev->kind != NETDEV_KIND_VXLAN && netdev->vxlanid <= VXLAN_VID_MAX) {
+                log_warning("VXLAN Id configured for a %s in %s. Ignoring",
                             netdev_kind_to_string(netdev->kind), filename);
                 return 0;
         }
@@ -595,24 +650,65 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                              NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 
+        if (!netdev->mac) {
+                r = netdev_get_mac(netdev->ifname, &netdev->mac);
+                if (r < 0) {
+                        log_error("Failed to generate predictable MAC address for %s",
+                                  netdev->ifname);
+                        return r;
+                }
+        }
+
         r = hashmap_put(netdev->manager->netdevs, netdev->ifname, netdev);
         if (r < 0)
                 return r;
 
         LIST_HEAD_INIT(netdev->callbacks);
 
-        if(netdev->kind == NETDEV_KIND_VETH)
-                return netdev_create_veth(netdev, netdev_create_handler);
+        switch (netdev->kind) {
+        case NETDEV_KIND_VETH:
+                if (!netdev->ifname_peer) {
+                        log_warning("Veth NetDev without peer name configured "
+                                    "in %s. Ignoring", filename);
+                        return 0;
+                }
 
-        if (netdev->kind != NETDEV_KIND_VLAN &&
-            netdev->kind != NETDEV_KIND_MACVLAN &&
-            netdev->kind != NETDEV_KIND_IPIP &&
-            netdev->kind != NETDEV_KIND_GRE &&
-            netdev->kind != NETDEV_KIND_SIT &&
-            netdev->kind != NETDEV_KIND_VTI) {
-                r = netdev_create(netdev, NULL, NULL);
+                if (!netdev->mac) {
+                        r = netdev_get_mac(netdev->ifname_peer, &netdev->mac_peer);
+                        if (r < 0) {
+                                log_error("Failed to generate predictable MAC address for %s",
+                                          netdev->ifname_peer);
+                                return r;
+                        }
+                }
+
+                r = netdev_create_veth(netdev, netdev_create_handler);
                 if (r < 0)
                         return r;
+
+                break;
+        case NETDEV_KIND_DUMMY:
+                r = netdev_create_dummy(netdev, netdev_create_handler);
+                if (r < 0)
+                        return r;
+
+                break;
+        case NETDEV_KIND_BRIDGE:
+        case NETDEV_KIND_BOND:
+                r = netdev_create(netdev);
+                if (r < 0)
+                        return r;
+                break;
+
+        case NETDEV_KIND_TUN:
+        case NETDEV_KIND_TAP:
+                r = netdev_create_tuntap(netdev);
+                if (r < 0)
+                        return r;
+                break;
+
+        default:
+                break;
         }
 
         log_debug_netdev(netdev, "loaded %s", netdev_kind_to_string(netdev->kind));

@@ -161,6 +161,7 @@ Unit.ConditionPathIsReadWrite,   config_parse_unit_condition_path,   CONDITION_P
 Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY, 0
 Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
 Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
+Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        0
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
 Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
@@ -193,7 +194,8 @@ Service.PermissionsStartOnly,    config_parse_bool,                  0,         
 Service.RootDirectoryStartOnly,  config_parse_bool,                  0,                             offsetof(Service, root_directory_start_only)
 Service.RemainAfterExit,         config_parse_bool,                  0,                             offsetof(Service, remain_after_exit)
 Service.GuessMainPID,            config_parse_bool,                  0,                             offsetof(Service, guess_main_pid)
-Service.RestartPreventExitStatus, config_parse_set_status,           0,                             offsetof(Service, restart_ignore_status)
+Service.RestartPreventExitStatus, config_parse_set_status,           0,                             offsetof(Service, restart_prevent_status)
+Service.RestartForceExitStatus,  config_parse_set_status,            0,                             offsetof(Service, restart_force_status)
 Service.SuccessExitStatus,       config_parse_set_status,            0,                             offsetof(Service, success_status)
 m4_ifdef(`HAVE_SYSV_COMPAT',
 `Service.SysVStartPriority,      config_parse_sysv_priority,         0,                             offsetof(Service, sysv_start_priority)',
@@ -273,6 +275,7 @@ Mount.Options,                   config_parse_string,                0,         
 Mount.Type,                      config_parse_string,                0,                             offsetof(Mount, parameters_fragment.fstype)
 Mount.TimeoutSec,                config_parse_sec,                   0,                             offsetof(Mount, timeout_usec)
 Mount.DirectoryMode,             config_parse_mode,                  0,                             offsetof(Mount, directory_mode)
+Mount.SloppyOptions,             config_parse_bool,                  0,                             offsetof(Mount, sloppy_options)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
@@ -317,3 +320,4 @@ Install.Alias,                   NULL,                               0,         
 Install.WantedBy,                NULL,                               0,                             0
 Install.RequiredBy,              NULL,                               0,                             0
 Install.Also,                    NULL,                               0,                             0
+Install.DefaultInstance,         NULL,                               0,                             0

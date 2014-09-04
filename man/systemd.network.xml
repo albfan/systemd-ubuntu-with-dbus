@@ -78,6 +78,11 @@
                 <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
                 disables the configuration file entirely.</para>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Match] Section Options</title>
+
                         <para>The network file contains a <literal>[Match]</literal> section,
                         which determines if a given network file may be applied to a given device;
                         and a <literal>[Network]</literal> section specifying how the device should
@@ -172,6 +177,11 @@
                                 </varlistentry>
                         </variablelist>
 
+        </refsect1>
+
+        <refsect1>
+                <title>[Network] Section Options</title>
+
                         <para>The <literal>[Network]</literal> section accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
@@ -185,7 +195,17 @@
                                 <varlistentry>
                                         <term><varname>DHCP=</varname></term>
                                         <listitem>
-                                                <para>A boolean. When true, enables basic DHCPv4 support.</para>
+                                                <para>Enables DHCPv4 and/or DHCPv6 support. Accepts
+                                                <literal>both</literal>, <literal>none</literal>,
+                                                <literal>v4</literal> or <literal>v6</literal>.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>DHCPServer=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. Enables a basic DHCPv4 server on the
+                                                device. Mostly useful for handing out leases to container
+                                                instances.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -210,6 +230,43 @@
                                                 an Address key (see below). This option may be specified
                                                 more than once.
                                                 </para>
+
+                                                <para>If the specified
+                                                address is 0.0.0.0
+                                                (for IPv4) or [::]
+                                                (for IPv6), a new
+                                                address range of the
+                                                requested size is
+                                                automatically
+                                                allocated from a
+                                                system-wide pool of
+                                                unused ranges. The
+                                                allocated range is
+                                                checked against all
+                                                current network
+                                                interfaces and all
+                                                known network
+                                                configuration files to
+                                                avoid address range
+                                                conflicts. The default
+                                                system-wide pool
+                                                consists of
+                                                192.168.0.0/16,
+                                                172.16.0.0/12 and
+                                                10.0.0.0/8 for IPv4,
+                                                and fc00::/7 for
+                                                IPv6. This
+                                                functionality is
+                                                useful to manage a
+                                                large number of
+                                                dynamically created
+                                                network interfaces
+                                                with the same network
+                                                configuration and
+                                                automatic address
+                                                range
+                                                assignment.</para>
+
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -229,6 +286,7 @@
                                                 This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
+<!-- TODO: document NTP= option when it is actually used somewhere -->
                                 <varlistentry>
                                         <term><varname>Bridge=</varname></term>
                                         <listitem>
@@ -255,7 +313,26 @@
                                                 may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
+                                <varlistentry>
+                                        <term><varname>VXLAN=</varname></term>
+                                        <listitem>
+                                                <para>The name of a VXLAN to create on the link. This option
+                                                may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Tunnel=</varname></term>
+                                        <listitem>
+                                                <para>The name of a Tunnel to create on the link. This option
+                                                may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
                         </variablelist>
+
+        </refsect1>
+
+        <refsect1>
+                <title>[Address] Section Options</title>
 
                         <para>An <literal>[Address]</literal> section accepts the following keys.
                         Specify several <literal>[Address]</literal> sections to configure several
@@ -284,7 +361,10 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+        </refsect1>
 
+        <refsect1>
+                <title>[Route] Section Options</title>
                         <para>The <literal>[Route]</literal> section accepts the following keys. Specify
                         several <literal>[Route]</literal> sections to configure several routes.</para>
 
@@ -303,8 +383,11 @@
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
+        </refsect1>
 
-                        <para>The <literal>[DHCPv4]</literal> section accepts the following keys:</para>
+        <refsect1>
+                <title>[DHCP] Section Options</title>
+                        <para>The <literal>[DHCP]</literal> section accepts the following keys:</para>
 
                         <variablelist class='network-directives'>
                                 <varlistentry>
@@ -322,10 +405,24 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>SendHostname=</varname></term>
+                                        <listitem>
+                                                <para>When true (the default), the machine's hostname will be sent to the DHCP
+                                                server</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>UseHostname=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the hostname received from the DHCP server
                                                 will be used as the transient hostname.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>UseRoutes=</varname></term>
+                                        <listitem>
+                                                <para>When true (the default), the static routes will be requested from the DHCP server
+                                                and added to the routing table with metric of 1024.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -383,6 +480,45 @@ Name=enp2s0
 
 [Network]
 Bridge=bridge0</programlisting>
+                </example>
+                <example>
+                        <title>/etc/systemd/network/ipip.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=ipip-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/sit.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=sit-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/gre.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=gre-tun</programlisting>
+                </example>
+
+                <example>
+                        <title>/etc/systemd/network/vti.network</title>
+
+                        <programlisting>[Match]
+Name=em1
+
+[Network]
+Tunnel=vti-tun</programlisting>
                 </example>
         </refsect1>
 

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd-cat"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-cat — Connect a pipeline or program's output with the journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-cat [OPTIONS...]  [COMMAND]  [ARGUMENTS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-cat [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm214192899024"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-cat</strong></span> may be used to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd-cat"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-cat — Connect a pipeline or program's output with the journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">systemd-cat [OPTIONS...]  [COMMAND]  [ARGUMENTS...]</code> </p></div><div class="cmdsynopsis"><p><code class="command">systemd-cat [OPTIONS...]</code> </p></div></div><div class="refsect1"><a name="idm214173873072"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-cat</strong></span> may be used to
                 connect the standard input and output of a process to the
                 journal, or as a filter tool in a shell pipeline to
                 pass the output the previous pipeline element
@@ -28,7 +28,7 @@
                 everything it reads from standard input (stdin) to the journal.</p><p>If parameters are passed, they are executed as
                 command line with standard output (stdout) and standard
                 error output (stderr) connected to the journal, so
-                that all it writes is stored in the journal.</p></div><div class="refsect1"><a name="idm214192895184"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+                that all it writes is stored in the journal.</p></div><div class="refsect1"><a name="idm214173943168"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
     </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--identifier=</code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>Specify a short string
                                 that is used to identify the logging
                                 tool. If not specified, no identification
@@ -64,17 +64,17 @@
                                 ("<code class="literal">notice</code>"), and
                                 similar for the other priority
                                 levels. Takes a boolean
-                                argument.</p></dd></dl></div></div><div class="refsect1"><a name="idm214196772960"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
-                code otherwise.</p></div><div class="refsect1"><a name="idm214196771776"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm214196771104"></a><p class="title"><b>Example 1. Invoke a program</b></p><div class="example-contents"><p>This calls <code class="filename">/bin/ls</code>
+                                argument.</p></dd></dl></div></div><div class="refsect1"><a name="idm214173999760"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned, a non-zero failure
+                code otherwise.</p></div><div class="refsect1"><a name="idm214173998576"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><div class="example"><a name="idm214173997904"></a><p class="title"><b>Example 1. Invoke a program</b></p><div class="example-contents"><p>This calls <code class="filename">/bin/ls</code>
                         with standard output and error connected to the
-                        journal:</p><pre class="programlisting"># systemd-cat ls</pre></div></div><br class="example-break"><div class="example"><a name="idm214196760640"></a><p class="title"><b>Example 2. Usage in a shell pipeline</b></p><div class="example-contents"><p>This builds a shell pipeline also
+                        journal:</p><pre class="programlisting"># systemd-cat ls</pre></div></div><br class="example-break"><div class="example"><a name="idm214173994912"></a><p class="title"><b>Example 2. Usage in a shell pipeline</b></p><div class="example-contents"><p>This builds a shell pipeline also
                         invoking <code class="filename">/bin/ls</code> and
                         writes the output it generates to the
                         journal:</p><pre class="programlisting"># ls | systemd-cat</pre></div></div><br class="example-break"><p>Even though the two examples have very similar
                 effects the first is preferable since only one process
                 is running at a time, and both stdout and stderr are
                 captured while in the second example, only stdout is
-                captured.</p></div><div class="refsect1"><a name="idm214196757136"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                captured.</p></div><div class="refsect1"><a name="idm214173991408"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                         <a href="logger.html"><span class="citerefentry"><span class="refentrytitle">logger</span>(1)</span></a>

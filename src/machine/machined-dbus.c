@@ -41,23 +41,6 @@
 #include "cgroup-util.h"
 #include "machined.h"
 
-static bool valid_machine_name(const char *p) {
-        size_t l;
-
-        if (!filename_is_safe(p))
-                return false;
-
-        if (!ascii_is_valid(p))
-                return false;
-
-        l = strlen(p);
-
-        if (l < 1 || l> 64)
-                return false;
-
-        return true;
-}
-
 static int method_get_machine(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
@@ -185,7 +168,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-        if (!valid_machine_name(name))
+        if (!machine_name_is_valid(name))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = sd_bus_message_read_array(message, 'y', &v, &n);
@@ -307,6 +290,8 @@ static int method_register_machine(sd_bus *bus, sd_bus_message *message, void *u
                 goto fail;
         }
 
+        m->registered = true;
+
         r = machine_start(m, NULL, error);
         if (r < 0)
                 goto fail;
@@ -387,6 +372,27 @@ static int method_get_machine_addresses(sd_bus *bus, sd_bus_message *message, vo
         return bus_machine_method_get_addresses(bus, message, machine, error);
 }
 
+static int method_get_machine_os_release(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        const char *name;
+        int r;
+
+        assert(bus);
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return sd_bus_error_set_errno(error, r);
+
+        machine = hashmap_get(m->machines, name);
+        if (!machine)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
+
+        return bus_machine_method_get_os_release(bus, message, machine, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("GetMachine", "s", "o", method_get_machine, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -397,6 +403,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_CAPABILITY(CAP_KILL)),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(yay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMachineOSRelease", "s", "a{ss}", method_get_machine_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL("MachineNew", "so", 0),
         SD_BUS_SIGNAL("MachineRemoved", "so", 0),
         SD_BUS_VTABLE_END

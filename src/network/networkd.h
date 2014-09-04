@@ -27,7 +27,10 @@
 #include "sd-rtnl.h"
 #include "sd-bus.h"
 #include "sd-dhcp-client.h"
+#include "sd-dhcp-server.h"
 #include "sd-ipv4ll.h"
+#include "sd-icmp6-nd.h"
+#include "sd-dhcp6-client.h"
 #include "udev.h"
 
 #include "rtnl-util.h"
@@ -35,8 +38,11 @@
 #include "list.h"
 #include "set.h"
 #include "condition-util.h"
+#include "socket-util.h"
 
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
+#define VXLAN_VID_MAX (1u << 24) - 1
+#define DHCP_STATIC_ROUTE_METRIC 1024
 
 typedef struct NetDev NetDev;
 typedef struct Network Network;
@@ -44,6 +50,7 @@ typedef struct Link Link;
 typedef struct Address Address;
 typedef struct Route Route;
 typedef struct Manager Manager;
+typedef struct AddressPool AddressPool;
 
 typedef struct netdev_enslave_callback netdev_enslave_callback;
 
@@ -68,11 +75,15 @@ typedef enum NetDevKind {
         NETDEV_KIND_BOND,
         NETDEV_KIND_VLAN,
         NETDEV_KIND_MACVLAN,
+        NETDEV_KIND_VXLAN,
         NETDEV_KIND_IPIP,
         NETDEV_KIND_GRE,
         NETDEV_KIND_SIT,
         NETDEV_KIND_VETH,
         NETDEV_KIND_VTI,
+        NETDEV_KIND_DUMMY,
+        NETDEV_KIND_TUN,
+        NETDEV_KIND_TAP,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -101,23 +112,44 @@ struct NetDev {
         char *description;
         char *ifname;
         char *ifname_peer;
+        char *user_name;
+        char *group_name;
         size_t mtu;
+        struct ether_addr *mac;
+        struct ether_addr *mac_peer;
         NetDevKind kind;
 
         uint64_t vlanid;
+        uint64_t vxlanid;
         int32_t macvlan_mode;
 
         int ifindex;
         NetDevState state;
 
         bool tunnel_pmtudisc;
-        unsigned tunnel_ttl;
-        unsigned tunnel_tos;
-        struct in_addr tunnel_local;
-        struct in_addr tunnel_remote;
+        bool learning;
+        bool one_queue;
+        bool multi_queue;
+        bool packet_info;
+
+        unsigned ttl;
+        unsigned tos;
+        unsigned char family;
+        union in_addr_union local;
+        union in_addr_union remote;
+        union in_addr_union group;
 
         LIST_HEAD(netdev_enslave_callback, callbacks);
 };
+
+typedef enum DHCPSupport {
+        DHCP_SUPPORT_NONE,
+        DHCP_SUPPORT_BOTH,
+        DHCP_SUPPORT_V4,
+        DHCP_SUPPORT_V6,
+        _DHCP_SUPPORT_MAX,
+        _DHCP_SUPPORT_INVALID = -1,
+} DHCPSupport;
 
 struct Network {
         Manager *manager;
@@ -140,14 +172,19 @@ struct Network {
         NetDev *tunnel;
         Hashmap *vlans;
         Hashmap *macvlans;
-        bool dhcp;
+        Hashmap *vxlans;
+        DHCPSupport dhcp;
         bool dhcp_dns;
         bool dhcp_ntp;
         bool dhcp_mtu;
         bool dhcp_hostname;
         bool dhcp_domainname;
+        bool dhcp_sendhost;
         bool dhcp_critical;
+        bool dhcp_routes;
         bool ipv4ll;
+
+        bool dhcp_server;
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -173,10 +210,7 @@ struct Address {
         struct in_addr broadcast;
         struct ifa_cacheinfo cinfo;
 
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } in_addr;
+        union in_addr_union in_addr;
 
         LIST_FIELDS(Address, addresses);
 };
@@ -190,15 +224,8 @@ struct Route {
         unsigned char scope;
         uint32_t metrics;
 
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } in_addr;
-
-        union {
-                struct in_addr in;
-                struct in6_addr in6;
-        } dst_addr;
+        union in_addr_union in_addr;
+        union in_addr_union dst_addr;
 
         LIST_FIELDS(Route, routes);
 };
@@ -256,6 +283,24 @@ struct Link {
         char *lease_file;
         uint16_t original_mtu;
         sd_ipv4ll *ipv4ll;
+
+        LIST_HEAD(Address, pool_addresses);
+
+        sd_dhcp_server *dhcp_server;
+
+        sd_icmp6_nd *icmp6_router_discovery;
+        sd_dhcp6_client *dhcp6_client;
+};
+
+struct AddressPool {
+        Manager *manager;
+
+        unsigned family;
+        unsigned prefixlen;
+
+        union in_addr_union in_addr;
+
+        LIST_FIELDS(AddressPool, address_pools);
 };
 
 struct Manager {
@@ -273,6 +318,7 @@ struct Manager {
         Hashmap *links;
         Hashmap *netdevs;
         LIST_HEAD(Network, networks);
+        LIST_HEAD(AddressPool, address_pools);
 
         usec_t network_dirs_ts_usec;
 };
@@ -295,10 +341,14 @@ int manager_bus_listen(Manager *m);
 
 int manager_save(Manager *m);
 
+int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)
 
 /* NetDev */
+
+#define VLANID_MAX 4094
 
 int netdev_load(Manager *manager);
 void netdev_drop(NetDev *netdev);
@@ -312,8 +362,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_rtnl_message *newlink);
 int netdev_enslave(NetDev *netdev, Link *link, sd_rtnl_message_handler_t cb);
-int netdev_create_tunnel(Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_tunnel(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
 int netdev_create_veth(NetDev *netdev, sd_rtnl_message_handler_t callback);
+int netdev_create_vxlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_vlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_macvlan(NetDev *netdev, Link *link, sd_rtnl_message_handler_t callback);
+int netdev_create_dummy(NetDev *netdev, sd_rtnl_message_handler_t callback);
+int netdev_create_tuntap(NetDev *netdev);
 
 const char *netdev_kind_to_string(NetDevKind d) _const_;
 NetDevKind netdev_kind_from_string(const char *d) _pure_;
@@ -444,9 +499,26 @@ LinkOperationalState link_operstate_from_string(const char *s) _pure_;
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 #define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
+/* DHCP support */
+
+const char* dhcp_support_to_string(DHCPSupport i) _const_;
+DHCPSupport dhcp_support_from_string(const char *s) _pure_;
+
+int config_parse_dhcp(const char *unit, const char *filename, unsigned line,
+                      const char *section, unsigned section_line, const char *lvalue,
+                      int ltype, const char *rvalue, void *data, void *userdata);
+
+/* Address Pool */
+
+int address_pool_new(Manager *m, AddressPool **ret, unsigned family, const union in_addr_union *u, unsigned prefixlen);
+int address_pool_new_from_string(Manager *m, AddressPool **ret, unsigned family, const char *p, unsigned prefixlen);
+void address_pool_free(AddressPool *p);
+
+int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
+
 /* Macros which append INTERFACE= to the message */
 
-#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
+#define log_full_link(level, link, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", link->ifname, "%-*s: " fmt, IFNAMSIZ, link->ifname, ##__VA_ARGS__)
 #define log_debug_link(link, ...)       log_full_link(LOG_DEBUG, link, ##__VA_ARGS__)
 #define log_info_link(link, ...)        log_full_link(LOG_INFO, link, ##__VA_ARGS__)
 #define log_notice_link(link, ...)      log_full_link(LOG_NOTICE, link, ##__VA_ARGS__)
@@ -457,7 +529,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
 
 /* More macros which append INTERFACE= to the message */
 
-#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
+#define log_full_netdev(level, netdev, fmt, ...) log_meta_object(level, __FILE__, __LINE__, __func__, "INTERFACE=", netdev->ifname, "%-*s: " fmt, IFNAMSIZ, netdev->ifname, ##__VA_ARGS__)
 #define log_debug_netdev(netdev, ...)       log_full_netdev(LOG_DEBUG, netdev, ##__VA_ARGS__)
 #define log_info_netdev(netdev, ...)        log_full_netdev(LOG_INFO, netdev, ##__VA_ARGS__)
 #define log_notice_netdev(netdev, ...)      log_full_netdev(LOG_NOTICE, netdev, ##__VA_ARGS__)

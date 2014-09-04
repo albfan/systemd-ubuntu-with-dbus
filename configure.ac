@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [214],
+        [215],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -49,7 +49,29 @@ AS_IF([test "x$enable_static" = "xyes"], [AC_MSG_ERROR([--enable-static is not s
 AS_IF([test "x$enable_largefile" = "xno"], [AC_MSG_ERROR([--disable-largefile is not supported by systemd])])
 
 # i18n stuff for the PolicyKit policy files
+
+# Check whether intltool can be found, disable NLS otherwise
+AC_CHECK_PROG(intltool_found, [intltool-merge], [yes], [no])
+AS_IF([test x"$intltool_found" != xyes],
+      [AS_IF([test x"$enable_nls" = xyes],
+             [AC_MSG_ERROR([--enable-nls requested but intltool not found])],
+             [AS_IF([test x"$enable_nls" != xno],
+                    [AC_MSG_WARN([*** Disabling NLS support because intltool was not found])
+                     enable_nls=no])
+             ])
+      ])
+
+AM_NLS
+AS_IF([test x"$enable_nls" != xno], [
+    # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
 IT_PROG_INTLTOOL([0.40.0])
+])
+
+AS_IF([test -z "$INTLTOOL_POLICY_RULE"], [
+    # If intltool is not available, provide a dummy rule to fail generation of %.policy files with a meaningful error message
+    INTLTOOL_POLICY_RULE='%.policy: %.policy.in ; @echo "  ITMRG   " $@ && echo "*** intltool support required to build target $@" && false'
+    AC_SUBST(INTLTOOL_POLICY_RULE)
+])
 
 GETTEXT_PACKAGE=systemd
 AC_SUBST(GETTEXT_PACKAGE)
@@ -216,9 +238,21 @@ AC_ARG_WITH([python],
 have_lxml=no
 AS_IF([test "x$with_python" != "xno"], [
         AM_PATH_PYTHON(,, [:])
-        AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes], [have_lxml=no])
-        AS_IF([test "$PYTHON" != : -a $have_lxml = yes], [have_python=yes])
+        AS_IF([test "x$PYTHON" != "x:"], [
+                AC_MSG_CHECKING([for python lxml module])
+                AS_IF(["$PYTHON" -c 'import lxml' 2>/dev/null], [have_lxml=yes])
+                AC_MSG_RESULT([$have_lxml])
+                AS_IF([test "x$have_lxml" = "xyes"], [have_python=yes],
+                      [AC_MSG_WARN([*** python support requires python-lxml module installed])])
+        ])
 ])
+AS_IF([test "$have_python" != "yes"], [
+      AS_IF([test "$with_python" = "yes"],
+            [AC_MSG_ERROR([*** python support requested but python support not found])])
+      AS_IF([test "$with_python" != "no"],
+            [AC_MSG_WARN([*** python support not found, some documentation cannot be built])])
+])
+
 AM_CONDITIONAL([HAVE_PYTHON], [test "x$have_python" = "xyes"])
 AS_IF([test "x$PYTHON_BINARY" = "x"],
       [AS_IF([test "x$have_python" = "xyes"],
@@ -266,12 +300,33 @@ LIBS="$save_LIBS"
 
 AC_CHECK_FUNCS([fanotify_init fanotify_mark])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
-AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN], [], [], [[#include <sys/types.h>
+AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],
+               [], [], [[
+#include <sys/types.h>
 #include <unistd.h>
 #include <sys/mount.h>
 #include <fcntl.h>
 #include <sched.h>
-#include <linux/loop.h>]])
+#include <linux/loop.h>
+]])
+
+AC_CHECK_DECLS([IFLA_PHYS_PORT_ID,
+                IFLA_BOND_AD_INFO,
+                IFLA_VLAN_PROTOCOL,
+                IFLA_VXLAN_LOCAL6,
+                IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+                IFLA_BRIDGE_VLAN_INFO],
+[], [], [[
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <netinet/ether.h>
+#include <linux/rtnetlink.h>
+#include <net/if.h>
+#include <linux/ip.h>
+#include <linux/if_tunnel.h>
+#include <linux/if_link.h>
+#include <linux/if_bridge.h>
+]])
 
 # This makes sure pkg.m4 is available.
 m4_pattern_forbid([^_?PKG_[A-Z_]+$],[*** pkg.m4 missing, please install pkg-config])
@@ -627,6 +682,52 @@ fi
 AC_SUBST(AUDIT_LIBS)
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE([elfutils],
+        AS_HELP_STRING([--disable-elfutils],[Disable optional ELFUTILS support]),
+                [case "${enableval}" in
+                        yes) have_elfutils=yes ;;
+                        no) have_elfutils=no ;;
+                        *) AC_MSG_ERROR(bad value ${enableval} for --disable-elfutils) ;;
+                esac],
+                [have_elfutils=auto])
+
+if test "x${have_elfutils}" != xno ; then
+        AC_CHECK_HEADERS(
+                [elfutils/libdwfl.h],
+                [],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS headers not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [dw],
+                [dwfl_begin],
+                [],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS libs not found.])
+                fi])
+
+        AC_CHECK_LIB(
+                [dw],
+                [dwfl_core_file_attach],
+                [have_elfutils=yes],
+                [if test "x$have_elfutils" = xyes ; then
+                        AC_MSG_ERROR([*** ELFUTILS >= 158 is required.])
+                fi])
+
+        if test "x$have_elfutils" = xyes ; then
+                ELFUTILS_LIBS="-lelf -ldw"
+                AC_DEFINE(HAVE_ELFUTILS, 1, [ELFUTILS available])
+        else
+                have_elfutils=no
+        fi
+else
+        ELFUTILS_LIBS=
+fi
+AC_SUBST(ELFUTILS_LIBS)
+AM_CONDITIONAL(HAVE_ELFUTILS, [test "$have_elfutils" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_libcryptsetup=no
 AC_ARG_ENABLE(libcryptsetup, AS_HELP_STRING([--disable-libcryptsetup], [disable libcryptsetup tools]))
 if test "x$enable_libcryptsetup" != "xno"; then
@@ -721,6 +822,14 @@ if test "x$enable_tmpfiles" != "xno"; then
         have_tmpfiles=yes
 fi
 AM_CONDITIONAL(ENABLE_TMPFILES, [test "$have_tmpfiles" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_sysusers=no
+AC_ARG_ENABLE(sysusers, AS_HELP_STRING([--disable-sysusers], [disable sysusers support]))
+if test "x$enable_sysusers" != "xno"; then
+        have_sysusers=yes
+fi
+AM_CONDITIONAL(ENABLE_SYSUSERS, [test "$have_sysusers" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_randomseed=no
@@ -870,10 +979,10 @@ AC_SUBST(DNS_SERVERS)
 # ------------------------------------------------------------------------------
 have_networkd=no
 AC_ARG_ENABLE(networkd, AS_HELP_STRING([--disable-networkd], [disable networkd]))
-if test "x$enable_networkd" != "xno"; then
+AS_IF([test "x$enable_networkd" != "xno"], [
         AC_DEFINE(ENABLE_NETWORKD, 1, [Define if networkd support is to be enabled])
         have_networkd=yes
-fi
+])
 AM_CONDITIONAL(ENABLE_NETWORKD, [test "x$have_networkd" = "xyes"])
 
 # ------------------------------------------------------------------------------
@@ -1042,8 +1151,11 @@ AM_CONDITIONAL(HAVE_SYSV_COMPAT, test "$SYSTEM_SYSV_COMPAT" = "yes")
 AC_ARG_WITH([tty-gid],
         [AS_HELP_STRING([--with-tty-gid=GID],
                 [Specify the numeric GID of the 'tty' group])],
-        [AC_DEFINE_UNQUOTED(TTY_GID, [$withval], [GID of the 'tty' group])],
-        [])
+        [TTY_GID="$withval"],
+        [TTY_GID="5"])
+
+AC_DEFINE_UNQUOTED(TTY_GID, [$TTY_GID], [GID of the 'tty' group])
+AC_SUBST(TTY_GID)
 
 AC_ARG_WITH([dbuspolicydir],
         AS_HELP_STRING([--with-dbuspolicydir=DIR], [D-Bus policy directory]),
@@ -1160,12 +1272,14 @@ AC_MSG_RESULT([
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
         GNUTLS:                  ${have_gnutls}
+        ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
         readahead:               ${have_readahead}
         bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
         tmpfiles:                ${have_tmpfiles}
+        sysusers:                ${have_sysusers}
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
         rfkill:                  ${have_rfkill}
@@ -1225,6 +1339,7 @@ AC_MSG_RESULT([
         Extra start script:      ${RC_LOCAL_SCRIPT_PATH_START}
         Extra stop script:       ${RC_LOCAL_SCRIPT_PATH_STOP}
         Debug shell:             ${SUSHELL} @ ${DEBUGTTY}
+        TTY GID:                 ${TTY_GID}
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
 

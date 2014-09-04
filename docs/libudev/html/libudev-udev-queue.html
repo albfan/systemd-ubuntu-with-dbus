@@ -54,6 +54,8 @@ struct <a class="link" href="libudev-udev-list.html#udev-list-entry" title="stru
                                                         (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);
 unsigned long long <span class="returnvalue">int</span> <a class="link" href="libudev-udev-queue.html#udev-queue-get-kernel-seqnum" title="udev_queue_get_kernel_seqnum ()">udev_queue_get_kernel_seqnum</a>     (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);
 unsigned long long <span class="returnvalue">int</span> <a class="link" href="libudev-udev-queue.html#udev-queue-get-udev-seqnum" title="udev_queue_get_udev_seqnum ()">udev_queue_get_udev_seqnum</a>       (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);
+<span class="returnvalue">int</span>                 <a class="link" href="libudev-udev-queue.html#udev-queue-get-fd" title="udev_queue_get_fd ()">udev_queue_get_fd</a>                   (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);
+<span class="returnvalue">int</span>                 <a class="link" href="libudev-udev-queue.html#udev-queue-flush" title="udev_queue_flush ()">udev_queue_flush</a>                    (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);
 </pre>
 </div>
 <div class="refsect1">
@@ -355,6 +357,16 @@ This function is deprecated.
 </tr>
 </tbody>
 </table></div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="udev-queue-get-fd"></a><h3>udev_queue_get_fd ()</h3>
+<pre class="programlisting"><span class="returnvalue">int</span>                 udev_queue_get_fd                   (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);</pre>
+</div>
+<hr>
+<div class="refsect2">
+<a name="udev-queue-flush"></a><h3>udev_queue_flush ()</h3>
+<pre class="programlisting"><span class="returnvalue">int</span>                 udev_queue_flush                    (<em class="parameter"><code><span class="type">struct udev_queue</span> *udev_queue</code></em>);</pre>
 </div>
 </div>
 </div>

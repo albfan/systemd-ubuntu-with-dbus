@@ -67,6 +67,7 @@
 #define DEFAULT_SYNC_INTERVAL_USEC (5*USEC_PER_MINUTE)
 #define DEFAULT_RATE_LIMIT_INTERVAL (30*USEC_PER_SEC)
 #define DEFAULT_RATE_LIMIT_BURST 1000
+#define DEFAULT_MAX_FILE_USEC USEC_PER_MONTH
 
 #define RECHECK_AVAILABLE_SPACE_USEC (30*USEC_PER_SEC)
 
@@ -205,7 +206,7 @@ void server_fix_perms(Server *s, JournalFile *f, uid_t uid) {
                 log_warning("Failed to fix access mode on %s, ignoring: %s", f->path, strerror(-r));
 
 #ifdef HAVE_ACL
-        if (uid <= 0)
+        if (uid <= SYSTEM_UID_MAX)
                 return;
 
         acl = acl_get_fd(f->fd);
@@ -805,12 +806,11 @@ static void dispatch_message_real(
                 /* Split up strictly by any UID */
                 journal_uid = realuid;
         else if (s->split_mode == SPLIT_LOGIN && realuid > 0 && owner_valid && owner > 0)
-                /* Split up by login UIDs, this avoids creation of
-                 * individual journals for system UIDs.  We do this
-                 * only if the realuid is not root, in order not to
-                 * accidentally leak privileged information to the
-                 * user that is logged by a privileged process that is
-                 * part of an unprivileged session.*/
+                /* Split up by login UIDs.  We do this only if the
+                 * realuid is not root, in order not to accidentally
+                 * leak privileged information to the user that is
+                 * logged by a privileged process that is part of an
+                 * unprivileged session.*/
                 journal_uid = owner;
         else
                 journal_uid = 0;
@@ -1475,6 +1475,8 @@ int server_init(Server *s) {
 
         s->forward_to_syslog = true;
         s->forward_to_wall = true;
+
+        s->max_file_usec = DEFAULT_MAX_FILE_USEC;
 
         s->max_level_store = LOG_DEBUG;
         s->max_level_syslog = LOG_DEBUG;

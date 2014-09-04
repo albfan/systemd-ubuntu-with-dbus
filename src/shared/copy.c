@@ -22,15 +22,25 @@
 #include "util.h"
 #include "copy.h"
 
-static int stream_bytes(int fdf, int fdt) {
+int copy_bytes(int fdf, int fdt, off_t max_bytes) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
         for (;;) {
                 char buf[PIPE_BUF];
                 ssize_t n, k;
+                size_t m = sizeof(buf);
 
-                n = read(fdf, buf, sizeof(buf));
+                if (max_bytes != (off_t) -1) {
+
+                        if (max_bytes <= 0)
+                                return -E2BIG;
+
+                        if ((off_t) m > max_bytes)
+                                m = (size_t) max_bytes;
+                }
+
+                n = read(fdf, buf, m);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
@@ -42,6 +52,11 @@ static int stream_bytes(int fdf, int fdt) {
                         return k;
                 if (k != n)
                         return errno ? -errno : -EIO;
+
+                if (max_bytes != (off_t) -1) {
+                        assert(max_bytes >= n);
+                        max_bytes -= n;
+                }
         }
 
         return 0;
@@ -59,12 +74,8 @@ static int fd_copy_symlink(int df, const char *from, const struct stat *st, int 
         if (r < 0)
                 return r;
 
-        if (symlinkat(target, dt, to) < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
+        if (symlinkat(target, dt, to) < 0)
                 return -errno;
-        }
 
         if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
@@ -85,14 +96,10 @@ static int fd_copy_regular(int df, const char *from, const struct stat *st, int 
                 return -errno;
 
         fdt = openat(dt, to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, st->st_mode & 07777);
-        if (fdt < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
+        if (fdt < 0)
                 return -errno;
-        }
 
-        r = stream_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt, (off_t) -1);
         if (r < 0) {
                 unlinkat(dt, to, 0);
                 return r;
@@ -123,12 +130,8 @@ static int fd_copy_fifo(int df, const char *from, const struct stat *st, int dt,
         assert(to);
 
         r = mkfifoat(dt, to, st->st_mode & 07777);
-        if (r < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
+        if (r < 0)
                 return -errno;
-        }
 
         if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
@@ -147,12 +150,8 @@ static int fd_copy_node(int df, const char *from, const struct stat *st, int dt,
         assert(to);
 
         r = mknodat(dt, to, st->st_mode, st->st_rdev);
-        if (r < 0) {
-                if (errno == EEXIST)
-                        return 0;
-
+        if (r < 0)
                 return -errno;
-        }
 
         if (fchownat(dt, to, st->st_uid, st->st_gid, AT_SYMLINK_NOFOLLOW) < 0)
                 r = -errno;
@@ -163,7 +162,7 @@ static int fd_copy_node(int df, const char *from, const struct stat *st, int dt,
         return r;
 }
 
-static int fd_copy_directory(int df, const char *from, const struct stat *st, int dt, const char *to, dev_t original_device) {
+static int fd_copy_directory(int df, const char *from, const struct stat *st, int dt, const char *to, dev_t original_device, bool merge) {
         _cleanup_close_ int fdf = -1, fdt = -1;
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -186,7 +185,7 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
         r = mkdirat(dt, to, st->st_mode & 07777);
         if (r >= 0)
                 created = true;
-        else if (errno == EEXIST)
+        else if (errno == EEXIST && merge)
                 created = false;
         else
                 return -errno;
@@ -194,6 +193,8 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
         fdt = openat(dt, to, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fdt < 0)
                 return -errno;
+
+        r = 0;
 
         if (created) {
                 if (fchown(fdt, st->st_uid, st->st_gid) < 0)
@@ -218,7 +219,7 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
                 if (S_ISREG(buf.st_mode))
                         q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else if (S_ISDIR(buf.st_mode))
-                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device);
+                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, merge);
                 else if (S_ISLNK(buf.st_mode))
                         q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name);
                 else if (S_ISFIFO(buf.st_mode))
@@ -228,6 +229,9 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
                 else
                         q = -ENOTSUP;
 
+                if (q == -EEXIST && merge)
+                        q = 0;
+
                 if (q < 0)
                         r = q;
         }
@@ -235,7 +239,7 @@ static int fd_copy_directory(int df, const char *from, const struct stat *st, in
         return r;
 }
 
-int copy_tree(const char *from, const char *to) {
+int copy_tree(const char *from, const char *to, bool merge) {
         struct stat st;
 
         assert(from);
@@ -247,7 +251,7 @@ int copy_tree(const char *from, const char *to) {
         if (S_ISREG(st.st_mode))
                 return fd_copy_regular(AT_FDCWD, from, &st, AT_FDCWD, to);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev);
+                return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, merge);
         else if (S_ISLNK(st.st_mode))
                 return fd_copy_symlink(AT_FDCWD, from, &st, AT_FDCWD, to);
         else if (S_ISFIFO(st.st_mode))
@@ -273,7 +277,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode) {
         if (fdt < 0)
                 return -errno;
 
-        r = stream_bytes(fdf, fdt);
+        r = copy_bytes(fdf, fdt, (off_t) -1);
         if (r < 0) {
                 unlink(to);
                 return r;

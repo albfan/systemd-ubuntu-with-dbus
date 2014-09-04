@@ -6,7 +6,7 @@
 #  (at your option) any later version.
 
 prefix=@prefix@
-exec_prefix=@exec_prefix@
+libdir=@libdir@
 systemdutildir=@rootlibexecdir@
 systemdsystemunitdir=@systemunitdir@
 systemdsystempresetdir=@systempresetdir@
@@ -18,6 +18,13 @@ systemdsystemunitpath=${systemdsystemconfdir}:/etc/systemd/system:/run/systemd/s
 systemduserunitpath=${systemduserconfdir}:/etc/systemd/user:/run/systemd/user:/usr/local/lib/systemd/user:/usr/local/share/systemd/user:${systemduserunitdir}:/usr/lib/systemd/user:/usr/share/systemd/user
 systemdsystemgeneratordir=@systemgeneratordir@
 systemdusergeneratordir=@usergeneratordir@
+systemdsleepdir=@systemsleepdir@
+systemdshutdowndir=@systemshutdowndir@
+tmpfilesdir=@tmpfilesdir@
+sysusersdir=@sysusersdir@
+sysctldir=@sysctldir@
+binfmtdir=@binfmtdir@
+modulesloaddir=@modulesloaddir@
 catalogdir=@catalogdir@
 systemuidmax=@systemuidmax@
 systemgidmax=@systemgidmax@

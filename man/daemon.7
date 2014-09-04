@@ -1,5 +1,5 @@
 '\" t
-.TH "DAEMON" "7" "" "systemd 214" "daemon"
+.TH "DAEMON" "7" "" "systemd 215" "daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -362,10 +362,7 @@ Instead of using the
 call to log directly to the system syslog service, a new\-style daemon may choose to simply log to standard error via
 \fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log priorities are necessary, these can be encoded by prefixing individual log lines with strings like "<4>" (for log priority 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
 \fBprintk()\fR
-priority system\&. In fact, using this style of logging also enables the init system to optionally direct all application logging to the kernel log buffer (kmsg), as accessible via
-\fBdmesg\fR(1)\&. This kind of logging may be enabled by setting
-\fIStandardError=syslog\fR
-in the service unit file\&. For details, see
+priority system\&. For details, see
 \fBsd-daemon\fR(3)
 and
 \fBsystemd.exec\fR(5)\&.
@@ -783,6 +780,10 @@ Write and install a systemd unit file for the service (and the sockets if socket
 .\}
 If the daemon exposes interfaces via D\-Bus, write and install a D\-Bus activation file for the service, see above for details\&.
 .RE
+.SH "PLACING DAEMON DATA"
+.PP
+It is recommended to follow the general guidelines for placing package files, as discussed in
+\fBfile-hierarchy\fR(7)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -790,7 +791,8 @@ If the daemon exposes interfaces via D\-Bus, write and install a D\-Bus activati
 \fBsd_listen_fds\fR(3),
 \fBsd_notify\fR(3),
 \fBdaemon\fR(3),
-\fBsystemd.service\fR(5)
+\fBsystemd.service\fR(5),
+\fBfile-hierarchy\fR(7)
 .SH "NOTES"
 .IP " 1." 4
 LSB recommendations for SysV init scripts

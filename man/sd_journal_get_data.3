@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_DATA" "3" "" "systemd 214" "sd_journal_get_data"
+.TH "SD_JOURNAL_GET_DATA" "3" "" "systemd 215" "sd_journal_get_data"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -125,7 +125,7 @@ macro to iterate through all fields of the current journal entry:
 \&.\&.\&.
 int print_fields(sd_journal *j) {
         const void *data;
-        size_t l;
+        size_t length;
         SD_JOURNAL_FOREACH_DATA(j, data, length)
                 printf("%\&.*s\en", (int) length, data);
 }

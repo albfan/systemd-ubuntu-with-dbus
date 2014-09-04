@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf — Journal service configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p></div><div class="refsect1"><a name="idm214187471616"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf — Journal service configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p></div><div class="refsect1"><a name="idm214198630544"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the
                 systemd journal service,
-                <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214187469440"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+                <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214200500944"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
                 "<code class="literal">[Journal]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="Storage="><span class="term"><code class="varname">Storage=</code></span><a class="headerlink" title="Permalink to this term" href="#Storage=">¶</a></dt><dd><p>Controls where to
                                 store journal data. One of
                                 "<code class="literal">volatile</code>",
@@ -78,29 +78,30 @@
                                 and may be used to protect journal files
                                 from unnoticed alteration.</p></dd><dt id="SplitMode="><span class="term"><code class="varname">SplitMode=</code></span><a class="headerlink" title="Permalink to this term" href="#SplitMode=">¶</a></dt><dd><p>Controls whether to
                                 split up journal files per user. One
-                                of "<code class="literal">login</code>",
-                                "<code class="literal">uid</code>" and
-                                "<code class="literal">none</code>". If
-                                "<code class="literal">login</code>", each logged-in
-                                user will get his own journal
-                                files, but systemd user IDs will log
-                                into the system journal. If
-                                "<code class="literal">uid</code>", any user ID
-                                will get his own journal files
-                                regardless of whether it belongs to a
-                                system service or refers to a real
-                                logged in user. If
+                                of "<code class="literal">uid</code>",
+                                "<code class="literal">login</code>" and
+                                "<code class="literal">none</code>".  If
+                                "<code class="literal">uid</code>", all users will
+                                get each their own journal files
+                                regardless of whether they possess a
+                                login session or not, however system
+                                users will log into the system
+                                journal. If "<code class="literal">login</code>",
+                                actually logged-in users will get each
+                                their own journal files, but users
+                                without login session and system users
+                                will log into the system journal. If
                                 "<code class="literal">none</code>", journal files
                                 are not split up by user and all
-                                messages are instead stored in the single
-                                system journal. Note that splitting
-                                up journal files by user is only
-                                available for journals stored
+                                messages are instead stored in the
+                                single system journal. Note that
+                                splitting up journal files by user is
+                                only available for journals stored
                                 persistently. If journals are stored
-                                on volatile storage (see above), only a
-                                single journal file for all user IDs
+                                on volatile storage (see above), only
+                                a single journal file for all user IDs
                                 is kept. Defaults to
-                                "<code class="literal">login</code>".</p></dd><dt id="RateLimitInterval="><span class="term"><code class="varname">RateLimitInterval=</code>, </span><span class="term"><code class="varname">RateLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#RateLimitInterval=">¶</a></dt><dd><p>Configures the rate
+                                "<code class="literal">uid</code>".</p></dd><dt id="RateLimitInterval="><span class="term"><code class="varname">RateLimitInterval=</code>, </span><span class="term"><code class="varname">RateLimitBurst=</code></span><a class="headerlink" title="Permalink to this term" href="#RateLimitInterval=">¶</a></dt><dd><p>Configures the rate
                                 limiting that is applied to all
                                 messages generated on the system. If,
                                 in the time interval defined by
@@ -320,7 +321,7 @@
                                 to use if
                                 <code class="varname">ForwardToConsole=yes</code>
                                 is used. Defaults to
-                                <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214186341472"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214200261392"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,

@@ -1,5 +1,5 @@
 '\" t
-.TH "KERNEL\-INSTALL" "8" "" "systemd 214" "kernel-install"
+.TH "KERNEL\-INSTALL" "8" "" "systemd 215" "kernel-install"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -81,7 +81,10 @@ to
 /boot/loader/entries/\fIMACHINE\-ID\fR\-\fIKERNEL\-VERSION\fR\&.conf\&. The title of the entry is the
 \fIPRETTY_NAME\fR
 parameter specified in
-/etc/os\-release, or "Linux
+/etc/os\-release
+or
+/usr/lib/os\-release
+(if the former is missing), or "Linux
 \fIKERNEL\-VERSION\fR", if unset\&. If the file
 initrd
 is found next to the
@@ -142,7 +145,7 @@ The content of the file specifies the machine identification
 \fIMACHINE\-ID\fR\&.
 .RE
 .PP
-/etc/os\-release
+/etc/os\-release /usr/lib/os\-release
 .RS 4
 The content of the file specifies the operating system title
 \fIPRETTY_NAME\fR\&.

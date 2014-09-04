@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-COREDUMPCTL" "1" "" "systemd 214" "systemd-coredumpctl"
+.TH "COREDUMPCTL" "1" "" "systemd 215" "coredumpctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,18 +20,28 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-systemd-coredumpctl \- Retrieve coredumps from the journal
+coredumpctl \- Retrieve coredumps from the journal
 .SH "SYNOPSIS"
-.HP \w'\fBsystemd\-coredumpctl\fR\ 'u
-\fBsystemd\-coredumpctl\fR [OPTIONS...] {COMMAND} [PID|COMM|EXE|MATCH...]
+.HP \w'\fBcoredumpctl\fR\ 'u
+\fBcoredumpctl\fR [OPTIONS...] {COMMAND} [PID|COMM|EXE|MATCH...]
 .SH "DESCRIPTION"
 .PP
-\fBsystemd\-coredumpctl\fR
+\fBcoredumpctl\fR
 may be used to retrieve coredumps from
 \fBsystemd-journald\fR(8)\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
+.PP
+\fB\-\-no\-legend\fR
+.RS 4
+Do not print the column headers\&.
+.RE
+.PP
+\fB\-1\fR
+.RS 4
+Show information of a single coredump only, instead of listing all known coredumps\&.
+.RE
 .PP
 \fB\-F\fR, \fB\-\-field=\fR
 .RS 4
@@ -42,11 +52,6 @@ Print all possible data values the specified field takes in matching coredump en
 .RS 4
 Write the core to
 \fBFILE\fR\&.
-.RE
-.PP
-\fB\-\-no\-legend\fR
-.RS 4
-Do not print the column headers\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR
@@ -68,7 +73,12 @@ The following commands are understood:
 .PP
 \fBlist\fR
 .RS 4
-List coredumps captured in the journal matching specified characteristics\&.
+List coredumps captured in the journal matching specified characteristics\&. If no command is specified, this is the implied default\&.
+.RE
+.PP
+\fBinfo\fR
+.RS 4
+Show detailed information about coredumps captured in the journal\&.
 .RE
 .PP
 \fBdump\fR
@@ -83,7 +93,7 @@ Invoke the GNU debugger on the last coredump matching specified characteristics\
 .RE
 .SH "MATCHING"
 .PP
-Match can be:
+A match can be:
 .PP
 \fIPID\fR
 .RS 4
@@ -105,7 +115,7 @@ Path to the executable (matches
 \fIMATCH\fR
 .RS 4
 General journalctl predicates (see
-\fBjournalctl\fR(1))\&. Must contain an equals sign\&.
+\fBjournalctl\fR(1))\&. Must contain an equal sign\&.
 .RE
 .SH "EXIT STATUS"
 .PP

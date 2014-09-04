@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 214</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm214185662048"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.mount"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.mount — Mount unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code></p></div><div class="refsect1"><a name="idm214182106304"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.mount</code>" encodes information about
                 a file system mount point controlled and supervised by
                 systemd.</p><p>This man page lists the configuration options
@@ -70,7 +70,7 @@
                 userspace-to-userpace interfaces. Some of them may not
                 be changed via mount units, and cannot be disabled.
                 For a longer discussion see <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems" target="_top">API
-                File Systems</a>.</p></div><div class="refsect1"><a name="idm214184229664"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
+                File Systems</a>.</p></div><div class="refsect1"><a name="idm214182689296"></a><h2 id="/etc/fstab"><code class="filename">/etc/fstab</code><a class="headerlink" title="Permalink to this headline" href="#/etc/fstab">¶</a></h2><p>Mount units may either be configured via unit
                 files, or via <code class="filename">/etc/fstab</code> (see
                 <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
                 for details). Mounts listed in
@@ -86,34 +86,41 @@
                 which influence how dependencies are created for mount
                 points from <code class="filename">/etc/fstab</code>. systemd
                 will create a dependency of type
-                <code class="option">Wants</code> from either
-                <code class="filename">local-fs.target</code> or
+                <code class="option">Wants</code> or <code class="option">Requires</code>
+                (see option <code class="option">nofail</code> below), from
+                either <code class="filename">local-fs.target</code> or
                 <code class="filename">remote-fs.target</code>, depending
-                whether the file system is local or remote. If
-                <code class="option">x-systemd.automount</code> is set, an
-                automount unit will be created for the file
-                system. See
-                <a href="systemd.automount.html"><span class="citerefentry"><span class="refentrytitle">systemd.automount</span>(5)</span></a>
-                for details. If
-                <code class="option">x-systemd.device-timeout=</code> is
-                specified, it may be used to configure how long systemd
-                should wait for a device to show up before giving up
-                on an entry from
-                <code class="filename">/etc/fstab</code>. Specify a time in
-                seconds or explicitly specify a unit as
-                "<code class="literal">s</code>", "<code class="literal">min</code>",
-                "<code class="literal">h</code>", "<code class="literal">ms</code>".</p><p>If <code class="option">nofail</code> is given, this mount
-                will be only wanted, not required, by the
-                <code class="filename">local-fs.target</code>. This means that
-                the boot will continue even if this mount point is not
-                mounted successfully. Option <code class="option">fail</code> has
-                the opposite meaning and is the default.</p><p>If <code class="option">noauto</code> is given, this mount
-                will not be added as a dependency for
-                <code class="filename">local-fs.target</code>. This means that
-                it will not be mounted automatically during boot,
-                unless it is pulled in by some other unit. Option
-                <code class="option">auto</code> has the opposite meaning and is
-                the default.</p><p>If a mount point is configured in both
+                whether the file system is local or remote.</p><div class="variablelist"><dl class="variablelist"><dt id="x-systemd.automount"><span class="term"><code class="option">x-systemd.automount</code></span><a class="headerlink" title="Permalink to this term" href="#x-systemd.automount">¶</a></dt><dd><p>An automount unit will be created
+                    for the file system. See
+                    <a href="systemd.automount.html"><span class="citerefentry"><span class="refentrytitle">systemd.automount</span>(5)</span></a>
+                    for details.</p></dd><dt id="x-systemd.device-timeout="><span class="term"><code class="option">x-systemd.device-timeout=</code></span><a class="headerlink" title="Permalink to this term" href="#x-systemd.device-timeout=">¶</a></dt><dd><p>Configure how long systemd should
+                    wait for a device to show up before giving up on
+                    an entry from
+                    <code class="filename">/etc/fstab</code>. Specify a time in
+                    seconds or explicitly append a unit as
+                    "<code class="literal">s</code>", "<code class="literal">min</code>",
+                    "<code class="literal">h</code>",
+                    "<code class="literal">ms</code>".</p><p>Note that this option can only be used in
+                    <code class="filename">/etc/fstab</code>, and will be
+                    ignored when part of <code class="varname">Options=</code>
+                    setting in a unit file.</p></dd><dt id="nofail"><span class="term"><code class="option">nofail</code>, </span><span class="term"><code class="option">fail</code></span><a class="headerlink" title="Permalink to this term" href="#nofail">¶</a></dt><dd><p>With <code class="option">nofail</code> this
+                    mount will be only wanted, not required, by the
+                    <code class="filename">local-fs.target</code>. This means
+                    that the boot will continue even if this mount
+                    point is not mounted successfully. Option
+                    <code class="option">fail</code> has the opposite meaning and
+                    is the default.</p></dd><dt id="noauto"><span class="term"><code class="option">noauto</code>, </span><span class="term"><code class="option">auto</code></span><a class="headerlink" title="Permalink to this term" href="#noauto">¶</a></dt><dd><p>With <code class="option">noauto</code>, this
+                    mount will not be added as a dependency for
+                    <code class="filename">local-fs.target</code>. This means
+                    that it will not be mounted automatically during
+                    boot, unless it is pulled in by some other
+                    unit. Option <code class="option">auto</code> has the
+                    opposite meaning and is the default.</p></dd><dt id="x-initrd.mount"><span class="term"><code class="option">x-initrd.mount</code></span><a class="headerlink" title="Permalink to this term" href="#x-initrd.mount">¶</a></dt><dd><p>An additional filesystem to be
+                    mounted in the initramfs. See
+                    <code class="filename">initrd-fs.target</code> description
+                    in
+                    <a href="systemd.special.html"><span class="citerefentry"><span class="refentrytitle">systemd.special</span>(7)</span></a>.
+                    </p></dd></dl></div><p>If a mount point is configured in both
                 <code class="filename">/etc/fstab</code> and a unit file that
                 is stored below <code class="filename">/usr</code>, the former
                 will take precedence. If the unit file is stored below
@@ -123,7 +130,7 @@
                 this is superseded by the rule that configuration in
                 <code class="filename">/etc</code> will always take precedence
                 over configuration in
-                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm214185802912"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
+                <code class="filename">/usr</code>.</p></div><div class="refsect1"><a name="idm214181078496"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Mount files must include a [Mount] section,
                 which carries information about the file system mount points it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -155,7 +162,16 @@
                                 optional.</p></dd><dt id="Options="><span class="term"><code class="varname">Options=</code></span><a class="headerlink" title="Permalink to this term" href="#Options=">¶</a></dt><dd><p>Mount options to use
                                 when mounting. This takes a
                                 comma-separated list of options. This
-                                setting is optional.</p></dd><dt id="DirectoryMode="><span class="term"><code class="varname">DirectoryMode=</code></span><a class="headerlink" title="Permalink to this term" href="#DirectoryMode=">¶</a></dt><dd><p>Directories of mount
+                                setting is optional.</p></dd><dt id="SloppyOptions="><span class="term"><code class="varname">SloppyOptions=</code></span><a class="headerlink" title="Permalink to this term" href="#SloppyOptions=">¶</a></dt><dd><p>Takes a boolean
+                                argument. If true, parsing of the
+                                options specified in
+                                <code class="varname">Options=</code> is
+                                relaxed, and unknown mount options are
+                                tolerated. This corresponds with
+                                <a href="mount.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(8)</span></a>'s
+                                <em class="parameter"><code>-s</code></em>
+                                switch. Defaults to
+                                off.</p></dd><dt id="DirectoryMode="><span class="term"><code class="varname">DirectoryMode=</code></span><a class="headerlink" title="Permalink to this term" href="#DirectoryMode=">¶</a></dt><dd><p>Directories of mount
                                 points (and any parent directories)
                                 are automatically created if
                                 needed. This option specifies the file
@@ -181,7 +197,7 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm214181154208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm214180019264"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
