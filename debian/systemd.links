@@ -81,9 +81,5 @@
 # Compat symlink
 /lib/systemd/systemd /bin/systemd
 
-# Mount separate tmpfs file system for /run/lock because in Debian this
-# directory is writable by everyone
-/lib/systemd/system/run-lock.mount /lib/systemd/system/local-fs.target.wants/run-lock.mount
-
 # Create a compat symlink as systemd-sysctl no longer reads /etc/sysctl.conf
 /etc/sysctl.conf /etc/sysctl.d/99-sysctl.conf

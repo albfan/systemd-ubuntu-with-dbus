@@ -15,6 +15,8 @@ systemd (215-1) UNRELEASED; urgency=medium
       the public API and not used anywhere so we don't need a soname bump.
   * Cherry-pick upstream commit to not install busname units if kdbus support
     is disabled.
+  * Make /run/lock tmpfs an API fs so it is available during early boot.
+    (Closes: #751392)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 

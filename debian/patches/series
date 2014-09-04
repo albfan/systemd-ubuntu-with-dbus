@@ -132,3 +132,4 @@ Do-not-order-rcS.d-services-after-local-fs.target-if.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Make-emergency.service-conflict-with-rescue.service.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
+Make-run-lock-tmpfs-an-API-fs.patch
