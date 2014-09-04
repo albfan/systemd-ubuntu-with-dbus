@@ -13,9 +13,6 @@ able to autoload modules with it, and if we can't do that there's no
 point in doing it.
 
 (cherry picked from commit e0c74691c41a204eba2fd5f39615049fc9ff1648)
-
-Conflicts:
-	units/systemd-tmpfiles-setup-dev.service.in
 ---
  units/kmod-static-nodes.service.in          | 2 +-
  units/systemd-tmpfiles-setup-dev.service.in | 2 +-
@@ -35,13 +32,13 @@ index 368f980..0934a87 100644
  
  [Service]
 diff --git a/units/systemd-tmpfiles-setup-dev.service.in b/units/systemd-tmpfiles-setup-dev.service.in
-index 05b60a1..ce4d090 100644
+index b9cfc53..06346d3 100644
 --- a/units/systemd-tmpfiles-setup-dev.service.in
 +++ b/units/systemd-tmpfiles-setup-dev.service.in
-@@ -10,7 +10,7 @@ Description=Create Static Device Nodes in /dev
- Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
- DefaultDependencies=no
- Before=sysinit.target local-fs-pre.target systemd-udevd.service
+@@ -12,7 +12,7 @@ DefaultDependencies=no
+ Conflicts=shutdown.target
+ After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-sysusers.service
+ Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
 -ConditionCapability=CAP_MKNOD
 +ConditionCapability=CAP_SYS_MODULE
  

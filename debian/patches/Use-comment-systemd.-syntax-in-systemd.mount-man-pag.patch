@@ -13,21 +13,24 @@ again.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
-index 657cf11..bfc3ac8 100644
+index 3bc4d3a..2c01a5e 100644
 --- a/man/systemd.mount.xml
 +++ b/man/systemd.mount.xml
-@@ -148,12 +148,12 @@
-                 <filename>local-fs.target</filename> or
-                 <filename>remote-fs.target</filename>, depending
-                 whether the file system is local or remote. If
--                <option>x-systemd.automount</option> is set, an
-+                <option>comment=systemd.automount</option> is set, an
-                 automount unit will be created for the file
-                 system. See
-                 <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                 for details. If
--                <option>x-systemd.device-timeout=</option> is
-+                <option>comment=systemd.device-timeout=</option> is
-                 specified, it may be used to configure how long systemd
-                 should wait for a device to show up before giving up
-                 on an entry from
+@@ -153,7 +153,7 @@
+                 <variablelist class='fstab-options'>
+ 
+                   <varlistentry>
+-                    <term><option>x-systemd.automount</option></term>
++                    <term><option>comment=systemd.automount</option></term>
+ 
+                     <listitem><para>An automount unit will be created
+                     for the file system. See
+@@ -162,7 +162,7 @@
+                   </varlistentry>
+ 
+                   <varlistentry>
+-                    <term><option>x-systemd.device-timeout=</option></term>
++                    <term><option>comment=systemd.device-timeout=</option></term>
+ 
+                     <listitem><para>Configure how long systemd should
+                     wait for a device to show up before giving up on

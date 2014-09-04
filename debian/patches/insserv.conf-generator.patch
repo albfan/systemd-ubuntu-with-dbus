@@ -23,18 +23,18 @@ It has the following modifications:
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index ad6b36a..9c86bcf 100644
+index 04b4ad6..0c01e55 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -363,6 +363,7 @@ rootlibexec_PROGRAMS = \
- 	systemd-socket-proxyd
+@@ -375,6 +375,7 @@ rootlibexec_PROGRAMS = \
+ 	systemd-update-done
  
  systemgenerator_PROGRAMS = \
 +	systemd-insserv-generator \
  	systemd-getty-generator \
  	systemd-fstab-generator \
- 	systemd-system-update-generator
-@@ -1817,6 +1818,14 @@ systemd_delta_LDADD = \
+ 	systemd-system-update-generator \
+@@ -1943,6 +1944,14 @@ systemd_delta_LDADD = \
  	libsystemd-shared.la
  
  # ------------------------------------------------------------------------------

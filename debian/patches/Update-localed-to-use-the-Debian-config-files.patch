@@ -12,7 +12,7 @@ Path courtesy of Steve Langasek.
  1 file changed, 113 insertions(+), 101 deletions(-)
 
 diff --git a/src/locale/localed.c b/src/locale/localed.c
-index e3061c8..c2c1484 100644
+index 23da149..4db8bef 100644
 --- a/src/locale/localed.c
 +++ b/src/locale/localed.c
 @@ -170,6 +170,24 @@ static int locale_read_data(Context *c) {
@@ -127,11 +127,11 @@ index e3061c8..c2c1484 100644
          char **l = NULL;
 +        const char *path = "/etc/locale.conf";
  
--        r = load_env_file("/etc/locale.conf", NULL, &l);
-+        r = load_env_file(path, NULL, &l);
+-        r = load_env_file(NULL, "/etc/locale.conf", NULL, &l);
++        r = load_env_file(NULL, path, NULL, &l);
 +        if (r < 0 && r == -ENOENT) {
 +                path = "/etc/default/locale";
-+                r = load_env_file(path, NULL, &l);
++                r = load_env_file(NULL, path, NULL, &l);
 +        }
          if (r < 0 && r != -ENOENT)
                  return r;
@@ -165,7 +165,7 @@ index e3061c8..c2c1484 100644
 -            isempty(c->x11_model) &&
 -            isempty(c->x11_variant) &&
 -            isempty(c->x11_options)) {
-+        r = load_env_file("/etc/default/keyboard", NULL, &l);
++        r = load_env_file(NULL, "/etc/default/keyboard", NULL, &l);
 +        if (r < 0 && r != -ENOENT)
 +                return r;
  

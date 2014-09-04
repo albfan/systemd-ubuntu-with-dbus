@@ -11,10 +11,10 @@ Subject: Do not order rcS.d services after local-fs.target if they do not
  4 files changed, 13 insertions(+), 7 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index 2ff64c9..7f7e168 100644
+index f84639e..36e4fc2 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
-@@ -369,6 +369,15 @@
+@@ -368,6 +368,15 @@
                                          that have the
                                          <option>auto</option> mount
                                          option set.</para>

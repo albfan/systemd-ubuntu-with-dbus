@@ -9,7 +9,7 @@ Closes: #624599
  1 file changed, 15 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index a00ca74..d81bf1a 100644
+index 97a4d4b..454ae47 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
 @@ -1073,6 +1073,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove

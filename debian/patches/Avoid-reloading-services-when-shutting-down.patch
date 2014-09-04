@@ -9,7 +9,7 @@ for the patch.  Closes: #624599.
  1 file changed, 25 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 0cb2044..a00ca74 100644
+index 9b754d8..97a4d4b 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
 @@ -1040,6 +1040,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {

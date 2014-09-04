@@ -10,10 +10,10 @@ It depends on libgobject and libgmodule which are installed in /usr/lib.
  1 file changed, 10 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 71fc911..12d2c94 100644
+index 9847ff5..2b0c855 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -3135,16 +3135,6 @@ typelibs_DATA = \
+@@ -3338,16 +3338,6 @@ typelibs_DATA = \
  
  CLEANFILES += $(gir_DATA) $(typelibs_DATA)
  endif # HAVE_INTROSPECTION

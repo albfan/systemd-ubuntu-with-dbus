@@ -10,10 +10,10 @@ https://bugs.freedesktop.org/show_bug.cgi?id=82453
  1 file changed, 1 insertion(+)
 
 diff --git a/src/shared/util.c b/src/shared/util.c
-index a634b9d..c0476e0 100644
+index 03a5860..103bf2a 100644
 --- a/src/shared/util.c
 +++ b/src/shared/util.c
-@@ -1492,6 +1492,7 @@ _pure_ static bool ignore_file_allow_backup(const char *filename) {
+@@ -1377,6 +1377,7 @@ _pure_ static bool ignore_file_allow_backup(const char *filename) {
                  endswith(filename, ".rpmorig") ||
                  endswith(filename, ".dpkg-old") ||
                  endswith(filename, ".dpkg-new") ||

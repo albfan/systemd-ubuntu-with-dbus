@@ -10,10 +10,10 @@ http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceName
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index 7a9d01b..a19954b 100644
+index 5a45c53..f93998a 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
-@@ -194,13 +194,13 @@ static bool enable_name_policy(void) {
+@@ -200,13 +200,13 @@ static bool enable_name_policy(void) {
          if (r < 0)
                  log_warning("Failed to read /proc/cmdline, ignoring: %s", strerror(-r));
          if (r <= 0)

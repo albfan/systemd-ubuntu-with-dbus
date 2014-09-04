@@ -8,10 +8,10 @@ Subject: =?utf-8?q?systemctl=3A_don=E2=80=99t_skip_native_units_when_enabl?=
  1 file changed, 5 insertions(+), 6 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 5999ea9..13b1693 100644
+index f3363c5..eea3bd0 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5044,9 +5044,6 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5045,9 +5045,6 @@ static int enable_sysv_units(const char *verb, char **args) {
                                  break;
                  }
  
@@ -21,7 +21,7 @@ index 5999ea9..13b1693 100644
                  if (!isempty(arg_root))
                          asprintf(&p, "%s/" SYSTEM_SYSVINIT_PATH "/%s", arg_root, name);
                  else
-@@ -5062,10 +5059,12 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5063,10 +5060,12 @@ static int enable_sysv_units(const char *verb, char **args) {
                  if (!found_sysv)
                          continue;
  
