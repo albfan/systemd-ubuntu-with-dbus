@@ -3,6 +3,7 @@ libudev.so.1 libudev1 #MINVER#
  LIBUDEV_189@LIBUDEV_189 189
  LIBUDEV_196@LIBUDEV_196 196
  LIBUDEV_199@LIBUDEV_199 199
+ LIBUDEV_215@LIBUDEV_215 215
  udev_device_get_action@LIBUDEV_183 183
  udev_device_get_devlinks_list_entry@LIBUDEV_183 183
  udev_device_get_devnode@LIBUDEV_183 183
@@ -74,6 +75,8 @@ libudev.so.1 libudev1 #MINVER#
  udev_monitor_set_receive_buffer_size@LIBUDEV_183 183
  udev_monitor_unref@LIBUDEV_183 183
  udev_new@LIBUDEV_183 183
+ udev_queue_flush@LIBUDEV_215 215
+ udev_queue_get_fd@LIBUDEV_215 215
  udev_queue_get_kernel_seqnum@LIBUDEV_183 183
  udev_queue_get_queue_is_empty@LIBUDEV_183 183
  udev_queue_get_queued_list_entry@LIBUDEV_183 183

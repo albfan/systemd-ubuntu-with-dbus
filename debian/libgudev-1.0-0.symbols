@@ -53,4 +53,3 @@ libgudev-1.0.so.0 libgudev-1.0-0 #MINVER#
  g_udev_enumerator_execute@Base 165
  g_udev_enumerator_get_type@Base 165
  g_udev_enumerator_new@Base 165
- g_udev_marshal_VOID__STRING_OBJECT@Base 146

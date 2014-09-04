@@ -9,6 +9,10 @@ systemd (215-1) UNRELEASED; urgency=medium
     which updates the documentation accordingly.
   * Cherry-pick upstream fix to use correct versions for the new symbols that
     were introduced in libudev.
+  * Update symbols files
+    - Add two new symbols for libudev1.
+    - Remove private symbol from libgudev-1.0-0. This symbol was never part of
+      the public API and not used anywhere so we don't need a soname bump.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
