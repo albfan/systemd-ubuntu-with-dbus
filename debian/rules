@@ -41,6 +41,9 @@ CONFFLAGS_deb = \
 	$(NULL)
 
 CONFFLAGS_udeb = \
+	--disable-libcryptsetup \
+	--disable-pam \
+	--disable-audit \
 	--disable-selinux \
 	--disable-smack \
 	--disable-ima \
@@ -63,8 +66,10 @@ CONFFLAGS_udeb = \
 	--disable-resolved \
 	--disable-polkit \
 	--disable-acl \
+	--disable-gcrypt \
 	--disable-gudev \
 	--disable-rfkill \
+	--disable-multi-seat-x \
 	--disable-manpages \
 	--without-python
 
