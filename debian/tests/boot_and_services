@@ -1,0 +1,84 @@
+#!/usr/bin/python3
+# autopkgtest check: Boot with systemd and check critical desktop services
+# (C) 2014 Canonical Ltd.
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+
+import sys
+import os
+import unittest
+import subprocess
+import signal
+
+
+class ServicesTest(unittest.TestCase):
+    '''Check that expected services are running'''
+
+    def test_0_init(self):
+        '''Verify that init is systemd'''
+
+        self.assertIn('systemd', os.readlink('/proc/1/exe'))
+
+    def test_lightdm(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'lightdm'])
+        self.assertIn(b'lightdm --session', out)
+        out = subprocess.check_output(['ps', 'u', '-C', 'Xorg'])
+        self.assertIn(b':0', out)
+        self.active_unit('lightdm')
+
+    def test_dbus(self):
+        out = subprocess.check_output(
+            ['dbus-send', '--print-reply', '--system',
+             '--dest=org.freedesktop.DBus', '/', 'org.freedesktop.DBus.GetId'])
+        self.assertIn(b'string "', out)
+        self.active_unit('dbus')
+
+    def test_network_manager(self):
+        out = subprocess.check_output(['nmcli', 'nm'])
+        self.assertIn(b'running', out)
+        self.assertIn(b'enabled', out)
+        self.active_unit('network-manager')
+
+    def test_cron(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'cron'])
+        self.assertIn(b'root', out)
+        self.active_unit('cron')
+
+    def test_logind(self):
+        out = subprocess.check_output(['loginctl'])
+        self.assertNotEqual(b'', out)
+        self.active_unit('systemd-logind')
+
+    # Helper methods
+
+    def active_unit(self, unit):
+        '''Check that given unit is active'''
+
+        out = subprocess.check_output(['systemctl', 'status', unit])
+        self.assertIn(b'active (running)', out)
+
+
+def boot_with_systemd():
+    '''Reboot with systemd as init'''
+
+    print('Setting init=/bin/systemd in grub kernel command line...')
+    subprocess.check_call(['sh', '-ec', "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/"
+                           '''s_"$_ init=/bin/systemd"_' '''
+                           '/etc/default/grub /etc/default/grub.d/*'])
+    subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
+    if os.path.exists('/boot/grub/menu.lst'):
+        # Ubuntu cloud images still use legacy grub
+        subprocess.check_call(['sed', '-i', '/^kernel/ s_$_ init=/bin/systemd_',
+                               '/boot/grub/menu.lst'])
+
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    subprocess.check_call(['autopkgtest-reboot', 'boot1'])
+
+
+if __name__ == '__main__':
+    if not os.getenv('ADT_REBOOT_MARK'):
+        boot_with_systemd()
+
+    import time
+
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
+                                                     verbosity=2))
