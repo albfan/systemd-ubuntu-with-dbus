@@ -14,11 +14,11 @@ necessary, for now.
 
 Closes: #726256
 ---
- src/timedate/timedated.c | 93 +++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 92 insertions(+), 1 deletion(-)
+ src/timedate/timedated.c | 94 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 93 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 58745cf..15ceb0c 100644
+index 58745cf..b56e43a 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -22,6 +22,9 @@
@@ -31,7 +31,15 @@ index 58745cf..15ceb0c 100644
  
  #include "sd-id128.h"
  #include "sd-messages.h"
-@@ -106,6 +109,94 @@ static bool valid_timezone(const char *name) {
+@@ -39,6 +42,7 @@
+ #include "bus-util.h"
+ #include "bus-errors.h"
+ #include "event-util.h"
++#include "copy.h"
+ 
+ #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
+ #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
+@@ -106,6 +110,94 @@ static bool valid_timezone(const char *name) {
          return true;
  }
  
@@ -59,7 +67,7 @@ index 58745cf..15ceb0c 100644
 +                free(pf);
 +                free(pt);
 +
-+                return copy_file(from, to, O_EXCL);
++                return copy_file(from, to, O_EXCL, 0644);
 +        }
 +
 +        if (symlink(from, to) < 0) {
@@ -126,7 +134,7 @@ index 58745cf..15ceb0c 100644
  static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
          int r;
-@@ -174,7 +265,7 @@ static int context_write_data_timezone(Context *c) {
+@@ -174,7 +266,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  
