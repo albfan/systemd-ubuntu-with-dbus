@@ -20,6 +20,10 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Install new systemd-path and systemd-escape binaries.
   * Cherry-pick upstream commit which fixes the references to the systemctl
     man page. (Closes: #760613)
+  * Use the new systemd-escape utility to properly escape the network
+    interface name when starting an ifup@.service instance for hotplugged
+    network interfaces. Make sure a recent enough systemd version is installed
+    by bumping the versioned Breaks accordingly. (Closes: #747044)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 

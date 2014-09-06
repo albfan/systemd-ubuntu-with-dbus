@@ -288,7 +288,7 @@ Depends: ${shlibs:Depends},
          procps
 Breaks: consolekit (<< 0.4.6-1),
         kmod (<< 14),
-        systemd (<< 208),
+        systemd (<< 215-1),
         plymouth (<< 0.9.0-7)
 Description: /dev/ and hotplug management daemon
  udev is a daemon which dynamically creates and removes device nodes from

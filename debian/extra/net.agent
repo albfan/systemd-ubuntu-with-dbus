@@ -39,7 +39,7 @@ net_ifup() {
     fi
 
     if [ -d /run/systemd/system ]; then
-        exec systemctl start ifup@${INTERFACE}.service
+        exec systemctl --no-block start $(systemd-escape --template ifup@.service $INTERFACE)
     fi
 
     if ps -C ifup ho args | grep -q "$INTERFACE"; then
