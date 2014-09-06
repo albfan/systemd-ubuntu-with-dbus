@@ -37,6 +37,8 @@ systemd (215-1) UNRELEASED; urgency=medium
     warning messages about the missing home directories. Those are created
     dynamically during runtime. (Closes: #759175)
   * Set the gecos field when creating the system users.
+  * Add systemd-bus-proxy system user so systemd-bus-proxyd can properly drop
+    its privileges.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
