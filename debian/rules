@@ -121,12 +121,11 @@ override_dh_install:
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	find debian/install/ -name '*.la' -delete
 	# remove files related to factory-reset feature
-	find debian/install/ -name ldconfig.service -o \
+	find debian/install/ \( -name 'systemd-update-done*' -o \
 		-name systemd-journal-catalog-update.service -o \
 		-name systemd-udev-hwdb-update.service -o \
-		-name systemd-update-done.service -o \
-		-name systemd-update-done -o \
-		-name etc.conf -delete
+		-name ldconfig.service -o \
+		-name etc.conf \) -delete
 	# remove .so for deprecated compatibility libraries
 	rm -f debian/install/*/usr/lib/*/libsystemd-daemon.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-login.so
