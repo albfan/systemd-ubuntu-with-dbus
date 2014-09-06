@@ -33,6 +33,10 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Cherry-pick upstream commit to fix ProtectSystem=full and make the
     ProtectSystem= option consider /bin, /sbin, /lib and /lib64 (if it exists)
     on Debian systems. (Closes: #759689)
+  * Use adduser in quiet mode when creating the system users/groups to avoid
+    warning messages about the missing home directories. Those are created
+    dynamically during runtime. (Closes: #759175)
+  * Set the gecos field when creating the system users.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 

@@ -147,9 +147,7 @@ case "$1" in
     update_hwdb
 
     # Add new system group used by udev rules
-    if ! getent group "input" >/dev/null; then
-      addgroup --system "input"
-    fi
+    addgroup --quiet --system input
 
     if [ -z "$2" ]; then # first install
       if ! chrooted && ! in_debootstrap; then

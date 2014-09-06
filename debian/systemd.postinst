@@ -103,21 +103,15 @@ fi
 # Create /etc/machine-id
 systemd-machine-id-setup
 
-if ! getent group systemd-journal >/dev/null; then
-    addgroup --system systemd-journal
-fi
+# Setup system users and groups
+addgroup --quiet --system systemd-journal
 
-if ! getent passwd systemd-timesync >/dev/null; then
-    adduser --system --group --no-create-home --home /run/systemd systemd-timesync
-fi
-
-if ! getent passwd systemd-network >/dev/null; then
-    adduser --system --group --no-create-home --home /run/systemd/netif systemd-network
-fi
-
-if ! getent passwd systemd-resolve >/dev/null; then
-    adduser --system --group --no-create-home --home /run/systemd/resolve systemd-resolve
-fi
+adduser --quiet --system --group --no-create-home --home /run/systemd \
+    --gecos "systemd Time Synchronization" systemd-timesync
+adduser --quiet --system --group --no-create-home --home /run/systemd/netif \
+    --gecos "systemd Network Management" systemd-network
+adduser --quiet --system --group --no-create-home --home /run/systemd/resolve \
+    --gecos "systemd Resolver" systemd-resolve
 
 # Initial update of the Message Catalogs database
 _update_catalog
