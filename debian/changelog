@@ -30,6 +30,9 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Disable factory-reset feature and remove files associated with it. This
     feature needs more integration work first before it can be enabled in
     Debian.
+  * Cherry-pick upstream commit to fix ProtectSystem=full and make the
+    ProtectSystem= option consider /bin, /sbin, /lib and /lib64 (if it exists)
+    on Debian systems. (Closes: #759689)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 

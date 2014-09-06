@@ -90,6 +90,7 @@ util-avoid-considering-dpkg-temporary-files-relevant.patch
 libudev-fix-symbol-version-for-udev_queue_flush-and-.patch
 build-don-t-install-busname-units-and-target-if-kdbu.patch
 man-fix-references-to-systemctl-man-page-which-is-no.patch
+parse_boolean-require-exact-matches.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
@@ -134,3 +135,4 @@ Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
 Make-emergency.service-conflict-with-rescue.service.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Make-run-lock-tmpfs-an-API-fs.patch
+Include-additional-directories-in-ProtectSystem.patch
