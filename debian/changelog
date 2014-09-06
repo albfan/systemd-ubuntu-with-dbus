@@ -27,6 +27,9 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Order ifup@.service after networking.service so we don't need to setup the
     runtime directory ourselves and we have a defined point during boot when
     hotplugged network interfaces are started.
+  * Disable factory-reset feature and remove files associated with it. This
+    feature needs more integration work first before it can be enabled in
+    Debian.
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 

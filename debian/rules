@@ -23,6 +23,7 @@ CONFFLAGS = \
 	--disable-myhostname \
 	--disable-vconsole \
 	--disable-microhttpd \
+	--disable-sysusers \
 	--disable-silent-rules \
 	--with-ntp-servers="0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org"  \
 	--with-system-uid-max=999 \
@@ -119,12 +120,19 @@ override_dh_install:
 	rm -rf debian/install/*/etc/kernel/
 	rm -f debian/install/*/usr/lib/sysctl.d/50-default.conf
 	find debian/install/ -name '*.la' -delete
-	# Remove .so for deprecated compatibility libraries
+	# remove files related to factory-reset feature
+	find debian/install/ -name ldconfig.service -o \
+		-name systemd-journal-catalog-update.service -o \
+		-name systemd-udev-hwdb-update.service -o \
+		-name systemd-update-done.service -o \
+		-name systemd-update-done -o \
+		-name etc.conf -delete
+	# remove .so for deprecated compatibility libraries
 	rm -f debian/install/*/usr/lib/*/libsystemd-daemon.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-login.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-id128.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-journal.so
-	# Remove symlinks enabling default-on services:
+	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
 	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
