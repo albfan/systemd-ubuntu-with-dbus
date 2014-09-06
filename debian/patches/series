@@ -89,6 +89,7 @@ initrd-parse-etc.service-ignore-return-code-of-daemo.patch
 util-avoid-considering-dpkg-temporary-files-relevant.patch
 libudev-fix-symbol-version-for-udev_queue_flush-and-.patch
 build-don-t-install-busname-units-and-target-if-kdbu.patch
+man-fix-references-to-systemctl-man-page-which-is-no.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

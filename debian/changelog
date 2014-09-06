@@ -18,6 +18,8 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Make /run/lock tmpfs an API fs so it is available during early boot.
     (Closes: #751392)
   * Install new systemd-path and systemd-escape binaries.
+  * Cherry-pick upstream commit which fixes the references to the systemctl
+    man page. (Closes: #760613)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
