@@ -190,6 +190,13 @@ override_dh_install:
 	ln -s ../udev-finish.service debian/udev/lib/systemd/system/sysinit.target.wants/
 	install --mode=755 debian/debian-fixup \
 		debian/systemd/lib/systemd/
+	# Make sure the runlevel services are known by systemd so their targets
+	# get launches. See https://bugzilla.redhat.com/show_bug.cgi?id=1002806
+	for t in poweroff rescue multi-user graphical reboot; do \
+		mkdir -p debian/systemd/lib/systemd/system/$${t}.target.wants;\
+		ln -s ../systemd-update-utmp-runlevel.service \
+			debian/systemd/lib/systemd/system/$${t}.target.wants ;\
+	done
 	# man files for example code in /usr/share/doc
 	mkdir -p debian/systemd/usr/share/man/man3/
 	mv debian/libsystemd-dev/usr/share/man/man3/sd-readahead.3 \

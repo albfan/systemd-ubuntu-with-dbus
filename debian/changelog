@@ -5,8 +5,11 @@ systemd (215-2) UNRELEASED; urgency=medium
   * debian/patches/timesyncd-when-we-don-t-know-anything-about-the-netw.patch:
     + Let timesyncd go online even if networkd isn't running (from upstream
       git) (Closes: #760087)
+  * debian/rules: add systemd-update-utmp-runlevel.service to
+    {poweroff, rescue, multi-user, graphical, reboot}.target.wants to trigger
+    the runlevel target to be loaded
 
- -- Sjoerd Simons <sjoerd@debian.org>  Sun, 07 Sep 2014 17:15:46 +0200
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 07 Sep 2014 23:42:01 +0200
 
 systemd (215-1) experimental; urgency=medium
 
