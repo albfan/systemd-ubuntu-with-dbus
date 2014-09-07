@@ -91,6 +91,7 @@ libudev-fix-symbol-version-for-udev_queue_flush-and-.patch
 build-don-t-install-busname-units-and-target-if-kdbu.patch
 man-fix-references-to-systemctl-man-page-which-is-no.patch
 parse_boolean-require-exact-matches.patch
+sd-journal-properly-convert-object-size-on-big-endia.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

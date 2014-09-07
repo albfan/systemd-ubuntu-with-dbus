@@ -40,13 +40,16 @@ systemd (215-1) UNRELEASED; urgency=medium
   * Add systemd-bus-proxy system user so systemd-bus-proxyd can properly drop
     its privileges.
   * Re-exec systemd and restart services at the end of postinst.
+  * Cherry-pick upstream commit for sd-journal to properly convert
+    object->size on big endian which fixes a crash in journalctl --list-boots.
+    (Closes: #758392)
 
  -- Michael Biebl <biebl@debian.org>  Tue, 26 Aug 2014 12:09:10 +0200
 
 systemd (214-1) experimental; urgency=medium
 
   * New upstream release v214.
-   (Closes: #750793, #749268, #747939)
+    (Closes: #750793, #749268, #747939)
 
   [ Jon Severinsson ]
   * Import upstream v214-stable patch series.
