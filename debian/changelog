@@ -1,4 +1,4 @@
-systemd (215-2) UNRELEASED; urgency=medium
+systemd (215-2) experimental; urgency=medium
 
   * debian/patches/always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch
     + Added. Fix checking of system endianess. Fixes FTBFS on powerpc
@@ -9,7 +9,7 @@ systemd (215-2) UNRELEASED; urgency=medium
     {poweroff, rescue, multi-user, graphical, reboot}.target.wants to trigger
     the runlevel target to be loaded
 
- -- Sjoerd Simons <sjoerd@debian.org>  Sun, 07 Sep 2014 23:42:01 +0200
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 07 Sep 2014 23:46:02 +0200
 
 systemd (215-1) experimental; urgency=medium
 
