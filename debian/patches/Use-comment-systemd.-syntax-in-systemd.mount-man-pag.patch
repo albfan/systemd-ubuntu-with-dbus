@@ -13,7 +13,7 @@ again.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/man/systemd.mount.xml b/man/systemd.mount.xml
-index 3bc4d3a..2c01a5e 100644
+index f06c18e..bea0bea 100644
 --- a/man/systemd.mount.xml
 +++ b/man/systemd.mount.xml
 @@ -153,7 +153,7 @@

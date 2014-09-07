@@ -15,10 +15,10 @@ Move it to udevlibexecdir instead.
  4 files changed, 10 insertions(+), 10 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 04c2a3d..04b4ad6 100644
+index 3e23d8b..713df57 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -3071,7 +3071,7 @@ INSTALL_DATA_HOOKS += \
+@@ -3086,7 +3086,7 @@ INSTALL_DATA_HOOKS += \
  	hwdb-update-hook
  
  hwdb-remove-hook:

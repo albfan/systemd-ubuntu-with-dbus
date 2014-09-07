@@ -92,6 +92,8 @@ build-don-t-install-busname-units-and-target-if-kdbu.patch
 man-fix-references-to-systemctl-man-page-which-is-no.patch
 parse_boolean-require-exact-matches.patch
 sd-journal-properly-convert-object-size-on-big-endia.patch
+always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch
+timesyncd-when-we-don-t-know-anything-about-the-netw.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

@@ -18,10 +18,10 @@ anymore afterwards).
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 764a4fd..04c2a3d 100644
+index dd01efe..3e23d8b 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -5346,8 +5346,7 @@ SYSINIT_TARGET_WANTS += \
+@@ -5363,8 +5363,7 @@ SYSINIT_TARGET_WANTS += \
  	ldconfig.service
  
  LOCAL_FS_TARGET_WANTS += \
