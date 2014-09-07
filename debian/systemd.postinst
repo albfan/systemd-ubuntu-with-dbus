@@ -33,15 +33,6 @@ if dpkg --compare-versions "$2" lt "204-1"; then
     rm -f /var/lib/systemd/*.symlinks
 fi
 
-if [ -n "$2" ]; then
-    _systemctl daemon-reexec || true
-    _systemctl try-restart systemd-journald.service || true
-    _systemctl try-restart systemd-logind.service || true
-    _systemctl try-restart systemd-networkd.service || true
-    _systemctl try-restart systemd-resolved.service || true
-    _systemctl try-restart systemd-timesyncd.service || true
-fi
-
 # Do a one-time migration of the local time setting
 if dpkg --compare-versions "$2" lt "33-1"; then
     if [ -f /etc/default/rcS ]; then
@@ -137,6 +128,15 @@ if dpkg --compare-versions "$2" ge "204"; then
     while read UNIT ; do
         systemctl enable $UNIT || true
     done </run/systemd/was-enabled || true
+fi
+
+if [ -n "$2" ]; then
+    _systemctl daemon-reexec || true
+    _systemctl try-restart systemd-journald.service || true
+    _systemctl try-restart systemd-logind.service || true
+    _systemctl try-restart systemd-networkd.service || true
+    _systemctl try-restart systemd-resolved.service || true
+    _systemctl try-restart systemd-timesyncd.service || true
 fi
 
 #DEBHELPER#
