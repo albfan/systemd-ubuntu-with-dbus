@@ -6,14 +6,14 @@ We still put udev into /lib/udev/, not into /usr/lib/udev/.
 
 LP: #1357782
 ---
- man/udev.xml | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ man/udev.xml | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/man/udev.xml b/man/udev.xml
-index 4e5f8f0..b7349ef 100644
+index 4e5f8f0..a1d1ae3 100644
 --- a/man/udev.xml
 +++ b/man/udev.xml
-@@ -56,7 +56,7 @@
+@@ -56,17 +56,17 @@
  
    <refsect1><title>Rules Files</title>
        <para>The udev rules are read from the files located in the
@@ -22,6 +22,18 @@ index 4e5f8f0..b7349ef 100644
        the volatile runtime directory <filename>/run/udev/rules.d</filename>
        and the local administration directory <filename>/etc/udev/rules.d</filename>.
        All rules files are collectively sorted and processed in lexical order,
+       regardless of the directories in which they live. However, files with
+       identical filenames replace each other. Files in <filename>/etc</filename>
+       have the highest priority, files in <filename>/run</filename> take precedence
+-      over files with the same name in <filename>/usr/lib</filename>. This can be
++      over files with the same name in <filename>/lib</filename>. This can be
+       used to override a system-supplied rules file with a local file if needed;
+       a symlink in <filename>/etc</filename> with the same name as a rules file in
+-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
++      <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
+       disables the rules file entirely. Rule files must have the extension
+       <filename>.rules</filename>; other extensions are ignored.</para>
+ 
 @@ -395,7 +395,7 @@
                  <listitem>
                    <para>Execute an external program specified as the assigned
@@ -31,7 +43,7 @@ index 4e5f8f0..b7349ef 100644
                    absolute path must be specified.</para>
                    <para>This is the default if no <replaceable>type</replaceable>
                    is specified.</para>
-@@ -729,7 +729,7 @@
+@@ -729,17 +729,17 @@
  
    <refsect1><title>Hardware Database Files</title>
        <para>The hwdb files are read from the files located in the
@@ -40,3 +52,15 @@ index 4e5f8f0..b7349ef 100644
        the volatile runtime directory <filename>/run/udev/hwdb.d</filename>
        and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
        All hwdb files are collectively sorted and processed in lexical order,
+       regardless of the directories in which they live. However, files with
+       identical filenames replace each other. Files in <filename>/etc</filename>
+       have the highest priority, files in <filename>/run</filename> take precedence
+-      over files with the same name in <filename>/usr/lib</filename>. This can be
++      over files with the same name in <filename>/lib</filename>. This can be
+       used to override a system-supplied hwdb file with a local file if needed;
+       a symlink in <filename>/etc</filename> with the same name as a hwdb file in
+-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>,
++      <filename>/lib</filename>, pointing to <filename>/dev/null</filename>,
+       disables the hwdb file entirely. hwdb files must have the extension
+       <filename>.hwdb</filename>; other extensions are ignored.</para>
+ 
