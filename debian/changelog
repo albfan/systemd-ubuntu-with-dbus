@@ -1,3 +1,9 @@
+systemd (215-3) UNRELEASED; urgency=medium
+
+  * Fix udev path in udev(7). (LP: #1357782)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
+
 systemd (215-2) experimental; urgency=medium
 
   * debian/patches/always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch

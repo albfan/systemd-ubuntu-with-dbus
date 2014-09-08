@@ -1,0 +1,42 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 8 Sep 2014 12:56:41 +0200
+Subject: Fix udev directory in udev(7)
+
+We still put udev into /lib/udev/, not into /usr/lib/udev/.
+
+LP: #1357782
+---
+ man/udev.xml | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/man/udev.xml b/man/udev.xml
+index 4e5f8f0..b7349ef 100644
+--- a/man/udev.xml
++++ b/man/udev.xml
+@@ -56,7 +56,7 @@
+ 
+   <refsect1><title>Rules Files</title>
+       <para>The udev rules are read from the files located in the
+-      system rules directory <filename>/usr/lib/udev/rules.d</filename>,
++      system rules directory <filename>/lib/udev/rules.d</filename>,
+       the volatile runtime directory <filename>/run/udev/rules.d</filename>
+       and the local administration directory <filename>/etc/udev/rules.d</filename>.
+       All rules files are collectively sorted and processed in lexical order,
+@@ -395,7 +395,7 @@
+                 <listitem>
+                   <para>Execute an external program specified as the assigned
+                   value. If no absolute path is given, the program is expected
+-                  to live in <filename>/usr/lib/udev</filename>; otherwise, the
++                  to live in <filename>/lib/udev</filename>; otherwise, the
+                   absolute path must be specified.</para>
+                   <para>This is the default if no <replaceable>type</replaceable>
+                   is specified.</para>
+@@ -729,7 +729,7 @@
+ 
+   <refsect1><title>Hardware Database Files</title>
+       <para>The hwdb files are read from the files located in the
+-      system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename>,
++      system hwdb directory <filename>/lib/udev/hwdb.d</filename>,
+       the volatile runtime directory <filename>/run/udev/hwdb.d</filename>
+       and the local administration directory <filename>/etc/udev/hwdb.d</filename>.
+       All hwdb files are collectively sorted and processed in lexical order,
