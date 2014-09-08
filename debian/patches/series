@@ -527,6 +527,7 @@ login-revert-lazy-session-activation-on-non-VT-seats.patch
 util-avoid-considering-dpkg-temporary-files-relevant.patch
 tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 logind-if-a-user-is-sitting-in-front-of-the-computer.patch
+udev-path_id-suppress-ID_PATH-for-devices-with-an-un.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch

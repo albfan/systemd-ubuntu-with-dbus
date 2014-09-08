@@ -8,6 +8,8 @@ systemd (208-8ubuntu2) UNRELEASED; urgency=medium
     systemd as init and verifies that the most critical services like lightdm,
     D-BUS, NetworkManager, and cron work. (To be extended in the future)
   * Fix udev path in udev(7). (LP: #1357782)
+  * path_id: suppress ID_PATH for devices with an unknown parent device type.
+    (LP: #1321816)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 26 Aug 2014 08:23:58 +0200
 
