@@ -8,10 +8,10 @@ Closes: #722523
  1 file changed, 46 insertions(+), 1 deletion(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index a5a4d2b..357ceac 100644
+index 42c1d13..21a99bc 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -4300,8 +4300,53 @@ static int enable_sysv_units(char **args) {
+@@ -4302,8 +4302,53 @@ static int enable_sysv_units(const char *verb, char **args) {
  
                  log_info("Synchronizing state for %s with sysvinit using update-rc.d...", name);
  

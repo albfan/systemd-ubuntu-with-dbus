@@ -574,9 +574,9 @@ Make-emergency.service-conflict-with-rescue.service.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Fix-udev-directory-in-udev-7.patch
 
-# Ubuntu patches:
+## Ubuntu patches:
 Add-env-variable-for-machine-ID-path.patch
 Disable-tests-which-fail-on-buildds.patch
 Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
 Support-system-image-read-only-etc.patch
-ProLiant-power-button.patch
+Add-support-for-HP-ProLiant-m400-Server-Cartridge-so.patch

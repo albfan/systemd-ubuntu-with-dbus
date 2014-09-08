@@ -9,7 +9,7 @@ Subject: logind: if a user is sitting in front of the computer and can
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/login/org.freedesktop.login1.policy.in b/src/login/org.freedesktop.login1.policy.in
-index b96d32d..df12398 100644
+index b8e90f1..dae60b4 100644
 --- a/src/login/org.freedesktop.login1.policy.in
 +++ b/src/login/org.freedesktop.login1.policy.in
 @@ -201,7 +201,7 @@

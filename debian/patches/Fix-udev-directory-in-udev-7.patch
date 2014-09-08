@@ -10,7 +10,7 @@ LP: #1357782
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/man/udev.xml b/man/udev.xml
-index 4e5f8f0..b7349ef 100644
+index 25a3ea9..6bc4988 100644
 --- a/man/udev.xml
 +++ b/man/udev.xml
 @@ -56,7 +56,7 @@
@@ -22,7 +22,7 @@ index 4e5f8f0..b7349ef 100644
        the volatile runtime directory <filename>/run/udev/rules.d</filename>
        and the local administration directory <filename>/etc/udev/rules.d</filename>.
        All rules files are collectively sorted and processed in lexical order,
-@@ -395,7 +395,7 @@
+@@ -385,7 +385,7 @@
                  <listitem>
                    <para>Execute an external program specified as the assigned
                    value. If no absolute path is given, the program is expected
@@ -31,7 +31,7 @@ index 4e5f8f0..b7349ef 100644
                    absolute path must be specified.</para>
                    <para>This is the default if no <replaceable>type</replaceable>
                    is specified.</para>
-@@ -729,7 +729,7 @@
+@@ -719,7 +719,7 @@
  
    <refsect1><title>Hardware Database Files</title>
        <para>The hwdb files are read from the files located in the

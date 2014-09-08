@@ -1,14 +1,17 @@
-Description: Add power button support for HP Moonshot cartridges
-Author: Manoj Iyer <manoj.iyer@canonical.com>
-Author: dann frazier <dann.frazier@canonical.com>
-Bug-Ubuntu: http://launchpad.net/bugs/1354306,
-Bug-Ubuntu: http://launchpad.net/bugs/1347776
+From: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Date: Mon, 8 Sep 2014 13:04:01 +0200
+Subject: Add support for HP ProLiant m400 Server Cartridge soft powerdown
 
-Index: systemd-204/src/login/70-power-switch.rules
-===================================================================
---- systemd-204.orig/src/login/70-power-switch.rules
-+++ systemd-204/src/login/70-power-switch.rules
-@@ -9,5 +9,7 @@ ACTION=="remove", GOTO="power_switch_end
+LP: #1354306
+---
+ src/login/70-power-switch.rules | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/login/70-power-switch.rules b/src/login/70-power-switch.rules
+index 36fb827..a11c9f4 100644
+--- a/src/login/70-power-switch.rules
++++ b/src/login/70-power-switch.rules
+@@ -9,5 +9,7 @@ ACTION=="remove", GOTO="power_switch_end"
  
  SUBSYSTEM=="input", KERNEL=="event*", SUBSYSTEMS=="acpi", TAG+="power-switch"
  SUBSYSTEM=="input", KERNEL=="event*", KERNELS=="thinkpad_acpi", TAG+="power-switch"

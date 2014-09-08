@@ -7,7 +7,7 @@ Subject: Map rcS.d init script dependencies to their systemd equivalent.
  1 file changed, 6 insertions(+)
 
 diff --git a/src/core/service.c b/src/core/service.c
-index dda34a7..b3f48b4 100644
+index 5af2d20..d5897d1 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
 @@ -370,6 +370,12 @@ static int sysv_translate_facility(const char *name, const char *filename, char

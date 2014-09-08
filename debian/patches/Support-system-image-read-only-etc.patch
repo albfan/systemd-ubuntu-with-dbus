@@ -15,7 +15,7 @@ Bug-Ubuntu: https://launchpad.net/bugs/1227520
  2 files changed, 55 insertions(+), 16 deletions(-)
 
 diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
-index 0437e33..9ff1f98 100644
+index 769f25c..65252a6 100644
 --- a/src/hostname/hostnamed.c
 +++ b/src/hostname/hostnamed.c
 @@ -108,6 +108,26 @@ static void free_data(void) {
@@ -59,7 +59,7 @@ index 0437e33..9ff1f98 100644
                             "PRETTY_HOSTNAME", &data[PROP_PRETTY_HOSTNAME],
                             "ICON_NAME", &data[PROP_ICON_NAME],
                             "CHASSIS", &data[PROP_CHASSIS],
-@@ -284,12 +304,12 @@ static int write_data_static_hostname(void) {
+@@ -285,12 +305,12 @@ static int write_data_static_hostname(void) {
  
          if (isempty(data[PROP_STATIC_HOSTNAME])) {
  
@@ -74,7 +74,7 @@ index 0437e33..9ff1f98 100644
  }
  
  static int write_data_other(void) {
-@@ -303,7 +323,7 @@ static int write_data_other(void) {
+@@ -304,7 +324,7 @@ static int write_data_other(void) {
          char **l = NULL;
          int r, p;
  
@@ -83,7 +83,7 @@ index 0437e33..9ff1f98 100644
          if (r < 0 && r != -ENOENT)
                  return r;
  
-@@ -333,13 +353,13 @@ static int write_data_other(void) {
+@@ -334,13 +354,13 @@ static int write_data_other(void) {
  
          if (strv_isempty(l)) {
  
@@ -100,7 +100,7 @@ index 0437e33..9ff1f98 100644
  
          return r;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 467f567..8bbc457 100644
+index eb6a6d8..b8de7c2 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
 @@ -105,6 +105,25 @@ static void free_data(void) {

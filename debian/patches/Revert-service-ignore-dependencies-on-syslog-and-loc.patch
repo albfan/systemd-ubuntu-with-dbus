@@ -19,7 +19,7 @@ $local_fs, too.
  create mode 100644 units/syslog.target
 
 diff --git a/Makefile.am b/Makefile.am
-index df2bdf5..23056d9 100644
+index 578e912..4f5ec6c 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -423,6 +423,7 @@ dist_systemunit_DATA = \
@@ -91,7 +91,7 @@ index 4dd7d97..a7302c0 100644
                                  <listitem>
                                          <para>A special target unit
 diff --git a/src/core/service.c b/src/core/service.c
-index 9fd58fa..fbe0428 100644
+index c616fbe..2a6c3c8 100644
 --- a/src/core/service.c
 +++ b/src/core/service.c
 @@ -334,8 +334,7 @@ static void service_done(Unit *u) {

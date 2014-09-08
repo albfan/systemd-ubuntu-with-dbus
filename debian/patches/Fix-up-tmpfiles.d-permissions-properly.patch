@@ -7,7 +7,7 @@ Subject: Fix up tmpfiles.d permissions properly
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/tmpfiles.d/legacy.conf b/tmpfiles.d/legacy.conf
-index 3fff347..1aa04c2 100644
+index a165687..733f58d 100644
 --- a/tmpfiles.d/legacy.conf
 +++ b/tmpfiles.d/legacy.conf
 @@ -10,7 +10,7 @@
