@@ -528,6 +528,7 @@ util-avoid-considering-dpkg-temporary-files-relevant.patch
 tmpfiles-don-t-allow-read-access-to-journal-files-to.patch
 logind-if-a-user-is-sitting-in-front-of-the-computer.patch
 udev-path_id-suppress-ID_PATH-for-devices-with-an-un.patch
+udev-builtin-keyboard-Allow-numeric-key-codes.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
