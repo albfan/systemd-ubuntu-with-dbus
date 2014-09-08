@@ -1,4 +1,4 @@
-systemd (208-8ubuntu2) UNRELEASED; urgency=medium
+systemd (208-8ubuntu2) utopic; urgency=medium
 
   [ Ben Howard ]
   * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
@@ -12,7 +12,7 @@ systemd (208-8ubuntu2) UNRELEASED; urgency=medium
     (LP: #1321816)
   * udev-builtin-keyboard: Allow numeric key codes. (LP: #1247584)
 
- -- Martin Pitt <mpitt@debian.org>  Tue, 26 Aug 2014 08:23:58 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 08 Sep 2014 14:44:35 +0200
 
 systemd (208-8ubuntu1) utopic; urgency=medium
 
