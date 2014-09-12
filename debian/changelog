@@ -3,6 +3,10 @@ systemd (208-9) UNRELEASED; urgency=medium
   [ Ben Howard ]
   * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
 
+  [ Martin Pitt ]
+  * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
+    (LP: #1367883)
+
  -- Martin Pitt <mpitt@debian.org>  Tue, 26 Aug 2014 08:23:58 +0200
 
 systemd (208-8) unstable; urgency=medium
