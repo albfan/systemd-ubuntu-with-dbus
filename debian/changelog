@@ -10,6 +10,8 @@ systemd (218-1) UNRELEASED; urgency=medium
     - Add epoch to gudev packages; Ubuntu packaged the standalone gudev before
       it got merged into udev.
     - Add Apport hooks for udev and systemd.
+  * udev-fallback-graphics upstart job: Guard the modprobe with || true to
+    avoid a failure when vesafb is compiled in. (LP: #1367241)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 12 Dec 2014 20:32:32 +0200
 

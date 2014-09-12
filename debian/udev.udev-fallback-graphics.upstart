@@ -16,6 +16,6 @@ task
 
 script
     if [ "$PRIMARY_DEVICE_FOR_DISPLAY" = "" ]; then
-        modprobe -q -b vesafb
+        modprobe -q -b vesafb || true
     fi
 end script
