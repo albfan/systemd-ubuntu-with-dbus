@@ -1,6 +1,11 @@
 systemd (208-8ubuntu3) UNRELEASED; urgency=medium
 
+  [ Dariusz Gadomski ]
   * Remove udev-fallback-graphics.conf (LP: #1367241).
+
+  [ Martin Pitt ]
+  * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
+    (LP: #1367883)
 
  -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
 
