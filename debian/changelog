@@ -1,3 +1,9 @@
+systemd (208-8ubuntu3) UNRELEASED; urgency=medium
+
+  * Remove udev-fallback-graphics.conf (LP: #1367241).
+
+ -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
+
 systemd (208-8ubuntu2) utopic; urgency=medium
 
   [ Ben Howard ]
