@@ -12,10 +12,10 @@ Conflicts:
  1 file changed, 22 insertions(+), 26 deletions(-)
 
 diff --git a/src/timesync/timesyncd.c b/src/timesync/timesyncd.c
-index 19af9f9..c711e83 100644
+index 19ab1cf..0fb92f1 100644
 --- a/src/timesync/timesyncd.c
 +++ b/src/timesync/timesyncd.c
-@@ -340,6 +340,7 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
+@@ -349,6 +349,7 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
          /* resync */
          log_info("System time changed. Resyncing.");
          m->poll_resync = true;
@@ -23,7 +23,7 @@ index 19af9f9..c711e83 100644
          return manager_send_request(m);
  }
  
-@@ -1121,80 +1122,75 @@ static bool network_is_online(void) {
+@@ -1162,80 +1163,75 @@ static bool network_is_online(void) {
          int r;
  
          r = sd_network_get_operational_state(&state);
@@ -52,8 +52,8 @@ index 19af9f9..c711e83 100644
          online = network_is_online();
  
          /* check if the client is currently connected */
--        connected = (m->server_socket != -1);
-+        connected = m->server_socket >= 0;
+-        connected = (m->server_socket != -1) || m->exhausted_servers;
++        connected = (m->server_socket >= 0) || m->exhausted_servers;
  
          if (connected && !online) {
                  log_info("No network connectivity, watching for changes.");

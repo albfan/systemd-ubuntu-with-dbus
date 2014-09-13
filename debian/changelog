@@ -1,6 +1,10 @@
 systemd (215-3) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Fix udev path in udev(7). (LP: #1357782)
+
+  [ Michael Biebl ]
+  * Update upstream v215-stable patch series.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 

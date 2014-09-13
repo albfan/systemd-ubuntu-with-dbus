@@ -84,6 +84,17 @@ update-done-set-proper-selinux-context-for-.updated.patch
 Added-arch-tuple-for-PPC64LE.patch
 base_filesystem_create-do-not-try-to-create-root-if-.patch
 initrd-parse-etc.service-ignore-return-code-of-daemo.patch
+sd-event-add-support-for-CLOCK_BOOTTIME.patch
+time-util-add-clock_boottime_or_monotonic.patch
+timesyncd-always-use-CLOCK_BOOTTIME-if-we-can.patch
+timesyncd-check-if-stratum-is-valid.patch
+timesyncd-fix-calculation-of-transmit-time.patch
+timesyncd-get-kernel-timestamp-in-nanoseconds.patch
+timesyncd-check-root-distance.patch
+timesyncd-wait-before-reconnecting-to-first-server.patch
+timesyncd-allow-two-missed-replies-before-reselectin.patch
+timesyncd-don-t-reset-polling-interval-when-reselect.patch
+backlight-Avoid-error-when-state-restore-is-disabled.patch
 
 ## Cherry-picked patches:
 util-avoid-considering-dpkg-temporary-files-relevant.patch
