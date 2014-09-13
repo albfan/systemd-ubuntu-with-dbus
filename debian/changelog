@@ -1,7 +1,12 @@
 systemd (215-3) UNRELEASED; urgency=medium
 
+  [ Ben Howard ]
+  * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
+
   [ Martin Pitt ]
   * Fix udev path in udev(7). (LP: #1357782)
+  * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
+    (LP: #1367883)
 
   [ Michael Biebl ]
   * Update upstream v215-stable patch series.
