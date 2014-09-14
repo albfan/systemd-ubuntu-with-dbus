@@ -22,7 +22,12 @@ systemd (215-3) UNRELEASED; urgency=medium
     and ask the user for permission before attaching the information to the
     bug report. (Closes: #756248)
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
+  [ Sjoerd Simons ]
+  * d/p/buildsys-Don-t-default-to-gold-as-the-linker.patch
+    + Don't explicitely pick gold as the defualt linker. Fixes FTBS on sparc
+      (Closes: #760879)
+
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 14 Sep 2014 18:45:16 +0200
 
 systemd (215-2) experimental; urgency=medium
 
