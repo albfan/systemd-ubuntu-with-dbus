@@ -139,4 +139,16 @@ if [ -n "$2" ]; then
     _systemctl try-restart systemd-timesyncd.service || true
 fi
 
+# The /dev/log socket and /dev/initctl FIFO have been moved to /run and
+# replaced by symlinks. Create the symlinks manually on upgrades as well.
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=761340
+if dpkg --compare-versions "$2" lt-nl "215-3"; then
+    if [ -p /run/systemd/initctl/fifo ] && [ ! -L /dev/initctl ]; then
+         ln -sf /run/systemd/initctl/fifo /dev/initctl
+    fi
+    if [ -S /run/systemd/journal/dev-log ] && [ ! -L /dev/log ]; then
+         ln -sf /run/systemd/journal/dev-log /dev/log
+    fi
+fi
+
 #DEBHELPER#

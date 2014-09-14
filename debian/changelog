@@ -10,6 +10,9 @@ systemd (215-3) UNRELEASED; urgency=medium
 
   [ Michael Biebl ]
   * Update upstream v215-stable patch series.
+  * The /dev/log socket and /dev/initctl FIFO have been moved to /run and
+    replaced by symlinks. Create the symlinks manually on upgrades as well.
+    (Closes: #761340)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 
