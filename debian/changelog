@@ -16,6 +16,8 @@ systemd (215-3) UNRELEASED; urgency=medium
   * Make systemd recommend dbus so it is installed on upgrades. The dbus
     system bus is required to run systemd-logind and the autovt feature relies
     on logind. (Closes: #758111)
+  * Bump dependency on systemd-shim to (>= 7-2) to ensure we have a version
+    which supports systemd >= 209.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 
