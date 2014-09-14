@@ -1,4 +1,4 @@
-systemd (215-3) UNRELEASED; urgency=medium
+systemd (215-3) experimental; urgency=medium
 
   [ Ben Howard ]
   * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
@@ -27,7 +27,7 @@ systemd (215-3) UNRELEASED; urgency=medium
     + Don't explicitly pick gold as the default linker. Fixes FTBFS on sparc
       (Closes: #760879)
 
- -- Sjoerd Simons <sjoerd@debian.org>  Sun, 14 Sep 2014 18:45:16 +0200
+ -- Sjoerd Simons <sjoerd@debian.org>  Sun, 14 Sep 2014 20:14:49 +0200
 
 systemd (215-2) experimental; urgency=medium
 
