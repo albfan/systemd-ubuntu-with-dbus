@@ -24,7 +24,7 @@ systemd (215-3) UNRELEASED; urgency=medium
 
   [ Sjoerd Simons ]
   * d/p/buildsys-Don-t-default-to-gold-as-the-linker.patch
-    + Don't explicitely pick gold as the defualt linker. Fixes FTBS on sparc
+    + Don't explicitly pick gold as the default linker. Fixes FTBFS on sparc
       (Closes: #760879)
 
  -- Sjoerd Simons <sjoerd@debian.org>  Sun, 14 Sep 2014 18:45:16 +0200
