@@ -4,7 +4,6 @@ systemd (215-3) UNRELEASED; urgency=medium
   * 75-persistent-net-generator.rules: Fix matches of HyperV. (LP: #1361272)
 
   [ Martin Pitt ]
-  * Fix udev path in udev(7). (LP: #1357782)
   * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
     (LP: #1367883)
 
@@ -13,6 +12,7 @@ systemd (215-3) UNRELEASED; urgency=medium
   * The /dev/log socket and /dev/initctl FIFO have been moved to /run and
     replaced by symlinks. Create the symlinks manually on upgrades as well.
     (Closes: #761340)
+  * Fix incorrect paths in man pages. (LP: #1357782, Closes: #717491)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 
