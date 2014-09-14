@@ -13,6 +13,9 @@ systemd (215-3) UNRELEASED; urgency=medium
     replaced by symlinks. Create the symlinks manually on upgrades as well.
     (Closes: #761340)
   * Fix incorrect paths in man pages. (LP: #1357782, Closes: #717491)
+  * Make systemd recommend dbus so it is installed on upgrades. The dbus
+    system bus is required to run systemd-logind and the autovt feature relies
+    on logind. (Closes: #758111)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 

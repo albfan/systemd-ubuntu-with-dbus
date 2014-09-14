@@ -43,7 +43,8 @@ Package: systemd
 Architecture: linux-any
 Section: admin
 Priority: optional
-Recommends: libpam-systemd
+Recommends: libpam-systemd,
+            dbus
 Suggests: systemd-ui
 Pre-Depends: ${shlibs:Pre-Depends},
              ${misc:Pre-Depends}
