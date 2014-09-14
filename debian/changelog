@@ -18,6 +18,9 @@ systemd (215-3) UNRELEASED; urgency=medium
     on logind. (Closes: #758111)
   * Bump dependency on systemd-shim to (>= 7-2) to ensure we have a version
     which supports systemd >= 209.
+  * Rework bug-script to be more upfront about what kind of data is attached
+    and ask the user for permission before attaching the information to the
+    bug report. (Closes: #756248)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 08 Sep 2014 12:58:27 +0200
 

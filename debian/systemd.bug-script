@@ -1,7 +1,22 @@
 #!/bin/bash
 
-REPORTBUG_VERSION=$(dpkg-query -f '${source:Version}' -W reportbug)
+cat <<EOF
 
+Providing additional information can help diagnose problems with systemd.
+Specifically, this would include:
+- fstab configuration (copy of /etc/fstab).
+- local modifications of unit files (output of systemd-delta).
+- state of running services and units (output of systemd-analzye dump).
+- enabled/disabled state of installed services.
+If this information is not relevant for your bug report or you have privacy
+concerns, please choose no.
+
+EOF
+
+yesno "Do you want to provide additional information [Y|n]? " yep
+[ "$REPLY" = yep ] || exit 0
+
+REPORTBUG_VERSION=$(dpkg-query -f '${source:Version}' -W reportbug)
 
 # Depending on whether reportbug is new enough, we either write the output of
 # our various commands to a file and attach them to the report (this needs
@@ -30,10 +45,7 @@ if dpkg --compare-versions "$REPORTBUG_VERSION" ge "6.5.0"; then
         echo "$DIR/dsh-enabled.txt" >&3
     fi
 
-    yesno "Do you want to provide fstab information [Y|n]? " yep
-    if [ "$REPLY" = yep ]; then
-        echo "/etc/fstab" >&3
-    fi
+    echo "/etc/fstab" >&3
 
     echo "-- END ATTACHMENTS --" >&3
 else
