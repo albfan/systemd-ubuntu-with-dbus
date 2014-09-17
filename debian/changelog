@@ -12,6 +12,7 @@ systemd (218-10ubuntu1) UNRELEASED; urgency=medium
       otherwise we get missing LV symlinks. Workaround for LP #1185394.
     - Add debian/udev.lvm2.init: Dummy SysV init script to satisfy insserv
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
+    - Provide shutdown fallback for upstart. (LP: #1370329)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
