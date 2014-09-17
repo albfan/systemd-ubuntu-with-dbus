@@ -39,3 +39,4 @@ Revert-core-one-step-back-again-for-nspawn-we-actual.patch
 
 ## Ubuntu patches:
 Support-system-image-read-only-etc.patch
+Provide-shutdown-fallback-for-upstart.patch
