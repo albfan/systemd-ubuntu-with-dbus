@@ -14,6 +14,7 @@ systemd (219-7ubuntu1) UNRELEASED; urgency=medium
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
     - Add debian/udev.lvm2.service to avoid running the dummy lvm2 init
       script.
+    - Provide shutdown fallback for upstart. (LP: #1370329)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 27 Mar 2015 14:23:13 +0100
 
