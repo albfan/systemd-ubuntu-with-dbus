@@ -6,6 +6,7 @@ systemd (208-8ubuntu3) UNRELEASED; urgency=medium
   [ Martin Pitt ]
   * 75-persistent-net-generator.rules: Add new MS Azure MAC prefix 00:25:ae.
     (LP: #1367883)
+  * Provide shutdown fallback for upstart. (LP: #1370329)
 
  -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
 
