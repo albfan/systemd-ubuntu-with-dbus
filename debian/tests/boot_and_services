@@ -48,6 +48,24 @@ class ServicesTest(unittest.TestCase):
         self.assertNotEqual(b'', out)
         self.active_unit('systemd-logind')
 
+    def test_rsyslog(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'rsyslogd'])
+        self.assertIn(b'bin/rsyslogd', out)
+        self.active_unit('rsyslog')
+        with open('/var/log/syslog') as f:
+            log = f.read()
+        # has kernel messages
+        self.assertRegex(log, 'kernel:.*Command line:')
+        # has init messages
+        self.assertRegex(log, 'systemd.*Reached target Default')
+        # has other services
+        self.assertRegex(log, 'NetworkManager.*:.*starting')
+
+    def test_udev(self):
+        out = subprocess.check_output(['udevadm', 'info', '--export-db'])
+        self.assertIn(b'\nP: /devices/', out)
+        self.active_unit('systemd-udevd')
+
     # Helper methods
 
     def active_unit(self, unit):
@@ -77,8 +95,6 @@ def boot_with_systemd():
 if __name__ == '__main__':
     if not os.getenv('ADT_REBOOT_MARK'):
         boot_with_systemd()
-
-    import time
 
     unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
                                                      verbosity=2))
