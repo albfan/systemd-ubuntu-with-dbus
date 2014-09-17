@@ -7,3 +7,7 @@ Depends: libsystemd-login-dev, build-essential, pkg-config
 
 Tests: python3
 Depends: python3-systemd
+
+Tests: boot-and-services
+Depends: systemd, lightdm, cron, network-manager
+Restrictions: needs-root isolation-machine needs-recommends breaks-testbed
