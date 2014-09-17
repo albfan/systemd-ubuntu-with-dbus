@@ -75,6 +75,26 @@ class ServicesTest(unittest.TestCase):
         self.assertIn(b'active (running)', out)
 
 
+class JournalTest(unittest.TestCase):
+    '''Check journal functionality'''
+
+    def test_no_options(self):
+        out = subprocess.check_output(['journalctl'])
+        # has kernel messages
+        self.assertRegex(out, b'kernel:.*Command line:')
+        # has init messages
+        self.assertRegex(out, b'systemd.*Reached target Default')
+        # has other services
+        self.assertRegex(out, b'NetworkManager.*:.*starting')
+
+    def test_log_for_service(self):
+        out = subprocess.check_output(
+            ['journalctl', '_SYSTEMD_UNIT=NetworkManager.service'])
+        self.assertRegex(out, b'NetworkManager.*:.*starting')
+        self.assertNotIn(b'kernel:', out)
+        self.assertNotIn(b'systemd:', out)
+
+
 def boot_with_systemd():
     '''Reboot with systemd as init'''
 

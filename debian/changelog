@@ -8,6 +8,7 @@ systemd (208-8ubuntu3) UNRELEASED; urgency=medium
     (LP: #1367883)
   * Provide shutdown fallback for upstart. (LP: #1370329)
   * debian/tests/boot_and_services: Check rsyslog and udev.
+  * debian/tests/boot_and_services: Add tests for journal.
 
  -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
 
