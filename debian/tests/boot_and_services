@@ -7,7 +7,6 @@ import sys
 import os
 import unittest
 import subprocess
-import signal
 
 
 class ServicesTest(unittest.TestCase):
@@ -98,17 +97,7 @@ class JournalTest(unittest.TestCase):
 def boot_with_systemd():
     '''Reboot with systemd as init'''
 
-    print('Setting init=/bin/systemd in grub kernel command line...')
-    subprocess.check_call(['sh', '-ec', "sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/"
-                           '''s_"$_ init=/bin/systemd"_' '''
-                           '/etc/default/grub /etc/default/grub.d/*'])
-    subprocess.check_call(['update-grub'], stderr=subprocess.DEVNULL)
-    if os.path.exists('/boot/grub/menu.lst'):
-        # Ubuntu cloud images still use legacy grub
-        subprocess.check_call(['sed', '-i', '/^kernel/ s_$_ init=/bin/systemd_',
-                               '/boot/grub/menu.lst'])
-
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    subprocess.check_call('apt-get -y install systemd-sysv 2>&1', shell=True)
     subprocess.check_call(['autopkgtest-reboot', 'boot1'])
 
 
