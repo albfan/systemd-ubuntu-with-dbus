@@ -1,4 +1,4 @@
-systemd (208-8ubuntu3) UNRELEASED; urgency=medium
+systemd (208-8ubuntu3) utopic; urgency=medium
 
   [ Dariusz Gadomski ]
   * Remove udev-fallback-graphics.conf (LP: #1367241).
@@ -17,7 +17,7 @@ systemd (208-8ubuntu3) UNRELEASED; urgency=medium
   * Unblacklist hyperv_fb again, it is needed for graphical support on Hyper-V
     platforms. (LP: #1359933)
 
- -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 18 Sep 2014 08:39:21 +0200
 
 systemd (208-8ubuntu2) utopic; urgency=medium
 
