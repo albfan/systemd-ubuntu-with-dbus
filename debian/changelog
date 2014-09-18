@@ -1,3 +1,10 @@
+systemd (208-8ubuntu4) UNRELEASED; urgency=medium
+
+  * debian/tests/boot-and-services: Accept lower-case spelling of "command
+    line" in dmesg log. Curiously the case differs between amd64 and i386..
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 18 Sep 2014 21:10:01 +0200
+
 systemd (208-8ubuntu3) utopic; urgency=medium
 
   [ Dariusz Gadomski ]

@@ -54,7 +54,7 @@ class ServicesTest(unittest.TestCase):
         with open('/var/log/syslog') as f:
             log = f.read()
         # has kernel messages
-        self.assertRegex(log, 'kernel:.*Command line:')
+        self.assertRegex(log, 'kernel:.*[cC]ommand line:')
         # has init messages
         self.assertRegex(log, 'systemd.*Reached target Default')
         # has other services
@@ -80,7 +80,7 @@ class JournalTest(unittest.TestCase):
     def test_no_options(self):
         out = subprocess.check_output(['journalctl'])
         # has kernel messages
-        self.assertRegex(out, b'kernel:.*Command line:')
+        self.assertRegex(out, b'kernel:.*[cC]ommand line:')
         # has init messages
         self.assertRegex(out, b'systemd.*Reached target Default')
         # has other services
