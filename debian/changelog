@@ -13,6 +13,10 @@ systemd (208-8ubuntu3) UNRELEASED; urgency=medium
     with installing systemd-sysv. Rebooting after that works now, and most
     dependencies to "upstart" got fixed/dropped.
 
+  [ Andy Whitcroft ]
+  * Unblacklist hyperv_fb again, it is needed for graphical support on Hyper-V
+    platforms. (LP: #1359933)
+
  -- Dariusz Gadomski <dariusz.gadomski@canonical.com>  Thu, 11 Sep 2014 16:05:29 +0200
 
 systemd (208-8ubuntu2) utopic; urgency=medium
