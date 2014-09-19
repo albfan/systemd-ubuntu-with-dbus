@@ -59,7 +59,8 @@ Depends: ${shlibs:Depends},
          adduser,
          libcap2-bin
 Breaks: lvm2 (<< 2.02.104-1),
-        lsb-base (<< 4.1+Debian4)
+        lsb-base (<< 4.1+Debian4),
+        systemd-shim (<< 8-2)
 Conflicts: klogd
 Description: system and service manager
  systemd is a replacement for sysvinit.  It is dependency-based and
@@ -110,7 +111,7 @@ Depends: ${shlibs:Depends},
          systemd (= ${binary:Version}),
          libpam-runtime (>= 1.0.1-6),
          dbus,
-         systemd-sysv | systemd-shim (>= 7-2)
+         systemd-sysv | systemd-shim (>= 8-2)
 Description: system and service manager - PAM module
  systemd is a replacement for sysvinit.  It is dependency-based and
  able to read the LSB init script headers in addition to parsing rcN.d
