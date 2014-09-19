@@ -2,7 +2,7 @@ systemd (215-5) UNRELEASED; urgency=medium
 
   * Unblacklist hyperv_fb again, it is needed for graphical support on Hyper-V
     platforms. Thanks Andy Whitcroft! (LP: #1359933)
-  * Bump systemd-shim Depends/Breaks to 8.2 to ensure a lockstep upgrade.
+  * Bump systemd-shim Depends/Breaks to 8-2 to ensure a lockstep upgrade.
     (Closes: #761947)
 
  -- Martin Pitt <mpitt@debian.org>  Thu, 18 Sep 2014 08:31:35 +0200
