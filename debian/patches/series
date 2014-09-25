@@ -152,3 +152,4 @@ Make-run-lock-tmpfs-an-API-fs.patch
 Include-additional-directories-in-ProtectSystem.patch
 Fix-paths-in-man-pages.patch
 buildsys-Don-t-default-to-gold-as-the-linker.patch
+sd-bus-Accept-no-sender-as-the-destination-field.patch
