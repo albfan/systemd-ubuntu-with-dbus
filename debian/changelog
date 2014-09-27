@@ -12,6 +12,10 @@ systemd (215-5) UNRELEASED; urgency=medium
       reloads of services is requested before systemd is re-execed
       (Closes: #762146)
 
+  [ Michael Biebl ]
+  * Don't overmount existing /run/user/<UID> directories with a per-user tmpfs
+    on upgrades. (Closes: #762041)
+
  -- Sjoerd Simons <sjoerd@debian.org>  Thu, 25 Sep 2014 22:13:42 +0200
 
 systemd (215-4) unstable; urgency=medium
