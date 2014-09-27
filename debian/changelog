@@ -1,4 +1,4 @@
-systemd (215-5) UNRELEASED; urgency=medium
+systemd (215-5) unstable; urgency=medium
 
   [ Martin Pitt ]
   * Unblacklist hyperv_fb again, it is needed for graphical support on Hyper-V
@@ -19,7 +19,7 @@ systemd (215-5) UNRELEASED; urgency=medium
     like laptop-mode-tools, which runs mount from within udev rules, causes
     the root file system to end up read-only. (Closes: #762018)
 
- -- Sjoerd Simons <sjoerd@debian.org>  Thu, 25 Sep 2014 22:13:42 +0200
+ -- Michael Biebl <biebl@debian.org>  Sat, 27 Sep 2014 17:49:47 +0200
 
 systemd (215-4) unstable; urgency=medium
 
