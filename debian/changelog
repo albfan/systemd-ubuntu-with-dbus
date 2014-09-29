@@ -5,7 +5,8 @@ systemd (218-1ubuntu1) UNRELEASED; urgency=medium
     - Hack to support system-image read-only /etc, and modify files in
       /etc/writable/ instead.
     - Don't install 80-networking.rules and the Debian *.agent scripts, we
-      never supported them in Ubuntu.
+      never supported them in Ubuntu. Instead, extend systemd's "net" device
+      udev rule to trigger ifup@.service on network devices.
     - Keep our much simpler udev maintainer scripts (all platforms must
       support udev, no debconf).
     - debian/extra/initramfs.top: Drop $ROOTDELAY, we do that in a more
