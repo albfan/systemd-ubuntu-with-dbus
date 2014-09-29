@@ -583,3 +583,4 @@ Create-disk-by-partlabel-links-for-mmcblk-partitions.patch
 Support-system-image-read-only-etc.patch
 Add-support-for-HP-ProLiant-m400-Server-Cartridge-so.patch
 Provide-shutdown-fallback-for-upstart.patch
+Trigger-ifup-.service-on-network-devices.patch
