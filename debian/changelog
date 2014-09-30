@@ -12,6 +12,10 @@ systemd (225-1ubuntu1) UNRELEASED; urgency=medium
     - Add debian/udev.lvm2.service to avoid running the dummy lvm2 init
       script.
     - Provide shutdown fallback for upstart. (LP: #1370329)
+    - debian/extra/ifup@.service: Additionally run for "auto" class. We don't
+      really support "allow-hotplug" in Ubuntu at the moment, so we need to
+      deal with "auto" devices appearing after "/etc/init.d/networking start"
+      already ran. (LP: #1374521)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Aug 2015 08:08:12 +0200
 
