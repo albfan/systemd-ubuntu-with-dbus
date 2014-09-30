@@ -7,6 +7,7 @@ systemd (208-8ubuntu5) UNRELEASED; urgency=medium
     support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
     "auto" devices appearing after "/etc/init.d/networking start" already ran.
     (LP: #1374521)
+  * Pull latest keymaps from upstream trunk.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Sep 2014 18:37:40 +0200
 
