@@ -9,6 +9,7 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 ExecStart=/sbin/ifup --allow=hotplug %I
+ExecStartPost=/sbin/ifup --allow=auto %I
 ExecStartPost=/sbin/ifquery --state %I
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true
