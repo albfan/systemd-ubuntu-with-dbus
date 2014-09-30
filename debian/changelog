@@ -1,4 +1,4 @@
-systemd (208-8ubuntu5) UNRELEASED; urgency=medium
+systemd (208-8ubuntu5) utopic; urgency=medium
 
   * Extend systemd's "net" device udev rule to trigger ifup@.service on
     network devices. In Debian this is done through net.agent, but we do not
@@ -9,7 +9,7 @@ systemd (208-8ubuntu5) UNRELEASED; urgency=medium
     (LP: #1374521)
   * Pull latest keymaps from upstream trunk.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Sep 2014 18:37:40 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 30 Sep 2014 07:55:12 +0200
 
 systemd (208-8ubuntu4) utopic; urgency=medium
 
