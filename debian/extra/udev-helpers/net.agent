@@ -34,8 +34,8 @@ wait_for_interface() {
 net_ifup() {
     check_program /sbin/ifup
 
-    # exit if the interface is not configured as allow-hotplug
-    if ! ifquery --allow hotplug -l | grep -q "^${INTERFACE}\$"; then
+    # exit if the interface is not configured as allow-hotplug or auto
+    if ! (ifquery --allow hotplug -l; ifquery --allow auto -l) | grep -q "^${INTERFACE}\$"; then
         exit 0
     fi
 

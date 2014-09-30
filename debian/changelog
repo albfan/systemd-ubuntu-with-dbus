@@ -6,6 +6,10 @@ systemd (228-2ubuntu2) UNRELEASED; urgency=medium
     - Simpler udev maintainer scripts (all platforms must support udev, no
       debconf).
     - Provide shutdown fallback for upstart. (LP: #1370329)
+    - debian/extra/ifup@.service: Additionally run for "auto" class. We don't
+      really support "allow-hotplug" in Ubuntu at the moment, so we need to
+      deal with "auto" devices appearing after "/etc/init.d/networking start"
+      already ran. (LP: #1374521)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Nov 2015 08:45:51 +0100
 
