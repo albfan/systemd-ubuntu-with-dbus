@@ -27,6 +27,10 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
       device setup, and thus is be compatible with systemd, too.
     - Add HP ProLiant Server Cartridge power control support.
     - Provide shutdown fallback for upstart. (LP: #1370329)
+    - debian/ifup@.service: Additionally run for "auto" class. We don't really
+      support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+      "auto" devices appearing after "/etc/init.d/networking start" already
+      ran.  (LP: #1374521)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
