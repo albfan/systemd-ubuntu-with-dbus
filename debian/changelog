@@ -33,6 +33,10 @@ systemd (215-5ubuntu1) UNRELEASED; urgency=medium
     - Provide shutdown fallback for upstart. (LP: #1370329)
     - Add boot-and-services autopkgtest to check booting with systemd-sysv and
       that the most crucial services behave as expected.
+    - debian/ifup@.service: Additionally run for "auto" class. We don't really
+      support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+      "auto" devices appearing after "/etc/init.d/networking start" already
+      ran.  (LP: #1374521)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
