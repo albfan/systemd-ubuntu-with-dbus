@@ -7,8 +7,8 @@ ConditionPathIsDirectory=/run/network
 DefaultDependencies=no
 
 [Service]
-Type=oneshot
-ExecStart=/sbin/ifup --allow=hotplug %I
-ExecStartPost=/sbin/ifquery --state %I
+# only fail if ifupdown knows about the iface AND it's not up
+ExecStart=/bin/sh -ec 'ifup --allow=hotplug %I; ifup --allow=auto %I; \
+    if ifquery %I >/dev/null; then ifquery --state %I >/dev/null; fi'
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true
