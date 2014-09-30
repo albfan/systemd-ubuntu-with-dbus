@@ -8,5 +8,6 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=/sbin/ifup --allow=hotplug %I
+ExecStartPost=/sbin/ifup --allow=auto %I
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true
