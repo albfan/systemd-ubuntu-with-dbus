@@ -9,6 +9,8 @@ DefaultDependencies=no
 [Service]
 Type=oneshot
 ExecStart=/sbin/ifup --allow=hotplug %I
-ExecStartPost=/sbin/ifquery --state %I
+ExecStartPost=/sbin/ifup --allow=auto %I
+# only fail if ifupdown knows about the iface AND it's not up
+ExecStartPost=/bin/sh -c 'if ifquery %I >/dev/null; then ifquery --state %I >/dev/null; fi'
 ExecStop=/sbin/ifdown %I
 RemainAfterExit=true
