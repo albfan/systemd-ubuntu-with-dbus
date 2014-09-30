@@ -3,6 +3,10 @@ systemd (208-8ubuntu5) UNRELEASED; urgency=medium
   * Extend systemd's "net" device udev rule to trigger ifup@.service on
     network devices. In Debian this is done through net.agent, but we do not
     install this in Ubuntu. (LP: #1374521)
+  * debian/ifup@.service: Additionally run for "auto" class. We don't really
+    support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
+    "auto" devices appearing after "/etc/init.d/networking start" already ran.
+    (LP: #1374521)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 29 Sep 2014 18:37:40 +0200
 
