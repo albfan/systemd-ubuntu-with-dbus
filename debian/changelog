@@ -1,3 +1,12 @@
+systemd (208-8ubuntu6) UNRELEASED; urgency=medium
+
+  * Put back udev-fallback-graphics.conf as its complete removal (from
+    LP #1367241) breaks fb loading in VirtualBox. (LP: #1375805). Instead,
+    just guard the modprobe with || true to avoid a failure when vesafb is
+    compiled in.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 01 Oct 2014 08:00:37 +0200
+
 systemd (208-8ubuntu5) utopic; urgency=medium
 
   * Extend systemd's "net" device udev rule to trigger ifup@.service on
