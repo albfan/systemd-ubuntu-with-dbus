@@ -1,3 +1,11 @@
+systemd (208-8ubuntu7) utopic; urgency=medium
+
+  * Reinstate udev-fallback-graphics.conf fix below fails to
+    install this replaced init script.  Fixes brown paper bag fail.
+    (LP: #1375805)
+
+ -- Andy Whitcroft <apw@ubuntu.com>  Wed, 01 Oct 2014 13:19:40 +0100
+
 systemd (208-8ubuntu6) utopic; urgency=medium
 
   * Reinstate udev-fallback-graphics.conf without which we will
