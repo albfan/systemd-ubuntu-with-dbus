@@ -1,4 +1,4 @@
-systemd (208-8ubuntu8) UNRELEASED; urgency=medium
+systemd (208-8ubuntu8) utopic; urgency=medium
 
   * debian/tests/boot-and-services: Be more liberal about the expected
     NetworkManager rsyslog lines; curiously on i386 we don't get NM's
@@ -6,7 +6,7 @@ systemd (208-8ubuntu8) UNRELEASED; urgency=medium
   * Pull latest keymaps from upstream. Fixes touchpad toggle on Asus laptops.
     (LP: #1377352)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 07 Oct 2014 11:01:33 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 07 Oct 2014 12:16:29 +0200
 
 systemd (208-8ubuntu7) utopic; urgency=medium
 
