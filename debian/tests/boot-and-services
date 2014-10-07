@@ -58,7 +58,7 @@ class ServicesTest(unittest.TestCase):
         # has init messages
         self.assertRegex(log, 'systemd.*Reached target Default')
         # has other services
-        self.assertRegex(log, 'NetworkManager.*:.*starting')
+        self.assertRegex(log, 'NetworkManager.*:')
 
     def test_udev(self):
         out = subprocess.check_output(['udevadm', 'info', '--export-db'])
