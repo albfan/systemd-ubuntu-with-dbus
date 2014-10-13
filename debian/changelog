@@ -33,6 +33,8 @@ systemd (219-1ubuntu1) UNRELEASED; urgency=medium
       provides an aggregate progress report of running file system checks and
       also allows cancelling them with ^C.
       (LP: #1316796; Closes: #775093, #758902)
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
