@@ -25,6 +25,8 @@ systemd (217-1ubuntu1) UNRELEASED; urgency=medium
       dependencies to "lvm2" which is handled with udev rules in Ubuntu.
     - Lower Breaks: to lvm2 again. Our lvm2 package has always used udev for
       device setup, and thus is be compatible with systemd, too.
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
     - Add HP ProLiant Server Cartridge power control support.
     - Provide shutdown fallback for upstart. (LP: #1370329)
     - debian/ifup@.service: Additionally run for "auto" class. We don't really
