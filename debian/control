@@ -250,7 +250,7 @@ Depends: ${shlibs:Depends},
 Breaks: consolekit (<< 0.4.6-1),
         kmod (<< 14),
         systemd (<< 215-1),
-        plymouth (<< 0.9.0-7),
+        plymouth (<< 0.9.0-0ubuntu8~),
         bash-completion (<< 1:2.1)
 Replaces: bash-completion (<< 1:2.1)
 Description: /dev/ and hotplug management daemon
