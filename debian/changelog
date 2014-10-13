@@ -39,6 +39,8 @@ systemd (222-1ubuntu1) UNRELEASED; urgency=medium
       late and isn't really needed in Ubuntu yet as we don't support stateless
       systems yet and handle hwdb.bin updates through dpkg triggers. This can
       be dropped again with initramfs-tools 0.117.
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 28 Jun 2015 12:30:17 +0200
 
