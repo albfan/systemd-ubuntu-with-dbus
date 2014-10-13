@@ -23,6 +23,8 @@ systemd (218-5ubuntu1) UNRELEASED; urgency=medium
       (LP: #1377258)
     - Put session scopes into all cgroup controllers. This makes unprivileged
       user LXC containers work under systemd. (LP: #1346734)
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 
