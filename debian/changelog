@@ -25,6 +25,8 @@ systemd (218-2ubuntu1) UNRELEASED; urgency=medium
       support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
       "auto" devices appearing after "/etc/init.d/networking start" already
       ran.  (LP: #1374521)
+    - Lower Breaks: to plymouth version which has the udev inotify fix in
+      Ubuntu.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
