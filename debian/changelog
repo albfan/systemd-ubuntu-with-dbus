@@ -44,6 +44,8 @@ systemd (215-5ubuntu1) UNRELEASED; urgency=medium
     - systemd Conflicts/Replaces/Provides systemd-services.
     - Remove obsolete systemd-logind upstart job.
 
+  * Clean up obsolete /etc/udev/rules.d/README on upgrades. (LP: #1381655)
+
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
 
 systemd (215-6) UNRELEASED; urgency=medium
