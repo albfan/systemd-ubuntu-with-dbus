@@ -46,6 +46,7 @@ systemd (225-1ubuntu1) UNRELEASED; urgency=medium
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
     - Remove obsolete systemd-logind upstart job.
+    - Clean up obsolete /etc/udev/rules.d/README.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 27 Aug 2015 08:08:12 +0200
 
