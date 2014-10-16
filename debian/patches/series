@@ -107,6 +107,7 @@ always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch
 timesyncd-when-we-don-t-know-anything-about-the-netw.patch
 udev-link-config-fix-crash-due-to-missing-hwaddr.patch
 tests-fix-some-tests-to-pass-in-koji.patch
+Make-emergency.service-conflict-with-rescue.service.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
@@ -148,7 +149,6 @@ Add-support-for-rcS.d-init-scripts-to-the-sysv-gener.patch
 Do-not-generate-systemd-units-from-sysv-init-scripts.patch
 Do-not-order-rcS.d-services-after-local-fs.target-if.patch
 Map-rcS.d-init-script-dependencies-to-their-systemd-.patch
-Make-emergency.service-conflict-with-rescue.service.patch
 Stop-syslog.socket-when-entering-emergency-mode.patch
 Make-run-lock-tmpfs-an-API-fs.patch
 Include-additional-directories-in-ProtectSystem.patch
