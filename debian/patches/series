@@ -157,3 +157,4 @@ buildsys-Don-t-default-to-gold-as-the-linker.patch
 sd-bus-Accept-no-sender-as-the-destination-field.patch
 login-don-t-overmount-run-user-UID-on-upgrades.patch
 udev-re-enable-mount-propagation-for-udevd.patch
+Add-env-variable-for-machine-ID-path.patch

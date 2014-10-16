@@ -2,6 +2,9 @@ systemd (215-6) UNRELEASED; urgency=medium
 
   * Cherry-pick upstream patch to fix udev crash in link_config_get().
   * Cherry-pick upstream patch to fix tests in limited schroot environments.
+  * Add d/p/Add-env-variable-for-machine-ID-path.patch: Allow specifying an
+    alternate /etc/machine-id location. This is necessary for running tests
+    as long as it isn't in our base images (see Debian #745876)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
