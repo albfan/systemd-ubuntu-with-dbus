@@ -106,6 +106,7 @@ sd-journal-properly-convert-object-size-on-big-endia.patch
 always-check-for-__BYTE_ORDER-__BIG_ENDIAN-when-chec.patch
 timesyncd-when-we-don-t-know-anything-about-the-netw.patch
 udev-link-config-fix-crash-due-to-missing-hwaddr.patch
+tests-fix-some-tests-to-pass-in-koji.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
