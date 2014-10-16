@@ -5,6 +5,8 @@ systemd (215-6) UNRELEASED; urgency=medium
   * Add d/p/Add-env-variable-for-machine-ID-path.patch: Allow specifying an
     alternate /etc/machine-id location. This is necessary for running tests
     as long as it isn't in our base images (see Debian #745876)
+  * Run tests during package build. For the first round don't make them fatal
+    for now (that will happen once we see results from all the architectures).
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
