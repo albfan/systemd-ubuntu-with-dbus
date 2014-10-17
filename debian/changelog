@@ -9,6 +9,8 @@ systemd (215-6) UNRELEASED; urgency=medium
     for now (that will happen once we see results from all the architectures).
   * Drop our Check-for-kmod-binary.patch as the upstream patch
     units-conditionalize-static-device-node-logic-on-CAP.patch supersedes it.
+  * Drop Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch, as
+    our util-linux is now recent enough. Bump dependency to >= 2.21.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
