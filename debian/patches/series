@@ -141,7 +141,6 @@ Set-default-polling-interval-on-removable-devices-as.patch
 insserv.conf-generator.patch
 Add-targets-for-compatibility-with-Debian-insserv-sy.patch
 more-cd-aliases.patch
-Check-for-kmod-binary.patch
 Adjust-systemd-user-pam-config-file-for-Debian.patch
 Add-run-initctl-support-to-SysV-compat-tools.patch
 Add-support-for-TuxOnIce-hibernation.patch
