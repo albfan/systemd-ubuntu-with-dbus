@@ -11,6 +11,7 @@ systemd (215-6) UNRELEASED; urgency=medium
     units-conditionalize-static-device-node-logic-on-CAP.patch supersedes it.
   * Drop Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch, as
     our util-linux is now recent enough. Bump dependency to >= 2.21.
+  * Adjust debian/tests/hostnamed to current upstream version.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
