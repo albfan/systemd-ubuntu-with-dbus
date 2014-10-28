@@ -12,6 +12,9 @@ systemd (215-6) UNRELEASED; urgency=medium
   * Drop Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch, as
     our util-linux is now recent enough. Bump dependency to >= 2.21.
   * Adjust timedated and hostnamed autopkgtests to current upstream version.
+  * Replace our Debian hwdb.bin location patch with what got committed
+    upstream. Run hwdb update with the new --usr option to keep current
+    behaviour.
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
