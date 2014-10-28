@@ -23,7 +23,7 @@ It has the following modifications:
  create mode 100644 src/insserv-generator/insserv-generator.c
 
 diff --git a/Makefile.am b/Makefile.am
-index 713df57..5658f18 100644
+index 3e23d8b..ce93c8c 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -383,6 +383,7 @@ rootlibexec_PROGRAMS = \

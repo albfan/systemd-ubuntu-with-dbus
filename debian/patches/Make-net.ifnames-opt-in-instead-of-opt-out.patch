@@ -10,7 +10,7 @@ http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceName
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index 5a45c53..f93998a 100644
+index 3cc0471..2778b74 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
 @@ -200,13 +200,13 @@ static bool enable_name_policy(void) {
