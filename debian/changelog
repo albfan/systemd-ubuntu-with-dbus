@@ -15,6 +15,8 @@ systemd (215-6) UNRELEASED; urgency=medium
   * Replace our Debian hwdb.bin location patch with what got committed
     upstream. Run hwdb update with the new --usr option to keep current
     behaviour.
+  * debian/README.Debian: Document how to debug boot or shutdown problems with
+    the debug shell. (Closes: #766039)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
