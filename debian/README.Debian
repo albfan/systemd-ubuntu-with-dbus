@@ -39,12 +39,12 @@ debug shell permanently which is a SECURITY HOLE as it allows unauthenticated
 and unrestricted root access to your computer if you forget to disable it!
 Please only enable it if you cannot pass "systemd.debug-shell" to the boot
 loader for some reason, and then immediately run "systemctl disable debug-shell"
-again.
+after booting.
 
 Once the boot/shutdown problem happened, switch to VT9 (Ctrl+Alt+F9). There you
 can use the usual systemctl or journalctl commands, or any other Linux shell
-command to list or kill processes. For example, run "systemctl", find units
-which are not in the expected state (e. g. "failed" for boot or still "active"
-during shutdown), and then get more detailled information with
-"systemctl status -l something.service" to get a service's status and recent
-logging.
+command to list or kill processes. For example, run "systemctl list-jobs" to
+see what's currently being run, or "systemctl" to find units which are not in
+the expected state (e. g. "failed" for boot or still "active" during shutdown),
+and then get more detailled information with "systemctl status -l foo.service"
+to get a service "foo"'s status and recent logging.
