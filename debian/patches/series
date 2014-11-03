@@ -108,6 +108,7 @@ timesyncd-when-we-don-t-know-anything-about-the-netw.patch
 udev-link-config-fix-crash-due-to-missing-hwaddr.patch
 tests-fix-some-tests-to-pass-in-koji.patch
 Make-emergency.service-conflict-with-rescue.service.patch
+udev-hwdb-Support-shipping-pre-compiled-database-in-.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
@@ -127,7 +128,6 @@ Bring-tmpfiles.d-tmp.conf-in-line-with-Debian-defaul.patch
 Don-t-mount-tmp-as-tmpfs-by-default.patch
 Fix-up-tmpfiles.d-permissions-properly.patch
 Revert-udev-network-device-renaming-immediately-give.patch
-udev-hwdb-Store-binary-database-in-libdir-not-in-etc.patch
 Make-net.ifnames-opt-in-instead-of-opt-out.patch
 Use-different-default-paths-for-various-binaries.patch
 Avoid-reloading-services-when-shutting-down.patch

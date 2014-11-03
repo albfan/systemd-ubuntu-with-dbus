@@ -8,7 +8,7 @@ Reported by: master.nosferatu@gmail.com
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/src/udev/net/link-config.c b/src/udev/net/link-config.c
-index f93998a..2778b74 100644
+index 5a45c53..3cc0471 100644
 --- a/src/udev/net/link-config.c
 +++ b/src/udev/net/link-config.c
 @@ -247,11 +247,12 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device, link_confi

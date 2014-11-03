@@ -1086,7 +1086,7 @@ index ee75d42..fd79807 100644
  ...</programlisting>
                  </para>
 diff --git a/man/udev.xml b/man/udev.xml
-index 4e5f8f0..3ba03a2 100644
+index 68c3586..9bcc926 100644
 --- a/man/udev.xml
 +++ b/man/udev.xml
 @@ -56,17 +56,17 @@
@@ -1140,12 +1140,12 @@ index 4e5f8f0..3ba03a2 100644
        disables the hwdb file entirely. hwdb files must have the extension
        <filename>.hwdb</filename>; other extensions are ignored.</para>
  
-@@ -758,7 +758,7 @@
- 
+@@ -759,7 +759,7 @@
        <para>The content of all hwdb files is read by
        <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
--      and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>.
-+      and compiled to a binary database located at <filename>/lib/udev/hwdb.bin</filename>.
+       and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
+-      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
++      or alternatively <filename>/lib/udev/hwdb.bin</filename> if you want ship the compiled
+       database in an immutable image.
        During runtime only the binary database is used.</para>
    </refsect1>
- 

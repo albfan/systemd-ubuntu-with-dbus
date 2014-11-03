@@ -1,3 +1,19 @@
+systemd (215-5ubuntu2) UNRELEASED; urgency=medium
+
+  * Merge fixes from Debian:
+    - Adjust timedated and hostnamed autopkgtests to current upstream version.
+    - Replace our Debian hwdb.bin location patch with what got committed
+      upstream. Run hwdb update with the new --usr option to keep current
+      behaviour.
+    - debian/README.Debian: Document how to debug boot or shutdown problems with
+      the debug shell. (Closes: #766039)
+    - Skip-99-systemd.rules-when-not-running-systemd-as-in.patch: Call path_id
+      under all init systems, to get consistent ID_PATH attributes. This is
+      required so that tools like systemd-rfkill can be used with SysVinit or
+      upstart scripts, too. (LP: #1387282)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 03 Nov 2014 07:09:39 +0100
+
 systemd (215-5ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
@@ -61,6 +77,16 @@ systemd (215-6) UNRELEASED; urgency=medium
     units-conditionalize-static-device-node-logic-on-CAP.patch supersedes it.
   * Drop Use-comment-systemd.-syntax-in-systemd.mount-man-pag.patch, as
     our util-linux is now recent enough. Bump dependency to >= 2.21.
+  * Adjust timedated and hostnamed autopkgtests to current upstream version.
+  * Replace our Debian hwdb.bin location patch with what got committed
+    upstream. Run hwdb update with the new --usr option to keep current
+    behaviour.
+  * debian/README.Debian: Document how to debug boot or shutdown problems with
+    the debug shell. (Closes: #766039)
+  * Skip-99-systemd.rules-when-not-running-systemd-as-in.patch: Call path_id
+    under all init systems, to get consistent ID_PATH attributes. This is
+    required so that tools like systemd-rfkill can be used with SysVinit or
+    upstart scripts, too. (LP: #1387282)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
