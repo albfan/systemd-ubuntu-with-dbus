@@ -17,6 +17,10 @@ systemd (215-6) UNRELEASED; urgency=medium
     behaviour.
   * debian/README.Debian: Document how to debug boot or shutdown problems with
     the debug shell. (Closes: #766039)
+  * Skip-99-systemd.rules-when-not-running-systemd-as-in.patch: Call path_id
+    under all init systems, to get consistent ID_PATH attributes. This is
+    required so that tools like systemd-rfkill can be used with SysVinit or
+    upstart scripts, too. (LP: #1387282)
 
  -- Martin Pitt <mpitt@debian.org>  Sun, 12 Oct 2014 17:29:00 +0200
 
