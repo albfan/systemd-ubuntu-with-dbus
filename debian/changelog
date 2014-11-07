@@ -15,6 +15,10 @@ systemd (228-2ubuntu2) UNRELEASED; urgency=medium
       This avoids unnecessary dependencies/waiting during boot and dependency
       cycles if hooks wait for other interfaces to come up (like ifenslave
       with bonding interfaces). (LP: #1414544)
+    - Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In
+      Ubuntu we currently keep the setting whether the RTC is in local or UTC
+      time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
+      (LP: #1377258)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Nov 2015 08:45:51 +0100
 
