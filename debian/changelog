@@ -57,6 +57,10 @@ systemd (217-1ubuntu1) vivid; urgency=medium
       support "allow-hotplug" in Ubuntu at the moment, so we need to deal with
       "auto" devices appearing after "/etc/init.d/networking start" already
       ran.  (LP: #1374521)
+    - Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In
+      Ubuntu we currently keep the setting whether the RTC is in local or UTC
+      time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
+      (LP: #1377258)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
