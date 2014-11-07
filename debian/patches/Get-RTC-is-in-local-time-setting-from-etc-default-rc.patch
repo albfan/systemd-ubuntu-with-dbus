@@ -1,0 +1,49 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Fri, 7 Nov 2014 16:48:13 +0100
+Subject: Get "RTC is in local time" setting from /etc/default/rcS
+
+In Ubuntu we currently keep the setting whether the RTC is in local or UTC time
+in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
+
+LP: #1377258
+---
+ src/shared/clock-util.c | 21 ++++++---------------
+ 1 file changed, 6 insertions(+), 15 deletions(-)
+
+diff --git a/src/shared/clock-util.c b/src/shared/clock-util.c
+index e66db63..a5781e3 100644
+--- a/src/shared/clock-util.c
++++ b/src/shared/clock-util.c
+@@ -82,26 +82,17 @@ int clock_set_hwclock(const struct tm *tm) {
+ int clock_is_localtime(void) {
+         _cleanup_fclose_ FILE *f;
+ 
+-        /*
+-         * The third line of adjtime is "UTC" or "LOCAL" or nothing.
+-         *   # /etc/adjtime
+-         *   0.0 0 0
+-         *   0
+-         *   UTC
+-         */
+-        f = fopen("/etc/adjtime", "re");
++        f = fopen("/etc/default/rcS", "re");
+         if (f) {
+                 char line[LINE_MAX];
+                 bool b;
+ 
+-                b = fgets(line, sizeof(line), f) &&
+-                        fgets(line, sizeof(line), f) &&
+-                        fgets(line, sizeof(line), f);
+-                if (!b)
+-                        return -EIO;
++                while (fgets(line, sizeof(line), f)) {
++                        truncate_nl(line);
++                        if (startswith(line, "UTC"))
++                                return strstr(line, "no") != NULL;
+ 
+-                truncate_nl(line);
+-                return streq(line, "LOCAL");
++                }
+ 
+         } else if (errno != ENOENT)
+                 return -errno;
