@@ -67,3 +67,4 @@ Add-fsckd-po-files.patch
 ## Ubuntu patches:
 Support-system-image-read-only-etc.patch
 Provide-shutdown-fallback-for-upstart.patch
+Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
