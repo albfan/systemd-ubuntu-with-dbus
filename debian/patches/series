@@ -53,3 +53,4 @@ Support-system-image-read-only-etc.patch
 Add-support-for-ProLiant-Server-Cartridge-power-butt.patch
 Provide-shutdown-fallback-for-upstart.patch
 Trigger-ifup-.service-on-network-devices.patch
+Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch

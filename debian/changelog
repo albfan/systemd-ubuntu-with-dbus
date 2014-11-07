@@ -27,6 +27,10 @@ systemd (218-1ubuntu1) UNRELEASED; urgency=medium
       ran.  (LP: #1374521)
     - Lower Breaks: to plymouth version which has the udev inotify fix in
       Ubuntu.
+    - Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In
+      Ubuntu we currently keep the setting whether the RTC is in local or UTC
+      time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
+      (LP: #1377258)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
