@@ -1,0 +1,58 @@
+From: Kay Sievers <kay@vrfy.org>
+Date: Tue, 28 Oct 2014 16:50:24 +0100
+Subject: udev: path_id - set supported_parent for well-known SCSI setups
+
+---
+ src/udev/udev-builtin-path_id.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/udev/udev-builtin-path_id.c b/src/udev/udev-builtin-path_id.c
+index df851a6..77fa7af 100644
+--- a/src/udev/udev-builtin-path_id.c
++++ b/src/udev/udev-builtin-path_id.c
+@@ -338,7 +338,7 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
+         return parent;
+ }
+ 
+-static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
++static struct udev_device *handle_scsi(struct udev_device *parent, char **path, bool *supported_parent)
+ {
+         const char *devtype;
+         const char *name;
+@@ -353,6 +353,7 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
+         if (id != NULL) {
+                 parent = skip_subsystem(parent, "scsi");
+                 path_prepend(path, "ieee1394-0x%s", id);
++                *supported_parent = true;
+                 goto out;
+         }
+ 
+@@ -361,16 +362,19 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
+ 
+         if (strstr(name, "/rport-") != NULL) {
+                 parent = handle_scsi_fibre_channel(parent, path);
++                *supported_parent = true;
+                 goto out;
+         }
+ 
+         if (strstr(name, "/end_device-") != NULL) {
+                 parent = handle_scsi_sas(parent, path);
++                *supported_parent = true;
+                 goto out;
+         }
+ 
+         if (strstr(name, "/session") != NULL) {
+                 parent = handle_scsi_iscsi(parent, path);
++                *supported_parent = true;
+                 goto out;
+         }
+ 
+@@ -515,7 +519,7 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
+                 } else if (streq(subsys, "scsi_tape")) {
+                         handle_scsi_tape(parent, &path);
+                 } else if (streq(subsys, "scsi")) {
+-                        parent = handle_scsi(parent, &path);
++                        parent = handle_scsi(parent, &path, &supported_parent);
+                         supported_transport = true;
+                 } else if (streq(subsys, "cciss")) {
+                         parent = handle_cciss(parent, &path);
