@@ -1,9 +1,9 @@
-systemd (208-8ubuntu8.1) UNRELEASED; urgency=medium
+systemd (208-8ubuntu8.1) utopic-proposed; urgency=medium
 
   * Fix path-id to correctly recognize supported devices. This brings back
     /dev/disks/by-path/ symlinks for iSCSI devices. (LP: #1391354)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 13 Nov 2014 14:52:20 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 13 Nov 2014 14:54:35 +0100
 
 systemd (208-8ubuntu8) utopic; urgency=medium
 
