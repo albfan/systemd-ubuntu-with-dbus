@@ -46,3 +46,6 @@ usr/lib/sysctl.d/
 usr/lib/systemd/
 usr/lib/tmpfiles.d/
 usr/share/locale/
+
+# Ubuntu
+../../extra/systemd.py usr/share/apport/package-hooks

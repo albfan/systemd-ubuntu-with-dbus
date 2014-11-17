@@ -46,6 +46,8 @@ systemd (215-6ubuntu1) UNRELEASED; urgency=medium
   * Add Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch: In Ubuntu
     we currently keep the setting whether the RTC is in local or UTC time
     in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime. (LP: #1377258)
+  * Add systemd Apport hook for adding systemd-delta and information about
+    failed units.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
 
