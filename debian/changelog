@@ -22,6 +22,10 @@ systemd (215-6) UNRELEASED; urgency=medium
     under all init systems, to get consistent ID_PATH attributes. This is
     required so that tools like systemd-rfkill can be used with SysVinit or
     upstart scripts, too. (LP: #1387282)
+  * Switch libpam-systemd dependencies to prefer systemd-shim over
+    systemd-sysv, to implement the CTTE decision #746578. This is a no-op on
+    systems which already have systemd-sysv installed, but will prevent
+    installing that on upgrades. (Closes: #769747)
 
   [ Didier Roche ]
   * debian/ifup@.service: add a ConditionPath on /run/network, to avoid
