@@ -61,6 +61,8 @@ systemd (217-1ubuntu1) vivid; urgency=medium
       Ubuntu we currently keep the setting whether the RTC is in local or UTC
       time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
       (LP: #1377258)
+    - Add systemd Apport hook for adding systemd-delta and information about
+      failed units.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
