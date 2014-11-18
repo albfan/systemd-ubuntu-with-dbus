@@ -103,7 +103,8 @@ esac
 # When udev_log="debug" stdout and stderr are pipes connected to udevd.
 # They need to be closed or udevd will wait for this process which will
 # deadlock with udevsettle until the timeout.
-do_everything > /dev/null 2> /dev/null &
+exec > /dev/null 2> /dev/null
+do_everything &
 
 exit 0
 

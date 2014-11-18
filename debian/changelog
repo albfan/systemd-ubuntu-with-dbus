@@ -28,6 +28,8 @@ systemd (215-6) UNRELEASED; urgency=medium
     installing that on upgrades. (Closes: #769747)
   * Remove Tollef from Uploaders: as per his request. Thanks Tollef for all
     you work!
+  * net.agent: Properly close stdout/err FDs, to avoid long hangs during udev
+    settle. Thanks to Ben Hutchings! (Closes: #754987)
 
   [ Didier Roche ]
   * debian/ifup@.service: add a ConditionPath on /run/network, to avoid
