@@ -30,6 +30,7 @@ systemd (215-6) UNRELEASED; urgency=medium
     you work!
   * net.agent: Properly close stdout/err FDs, to avoid long hangs during udev
     settle. Thanks to Ben Hutchings! (Closes: #754987)
+  * Bump Standards-Version to 3.9.6 (no changes necessary).
 
   [ Didier Roche ]
   * debian/ifup@.service: add a ConditionPath on /run/network, to avoid
