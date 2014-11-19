@@ -2,6 +2,8 @@ systemd (215-7) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
   * Add myself to Uploaders:.
+  * Add boot-and-services autopkgtest: Check booting with systemd-sysv and
+    that the most crucial services behave as expected.
 
   [ Jon Severinsson]
   * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf. This

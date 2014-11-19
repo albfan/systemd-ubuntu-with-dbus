@@ -1,0 +1,120 @@
+#!/usr/bin/python3
+# autopkgtest check: Boot with systemd and check critical desktop services
+# (C) 2014 Canonical Ltd.
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+
+import sys
+import os
+import unittest
+import subprocess
+
+
+class ServicesTest(unittest.TestCase):
+    '''Check that expected services are running'''
+
+    def test_0_init(self):
+        '''Verify that init is systemd'''
+
+        self.assertIn('systemd', os.readlink('/proc/1/exe'))
+
+    def test_lightdm(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'lightdm'])
+        self.assertIn(b'lightdm --session', out)
+        out = subprocess.check_output(['ps', 'u', '-C', 'Xorg'])
+        self.assertIn(b':0', out)
+        self.active_unit('lightdm')
+
+    def test_dbus(self):
+        out = subprocess.check_output(
+            ['dbus-send', '--print-reply', '--system',
+             '--dest=org.freedesktop.DBus', '/', 'org.freedesktop.DBus.GetId'])
+        self.assertIn(b'string "', out)
+        self.active_unit('dbus')
+
+    def test_network_manager(self):
+        # 0.9.10 changed the command name
+        _help = subprocess.check_output(['nmcli', '--help'],
+                                        stderr=subprocess.STDOUT)
+        if b' g[eneral]' in _help:
+            out = subprocess.check_output(['nmcli', 'general'])
+        else:
+            out = subprocess.check_output(['nmcli', 'nm'])
+        self.assertIn(b'enabled', out)
+        self.active_unit('network-manager')
+
+    def test_cron(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'cron'])
+        self.assertIn(b'root', out)
+        self.active_unit('cron')
+
+    def test_logind(self):
+        out = subprocess.check_output(['loginctl'])
+        self.assertNotEqual(b'', out)
+        self.active_unit('systemd-logind')
+
+    def test_rsyslog(self):
+        out = subprocess.check_output(['ps', 'u', '-C', 'rsyslogd'])
+        self.assertIn(b'bin/rsyslogd', out)
+        self.active_unit('rsyslog')
+        with open('/var/log/syslog') as f:
+            log = f.read()
+        # has kernel messages
+        self.assertRegex(log, 'kernel:.*[cC]ommand line:')
+        # has init messages
+        self.assertRegex(log, 'systemd.*Reached target Default')
+        # has other services
+        self.assertRegex(log, 'NetworkManager.*:')
+
+    def test_udev(self):
+        out = subprocess.check_output(['udevadm', 'info', '--export-db'])
+        self.assertIn(b'\nP: /devices/', out)
+        self.active_unit('systemd-udevd')
+
+    # Helper methods
+
+    def active_unit(self, unit):
+        '''Check that given unit is active'''
+
+        out = subprocess.check_output(['systemctl', 'status', unit])
+        self.assertIn(b'active (running)', out)
+
+
+class JournalTest(unittest.TestCase):
+    '''Check journal functionality'''
+
+    def test_no_options(self):
+        out = subprocess.check_output(['journalctl'])
+        # has kernel messages
+        self.assertRegex(out, b'kernel:.*[cC]ommand line:')
+        # has init messages
+        self.assertRegex(out, b'systemd.*Reached target Default')
+        # has other services
+        self.assertRegex(out, b'NetworkManager.*:.*starting')
+
+    def test_log_for_service(self):
+        out = subprocess.check_output(
+            ['journalctl', '_SYSTEMD_UNIT=NetworkManager.service'])
+        self.assertRegex(out, b'NetworkManager.*:.*starting')
+        self.assertNotIn(b'kernel:', out)
+        self.assertNotIn(b'systemd:', out)
+
+
+def boot_with_systemd():
+    '''Reboot with systemd as init
+
+    In case something else is currently running in the testbed
+    '''
+    if subprocess.call(['systemctl', 'status'], stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE) != 0:
+        print('Installing systemd-sysv and rebooting...')
+        subprocess.check_call('apt-get -y install systemd-sysv 2>&1',
+                              shell=True)
+        subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
+
+
+if __name__ == '__main__':
+    if not os.getenv('ADT_REBOOT_MARK'):
+        boot_with_systemd()
+
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout,
+                                                     verbosity=2))
