@@ -1,4 +1,4 @@
-systemd (215-6ubuntu1) UNRELEASED; urgency=medium
+systemd (215-6ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Create disk/by-partlabel links for mmcblk partitions.
@@ -49,7 +49,7 @@ systemd (215-6ubuntu1) UNRELEASED; urgency=medium
   * Add systemd Apport hook for adding systemd-delta and information about
     failed units.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Sun, 12 Oct 2014 17:29:00 +0200
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 19 Nov 2014 08:55:55 +0100
 
 systemd (215-6) unstable; urgency=medium
 
