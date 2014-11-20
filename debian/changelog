@@ -11,6 +11,8 @@ systemd (217-1) UNRELEASED; urgency=medium
     dropped in this version.
   * Ship new networkctl CLI tool.
   * debian/libsystemd0.symbols: Add new symbols from this release.
+  * debian/rules: Call dpkg-gensymbols with -c4 to immediately spot
+    changed/missing symbols during build.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 
