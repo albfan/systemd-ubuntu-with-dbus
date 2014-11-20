@@ -23,7 +23,7 @@ https://bugs.debian.org/770275
  3 files changed, 38 insertions(+), 12 deletions(-)
 
 diff --git a/man/systemd-nspawn.xml b/man/systemd-nspawn.xml
-index 950558f..4d43888 100644
+index b3a2d32..75db65e 100644
 --- a/man/systemd-nspawn.xml
 +++ b/man/systemd-nspawn.xml
 @@ -439,7 +439,9 @@
@@ -60,10 +60,10 @@ index 950558f..4d43888 100644
  
                          <varlistentry>
 diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
-index 0d538c2..c13e625 100644
+index b6d9bc6..5f6633e 100644
 --- a/src/nspawn/nspawn.c
 +++ b/src/nspawn/nspawn.c
-@@ -118,6 +118,7 @@ static bool arg_private_network = false;
+@@ -123,6 +123,7 @@ static bool arg_private_network = false;
  static bool arg_read_only = false;
  static bool arg_boot = false;
  static LinkJournal arg_link_journal = LINK_AUTO;
@@ -71,7 +71,7 @@ index 0d538c2..c13e625 100644
  static uint64_t arg_retain =
          (1ULL << CAP_CHOWN) |
          (1ULL << CAP_DAC_OVERRIDE) |
-@@ -196,8 +197,9 @@ static int help(void) {
+@@ -201,8 +202,9 @@ static void help(void) {
                 "     --capability=CAP       In addition to the default, retain specified\n"
                 "                            capability\n"
                 "     --drop-capability=CAP  Drop the specified capability from the default set\n"
@@ -83,7 +83,7 @@ index 0d538c2..c13e625 100644
                 "     --read-only            Mount the root directory read-only\n"
                 "     --bind=PATH[:PATH]     Bind mount a file or directory from the host into\n"
                 "                            the container\n"
-@@ -420,6 +422,7 @@ static int parse_argv(int argc, char *argv[]) {
+@@ -427,6 +429,7 @@ static int parse_argv(int argc, char *argv[]) {
  
                  case 'j':
                          arg_link_journal = LINK_GUEST;
@@ -91,7 +91,7 @@ index 0d538c2..c13e625 100644
                          break;
  
                  case ARG_LINK_JOURNAL:
-@@ -431,7 +434,13 @@ static int parse_argv(int argc, char *argv[]) {
+@@ -438,7 +441,13 @@ static int parse_argv(int argc, char *argv[]) {
                                  arg_link_journal = LINK_GUEST;
                          else if (streq(optarg, "host"))
                                  arg_link_journal = LINK_HOST;
@@ -106,7 +106,7 @@ index 0d538c2..c13e625 100644
                                  log_error("Failed to parse link journal mode %s", optarg);
                                  return -EINVAL;
                          }
-@@ -1198,8 +1207,13 @@ static int setup_journal(const char *directory) {
+@@ -1403,8 +1412,13 @@ static int setup_journal(const char *directory) {
          if (arg_link_journal == LINK_GUEST) {
  
                  if (symlink(q, p) < 0) {
@@ -122,7 +122,7 @@ index 0d538c2..c13e625 100644
                  }
  
                  r = mkdir_p(q, 0755);
-@@ -1209,10 +1223,17 @@ static int setup_journal(const char *directory) {
+@@ -1414,10 +1428,17 @@ static int setup_journal(const char *directory) {
          }
  
          if (arg_link_journal == LINK_HOST) {

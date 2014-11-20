@@ -11,7 +11,7 @@ Subject: Do not order rcS.d services after local-fs.target if they do not
  4 files changed, 13 insertions(+), 7 deletions(-)
 
 diff --git a/man/systemd.special.xml b/man/systemd.special.xml
-index f84639e..36e4fc2 100644
+index 863d7f3..ec63e74 100644
 --- a/man/systemd.special.xml
 +++ b/man/systemd.special.xml
 @@ -368,6 +368,15 @@
@@ -44,7 +44,7 @@ index d86ee29..6c10735 100644
                  "named",                SPECIAL_NSS_LOOKUP_TARGET,
                  "portmap",              SPECIAL_RPCBIND_TARGET,
 diff --git a/src/shared/special.h b/src/shared/special.h
-index 2fe5db5..9c22f19 100644
+index b045047..fd613c6 100644
 --- a/src/shared/special.h
 +++ b/src/shared/special.h
 @@ -49,7 +49,7 @@
@@ -57,10 +57,10 @@ index 2fe5db5..9c22f19 100644
  #define SPECIAL_INITRD_FS_TARGET "initrd-fs.target"
  #define SPECIAL_INITRD_ROOT_FS_TARGET "initrd-root-fs.target"
 diff --git a/src/sysv-generator/sysv-generator.c b/src/sysv-generator/sysv-generator.c
-index 22d9cc2..820d79e 100644
+index 7e71713..ebd8076 100644
 --- a/src/sysv-generator/sysv-generator.c
 +++ b/src/sysv-generator/sysv-generator.c
-@@ -73,9 +73,6 @@ static const struct {
+@@ -72,9 +72,6 @@ static const struct {
             UP must be read before DOWN */
  };
  
@@ -70,7 +70,7 @@ index 22d9cc2..820d79e 100644
  typedef struct SysvStub {
          char *name;
          char *path;
-@@ -165,7 +162,7 @@ static int generate_unit_file(SysvStub *s) {
+@@ -164,7 +161,7 @@ static int generate_unit_file(SysvStub *s) {
                  s->path, s->description);
  
          if (s->sysinit)
@@ -79,7 +79,7 @@ index 22d9cc2..820d79e 100644
          if (!isempty(before))
                  fprintf(f, "Before=%s\n", before);
          if (!isempty(after))
-@@ -246,7 +243,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -245,7 +242,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */

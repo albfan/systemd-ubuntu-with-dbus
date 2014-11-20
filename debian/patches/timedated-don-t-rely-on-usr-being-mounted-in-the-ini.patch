@@ -18,20 +18,20 @@ Closes: #726256
  1 file changed, 93 insertions(+), 1 deletion(-)
 
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 58745cf..b56e43a 100644
+index 3a55d65..74a926f 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -22,6 +22,9 @@
- #include <errno.h>
+@@ -23,6 +23,9 @@
  #include <string.h>
  #include <unistd.h>
+ #include <sys/capability.h>
 +#include <sys/types.h>
 +#include <sys/stat.h>
 +#include <fcntl.h>
  
  #include "sd-id128.h"
  #include "sd-messages.h"
-@@ -39,6 +42,7 @@
+@@ -40,6 +43,7 @@
  #include "bus-util.h"
  #include "bus-errors.h"
  #include "event-util.h"
@@ -39,8 +39,8 @@ index 58745cf..b56e43a 100644
  
  #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
  #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
-@@ -106,6 +110,94 @@ static bool valid_timezone(const char *name) {
-         return true;
+@@ -59,6 +63,94 @@ static void context_free(Context *c) {
+         bus_verify_polkit_async_registry_free(c->polkit_registry);
  }
  
 +static int symlink_or_copy(const char *from, const char *to) {
@@ -134,7 +134,7 @@ index 58745cf..b56e43a 100644
  static int context_read_data(Context *c) {
          _cleanup_free_ char *t = NULL;
          int r;
-@@ -174,7 +266,7 @@ static int context_write_data_timezone(Context *c) {
+@@ -127,7 +219,7 @@ static int context_write_data_timezone(Context *c) {
          if (!p)
                  return log_oom();
  

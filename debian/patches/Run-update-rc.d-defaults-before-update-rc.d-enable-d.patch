@@ -4,14 +4,14 @@ Subject: Run update-rc.d defaults before update-rc.d <enable|disable>
 
 Closes: #722523
 ---
- src/systemctl/systemctl.c | 47 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 46 insertions(+), 1 deletion(-)
+ src/systemctl/systemctl.c | 42 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 40 insertions(+), 2 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index eea3bd0..5b53aad 100644
+index d54de20..2933c24 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5072,8 +5072,53 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5135,8 +5135,46 @@ static int enable_sysv_units(const char *verb, char **args) {
                      continue;
                  }
  
@@ -26,8 +26,7 @@ index eea3bd0..5b53aad 100644
 +
 +                l = strv_join((char**)argv, " ");
 +                if (!l) {
-+                        r = log_oom();
-+                        goto finish;
++                        return log_oom();
 +                }
 +
 +                log_info("Executing %s", l);
@@ -36,8 +35,7 @@ index eea3bd0..5b53aad 100644
 +                pid = fork();
 +                if (pid < 0) {
 +                        log_error("Failed to fork: %m");
-+                        r = -errno;
-+                        goto finish;
++                        return -errno;
 +                } else if (pid == 0) {
 +                        /* Child */
 +
@@ -48,19 +46,14 @@ index eea3bd0..5b53aad 100644
 +                j = wait_for_terminate(pid, &status);
 +                if (j < 0) {
 +                        log_error("Failed to wait for child: %s", strerror(-r));
-+                        r = j;
-+                        goto finish;
++                        return j;
 +                }
 +
 +                if (status.si_code == CLD_EXITED) {
-+                        if (status.si_status != 0) {
-+                                r = -EINVAL;
-+                                goto finish;
-+                        }
-+                } else {
-+                        r = -EPROTO;
-+                        goto finish;
-+                }
++                        if (status.si_status != 0)
++                                return -EINVAL;
++                } else
++                        return -EPROTO;
 +
 +                argv[c-1] = verb;
                  argv[c] = NULL;

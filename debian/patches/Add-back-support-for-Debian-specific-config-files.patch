@@ -13,10 +13,10 @@ This reverts the Debian specific bits from
  2 files changed, 38 insertions(+)
 
 diff --git a/src/core/locale-setup.c b/src/core/locale-setup.c
-index 7a41035..3817ab0 100644
+index 5177dbf..92ad47c 100644
 --- a/src/core/locale-setup.c
 +++ b/src/core/locale-setup.c
-@@ -120,6 +120,28 @@ int locale_setup(char ***environment) {
+@@ -83,6 +83,28 @@ int locale_setup(char ***environment) {
                          log_warning("Failed to read /etc/locale.conf: %s", strerror(-r));
          }
  
@@ -43,13 +43,13 @@ index 7a41035..3817ab0 100644
 +        }
 +
          add = NULL;
-         for (i = 0; i < _VARIABLE_MAX; i++) {
+         for (i = 0; i < _VARIABLE_LC_MAX; i++) {
                  char *s;
 diff --git a/src/timedate/timedated.c b/src/timedate/timedated.c
-index 204031f..58745cf 100644
+index 8880812..3a55d65 100644
 --- a/src/timedate/timedated.c
 +++ b/src/timedate/timedated.c
-@@ -136,6 +136,12 @@ static int context_read_data(Context *c) {
+@@ -89,6 +89,12 @@ static int context_read_data(Context *c) {
                  }
          }
  
@@ -62,7 +62,7 @@ index 204031f..58745cf 100644
  have_timezone:
          if (isempty(c->zone)) {
                  free(c->zone);
-@@ -150,6 +156,7 @@ have_timezone:
+@@ -103,6 +109,7 @@ have_timezone:
  static int context_write_data_timezone(Context *c) {
          _cleanup_free_ char *p = NULL;
          int r = 0;
@@ -70,7 +70,7 @@ index 204031f..58745cf 100644
  
          assert(c);
  
-@@ -157,6 +164,9 @@ static int context_write_data_timezone(Context *c) {
+@@ -110,6 +117,9 @@ static int context_write_data_timezone(Context *c) {
                  if (unlink("/etc/localtime") < 0 && errno != ENOENT)
                          r = -errno;
  
@@ -80,7 +80,7 @@ index 204031f..58745cf 100644
                  return r;
          }
  
-@@ -168,6 +178,12 @@ static int context_write_data_timezone(Context *c) {
+@@ -121,6 +131,12 @@ static int context_write_data_timezone(Context *c) {
          if (r < 0)
                  return r;
  

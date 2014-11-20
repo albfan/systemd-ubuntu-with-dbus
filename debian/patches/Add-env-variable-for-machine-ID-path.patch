@@ -14,7 +14,7 @@ Bug: https://bugs.freedesktop.org/show_bug.cgi?id=62344
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/src/libsystemd/sd-id128/sd-id128.c b/src/libsystemd/sd-id128/sd-id128.c
-index a1e44e6..1ee1e21 100644
+index 233ffa0..f254d90 100644
 --- a/src/libsystemd/sd-id128/sd-id128.c
 +++ b/src/libsystemd/sd-id128/sd-id128.c
 @@ -111,6 +111,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {

@@ -1,3 +1,10 @@
+systemd (217-1) UNRELEASED; urgency=medium
+
+  * New upstream release. Drop all cherry-picked patches and port the Debian
+    specific ones.
+
+ -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
+
 systemd (215-7) unstable; urgency=medium
 
   [ Martin Pitt ]

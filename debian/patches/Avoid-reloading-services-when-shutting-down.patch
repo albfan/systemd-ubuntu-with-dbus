@@ -9,10 +9,10 @@ for the patch.  Closes: #624599.
  1 file changed, 25 insertions(+)
 
 diff --git a/src/core/manager.c b/src/core/manager.c
-index 9b754d8..97a4d4b 100644
+index d427d88..cacc527 100644
 --- a/src/core/manager.c
 +++ b/src/core/manager.c
-@@ -1040,6 +1040,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
+@@ -1183,6 +1183,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
  int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool override, sd_bus_error *e, Job **_ret) {
          int r;
          Transaction *tr;
@@ -21,7 +21,7 @@ index 9b754d8..97a4d4b 100644
  
          assert(m);
          assert(type < _JOB_TYPE_MAX);
-@@ -1051,6 +1053,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
+@@ -1194,6 +1196,29 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool ove
                  return -EINVAL;
          }
  

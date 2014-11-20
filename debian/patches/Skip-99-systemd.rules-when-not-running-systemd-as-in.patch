@@ -10,7 +10,7 @@ used with SysVinit or upstart scripts, too.
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/rules/99-systemd.rules.in b/rules/99-systemd.rules.in
-index c3ef81b..4366969 100644
+index e30d9a8..78d2760 100644
 --- a/rules/99-systemd.rules.in
 +++ b/rules/99-systemd.rules.in
 @@ -7,6 +7,12 @@
