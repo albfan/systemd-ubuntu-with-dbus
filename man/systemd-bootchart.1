@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 215" "systemd-bootchart"
+.TH "SYSTEMD\-BOOTCHART" "1" "" "systemd 217" "systemd-bootchart"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -65,7 +65,7 @@ One can execute
 \fBsystemd\-bootchart\fR
 as normal application from the commandline\&. In this mode it is highly recommended to pass the
 \fB\-r\fR
-flag in order to not graph the time elapsed since boot and before systemd\-bootchart was started, as it may result in extremely large graphs\&.
+flag in order to not graph the time elapsed since boot and before systemd\-bootchart was started, as it may result in extremely large graphs\&. The time elapsed since boot might also include any time that the system was suspended\&.
 .RE
 .SH "OPTIONS"
 .PP

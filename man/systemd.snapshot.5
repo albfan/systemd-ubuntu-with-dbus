@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SNAPSHOT" "5" "" "systemd 215" "systemd.snapshot"
+.TH "SYSTEMD\&.SNAPSHOT" "5" "" "systemd 217" "systemd.snapshot"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -33,12 +33,12 @@ refers to a dynamic snapshot of the systemd runtime state\&.
 Snapshots are not configured on disk but created dynamically via
 \fBsystemctl snapshot\fR
 (see
-\fBsystemctl\fR(8)
+\fBsystemctl\fR(1)
 for details) or an equivalent command\&. When created, they will automatically get dependencies on the currently activated units\&. They act as saved runtime state of the systemd manager\&. Later on, the user may choose to return to the saved state via
 \fBsystemctl isolate\fR\&. They are useful to roll back to a defined state after temporarily starting/stopping services or similar\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.directives\fR(7)

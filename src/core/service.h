@@ -28,6 +28,7 @@ typedef struct Service Service;
 #include "ratelimit.h"
 #include "kill.h"
 #include "exit-status.h"
+#include "failure-action.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -38,6 +39,7 @@ typedef enum ServiceState {
         SERVICE_EXITED,            /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_RELOAD,
         SERVICE_STOP,              /* No STOP_PRE state, instead just register multiple STOP executables */
+        SERVICE_STOP_SIGABRT,      /* Watchdog timeout */
         SERVICE_STOP_SIGTERM,
         SERVICE_STOP_SIGKILL,
         SERVICE_STOP_POST,
@@ -91,6 +93,15 @@ typedef enum NotifyAccess {
         _NOTIFY_ACCESS_INVALID = -1
 } NotifyAccess;
 
+typedef enum NotifyState {
+        NOTIFY_UNKNOWN,
+        NOTIFY_READY,
+        NOTIFY_RELOADING,
+        NOTIFY_STOPPING,
+        _NOTIFY_STATE_MAX,
+        _NOTIFY_STATE_INVALID = -1
+} NotifyState;
+
 typedef enum ServiceResult {
         SERVICE_SUCCESS,
         SERVICE_FAILURE_RESOURCES,
@@ -103,15 +114,6 @@ typedef enum ServiceResult {
         _SERVICE_RESULT_MAX,
         _SERVICE_RESULT_INVALID = -1
 } ServiceResult;
-
-typedef enum FailureAction {
-        SERVICE_FAILURE_ACTION_NONE,
-        SERVICE_FAILURE_ACTION_REBOOT,
-        SERVICE_FAILURE_ACTION_REBOOT_FORCE,
-        SERVICE_FAILURE_ACTION_REBOOT_IMMEDIATE,
-        _SERVICE_FAILURE_ACTION_MAX,
-        _SERVICE_FAILURE_ACTION_INVALID = -1
-} FailureAction;
 
 struct Service {
         Unit meta;
@@ -160,6 +162,9 @@ struct Service {
 
         pid_t main_pid, control_pid;
         int socket_fd;
+        bool socket_fd_selinux_context_net;
+
+        int bus_endpoint_fd;
 
         bool permissions_start_only;
         bool root_directory_start_only;
@@ -182,11 +187,11 @@ struct Service {
         char *bus_name;
 
         char *status_text;
-
-        FailureAction failure_action;
+        int status_errno;
 
         RateLimit start_limit;
         FailureAction start_limit_action;
+        FailureAction failure_action;
         char *reboot_arg;
 
         UnitRef accept_socket;
@@ -195,13 +200,14 @@ struct Service {
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;
+        NotifyState notify_state;
 };
 
 extern const UnitVTable service_vtable;
 
 struct Socket;
 
-int service_set_socket_fd(Service *s, int fd, struct Socket *socket);
+int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
 
 const char* service_state_to_string(ServiceState i) _const_;
 ServiceState service_state_from_string(const char *s) _pure_;
@@ -218,8 +224,8 @@ ServiceExecCommand service_exec_command_from_string(const char *s) _pure_;
 const char* notify_access_to_string(NotifyAccess i) _const_;
 NotifyAccess notify_access_from_string(const char *s) _pure_;
 
+const char* notify_state_to_string(NotifyState i) _const_;
+NotifyState notify_state_from_string(const char *s) _pure_;
+
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
-
-const char* failure_action_to_string(FailureAction i) _const_;
-FailureAction failure_action_from_string(const char *s) _pure_;

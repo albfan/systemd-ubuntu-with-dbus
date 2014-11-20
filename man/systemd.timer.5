@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.TIMER" "5" "" "systemd 215" "systemd.timer"
+.TH "SYSTEMD\&.TIMER" "5" "" "systemd 217" "systemd.timer"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -44,12 +44,21 @@ foo\&.service\&. The unit to activate may be controlled by
 Unless
 \fIDefaultDependencies=\fR
 is set to
-\fBfalse\fR, timer units will implicitly have dependencies of type
+\fBfalse\fR, all timer units will implicitly have dependencies of type
 \fIConflicts=\fR
 and
 \fIBefore=\fR
 on
-shutdown\&.target\&. These ensure that timer units are stopped cleanly prior to system shutdown\&. Only timer units involved with early boot or late system shutdown should disable this option\&.
+shutdown\&.target
+to ensure that they are stopped cleanly prior to system shutdown\&. Timer units with at least one
+\fIOnCalendar=\fR
+directive will have an additional
+\fIAfter=\fR
+dependency on
+timer\-sync\&.target
+to avoid being started before the system clock has been correctly set\&. Only timer units involved with early boot or late system shutdown should disable the
+\fIDefaultDependencies=\fR
+option\&.
 .SH "OPTIONS"
 .PP
 Timer files must include a [Timer] section, which carries information about the timer it defines\&. The options specific to the [Timer] section of timer units are the following:
@@ -144,7 +153,7 @@ Takes a boolean argument\&. If true, an elapsing timer will cause the system to 
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.service\fR(5),
 \fBsystemd.time\fR(7),

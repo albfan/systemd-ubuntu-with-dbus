@@ -35,6 +35,7 @@
 #include "bus-util.h"
 #include "bus-error.h"
 #include "machined.h"
+#include "label.h"
 
 Manager *manager_new(void) {
         Manager *m;
@@ -44,9 +45,9 @@ Manager *manager_new(void) {
         if (!m)
                 return NULL;
 
-        m->machines = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_units = hashmap_new(string_hash_func, string_compare_func);
-        m->machine_leaders = hashmap_new(trivial_hash_func, trivial_compare_func);
+        m->machines = hashmap_new(&string_hash_ops);
+        m->machine_units = hashmap_new(&string_hash_ops);
+        m->machine_leaders = hashmap_new(NULL);
 
         if (!m->machines || !m->machine_units || !m->machine_leaders) {
                 manager_free(m);
@@ -349,9 +350,6 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid());
 
 finish:
-        sd_notify(false,
-                  "STATUS=Shutting down...");
-
         if (m)
                 manager_free(m);
 

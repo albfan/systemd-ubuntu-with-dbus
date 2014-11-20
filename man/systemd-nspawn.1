@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 215" "systemd-nspawn"
+.TH "SYSTEMD\-NSPAWN" "1" "" "systemd 217" "systemd-nspawn"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -327,6 +327,35 @@ are supported\&. This is useful when running a 32\-bit container on a 64\-bit ho
 Turns off any status output by the tool itself\&. When this switch is used, the only output from nspawn will be the console output of the container OS itself\&.
 .RE
 .PP
+\fB\-\-volatile\fR\fI=MODE\fR
+.RS 4
+Boots the container in volatile (ephemeral) mode\&. When no mode parameter is passed or when mode is specified as
+"yes"
+full volatile mode is enabled\&. This means the root directory is mounted as mostly unpopulated
+"tmpfs"
+instance, and
+/usr
+from the OS tree is mounted into it, read\-only (the system thus starts up with read\-only OS resources, but pristine state and configuration, any changes to the either are lost on shutdown)\&. When the mode parameter is specified as
+"state"
+the OS tree is mounted read\-only, but
+/var
+is mounted as
+"tmpfs"
+instance into it (the system thus starts up with read\-only OS resources and configuration, but pristine state, any changes to the latter are lost on shutdown)\&. When the mode parameter is specified as
+"no"
+(the default) the whole OS tree is made available writable\&.
+.sp
+Note that setting this to
+"yes"
+or
+"state"
+will only work correctly with operating systems in the container that can boot up with only
+/usr
+mounted, and are able to populate
+/var
+automatically, as needed\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -336,7 +365,9 @@ Print a short help text and exit\&.
 .RS 4
 Print a short version string and exit\&.
 .RE
-.SH "EXAMPLE 1"
+.SH "EXAMPLES"
+.PP
+\fBExample\ \&1.\ \&Boot a minimal Fedora distribution in a container\fR
 .sp
 .if n \{\
 .RS 4
@@ -352,7 +383,8 @@ Print a short version string and exit\&.
 This installs a minimal Fedora distribution into the directory
 /srv/mycontainer/
 and then boots an OS in a namespace container in it\&.
-.SH "EXAMPLE 2"
+.PP
+\fBExample\ \&2.\ \&Spawn a shell in a container of a minimal Debian unstable distribution\fR
 .sp
 .if n \{\
 .RS 4
@@ -368,7 +400,8 @@ and then boots an OS in a namespace container in it\&.
 This installs a minimal Debian unstable distribution into the directory
 ~/debian\-tree/
 and then spawns a shell in a namespace container in it\&.
-.SH "EXAMPLE 3"
+.PP
+\fBExample\ \&3.\ \&Boot a minimal Arch Linux distribution in a container\fR
 .sp
 .if n \{\
 .RS 4
@@ -384,7 +417,8 @@ and then spawns a shell in a namespace container in it\&.
 This installs a mimimal Arch Linux distribution into the directory
 ~/arch\-tree/
 and then boots an OS in a namespace container in it\&.
-.SH "EXAMPLE 4"
+.PP
+\fBExample\ \&4.\ \&Enable Arch Linux container on boot\fR
 .sp
 .if n \{\
 .RS 4
@@ -401,7 +435,8 @@ and then boots an OS in a namespace container in it\&.
 This makes the Arch Linux container part of the
 multi\-user\&.target
 on the host\&.
-.SH "EXAMPLE 5"
+.PP
+\fBExample\ \&5.\ \&Boot into a btrfs snapshot of the host system\fR
 .sp
 .if n \{\
 .RS 4
@@ -415,7 +450,8 @@ on the host\&.
 .\}
 .PP
 This runs a copy of the host system in a btrfs snapshot\&.
-.SH "EXAMPLE 6"
+.PP
+\fBExample\ \&6.\ \&Run a container with SELinux sandbox security contexts\fR
 .sp
 .if n \{\
 .RS 4
@@ -427,8 +463,6 @@ This runs a copy of the host system in a btrfs snapshot\&.
 .if n \{\
 .RE
 .\}
-.PP
-This runs a container with SELinux sandbox security contexts\&.
 .SH "EXIT STATUS"
 .PP
 The exit code of the program executed in the container is returned\&.

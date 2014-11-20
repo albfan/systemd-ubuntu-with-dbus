@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include "sd-bus.h"
 #include "log.h"
@@ -167,7 +168,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *unit, pid_t leader) {
         return 0;
 }
 
-static int print_addresses(sd_bus *bus, const char *name, const char *prefix, const char *prefix2) {
+static int print_addresses(sd_bus *bus, const char *name, int ifi, const char *prefix, const char *prefix2) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         int r;
 
@@ -187,17 +188,17 @@ static int print_addresses(sd_bus *bus, const char *name, const char *prefix, co
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(reply, 'a', "(yay)");
+        r = sd_bus_message_enter_container(reply, 'a', "(iay)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "yay")) > 0) {
-                unsigned char family;
+        while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
+                int family;
                 const void *a;
                 size_t sz;
                 char buffer[MAX(INET6_ADDRSTRLEN, INET_ADDRSTRLEN)];
 
-                r = sd_bus_message_read(reply, "y", &family);
+                r = sd_bus_message_read(reply, "i", &family);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -205,7 +206,11 @@ static int print_addresses(sd_bus *bus, const char *name, const char *prefix, co
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                printf("%s%s\n", prefix, inet_ntop(family, a, buffer, sizeof(buffer)));
+                fputs(prefix, stdout);
+                fputs(inet_ntop(family, a, buffer, sizeof(buffer)), stdout);
+                if (family == AF_INET6 && ifi > 0)
+                        printf("%%%i", ifi);
+                fputc('\n', stdout);
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
@@ -275,11 +280,15 @@ typedef struct MachineStatusInfo {
         char *root_directory;
         pid_t leader;
         usec_t timestamp;
+        int *netif;
+        unsigned n_netif;
 } MachineStatusInfo;
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        int ifi = -1;
+
         assert(i);
 
         fputs(strna(i->name), stdout);
@@ -322,7 +331,30 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         if (i->root_directory)
                 printf("\t    Root: %s\n", i->root_directory);
 
-        print_addresses(bus, i->name,
+        if (i->n_netif > 0) {
+                unsigned c;
+
+                fputs("\t   Iface:", stdout);
+
+                for (c = 0; c < i->n_netif; c++) {
+                        char name[IF_NAMESIZE+1] = "";
+
+                        if (if_indextoname(i->netif[c], name)) {
+                                fputc(' ', stdout);
+                                fputs(name, stdout);
+
+                                if (ifi < 0)
+                                        ifi = i->netif[c];
+                                else
+                                        ifi = 0;
+                        } else
+                                printf(" %i", i->netif[c]);
+                }
+
+                fputc('\n', stdout);
+        }
+
+        print_addresses(bus, i->name, ifi,
                        "\t Address: ",
                        "\t          ");
 
@@ -334,17 +366,39 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         }
 }
 
+static int map_netif(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        MachineStatusInfo *i = userdata;
+        size_t l;
+        const void *v;
+        int r;
+
+        assert_cc(sizeof(int32_t) == sizeof(int));
+        r = sd_bus_message_read_array(m, SD_BUS_TYPE_INT32, &v, &l);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
+        i->n_netif = l / sizeof(int32_t);
+        i->netif = memdup(v, l);
+        if (!i->netif)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Name",          "s",  NULL,          offsetof(MachineStatusInfo, name) },
-                { "Class",         "s",  NULL,          offsetof(MachineStatusInfo, class) },
-                { "Service",       "s",  NULL,          offsetof(MachineStatusInfo, service) },
-                { "Unit",          "s",  NULL,          offsetof(MachineStatusInfo, unit) },
-                { "RootDirectory", "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
-                { "Leader",        "u",  NULL,          offsetof(MachineStatusInfo, leader) },
-                { "Timestamp",     "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
-                { "Id",            "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
+                { "Name",              "s",  NULL,          offsetof(MachineStatusInfo, name) },
+                { "Class",             "s",  NULL,          offsetof(MachineStatusInfo, class) },
+                { "Service",           "s",  NULL,          offsetof(MachineStatusInfo, service) },
+                { "Unit",              "s",  NULL,          offsetof(MachineStatusInfo, unit) },
+                { "RootDirectory",     "s",  NULL,          offsetof(MachineStatusInfo, root_directory) },
+                { "Leader",            "u",  NULL,          offsetof(MachineStatusInfo, leader) },
+                { "Timestamp",         "t",  NULL,          offsetof(MachineStatusInfo, timestamp) },
+                { "Id",                "ay", bus_map_id128, offsetof(MachineStatusInfo, id) },
+                { "NetworkInterfaces", "ai", map_netif,     0 },
                 {}
         };
 
@@ -375,6 +429,7 @@ static int show_info(const char *verb, sd_bus *bus, const char *path, bool *new_
         free(info.service);
         free(info.unit);
         free(info.root_directory);
+        free(info.netif);
 
         return r;
 }
@@ -606,7 +661,7 @@ static int openpt_in_namespace(pid_t pid, int flags) {
 static int login_machine(sd_bus *bus, char **args, unsigned n) {
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL, *reply2 = NULL, *reply3 = NULL;
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_unref_ sd_bus *container_bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_free_ char *getty = NULL;
         const char *path, *pty, *p;
@@ -724,8 +779,7 @@ static int login_machine(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Send control commands to or query the virtual machine and container registration manager.\n\n"
                "  -h --help              Show this help\n"
@@ -749,8 +803,6 @@ static int help(void) {
                "  kill NAME...           Send signal to processes of a VM/container\n"
                "  terminate NAME...      Terminate one or more VMs/containers\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -782,12 +834,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hp:als:H:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -849,7 +902,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -937,7 +989,7 @@ static int machinectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

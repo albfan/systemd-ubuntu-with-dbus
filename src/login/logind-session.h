@@ -56,6 +56,7 @@ typedef enum SessionType {
         SESSION_X11,
         SESSION_WAYLAND,
         SESSION_MIR,
+        SESSION_WEB,
         _SESSION_TYPE_MAX,
         _SESSION_TYPE_INVALID = -1
 } SessionType;
@@ -72,7 +73,7 @@ enum KillWho {
 struct Session {
         Manager *manager;
 
-        char *id;
+        const char *id;
         unsigned int pos;
         SessionType type;
         SessionClass class;
@@ -98,7 +99,6 @@ struct Session {
         Seat *seat;
         unsigned int vtnr;
         int vtfd;
-        sd_event_source *vt_source;
 
         pid_t leader;
         uint32_t audit_id;
@@ -172,8 +172,9 @@ SessionClass session_class_from_string(const char *s) _pure_;
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
 
-void session_prepare_vt(Session *s);
+int session_prepare_vt(Session *s);
 void session_restore_vt(Session *s);
+void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force);

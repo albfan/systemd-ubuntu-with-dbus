@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALE\&.CONF" "5" "" "systemd 215" "locale.conf"
+.TH "LOCALE\&.CONF" "5" "" "systemd 217" "locale.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -57,6 +57,11 @@ The locale settings configured in
 are system\-wide and are inherited by every service or user, unless overridden or unset by individual programs or individual users\&.
 .PP
 Depending on the operating system, other configuration files might be checked for locale configuration as well, however only as fallback\&.
+.PP
+\fBlocalectl\fR(1)
+may be used to alter the settings in this file during runtime from the command line\&. Use
+\fBsystemd-firstboot\fR(1)
+to initialize them on mounted (but not booted) system images\&.
 .SH "OPTIONS"
 .PP
 The following locale settings may be set using
@@ -98,4 +103,6 @@ LC_MESSAGES=en_US\&.UTF\-8
 .PP
 \fBsystemd\fR(1),
 \fBlocale\fR(7),
-\fBsystemd-localed.service\fR(8)
+\fBlocalectl\fR(1),
+\fBsystemd-localed.service\fR(8),
+\fBsystemd-firstboot\fR(1)

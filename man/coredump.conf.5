@@ -1,5 +1,5 @@
 '\" t
-.TH "COREDUMP\&.CONF" "5" "" "systemd 215" "coredump.conf"
+.TH "COREDUMP\&.CONF" "5" "" "systemd 217" "coredump.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -74,7 +74,7 @@ Enforce limits on the disk space taken up by externally stored coredumps\&.
 \fBMaxUse=\fR
 makes sure that old coredumps are removed as soon as the total disk space taken up by coredumps grows beyond this limit (defaults to 10% of the total disk size)\&.
 \fBKeepFree=\fR
-controls how much disk space to keep free at least (defaults to 15% of the total disk size)\&. Note that the disk space used by coredumps might temporarily exceed these limits while coredumps are processed\&. Note that old coredumps are also removed based on on time via
+controls how much disk space to keep free at least (defaults to 15% of the total disk size)\&. Note that the disk space used by coredumps might temporarily exceed these limits while coredumps are processed\&. Note that old coredumps are also removed based on time via
 \fBsystemd-tmpfiles\fR(8)\&.
 .RE
 .SH "SEE ALSO"

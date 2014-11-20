@@ -1,5 +1,5 @@
 '\" t
-.TH "OS\-RELEASE" "5" "" "systemd 215" "os-release"
+.TH "OS\-RELEASE" "5" "" "systemd 217" "os-release"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -45,11 +45,11 @@ takes precedence over
 /usr/lib/os\-release
 if it is missing\&. Applications should not read data from both files at the same time\&.
 /usr/lib/os\-release
-is the recommended place to store OS release information as part of vendor trees\&. Frequently,
+is the recommended place to store OS release information as part of vendor trees\&.
 /etc/os\-release
-is simply a symlink to
+should be a relative symlink to
 /usr/lib/os\-release, to provide compatibility with applications only looking at
-/etc\&.
+/etc\&. A relative symlink instead of an absolute symlink is necessary to avoid breaking the link in a chroot or initrd environment such as dracut\&.
 .PP
 os\-release
 contains data that is defined by the operating system vendor and should generally not be changed by the administrator\&.

@@ -33,7 +33,7 @@
 #include "bus-internal.h"
 #include "bus-util.h"
 
-#define MAX_SIZE (4*1024*1024)
+#define MAX_SIZE (2*1024*1024)
 
 static usec_t arg_loop_usec = 100 * USEC_PER_MSEC;
 
@@ -47,7 +47,7 @@ static void server(sd_bus *b, size_t *result) {
                 assert_se(r >= 0);
 
                 if (r == 0)
-                        assert_se(sd_bus_wait(b, (usec_t) -1) >= 0);
+                        assert_se(sd_bus_wait(b, USEC_INFINITY) >= 0);
                 if (!m)
                         continue;
 

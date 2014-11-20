@@ -90,8 +90,8 @@ void job_free(Job *j) {
 
         sd_event_source_unref(j->timer_event_source);
 
-        sd_bus_track_unref(j->subscribed);
-        strv_free(j->deserialized_subscribed);
+        sd_bus_track_unref(j->clients);
+        strv_free(j->deserialized_clients);
 
         free(j);
 }
@@ -632,11 +632,18 @@ static void job_print_status_message(Unit *u, JobType t, JobResult result) {
                                 unit_status_printf(u, ANSI_GREEN_ON "  OK  " ANSI_HIGHLIGHT_OFF, format);
                         break;
 
-                case JOB_FAILED:
+                case JOB_FAILED: {
+                        bool quotes;
+
+                        quotes = chars_intersect(u->id, SHELL_NEED_QUOTES);
+
                         manager_flip_auto_status(u->manager, true);
                         unit_status_printf(u, ANSI_HIGHLIGHT_RED_ON "FAILED" ANSI_HIGHLIGHT_OFF, format);
-                        manager_status_printf(u->manager, false, NULL, "See 'systemctl status %s' for details.", u->id);
+                        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, NULL,
+                                              "See \"systemctl status %s%s%s\" for details.",
+                                              quotes ? "'" : "", u->id, quotes ? "'" : "");
                         break;
+                }
 
                 case JOB_DEPENDENCY:
                         manager_flip_auto_status(u->manager, true);
@@ -851,14 +858,18 @@ finish:
 
 static int job_dispatch_timer(sd_event_source *s, uint64_t monotonic, void *userdata) {
         Job *j = userdata;
+        Unit *u;
 
         assert(j);
         assert(s == j->timer_event_source);
 
-        log_warning_unit(j->unit->id, "Job %s/%s timed out.",
-                         j->unit->id, job_type_to_string(j->type));
+        log_warning_unit(j->unit->id, "Job %s/%s timed out.", j->unit->id, job_type_to_string(j->type));
 
+        u = j->unit;
         job_finish_and_invalidate(j, JOB_TIMEOUT, true);
+
+        failure_action(u->manager, u->job_timeout_action, u->job_timeout_reboot_arg);
+
         return 0;
 }
 
@@ -937,7 +948,7 @@ int job_serialize(Job *j, FILE *f, FDSet *fds) {
         if (j->begin_usec > 0)
                 fprintf(f, "job-begin="USEC_FMT"\n", j->begin_usec);
 
-        bus_track_serialize(j->subscribed, f);
+        bus_track_serialize(j->clients, f);
 
         /* End marker */
         fputc('\n', f);
@@ -1043,7 +1054,7 @@ int job_deserialize(Job *j, FILE *f, FDSet *fds) {
 
                 } else if (streq(l, "subscribed")) {
 
-                        if (strv_extend(&j->deserialized_subscribed, v) < 0)
+                        if (strv_extend(&j->deserialized_clients, v) < 0)
                                 return log_oom();
                 }
         }
@@ -1056,7 +1067,7 @@ int job_coldplug(Job *j) {
 
         /* After deserialization is complete and the bus connection
          * set up again, let's start watching our subscribers again */
-        r = bus_track_coldplug(j->manager, &j->subscribed, &j->deserialized_subscribed);
+        r = bus_track_coldplug(j->manager, &j->clients, &j->deserialized_clients);
         if (r < 0)
                 return r;
 

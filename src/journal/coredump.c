@@ -26,8 +26,13 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-#include <systemd/sd-journal.h>
-#include <systemd/sd-login.h>
+#ifdef HAVE_ELFUTILS
+#  include <dwarf.h>
+#  include <elfutils/libdwfl.h>
+#endif
+
+#include "systemd/sd-journal.h"
+#include "systemd/sd-login.h"
 
 #include "log.h"
 #include "util.h"
@@ -49,12 +54,6 @@
 #  include "acl-util.h"
 #endif
 
-#ifdef HAVE_XZ
-#  include <lzma.h>
-#else
-#  define LZMA_PRESET_DEFAULT 0
-#endif
-
 /* The maximum size up to which we process coredumps */
 #define PROCESS_SIZE_MAX ((off_t) (2LLU*1024LLU*1024LLU*1024LLU))
 
@@ -67,8 +66,8 @@
 #define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
 
 /* Make sure to not make this larger than the maximum journal entry
- * size. See ENTRY_SIZE_MAX in journald-native.c. */
-assert_cc(JOURNAL_SIZE_MAX <= ENTRY_SIZE_MAX);
+ * size. See DATA_SIZE_MAX in journald-native.c. */
+assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
         INFO_PID,
@@ -120,16 +119,10 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse(
-                        NULL,
-                        "/etc/systemd/coredump.conf",
-                        NULL,
-                        "Coredump\0",
-                        config_item_table_lookup,
-                        (void*) items,
-                        false,
-                        false,
-                        NULL);
+        return config_parse(NULL, "/etc/systemd/coredump.conf", NULL,
+                            "Coredump\0",
+                            config_item_table_lookup, items,
+                            false, false, true, NULL);
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -357,7 +350,7 @@ static int save_external_coredump(
                 goto fail;
         }
 
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
         /* If we will remove the coredump anyway, do not compress. */
         if (maybe_remove_external_coredump(NULL, st.st_size) == 0
             && arg_compress) {
@@ -365,15 +358,15 @@ static int save_external_coredump(
                 _cleanup_free_ char *fn_compressed = NULL, *tmp_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -1;
 
-                fn_compressed = strappend(fn, ".xz");
+                fn_compressed = strappend(fn, COMPRESSED_EXT);
                 if (!fn_compressed) {
-                        r = log_oom();
+                        log_oom();
                         goto uncompressed;
                 }
 
                 tmp_compressed = tempfn_random(fn_compressed);
                 if (!tmp_compressed) {
-                        r = log_oom();
+                        log_oom();
                         goto uncompressed;
                 }
 
@@ -383,7 +376,7 @@ static int save_external_coredump(
                         goto uncompressed;
                 }
 
-                r = compress_stream(fd, fd_compressed, LZMA_PRESET_DEFAULT, -1);
+                r = compress_stream(fd, fd_compressed, -1);
                 if (r < 0) {
                         log_error("Failed to compress %s: %s", tmp_compressed, strerror(-r));
                         goto fail_compressed;
@@ -408,9 +401,9 @@ static int save_external_coredump(
         fail_compressed:
                 unlink_noerrno(tmp_compressed);
         }
-#endif
 
 uncompressed:
+#endif
         r = fix_permissions(fd, tmp, fn, info, uid);
         if (r < 0)
                 goto fail;
@@ -603,9 +596,9 @@ int main(int argc, char* argv[]) {
         }
 
         if (sd_pid_get_owner_uid(pid, &owner_uid) >= 0) {
-                asprintf(&core_owner_uid, "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
-
-                if (core_owner_uid)
+                r = asprintf(&core_owner_uid,
+                             "COREDUMP_OWNER_UID=" UID_FMT, owner_uid);
+                if (r > 0)
                         IOVEC_SET_STRING(iovec[j++], core_owner_uid);
         }
 
@@ -680,9 +673,9 @@ int main(int argc, char* argv[]) {
 
         /* Now, let's drop privileges to become the user who owns the
          * segfaulted process and allocate the coredump memory under
-         * his uid. This also ensures that the credentials journald
-         * will see are the ones of the coredumping user, thus making
-         * sure the user himself gets access to the core dump. */
+         * the user's uid. This also ensures that the credentials
+         * journald will see are the ones of the coredumping user,
+         * thus making sure the user gets access to the core dump. */
         if (setresgid(gid, gid, gid) < 0 ||
             setresuid(uid, uid, uid) < 0) {
                 log_error("Failed to drop privileges: %m");
@@ -698,6 +691,8 @@ int main(int argc, char* argv[]) {
                 r = coredump_make_stack_trace(coredump_fd, exe, &stacktrace);
                 if (r >= 0)
                         core_message = strjoin("MESSAGE=Process ", info[INFO_PID], " (", comm, ") of user ", info[INFO_UID], " dumped core.\n\n", stacktrace, NULL);
+                else if (r == -EINVAL)
+                        log_warning("Failed to generate stack trace: %s", dwfl_errmsg(dwfl_errno()));
                 else
                         log_warning("Failed to generate stack trace: %s", strerror(-r));
         }

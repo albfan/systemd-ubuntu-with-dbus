@@ -39,7 +39,7 @@ typedef enum ExitStatus {
          * use them here under the assumption that they hence are
          * unused by init scripts.
          *
-         * http://refspecs.freestandards.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
+         * http://refspecs.linuxfoundation.org/LSB_3.2.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
 
         EXIT_CHDIR = 200,
         EXIT_NICE,
@@ -77,6 +77,7 @@ typedef enum ExitStatus {
         EXIT_RUNTIME_DIRECTORY,
         EXIT_MAKE_STARTER,
         EXIT_CHOWN,
+        EXIT_BUS_ENDPOINT,
 } ExitStatus;
 
 typedef enum ExitStatusLevel {

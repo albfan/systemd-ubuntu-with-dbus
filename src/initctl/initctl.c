@@ -218,7 +218,7 @@ static int fifo_process(Fifo *f) {
                         return 0;
 
                 log_warning("Failed to read from fifo: %m");
-                return -1;
+                return -errno;
         }
 
         f->bytes_read += l;
@@ -431,6 +431,7 @@ int main(int argc, char *argv[]) {
 
 fail:
         sd_notify(false,
+                  "STOPPING=1\n"
                   "STATUS=Shutting down...");
 
         server_done(&server);

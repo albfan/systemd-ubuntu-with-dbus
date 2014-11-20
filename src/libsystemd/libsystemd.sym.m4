@@ -148,6 +148,16 @@ global:
         sd_pid_notifyf;
 } LIBSYSTEMD_213;
 
+LIBSYSTEMD_216 {
+global:
+        sd_machine_get_ifindices;
+} LIBSYSTEMD_214;
+
+LIBSYSTEMD_217 {
+global:
+        sd_session_get_desktop;
+} LIBSYSTEMD_216;
+
 m4_ifdef(`ENABLE_KDBUS',
 LIBSYSTEMD_FUTURE {
 global:
@@ -181,7 +191,7 @@ global:
         sd_bus_is_open;
         sd_bus_can_send;
         sd_bus_get_server_id;
-        sd_bus_get_peer_creds;
+        sd_bus_get_owner_creds;
         sd_bus_get_name;
         sd_bus_send;
         sd_bus_send_to;
@@ -277,8 +287,8 @@ global:
         sd_bus_request_name;
         sd_bus_release_name;
         sd_bus_list_names;
-        sd_bus_get_owner;
-        sd_bus_get_owner_machine_id;
+        sd_bus_get_name_creds;
+        sd_bus_get_name_machine_id;
         sd_bus_call_method;
         sd_bus_get_property;
         sd_bus_get_property_trivial;
@@ -354,20 +364,6 @@ global:
         sd_bus_track_first;
         sd_bus_track_next;
 
-        /* sd-memfd */
-        sd_memfd_new;
-        sd_memfd_new_and_map;
-        sd_memfd_free;
-        sd_memfd_get_fd;
-        sd_memfd_get_file;
-        sd_memfd_dup_fd;
-        sd_memfd_map;
-        sd_memfd_set_sealed;
-        sd_memfd_get_sealed;
-        sd_memfd_get_size;
-        sd_memfd_set_size;
-        sd_memfd_get_name;
-
         /* sd-event */
         sd_event_default;
         sd_event_new;
@@ -383,6 +379,7 @@ global:
         sd_event_loop;
         sd_event_exit;
         sd_event_now;
+        sd_event_get_fd;
         sd_event_get_state;
         sd_event_get_tid;
         sd_event_get_exit_code;
@@ -390,6 +387,8 @@ global:
         sd_event_get_watchdog;
         sd_event_source_ref;
         sd_event_source_unref;
+        sd_event_source_set_name;
+        sd_event_source_get_name;
         sd_event_source_set_prepare;
         sd_event_source_get_pending;
         sd_event_source_get_priority;
@@ -440,5 +439,9 @@ global:
         sd_resolve_query_get_userdata;
         sd_resolve_query_set_userdata;
         sd_resolve_query_get_resolve;
-} LIBSYSTEMD_214;
+
+        /* sd-path */
+        sd_path_home;
+        sd_path_search;
+} LIBSYSTEMD_217;
 )

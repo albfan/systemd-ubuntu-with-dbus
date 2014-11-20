@@ -53,7 +53,7 @@ struct audit_info {
 
 /*
    Any time an access gets denied this callback will be called
-   with the aduit data.  We then need to just copy the audit data into the msgbuf.
+   with the audit data.  We then need to just copy the audit data into the msgbuf.
 */
 static int audit_callback(
                 void *auditdata,
@@ -64,14 +64,20 @@ static int audit_callback(
         const struct audit_info *audit = auditdata;
         uid_t uid = 0, login_uid = 0;
         gid_t gid = 0;
+        char login_uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
+        char uid_buf[DECIMAL_STR_MAX(uid_t)] = "n/a";
+        char gid_buf[DECIMAL_STR_MAX(gid_t)] = "n/a";
 
-        sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid);
-        sd_bus_creds_get_uid(audit->creds, &uid);
-        sd_bus_creds_get_gid(audit->creds, &gid);
+        if (sd_bus_creds_get_audit_login_uid(audit->creds, &login_uid) >= 0)
+                snprintf(login_uid_buf, sizeof(login_uid_buf), UID_FMT, login_uid);
+        if (sd_bus_creds_get_uid(audit->creds, &uid) >= 0)
+                snprintf(uid_buf, sizeof(uid_buf), UID_FMT, uid);
+        if (sd_bus_creds_get_gid(audit->creds, &gid) >= 0)
+                snprintf(gid_buf, sizeof(gid_buf), GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%d uid=%d gid=%d%s%s%s%s%s%s",
-                 login_uid, uid, gid,
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
                  audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
 
@@ -136,13 +142,13 @@ static int access_init(void) {
         return r;
 }
 
-static int selinux_access_init(sd_bus_error *error) {
+static int mac_selinux_access_init(sd_bus_error *error) {
         int r;
 
         if (initialized)
                 return 0;
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
         r = access_init();
@@ -152,14 +158,17 @@ static int selinux_access_init(sd_bus_error *error) {
         initialized = true;
         return 0;
 }
+#endif
 
-void selinux_access_free(void) {
+void mac_selinux_access_free(void) {
 
+#ifdef HAVE_SELINUX
         if (!initialized)
                 return;
 
         avc_destroy();
         initialized = false;
+#endif
 }
 
 /*
@@ -168,12 +177,13 @@ void selinux_access_free(void) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int selinux_generic_access_check(
+int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
                 const char *permission,
                 sd_bus_error *error) {
 
+#ifdef HAVE_SELINUX
         _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         const char *tclass = NULL, *scon = NULL;
         struct audit_info audit_info = {};
@@ -186,10 +196,10 @@ int selinux_generic_access_check(
         assert(permission);
         assert(error);
 
-        if (!use_selinux())
+        if (!mac_selinux_use())
                 return 0;
 
-        r = selinux_access_init(error);
+        r = mac_selinux_access_init(error);
         if (r < 0)
                 return r;
 
@@ -248,20 +258,29 @@ finish:
         }
 
         return r;
+#else
+        return 0;
+#endif
 }
 
-#else
+int mac_selinux_unit_access_check_strv(char **units,
+                                sd_bus_message *message,
+                                Manager *m,
+                                const char *permission,
+                                sd_bus_error *error) {
+#ifdef HAVE_SELINUX
+        char **i;
+        Unit *u;
+        int r;
 
-int selinux_generic_access_check(
-                sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
-
+        STRV_FOREACH(i, units) {
+                u = manager_get_unit(m, *i);
+                if (u) {
+                        r = mac_selinux_unit_access_check(u, message, permission, error);
+                        if (r < 0)
+                                return r;
+                }
+        }
+#endif
         return 0;
 }
-
-void selinux_access_free(void) {
-}
-
-#endif

@@ -34,6 +34,7 @@
 #include <time.h>
 
 #include "util.h"
+#include "time-util.h"
 #include "strxcpyx.h"
 #include "store.h"
 #include "bootchart.h"
@@ -54,30 +55,25 @@ double gettime_ns(void) {
 
         clock_gettime(CLOCK_MONOTONIC, &n);
 
-        return (n.tv_sec + (n.tv_nsec / 1000000000.0));
+        return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
+}
+
+static double gettime_up(void) {
+        struct timespec n;
+
+        clock_gettime(CLOCK_BOOTTIME, &n);
+        return (n.tv_sec + (n.tv_nsec / (double) NSEC_PER_SEC));
 }
 
 void log_uptime(void) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char str[32];
-        double uptime;
-
-        f = fopen("/proc/uptime", "re");
-
-        if (!f)
-                return;
-        if (!fscanf(f, "%s %*s", str))
-                return;
-
-        uptime = strtod(str, NULL);
-
-        log_start = gettime_ns();
-
-        /* start graph at kernel boot time */
         if (arg_relative)
-                graph_start = log_start;
-        else
+                graph_start = log_start = gettime_ns();
+        else {
+                double uptime = gettime_up();
+
+                log_start = gettime_ns();
                 graph_start = log_start - uptime;
+        }
 }
 
 static char *bufgetline(char *buf) {
@@ -196,12 +192,14 @@ vmstat_next:
 
         m = buf;
         while (m) {
+                int r;
+
                 if (sscanf(m, "%s %*s %*s %*s %*s %*s %*s %s %s", key, rt, wt) < 3)
                         goto schedstat_next;
 
                 if (strstr(key, "cpu")) {
-                        c = atoi((const char*)(key+3));
-                        if (c > MAXCPUS)
+                        r = safe_atoi((const char*)(key+3), &c);
+                        if (r < 0 || c > MAXCPUS -1)
                                 /* Oops, we only have room for MAXCPUS data */
                                 break;
                         sampledata->runtime[c] = atoll(rt);
@@ -255,6 +253,7 @@ schedstat_next:
                         _cleanup_fclose_ FILE *st = NULL;
                         char t[32];
                         struct ps_struct *parent;
+                        int r;
 
                         ps->next_ps = new0(struct ps_struct, 1);
                         if (!ps->next_ps) {
@@ -314,7 +313,11 @@ schedstat_next:
                         if (!sscanf(m, "%*s %*s %s", t))
                                 continue;
 
-                        ps->starttime = strtod(t, NULL) / 1000.0;
+                        r = safe_atod(t, &ps->starttime);
+                        if (r < 0)
+                                continue;
+
+                        ps->starttime /= 1000.0;
 
                         if (arg_show_cgroup)
                                 /* if this fails, that's OK */
@@ -398,7 +401,7 @@ schedstat_next:
                         continue;
 
                 ps->sample->next = new0(struct ps_sched_struct, 1);
-                if (!ps->sample) {
+                if (!ps->sample->next) {
                         log_oom();
                         exit(EXIT_FAILURE);
                 }

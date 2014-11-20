@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-RESOLVED\&.SERVICE" "8" "" "systemd 215" "systemd-resolved.service"
+.TH "SYSTEMD\-RESOLVED\&.SERVICE" "8" "" "systemd 217" "systemd-resolved.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,9 +29,12 @@ systemd\-resolved\&.service
 .SH "DESCRIPTION"
 .PP
 \fBsystemd\-resolved\fR
-is a system service that manages network name resolution\&. It does so by generating
-/run/systemd/resolve/resolv\&.conf, which may be symlinked from
-/etc/resolv\&.conf\&. The contents is generated from the global settings in
+is a system service that manages network name resolution\&. It implements a caching DNS stub resolver and an LLMNR resolver and responder\&. It also generates
+/run/systemd/resolve/resolv\&.conf
+for compatibility which may be symlinked from
+/etc/resolv\&.conf\&.
+.PP
+The DNS servers contacted are determined from the global settings in
 \fBresolved.conf\fR(5), the per\-link static settings in
 \&.network
 files, and the per\-link dynamic settings received over DHCP\&. See
@@ -44,7 +47,7 @@ should not be used directly, but only through a symlink from
 /etc/resolv\&.conf\&.
 .SH "SEE ALSO"
 .PP
-\fBresolved.conf\fR(5),
 \fBsystemd\fR(1),
+\fBresolved.conf\fR(5),
 \fBsystemd.network\fR(5),
 \fBsystemd-networkd.service\fR(8)

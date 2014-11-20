@@ -40,7 +40,6 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "bus-internal.h"
 #include "build.h"
 #include "strv.h"
 #include "def.h"
@@ -93,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -156,7 +155,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         /* If the first command line argument is only "x" characters
          * we'll write who we are talking to into it, so that "ps" is
@@ -188,7 +186,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
         assert(a);
         assert(b);
 
-        r = sd_bus_get_peer_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
+        r = sd_bus_get_owner_creds(b, SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_CMDLINE|SD_BUS_CREDS_COMM, &creds);
         if (r < 0)
                 return r;
 
@@ -240,7 +238,7 @@ static int rename_service(sd_bus *a, sd_bus *b) {
                   pid, p,
                   uid, name,
                   a->unique_name);
-                ;
+
         return 0;
 }
 
@@ -374,6 +372,8 @@ static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
+        assert(call);
+
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
@@ -387,6 +387,8 @@ static int synthetic_reply_method_error(sd_bus_message *call, const sd_bus_error
 static int synthetic_reply_method_errno(sd_bus_message *call, int error, const sd_bus_error *p) {
 
         _cleanup_bus_error_free_ sd_bus_error berror = SD_BUS_ERROR_NULL;
+
+        assert(call);
 
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -402,6 +404,8 @@ static int synthetic_reply_method_errno(sd_bus_message *call, int error, const s
 static int synthetic_reply_method_return(sd_bus_message *call, const char *types, ...) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
+
+        assert(call);
 
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
@@ -427,6 +431,8 @@ static int synthetic_reply_return_strv(sd_bus_message *call, char **l) {
         _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
         int r;
 
+        assert(call);
+
         r = sd_bus_message_new_method_return(call, &m);
         if (r < 0)
                 return synthetic_reply_method_errno(call, r, NULL);
@@ -448,7 +454,7 @@ static int get_creds_by_name(sd_bus *bus, const char *name, uint64_t mask, sd_bu
 
         assert_return(service_name_is_valid(name), -EINVAL);
 
-        r = sd_bus_get_owner(bus, name, mask, &c);
+        r = sd_bus_get_name_creds(bus, name, mask, &c);
         if (r == -ESRCH || r == -ENXIO)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Name %s is currently not owned by anyone.", name);
         if (r < 0)
@@ -638,28 +644,31 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionSELinuxSecurityContext")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_SELINUX_CONTEXT, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "y", creds->label, strlen(creds->label));
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixProcessID")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_PID, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->pid);
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "GetConnectionUnixUser")) {
                 _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, NULL);
+                r = get_creds_by_message(a, m, SD_BUS_CREDS_UID, &creds, &error);
                 if (r < 0)
-                        return synthetic_reply_method_errno(m, r, NULL);
+                        return synthetic_reply_method_errno(m, r, &error);
 
                 return synthetic_reply_method_return(m, "u", (uint32_t) creds->uid);
 
@@ -724,8 +733,10 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "ListQueuedOwners")) {
                 struct kdbus_cmd_name_list cmd = {};
                 struct kdbus_name_list *name_list;
-                struct kdbus_cmd_name *name;
+                struct kdbus_cmd_free cmd_free;
+                struct kdbus_name_info *name;
                 _cleanup_strv_free_ char **owners = NULL;
+                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *arg0;
                 int err = 0;
 
@@ -733,8 +744,16 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(arg0) < 0)
+                if (!service_name_is_valid(arg0))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
+
+                r = sd_bus_get_name_creds(a, arg0, 0, NULL);
+                if (r == -ESRCH || r == -ENXIO) {
+                        sd_bus_error_setf(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER, "Could not get owners of name '%s': no such name.", arg0);
+                        return synthetic_reply_method_errno(m, r, &error);
+                }
+                if (r < 0)
+                        return synthetic_reply_method_errno(m, r, NULL);
 
                 cmd.flags = KDBUS_NAME_LIST_QUEUED;
                 r = ioctl(a->input_fd, KDBUS_CMD_NAME_LIST, &cmd);
@@ -744,12 +763,15 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 name_list = (struct kdbus_name_list *) ((uint8_t *) a->kdbus_buffer + cmd.offset);
 
                 KDBUS_ITEM_FOREACH(name, name_list, names) {
+                        const char *entry_name = NULL;
+                        struct kdbus_item *item;
                         char *n;
 
-                        if (name->size <= sizeof(*name))
-                                continue;
+                        KDBUS_ITEM_FOREACH(item, name, items)
+                                if (item->type == KDBUS_ITEM_NAME)
+                                        entry_name = item->str;
 
-                        if (!streq(name->name, arg0))
+                        if (!streq_ptr(entry_name, arg0))
                                 continue;
 
                         if (asprintf(&n, ":1.%llu", (unsigned long long) name->owner_id) < 0) {
@@ -764,11 +786,14 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                         }
                 }
 
-                r = ioctl(a->input_fd, KDBUS_CMD_FREE, &cmd.offset);
+                cmd_free.flags = 0;
+                cmd_free.offset = cmd.offset;
+
+                r = ioctl(a->input_fd, KDBUS_CMD_FREE, &cmd_free);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (err > 0)
+                if (err < 0)
                         return synthetic_reply_method_errno(m, err, NULL);
 
                 return synthetic_reply_return_strv(m, owners);
@@ -780,13 +805,13 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 if (streq(name, "org.freedesktop.DBus"))
                         return synthetic_reply_method_return(m, "b", true);
 
-                r = sd_bus_get_owner(a, name, 0, NULL);
+                r = sd_bus_get_name_creds(a, name, 0, NULL);
                 if (r < 0 && r != -ESRCH && r != -ENXIO)
                         return synthetic_reply_method_errno(m, r, NULL);
 
@@ -799,7 +824,7 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
                 r = sd_bus_release_name(a, name);
@@ -823,18 +848,26 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
 
         } else if (sd_bus_message_is_method_call(m, "org.freedesktop.DBus", "RequestName")) {
                 const char *name;
-                uint32_t flags;
+                uint32_t flags, param;
 
                 r = sd_bus_message_read(m, "su", &name, &flags);
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
                 if ((flags & ~(BUS_NAME_ALLOW_REPLACEMENT|BUS_NAME_REPLACE_EXISTING|BUS_NAME_DO_NOT_QUEUE)) != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
-                r = sd_bus_request_name(a, name, flags);
+                param = 0;
+                if (flags & BUS_NAME_ALLOW_REPLACEMENT)
+                        param |= SD_BUS_NAME_ALLOW_REPLACEMENT;
+                if (flags & BUS_NAME_REPLACE_EXISTING)
+                        param |= SD_BUS_NAME_REPLACE_EXISTING;
+                if (!(flags & BUS_NAME_DO_NOT_QUEUE))
+                        param |= SD_BUS_NAME_QUEUE;
+
+                r = sd_bus_request_name(a, name, param);
                 if (r < 0) {
                         if (r == -EEXIST)
                                 return synthetic_reply_method_return(m, "u", BUS_NAME_EXISTS);
@@ -857,12 +890,12 @@ static int process_driver(sd_bus *a, sd_bus *b, sd_bus_message *m) {
                 if (r < 0)
                         return synthetic_reply_method_errno(m, r, NULL);
 
-                if (service_name_is_valid(name) < 0)
+                if (!service_name_is_valid(name))
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
                 if (flags != 0)
                         return synthetic_reply_method_errno(m, -EINVAL, NULL);
 
-                r = sd_bus_get_owner(a, name, 0, NULL);
+                r = sd_bus_get_name_creds(a, name, 0, NULL);
                 if (r >= 0 || streq(name, "org.freedesktop.DBus"))
                         return synthetic_reply_method_return(m, "u", BUS_START_REPLY_ALREADY_RUNNING);
                 if (r != -ESRCH)
@@ -1091,7 +1124,7 @@ static int patch_sender(sd_bus *a, sd_bus_message *m) {
 
 int main(int argc, char *argv[]) {
 
-        _cleanup_bus_unref_ sd_bus *a = NULL, *b = NULL;
+        _cleanup_bus_close_unref_ sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
         int r, in_fd, out_fd;
         bool got_hello = false;
@@ -1133,8 +1166,8 @@ int main(int argc, char *argv[]) {
                 sd_is_socket(out_fd, AF_UNIX, 0, 0) > 0;
 
         if (is_unix) {
-                getpeercred(in_fd, &ucred);
-                getpeersec(in_fd, &peersec);
+                (void) getpeercred(in_fd, &ucred);
+                (void) getpeersec(in_fd, &peersec);
         }
 
         if (arg_drop_privileges) {
@@ -1397,7 +1430,7 @@ int main(int argc, char *argv[]) {
                                 else {
                                         k = sd_bus_send(a, m, NULL);
                                         if (k < 0) {
-                                                if (r == -ECONNRESET)
+                                                if (k == -ECONNRESET)
                                                         r = 0;
                                                 else {
                                                         r = k;
@@ -1475,10 +1508,9 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        sd_bus_flush(a);
-        sd_bus_flush(b);
-        sd_bus_close(a);
-        sd_bus_close(b);
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down.");
 
         policy_free(&policy);
         strv_free(arg_configuration);

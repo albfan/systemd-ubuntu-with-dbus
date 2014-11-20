@@ -220,25 +220,24 @@ static int device_make_description(Unit *u, struct udev_device *dev, const char 
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
         const char *wants;
-        char *state, *w;
+        const char *word, *state;
         size_t l;
         int r;
+        const char *property;
 
         assert(u);
         assert(dev);
 
-        wants = udev_device_get_property_value(
-                        dev,
-                        u->manager->running_as == SYSTEMD_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS");
-
+        property = u->manager->running_as == SYSTEMD_USER ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
+        wants = udev_device_get_property_value(dev, property);
         if (!wants)
                 return 0;
 
-        FOREACH_WORD_QUOTED(w, l, wants, state) {
+        FOREACH_WORD_QUOTED(word, l, wants, state) {
                 _cleanup_free_ char *n = NULL;
                 char e[l+1];
 
-                memcpy(e, w, l);
+                memcpy(e, word, l);
                 e[l] = 0;
 
                 n = unit_name_mangle(e, MANGLE_NOGLOB);
@@ -249,6 +248,9 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 if (r < 0)
                         return r;
         }
+        if (!isempty(state))
+                log_warning_unit(u->id, "Property %s on %s has trailing garbage, ignoring.",
+                                 property, strna(udev_device_get_syspath(dev)));
 
         return 0;
 }
@@ -302,7 +304,7 @@ static int device_update_unit(Manager *m, struct udev_device *dev, const char *p
                         goto fail;
                 }
 
-                r = hashmap_ensure_allocated(&m->devices_by_sysfs, string_hash_func, string_compare_func);
+                r = hashmap_ensure_allocated(&m->devices_by_sysfs, &string_hash_ops);
                 if (r < 0)
                         goto fail;
 
@@ -393,13 +395,13 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
          * aliases */
         alias = udev_device_get_property_value(dev, "SYSTEMD_ALIAS");
         if (alias) {
-                char *state, *w;
+                const char *word, *state;
                 size_t l;
 
-                FOREACH_WORD_QUOTED(w, l, alias, state) {
+                FOREACH_WORD_QUOTED(word, l, alias, state) {
                         char e[l+1];
 
-                        memcpy(e, w, l);
+                        memcpy(e, word, l);
                         e[l] = 0;
 
                         if (path_is_absolute(e))
@@ -407,6 +409,8 @@ static int device_process_new_device(Manager *m, struct udev_device *dev) {
                         else
                                 log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, e);
                 }
+                if (!isempty(state))
+                        log_warning("SYSTEMD_ALIAS for %s has trailing garbage, ignoring.", sysfs);
         }
 
         return 0;
@@ -513,7 +517,7 @@ static int device_following_set(Unit *u, Set **_set) {
                 return 0;
         }
 
-        set = set_new(NULL, NULL);
+        set = set_new(NULL);
         if (!set)
                 return -ENOMEM;
 

@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="sd_listen_fds"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_listen_fds, SD_LISTEN_FDS_START — Check for file descriptors passed by the system manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre><pre class="funcsynopsisinfo">#define SD_LISTEN_FDS_START 3</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_listen_fds</b>(</code></td><td>int <var class="pdparam">unset_environment</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm214197560512"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_listen_fds()</code> shall be
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="sd_listen_fds"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>sd_listen_fds, SD_LISTEN_FDS_START — Check for file descriptors passed by the system manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="funcsynopsis"><pre class="funcsynopsisinfo">#include &lt;systemd/sd-daemon.h&gt;</pre><pre class="funcsynopsisinfo">#define SD_LISTEN_FDS_START 3</pre><table border="0" class="funcprototype-table" summary="Function synopsis" style="cellspacing: 0; cellpadding: 0;"><tr><td><code class="funcdef">int <b class="fsfunc">sd_listen_fds</b>(</code></td><td>int <var class="pdparam">unset_environment</var><code>)</code>;</td></tr></table><div class="funcprototype-spacer"> </div></div></div><div class="refsect1"><a name="idm214193016000"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="function">sd_listen_fds()</code> shall be
                 called by a daemon to check for file descriptors
                 passed by the init system as part of the socket-based
                 activation logic.</p><p>If the <em class="parameter"><code>unset_environment</code></em>
@@ -50,7 +50,7 @@
                 datagram or stream socket matters a lot for the most
                 common program logics and should be checked.</p><p>This function call will set the FD_CLOEXEC flag
                 for all passed file descriptors to avoid further
-                inheritance to children of the calling process.</p></div><div class="refsect1"><a name="idm214197624416"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On failure, this call returns a negative
+                inheritance to children of the calling process.</p></div><div class="refsect1"><a name="idm214193005168"></a><h2 id="Return Value">Return Value<a class="headerlink" title="Permalink to this headline" href="#Return%20Value">¶</a></h2><p>On failure, this call returns a negative
                 errno-style error code. If
                 <code class="varname">$LISTEN_FDS</code>/<code class="varname">$LISTEN_PID</code>
                 was not set or was not correctly set for this daemon and
@@ -58,9 +58,9 @@
                 returned. Otherwise, the number of file descriptors
                 passed is returned. The application may find them
                 starting with file descriptor SD_LISTEN_FDS_START,
-                i.e. file descriptor 3.</p></div><div class="refsect1"><a name="idm214197551888"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><a name="pkgconfig-text"></a>These APIs are implemented as a shared
+                i.e. file descriptor 3.</p></div><div class="refsect1"><a name="idm214196903888"></a><h2 id="Notes">Notes<a class="headerlink" title="Permalink to this headline" href="#Notes">¶</a></h2><p><a name="pkgconfig-text"></a>These APIs are implemented as a shared
   library, which can be compiled and linked to with the
-  <code class="constant">libsystemd</code> <a href="pkg-config.html"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
+  <code class="constant">libsystemd</code> <a href="http://linux.die.net/man/1/pkg-config"><span class="citerefentry"><span class="refentrytitle">pkg-config</span>(1)</span></a>
   file.</p><p>Internally, this function checks whether the
                 <code class="varname">$LISTEN_PID</code> environment variable
                 equals the daemon PID. If not, it returns
@@ -69,14 +69,14 @@
                 variable, then sets the FD_CLOEXEC flag for the parsed
                 number of file descriptors starting from
                 SD_LISTEN_FDS_START. Finally, it returns the parsed
-                number.</p></div><div class="refsect1"><a name="idm214197548512"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$LISTEN_PID"><span class="term"><code class="varname">$LISTEN_PID</code>, </span><span class="term"><code class="varname">$LISTEN_FDS</code></span><a class="headerlink" title="Permalink to this term" href="#%24LISTEN_PID">¶</a></dt><dd><p>Set by the init system
+                number.</p></div><div class="refsect1"><a name="idm214196900512"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$LISTEN_PID"><span class="term"><code class="varname">$LISTEN_PID</code>, </span><span class="term"><code class="varname">$LISTEN_FDS</code></span><a class="headerlink" title="Permalink to this term" href="#%24LISTEN_PID">¶</a></dt><dd><p>Set by the init system
                                 for supervised processes that use
                                 socket-based activation. This
                                 environment variable specifies the
                                 data
                                 <code class="function">sd_listen_fds()</code>
                                 parses. See above for
-                                details.</p></dd></dl></div></div><div class="refsect1"><a name="idm214197690240"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                details.</p></dd></dl></div></div><div class="refsect1"><a name="idm214196895968"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="sd-daemon.html"><span class="citerefentry"><span class="refentrytitle">sd-daemon</span>(3)</span></a>,
                         <a href="sd_is_fifo.html"><span class="citerefentry"><span class="refentrytitle">sd_is_fifo</span>(3)</span></a>,

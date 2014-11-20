@@ -43,27 +43,31 @@ static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
-
+static char *arg_usr_what = NULL;
+static char *arg_usr_fstype = NULL;
+static char *arg_usr_options = NULL;
 
 static int mount_find_pri(struct mntent *me, int *ret) {
-        char *end, *pri;
+        char *end, *opt;
         unsigned long r;
 
         assert(me);
         assert(ret);
 
-        pri = hasmntopt(me, "pri");
-        if (!pri)
+        opt = hasmntopt(me, "pri");
+        if (!opt)
                 return 0;
 
-        pri += 4;
+        opt += strlen("pri");
+        if (*opt != '=')
+                return -EINVAL;
 
         errno = 0;
-        r = strtoul(pri, &end, 10);
+        r = strtoul(opt + 1, &end, 10);
         if (errno > 0)
                 return -errno;
 
-        if (end == pri || (*end != ',' && *end != 0))
+        if (end == opt + 1 || (*end != ',' && *end != 0))
                 return -EINVAL;
 
         *ret = (int) r;
@@ -73,6 +77,7 @@ static int mount_find_pri(struct mntent *me, int *ret) {
 static int add_swap(const char *what, struct mntent *me) {
         _cleanup_free_ char *name = NULL, *unit = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+
         bool noauto;
         int r, pri = -1;
 
@@ -87,7 +92,7 @@ static int add_swap(const char *what, struct mntent *me) {
         r = mount_find_pri(me, &pri);
         if (r < 0) {
                 log_error("Failed to parse priority");
-                return pri;
+                return r;
         }
 
         noauto = !!hasmntopt(me, "noauto");
@@ -118,15 +123,18 @@ static int add_swap(const char *what, struct mntent *me) {
                 "What=%s\n",
                 what);
 
+        /* Note that we currently pass the priority field twice, once
+         * in Priority=, and once in Options= */
         if (pri >= 0)
-                fprintf(f,
-                        "Priority=%i\n",
-                        pri);
+                fprintf(f, "Priority=%i\n", pri);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error("Failed to write unit file %s: %m", unit);
-                return -errno;
+        if (!isempty(me->mnt_opts) && !streq(me->mnt_opts, "defaults"))
+                fprintf(f, "Options=%s\n", me->mnt_opts);
+
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error("Failed to write unit file %s: %s", unit, strerror(-r));
+                return r;
         }
 
         /* use what as where, to have a nicer error message */
@@ -432,7 +440,7 @@ static int add_root_mount(void) {
         else if (arg_root_rw >= 0 ||
                  (!mount_test_option(arg_root_options, "ro") &&
                   !mount_test_option(arg_root_options, "rw")))
-                opts = strappenda3(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
+                opts = strappenda(arg_root_options, ",", arg_root_rw > 0 ? "rw" : "ro");
         else
                 opts = arg_root_options;
 
@@ -449,12 +457,64 @@ static int add_root_mount(void) {
                          "/proc/cmdline");
 }
 
+static int add_usr_mount(void) {
+        _cleanup_free_ char *what = NULL;
+        const char *opts;
+
+        if (!arg_usr_what && !arg_usr_fstype && !arg_usr_options)
+                return 0;
+
+        if (arg_root_what && !arg_usr_what) {
+                arg_usr_what = strdup(arg_root_what);
+
+                if (!arg_usr_what)
+                        return log_oom();
+        }
+
+        if (arg_root_fstype && !arg_usr_fstype) {
+                arg_usr_fstype = strdup(arg_root_fstype);
+
+                if (!arg_usr_fstype)
+                        return log_oom();
+        }
+
+        if (arg_root_options && !arg_usr_options) {
+                arg_usr_options = strdup(arg_root_options);
+
+                if (!arg_usr_options)
+                        return log_oom();
+        }
+
+        if (!arg_usr_what || !arg_usr_options)
+                return 0;
+
+        what = fstab_node_to_udev_node(arg_usr_what);
+        if (!path_is_absolute(what)) {
+                log_debug("Skipping entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
+                return -1;
+        }
+
+        opts = arg_usr_options;
+
+        log_debug("Found entry what=%s where=/sysroot/usr type=%s", what, strna(arg_usr_fstype));
+        return add_mount(what,
+                         "/sysroot/usr",
+                         arg_usr_fstype,
+                         opts,
+                         1,
+                         false,
+                         false,
+                         false,
+                         SPECIAL_INITRD_ROOT_FS_TARGET,
+                         "/proc/cmdline");
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value) {
         int r;
 
-        /* root= and roofstype= may occur more than once, the last
-         * instance should take precedence.  In the case of multiple
-         * rootflags= the arguments should be concatenated */
+        /* root=, usr=, usrfstype= and roofstype= may occur more than once, the last
+         * instance should take precedence.  In the case of multiple rootflags=
+         * or usrflags= the arguments should be concatenated */
 
         if (STR_IN_SET(key, "fstab", "rd.fstab") && value) {
 
@@ -466,16 +526,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
         } else if (streq(key, "root") && value) {
 
-                free(arg_root_what);
-                arg_root_what = strdup(value);
-                if (!arg_root_what)
+                if (free_and_strdup(&arg_root_what, value) < 0)
                         return log_oom();
 
         } else if (streq(key, "rootfstype") && value) {
 
-                free(arg_root_fstype);
-                arg_root_fstype = strdup(value);
-                if (!arg_root_fstype)
+                if (free_and_strdup(&arg_root_fstype, value) < 0)
                         return log_oom();
 
         } else if (streq(key, "rootflags") && value) {
@@ -489,6 +545,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value) {
 
                 free(arg_root_options);
                 arg_root_options = o;
+
+        } else if (streq(key, "mount.usr") && value) {
+
+                if (free_and_strdup(&arg_usr_what, value) < 0)
+                        return log_oom();
+
+        } else if (streq(key, "mount.usrfstype") && value) {
+
+                if (free_and_strdup(&arg_usr_fstype, value) < 0)
+                        return log_oom();
+
+        } else if (streq(key, "mount.usrflags") && value) {
+                char *o;
+
+                o = arg_usr_options ?
+                        strjoin(arg_usr_options, ",", value, NULL) :
+                        strdup(value);
+                if (!o)
+                        return log_oom();
+
+                free(arg_usr_options);
+                arg_usr_options = o;
 
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
@@ -518,9 +596,12 @@ int main(int argc, char *argv[]) {
         if (parse_proc_cmdline(parse_proc_cmdline_item) < 0)
                 return EXIT_FAILURE;
 
-        /* Always honour root= in the kernel command line if we are in an initrd */
-        if (in_initrd())
+        /* Always honour root= and usr= in the kernel command line if we are in an initrd */
+        if (in_initrd()) {
                 r = add_root_mount();
+                if (r == 0)
+                        r = add_usr_mount();
+        }
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
@@ -542,6 +623,8 @@ int main(int argc, char *argv[]) {
                                 r = k;
                 }
         }
+
+        free(arg_root_what);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -114,6 +114,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><literal>-=</literal></term>
+          <listitem>
+            <para>Remove the value from a key that holds a list of entries.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><literal>:=</literal></term>
           <listitem>
             <para>Assign  a  value  to  a key finally; disallow any later changes.</para>
@@ -272,8 +279,8 @@
         </varlistentry>
       </variablelist>
 
-      <para>Most of the fields support shell glob pattern matching. The following
-      pattern characters are supported:</para>
+      <para>Most of the fields support shell glob pattern matching and
+      alternate patterns. The following special characters are supported:</para>
       <variablelist>
         <varlistentry>
           <term><literal>*</literal></term>
@@ -298,6 +305,14 @@
             <literal>[0-9]</literal> could be used. If the first character
             following the <literal>[</literal> is a <literal>!</literal>,
             any characters not enclosed are matched.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>|</literal></term>
+          <listitem>
+            <para>Separates alternative patterns. For example, the pattern string
+            <literal>abc|x*</literal> would match either <literal>abc</literal>
+            or <literal>x*</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -513,13 +528,6 @@
                 <listitem>
                   <para>Specify the priority of the created symlinks. Devices with higher
                   priorities overwrite existing symlinks of other devices. The default is 0.</para>
-                </listitem>
-              </varlistentry>
-              <varlistentry>
-                <term><option>event_timeout=</option></term>
-                <listitem>
-                  <para>Number of seconds an event waits for operations to finish before
-                  giving up and terminating itself.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -758,7 +766,9 @@
 
       <para>The content of all hwdb files is read by
       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>.
+      and compiled to a binary database located at <filename>/etc/udev/hwdb.bin</filename>,
+      or alternatively <filename>/usr/lib/udev/hwdb.bin</filename> if you want ship the compiled
+      database in an immutable image.
       During runtime only the binary database is used.</para>
   </refsect1>
 
@@ -770,7 +780,7 @@
       </citerefentry>,
       <citerefentry>
         <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry>
+      </citerefentry>,
       <citerefentry>
         <refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum>
       </citerefentry>

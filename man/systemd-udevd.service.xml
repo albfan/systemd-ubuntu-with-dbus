@@ -22,7 +22,6 @@
   <refmeta>
     <refentrytitle>systemd-udevd.service</refentrytitle>
     <manvolnum>8</manvolnum>
-    <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
@@ -44,6 +43,7 @@
       <arg><option>--debug</option></arg>
       <arg><option>--children-max=</option></arg>
       <arg><option>--exec-delay=</option></arg>
+      <arg><option>--event-timeout=</option></arg>
       <arg><option>--resolve-names=early|late|never</option></arg>
       <arg><option>--version</option></arg>
       <arg><option>--help</option></arg>
@@ -53,12 +53,17 @@
 
   <refsect1><title>Description</title>
     <para><command>systemd-udevd</command> listens to kernel uevents.
-      For every event, systemd-udevd executes matching instructions
-      specified in udev rules. See <citerefentry>
-      <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry>.</para>
-    <para>The behavior of the running daemon can be changed with
-    <command>udevadm control</command>.</para>
+    For every event, systemd-udevd executes matching instructions
+    specified in udev rules. See <citerefentry>
+    <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+    </citerefentry>.</para>
+
+    <para>The behavior of the daemon can be configured using
+    <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    its command-line options, environment variables, and on the kernel
+    command-line, or changed dynamically with <command>udevadm
+    control</command>.
+    </para>
   </refsect1>
 
   <refsect1><title>Options</title>
@@ -92,6 +97,14 @@
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--event-timeout=</option></term>
+        <listitem>
+          <para>Set the number of seconds to wait for events to finish. After
+          this time the event will be terminated. The default is 30 seconds.</para>
         </listitem>
       </varlistentry>
 
@@ -156,6 +169,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>udev.event-timeout=</varname></term>
+        <term><varname>rd.udev.event-timeout=</varname></term>
+        <listitem>
+          <para>Wait for events to finish up to the given number
+          of seconds. This option might be useful if events are
+          terminated due to kernel drivers taking too long to initialize.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>net.ifnames=</varname></term>
         <listitem>
           <para>Network interfaces are renamed to give them predictable names
@@ -167,29 +189,12 @@
          in kernel-command-line.xml -->
  </refsect1>
 
- <refsect1><title>Configuration file</title>
-   <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
-   It consists of a set of variables allowing the user to override default udev values. All
-   empty lines or lines beginning with '#' are ignored. The following variables can be
-   set:</para>
-   <variablelist>
-     <varlistentry>
-       <term><varname>udev_log</varname></term>
-       <listitem>
-         <para>The logging priority. Valid values are the numerical syslog priorities
-         or their textual representations: <option>err</option>, <option>info</option>
-         and <option>debug</option>.</para>
-       </listitem>
-     </varlistentry>
-   </variablelist>
- </refsect1>
-
   <refsect1>
     <title>See Also</title>
-    <para><citerefentry>
-        <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-      </citerefentry>, <citerefentry>
-        <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-    </citerefentry></para>
+    <para>
+      <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
   </refsect1>
 </refentry>

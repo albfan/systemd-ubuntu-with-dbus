@@ -365,7 +365,12 @@ static int trie_store(struct trie *trie, const char *filename) {
         fchmod(fileno(t.f), 0444);
 
         /* write nodes */
-        fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
+        err = fseeko(t.f, sizeof(struct trie_header_f), SEEK_SET);
+        if (err < 0) {
+                fclose(t.f);
+                unlink_noerrno(filename_tmp);
+                return -errno;
+        }
         root_off = trie_store_nodes(&t, trie->root);
         h.nodes_root_off = htole64(root_off);
         pos = ftello(t.f);
@@ -378,7 +383,12 @@ static int trie_store(struct trie *trie, const char *filename) {
         /* write header */
         size = ftello(t.f);
         h.file_size = htole64(size);
-        fseeko(t.f, 0, SEEK_SET);
+        err = fseeko(t.f, 0, SEEK_SET);
+        if (err < 0) {
+                fclose(t.f);
+                unlink_noerrno(filename_tmp);
+                return -errno;
+        }
         fwrite(&h, sizeof(struct trie_header_f), 1, t.f);
         err = ferror(t.f);
         if (err)
@@ -526,14 +536,20 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 static void help(void) {
         printf("Usage: udevadm hwdb OPTIONS\n"
                "  -u,--update          update the hardware database\n"
+               "  --usr                generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
                "  -t,--test=MODALIAS   query database and print result\n"
                "  -r,--root=PATH       alternative root path in the filesystem\n"
                "  -h,--help\n\n");
 }
 
 static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
+        enum {
+                ARG_USR = 0x100,
+        };
+
         static const struct option options[] = {
                 { "update", no_argument,       NULL, 'u' },
+                { "usr",    no_argument,       NULL, ARG_USR },
                 { "test",   required_argument, NULL, 't' },
                 { "root",   required_argument, NULL, 'r' },
                 { "help",   no_argument,       NULL, 'h' },
@@ -541,6 +557,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         };
         const char *test = NULL;
         const char *root = "";
+        const char *hwdb_bin_dir = "/etc/udev";
         bool update = false;
         struct trie *trie = NULL;
         int err, c;
@@ -550,6 +567,9 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 switch(c) {
                 case 'u':
                         update = true;
+                        break;
+                case ARG_USR:
+                        hwdb_bin_dir = UDEVLIBEXECDIR;
                         break;
                 case 't':
                         test = optarg;
@@ -624,7 +644,8 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                           trie->strings->dedup_len, trie->strings->dedup_count);
 
-                if (asprintf(&hwdb_bin, "%s/etc/udev/hwdb.bin", root) < 0) {
+                hwdb_bin = strjoin(root, "/", hwdb_bin_dir, "/hwdb.bin", NULL);
+                if (!hwdb_bin) {
                         rc = EXIT_FAILURE;
                         goto out;
                 }

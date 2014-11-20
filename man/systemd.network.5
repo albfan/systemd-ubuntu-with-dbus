@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 215" "systemd.network"
+.TH "SYSTEMD\&.NETWORK" "5" "" "systemd 217" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -155,9 +155,20 @@ A boolean\&. Enables a basic DHCPv4 server on the device\&. Mostly useful for ha
 .PP
 \fIIPv4LL=\fR
 .RS 4
-A boolean\&. When true, enables IPv4 link\-local support\&. If
-"DHCP="
-is also true, acquiring DHCP address will deprecate previously acquired IPv4 link\-local address or stop acquiring process if one has not been acquired before\&.
+A boolean\&. When true, enables IPv4 link\-local support\&.
+.RE
+.PP
+\fIIPv4LLRoute=\fR
+.RS 4
+A boolean\&. When true, sets up the route needed for non\-IPv4LL hosts to communicate with IPv4LL\-only hosts\&. Defaults to false\&.
+.RE
+.PP
+\fILLMNR=\fR
+.RS 4
+A boolean or
+"resolve"\&. When true, enables Link\-Local Multicast Name Resolution on the link, when set to
+"resolve"
+only resolution is enabled, but not announcement\&. Defaults to true\&.
 .RE
 .PP
 \fIAddress=\fR
@@ -180,6 +191,16 @@ The gateway address, which must be in the format described in
 .RS 4
 A DNS server address, which must be in the format described in
 \fBinet_pton\fR(3)\&. This option may be specified more than once\&.
+.RE
+.PP
+\fIDomains=\fR
+.RS 4
+The domains used for DNS resolution over this link\&.
+.RE
+.PP
+\fINTP=\fR
+.RS 4
+An NTP server address\&. This option may be specified more than once\&.
 .RE
 .PP
 \fIBridge=\fR
@@ -226,6 +247,13 @@ As in the
 section\&. This key is mandatory\&.
 .RE
 .PP
+\fIPeer=\fR
+.RS 4
+The peer address in a point\-to\-point connection\&. Accepts the same format as the
+"Address"
+key\&.
+.RE
+.PP
 \fIBroadcast=\fR
 .RS 4
 The broadcast address, which must be in the format described in
@@ -255,7 +283,12 @@ section\&. This key is mandatory\&.
 .PP
 \fIDestination=\fR
 .RS 4
-The destination prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If ommitted, a full\-length host route is assumed\&.
+The destination prefix of the route\&. Possibly followed by a slash and the prefixlength\&. If omitted, a full\-length host route is assumed\&.
+.RE
+.PP
+\fIMetric=\fR
+.RS 4
+The metric of the route\&. An unsigned integer
 .RE
 .SH "[DHCP] SECTION OPTIONS"
 .PP
@@ -283,6 +316,11 @@ When true (the default), the machine\*(Aqs hostname will be sent to the DHCP ser
 When true (the default), the hostname received from the DHCP server will be used as the transient hostname\&.
 .RE
 .PP
+\fIUseDomains=\fR
+.RS 4
+When true (not the default), the domain name received from the DHCP server will be used for DNS resolution over this link\&.
+.RE
+.PP
 \fIUseRoutes=\fR
 .RS 4
 When true (the default), the static routes will be requested from the DHCP server and added to the routing table with metric of 1024\&.
@@ -291,6 +329,21 @@ When true (the default), the static routes will be requested from the DHCP serve
 \fICriticalConnection=\fR
 .RS 4
 When true, the connection will never be torn down even if the DHCP lease expires\&. This is contrary to the DHCP specification, but may be the best choice if, say, the root filesystem relies on this connection\&. Defaults to false\&.
+.RE
+.PP
+\fIVendorClassIdentifier=\fR
+.RS 4
+The vendor class identifier used to identify vendor type and configuration\&.
+.RE
+.PP
+\fIRequestBroadcast=\fR
+.RS 4
+Request the server to use broadcast messages before the IP address has been configured\&. This is necessary for devices that cannot receive RAW packets, or that cannot receive packets at all before an IP address has been configured\&. On the other hand, this must not be enabled on networks where broadcasts are filtered out\&.
+.RE
+.PP
+\fIRouteMetric=\fR
+.RS 4
+Set the routing metric for routes specified by the DHCP server\&.
 .RE
 .SH "EXAMPLE"
 .PP
@@ -321,7 +374,7 @@ Gateway=192\&.168\&.0\&.1
 Name=en*
 
 [Network]
-DHCP=yes
+DHCP=both
 .fi
 .if n \{\
 .RE

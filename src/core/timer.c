@@ -46,8 +46,8 @@ static void timer_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        t->next_elapse_monotonic_or_boottime = (usec_t) -1;
-        t->next_elapse_realtime = (usec_t) -1;
+        t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
+        t->next_elapse_realtime = USEC_INFINITY;
         t->accuracy_usec = u->manager->default_timer_accuracy_usec;
 }
 
@@ -95,6 +95,7 @@ static int timer_verify(Timer *t) {
 
 static int timer_add_default_dependencies(Timer *t) {
         int r;
+        TimerValue *v;
 
         assert(t);
 
@@ -106,6 +107,15 @@ static int timer_add_default_dependencies(Timer *t) {
                 r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, NULL, true);
                 if (r < 0)
                         return r;
+
+                LIST_FOREACH(value, v, t->values) {
+                        if (v->base == TIMER_CALENDAR) {
+                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, NULL, true);
+                                if (r < 0)
+                                        return r;
+                                break;
+                        }
+                }
         }
 
         return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, NULL, true);
@@ -232,7 +242,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                                 "%s%s: %s\n",
                                 prefix,
                                 timer_base_to_string(v->base),
-                                strna(format_timespan(timespan1, sizeof(timespan1), v->value, 0)));
+                                format_timespan(timespan1, sizeof(timespan1), v->value, 0));
                 }
         }
 }

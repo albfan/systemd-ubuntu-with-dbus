@@ -1,5 +1,5 @@
 '\" t
-.TH "UDEV" "7" "" "systemd 215" "udev"
+.TH "UDEV" "7" "" "systemd 217" "udev"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -74,6 +74,11 @@ Assign a value to a key\&. Keys that represent a list are reset and only this si
 "+="
 .RS 4
 Add the value to a key that holds a list of entries\&.
+.RE
+.PP
+"\-="
+.RS 4
+Remove the value from a key that holds a list of entries\&.
 .RE
 .PP
 ":="
@@ -184,7 +189,7 @@ call\&. This key can be used in the same or in any later rule after a
 call\&.
 .RE
 .PP
-Most of the fields support shell glob pattern matching\&. The following pattern characters are supported:
+Most of the fields support shell glob pattern matching and alternate patterns\&. The following special characters are supported:
 .PP
 "*"
 .RS 4
@@ -211,6 +216,16 @@ could be used\&. If the first character following the
 "["
 is a
 "!", any characters not enclosed are matched\&.
+.RE
+.PP
+"|"
+.RS 4
+Separates alternative patterns\&. For example, the pattern string
+"abc|x*"
+would match either
+"abc"
+or
+"x*"\&.
 .RE
 .PP
 The following keys can get values assigned:
@@ -365,11 +380,6 @@ Rule and device options:
 \fBlink_priority=\fR\fB\fIvalue\fR\fR
 .RS 4
 Specify the priority of the created symlinks\&. Devices with higher priorities overwrite existing symlinks of other devices\&. The default is 0\&.
-.RE
-.PP
-\fBevent_timeout=\fR
-.RS 4
-Number of seconds an event waits for operations to finish before giving up and terminating itself\&.
 .RE
 .PP
 \fBstring_escape=\fR\fB\fInone|replace\fR\fR
@@ -551,8 +561,11 @@ are ignored\&.
 The content of all hwdb files is read by
 \fBudevadm\fR(8)
 and compiled to a binary database located at
-/etc/udev/hwdb\&.bin\&. During runtime only the binary database is used\&.
+/etc/udev/hwdb\&.bin, or alternatively
+/usr/lib/udev/hwdb\&.bin
+if you want ship the compiled database in an immutable image\&. During runtime only the binary database is used\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd-udevd.service\fR(8),
-\fBudevadm\fR(8)\fBsystemd.link\fR(5)
+\fBudevadm\fR(8),
+\fBsystemd.link\fR(5)

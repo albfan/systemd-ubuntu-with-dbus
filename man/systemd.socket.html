@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm214183103728"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.socket"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.socket — Socket unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code></p></div><div class="refsect1"><a name="idm214175910640"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.socket</code>" encodes information about
                 an IPC or network socket or a file system FIFO
                 controlled and supervised by systemd, for socket-based
@@ -97,7 +97,7 @@
                 <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>-style
                 socket passing (i.e. sockets passed in via standard input and
                 output, using <code class="varname">StandardInput=socket</code>
-                in the service file).</p></div><div class="refsect1"><a name="idm214183195712"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
+                in the service file).</p></div><div class="refsect1"><a name="idm214179835824"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Socket files must include a [Socket] section,
                 which carries information about the socket or FIFO it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -122,7 +122,7 @@
                                 replaced with a
                                 <code class="constant">NUL</code> character
                                 before binding. For details, see
-                                <a href="unix.html"><span class="citerefentry"><span class="refentrytitle">unix</span>(7)</span></a>.</p><p>If the address string is a
+                                <a href="http://man7.org/linux/man-pages/man7/unix.7.html"><span class="citerefentry"><span class="refentrytitle">unix</span>(7)</span></a>.</p><p>If the address string is a
                                 single number, it is read as port
                                 number to listen on via
                                 IPv6. Depending on the value of
@@ -238,7 +238,7 @@
                                 been accepted yet. This setting
                                 matters only for stream and sequential
                                 packet sockets. See
-                                <a href="listen.html"><span class="citerefentry"><span class="refentrytitle">listen</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/listen.2.html"><span class="citerefentry"><span class="refentrytitle">listen</span>(2)</span></a>
                                 for details. Defaults to SOMAXCONN
                                 (128).</p></dd><dt id="BindToDevice="><span class="term"><code class="varname">BindToDevice=</code></span><a class="headerlink" title="Permalink to this term" href="#BindToDevice=">¶</a></dt><dd><p>Specifies a network
                                 interface name to bind this socket
@@ -297,12 +297,12 @@
                                 <code class="option">Accept=false</code>. A
                                 daemon listening on an <code class="constant">AF_UNIX</code> socket
                                 may, but does not need to, call
-                                <a href="close.html"><span class="citerefentry"><span class="refentrytitle">close</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/close.2.html"><span class="citerefentry"><span class="refentrytitle">close</span>(2)</span></a>
                                 on the received socket before
                                 exiting. However, it must not unlink
                                 the socket from a file system. It
                                 should not invoke
-                                <a href="shutdown.html"><span class="citerefentry"><span class="refentrytitle">shutdown</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/shutdown.2.html"><span class="citerefentry"><span class="refentrytitle">shutdown</span>(2)</span></a>
                                 on sockets it got with
                                 <code class="varname">Accept=false</code>, but
                                 it may do so for sockets it got with
@@ -335,13 +335,67 @@
                                 and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
                                 Keepalive HOWTO</a> for details.)
                                 Defaults to
+                                <code class="option">false</code>.</p></dd><dt id="KeepAliveTimeSec="><span class="term"><code class="varname">KeepAliveTimeSec=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveTimeSec=">¶</a></dt><dd><p>Takes time (in seconds) as argument . The connection needs to remain
+                                idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
+                                socket option (see
+                                <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+                                and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
+                                Keepalive HOWTO</a> for details.)
+                                Defaults value is 7200 seconds (2 hours).</p></dd><dt id="KeepAliveIntervalSec="><span class="term"><code class="varname">KeepAliveIntervalSec=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveIntervalSec=">¶</a></dt><dd><p>Takes time (in seconds) as argument between individual keepalive probes,
+                                if the socket option SO_KEEPALIVE has  been set on this socket seconds as argument.
+                                This controls the TCP_KEEPINTVL socket option (see
+                                <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+                                and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
+                                Keepalive HOWTO</a> for details.)
+                                Defaults value is 75 seconds.</p></dd><dt id="KeepAliveProbes="><span class="term"><code class="varname">KeepAliveProbes=</code></span><a class="headerlink" title="Permalink to this term" href="#KeepAliveProbes=">¶</a></dt><dd><p>Takes integer as argument. It's the number of unacknowledged probes to
+                                send before considering the connection dead and notifying the application layer.
+                                This controls the TCP_KEEPCNT socket option (see
+                                <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
+                                and the <a class="ulink" href="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/" target="_top">TCP
+                                Keepalive HOWTO</a> for details.)
+                                Defaults value is 9.</p></dd><dt id="NoDelay="><span class="term"><code class="varname">NoDelay=</code></span><a class="headerlink" title="Permalink to this term" href="#NoDelay=">¶</a></dt><dd><p>Takes a boolean
+                                argument. TCP Nagle's algorithm works by combining a number of
+                                small outgoing messages, and sending them all at once.
+                                This controls the TCP_NODELAY socket option (see
+                                <a href="tcp.html"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>
+                                Defaults to
                                 <code class="option">false</code>.</p></dd><dt id="Priority="><span class="term"><code class="varname">Priority=</code></span><a class="headerlink" title="Permalink to this term" href="#Priority=">¶</a></dt><dd><p>Takes an integer
                                 argument controlling the priority for
                                 all traffic sent from this
                                 socket. This controls the SO_PRIORITY
                                 socket option (see
                                 <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(7)</span></a>
-                                for details.).</p></dd><dt id="ReceiveBuffer="><span class="term"><code class="varname">ReceiveBuffer=</code>, </span><span class="term"><code class="varname">SendBuffer=</code></span><a class="headerlink" title="Permalink to this term" href="#ReceiveBuffer=">¶</a></dt><dd><p>Takes an integer
+                                for details.).</p></dd><dt id="DeferAcceptSec="><span class="term"><code class="varname">DeferAcceptSec=</code></span><a class="headerlink" title="Permalink to this term" href="#DeferAcceptSec=">¶</a></dt><dd><p>Takes time (in
+                                seconds) as argument. If set, the
+                                listening process will be awakened
+                                only when data arrives on the socket,
+                                and not immediately when connection is
+                                established. When this option is set,
+                                the
+                                <code class="constant">TCP_DEFER_ACCEPT</code>
+                                socket option will be used (see
+                                <a href="tcp.html"><span class="citerefentry"><span class="refentrytitle">tcp</span>(7)</span></a>),
+                                and the kernel will ignore initial ACK
+                                packets without any data. The argument
+                                specifies the approximate amount of
+                                time the kernel should wait for
+                                incoming data before falling back to
+                                the normal behaviour of honouring
+                                empty ACK packets. This option is
+                                beneficial for protocols where the
+                                client sends the data first (e.g.
+                                HTTP, in contrast to SMTP), because
+                                the server process will not be woken
+                                up unnecessarily before it can take
+                                any action.
+                                </p><p>If the client also uses the
+                                <code class="constant">TCP_DEFER_ACCEPT</code>
+                                option, the latency of the initial
+                                connection may be reduced, because the
+                                kernel will send data in the final
+                                packet establishing the connection
+                                (the third packet in the "three-way
+                                handshake").</p><p>Disabled by default.</p></dd><dt id="ReceiveBuffer="><span class="term"><code class="varname">ReceiveBuffer=</code>, </span><span class="term"><code class="varname">SendBuffer=</code></span><a class="headerlink" title="Permalink to this term" href="#ReceiveBuffer=">¶</a></dt><dd><p>Takes an integer
                                 argument controlling the receive or
                                 send buffer sizes of this socket,
                                 respectively. This controls the
@@ -379,7 +433,7 @@
                                 sets the SO_MARK socket option. See
                                 <a href="iptables.html"><span class="citerefentry"><span class="refentrytitle">iptables</span>(8)</span></a>
                                 for details.</p></dd><dt id="ReusePort="><span class="term"><code class="varname">ReusePort=</code></span><a class="headerlink" title="Permalink to this term" href="#ReusePort=">¶</a></dt><dd><p>Takes a boolean
-                                value. If true, allows multiple <a href="bind.html"><span class="citerefentry"><span class="refentrytitle">bind</span>(2)</span></a>s
+                                value. If true, allows multiple <a href="http://man7.org/linux/man-pages/man2/bind.2.html"><span class="citerefentry"><span class="refentrytitle">bind</span>(2)</span></a>s
                                 to this TCP or UDP port.  This
                                 controls the SO_REUSEPORT socket
                                 option.  See
@@ -396,11 +450,32 @@
                                 the incoming or outgoing connections
                                 of the socket, respectively. See
                                 <a class="ulink" href="https://www.kernel.org/doc/Documentation/security/Smack.txt" target="_top">Smack.txt</a>
-                                for details.</p></dd><dt id="PipeSize="><span class="term"><code class="varname">PipeSize=</code></span><a class="headerlink" title="Permalink to this term" href="#PipeSize=">¶</a></dt><dd><p>Takes a size in
+                                for details.</p></dd><dt id="SELinuxContextFromNet="><span class="term"><code class="varname">SELinuxContextFromNet=</code></span><a class="headerlink" title="Permalink to this term" href="#SELinuxContextFromNet=">¶</a></dt><dd><p>Takes a boolean
+                                 argument. When true, systemd will attempt
+                                 to figure out the SELinux label used
+                                 for the instantiated service from the
+                                 information handed by the peer over the
+                                 network. Note that only the security
+                                 level is used from the information
+                                 provided by the peer. Other parts of
+                                 the resulting SELinux context originate
+                                 from either the target binary that is
+                                 effectively triggered by socket unit
+                                 or from the value of the
+                                 <code class="varname">SELinuxContext=</code>
+                                 option. This configuration option only
+                                 affects sockets with
+                                 <code class="varname">Accept=</code> mode set to
+                                 "<code class="literal">true</code>". Also note that
+                                 this option is useful only when
+                                 MLS/MCS SELinux policy is
+                                 deployed. Defaults to
+                                 "<code class="literal">false</code>".
+                                 </p></dd><dt id="PipeSize="><span class="term"><code class="varname">PipeSize=</code></span><a class="headerlink" title="Permalink to this term" href="#PipeSize=">¶</a></dt><dd><p>Takes a size in
                                 bytes. Controls the pipe buffer size
                                 of FIFOs configured in this socket
                                 unit. See
-                                <a href="fcntl.html"><span class="citerefentry"><span class="refentrytitle">fcntl</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/fcntl.2.html"><span class="citerefentry"><span class="refentrytitle">fcntl</span>(2)</span></a>
                                 for details. The usual suffixes K, M,
                                 G are supported and are understood to
                                 the base of 1024.</p></dd><dt id="MessageQueueMaxMessages=,
@@ -478,16 +553,18 @@
                                 finish. If a command does not exit
                                 within the configured time, the socket
                                 will be considered failed and be shut
-                                down again. All commands still running,
+                                down again. All commands still running
                                 will be terminated forcibly via
                                 <code class="constant">SIGTERM</code>, and after another delay of
                                 this time with <code class="constant">SIGKILL</code>. (See
                                 <code class="option">KillMode=</code> in <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
-                                20s". Pass 0 to disable the timeout
-                                logic. Defaults to <code class="varname">TimeoutStartSec=</code> from the
-                                manager configuration file.</p></dd><dt id="Service="><span class="term"><code class="varname">Service=</code></span><a class="headerlink" title="Permalink to this term" href="#Service=">¶</a></dt><dd><p>Specifies the service
+                                20s". Pass "<code class="literal">0</code>" to disable the timeout
+                                logic. Defaults to <code class="varname">DefaultTimeoutStartSec=</code> from the
+                                manager configuration file
+                                (see <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>).
+                                </p></dd><dt id="Service="><span class="term"><code class="varname">Service=</code></span><a class="headerlink" title="Permalink to this term" href="#Service=">¶</a></dt><dd><p>Specifies the service
                                 unit name to activate on incoming
                                 traffic. This setting is only allowed
                                 for sockets with
@@ -527,9 +604,9 @@
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm214178079200"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm214174704688"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
+                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
                           <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,

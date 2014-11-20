@@ -25,6 +25,8 @@
 #include "conf-parser.h"
 #include "path-util.h"
 #include "networkd.h"
+#include "networkd-netdev.h"
+#include "networkd-link.h"
 #include "network-internal.h"
 #include "libudev-private.h"
 #include "udev-util.h"
@@ -42,38 +44,6 @@ const char* const network_dirs[] = {
         "/lib/systemd/network",
 #endif
         NULL};
-
-static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
-        Manager *m = userdata;
-
-        assert(m);
-
-        log_received_signal(LOG_INFO, si);
-
-        sd_event_exit(m->event, 0);
-        return 0;
-}
-
-static int setup_signals(Manager *m) {
-        sigset_t mask;
-        int r;
-
-        assert(m);
-
-        assert_se(sigemptyset(&mask) == 0);
-        sigset_add_many(&mask, SIGINT, SIGTERM, -1);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
-
-        r = sd_event_add_signal(m->event, &m->sigterm_event_source, SIGTERM, dispatch_sigterm, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, &m->sigint_event_source, SIGINT, dispatch_sigterm, m);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
 
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
@@ -120,6 +90,9 @@ int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+
         r = sd_rtnl_open(&m->rtnl, 3, RTNLGRP_LINK, RTNLGRP_IPV4_IFADDR,
                          RTNLGRP_IPV6_IFADDR);
         if (r < 0)
@@ -127,10 +100,6 @@ int manager_new(Manager **ret) {
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0 && r != -ENOENT) /* TODO: drop when we can rely on kdbus */
-                return r;
-
-        r = setup_signals(m);
-        if (r < 0)
                 return r;
 
         /* udev does not initialize devices inside containers,
@@ -146,11 +115,7 @@ int manager_new(Manager **ret) {
                         return -ENOMEM;
         }
 
-        m->links = hashmap_new(uint64_hash_func, uint64_compare_func);
-        if (!m->links)
-                return -ENOMEM;
-
-        m->netdevs = hashmap_new(string_hash_func, string_compare_func);
+        m->netdevs = hashmap_new(&string_hash_ops);
         if (!m->netdevs)
                 return -ENOMEM;
 
@@ -181,8 +146,6 @@ void manager_free(Manager *m) {
         udev_unref(m->udev);
         sd_bus_unref(m->bus);
         sd_event_source_unref(m->udev_event_source);
-        sd_event_source_unref(m->sigterm_event_source);
-        sd_event_source_unref(m->sigint_event_source);
         sd_event_unref(m->event);
 
         while ((link = hashmap_first(m->links)))
@@ -259,7 +222,7 @@ static int manager_rtnl_process_link(sd_rtnl *rtnl, sd_rtnl_message *message, vo
         Link *link = NULL;
         NetDev *netdev = NULL;
         uint16_t type;
-        char *name;
+        const char *name;
         int r, ifindex;
 
         assert(rtnl);
@@ -405,6 +368,10 @@ int manager_udev_listen(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_name(m->udev_event_source, "networkd-udev");
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -451,17 +418,84 @@ int manager_bus_listen(Manager *m) {
         return 0;
 }
 
+static int set_put_in_addr(Set *s, const struct in_addr *address) {
+        char *p;
+        int r;
+
+        assert(s);
+
+        r = in_addr_to_string(AF_INET, (const union in_addr_union*) address, &p);
+        if (r < 0)
+                return r;
+
+        r = set_consume(s, p);
+        if (r == -EEXIST)
+                return 0;
+
+        return r;
+}
+
+static int set_put_in_addrv(Set *s, const struct in_addr *addresses, int n) {
+        int r, i, c = 0;
+
+        assert(s);
+        assert(n <= 0 || addresses);
+
+        for (i = 0; i < n; i++) {
+                r = set_put_in_addr(s, addresses+i);
+                if (r < 0)
+                        return r;
+
+                c += r;
+        }
+
+        return c;
+}
+
+static void print_string_set(FILE *f, const char *field, Set *s) {
+        bool space = false;
+        Iterator i;
+        char *p;
+
+        if (set_isempty(s))
+                return;
+
+        fputs(field, f);
+
+        SET_FOREACH(p, s, i) {
+                if (space)
+                        fputc(' ', f);
+                fputs(p, f);
+                space = true;
+        }
+        fputc('\n', f);
+}
+
 int manager_save(Manager *m) {
+        _cleanup_set_free_free_ Set *dns = NULL, *ntp = NULL, *domains = NULL;
         Link *link;
         Iterator i;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        LinkOperationalState operstate = LINK_OPERSTATE_UNKNOWN;
+        LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         const char *operstate_str;
         int r;
 
         assert(m);
         assert(m->state_file);
+
+        /* We add all NTP and DNS server to a set, to filter out duplicates */
+        dns = set_new(&string_hash_ops);
+        if (!dns)
+                return -ENOMEM;
+
+        ntp = set_new(&string_hash_ops);
+        if (!ntp)
+                return -ENOMEM;
+
+        domains = set_new(&string_hash_ops);
+        if (!domains)
+                return -ENOMEM;
 
         HASHMAP_FOREACH(link, m->links, i) {
                 if (link->flags & IFF_LOOPBACK)
@@ -469,6 +503,62 @@ int manager_save(Manager *m) {
 
                 if (link->operstate > operstate)
                         operstate = link->operstate;
+
+                if (!link->network)
+                        continue;
+
+                /* First add the static configured entries */
+                r = set_put_strdupv(dns, link->network->dns);
+                if (r < 0)
+                        return r;
+
+                r = set_put_strdupv(ntp, link->network->ntp);
+                if (r < 0)
+                        return r;
+
+                r = set_put_strdupv(domains, link->network->domains);
+                if (r < 0)
+                        return r;
+
+                if (!link->dhcp_lease)
+                        continue;
+
+                /* Secondly, add the entries acquired via DHCP */
+                if (link->network->dhcp_dns) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                r = set_put_in_addrv(dns, addresses, r);
+                                if (r < 0)
+                                        return r;
+                        } else if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+
+                if (link->network->dhcp_ntp) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
+                        if (r > 0) {
+                                r = set_put_in_addrv(ntp, addresses, r);
+                                if (r < 0)
+                                        return r;
+                        } else if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+
+                if (link->network->dhcp_domains) {
+                        const char *domainname;
+
+                        r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
+                        if (r >= 0) {
+                                r = set_put_strdup(domains, domainname);
+                                if (r < 0)
+                                        return r;
+                        } else if (r != -ENOENT)
+                                return r;
+                }
         }
 
         operstate_str = link_operstate_to_string(operstate);
@@ -476,7 +566,7 @@ int manager_save(Manager *m) {
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
-                goto finish;
+                return r;
 
         fchmod(fileno(f), 0644);
 
@@ -484,22 +574,29 @@ int manager_save(Manager *m) {
                 "# This is private data. Do not parse.\n"
                 "OPER_STATE=%s\n", operstate_str);
 
-        fflush(f);
+        print_string_set(f, "DNS=", dns);
+        print_string_set(f, "NTP=", ntp);
+        print_string_set(f, "DOMAINS=", domains);
 
-        if (ferror(f) || rename(temp_path, m->state_file) < 0) {
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
+
+        if (rename(temp_path, m->state_file) < 0) {
                 r = -errno;
-                unlink(m->state_file);
-                unlink(temp_path);
+                goto fail;
         }
 
-finish:
-        if (r < 0)
-                log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        return 0;
 
+fail:
+        log_error("Failed to save network state to %s: %s", m->state_file, strerror(-r));
+        unlink(m->state_file);
+        unlink(temp_path);
         return r;
 }
 
-int manager_address_pool_acquire(Manager *m, unsigned family, unsigned prefixlen, union in_addr_union *found) {
+int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
         AddressPool *p;
         int r;
 

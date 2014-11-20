@@ -21,6 +21,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <endian.h>
 
 /* Endianness */
 
@@ -41,7 +42,8 @@ enum {
 
 enum {
         BUS_MESSAGE_NO_REPLY_EXPECTED = 1,
-        BUS_MESSAGE_NO_AUTO_START = 2
+        BUS_MESSAGE_NO_AUTO_START = 2,
+        BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION = 4,
 };
 
 /* Header fields */

@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
+#include <netdb.h>
 
 #include "macro.h"
 #include "util.h"
@@ -425,11 +426,11 @@ bool socket_ipv6_is_supported(void) {
         _cleanup_free_ char *l = NULL;
 
         if (access("/sys/module/ipv6", F_OK) != 0)
-                return 0;
+                return false;
 
         /* If we can't check "disable" parameter, assume enabled */
         if (read_one_line_file("/sys/module/ipv6/parameters/disable", &l) < 0)
-                return 1;
+                return true;
 
         /* If module was loaded with disable=1 no IPv6 available */
         return l[0] == '0';
@@ -574,13 +575,12 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
 
 int getpeername_pretty(int fd, char **ret) {
         union sockaddr_union sa;
-        socklen_t salen;
+        socklen_t salen = sizeof(sa);
         int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        salen = sizeof(sa);
         if (getpeername(fd, &sa.sa, &salen) < 0)
                 return -errno;
 
@@ -608,12 +608,11 @@ int getpeername_pretty(int fd, char **ret) {
 
 int getsockname_pretty(int fd, char **ret) {
         union sockaddr_union sa;
-        socklen_t salen;
+        socklen_t salen = sizeof(sa);
 
         assert(fd >= 0);
         assert(ret);
 
-        salen = sizeof(sa);
         if (getsockname(fd, &sa.sa, &salen) < 0)
                 return -errno;
 
@@ -623,6 +622,49 @@ int getsockname_pretty(int fd, char **ret) {
          * IPv6 matters. */
 
         return sockaddr_pretty(&sa.sa, salen, false, ret);
+}
+
+int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) {
+        int r;
+        char host[NI_MAXHOST], *ret;
+
+        assert(_ret);
+
+        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0,
+                        NI_IDN|NI_IDN_USE_STD3_ASCII_RULES);
+        if (r != 0) {
+                int saved_errno = errno;
+
+                r = sockaddr_pretty(&sa->sa, salen, true, &ret);
+                if (r < 0) {
+                        log_error("sockadd_pretty() failed: %s", strerror(-r));
+                        return r;
+                }
+
+                log_debug("getnameinfo(%s) failed: %s", ret, strerror(saved_errno));
+        } else {
+                ret = strdup(host);
+                if (!ret)
+                        return log_oom();
+        }
+
+        *_ret = ret;
+        return 0;
+}
+
+int getnameinfo_pretty(int fd, char **ret) {
+        union sockaddr_union sa;
+        socklen_t salen = sizeof(sa);
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (getsockname(fd, &sa.sa, &salen) < 0) {
+                log_error("getsockname(%d) failed: %m", fd);
+                return -errno;
+        }
+
+        return socknameinfo_pretty(&sa, salen, ret);
 }
 
 int socket_address_unlink(SocketAddress *a) {
@@ -638,193 +680,6 @@ int socket_address_unlink(SocketAddress *a) {
                 return -errno;
 
         return 1;
-}
-
-int in_addr_null(unsigned family, union in_addr_union *u) {
-        assert(u);
-
-        if (family == AF_INET)
-                return u->in.s_addr == 0;
-
-        if (family == AF_INET6)
-                return
-                        u->in6.s6_addr32[0] == 0 &&
-                        u->in6.s6_addr32[1] == 0 &&
-                        u->in6.s6_addr32[2] == 0 &&
-                        u->in6.s6_addr32[3] == 0;
-
-        return -EAFNOSUPPORT;
-}
-
-
-int in_addr_equal(unsigned family, union in_addr_union *a, union in_addr_union *b) {
-        assert(a);
-        assert(b);
-
-        if (family == AF_INET)
-                return a->in.s_addr == b->in.s_addr;
-
-        if (family == AF_INET6)
-                return
-                        a->in6.s6_addr32[0] == b->in6.s6_addr32[0] &&
-                        a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
-                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] &&
-                        a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
-
-        return -EAFNOSUPPORT;
-}
-
-int in_addr_prefix_intersect(
-                unsigned family,
-                const union in_addr_union *a,
-                unsigned aprefixlen,
-                const union in_addr_union *b,
-                unsigned bprefixlen) {
-
-        unsigned m;
-
-        assert(a);
-        assert(b);
-
-        /* Checks whether there are any addresses that are in both
-         * networks */
-
-        m = MIN(aprefixlen, bprefixlen);
-
-        if (family == AF_INET) {
-                uint32_t x, nm;
-
-                x = be32toh(a->in.s_addr ^ b->in.s_addr);
-                nm = (m == 0) ? 0 : 0xFFFFFFFFUL << (32 - m);
-
-                return (x & nm) == 0;
-        }
-
-        if (family == AF_INET6) {
-                unsigned i;
-
-                if (m > 128)
-                        m = 128;
-
-                for (i = 0; i < 16; i++) {
-                        uint8_t x, nm;
-
-                        x = a->in6.s6_addr[i] ^ b->in6.s6_addr[i];
-
-                        if (m < 8)
-                                nm = 0xFF << (8 - m);
-                        else
-                                nm = 0xFF;
-
-                        if ((x & nm) != 0)
-                                return 0;
-
-                        if (m > 8)
-                                m -= 8;
-                        else
-                                m = 0;
-                }
-
-                return 1;
-        }
-
-        return -EAFNOSUPPORT;
-}
-
-int in_addr_prefix_next(unsigned family, union in_addr_union *u, unsigned prefixlen) {
-        assert(u);
-
-        /* Increases the network part of an address by one. Returns
-         * positive it that succeeds, or 0 if this overflows. */
-
-        if (prefixlen <= 0)
-                return 0;
-
-        if (family == AF_INET) {
-                uint32_t c, n;
-
-                if (prefixlen > 32)
-                        prefixlen = 32;
-
-                c = be32toh(u->in.s_addr);
-                n = c + (1UL << (32 - prefixlen));
-                if (n < c)
-                        return 0;
-                n &= 0xFFFFFFFFUL << (32 - prefixlen);
-
-                u->in.s_addr = htobe32(n);
-                return 1;
-        }
-
-        if (family == AF_INET6) {
-                struct in6_addr add = {}, result;
-                uint8_t overflow = 0;
-                unsigned i;
-
-                if (prefixlen > 128)
-                        prefixlen = 128;
-
-                /* First calculate what we have to add */
-                add.s6_addr[(prefixlen-1) / 8] = 1 << (7 - (prefixlen-1) % 8);
-
-                for (i = 16; i > 0; i--) {
-                        unsigned j = i - 1;
-
-                        result.s6_addr[j] = u->in6.s6_addr[j] + add.s6_addr[j] + overflow;
-                        overflow = (result.s6_addr[j] < u->in6.s6_addr[j]);
-                }
-
-                if (overflow)
-                        return 0;
-
-                u->in6 = result;
-                return 1;
-        }
-
-        return -EAFNOSUPPORT;
-}
-
-int in_addr_to_string(unsigned family, const union in_addr_union *u, char **ret) {
-        char *x;
-        size_t l;
-
-        assert(u);
-        assert(ret);
-
-        if (family == AF_INET)
-                l = INET_ADDRSTRLEN;
-        else if (family == AF_INET6)
-                l = INET6_ADDRSTRLEN;
-        else
-                return -EAFNOSUPPORT;
-
-        x = new(char, l);
-        if (!x)
-                return -ENOMEM;
-
-        errno = 0;
-        if (!inet_ntop(family, u, x, l)) {
-                free(x);
-                return errno ? -errno : -EINVAL;
-        }
-
-        *ret = x;
-        return 0;
-}
-
-int in_addr_from_string(unsigned family, const char *s, union in_addr_union *ret) {
-
-        assert(s);
-        assert(ret);
-
-        if (!IN_SET(family, AF_INET, AF_INET6))
-                return -EAFNOSUPPORT;
-
-        errno = 0;
-        if (inet_pton(family, s, ret) <= 0)
-                return errno ? -errno : -EINVAL;
-
-        return 0;
 }
 
 static const char* const netlink_family_table[] = {
@@ -856,3 +711,38 @@ static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIN
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+
+bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b) {
+        assert(a);
+        assert(b);
+
+        if (a->sa.sa_family != b->sa.sa_family)
+                return false;
+
+        if (a->sa.sa_family == AF_INET)
+                return a->in.sin_addr.s_addr == b->in.sin_addr.s_addr;
+
+        if (a->sa.sa_family == AF_INET6)
+                return memcmp(&a->in6.sin6_addr, &b->in6.sin6_addr, sizeof(a->in6.sin6_addr)) == 0;
+
+        return false;
+}
+
+char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]) {
+        assert(addr);
+        assert(buffer);
+
+        /* Like ether_ntoa() but uses %02x instead of %x to print
+         * ethernet addresses, which makes them look less funny. Also,
+         * doesn't use a static buffer. */
+
+        sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+                addr->ether_addr_octet[0],
+                addr->ether_addr_octet[1],
+                addr->ether_addr_octet[2],
+                addr->ether_addr_octet[3],
+                addr->ether_addr_octet[4],
+                addr->ether_addr_octet[5]);
+
+        return buffer;
+}

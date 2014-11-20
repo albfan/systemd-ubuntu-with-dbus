@@ -180,9 +180,8 @@ static int socket_arm_timer(Socket *s) {
                         socket_dispatch_timer, s);
 }
 
-static int socket_instantiate_service(Socket *s) {
-        _cleanup_free_ char *prefix = NULL;
-        _cleanup_free_ char *name = NULL;
+int socket_instantiate_service(Socket *s) {
+        _cleanup_free_ char *prefix = NULL, *name = NULL;
         int r;
         Unit *u;
 
@@ -193,10 +192,8 @@ static int socket_instantiate_service(Socket *s) {
          * here. For Accept=no this is mostly a NOP since the service
          * is figured out at load time anyway. */
 
-        if (UNIT_DEREF(s->service))
+        if (UNIT_DEREF(s->service) || !s->accept)
                 return 0;
-
-        assert(s->accept);
 
         prefix = unit_name_to_prefix(UNIT(s)->id);
         if (!prefix)
@@ -465,6 +462,7 @@ _const_ static const char* listen_lookup(int family, int type) {
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
+        char time_string[FORMAT_TIMESPAN_MAX];
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
@@ -473,6 +471,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         assert(s);
         assert(f);
 
+        prefix = strempty(prefix);
         prefix2 = strappenda(prefix, "\t");
 
         fprintf(f,
@@ -483,13 +482,15 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n"
                 "%sKeepAlive: %s\n"
+                "%sNoDelay: %s\n"
                 "%sFreeBind: %s\n"
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sTCPCongestion: %s\n"
-                "%sRemoveOnStop: %s\n",
+                "%sRemoveOnStop: %s\n"
+                "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
                 prefix, socket_address_bind_ipv6_only_to_string(s->bind_ipv6_only),
@@ -497,13 +498,15 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->socket_mode,
                 prefix, s->directory_mode,
                 prefix, yes_no(s->keep_alive),
+                prefix, yes_no(s->no_delay),
                 prefix, yes_no(s->free_bind),
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
                 prefix, yes_no(s->pass_sec),
                 prefix, strna(s->tcp_congestion),
-                prefix, yes_no(s->remove_on_stop));
+                prefix, yes_no(s->remove_on_stop),
+                prefix, yes_no(s->selinux_context_from_net));
 
         if (s->control_pid > 0)
                 fprintf(f,
@@ -595,6 +598,26 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sOwnerGroup: %s\n",
                         prefix, strna(s->user),
                         prefix, strna(s->group));
+
+        if (s->keep_alive_time > 0)
+                fprintf(f,
+                        "%sKeepAliveTimeSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
+
+        if (s->keep_alive_interval)
+                fprintf(f,
+                        "%sKeepAliveIntervalSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
+
+        if (s->keep_alive_cnt)
+                fprintf(f,
+                        "%sKeepAliveProbes: %u\n",
+                        prefix, s->keep_alive_cnt);
+
+        if (s->defer_accept)
+                fprintf(f,
+                        "%sDeferAcceptSec: %s\n",
+                        prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -784,6 +807,8 @@ static void socket_close_fds(Socket *s) {
 }
 
 static void socket_apply_socket_options(Socket *s, int fd) {
+        int r;
+
         assert(s);
         assert(fd >= 0);
 
@@ -791,6 +816,36 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int b = s->keep_alive;
                 if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
                         log_warning_unit(UNIT(s)->id, "SO_KEEPALIVE failed: %m");
+        }
+
+        if (s->keep_alive_time) {
+                int value = s->keep_alive_time / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPIDLE failed: %m");
+        }
+
+        if (s->keep_alive_interval) {
+                int value =  s->keep_alive_interval / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPINTVL failed: %m");
+        }
+
+        if (s->keep_alive_cnt) {
+                int value = s->keep_alive_cnt;
+                if (setsockopt(fd, SOL_SOCKET, TCP_KEEPCNT, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_KEEPCNT failed: %m");
+        }
+
+        if (s->defer_accept) {
+                int value = s->defer_accept / USEC_PER_SEC;
+                if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_DEFER_ACCEPT failed: %m");
+        }
+
+        if (s->no_delay) {
+                int b = s->no_delay;
+                if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                        log_warning_unit(UNIT(s)->id, "TCP_NODELAY failed: %m");
         }
 
         if (s->broadcast) {
@@ -841,7 +896,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id, "IP_TOS failed: %m");
 
         if (s->ip_ttl >= 0) {
-                int r, x;
+                int x;
 
                 r = setsockopt(fd, IPPROTO_IP, IP_TTL, &s->ip_ttl, sizeof(s->ip_ttl));
 
@@ -867,27 +922,34 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                         log_warning_unit(UNIT(s)->id, "SO_REUSEPORT failed: %m");
         }
 
-        if (s->smack_ip_in)
-                if (smack_label_ip_in_fd(fd, s->smack_ip_in) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_ip_in_fd: %m");
+        if (s->smack_ip_in) {
+                r = mac_smack_apply_ip_in_fd(fd, s->smack_ip_in);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_in_fd: %s", strerror(-r));
+        }
 
-        if (s->smack_ip_out)
-                if (smack_label_ip_out_fd(fd, s->smack_ip_out) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_ip_out_fd: %m");
+        if (s->smack_ip_out) {
+                r = mac_smack_apply_ip_out_fd(fd, s->smack_ip_out);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_ip_out_fd: %s", strerror(-r));
+        }
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {
+        int r;
+
         assert(s);
         assert(fd >= 0);
 
         if (s->pipe_size > 0)
                 if (fcntl(fd, F_SETPIPE_SZ, s->pipe_size) < 0)
-                        log_warning_unit(UNIT(s)->id,
-                                         "F_SETPIPE_SZ: %m");
+                        log_warning_unit(UNIT(s)->id, "F_SETPIPE_SZ: %m");
 
-        if (s->smack)
-                if (smack_label_fd(fd, s->smack) < 0)
-                        log_error_unit(UNIT(s)->id, "smack_label_fd: %m");
+        if (s->smack) {
+                r = mac_smack_apply_fd(fd, s->smack);
+                if (r < 0)
+                        log_error_unit(UNIT(s)->id, "mac_smack_apply_fd: %s", strerror(-r));
+        }
 }
 
 static int fifo_address_create(
@@ -905,7 +967,7 @@ static int fifo_address_create(
 
         mkdir_parents_label(path, directory_mode);
 
-        r = label_context_set(path, S_IFIFO);
+        r = mac_selinux_create_file_prepare(path, S_IFIFO);
         if (r < 0)
                 goto fail;
 
@@ -928,7 +990,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        label_context_clear();
+        mac_selinux_create_file_clear();
 
         if (fstat(fd, &st) < 0) {
                 r = -errno;
@@ -948,7 +1010,7 @@ static int fifo_address_create(
         return 0;
 
 fail:
-        label_context_clear();
+        mac_selinux_create_file_clear();
         safe_close(fd);
 
         return r;
@@ -1058,7 +1120,7 @@ static int socket_symlink(Socket *s) {
                 return 0;
 
         STRV_FOREACH(i, s->symlinks)
-                symlink(p, *i);
+                symlink_label(p, *i);
 
         return 0;
 }
@@ -1079,16 +1141,31 @@ static int socket_open_fds(Socket *s) {
                 if (p->type == SOCKET_SOCKET) {
 
                         if (!know_label) {
+                                /* Figure out label, if we don't it know
+                                 * yet. We do it once, for the first
+                                 * socket where we need this and
+                                 * remember it for the rest. */
 
-                                r = socket_instantiate_service(s);
-                                if (r < 0)
-                                        return r;
+                                if (s->selinux_context_from_net) {
+                                        /* Get it from the network label */
 
-                                if (UNIT_ISSET(s->service) &&
-                                    SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
-                                        r = label_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
-                                        if (r < 0 && r != -EPERM)
-                                                return r;
+                                        r = mac_selinux_get_our_label(&label);
+                                        if (r < 0 && r != -EOPNOTSUPP)
+                                                goto rollback;
+
+                                } else {
+                                        /* Get it from the executable we are about to start */
+
+                                        r = socket_instantiate_service(s);
+                                        if (r < 0)
+                                                goto rollback;
+
+                                        if (UNIT_ISSET(s->service) &&
+                                            SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]) {
+                                                r = mac_selinux_get_create_label_from_exe(SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START]->path, &label);
+                                                if (r < 0 && r != -EPERM && r != -EOPNOTSUPP)
+                                                        goto rollback;
+                                        }
                                 }
 
                                 know_label = true;
@@ -1147,12 +1224,13 @@ static int socket_open_fds(Socket *s) {
                         assert_not_reached("Unknown port type");
         }
 
-        label_free(label);
+        mac_selinux_free(label);
         return 0;
 
 rollback:
         socket_close_fds(s);
-        label_free(label);
+        mac_selinux_free(label);
+
         return r;
 }
 
@@ -1307,6 +1385,11 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         _cleanup_free_ char **argv = NULL;
         pid_t pid;
         int r;
+        ExecParameters exec_params = {
+                .apply_permissions = true,
+                .apply_chroot      = true,
+                .apply_tty_stdin   = true,
+        };
 
         assert(s);
         assert(c);
@@ -1326,21 +1409,17 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
+        exec_params.argv = argv;
+        exec_params.environment = UNIT(s)->manager->environment;
+        exec_params.confirm_spawn = UNIT(s)->manager->confirm_spawn;
+        exec_params.cgroup_supported = UNIT(s)->manager->cgroup_supported;
+        exec_params.cgroup_path = UNIT(s)->cgroup_path;
+        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(s)->manager);
+        exec_params.unit_id = UNIT(s)->id;
+
         r = exec_spawn(c,
-                       argv,
                        &s->exec_context,
-                       NULL, 0,
-                       UNIT(s)->manager->environment,
-                       true,
-                       true,
-                       true,
-                       UNIT(s)->manager->confirm_spawn,
-                       UNIT(s)->manager->cgroup_supported,
-                       UNIT(s)->cgroup_path,
-                       manager_get_runtime_prefix(UNIT(s)->manager),
-                       UNIT(s)->id,
-                       0,
-                       NULL,
+                       &exec_params,
                        s->exec_runtime,
                        &pid);
         if (r < 0)
@@ -1499,7 +1578,8 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         r = unit_kill_context(
                         UNIT(s),
                         &s->kill_context,
-                        state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM,
+                        (state != SOCKET_STOP_PRE_SIGTERM && state != SOCKET_FINAL_SIGTERM) ?
+                        KILL_KILL : KILL_TERMINATE,
                         -1,
                         s->control_pid,
                         false);
@@ -1769,7 +1849,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 unit_choose_id(UNIT(service), name);
 
-                r = service_set_socket_fd(service, cfd, s);
+                r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
                 if (r < 0)
                         goto fail;
 

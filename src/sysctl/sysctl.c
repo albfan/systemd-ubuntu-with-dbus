@@ -214,16 +214,13 @@ static int parse_file(Hashmap *sysctl_options, const char *path, bool ignore_eno
         return r;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "     --prefix=PATH      Only apply rules that apply to paths with the specified prefix\n",
-               program_invocation_short_name);
-
-        return 0;
+               "     --prefix=PATH      Only apply rules with the specified prefix\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -245,12 +242,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -260,11 +258,19 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PREFIX: {
                         char *p;
 
-                        for (p = optarg; *p; p++)
-                                if (*p == '.')
-                                        *p = '/';
+                        /* We used to require people to specify absolute paths
+                         * in /proc/sys in the past. This is kinda useless, but
+                         * we need to keep compatibility. We now support any
+                         * sysctl name available. */
+                        normalize_sysctl(optarg);
+                        if (startswith(optarg, "/proc/sys"))
+                                p = strdup(optarg);
+                        else
+                                p = strappend("/proc/sys/", optarg);
 
-                        if (strv_extend(&arg_prefixes, optarg) < 0)
+                        if (!p)
+                                return log_oom();
+                        if (strv_consume(&arg_prefixes, p) < 0)
                                 return log_oom();
 
                         break;
@@ -276,7 +282,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -295,7 +300,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        sysctl_options = hashmap_new(string_hash_func, string_compare_func);
+        sysctl_options = hashmap_new(&string_hash_ops);
         if (!sysctl_options) {
                 r = log_oom();
                 goto finish;

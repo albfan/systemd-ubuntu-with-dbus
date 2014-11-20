@@ -22,6 +22,8 @@
 #include <sys/socket.h>
 #include <sys/capability.h>
 
+#include "systemd/sd-daemon.h"
+
 #include "util.h"
 #include "strv.h"
 #include "macro.h"
@@ -128,11 +130,17 @@ int bus_event_loop_with_idle(
                         if (r == -EBUSY)
                                 continue;
 
+                        /* Fallback for dbus1 connections: we
+                         * unregister the name and wait for the
+                         * response to come through for it */
                         if (r == -ENOTSUP) {
-                                /* Fallback for dbus1 connections: we
-                                 * unregister the name and wait for
-                                 * the response to come through for
-                                 * it */
+
+                                /* Inform the service manager that we
+                                 * are going down, so that it will
+                                 * queue all further start requests,
+                                 * instead of assuming we are already
+                                 * running. */
+                                sd_notify(false, "STOPPING=1");
 
                                 r = bus_async_unregister_and_exit(e, bus, name);
                                 if (r < 0)
@@ -184,44 +192,41 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
 }
 
 int bus_verify_polkit(
-                sd_bus *bus,
-                sd_bus_message *m,
+                sd_bus_message *call,
+                int capability,
                 const char *action,
                 bool interactive,
                 bool *_challenge,
                 sd_bus_error *e) {
 
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
         int r;
 
-        assert(bus);
-        assert(m);
+        assert(call);
         assert(action);
 
-        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        if (uid == 0)
+        else if (r > 0)
                 return 1;
-
 #ifdef ENABLE_POLKIT
         else {
                 _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
-                int authorized = false, challenge = false;
+                int authorized = false, challenge = false, c;
                 const char *sender;
 
-                sender = sd_bus_message_get_sender(m);
+                sender = sd_bus_message_get_sender(call);
                 if (!sender)
                         return -EBADMSG;
 
+                c = sd_bus_message_get_allow_interactive_authorization(call);
+                if (c < 0)
+                        return c;
+                if (c > 0)
+                        interactive = true;
+
                 r = sd_bus_call_method(
-                                bus,
+                                call->bus,
                                 "org.freedesktop.PolicyKit1",
                                 "/org/freedesktop/PolicyKit1/Authority",
                                 "org.freedesktop.PolicyKit1.Authority",
@@ -232,7 +237,7 @@ int bus_verify_polkit(
                                 "system-bus-name", 1, "name", "s", sender,
                                 action,
                                 0,
-                                interactive ? 1 : 0,
+                                !!interactive,
                                 "");
 
                 if (r < 0) {
@@ -322,31 +327,29 @@ finish:
 #endif
 
 int bus_verify_polkit_async(
-                sd_bus *bus,
-                Hashmap **registry,
-                sd_bus_message *m,
+                sd_bus_message *call,
+                int capability,
                 const char *action,
                 bool interactive,
-                sd_bus_error *error,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
+                Hashmap **registry,
+                sd_bus_error *error) {
 
 #ifdef ENABLE_POLKIT
         _cleanup_bus_message_unref_ sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
         const char *sender;
+        sd_bus_message_handler_t callback;
+        void *userdata;
+        int c;
 #endif
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
-        uid_t uid;
         int r;
 
-        assert(bus);
-        assert(registry);
-        assert(m);
+        assert(call);
         assert(action);
+        assert(registry);
 
 #ifdef ENABLE_POLKIT
-        q = hashmap_get(*registry, m);
+        q = hashmap_get(*registry, call);
         if (q) {
                 int authorized, challenge;
 
@@ -379,32 +382,45 @@ int bus_verify_polkit_async(
                 if (authorized)
                         return 1;
 
+                if (challenge)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+
                 return -EACCES;
         }
 #endif
 
-        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
+        r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r < 0)
-                return r;
-
-        if (uid == 0)
+        else if (r > 0)
                 return 1;
 
 #ifdef ENABLE_POLKIT
-        sender = sd_bus_message_get_sender(m);
+        if (sd_bus_get_current_message(call->bus) != call)
+                return -EINVAL;
+
+        callback = sd_bus_get_current_handler(call->bus);
+        if (!callback)
+                return -EINVAL;
+
+        userdata = sd_bus_get_current_userdata(call->bus);
+
+        sender = sd_bus_message_get_sender(call);
         if (!sender)
                 return -EBADMSG;
 
-        r = hashmap_ensure_allocated(registry, trivial_hash_func, trivial_compare_func);
+        c = sd_bus_message_get_allow_interactive_authorization(call);
+        if (c < 0)
+                return c;
+        if (c > 0)
+                interactive = true;
+
+        r = hashmap_ensure_allocated(registry, NULL);
         if (r < 0)
                 return r;
 
         r = sd_bus_message_new_method_call(
-                        bus,
+                        call->bus,
                         &pk,
                         "org.freedesktop.PolicyKit1",
                         "/org/freedesktop/PolicyKit1/Authority",
@@ -419,7 +435,7 @@ int bus_verify_polkit_async(
                         "system-bus-name", 1, "name", "s", sender,
                         action,
                         0,
-                        interactive ? 1 : 0,
+                        !!interactive,
                         NULL);
         if (r < 0)
                 return r;
@@ -428,11 +444,11 @@ int bus_verify_polkit_async(
         if (!q)
                 return -ENOMEM;
 
-        q->request = sd_bus_message_ref(m);
+        q->request = sd_bus_message_ref(call);
         q->callback = callback;
         q->userdata = userdata;
 
-        r = hashmap_put(*registry, m, q);
+        r = hashmap_put(*registry, call, q);
         if (r < 0) {
                 async_polkit_query_free(q);
                 return r;
@@ -440,7 +456,7 @@ int bus_verify_polkit_async(
 
         q->registry = *registry;
 
-        r = sd_bus_call_async(bus, &q->slot, pk, async_polkit_callback, q, 0);
+        r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
         if (r < 0) {
                 async_polkit_query_free(q);
                 return r;
@@ -452,7 +468,7 @@ int bus_verify_polkit_async(
         return -EACCES;
 }
 
-void bus_verify_polkit_async_registry_free(sd_bus *bus, Hashmap *registry) {
+void bus_verify_polkit_async_registry_free(Hashmap *registry) {
 #ifdef ENABLE_POLKIT
         AsyncPolkitQuery *q;
 
@@ -631,7 +647,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool all) {
         }
 
         case SD_BUS_TYPE_BOOLEAN: {
-                bool b;
+                int b;
 
                 r = sd_bus_message_read_basic(property, type, &b);
                 if (r < 0)
@@ -974,31 +990,16 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         return r;
 }
 
-int bus_map_all_properties(sd_bus *bus,
-                           const char *destination,
-                           const char *path,
-                           const struct bus_properties_map *map,
-                           void *userdata) {
-        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+int bus_message_map_all_properties(sd_bus *bus,
+                                   sd_bus_message *m,
+                                   const struct bus_properties_map *map,
+                                   void *userdata) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
-        assert(destination);
-        assert(path);
+        assert(m);
         assert(map);
-
-        r = sd_bus_call_method(
-                        bus,
-                        destination,
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &m,
-                        "s", "");
-        if (r < 0)
-                return r;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -1052,7 +1053,70 @@ int bus_map_all_properties(sd_bus *bus,
                         return r;
         }
 
-        return r;
+        return sd_bus_message_exit_container(m);
+}
+
+int bus_message_map_properties_changed(sd_bus *bus,
+                                       sd_bus_message *m,
+                                       const struct bus_properties_map *map,
+                                       void *userdata) {
+        const char *member;
+        int r, invalidated, i;
+
+        assert(bus);
+        assert(m);
+        assert(map);
+
+        r = bus_message_map_all_properties(bus, m, map, userdata);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "s");
+        if (r < 0)
+                return r;
+
+        invalidated = 0;
+        while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &member)) > 0)
+                for (i = 0; map[i].member; i++)
+                        if (streq(map[i].member, member)) {
+                                ++invalidated;
+                                break;
+                        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return invalidated;
+}
+
+int bus_map_all_properties(sd_bus *bus,
+                           const char *destination,
+                           const char *path,
+                           const struct bus_properties_map *map,
+                           void *userdata) {
+        _cleanup_bus_message_unref_ sd_bus_message *m = NULL;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+        assert(destination);
+        assert(path);
+        assert(map);
+
+        r = sd_bus_call_method(
+                        bus,
+                        destination,
+                        path,
+                        "org.freedesktop.DBus.Properties",
+                        "GetAll",
+                        &error,
+                        &m,
+                        "s", "");
+        if (r < 0)
+                return r;
+
+        return bus_message_map_all_properties(bus, m, map, userdata);
 }
 
 int bus_open_transport(BusTransport transport, const char *host, bool user, sd_bus **bus) {
@@ -1186,12 +1250,12 @@ int bus_property_get_ulong(
 #endif
 
 int bus_log_parse_error(int r) {
-        log_error("Failed to parse message: %s", strerror(-r));
+        log_error("Failed to parse bus message: %s", strerror(-r));
         return r;
 }
 
 int bus_log_create_error(int r) {
-        log_error("Failed to create message: %s", strerror(-r));
+        log_error("Failed to create bus message: %s", strerror(-r));
         return r;
 }
 
@@ -1265,7 +1329,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_message_append(m, "v", "t", (usec_t) -1);
+                        r = sd_bus_message_append(m, "v", "t", USEC_INFINITY);
 
                 } else if (endswith(eq, "%")) {
                         double percent;

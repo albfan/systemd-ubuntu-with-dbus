@@ -26,7 +26,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "build.h"
 #include "set.h"
@@ -58,7 +58,7 @@ static Set *new_matches(void) {
         char *tmp;
         int r;
 
-        set = set_new(trivial_hash_func, trivial_compare_func);
+        set = set_new(NULL);
         if (!set) {
                 log_oom();
                 return NULL;
@@ -79,29 +79,6 @@ static Set *new_matches(void) {
         }
 
         return set;
-}
-
-static int help(void) {
-
-        printf("%s [OPTIONS...]\n\n"
-               "List or retrieve coredumps from the journal.\n\n"
-               "Flags:\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version string\n"
-               "     --no-pager      Do not pipe output into a pager\n"
-               "     --no-legend     Do not print the column headers.\n"
-               "  -1                 Show information about most recent entry only\n"
-               "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n\n"
-
-               "Commands:\n"
-               "  list [MATCHES...]  List available coredumps (default)\n"
-               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
-               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
-               , program_invocation_short_name);
-
-        return 0;
 }
 
 static int add_match(Set *set, const char *match) {
@@ -131,11 +108,9 @@ static int add_match(Set *set, const char *match) {
                 goto fail;
 
         log_debug("Adding pattern: %s", pattern);
-        r = set_put(set, pattern);
+        r = set_consume(set, pattern);
         if (r < 0) {
-                log_error("Failed to add pattern '%s': %s",
-                          pattern, strerror(-r));
-                free(pattern);
+                log_error("Failed to add pattern: %s", strerror(-r));
                 goto fail;
         }
 
@@ -143,6 +118,26 @@ static int add_match(Set *set, const char *match) {
 fail:
         log_error("Failed to add match: %s", strerror(-r));
         return r;
+}
+
+static void help(void) {
+        printf("%s [OPTIONS...]\n\n"
+               "List or retrieve coredumps from the journal.\n\n"
+               "Flags:\n"
+               "  -h --help          Show this help\n"
+               "     --version       Print version string\n"
+               "     --no-pager      Do not pipe output into a pager\n"
+               "     --no-legend     Do not print the column headers.\n"
+               "  -1                 Show information about most recent entry only\n"
+               "  -F --field=FIELD   List all values a certain field takes\n"
+               "  -o --output=FILE   Write output to FILE\n\n"
+
+               "Commands:\n"
+               "  list [MATCHES...]  List available coredumps (default)\n"
+               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
+               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
+               "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[], Set *matches) {
@@ -172,7 +167,8 @@ static int parse_argv(int argc, char *argv[], Set *matches) {
 
                 case 'h':
                         arg_action = ACTION_NONE;
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         arg_action = ACTION_NONE;
@@ -595,12 +591,13 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                 retrieve(data, len, "COREDUMP_FILENAME", &filename);
 
         if (filename && access(filename, R_OK) < 0) {
-                log_debug("File %s is not readable: %m", filename);
+                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
+                         "File %s is not readable: %m", filename);
                 free(filename);
                 filename = NULL;
         }
 
-        if (filename && !endswith(filename, ".xz")) {
+        if (filename && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
                 if (path) {
                         *path = filename;
                         filename = NULL;
@@ -646,7 +643,7 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
                 } else if (filename) {
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
                         _cleanup_close_ int fdf;
 
                         fdf = open(filename, O_RDONLY | O_CLOEXEC);
@@ -656,19 +653,19 @@ static int save_core(sd_journal *j, int fd, char **path, bool *unlink_temp) {
                                 goto error;
                         }
 
-                        r = decompress_stream(fdf, fd, -1);
+                        r = decompress_stream(filename, fdf, fd, -1);
                         if (r < 0) {
                                 log_error("Failed to decompress %s: %s", filename, strerror(-r));
                                 goto error;
                         }
 #else
-                        log_error("Cannot decompress file. Compiled without XZ support.");
+                        log_error("Cannot decompress file. Compiled without compression support.");
                         r = -ENOTSUP;
                         goto error;
 #endif
                 } else {
                         if (r == -ENOENT)
-                                log_error("Coredump neither in journal file nor stored externally on disk.");
+                                log_error("Cannot retrieve coredump from journal nor disk.");
                         else
                                 log_error("Failed to retrieve COREDUMP field: %s", strerror(-r));
                         goto error;

@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_JOURNAL_GET_CUTOFF_REALTIME_USEC" "3" "" "systemd 215" "sd_journal_get_cutoff_realtime_usec"
+.TH "SD_JOURNAL_GET_CUTOFF_REALTIME_USEC" "3" "" "systemd 217" "sd_journal_get_cutoff_realtime_usec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,13 +35,24 @@ sd_journal_get_cutoff_realtime_usec, sd_journal_get_cutoff_monotonic_usec \- Rea
 .SH "DESCRIPTION"
 .PP
 \fBsd_journal_get_cutoff_realtime_usec()\fR
-gets the realtime (wallclock) timestamps of the first and last entries accessible in the journal\&. It takes three arguments: the journal context object and two pointers to 64\-bit unsigned integers to store the timestamps in\&. The timestamps are in microseconds since the epoch, i\&.e\&.
+retrieves the realtime (wallclock) timestamps of the first and last entries accessible in the journal\&. It takes three arguments: the journal context object
+\fIj\fR
+and two pointers
+\fIfrom\fR
+and
+\fIto\fR
+pointing at 64\-bit unsigned integers to store the timestamps in\&. The timestamps are in microseconds since the epoch, i\&.e\&.
 \fBCLOCK_REALTIME\fR\&. Either one of the two timestamp arguments may be passed as
 \fBNULL\fR
 in case the timestamp is not needed, but not both\&.
 .PP
 \fBsd_journal_get_cutoff_monotonic_usec()\fR
-gets the monotonic timestamps of the first and last entries accessible in the journal\&. It takes three arguments: the journal context object, a 128\-bit identifier for the boot, and two pointers to 64\-bit unsigned integers to store the timestamps\&. The timestamps are in microseconds since boot\-up of the specific boot, i\&.e\&.
+retrieves the monotonic timestamps of the first and last entries accessible in the journal\&. It takes three arguments: the journal context object
+\fIj\fR, a 128\-bit identifier for the boot
+\fIboot_id\fR, and two pointers to 64\-bit unsigned integers to store the timestamps,
+\fIfrom\fR
+and
+\fIto\fR\&. The timestamps are in microseconds since boot\-up of the specific boot, i\&.e\&.
 \fBCLOCK_MONOTONIC\fR\&. Since the monotonic clock begins new with every reboot it only defines a well\-defined point in time when used together with an identifier identifying the boot, see
 \fBsd_id128_get_boot\fR(3)
 for more information\&. The function will return the timestamps for the boot identified by the passed boot ID\&. Either one of the two timestamp arguments may be passed as
@@ -53,6 +64,12 @@ in case the timestamp is not needed, but not both\&.
 and
 \fBsd_journal_get_cutoff_monotonic_usec()\fR
 return 1 on success, 0 if not suitable entries are in the journal or a negative errno\-style error code\&.
+.PP
+Locations pointed to by parameters
+\fIfrom\fR
+and
+\fIto\fR
+will be set only if the return value is positive, and obviously, the parameters are non\-null\&.
 .SH "NOTES"
 .PP
 The

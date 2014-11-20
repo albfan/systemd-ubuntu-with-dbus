@@ -28,7 +28,6 @@
 
 #include "sd-id128.h"
 #include "sd-event.h"
-#include "sd-memfd.h"
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -132,7 +131,7 @@ sd_bus *sd_bus_unref(sd_bus *bus);
 int sd_bus_is_open(sd_bus *bus);
 int sd_bus_can_send(sd_bus *bus, char type);
 int sd_bus_get_server_id(sd_bus *bus, sd_id128_t *peer);
-int sd_bus_get_peer_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
+int sd_bus_get_owner_creds(sd_bus *bus, uint64_t creds_mask, sd_bus_creds **ret);
 int sd_bus_get_name(sd_bus *bus, const char **name);
 int sd_bus_get_tid(sd_bus *bus, pid_t *tid);
 
@@ -148,8 +147,10 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
-sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
 sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
+sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
+sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus);
+void* sd_bus_get_current_userdata(sd_bus *bus);
 
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
@@ -175,6 +176,8 @@ void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
+sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);
+void *sd_bus_slot_get_current_userdata(sd_bus_slot *slot);
 
 /* Message object */
 
@@ -192,9 +195,11 @@ sd_bus_message* sd_bus_message_unref(sd_bus_message *m);
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
+int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority);
+
 int sd_bus_message_get_expect_reply(sd_bus_message *m);
 int sd_bus_message_get_auto_start(sd_bus_message *m);
-int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority);
+int sd_bus_message_get_allow_interactive_authorization(sd_bus_message *m);
 
 const char *sd_bus_message_get_signature(sd_bus_message *m, int complete);
 const char *sd_bus_message_get_path(sd_bus_message *m);
@@ -218,6 +223,8 @@ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name);
 
 int sd_bus_message_set_expect_reply(sd_bus_message *m, int b);
 int sd_bus_message_set_auto_start(sd_bus_message *m, int b);
+int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *m, int b);
+
 int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
 int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority);
 
@@ -226,10 +233,10 @@ int sd_bus_message_append_basic(sd_bus_message *m, char type, const void *p);
 int sd_bus_message_append_array(sd_bus_message *m, char type, const void *ptr, size_t size);
 int sd_bus_message_append_array_space(sd_bus_message *m, char type, size_t size, void **ptr);
 int sd_bus_message_append_array_iovec(sd_bus_message *m, char type, const struct iovec *iov, unsigned n);
-int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, sd_memfd *memfd);
+int sd_bus_message_append_array_memfd(sd_bus_message *m, char type, int memfd);
 int sd_bus_message_append_string_space(sd_bus_message *m, size_t size, char **s);
 int sd_bus_message_append_string_iovec(sd_bus_message *m, const struct iovec *iov, unsigned n);
-int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd* memfd);
+int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd);
 int sd_bus_message_append_strv(sd_bus_message *m, char **l);
 int sd_bus_message_open_container(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_close_container(sd_bus_message *m);
@@ -253,8 +260,8 @@ int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
 int sd_bus_release_name(sd_bus *bus, const char *name);
 int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
-int sd_bus_get_owner(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
-int sd_bus_get_owner_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
+int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
+int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);
 
 /* Convenience calls */
 
@@ -282,6 +289,7 @@ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **in
 int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 
 int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **creds);
+int sd_bus_query_sender_privilege(sd_bus_message *call, int capability);
 
 /* Credential handling */
 

@@ -60,10 +60,12 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemctl</command> may be used to
-    introspect and control the state of the
+    <para><command>systemctl</command> may be used to introspect and
+    control the state of the <literal>systemd</literal> system and
+    service manager. Please refer to
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    system and service manager.</para>
+    for an introduction into the basic concepts and functionality this
+    tool manages.</para>
   </refsect1>
 
   <refsect1>
@@ -637,8 +639,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             file.</para>
 
             <para>This command should not be confused with the
-            <command>daemon-reload</command> or <command>load</command>
-            commands.</para>
+            <command>daemon-reload</command> command.</para>
           </listitem>
 
         </varlistentry>
@@ -923,6 +924,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             the system, or for all future logins of all users, or only this
             boot.  Note that in the last case, no systemd daemon
             configuration is reloaded.</para>
+
+            <para>Using <command>enable</command> on masked units
+            results in an error.</para>
           </listitem>
         </varlistentry>
 
@@ -1079,8 +1083,8 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <filename>/dev/null</filename>, making it impossible to
             start them. This is a stronger version of
             <command>disable</command>, since it prohibits all kinds of
-            activation of the unit, including manual activation. Use
-            this option with care. This honors the
+            activation of the unit, including enablement and manual
+            activation. Use this option with care. This honors the
             <option>--runtime</option> option to only mask temporarily
             until the next reboot of the system.</para>
           </listitem>
@@ -1093,6 +1097,25 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Unmask one or more unit files, as specified on the
             command line. This will undo the effect of
             <command>mask</command>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>add-wants <replaceable>TARGET</replaceable>
+          <replaceable>NAME</replaceable>...</command></term>
+          <term><command>add-requires <replaceable>TARGET</replaceable>
+          <replaceable>NAME</replaceable>...</command></term>
+
+          <listitem>
+            <para>Adds <literal>Wants=</literal> resp. <literal>Requires=</literal>
+            dependency to the specified <replaceable>TARGET</replaceable> for
+            one or more units. </para>
+
+            <para>This command honors <option>--system</option>,
+            <option>--user</option>, <option>--runtime</option> and
+            <option>--global</option> in a similar way as
+            <command>enable</command>.</para>
+
           </listitem>
         </varlistentry>
 
@@ -1274,10 +1297,9 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
             <para>Reload systemd manager configuration. This will reload
             all unit files and recreate the entire dependency
             tree. While the daemon is being reloaded, all sockets systemd
-            listens on on behalf of user configuration will stay
+            listens on behalf of user configuration will stay
             accessible.</para> <para>This command should not be confused
-            with the <command>load</command> or
-            <command>reload</command> commands.</para>
+            with the <command>reload</command> command.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1305,13 +1327,62 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
           <term><command>is-system-running</command></term>
 
           <listitem>
-            <para>Checks whether the system is running. This returns
-            success when the system is fully up and running, meaning
-            not in startup, shutdown or maintainance mode. Failure is
-            returned otherwise. In addition, the current state is
-            printed in a short string to standard output. Use
-            <option>--quiet</option> to suppress output of this state
-            string.</para>
+            <para>Checks whether the system is operational. This
+            returns success when the system is fully up and running,
+            meaning not in startup, shutdown or maintenance
+            mode. Failure is returned otherwise. In addition, the
+            current state is printed in a short string to standard
+            output, see table below. Use <option>--quiet</option> to
+            suppress this output.</para>
+
+            <table>
+              <title>Manager Operational States</title>
+              <tgroup cols='2'>
+                <colspec colname='name' />
+                <colspec colname='description' />
+                <thead>
+                  <row>
+                    <entry>Name</entry>
+                    <entry>Description</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><varname>initializing</varname></entry>
+                    <entry><para>Early bootup, before
+                    <filename>basic.target</filename> is reached
+                    or the <varname>maintenance</varname> state entered.
+                    </para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>starting</varname></entry>
+                    <entry><para>Late bootup, before the job queue
+                    becomes idle for the first time, or one of the
+                    rescue targets are reached.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>running</varname></entry>
+                    <entry><para>The system is fully
+                    operational.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>degraded</varname></entry>
+                    <entry><para>The system is operational but one or more
+                    units failed.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>maintenance</varname></entry>
+                    <entry><para>The rescue or emergency target is
+                    active.</para></entry>
+                  </row>
+                  <row>
+                    <entry><varname>stopping</varname></entry>
+                    <entry><para>The manager is shutting
+                    down.</para></entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
           </listitem>
         </varlistentry>
 
@@ -1549,7 +1620,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.resource-management</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>

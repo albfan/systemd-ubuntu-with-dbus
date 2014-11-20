@@ -1,5 +1,5 @@
 '\" t
-.TH "HOSTNAME" "5" "" "systemd 215" "hostname"
+.TH "HOSTNAME" "5" "" "systemd 217" "hostname"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,9 @@ Depending on the operating system, other configuration files might be checked fo
 .PP
 You may use
 \fBhostnamectl\fR(1)
-to change the value of this file from the command line\&.
+to change the value of this file during runtime from the command line\&. Use
+\fBsystemd-firstboot\fR(1)
+to initialize it on mounted (but not booted) system images\&.
 .SH "HISTORY"
 .PP
 The simple configuration file format of
@@ -51,4 +53,5 @@ originates from Debian GNU/Linux\&.
 \fBmachine-id\fR(5),
 \fBmachine-info\fR(5),
 \fBhostnamectl\fR(1),
-\fBsystemd-hostnamed.service\fR(8)
+\fBsystemd-hostnamed.service\fR(8),
+\fBsystemd-firstboot\fR(1)

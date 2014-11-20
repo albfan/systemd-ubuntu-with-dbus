@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_NOTIFY" "3" "" "systemd 215" "sd_notify"
+.TH "SD_NOTIFY" "3" "" "systemd 217" "sd_notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_notify, sd_notifyf \- Notify service manager about start\-up completion and other daemon status changes
+sd_notify, sd_notifyf \- Notify service manager about start\-up completion and other service status changes
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -35,7 +35,7 @@ sd_notify, sd_notifyf \- Notify service manager about start\-up completion and o
 .SH "DESCRIPTION"
 .PP
 \fBsd_notify()\fR
-shall be called by a daemon to notify the init system about status changes\&. It can be used to send arbitrary information, encoded in an environment\-block\-like string\&. Most importantly it can be used for start\-up completion notification\&.
+may be called by a service to notify the service manager about state changes\&. It can be used to send arbitrary information, encoded in an environment\-block\-like string\&. Most importantly it can be used for start\-up completion notification\&.
 .PP
 If the
 \fIunset_environment\fR
@@ -53,27 +53,48 @@ parameter should contain a newline\-separated list of variable assignments, simi
 .PP
 READY=1
 .RS 4
-Tells the init system that daemon startup is finished\&. This is only used by systemd if the service definition file has Type=notify set\&. The passed argument is a boolean "1" or "0"\&. Since there is little value in signaling non\-readiness, the only value daemons should send is "READY=1"\&.
+Tells the service manager that service startup is finished\&. This is only used by systemd if the service definition file has Type=notify set\&. Since there is little value in signaling non\-readiness, the only value services should send is
+"READY=1"
+(i\&.e\&.
+"READY=0"
+is not defined)\&.
+.RE
+.PP
+RELOADING=1
+.RS 4
+Tells the service manager that the service is reloading its configuration\&. This is useful to allow the service manager to track the service\*(Aqs internal state, and present it to the user\&. Note that a service that sends this notification must also send a
+"READY=1"
+notification when it completed reloading its configuration\&.
+.RE
+.PP
+STOPPING=1
+.RS 4
+Tells the service manager that the service is beginning its shutdown\&. This is useful to allow the service manager to track the service\*(Aqs internal state, and present it to the user\&.
 .RE
 .PP
 STATUS=\&.\&.\&.
 .RS 4
-Passes a single\-line status string back to the init system that describes the daemon state\&. This is free\-form and can be used for various purposes: general state feedback, fsck\-like programs could pass completion percentages and failing programs could pass a human readable error message\&. Example: "STATUS=Completed 66% of file system check\&.\&.\&."
+Passes a single\-line UTF\-8 status string back to the service manager that describes the service state\&. This is free\-form and can be used for various purposes: general state feedback, fsck\-like programs could pass completion percentages and failing programs could pass a human readable error message\&. Example:
+"STATUS=Completed 66% of file system check\&.\&.\&."
 .RE
 .PP
 ERRNO=\&.\&.\&.
 .RS 4
-If a daemon fails, the errno\-style error code, formatted as string\&. Example: "ERRNO=2" for ENOENT\&.
+If a service fails, the errno\-style error code, formatted as string\&. Example:
+"ERRNO=2"
+for ENOENT\&.
 .RE
 .PP
 BUSERROR=\&.\&.\&.
 .RS 4
-If a daemon fails, the D\-Bus error\-style error code\&. Example: "BUSERROR=org\&.freedesktop\&.DBus\&.Error\&.TimedOut"
+If a service fails, the D\-Bus error\-style error code\&. Example:
+"BUSERROR=org\&.freedesktop\&.DBus\&.Error\&.TimedOut"
 .RE
 .PP
 MAINPID=\&.\&.\&.
 .RS 4
-The main pid of the daemon, in case the init system did not fork off the process itself\&. Example: "MAINPID=4711"
+The main pid of the service, in case the service manager did not fork off the process itself\&. Example:
+"MAINPID=4711"
 .RE
 .PP
 WATCHDOG=1
@@ -82,20 +103,16 @@ Tells systemd to update the watchdog timestamp\&. This is the keep\-alive ping t
 \fIWatchdogSec=\fR
 is enabled for it\&. See
 \fBsystemd.service\fR(5)
-for details\&. It is recommended to send this message if the
-\fI$WATCHDOG_PID\fR
-environment variable has been set to the PID of the service process, in every half the time interval that is specified in the
-\fI$WATCHDOG_USEC\fR
-environment variable\&. See
+for information how to enable this functionality and
 \fBsd_watchdog_enabled\fR(3)
-for details\&.
+for the details of how the service can check if the the watchdog is enabled\&.
 .RE
 .PP
 It is recommended to prefix variable names that are not shown in the list above with
 \fIX_\fR
 to avoid namespace clashes\&.
 .PP
-Note that systemd will accept status data sent from a daemon only if the
+Note that systemd will accept status data sent from a service only if the
 \fINotifyAccess=\fR
 option is correctly set in the service definition file\&. See
 \fBsystemd.service\fR(5)
@@ -124,12 +141,12 @@ socket referenced in the
 environment variable\&. If the first character of
 \fI$NOTIFY_SOCKET\fR
 is
-"@", the string is understood as Linux abstract namespace socket\&. The datagram is accompanied by the process credentials of the sending daemon, using SCM_CREDENTIALS\&.
+"@", the string is understood as Linux abstract namespace socket\&. The datagram is accompanied by the process credentials of the sending service, using SCM_CREDENTIALS\&.
 .SH "ENVIRONMENT"
 .PP
 \fI$NOTIFY_SOCKET\fR
 .RS 4
-Set by the init system for supervised processes for status and start\-up completion notification\&. This environment variable specifies the socket
+Set by the service manager for supervised processes for status and start\-up completion notification\&. This environment variable specifies the socket
 \fBsd_notify()\fR
 talks to\&. See above for details\&.
 .RE
@@ -137,7 +154,7 @@ talks to\&. See above for details\&.
 .PP
 \fBExample\ \&1.\ \&Start-up Notification\fR
 .PP
-When a daemon finished starting up, it might issue the following call to notify the init system:
+When a service finished starting up, it might issue the following call to notify the service manager:
 .sp
 .if n \{\
 .RS 4
@@ -151,7 +168,7 @@ sd_notify(0, "READY=1");
 .PP
 \fBExample\ \&2.\ \&Extended Start-up Notification\fR
 .PP
-A daemon could send the following after completing initialization:
+A service could send the following after completing initialization:
 .sp
 .if n \{\
 .RS 4
@@ -168,7 +185,7 @@ sd_notifyf(0, "READY=1\en"
 .PP
 \fBExample\ \&3.\ \&Error Cause Notification\fR
 .PP
-A daemon could send the following shortly before exiting, on failure
+A service could send the following shortly before exiting, on failure
 .sp
 .if n \{\
 .RS 4

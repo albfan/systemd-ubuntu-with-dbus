@@ -37,6 +37,7 @@
 
 #include "util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "sd-daemon.h"
 
 _public_ int sd_listen_fds(int unset_environment) {
@@ -196,14 +197,6 @@ static int sd_is_socket_internal(int fd, int type, int listening) {
         return 1;
 }
 
-union sockaddr_union {
-        struct sockaddr sa;
-        struct sockaddr_in in4;
-        struct sockaddr_in6 in6;
-        struct sockaddr_un un;
-        struct sockaddr_storage storage;
-};
-
 _public_ int sd_is_socket(int fd, int family, int type, int listening) {
         int r;
 
@@ -261,7 +254,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
                         if (l < sizeof(struct sockaddr_in))
                                 return -EINVAL;
 
-                        return htons(port) == sockaddr.in4.sin_port;
+                        return htons(port) == sockaddr.in.sin_port;
                 } else {
                         if (l < sizeof(struct sockaddr_in6))
                                 return -EINVAL;
@@ -498,39 +491,35 @@ _public_ int sd_booted(void) {
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
-        const char *e;
+        const char *s, *p = ""; /* p is set to dummy value to do unsetting */
         uint64_t u;
-        pid_t pid;
-        int r;
+        int r = 0;
 
-        e = getenv("WATCHDOG_PID");
-        if (!e) {
-                r = 0;
-                goto finish;
-        }
-
-        r = parse_pid(e, &pid);
-        if (r < 0)
+        s = getenv("WATCHDOG_USEC");
+        if (!s)
                 goto finish;
 
-        /* Is this for us? */
-        if (getpid() != pid) {
-                r = 0;
-                goto finish;
-        }
-
-        e = getenv("WATCHDOG_USEC");
-        if (!e) {
-                r = -EINVAL;
-                goto finish;
-        }
-
-        r = safe_atou64(e, &u);
+        r = safe_atou64(s, &u);
         if (r < 0)
                 goto finish;
         if (u <= 0) {
                 r = -EINVAL;
                 goto finish;
+        }
+
+        p = getenv("WATCHDOG_PID");
+        if (p) {
+                pid_t pid;
+
+                r = parse_pid(p, &pid);
+                if (r < 0)
+                        goto finish;
+
+                /* Is this for us? */
+                if (getpid() != pid) {
+                        r = 0;
+                        goto finish;
+                }
         }
 
         if (usec)
@@ -539,10 +528,10 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         r = 1;
 
 finish:
-        if (unset_environment) {
-                unsetenv("WATCHDOG_PID");
+        if (unset_environment && s)
                 unsetenv("WATCHDOG_USEC");
-        }
+        if (unset_environment && p)
+                unsetenv("WATCHDOG_PID");
 
         return r;
 }

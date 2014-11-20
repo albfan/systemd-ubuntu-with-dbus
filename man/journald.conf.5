@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALD\&.CONF" "5" "" "systemd 215" "journald.conf"
+.TH "JOURNALD\&.CONF" "5" "" "systemd 217" "journald.conf"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -188,7 +188,7 @@ The timeout before synchronizing journal files to disk\&. After syncing, journal
 .PP
 \fIForwardToSyslog=\fR, \fIForwardToKMsg=\fR, \fIForwardToConsole=\fR, \fIForwardToWall=\fR
 .RS 4
-Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall messages to all logged\-in users\&. These options take boolean arguments\&. If forwarding to syslog is enabled but no syslog daemon is running, the respective option has no effect\&. By default, only forwarding to syslog and wall is enabled\&. These settings may be overridden at boot time with the kernel command line options
+Control whether log messages received by the journal daemon shall be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall messages to all logged\-in users\&. These options take boolean arguments\&. If forwarding to syslog is enabled but no syslog daemon is running, the respective option has no effect\&. By default, only forwarding wall is enabled\&. These settings may be overridden at boot time with the kernel command line options
 "systemd\&.journald\&.forward_to_syslog=",
 "systemd\&.journald\&.forward_to_kmsg=",
 "systemd\&.journald\&.forward_to_console="

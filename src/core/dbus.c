@@ -211,7 +211,7 @@ failed:
 }
 
 #ifdef HAVE_SELINUX
-static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int mac_selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         const char *verb, *path;
         Unit *u = NULL;
@@ -239,7 +239,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
 
-                r = selinux_access_check(message, verb, error);
+                r = mac_selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
 
@@ -270,7 +270,7 @@ static int selinux_filter(sd_bus *bus, sd_bus_message *message, void *userdata, 
         if (!u)
                 return 0;
 
-        r = selinux_unit_access_check(u, message, verb, error);
+        r = mac_selinux_unit_access_check(u, message, verb, error);
         if (r < 0)
                 return r;
 
@@ -536,7 +536,7 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         assert(bus);
 
 #ifdef HAVE_SELINUX
-        r = sd_bus_add_filter(bus, NULL, selinux_filter, m);
+        r = sd_bus_add_filter(bus, NULL, mac_selinux_filter, m);
         if (r < 0) {
                 log_error("Failed to add SELinux access filter: %s", strerror(-r));
                 return r;
@@ -659,7 +659,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        r = set_ensure_allocated(&m->private_buses, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&m->private_buses, NULL);
         if (r < 0) {
                 log_oom();
                 return 0;
@@ -1048,8 +1048,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
         HASHMAP_FOREACH(j, m->jobs, i)
-                if (j->subscribed && sd_bus_track_get_bus(j->subscribed) == *bus)
-                        j->subscribed = sd_bus_track_unref(j->subscribed);
+                if (j->clients && sd_bus_track_get_bus(j->clients) == *bus)
+                        j->clients = sd_bus_track_unref(j->clients);
 
         /* Get rid of queued message on this bus */
         if (m->queued_message_bus == *bus) {
@@ -1092,6 +1092,8 @@ void bus_done(Manager *m) {
                 m->private_listen_event_source = sd_event_source_unref(m->private_listen_event_source);
 
         m->private_listen_fd = safe_close(m->private_listen_fd);
+
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
@@ -1214,4 +1216,21 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, char ***l) {
         *l = NULL;
 
         return r;
+}
+
+int bus_verify_manage_unit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+}
+
+/* Same as bus_verify_manage_unit_async(), but checks for CAP_KILL instead of CAP_SYS_ADMIN */
+int bus_verify_manage_unit_async_for_kill(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_KILL, "org.freedesktop.systemd1.manage-units", false, &m->polkit_registry, error);
+}
+
+int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", false, &m->polkit_registry, error);
+}
+
+int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", false, &m->polkit_registry, error);
 }

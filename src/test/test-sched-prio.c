@@ -31,16 +31,15 @@ int main(int argc, char *argv[]) {
         FILE *serial = NULL;
         FDSet *fdset = NULL;
         int r;
-        const char *dir = TEST_DIR;
 
         /* prepare the test */
-        assert_se(set_unit_path(dir) >= 0);
-        r = manager_new(SYSTEMD_USER, &m);
-        if (r == -EPERM || r == -EACCES || r == -EADDRINUSE || r == -EHOSTDOWN) {
+        assert_se(set_unit_path(TEST_DIR) >= 0);
+        r = manager_new(SYSTEMD_USER, true, &m);
+        if (IN_SET(r, -EPERM, -EACCES, -EADDRINUSE, -EHOSTDOWN, -ENOENT)) {
                 printf("Skipping test: manager_new: %s", strerror(-r));
                 return EXIT_TEST_SKIP;
         }
-        assert(r >= 0);
+        assert_se(r >= 0);
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* load idle ok */

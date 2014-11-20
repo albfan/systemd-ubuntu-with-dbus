@@ -165,7 +165,7 @@ static void load_unix_sockets(void) {
         /* We maintain a cache of the sockets we found in
          * /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(string_hash_func, string_compare_func);
+        unix_sockets = set_new(&string_hash_ops);
         if (!unix_sockets)
                 return;
 
@@ -259,7 +259,7 @@ static int dir_is_mount_point(DIR *d, const char *subdir) {
 
         /* got only one handle; assume different mount points if one
          * of both queries was not supported by the filesystem */
-        if (r_p == -ENOSYS || r_p == -ENOTSUP || r == -ENOSYS || r == -ENOTSUP)
+        if (r_p == -ENOSYS || r_p == -EOPNOTSUPP || r == -ENOSYS || r == -EOPNOTSUPP)
                 return true;
 
         /* return error */
@@ -453,35 +453,39 @@ finish:
 }
 
 static int item_set_perms(Item *i, const char *path) {
+        struct stat st;
+        bool st_valid;
+
         assert(i);
         assert(path);
+
+        st_valid = stat(path, &st) == 0;
 
         /* not using i->path directly because it may be a glob */
         if (i->mode_set) {
                 mode_t m = i->mode;
 
-                if (i->mask_perms) {
-                        struct stat st;
-
-                        if (stat(path, &st) >= 0) {
-                                if (!(st.st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st.st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st.st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st.st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
+                if (i->mask_perms && st_valid) {
+                        if (!(st.st_mode & 0111))
+                                m &= ~0111;
+                        if (!(st.st_mode & 0222))
+                                m &= ~0222;
+                        if (!(st.st_mode & 0444))
+                                m &= ~0444;
+                        if (!S_ISDIR(st.st_mode))
+                                m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
                 }
 
-                if (chmod(path, m) < 0) {
-                        log_error("chmod(%s) failed: %m", path);
-                        return -errno;
+                if (!st_valid || m != (st.st_mode & 07777)) {
+                        if (chmod(path, m) < 0) {
+                                log_error("chmod(%s) failed: %m", path);
+                                return -errno;
+                        }
                 }
         }
 
-        if (i->uid_set || i->gid_set)
+        if ((!st_valid || (i->uid != st.st_uid || i->gid != st.st_gid)) &&
+            (i->uid_set || i->gid_set))
                 if (chown(path,
                           i->uid_set ? i->uid : (uid_t) -1,
                           i->gid_set ? i->gid : (gid_t) -1) < 0) {
@@ -505,9 +509,9 @@ static int write_one_file(Item *i, const char *path) {
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
 
         RUN_WITH_UMASK(0000) {
-                label_context_set(path, S_IFREG);
+                mac_selinux_create_file_prepare(path, S_IFREG);
                 fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
-                label_context_clear();
+                mac_selinux_create_file_clear();
         }
 
         if (fd < 0) {
@@ -739,9 +743,9 @@ static int create_item(Item *i) {
         case CREATE_FIFO:
 
                 RUN_WITH_UMASK(0000) {
-                        label_context_set(i->path, S_IFIFO);
+                        mac_selinux_create_file_prepare(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
-                        label_context_clear();
+                        mac_selinux_create_file_clear();
                 }
 
                 if (r < 0) {
@@ -760,9 +764,9 @@ static int create_item(Item *i) {
                                 if (i->force) {
 
                                         RUN_WITH_UMASK(0000) {
-                                                label_context_set(i->path, S_IFIFO);
+                                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
                                                 r = mkfifo_atomic(i->path, i->mode);
-                                                label_context_clear();
+                                                mac_selinux_create_file_clear();
                                         }
 
                                         if (r < 0) {
@@ -784,9 +788,9 @@ static int create_item(Item *i) {
 
         case CREATE_SYMLINK:
 
-                label_context_set(i->path, S_IFLNK);
+                mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
-                label_context_clear();
+                mac_selinux_create_file_clear();
 
                 if (r < 0) {
                         _cleanup_free_ char *x = NULL;
@@ -800,9 +804,9 @@ static int create_item(Item *i) {
                         if (r < 0 || !streq(i->argument, x)) {
 
                                 if (i->force) {
-                                        label_context_set(i->path, S_IFLNK);
+                                        mac_selinux_create_file_prepare(i->path, S_IFLNK);
                                         r = symlink_atomic(i->argument, i->path);
-                                        label_context_clear();
+                                        mac_selinux_create_file_clear();
 
                                         if (r < 0) {
                                                 log_error("symlink(%s, %s) failed: %s", i->argument, i->path, strerror(-r));
@@ -834,9 +838,9 @@ static int create_item(Item *i) {
                 file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
                 RUN_WITH_UMASK(0000) {
-                        label_context_set(i->path, file_type);
+                        mac_selinux_create_file_prepare(i->path, file_type);
                         r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        label_context_clear();
+                        mac_selinux_create_file_clear();
                 }
 
                 if (r < 0) {
@@ -861,9 +865,9 @@ static int create_item(Item *i) {
                                 if (i->force) {
 
                                         RUN_WITH_UMASK(0000) {
-                                                label_context_set(i->path, file_type);
+                                                mac_selinux_create_file_prepare(i->path, file_type);
                                                 r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                                label_context_clear();
+                                                mac_selinux_create_file_clear();
                                         }
 
                                         if (r < 0) {
@@ -1060,7 +1064,7 @@ static int clean_item(Item *i) {
 
 static int process_item(Item *i) {
         int r, q, p;
-        char prefix[PATH_MAX];
+        _cleanup_free_ char *prefix = NULL;
 
         assert(i);
 
@@ -1068,6 +1072,10 @@ static int process_item(Item *i) {
                 return 0;
 
         i->done = true;
+
+        prefix = malloc(strlen(i->path) + 1);
+        if (!prefix)
+                return log_oom();
 
         PATH_FOREACH_PREFIX(prefix, i->path) {
                 Item *j;
@@ -1407,8 +1415,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
@@ -1421,8 +1428,6 @@ static int help(void) {
                "     --exclude-prefix=PATH  Ignore rules that apply to paths with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1456,12 +1461,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -1509,7 +1515,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (!arg_clean && !arg_create && !arg_remove) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
@@ -1575,7 +1580,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
                                 candidate_item = j;
                 }
 
-                if (candidate_item) {
+                if (candidate_item && candidate_item->age_set) {
                         i->age = candidate_item->age;
                         i->age_set = true;
                 }
@@ -1605,10 +1610,10 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        label_init(NULL);
+        mac_selinux_init(NULL);
 
-        items = hashmap_new(string_hash_func, string_compare_func);
-        globs = hashmap_new(string_hash_func, string_compare_func);
+        items = hashmap_new(&string_hash_ops);
+        globs = hashmap_new(&string_hash_ops);
 
         if (!items || !globs) {
                 r = log_oom();
@@ -1665,7 +1670,7 @@ finish:
 
         set_free_free(unix_sockets);
 
-        label_finish();
+        mac_selinux_finish();
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

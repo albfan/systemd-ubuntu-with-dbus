@@ -19,10 +19,10 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.exec"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.exec — Execution environment configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
                 <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
                 <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
-                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214176829472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
+                <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214199554128"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, sockets,
                 mount points, and swap devices share a subset of
                 configuration options which define the execution
                 environment of spawned processes.</p><p>This man page lists the configuration options
@@ -39,7 +39,7 @@
                 configuration files. The execution specific
                 configuration options are configured in the [Service],
                 [Socket], [Mount], or [Swap] sections, depending on the unit
-                type.</p></div><div class="refsect1"><a name="idm214178282400"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
+                type.</p></div><div class="refsect1"><a name="idm214199547648"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="WorkingDirectory="><span class="term"><code class="varname">WorkingDirectory=</code></span><a class="headerlink" title="Permalink to this term" href="#WorkingDirectory=">¶</a></dt><dd><p>Takes an absolute
                                 directory path. Sets the working
                                 directory for executed processes. If
                                 not set, defaults to the root directory
@@ -50,7 +50,7 @@
                                 directory path. Sets the root
                                 directory for executed processes, with
                                 the
-                                <a href="chroot.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/chroot.2.html"><span class="citerefentry"><span class="refentrytitle">chroot</span>(2)</span></a>
                                 system call. If this is used, it must
                                 be ensured that the process and all
                                 its auxiliary files are available in
@@ -80,7 +80,7 @@
                                 executed processes. Takes an integer
                                 between -20 (highest priority) and 19
                                 (lowest priority). See
-                                <a href="setpriority.html"><span class="citerefentry"><span class="refentrytitle">setpriority</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/setpriority.2.html"><span class="citerefentry"><span class="refentrytitle">setpriority</span>(2)</span></a>
                                 for details.</p></dd><dt id="OOMScoreAdjust="><span class="term"><code class="varname">OOMScoreAdjust=</code></span><a class="headerlink" title="Permalink to this term" href="#OOMScoreAdjust=">¶</a></dt><dd><p>Sets the adjustment
                                 level for the Out-Of-Memory killer for
                                 executed processes. Takes an integer
@@ -95,7 +95,7 @@
                                 <code class="option">realtime</code>,
                                 <code class="option">best-effort</code> or
                                 <code class="option">idle</code>. See
-                                <a href="ioprio_set.html"><span class="citerefentry"><span class="refentrytitle">ioprio_set</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/ioprio_set.2.html"><span class="citerefentry"><span class="refentrytitle">ioprio_set</span>(2)</span></a>
                                 for details.</p></dd><dt id="IOSchedulingPriority="><span class="term"><code class="varname">IOSchedulingPriority=</code></span><a class="headerlink" title="Permalink to this term" href="#IOSchedulingPriority=">¶</a></dt><dd><p>Sets the IO scheduling
                                 priority for executed processes. Takes
                                 an integer between 0 (highest
@@ -103,7 +103,7 @@
                                 available priorities depend on the
                                 selected IO scheduling class (see
                                 above). See
-                                <a href="ioprio_set.html"><span class="citerefentry"><span class="refentrytitle">ioprio_set</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/ioprio_set.2.html"><span class="citerefentry"><span class="refentrytitle">ioprio_set</span>(2)</span></a>
                                 for details.</p></dd><dt id="CPUSchedulingPolicy="><span class="term"><code class="varname">CPUSchedulingPolicy=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUSchedulingPolicy=">¶</a></dt><dd><p>Sets the CPU
                                 scheduling policy for executed
                                 processes. Takes one of
@@ -112,7 +112,7 @@
                                 <code class="option">idle</code>,
                                 <code class="option">fifo</code> or
                                 <code class="option">rr</code>. See
-                                <a href="sched_setscheduler.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/sched_setscheduler.2.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
                                 for details.</p></dd><dt id="CPUSchedulingPriority="><span class="term"><code class="varname">CPUSchedulingPriority=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUSchedulingPriority=">¶</a></dt><dd><p>Sets the CPU
                                 scheduling priority for executed
                                 processes. The available priority
@@ -121,7 +121,7 @@
                                 real-time scheduling policies an
                                 integer between 1 (lowest priority)
                                 and 99 (highest priority) can be used.
-                                See <a href="sched_setscheduler.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
+                                See <a href="http://man7.org/linux/man-pages/man2/sched_setscheduler.2.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
                                 for details.
                                 </p></dd><dt id="CPUSchedulingResetOnFork="><span class="term"><code class="varname">CPUSchedulingResetOnFork=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUSchedulingResetOnFork=">¶</a></dt><dd><p>Takes a boolean
                                 argument. If true, elevated CPU
@@ -129,7 +129,7 @@
                                 will be reset when the executed
                                 processes fork, and can hence not leak
                                 into child processes. See
-                                <a href="sched_setscheduler.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/sched_setscheduler.2.html"><span class="citerefentry"><span class="refentrytitle">sched_setscheduler</span>(2)</span></a>
                                 for details. Defaults to false.</p></dd><dt id="CPUAffinity="><span class="term"><code class="varname">CPUAffinity=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAffinity=">¶</a></dt><dd><p>Controls the CPU
                                 affinity of the executed
                                 processes. Takes a space-separated
@@ -140,11 +140,11 @@
                                 assigned, the mask is reset, all
                                 assignments prior to this will have no
                                 effect. See
-                                <a href="sched_setaffinity.html"><span class="citerefentry"><span class="refentrytitle">sched_setaffinity</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/sched_setaffinity.2.html"><span class="citerefentry"><span class="refentrytitle">sched_setaffinity</span>(2)</span></a>
                                 for details.</p></dd><dt id="UMask="><span class="term"><code class="varname">UMask=</code></span><a class="headerlink" title="Permalink to this term" href="#UMask=">¶</a></dt><dd><p>Controls the file mode
                                 creation mask. Takes an access mode in
                                 octal notation. See
-                                <a href="umask.html"><span class="citerefentry"><span class="refentrytitle">umask</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/umask.2.html"><span class="citerefentry"><span class="refentrytitle">umask</span>(2)</span></a>
                                 for details. Defaults to
                                 0022.</p></dd><dt id="Environment="><span class="term"><code class="varname">Environment=</code></span><a class="headerlink" title="Permalink to this term" href="#Environment=">¶</a></dt><dd><p>Sets environment
                                 variables for executed
@@ -173,7 +173,7 @@
                                 "<code class="literal">word3</code>", "<code class="literal">$word 5 6</code>".
                                 </p><p>
                                 See
-                                <a href="environ.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man7/environ.7.html"><span class="citerefentry"><span class="refentrytitle">environ</span>(7)</span></a>
                                 for details about environment variables.</p></dd><dt id="EnvironmentFile="><span class="term"><code class="varname">EnvironmentFile=</code></span><a class="headerlink" title="Permalink to this term" href="#EnvironmentFile=">¶</a></dt><dd><p>Similar to
                                 <code class="varname">Environment=</code> but
                                 reads the environment variables from a
@@ -221,39 +221,37 @@
                                 <code class="option">tty</code>,
                                 <code class="option">tty-force</code>,
                                 <code class="option">tty-fail</code> or
-                                <code class="option">socket</code>. If
-                                <code class="option">null</code> is selected,
-                                standard input will be connected to
+                                <code class="option">socket</code>.</p><p>If <code class="option">null</code> is
+                                selected, standard input will be
+                                connected to
                                 <code class="filename">/dev/null</code>,
                                 i.e. all read attempts by the process
-                                will result in immediate EOF. If
-                                <code class="option">tty</code> is selected,
-                                standard input is connected to a TTY
-                                (as configured by
+                                will result in immediate EOF.</p><p>If <code class="option">tty</code> is
+                                selected, standard input is connected
+                                to a TTY (as configured by
                                 <code class="varname">TTYPath=</code>, see
                                 below) and the executed process
                                 becomes the controlling process of the
                                 terminal. If the terminal is already
-                                being controlled by another process, the
-                                executed process waits until the current
-                                controlling process releases the
-                                terminal.
-                                <code class="option">tty-force</code>
-                                is similar to <code class="option">tty</code>,
-                                but the executed process is forcefully
-                                and immediately made the controlling
+                                being controlled by another process,
+                                the executed process waits until the
+                                current controlling process releases
+                                the terminal.</p><p><code class="option">tty-force</code> is similar
+                                to <code class="option">tty</code>, but the
+                                executed process is forcefully and
+                                immediately made the controlling
                                 process of the terminal, potentially
                                 removing previous controlling
                                 processes from the
-                                terminal. <code class="option">tty-fail</code> is
+                                terminal.</p><p><code class="option">tty-fail</code> is
                                 similar to <code class="option">tty</code> but if
                                 the terminal already has a controlling
                                 process start-up of the executed
-                                process fails.  The
-                                <code class="option">socket</code> option is only
-                                valid in socket-activated services,
-                                and only when the socket configuration
-                                file (see
+                                process fails.</p><p>The <code class="option">socket</code>
+                                option is only valid in
+                                socket-activated services, and only
+                                when the socket configuration file
+                                (see
                                 <a href="systemd.socket.html"><span class="citerefentry"><span class="refentrytitle">systemd.socket</span>(5)</span></a>
                                 for details) specifies a single socket
                                 only. If this option is set, standard
@@ -263,63 +261,71 @@
                                 with daemons designed for use with the
                                 traditional
                                 <a href="inetd.html"><span class="citerefentry"><span class="refentrytitle">inetd</span>(8)</span></a>
-                                daemon. This setting defaults to
+                                daemon.</p><p>This setting defaults to
                                 <code class="option">null</code>.</p></dd><dt id="StandardOutput="><span class="term"><code class="varname">StandardOutput=</code></span><a class="headerlink" title="Permalink to this term" href="#StandardOutput=">¶</a></dt><dd><p>Controls where file
                                 descriptor 1 (STDOUT) of the executed
                                 processes is connected to. Takes one
                                 of <code class="option">inherit</code>,
                                 <code class="option">null</code>,
                                 <code class="option">tty</code>,
+                                <code class="option">journal</code>,
                                 <code class="option">syslog</code>,
                                 <code class="option">kmsg</code>,
-                                <code class="option">journal</code>,
+                                <code class="option">journal+console</code>,
                                 <code class="option">syslog+console</code>,
-                                <code class="option">kmsg+console</code>,
-                                <code class="option">journal+console</code> or
-                                <code class="option">socket</code>. If set to
-                                <code class="option">inherit</code>, the file
-                                descriptor of standard input is
-                                duplicated for standard output. If set
-                                to <code class="option">null</code>, standard
-                                output will be connected to
+                                <code class="option">kmsg+console</code> or
+                                <code class="option">socket</code>.</p><p><code class="option">inherit</code>
+                                duplicates the file descriptor of
+                                standard input for standard
+                                output.</p><p><code class="option">null</code> connects
+                                standard output to
                                 <code class="filename">/dev/null</code>,
                                 i.e. everything written to it will be
-                                lost. If set to <code class="option">tty</code>,
-                                standard output will be connected to a
-                                tty (as configured via
+                                lost.</p><p><code class="option">tty</code> connects
+                                standard output to a tty (as
+                                configured via
                                 <code class="varname">TTYPath=</code>, see
                                 below). If the TTY is used for output
                                 only, the executed process will not
                                 become the controlling process of the
                                 terminal, and will not fail or wait
                                 for other processes to release the
-                                terminal. <code class="option">syslog</code>
-                                connects standard output to the
-                                <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
-                                system syslog
-                                service. <code class="option">kmsg</code>
-                                connects it with the kernel log buffer
-                                which is accessible via
-                                <a href="dmesg.html"><span class="citerefentry"><span class="refentrytitle">dmesg</span>(1)</span></a>. <code class="option">journal</code>
-                                connects it with the journal which is
-                                accessible via
-                                <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>
-                                (Note that everything that is written
-                                to syslog or kmsg is implicitly stored
-                                in the journal as well, those options
-                                are hence supersets of this
-                                one). <code class="option">syslog+console</code>,
-                                <code class="option">journal+console</code> and
-                                <code class="option">kmsg+console</code> work
-                                similarly but copy the output to the
-                                system console as
-                                well. <code class="option">socket</code> connects
-                                standard output to a socket from
-                                socket activation, semantics are
-                                similar to the respective option of
-                                <code class="varname">StandardInput=</code>.
-                                This setting defaults to the value set
-                                with
+                                terminal.</p><p><code class="option">journal</code>
+                                connects standard output with the
+                                journal which is accessible via
+                                <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>.
+                                Note that everything that is written
+                                to syslog or kmsg (see below) is
+                                implicitly stored in the journal as
+                                well, the specific two options listed
+                                below are hence supersets of this
+                                one.</p><p><code class="option">syslog</code> connects
+                                standard output to the <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
+                                system syslog service, in addition to
+                                the journal. Note that the journal
+                                daemon is usually configured to
+                                forward everything it receives to
+                                syslog anyway, in which case this
+                                option is no different from
+                                <code class="option">journal</code>.</p><p><code class="option">kmsg</code> connects
+                                standard output with the kernel log
+                                buffer which is accessible via
+                                <a href="http://man7.org/linux/man-pages/man1/dmesg.1.html"><span class="citerefentry"><span class="refentrytitle">dmesg</span>(1)</span></a>,
+                                in addition to the journal. The
+                                journal daemon might be configured to
+                                send all logs to kmsg anyway, in which
+                                case this option is no different from
+                                <code class="option">journal</code>.</p><p><code class="option">journal+console</code>,
+                                <code class="option">syslog+console</code> and
+                                <code class="option">kmsg+console</code> work in
+                                a similar way as the three options
+                                above but copy the output to the
+                                system console as well.</p><p><code class="option">socket</code> connects
+                                standard output to a socket acquired
+                                via socket activation. The semantics
+                                are similar to the same option of
+                                <code class="varname">StandardInput=</code>.</p><p>This setting defaults to the
+                                value set with
                                 <code class="option">DefaultStandardOutput=</code>
                                 in
                                 <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>,
@@ -362,15 +368,19 @@
                                 screen and scrollback buffer is
                                 cleared. Defaults to
                                 "<code class="literal">no</code>".</p></dd><dt id="SyslogIdentifier="><span class="term"><code class="varname">SyslogIdentifier=</code></span><a class="headerlink" title="Permalink to this term" href="#SyslogIdentifier=">¶</a></dt><dd><p>Sets the process name
-                                to prefix log lines sent to syslog or
-                                the kernel log buffer with. If not set,
-                                defaults to the process name of the
-                                executed process. This option is only
-                                useful when
+                                to prefix log lines sent to the
+                                logging system or the kernel log
+                                buffer with. If not set, defaults to
+                                the process name of the executed
+                                process. This option is only useful
+                                when
                                 <code class="varname">StandardOutput=</code> or
                                 <code class="varname">StandardError=</code> are
-                                set to <code class="option">syslog</code> or
-                                <code class="option">kmsg</code>.</p></dd><dt id="SyslogFacility="><span class="term"><code class="varname">SyslogFacility=</code></span><a class="headerlink" title="Permalink to this term" href="#SyslogFacility=">¶</a></dt><dd><p>Sets the syslog
+                                set to <code class="option">syslog</code>,
+                                <code class="option">journal</code> or
+                                <code class="option">kmsg</code> (or to the same
+                                settings in combination with
+                                <code class="option">+console</code>).</p></dd><dt id="SyslogFacility="><span class="term"><code class="varname">SyslogFacility=</code></span><a class="headerlink" title="Permalink to this term" href="#SyslogFacility=">¶</a></dt><dd><p>Sets the syslog
                                 facility to use when logging to
                                 syslog. One of <code class="option">kern</code>,
                                 <code class="option">user</code>,
@@ -392,7 +402,7 @@
                                 <code class="option">local5</code>,
                                 <code class="option">local6</code> or
                                 <code class="option">local7</code>. See
-                                <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
                                 for details. This option is only
                                 useful when
                                 <code class="varname">StandardOutput=</code> or
@@ -410,7 +420,7 @@
                                 <code class="option">notice</code>,
                                 <code class="option">info</code>,
                                 <code class="option">debug</code>. See
-                                <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>
                                 for details. This option is only
                                 useful when
                                 <code class="varname">StandardOutput=</code> or
@@ -449,7 +459,7 @@
                                 processes. The timer slack controls
                                 the accuracy of wake-ups triggered by
                                 timers. See
-                                <a href="prctl.html"><span class="citerefentry"><span class="refentrytitle">prctl</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/prctl.2.html"><span class="citerefentry"><span class="refentrytitle">prctl</span>(2)</span></a>
                                 for more information. Note that in
                                 contrast to most other time span
                                 definitions this parameter takes an
@@ -459,7 +469,7 @@
                                 too.</p></dd><dt id="LimitCPU="><span class="term"><code class="varname">LimitCPU=</code>, </span><span class="term"><code class="varname">LimitFSIZE=</code>, </span><span class="term"><code class="varname">LimitDATA=</code>, </span><span class="term"><code class="varname">LimitSTACK=</code>, </span><span class="term"><code class="varname">LimitCORE=</code>, </span><span class="term"><code class="varname">LimitRSS=</code>, </span><span class="term"><code class="varname">LimitNOFILE=</code>, </span><span class="term"><code class="varname">LimitAS=</code>, </span><span class="term"><code class="varname">LimitNPROC=</code>, </span><span class="term"><code class="varname">LimitMEMLOCK=</code>, </span><span class="term"><code class="varname">LimitLOCKS=</code>, </span><span class="term"><code class="varname">LimitSIGPENDING=</code>, </span><span class="term"><code class="varname">LimitMSGQUEUE=</code>, </span><span class="term"><code class="varname">LimitNICE=</code>, </span><span class="term"><code class="varname">LimitRTPRIO=</code>, </span><span class="term"><code class="varname">LimitRTTIME=</code></span><a class="headerlink" title="Permalink to this term" href="#LimitCPU=">¶</a></dt><dd><p>These settings control
                                 various resource limits for executed
                                 processes. See
-                                <a href="setrlimit.html"><span class="citerefentry"><span class="refentrytitle">setrlimit</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/setrlimit.2.html"><span class="citerefentry"><span class="refentrytitle">setrlimit</span>(2)</span></a>
                                 for details. Use the string
                                 <code class="varname">infinity</code> to
                                 configure no limit on a specific
@@ -472,12 +482,12 @@
                                 <code class="varname">User=</code> setting. If
                                 not set, no PAM session will be opened
                                 for the executed processes. See
-                                <a href="pam.html"><span class="citerefentry"><span class="refentrytitle">pam</span>(8)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man8/pam.8.html"><span class="citerefentry"><span class="refentrytitle">pam</span>(8)</span></a>
                                 for details.</p></dd><dt id="CapabilityBoundingSet="><span class="term"><code class="varname">CapabilityBoundingSet=</code></span><a class="headerlink" title="Permalink to this term" href="#CapabilityBoundingSet=">¶</a></dt><dd><p>Controls which
                                 capabilities to include in the
                                 capability bounding set for the
                                 executed process. See
-                                <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man7/capabilities.7.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
                                 for details. Takes a whitespace-separated
                                 list of capability names as read by
                                 <a href="cap_from_name.html"><span class="citerefentry"><span class="refentrytitle">cap_from_name</span>(3)</span></a>,
@@ -512,21 +522,22 @@
                                 reset to the full set of available
                                 capabilities, also undoing any
                                 previous settings.</p></dd><dt id="SecureBits="><span class="term"><code class="varname">SecureBits=</code></span><a class="headerlink" title="Permalink to this term" href="#SecureBits=">¶</a></dt><dd><p>Controls the secure
-                                bits set for the executed process. See
-                                <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
-                                for details. Takes a list of strings:
+                                bits set for the executed process.
+                                Takes a space-separated combination of
+                                options from the following list:
                                 <code class="option">keep-caps</code>,
                                 <code class="option">keep-caps-locked</code>,
                                 <code class="option">no-setuid-fixup</code>,
                                 <code class="option">no-setuid-fixup-locked</code>,
-                                <code class="option">noroot</code> and/or
+                                <code class="option">noroot</code>, and
                                 <code class="option">noroot-locked</code>. This
                                 option may appear more than once in
-                                which case the secure bits are
-                                ORed. If the empty string is assigned
-                                to this option, the bits are reset to
-                                0.</p></dd><dt id="Capabilities="><span class="term"><code class="varname">Capabilities=</code></span><a class="headerlink" title="Permalink to this term" href="#Capabilities=">¶</a></dt><dd><p>Controls the
-                                <a href="capabilities.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
+                                which case the secure bits are ORed.
+                                If the empty string is assigned to
+                                this option, the bits are reset to 0.
+                                See <a href="http://man7.org/linux/man-pages/man7/capabilities.7.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
+                                for details.</p></dd><dt id="Capabilities="><span class="term"><code class="varname">Capabilities=</code></span><a class="headerlink" title="Permalink to this term" href="#Capabilities=">¶</a></dt><dd><p>Controls the
+                                <a href="http://man7.org/linux/man-pages/man7/capabilities.7.html"><span class="citerefentry"><span class="refentrytitle">capabilities</span>(7)</span></a>
                                 set for the executed process. Take a
                                 capability string describing the
                                 effective, permitted and inherited
@@ -537,7 +548,7 @@
                                 attached to the executed file. Due to
                                 that
                                 <code class="varname">CapabilityBoundingSet=</code>
-                                is probably the much more useful
+                                is probably a much more useful
                                 setting.</p></dd><dt id="ReadWriteDirectories="><span class="term"><code class="varname">ReadWriteDirectories=</code>, </span><span class="term"><code class="varname">ReadOnlyDirectories=</code>, </span><span class="term"><code class="varname">InaccessibleDirectories=</code></span><a class="headerlink" title="Permalink to this term" href="#ReadWriteDirectories=">¶</a></dt><dd><p>Sets up a new file
                                 system namespace for executed
                                 processes. These options may be used
@@ -705,7 +716,7 @@
                                 made inaccessible and empty for
                                 processes invoked by this unit. If set
                                 to "<code class="literal">read-only</code>", the
-                                two directores are made read-only
+                                two directories are made read-only
                                 instead. It is recommended to enable
                                 this setting for all long-running
                                 services (in particular network-facing
@@ -729,7 +740,7 @@
                                 system namespace set up for this
                                 unit's processes will receive or
                                 propagate mounts or unmounts. See
-                                <a href="mount.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/mount.2.html"><span class="citerefentry"><span class="refentrytitle">mount</span>(2)</span></a>
                                 for details. Defaults to
                                 <code class="option">shared</code>. Use
                                 <code class="option">shared</code> to ensure that
@@ -745,14 +756,14 @@
                                 namespace. Note that
                                 <code class="option">slave</code> means that file
                                 systems mounted on the host might stay
-                                mounted continously in the unit's
+                                mounted continuously in the unit's
                                 namespace, and thus keep the device
                                 busy. Note that the file system
                                 namespace related options
                                 (<code class="varname">PrivateTmp=</code>,
                                 <code class="varname">PrivateDevices=</code>,
-                                <code class="varname">ReadOnlySystem=</code>,
-                                <code class="varname">ProtectedHome=</code>,
+                                <code class="varname">ProtectSystem=</code>,
+                                <code class="varname">ProtectHome=</code>,
                                 <code class="varname">ReadOnlyDirectories=</code>,
                                 <code class="varname">InaccessibleDirectories=</code>
                                 and
@@ -922,7 +933,7 @@
                                 applied as blacklist, otherwise as
                                 whitelist. Note that this restricts
                                 access to the
-                                <a href="socket.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/socket.2.html"><span class="citerefentry"><span class="refentrytitle">socket</span>(2)</span></a>
                                 system call only. Sockets passed into
                                 the process by other means (for
                                 example, by using socket activation
@@ -952,10 +963,10 @@
                                 configured whitelist as it is
                                 frequently used for local
                                 communication, including for
-                                <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/syslog.2.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(2)</span></a>
                                 logging.</p></dd><dt id="Personality="><span class="term"><code class="varname">Personality=</code></span><a class="headerlink" title="Permalink to this term" href="#Personality=">¶</a></dt><dd><p>Controls which
                                 kernel architecture
-                                <a href="uname.html"><span class="citerefentry"><span class="refentrytitle">uname</span>(2)</span></a>
+                                <a href="http://man7.org/linux/man-pages/man2/uname.2.html"><span class="citerefentry"><span class="refentrytitle">uname</span>(2)</span></a>
                                 shall report, when invoked by unit
                                 processes. Takes one of
                                 <code class="constant">x86</code> and
@@ -998,7 +1009,7 @@
                                 directories that require more complex
                                 or different configuration or lifetime
                                 guarantees, please consider using
-                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214175926544"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
+                                <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214198239488"></a><h2 id="Environment variables in spawned processes">Environment variables in spawned processes<a class="headerlink" title="Permalink to this headline" href="#Environment%20variables%20in%20spawned%20processes">¶</a></h2><p>Processes started by the system are executed in
                 a clean environment in which select variables
                 listed below are set. System processes started by systemd
                 do not inherit variables from PID 1, but processes
@@ -1056,7 +1067,7 @@
                                 or
                                 <code class="varname">StandardError=tty</code>).
                                 See
-                                <a href="termcap.html"><span class="citerefentry"><span class="refentrytitle">termcap</span>(5)</span></a>.
+                                <a href="http://man7.org/linux/man-pages/man5/termcap.5.html"><span class="citerefentry"><span class="refentrytitle">termcap</span>(5)</span></a>.
                                 </p></dd></dl></div><p>Additional variables may be configured by the
                 following means: for processes spawned in specific
                 units, use the <code class="varname">Environment=</code> and
@@ -1068,9 +1079,9 @@
                 <code class="varname">systemd.setenv=</code> (see
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>). Additional
                 variables may also be set through PAM,
-                cf. <a href="pam_env.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214175887296"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                cf. <a href="http://man7.org/linux/man-pages/man8/pam_env.8.html"><span class="citerefentry"><span class="refentrytitle">pam_env</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214198199520"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
+                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(8)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,
@@ -1081,5 +1092,5 @@
                           <a href="systemd.resource-control.html"><span class="citerefentry"><span class="refentrytitle">systemd.resource-control</span>(5)</span></a>,
                           <a href="systemd.directives.html"><span class="citerefentry"><span class="refentrytitle">systemd.directives</span>(7)</span></a>,
                           <a href="tmpfiles.d.html"><span class="citerefentry"><span class="refentrytitle">tmpfiles.d</span>(5)</span></a>,
-                          <a href="exec.html"><span class="citerefentry"><span class="refentrytitle">exec</span>(3)</span></a>
+                          <a href="http://man7.org/linux/man-pages/man3/exec.3.html"><span class="citerefentry"><span class="refentrytitle">exec</span>(3)</span></a>
                   </p></div></div></body></html>

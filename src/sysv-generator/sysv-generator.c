@@ -31,7 +31,6 @@
 #include "path-util.h"
 #include "path-lookup.h"
 #include "log.h"
-#include "strv.h"
 #include "unit.h"
 #include "unit-name.h"
 #include "special.h"
@@ -114,9 +113,9 @@ static int add_symlink(const char *service, const char *where) {
 }
 
 static int generate_unit_file(SysvStub *s) {
-        char *unit;
         char **p;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *before = NULL;
         _cleanup_free_ char *after = NULL;
         _cleanup_free_ char *wants = NULL;
@@ -442,15 +441,15 @@ static int load_sysv(SysvStub *s) {
                 } else if (state == LSB || state == LSB_DESCRIPTION) {
 
                         if (startswith_no_case(t, "Provides:")) {
-                                char *i, *w;
+                                const char *word, *state_;
                                 size_t z;
 
                                 state = LSB;
 
-                                FOREACH_WORD_QUOTED(w, z, t+9, i) {
+                                FOREACH_WORD_QUOTED(word, z, t+9, state_) {
                                         _cleanup_free_ char *n = NULL, *m = NULL;
 
-                                        n = strndup(w, z);
+                                        n = strndup(word, z);
                                         if (!n)
                                                 return -ENOMEM;
 
@@ -482,6 +481,11 @@ static int load_sysv(SysvStub *s) {
                                                 r = strv_extend(&s->wants, m);
                                                 if (r < 0)
                                                         return log_oom();
+                                                if (streq(m, SPECIAL_NETWORK_ONLINE_TARGET)) {
+                                                        r = strv_extend(&s->before, SPECIAL_NETWORK_TARGET);
+                                                        if (r < 0)
+                                                                return log_oom();
+                                                }
                                         }
 
                                         if (r < 0)
@@ -489,21 +493,25 @@ static int load_sysv(SysvStub *s) {
                                                                "[%s:%u] Failed to add LSB Provides name %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
+                                if (!isempty(state_))
+                                        log_error_unit(s->name,
+                                                       "[%s:%u] Trailing garbage in Provides, ignoring.",
+                                                       s->path, line);
 
                         } else if (startswith_no_case(t, "Required-Start:") ||
                                    startswith_no_case(t, "Should-Start:") ||
                                    startswith_no_case(t, "X-Start-Before:") ||
                                    startswith_no_case(t, "X-Start-After:")) {
-                                char *i, *w;
+                                const char *word, *state_;
                                 size_t z;
 
                                 state = LSB;
 
-                                FOREACH_WORD_QUOTED(w, z, strchr(t, ':')+1, i) {
+                                FOREACH_WORD_QUOTED(word, z, strchr(t, ':')+1, state_) {
                                         _cleanup_free_ char *n = NULL, *m = NULL;
                                         bool is_before;
 
-                                        n = strndup(w, z);
+                                        n = strndup(word, z);
                                         if (!n)
                                                 return -ENOMEM;
 
@@ -547,6 +555,11 @@ static int load_sysv(SysvStub *s) {
                                                                "[%s:%u] Failed to add dependency on %s, ignoring: %s",
                                                                s->path, line, m, strerror(-r));
                                 }
+                                if (!isempty(state_))
+                                        log_error_unit(s->name,
+                                                       "[%s:%u] Trailing garbage in %*s, ignoring.",
+                                                       s->path, line,
+                                                       (int)(strchr(t, ':') - t), t);
 
                         } else if (startswith_no_case(t, "Description:")) {
                                 char *d, *j;
@@ -796,9 +809,8 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                         goto finish;
                                 }
 
-                                if (hashmap_contains(all_services, name))
-                                        service = hashmap_get(all_services, name);
-                                else {
+                                service = hashmap_get(all_services, name);
+                                if (!service){
                                         log_warning("Could not find init script for %s", name);
                                         continue;
                                 }
@@ -810,8 +822,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                                         MAX(a*10 + b, service->sysv_start_priority);
                                         }
 
-                                        r = set_ensure_allocated(&runlevel_services[i],
-                                                                 trivial_hash_func, trivial_compare_func);
+                                        r = set_ensure_allocated(&runlevel_services[i], NULL);
                                         if (r < 0)
                                                 goto finish;
 
@@ -822,8 +833,7 @@ static int set_dependencies_from_rcnd(LookupPaths lp, Hashmap *all_services) {
                                 } else if (de->d_name[0] == 'K' &&
                                            (rcnd_table[i].type == RUNLEVEL_DOWN)) {
 
-                                        r = set_ensure_allocated(&shutdown_services,
-                                                                 trivial_hash_func, trivial_compare_func);
+                                        r = set_ensure_allocated(&shutdown_services, NULL);
                                         if (r < 0)
                                                 goto finish;
 
@@ -891,7 +901,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        all_services = hashmap_new(string_hash_func, string_compare_func);
+        all_services = hashmap_new(&string_hash_ops);
         if (!all_services) {
                 log_oom();
                 return EXIT_FAILURE;

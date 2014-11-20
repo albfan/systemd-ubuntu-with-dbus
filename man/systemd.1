@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD" "1" "" "systemd 215" "systemd"
+.TH "SYSTEMD" "1" "" "systemd 217" "systemd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -106,10 +106,8 @@ Show terse service status information while booting\&. This switch has no effect
 Set log target\&. Argument must be one of
 \fBconsole\fR,
 \fBjournal\fR,
-\fBsyslog\fR,
 \fBkmsg\fR,
 \fBjournal\-or\-kmsg\fR,
-\fBsyslog\-or\-kmsg\fR,
 \fBnull\fR\&.
 .RE
 .PP
@@ -609,7 +607,7 @@ on
 Immediately exits the manager (only available for \-\-user instances)\&.
 .RE
 .PP
-\fBSIGRTMIN+26\fR, \fBSIGRTMIN+27\fR, \fBSIGRTMIN+28\fR, \fBSIGRTMIN+29\fR
+\fBSIGRTMIN+26\fR, \fBSIGRTMIN+27\fR, \fBSIGRTMIN+28\fR
 .RS 4
 Sets the log level to
 "journal\-or\-kmsg"
@@ -619,21 +617,16 @@ on
 \fBSIGRTMIN+27\fR,
 "kmsg"
 on
-\fBSIGRTMIN+28\fR, or
-"syslog\-or\-kmsg"
-on
-\fBSIGRTMIN+29\fR), as controlled via
+\fBSIGRTMIN+28\fR), as controlled via
 \fIsystemd\&.log_target=journal\-or\-kmsg\fR
 (or
 \fIsystemd\&.log_target=console\fR
 on
-\fBSIGRTMIN+27\fR,
+\fBSIGRTMIN+27\fR
+or
 \fIsystemd\&.log_target=kmsg\fR
 on
-\fBSIGRTMIN+28\fR, or
-\fIsystemd\&.log_target=syslog\-or\-kmsg\fR
-on
-\fBSIGRTMIN+29\fR) on the kernel command line\&.
+\fBSIGRTMIN+28\fR) on the kernel command line\&.
 .RE
 .SH "ENVIRONMENT"
 .PP
@@ -792,14 +785,14 @@ Turn on debugging output\&. This is equivalent to
 \fIsystemd\&.log_level=debug\fR\&. Note that this option is also read by the kernel itself and enables kernel debug output\&. Passing this option hence turns on the debug output from both the system manager and the kernel\&.
 .RE
 .PP
-\fI\-b\fR, \fIemergency\fR
+\fIemergency\fR, \fI\-b\fR
 .RS 4
 Boot into emergency mode\&. This is equivalent to
 \fIsystemd\&.unit=emergency\&.target\fR
 and provided for compatibility reasons and to be easier to type\&.
 .RE
 .PP
-\fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR
+\fIrescue\fR, \fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR
 .RS 4
 Boot into rescue mode\&. This is equivalent to
 \fIsystemd\&.unit=rescue\&.target\fR

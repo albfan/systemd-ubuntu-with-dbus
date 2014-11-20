@@ -1,5 +1,5 @@
 '\" t
-.TH "COREDUMPCTL" "1" "" "systemd 215" "coredumpctl"
+.TH "COREDUMPCTL" "1" "" "systemd 217" "coredumpctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -120,7 +120,58 @@ General journalctl predicates (see
 .SH "EXIT STATUS"
 .PP
 On success, 0 is returned; otherwise, a non\-zero failure code is returned\&. Not finding any matching coredumps is treated as failure\&.
+.SH "EXAMPLES"
+.PP
+\fBExample\ \&1.\ \&List all the coredumps of a program named foo\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# coredumpctl list foo
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&2.\ \&Invoke gdb on the last coredump\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# coredumpctl gdb
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&3.\ \&Show information about a process that dumped core, matching by its PID 6654\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# coredumpctl info 6654
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&4.\ \&Extract the last coredump of /usr/bin/bar to a file named bar.coredump\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+# coredumpctl \-o bar\&.coredump dump /usr/bin/bar
+.fi
+.if n \{\
+.RE
+.\}
 .SH "SEE ALSO"
 .PP
+\fBsystemd-coredump\fR(8),
+\fBcoredump.conf\fR(5),
 \fBsystemd-journald.service\fR(8),
 \fBgdb\fR(1)

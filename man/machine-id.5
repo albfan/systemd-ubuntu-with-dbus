@@ -1,5 +1,5 @@
 '\" t
-.TH "MACHINE\-ID" "5" "" "systemd 215" "machine-id"
+.TH "MACHINE\-ID" "5" "" "systemd 217" "machine-id"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -42,7 +42,9 @@ call that POSIX specifies\&.
 .PP
 The
 \fBsystemd-machine-id-setup\fR(1)
-tool may be used by installer tools to initialize the machine ID at install time\&.
+tool may be used by installer tools to initialize the machine ID at install time\&. Use
+\fBsystemd-firstboot\fR(1)
+to initialize it on mounted (but not booted) system images\&.
 .SH "RELATION TO OSF UUIDS"
 .PP
 Note that the machine ID historically is not an OSF UUID as defined by
@@ -87,7 +89,8 @@ file introduced by D\-Bus\&. In fact, this latter file might be a symlink to
 \fBmachine-info\fR(5),
 \fBos-release\fR(5),
 \fBsd-id128\fR(3),
-\fBsd_id128_get_machine\fR(3)
+\fBsd_id128_get_machine\fR(3),
+\fBsystemd-firstboot\fR(1)
 .SH "NOTES"
 .IP " 1." 4
 RFC 4122

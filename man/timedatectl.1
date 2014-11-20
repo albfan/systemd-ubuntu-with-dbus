@@ -1,5 +1,5 @@
 '\" t
-.TH "TIMEDATECTL" "1" "" "systemd 215" "timedatectl"
+.TH "TIMEDATECTL" "1" "" "systemd 217" "timedatectl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,6 +28,10 @@ timedatectl \- Control the system time and date
 .PP
 \fBtimedatectl\fR
 may be used to query and change the system clock and its settings\&.
+.PP
+Use
+\fBsystemd-firstboot\fR(1)
+to initialize the system time zone for mounted (but not booted) system images\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
@@ -205,4 +209,5 @@ chronyd\&.service \- NTP client/server
 \fBdate\fR(1),
 \fBlocaltime\fR(5),
 \fBsystemctl\fR(1),
-\fBsystemd-timedated.service\fR(8)
+\fBsystemd-timedated.service\fR(8),
+\fBsystemd-firstboot\fR(1)

@@ -45,6 +45,7 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r);
 char* path_kill_slashes(char *path);
 char* path_startswith(const char *path, const char *prefix) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
+char* path_join(const char *root, const char *path, const char *rest);
 
 char** path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *prefix);
@@ -64,8 +65,8 @@ int fsck_exists(const char *fstype);
  * the tree, to root. Also returns "" (and not "/"!) for the root
  * directory. Excludes the specified directory itself */
 #define PATH_FOREACH_PREFIX(prefix, path) \
-        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); streq(prefix, "/") ? NULL : strrchr(prefix, '/'); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))
 
 /* Same as PATH_FOREACH_PREFIX but also includes the specified path itself */
 #define PATH_FOREACH_PREFIX_MORE(prefix, path) \
-        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && !(*_slash = 0); _slash = strrchr((prefix), '/'))
+        for (char *_slash = ({ path_kill_slashes(strcpy(prefix, path)); if (streq(prefix, "/")) prefix[0] = 0; strrchr(prefix, 0); }); _slash && ((*_slash = 0), true); _slash = strrchr((prefix), '/'))

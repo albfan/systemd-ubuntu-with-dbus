@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SWAP" "5" "" "systemd 215" "systemd.swap"
+.TH "SYSTEMD\&.SWAP" "5" "" "systemd 217" "systemd.swap"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -99,6 +99,13 @@ for more information\&.) This option is mandatory\&.
 Swap priority to use when activating the swap device or file\&. This takes an integer\&. This setting is optional\&.
 .RE
 .PP
+\fIOptions=\fR
+.RS 4
+May contain an option string for the swap device\&. This may be used for controlling discard options among other functionality, if the swap backing device supports the discard or trim operation\&. (See
+\fBswapon\fR(8)
+for more information\&.)
+.RE
+.PP
 \fITimeoutSec=\fR
 .RS 4
 Configures the time to wait for the swapon command to finish\&. If a command does not exit within the configured time, the swap will be considered failed and be shut down again\&. All commands still running will be terminated forcibly via
@@ -106,9 +113,12 @@ Configures the time to wait for the swapon command to finish\&. If a command doe
 \fBSIGKILL\fR\&. (See
 \fBKillMode=\fR
 in
-\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to
-\fITimeoutStartSec=\fR
-from the manager configuration file\&.
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass
+"0"
+to disable the timeout logic\&. Defaults to
+\fIDefaultTimeoutStartSec=\fR
+from the manager configuration file (see
+\fBsystemd-system.conf\fR(5))\&.
 .RE
 .PP
 Check
@@ -119,7 +129,7 @@ for more settings\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.exec\fR(5),
 \fBsystemd.kill\fR(5),

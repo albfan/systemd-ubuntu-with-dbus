@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_ARRAY" "3" "" "systemd 215" "sd_bus_message_append_array"
+.TH "SD_BUS_MESSAGE_APPEND_ARRAY" "3" "" "systemd 217" "sd_bus_message_append_array"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -31,7 +31,7 @@ sd_bus_message_append_array, sd_bus_message_append_array_memfd, sd_bus_message_a
 .HP \w'int\ sd_bus_message_append_array('u
 .BI "int sd_bus_message_append_array(sd_bus_message\ *" "m" ", char\ " "type" ", char\ void\ *" "ptr" ", size_t\ " "size" ");"
 .HP \w'int\ sd_bus_message_append_array_memfd('u
-.BI "int sd_bus_message_append_array_memfd(sd_bus_message\ *" "m" ", char\ " "type" ", sd_memfd\ *" "memfd" ");"
+.BI "int sd_bus_message_append_array_memfd(sd_bus_message\ *" "m" ", char\ " "type" ", int\ " "memfd" ");"
 .HP \w'int\ sd_bus_message_append_array_iovec('u
 .BI "int sd_bus_message_append_array_iovec(sd_bus_message\ *" "m" ", char\ " "type" ", const\ struct\ iovec\ *" "iov" ", unsigned\ " "n" ");"
 .HP \w'int\ sd_bus_message_append_array_space('u
@@ -63,7 +63,7 @@ must be one of the "trivial" types
 section of the D\-Bus specification, and listed in
 \fBsd_bus_message_append_basic\fR(3)\&. Pointer
 \fIp\fR
-must point to an array of of size
+must point to an array of size
 \fIsize\fR
 bytes containing items of the respective type\&. Size
 \fIsize\fR
@@ -130,27 +130,27 @@ On success, these calls return 0 or a positive integer\&. On failure, they retur
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Specified parameter is invalid\&.
 .RE
 .PP
-\fI\-EPERM\fR
+\fB\-EPERM\fR
 .RS 4
 Message has been sealed\&.
 .RE
 .PP
-\fI\-ESTALE\fR
+\fB\-ESTALE\fR
 .RS 4
 Message is in invalid state\&.
 .RE
 .PP
-\fI\-ENXIO\fR
+\fB\-ENXIO\fR
 .RS 4
 Message cannot be appended to\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE

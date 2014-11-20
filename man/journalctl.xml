@@ -84,10 +84,11 @@
                 field, then they are automatically matched as
                 alternatives, i.e. the resulting output will show
                 entries matching any of the specified matches for the
-                same field. Finally, if the character
-                <literal>+</literal> appears as a separate word on the
-                command line, all matches before and after are combined
-                in a disjunction (i.e. logical OR).</para>
+                same field. Finally, the character
+                <literal>+</literal> may appears as a separate word
+                between other terms on the command line. This causes
+                all matches before and after to be combined in a
+                disjunction (i.e. logical OR).</para>
 
                 <para>As shortcuts for a few types of field/value
                 matches, file paths may be specified. If a file path
@@ -98,10 +99,20 @@
                 <literal>_KERNEL_DEVICE=</literal> match for the
                 device.</para>
 
+                <para>Additional constraints may be added using options
+                <option>--boot</option>, <option>--unit=</option>,
+                etc, to further limit what entries will be shown
+                (logical AND).</para>
+
                 <para>Output is interleaved from all accessible
                 journal files, whether they are rotated or currently
                 being written, and regardless of whether they belong to the
                 system itself or are accessible user journals.</para>
+
+                <para>The set of journal files which will be used
+                can be modified using the <option>--user</option>,
+                <option>--system</option>, <option>--directory</option>,
+                and <option>--file</option> options, see below.</para>
 
                 <para>All users are granted access to their private
                 per-user journals. However, by default, only root and
@@ -117,7 +128,7 @@
                 <option>--no-pager</option> option and the "Environment"
                 section below.</para>
 
-                <para>When outputing to a tty, lines are colored
+                <para>When outputting to a tty, lines are colored
                 according to priority: lines of level ERROR and higher
                 are colored red; lines of level NOTICE and higher are
                 highlighted; other lines are displayed normally.
@@ -178,10 +189,10 @@
                                 that the pager will not buffer logs of
                                 unbounded size. This may be overridden
                                 with an explicit <option>-n</option>
-                                with some other numeric value on the
-                                command line. Note that this option is
-                                only supported for the
-                                <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                with some other numeric value while
+                                <option>-nall</option> will disable this cap.
+                                Note that this option is only supported for the
+                                <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 pager.</para></listitem>
                         </varlistentry>
 
@@ -193,9 +204,10 @@
                                 journal events and limit the number of
                                 events shown. If
                                 <option>--follow</option> is used,
-                                this option is implied. The argument,
-                                a positive integer, is optional, and
-                                defaults to 10. </para></listitem>
+                                this option is implied. The argument is
+                                a positive integer or <literal>all</literal>
+                                to disable line limiting. The default value is
+                                10 if no argument is given.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -368,6 +380,13 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>--utc</option></term>
+
+                                <listitem><para>Express time in Coordinated Universal
+                                Time (UTC).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-x</option></term>
                                 <term><option>--catalog</option></term>
 
@@ -487,13 +506,28 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><option>-t</option></term>
+                                <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable>|<replaceable>PATTERN</replaceable></option></term>
+
+                                <listitem><para>Show messages for the
+                                specified syslog identifier
+                                <replaceable>SYSLOG_IDENTIFIER</replaceable>, or
+                                for any of the messages with a <literal>SYSLOG_IDENTIFIER</literal>
+                                matched by <replaceable>PATTERN</replaceable>.</para>
+
+                                <para>This parameter can be specified
+                                multiple times.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><option>-u</option></term>
                                 <term><option>--unit=<replaceable>UNIT</replaceable>|<replaceable>PATTERN</replaceable></option></term>
 
                                 <listitem><para>Show messages for the
                                 specified systemd unit
-                                <replaceable>UNIT</replaceable>, or
-                                for any of the units matched by
+                                <replaceable>UNIT</replaceable> (such
+                                as a service unit), or for any of the
+                                units matched by
                                 <replaceable>PATTERN</replaceable>.
                                 If a pattern is specified, a list of
                                 unit names found in the journal is
@@ -540,7 +574,7 @@
                                 the form FROM..TO. The log levels are
                                 the usual syslog log levels as
                                 documented in
-                                <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+                                <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                                 i.e. <literal>emerg</literal> (0),
                                 <literal>alert</literal> (1),
                                 <literal>crit</literal> (2),
@@ -844,6 +878,20 @@
                                 operation.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--flush</option></term>
+
+                                <listitem><para>Asks the Journal
+                                daemon to flush any log data stored in
+                                <filename>/run/systemd/log</filename>
+                                into
+                                <filename>/var/systemd/log</filename>,
+                                if persistent storage is enabled. This
+                                call does not return until the
+                                operation is
+                                complete.</para></listitem>
+                        </varlistentry>
+
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
                         <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -900,6 +948,10 @@
 
                 <programlisting>journalctl -k -b -1</programlisting>
 
+                <para>Show a live log display from a system service <filename>apache.service</filename>:</para>
+
+                <programlisting>journalctl -f -u apache</programlisting>
+
         </refsect1>
 
         <refsect1>
@@ -908,6 +960,7 @@
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                 </para>

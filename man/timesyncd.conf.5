@@ -1,0 +1,51 @@
+'\" t
+.TH "TIMESYNCD\&.CONF" "5" "" "systemd 217" "timesyncd.conf"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+timesyncd.conf \- Network Time Synchronization configuration file
+.SH "SYNOPSIS"
+.PP
+/etc/systemd/timesyncd\&.conf
+.SH "DESCRIPTION"
+.PP
+When starting, systemd\-timesyncd will read the configuration file
+timesyncd\&.conf\&. This configuration file controls NTP network time synchronization\&.
+.SH "OPTIONS"
+.PP
+\fINTP=\fR
+.RS 4
+A space separated list of NTP servers host names or IP addresses\&. During runtime this list is combined with any per\-interface NTP servers acquired from
+\fBsystemd-networkd.service\fR(8)\&. systemd\-timesyncd will contact all configured system or per\-interface servers in turn until one is found that responds\&. This setting defaults to the empty list\&.
+.RE
+.PP
+\fIFallbackNTP=\fR
+.RS 4
+A space separated list of NTP server host names or IP addresses to be used as the fallback NTP servers\&. Any per\-interface NTP servers obtained from
+\fBsystemd-networkd.service\fR(8)
+take precedence over this setting, as do any servers set via
+\fINTP=\fR
+above\&. This setting is hence only used if no other NTP server information is known\&. If this option is not given, a compiled\-in list of NTP servers is used instead\&.
+.RE
+.SH "SEE ALSO"
+.PP
+\fBsystemd\fR(1),
+\fBsystemd-timesyncd.service\fR(8),
+\fBsystemd-networkd.service\fR(8)

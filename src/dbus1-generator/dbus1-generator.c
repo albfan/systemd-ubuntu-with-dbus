@@ -40,6 +40,7 @@ static int create_dbus_files(
 
         _cleanup_free_ char *b = NULL, *s = NULL, *lnk = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
 
         assert(path);
         assert(name);
@@ -100,11 +101,14 @@ static int create_dbus_files(
                         }
                 }
 
-                fflush(f);
-                if (ferror(f)) {
-                        log_error("Failed to write %s: %m", a);
-                        return -errno;
+                r = fflush_and_check(f);
+                if (r < 0) {
+                        log_error("Failed to write %s: %s", a, strerror(-r));
+                        return r;
                 }
+
+                fclose(f);
+                f = NULL;
 
                 service = s;
         }
@@ -134,10 +138,10 @@ static int create_dbus_files(
                 name,
                 service);
 
-        fflush(f);
-        if (ferror(f)) {
-                log_error("Failed to write %s: %m", b);
-                return -errno;
+        r = fflush_and_check(f);
+        if (r < 0) {
+                log_error("Failed to write %s: %s", b, strerror(-r));
+                return r;
         }
 
         lnk = strjoin(arg_dest_late, "/" SPECIAL_BUSNAMES_TARGET ".wants/", name, ".busname", NULL);
@@ -156,34 +160,24 @@ static int create_dbus_files(
 static int add_dbus(const char *path, const char *fname, const char *type) {
         _cleanup_free_ char *name = NULL, *exec = NULL, *user = NULL, *service = NULL;
 
-        ConfigTableItem table[] = {
+        const ConfigTableItem table[] = {
                 { "D-BUS Service", "Name", config_parse_string, 0, &name },
                 { "D-BUS Service", "Exec", config_parse_string, 0, &exec },
                 { "D-BUS Service", "User", config_parse_string, 0, &user },
                 { "D-BUS Service", "SystemdService", config_parse_string, 0, &service },
         };
 
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
+        char *p;
         int r;
 
         assert(path);
         assert(fname);
 
-        p = strjoin(path, "/", fname, NULL);
-        if (!p)
-                return log_oom();
-
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == -ENOENT)
-                        return 0;
-
-                log_error("Failed to read %s: %m", p);
-                return -errno;
-        }
-
-        r = config_parse(NULL, p, f, "D-BUS Service\0", config_item_table_lookup, table, true, false, NULL);
+        p = strappenda(path, "/", fname);
+        r = config_parse(NULL, p, NULL,
+                         "D-BUS Service\0",
+                         config_item_table_lookup, table,
+                         true, false, true, NULL);
         if (r < 0)
                 return r;
 

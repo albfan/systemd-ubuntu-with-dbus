@@ -31,7 +31,7 @@
 static void dump_changes(UnitFileChange *c, unsigned n) {
         unsigned i;
 
-        assert(n == 0 || c);
+        assert_se(n == 0 || c);
 
         for (i = 0; i < n; i++) {
                 if (c[i].type == UNIT_FILE_UNLINK)
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         UnitFileChange *changes = NULL;
         unsigned n_changes = 0;
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h);
         assert_se(r == 0);
 

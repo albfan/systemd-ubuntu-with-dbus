@@ -19,16 +19,56 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf — Network Name Resolution configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p></div><div class="refsect1"><a name="idm214193517248"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-resolved will read the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="resolved.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>resolved.conf — Network Name Resolution configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/resolved.conf</code></p></div><div class="refsect1"><a name="idm214188394976"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>When starting, systemd-resolved will read the
                 configuration file <code class="filename">resolved.conf</code>.
-                This configuration file determines the fallback DNS
-                servers.</p></div><div class="refsect1"><a name="idm214193515264"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list of IPv4 and IPv6
-                                addresses to be used as the fallback DNS servers. Note that
-                                the servers obtained from
+                This configuration file controls local DNS and LLMNR
+                name resolving.</p></div><div class="refsect1"><a name="idm214186369984"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="DNS="><span class="term"><code class="varname">DNS=</code></span><a class="headerlink" title="Permalink to this term" href="#DNS=">¶</a></dt><dd><p>A space separated list
+                                of IPv4 and IPv6 addresses to be used
+                                as system DNS servers. DNS requests
+                                are sent to one of the listed DNS
+                                servers in parallel to any
+                                per-interface DNS servers acquired
+                                from
+                                <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>. For
+                                compatibility reasons, if set to the
+                                empty list the DNS servers listed in
+                                <code class="filename">/etc/resolv.conf</code>
+                                are used, if any are
+                                configured there. This setting
+                                defaults to the empty
+                                list.</p></dd><dt id="FallbackDNS="><span class="term"><code class="varname">FallbackDNS=</code></span><a class="headerlink" title="Permalink to this term" href="#FallbackDNS=">¶</a></dt><dd><p>A space separated list
+                                of IPv4 and IPv6 addresses to be used
+                                as the fallback DNS servers. Any
+                                per-interface DNS servers obtained
+                                from
                                 <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
-                                take precedence. If this option is not given, a compiled-in
-                                list of DNS servers is used instead.</p></dd></dl></div></div><div class="refsect1"><a name="idm214193511040"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                take precedence over this setting, as
+                                do any servers set via
+                                <code class="varname">DNS=</code> above or
+                                <code class="filename">/etc/resolv.conf</code>. This
+                                setting is hence only used if no other
+                                DNS server information is known. If
+                                this option is not given, a
+                                compiled-in list of DNS servers is
+                                used instead.</p></dd><dt id="LLMNR="><span class="term"><code class="varname">LLMNR=</code></span><a class="headerlink" title="Permalink to this term" href="#LLMNR=">¶</a></dt><dd><p>Takes a boolean
+                                argument or
+                                "<code class="literal">resolve</code>". Controls
+                                Link-Local Multicast Name Resolution support (<a class="ulink" href="https://tools.ietf.org/html/rfc4795" target="_top">RFC
+                                4794</a>) on the local host. If
+                                true enables full LLMNR responder and
+                                resolver support. If false disable
+                                both. If set to
+                                "<code class="literal">resolve</code>" only
+                                resolving support is enabled, but
+                                responding is disabled. Note that
+                                <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
+                                also maintains per-interface LLMNR
+                                settings. LLMNR will be enabled on an
+                                interface only if the per-interface
+                                and the global setting is
+                                on.</p></dd></dl></div></div><div class="refsect1"><a name="idm214190120320"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-resolved.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-resolved.service</span>(8)</span></a>,
-                        <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
+                        <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>,
+                        <a href="http://man7.org/linux/man-pages/man4/resolv.conf.4.html"><span class="citerefentry"><span class="refentrytitle">resolv.conf</span>(4)</span></a>
                   </p></div></div></body></html>

@@ -21,14 +21,15 @@
 
 #include "sd-event.h"
 #include "sd-daemon.h"
-
-#include "resolved.h"
-
 #include "mkdir.h"
+#include "label.h"
 #include "capability.h"
 
+#include "resolved-manager.h"
+#include "resolved-conf.h"
+
 int main(int argc, char *argv[]) {
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-resolve";
         uid_t uid;
         gid_t gid;
@@ -38,51 +39,60 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        umask(0022);
-
         if (argc != 1) {
                 log_error("This program takes no arguments.");
                 r = -EINVAL;
-                goto out;
+                goto finish;
+        }
+
+        umask(0022);
+
+        r = mac_selinux_init(NULL);
+        if (r < 0) {
+                log_error("SELinux setup failed: %s", strerror(-r));
+                goto finish;
         }
 
         r = get_user_creds(&user, &uid, &gid, NULL, NULL);
         if (r < 0) {
                 log_error("Cannot resolve user name %s: %s", user, strerror(-r));
-                goto out;
+                goto finish;
         }
 
         /* Always create the directory where resolv.conf will live */
         r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid);
         if (r < 0) {
-                log_error("Could not create runtime directory: %s",
-                          strerror(-r));
-                goto out;
+                log_error("Could not create runtime directory: %s", strerror(-r));
+                goto finish;
         }
 
         r = drop_privileges(uid, gid, 0);
         if (r < 0)
-                goto out;
+                goto finish;
+
+        assert_se(sigprocmask_many(SIG_BLOCK, SIGTERM, SIGINT, -1) == 0);
 
         r = manager_new(&m);
         if (r < 0) {
                 log_error("Could not create manager: %s", strerror(-r));
-                goto out;
+                goto finish;
         }
 
-        r = manager_network_monitor_listen(m);
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                log_warning("Failed to parse configuration file: %s", strerror(-r));
+
+        r = manager_start(m);
         if (r < 0) {
-                log_error("Could not listen for network events: %s", strerror(-r));
-                goto out;
+                log_error("Failed to start manager: %s", strerror(-r));
+                goto finish;
         }
 
-        /* write out default resolv.conf to avoid a
-         * dangling symlink */
-        r = manager_update_resolv_conf(m);
-        if (r < 0) {
-                log_error("Could not create resolv.conf: %s", strerror(-r));
-                goto out;
-        }
+        /* Write finish default resolv.conf to avoid a dangling
+         * symlink */
+        r = manager_write_resolv_conf(m);
+        if (r < 0)
+                log_warning("Could not create resolv.conf: %s", strerror(-r));
 
         sd_notify(false,
                   "READY=1\n"
@@ -91,11 +101,14 @@ int main(int argc, char *argv[]) {
         r = sd_event_loop(m->event);
         if (r < 0) {
                 log_error("Event loop failed: %s", strerror(-r));
-                goto out;
+                goto finish;
         }
 
-out:
+        sd_event_get_exit_code(m->event, &r);
+
+finish:
         sd_notify(false,
+                  "STOPPIN=1\n"
                   "STATUS=Shutting down...");
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

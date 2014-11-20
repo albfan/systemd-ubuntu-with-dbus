@@ -19,14 +19,14 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.resource-control"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.resource-control — Resource control unit settings</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p>
       <code class="filename"><em class="replaceable"><code>slice</code></em>.slice</code>,
       <code class="filename"><em class="replaceable"><code>scope</code></em>.scope</code>,
       <code class="filename"><em class="replaceable"><code>service</code></em>.service</code>,
       <code class="filename"><em class="replaceable"><code>socket</code></em>.socket</code>,
       <code class="filename"><em class="replaceable"><code>mount</code></em>.mount</code>,
       <code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code>
-    </p></div><div class="refsect1"><a name="idm214193410544"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
+    </p></div><div class="refsect1"><a name="idm214168429840"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>Unit configuration files for services, slices, scopes,
     sockets, mount points, and swap devices share a subset of
     configuration options for resource control of spawned
     processes. Internally, this relies on the Control Groups
@@ -47,7 +47,7 @@
     [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
     sections, depending on the unit type.</p><p>See the <a class="ulink" href="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/" target="_top">New
     Control Group Interfaces</a> for an introduction on how to make
-    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm214190908640"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
+    use of resource control APIs from programs.</p></div><div class="refsect1"><a name="idm214168420672"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Units of the types listed above can have settings
     for resource control configuration:</p><div class="variablelist"><dl class="variablelist"><dt id="CPUAccounting="><span class="term"><code class="varname">CPUAccounting=</code></span><a class="headerlink" title="Permalink to this term" href="#CPUAccounting=">¶</a></dt><dd><p>Turn on CPU usage accounting for this unit. Takes a
           boolean argument. Note that turning on CPU accounting for
           one unit might also implicitly turn it on for all units
@@ -76,7 +76,7 @@
           one CPU. This controls the
           "<code class="literal">cpu.cfs_quota_us</code>" control group
           attribute. For details about this control group attribute,
-          see <a class="ulink" href="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt" target="_top">sched-design-CFS.txt</a>.</p><p>Example: <code class="varname">CPUShares=20%</code> ensures that
+          see <a class="ulink" href="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt" target="_top">sched-design-CFS.txt</a>.</p><p>Example: <code class="varname">CPUQuota=20%</code> ensures that
           the executed processes will never get more than 20% CPU time
           on one CPU.</p><p>Implies "<code class="literal">CPUAccounting=true</code>".</p></dd><dt id="MemoryAccounting="><span class="term"><code class="varname">MemoryAccounting=</code></span><a class="headerlink" title="Permalink to this term" href="#MemoryAccounting=">¶</a></dt><dd><p>Turn on process and kernel memory accounting for this
           unit. Takes a boolean argument. Note that turning on memory
@@ -193,7 +193,7 @@
           settings applied.</p><p>For units of type slice, the only accepted value for
           this setting is the parent slice. Since the name of a slice
           unit implies the parent slice, it is hence redundant to ever
-          set this parameter directly for slice units.</p></dd></dl></div></div><div class="refsect1"><a name="idm214191662576"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+          set this parameter directly for slice units.</p></dd></dl></div></div><div class="refsect1"><a name="idm214167324176"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
       <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
       <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
       <a href="systemd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd.service</span>(5)</span></a>,

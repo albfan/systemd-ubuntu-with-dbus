@@ -155,10 +155,10 @@
 
                 <example>
                         <title>Disable packet filter on bridged packets (method one)</title>
-                        <para><filename>/etc/udev/rules.d/99-bridge.conf</filename>:
+                        <para><filename>/etc/udev/rules.d/99-bridge.rules</filename>:
                         </para>
 
-                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/proc/sys/net/bridge"
+                        <programlisting>ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd-sysctl --prefix=/net/bridge"
 </programlisting>
 
                         <para><filename>/etc/sysctl.d/bridge.conf</filename>:
@@ -194,7 +194,7 @@ net.bridge.bridge-nf-call-arptables = 0
                         <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                        <citerefentry><refentrytitle>sysctl.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 </para>
         </refsect1>

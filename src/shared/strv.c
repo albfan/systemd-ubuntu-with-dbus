@@ -52,6 +52,23 @@ char *strv_find_prefix(char **l, const char *name) {
         return NULL;
 }
 
+char *strv_find_startswith(char **l, const char *name) {
+        char **i, *e;
+
+        assert(name);
+
+        /* Like strv_find_prefix, but actually returns only the
+         * suffix, not the whole item */
+
+        STRV_FOREACH(i, l) {
+                e = startswith(*i, name);
+                if (e)
+                        return e;
+        }
+
+        return NULL;
+}
+
 void strv_free(char **l) {
         char **k;
 
@@ -201,8 +218,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
 }
 
 char **strv_split(const char *s, const char *separator) {
-        char *state;
-        char *w;
+        const char *word, *state;
         size_t l;
         unsigned n, i;
         char **r;
@@ -210,7 +226,7 @@ char **strv_split(const char *s, const char *separator) {
         assert(s);
 
         n = 0;
-        FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
+        FOREACH_WORD_SEPARATOR(word, l, s, separator, state)
                 n++;
 
         r = new(char*, n+1);
@@ -218,8 +234,8 @@ char **strv_split(const char *s, const char *separator) {
                 return NULL;
 
         i = 0;
-        FOREACH_WORD_SEPARATOR(w, l, s, separator, state) {
-                r[i] = strndup(w, l);
+        FOREACH_WORD_SEPARATOR(word, l, s, separator, state) {
+                r[i] = strndup(word, l);
                 if (!r[i]) {
                         strv_free(r);
                         return NULL;
@@ -232,9 +248,8 @@ char **strv_split(const char *s, const char *separator) {
         return r;
 }
 
-char **strv_split_quoted(const char *s) {
-        char *state;
-        char *w;
+int strv_split_quoted(char ***t, const char *s) {
+        const char *word, *state;
         size_t l;
         unsigned n, i;
         char **r;
@@ -242,25 +257,29 @@ char **strv_split_quoted(const char *s) {
         assert(s);
 
         n = 0;
-        FOREACH_WORD_QUOTED(w, l, s, state)
+        FOREACH_WORD_QUOTED(word, l, s, state)
                 n++;
+        if (!isempty(state))
+                /* bad syntax */
+                return -EINVAL;
 
         r = new(char*, n+1);
         if (!r)
-                return NULL;
+                return -ENOMEM;
 
         i = 0;
-        FOREACH_WORD_QUOTED(w, l, s, state) {
-                r[i] = cunescape_length(w, l);
+        FOREACH_WORD_QUOTED(word, l, s, state) {
+                r[i] = cunescape_length(word, l);
                 if (!r[i]) {
                         strv_free(r);
-                        return NULL;
+                        return -ENOMEM;
                 }
                 i++;
         }
 
         r[i] = NULL;
-        return r;
+        *t = r;
+        return 0;
 }
 
 char **strv_split_newlines(const char *s) {
@@ -361,13 +380,19 @@ char *strv_join_quoted(char **l) {
 
 int strv_push(char ***l, char *value) {
         char **c;
-        unsigned n;
+        unsigned n, m;
 
         if (!value)
                 return 0;
 
         n = strv_length(*l);
-        c = realloc(*l, sizeof(char*) * (n + 2));
+
+        /* increase and check for overflow */
+        m = n + 2;
+        if (m < n)
+                return -ENOMEM;
+
+        c = realloc_multiply(*l, sizeof(char*), m);
         if (!c)
                 return -ENOMEM;
 
@@ -380,13 +405,19 @@ int strv_push(char ***l, char *value) {
 
 int strv_push_prepend(char ***l, char *value) {
         char **c;
-        unsigned n, i;
+        unsigned n, m, i;
 
         if (!value)
                 return 0;
 
         n = strv_length(*l);
-        c = new(char*, n + 2);
+
+        /* increase and check for overflow */
+        m = n + 2;
+        if (m < n)
+                return -ENOMEM;
+
+        c = new(char*, m);
         if (!c)
                 return -ENOMEM;
 

@@ -21,12 +21,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <endian.h>
+
 #include "util.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in
  * processor features, models, generations or even ABIs. Hence we
  * focus on general family, and distuignish word width and
- * endianess. */
+ * endianness. */
 
 typedef enum Architecture {
         ARCHITECTURE_X86 = 0,
@@ -80,15 +82,15 @@ Architecture uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_X86
 #  define LIB_ARCH_TUPLE "i386-linux-gnu"
 #elif defined(__powerpc64__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC64
 #    define LIB_ARCH_TUPLE "ppc64-linux-gnu"
 #  else
 #    define native_architecture() ARCHITECTURE_PPC64_LE
-#    error "Missing LIB_ARCH_TUPLE for PPC64LE"
+#    define LIB_ARCH_TUPLE  "powerpc64le-linux-gnu"
 #  endif
 #elif defined(__powerpc__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_PPC
 #    define LIB_ARCH_TUPLE "powerpc-linux-gnu"
 #  else
@@ -117,7 +119,7 @@ Architecture uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_SPARC
 #  define LIB_ARCH_TUPLE "sparc-linux-gnu"
 #elif defined(__mips64__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS64
 #    error "Missing LIB_ARCH_TUPLE for MIPS64"
 #  else
@@ -125,7 +127,7 @@ Architecture uname_architecture(void);
 #    error "Missing LIB_ARCH_TUPLE for MIPS64_LE"
 #  endif
 #elif defined(__mips__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_MIPS
 #    define LIB_ARCH_TUPLE "mips-linux-gnu"
 #  else
@@ -136,7 +138,7 @@ Architecture uname_architecture(void);
 #  define native_architecture() ARCHITECTURE_ALPHA
 #  define LIB_ARCH_TUPLE "alpha-linux-gnu"
 #elif defined(__aarch64__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_ARM64_BE
 #    define LIB_ARCH_TUPLE "aarch64_be-linux-gnu"
 #  else
@@ -144,7 +146,7 @@ Architecture uname_architecture(void);
 #    define LIB_ARCH_TUPLE "aarch64-linux-gnu"
 #  endif
 #elif defined(__arm__)
-#  if defined(WORDS_BIGENDIAN)
+#  if __BYTE_ORDER == __BIG_ENDIAN
 #    define native_architecture() ARCHITECTURE_ARM_BE
 #    if defined(__ARM_EABI__)
 #      if defined(__ARM_PCS_VFP)

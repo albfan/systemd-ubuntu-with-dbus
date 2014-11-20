@@ -90,15 +90,12 @@ static const NLType rtnl_link_info_data_vxlan_types[IFLA_VXLAN_MAX+1] = {
 static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
         [IFLA_BOND_MODE]                = { .type = NLA_U8 },
         [IFLA_BOND_ACTIVE_SLAVE]        = { .type = NLA_U32 },
-#ifdef IFLA_BOND_MIIMON
         [IFLA_BOND_MIIMON]              = { .type = NLA_U32 },
         [IFLA_BOND_UPDELAY]             = { .type = NLA_U32 },
         [IFLA_BOND_DOWNDELAY]           = { .type = NLA_U32 },
         [IFLA_BOND_USE_CARRIER]         = { .type = NLA_U8 },
         [IFLA_BOND_ARP_INTERVAL]        = { .type = NLA_U32 },
-/*
         [IFLA_BOND_ARP_IP_TARGET]       = { .type = NLA_NESTED },
-*/
         [IFLA_BOND_ARP_VALIDATE]        = { .type = NLA_U32 },
         [IFLA_BOND_ARP_ALL_TARGETS]     = { .type = NLA_U32 },
         [IFLA_BOND_PRIMARY]             = { .type = NLA_U32 },
@@ -113,10 +110,7 @@ static const NLType rtnl_link_info_data_bond_types[IFLA_BOND_MAX + 1] = {
         [IFLA_BOND_PACKETS_PER_SLAVE]   = { .type = NLA_U32 },
         [IFLA_BOND_AD_LACP_RATE]        = { .type = NLA_U8 },
         [IFLA_BOND_AD_SELECT]           = { .type = NLA_U8 },
-/*
         [IFLA_BOND_AD_INFO]             = { .type = NLA_NESTED },
-*/
-#endif
 };
 
 static const NLType rtnl_link_info_data_iptun_types[IFLA_IPTUN_MAX + 1] = {
@@ -154,25 +148,6 @@ static const NLType rtnl_link_info_data_ipvti_types[IFLA_VTI_MAX + 1] = {
         [IFLA_VTI_LOCAL]        = { .type = NLA_IN_ADDR  },
         [IFLA_VTI_REMOTE]       = { .type = NLA_IN_ADDR  },
 };
-
-typedef enum NLUnionLinkInfoData {
-        NL_UNION_LINK_INFO_DATA_BOND,
-        NL_UNION_LINK_INFO_DATA_BRIDGE,
-        NL_UNION_LINK_INFO_DATA_VLAN,
-        NL_UNION_LINK_INFO_DATA_VETH,
-        NL_UNION_LINK_INFO_DATA_DUMMY,
-        NL_UNION_LINK_INFO_DATA_MACVLAN,
-        NL_UNION_LINK_INFO_DATA_VXLAN,
-        NL_UNION_LINK_INFO_DATA_IPIP_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_IPGRE_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_SIT_TUNNEL,
-        NL_UNION_LINK_INFO_DATA_VTI_TUNNEL,
-        _NL_UNION_LINK_INFO_DATA_MAX,
-        _NL_UNION_LINK_INFO_DATA_INVALID = -1
-} NLUnionLinkInfoData;
-
-const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
-NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
 
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[_NL_UNION_LINK_INFO_DATA_MAX] = {

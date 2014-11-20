@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_ERROR" "3" "" "systemd 215" "sd_bus_error"
+.TH "SD_BUS_ERROR" "3" "" "systemd 217" "sd_bus_error"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -143,7 +143,7 @@ will return an errno\-like negative value returned based on parameter
 \fBSD_BUS_ERROR_FAILED\fR, etc\&., listed above\&. If
 \fIname\fR
 is
-\fBNULL\fR, it is assumed that no error occured, and 0 is returned\&. This means that this function may be conveniently used in a
+\fBNULL\fR, it is assumed that no error occurred, and 0 is returned\&. This means that this function may be conveniently used in a
 \fBreturn\fR
 statement\&.
 .PP
@@ -204,7 +204,7 @@ will be generated from
 and the arguments\&.
 .PP
 \fBsd_bus_error_get_errno\fR
-is will convert
+will convert
 e\->name
 to an errno\-like value using the same rules as
 \fBsd_bus_error_set\fR\&. If
@@ -304,14 +304,14 @@ is not reference counted\&. Users should destroy resources held by it by calling
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Error was already set in
 sd_bus_error
 structure when one the error\-setting functions was called\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE

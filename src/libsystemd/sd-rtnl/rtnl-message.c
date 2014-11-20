@@ -23,12 +23,6 @@
 #include <netinet/ether.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <linux/netlink.h>
-#include <linux/veth.h>
-#include <linux/if.h>
-#include <linux/ip.h>
-#include <linux/if_tunnel.h>
-#include <linux/if_bridge.h>
 
 #include "util.h"
 #include "refcnt.h"
@@ -133,7 +127,8 @@ int sd_rtnl_message_route_set_scope(sd_rtnl_message *m, unsigned char scope) {
 }
 
 int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
-                              uint16_t nlmsg_type, unsigned char rtm_family) {
+                              uint16_t nlmsg_type, int rtm_family,
+                              unsigned char rtm_protocol) {
         struct rtmsg *rtm;
         int r;
 
@@ -154,7 +149,7 @@ int sd_rtnl_message_new_route(sd_rtnl *rtnl, sd_rtnl_message **ret,
         rtm->rtm_scope = RT_SCOPE_UNIVERSE;
         rtm->rtm_type = RTN_UNICAST;
         rtm->rtm_table = RT_TABLE_MAIN;
-        rtm->rtm_protocol = RTPROT_BOOT;
+        rtm->rtm_protocol = rtm_protocol;
 
         return 0;
 }
@@ -275,7 +270,7 @@ int sd_rtnl_message_addr_set_scope(sd_rtnl_message *m, unsigned char scope) {
         return 0;
 }
 
-int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, unsigned char *family) {
+int sd_rtnl_message_addr_get_family(sd_rtnl_message *m, int *family) {
         struct ifaddrmsg *ifa;
 
         assert_return(m, -EINVAL);
@@ -352,7 +347,7 @@ int sd_rtnl_message_addr_get_ifindex(sd_rtnl_message *m, int *ifindex) {
 
 int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
                              uint16_t nlmsg_type, int index,
-                             unsigned char family) {
+                             int family) {
         struct ifaddrmsg *ifa;
         int r;
 
@@ -383,7 +378,7 @@ int sd_rtnl_message_new_addr(sd_rtnl *rtnl, sd_rtnl_message **ret,
 }
 
 int sd_rtnl_message_new_addr_update(sd_rtnl *rtnl, sd_rtnl_message **ret,
-                             int index, unsigned char family) {
+                             int index, int family) {
         int r;
 
         r = sd_rtnl_message_new_addr(rtnl, ret, RTM_NEWADDR, index, family);
@@ -464,6 +459,21 @@ int sd_rtnl_message_link_get_flags(sd_rtnl_message *m, unsigned *flags) {
         return 0;
 }
 
+int sd_rtnl_message_link_get_type(sd_rtnl_message *m, unsigned *type) {
+        struct ifinfomsg *ifi;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_link(m->hdr->nlmsg_type), -EINVAL);
+        assert_return(type, -EINVAL);
+
+        ifi = NLMSG_DATA(m->hdr);
+
+        *type = ifi->ifi_type;
+
+        return 0;
+}
+
 /* If successful the updated message will be correctly aligned, if
    unsuccessful the old message is untouched. */
 static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data, size_t data_length) {
@@ -515,7 +525,6 @@ static int add_rtattr(sd_rtnl_message *m, unsigned short type, const void *data,
                 /* if no data was passed, make sure we still initialize the padding
                    note that we can have data_length > 0 (used by some containers) */
                 padding = RTA_DATA(rta);
-                data_length = 0;
         }
 
         /* make sure also the padding at the end of the message is initialized */
@@ -786,7 +795,7 @@ int rtnl_message_read_internal(sd_rtnl_message *m, unsigned short type, void **d
         return RTA_PAYLOAD(rta);
 }
 
-int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **data) {
+int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, const char **data) {
         int r;
         void *attr_data;
 
@@ -800,7 +809,7 @@ int sd_rtnl_message_read_string(sd_rtnl_message *m, unsigned short type, char **
         else if (strnlen(attr_data, r) >= (size_t) r)
                 return -EIO;
 
-        *data = (char *) attr_data;
+        *data = (const char *) attr_data;
 
         return 0;
 }
@@ -962,7 +971,7 @@ int sd_rtnl_message_enter_container(sd_rtnl_message *m, unsigned short type) {
                         return r;
         } else if (nl_type->type == NLA_UNION) {
                 const NLTypeSystemUnion *type_system_union;
-                char *key;
+                const char *key;
 
                 r = type_system_get_type_system_union(m->container_type_system[m->n_containers],
                                                       &type_system_union,
@@ -1116,10 +1125,13 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         assert(iov);
 
         r = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (r < 0)
+        if (r < 0) {
                 /* no data */
+                if (errno == ENOBUFS)
+                        log_debug("rtnl: kernel receive buffer overrun");
+
                 return (errno == EAGAIN) ? 0 : -errno;
-        else if (r == 0)
+        } else if (r == 0)
                 /* connection was closed by the kernel */
                 return -ECONNRESET;
 

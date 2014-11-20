@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 215" "systemd-notify"
+.TH "SYSTEMD\-NOTIFY" "1" "" "systemd 217" "systemd-notify"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -70,12 +70,6 @@ Send a free\-form status string for the daemon to the init systemd\&. This optio
 .RS 4
 Returns 0 if the system was booted up with systemd, non\-zero otherwise\&. If this option is passed, no message is sent\&. This option is hence unrelated to the other options\&. For details about the semantics of this option, see
 \fBsd_booted\fR(3)\&.
-.RE
-.PP
-\fB\-\-readahead=\fR
-.RS 4
-Controls disk read\-ahead operations\&. The argument must be a string, and either "cancel", "done" or "noreplay"\&. For details about the semantics of this option see
-\fBsd_readahead\fR(3)\&.
 .RE
 .PP
 \fB\-h\fR, \fB\-\-help\fR

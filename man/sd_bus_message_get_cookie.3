@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_GET_COOKIE" "3" "" "systemd 215" "sd_bus_message_get_cookie"
+.TH "SD_BUS_MESSAGE_GET_COOKIE" "3" "" "systemd 217" "sd_bus_message_get_cookie"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -50,12 +50,12 @@ On success, the cookie/reply cookie is returned in the specified 64\-bit unsigne
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 A specified parameter is invalid\&.
 .RE
 .PP
-\fI\-ENODATA\fR
+\fB\-ENODATA\fR
 .RS 4
 No cookie has been assigned to this message\&. This either indicates that the message has not been sent yet and hence has no cookie assigned, or that the message is not a method response message and hence carries a reply cookie field\&.
 .RE

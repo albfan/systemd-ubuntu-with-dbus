@@ -311,8 +311,10 @@ static int output_short(
                 uint64_t x;
                 time_t t;
                 struct tm tm;
+                struct tm *(*gettime_r)(const time_t *, struct tm *);
 
                 r = -ENOENT;
+                gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
 
                 if (realtime)
                         r = safe_atou64(realtime, &x);
@@ -329,17 +331,17 @@ static int output_short(
 
                 switch(mode) {
                 case OUTPUT_SHORT_ISO:
-                        r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm));
                         break;
                 case OUTPUT_SHORT_PRECISE:
-                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                         if (r > 0) {
                                 snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
                                          ".%06llu", (unsigned long long) (x % USEC_PER_SEC));
                         }
                         break;
                 default:
-                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", localtime_r(&t, &tm));
+                        r = strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm));
                 }
 
                 if (r <= 0) {
@@ -445,6 +447,8 @@ static int output_verbose(
         }
 
         fprintf(f, "%s [%s]\n",
+                flags & OUTPUT_UTC ?
+                format_timestamp_us_utc(ts, sizeof(ts), realtime) :
                 format_timestamp_us(ts, sizeof(ts), realtime),
                 cursor);
 
@@ -695,7 +699,7 @@ static int output_json(
                         sd_id128_to_string(boot_id, sid));
         }
 
-        h = hashmap_new(string_hash_func, string_compare_func);
+        h = hashmap_new(&string_hash_ops);
         if (!h)
                 return -ENOMEM;
 
@@ -1032,7 +1036,7 @@ static int show_journal(FILE *f,
                 if (!(flags & OUTPUT_FOLLOW))
                         break;
 
-                r = sd_journal_wait(j, (usec_t) -1);
+                r = sd_journal_wait(j, USEC_INFINITY);
                 if (r < 0)
                         goto finish;
 
@@ -1151,7 +1155,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         assert(machine);
         assert(boot_id);
 
-        if (!filename_is_safe(machine))
+        if (!machine_name_is_valid(machine))
                 return -EINVAL;
 
         r = container_get_leader(machine, &pid);

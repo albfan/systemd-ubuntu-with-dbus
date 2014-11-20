@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/capability.h>
 
 #include "sd-id128.h"
 #include "sd-messages.h"
@@ -51,59 +52,11 @@ typedef struct Context {
         Hashmap *polkit_registry;
 } Context;
 
-static void context_free(Context *c, sd_bus *bus) {
+static void context_free(Context *c) {
         assert(c);
 
         free(c->zone);
-        bus_verify_polkit_async_registry_free(bus, c->polkit_registry);
-}
-
-static bool valid_timezone(const char *name) {
-        const char *p;
-        char *t;
-        bool slash = false;
-        int r;
-        struct stat st;
-
-        assert(name);
-
-        if (*name == '/' || *name == 0)
-                return false;
-
-        for (p = name; *p; p++) {
-                if (!(*p >= '0' && *p <= '9') &&
-                    !(*p >= 'a' && *p <= 'z') &&
-                    !(*p >= 'A' && *p <= 'Z') &&
-                    !(*p == '-' || *p == '_' || *p == '+' || *p == '/'))
-                        return false;
-
-                if (*p == '/') {
-
-                        if (slash)
-                                return false;
-
-                        slash = true;
-                } else
-                        slash = false;
-        }
-
-        if (slash)
-                return false;
-
-        t = strappend("/usr/share/zoneinfo/", name);
-        if (!t)
-                return false;
-
-        r = stat(t, &st);
-        free(t);
-
-        if (r < 0)
-                return false;
-
-        if (!S_ISREG(st.st_mode))
-                return false;
-
-        return true;
+        bus_verify_polkit_async_registry_free(c->polkit_registry);
 }
 
 static int context_read_data(Context *c) {
@@ -223,215 +176,149 @@ static int context_write_data_local_rtc(Context *c) {
                 }
         }
 
-        label_init("/etc");
+        mac_selinux_init("/etc");
         return write_string_file_atomic_label("/etc/adjtime", w);
 }
 
-static char** get_ntp_services(void) {
-        _cleanup_strv_free_ char **r = NULL, **files = NULL;
-        char **i;
-        int k;
-
-        k = conf_files_list(&files, ".list", NULL,
-                            "/etc/systemd/ntp-units.d",
-                            "/run/systemd/ntp-units.d",
-                            "/usr/local/lib/systemd/ntp-units.d",
-                            "/usr/lib/systemd/ntp-units.d",
-                            NULL);
-        if (k < 0)
-                return NULL;
-
-        STRV_FOREACH(i, files) {
-                _cleanup_fclose_ FILE *f;
-
-                f = fopen(*i, "re");
-                if (!f)
-                        continue;
-
-                for (;;) {
-                        char line[PATH_MAX], *l;
-
-                        if (!fgets(line, sizeof(line), f)) {
-                                if (ferror(f))
-                                        log_error("Failed to read NTP unit file: %m");
-
-                                break;
-                        }
-
-                        l = strstrip(line);
-                        if (l[0] == 0 || l[0] == '#')
-                                continue;
-
-                        if (strv_extend(&r, l) < 0) {
-                                log_oom();
-                                return NULL;
-                        }
-                }
-        }
-
-        i = r;
-        r = NULL; /* avoid cleanup */
-
-        return strv_uniq(i);
-}
-
 static int context_read_ntp(Context *c, sd_bus *bus) {
-        _cleanup_strv_free_ char **l;
-        char **i;
+        _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus_message *reply = NULL;
+        const char *s;
         int r;
 
         assert(c);
         assert(bus);
 
-        l = get_ntp_services();
-        STRV_FOREACH(i, l) {
-                _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-                sd_bus_message *reply = NULL;
-                const char *s;
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "GetUnitFileState",
+                        &error,
+                        &reply,
+                        "s",
+                        "systemd-timesyncd.service");
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "GetUnitFileState",
-                                &error,
-                                &reply,
-                                "s",
-                                *i);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND) ||
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.LoadFailed") ||
+                    sd_bus_error_has_name(&error, "org.freedesktop.systemd1.NoSuchUnit"))
+                        return 0;
 
-                if (r < 0) {
-                        /* This implementation does not exist. Try the next one. */
-                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND))
-                                continue;
-
-                        return r;
-                }
-
-                r = sd_bus_message_read(reply, "s", &s);
-                if (r < 0)
-                        return r;
-
-                c->can_ntp = true;
-                c->use_ntp = STR_IN_SET(s, "enabled", "enabled-runtime");
-
-                return 0;
+                return r;
         }
+
+        r = sd_bus_message_read(reply, "s", &s);
+        if (r < 0)
+                return r;
+
+        c->can_ntp = true;
+        c->use_ntp = STR_IN_SET(s, "enabled", "enabled-runtime");
 
         return 0;
 }
 
 static int context_start_ntp(Context *c, sd_bus *bus, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
-        char **i;
         int r;
 
         assert(c);
         assert(bus);
         assert(error);
 
-        l = get_ntp_services();
-        STRV_FOREACH(i, l) {
-
-                if (c->use_ntp)
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "StartUnit",
-                                        error,
-                                        NULL,
-                                        "ss", *i, "replace");
-                else
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "StopUnit",
-                                        error,
-                                        NULL,
-                                        "ss", *i, "replace");
-
-                if (r < 0) {
-                        if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND) ||
-                            sd_bus_error_has_name(error, "org.freedesktop.systemd1.LoadFailed") ||
-                            sd_bus_error_has_name(error, "org.freedesktop.systemd1.NoSuchUnit")) {
-                                /* This implementation does not exist. Try the next one. */
-                                sd_bus_error_free(error);
-                                continue;
-                        }
-
-                        return r;
-                }
-
-                return 1;
-        }
-
-        sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
-        return -ENOTSUP;
-}
-
-static int context_enable_ntp(Context*c, sd_bus *bus, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
-        char **i;
-        int r;
-
-        assert(c);
-        assert(bus);
-        assert(error);
-
-        l = get_ntp_services();
-        STRV_FOREACH(i, l) {
-                if (c->use_ntp)
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "EnableUnitFiles",
-                                        error,
-                                        NULL,
-                                        "asbb", 1, *i, false, true);
-                else
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "DisableUnitFiles",
-                                        error,
-                                        NULL,
-                                        "asb", 1, *i, false);
-
-                if (r < 0) {
-                        if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND)) {
-                                /* This implementation does not exist. Try the next one. */
-                                sd_bus_error_free(error);
-                                continue;
-                        }
-
-                        return r;
-                }
-
+        if (c->use_ntp)
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "Reload",
+                                "StartUnit",
                                 error,
                                 NULL,
-                                NULL);
-                if (r < 0)
-                        return r;
+                                "ss",
+                                "systemd-timesyncd.service",
+                                "replace");
+        else
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "StopUnit",
+                                error,
+                                NULL,
+                                "ss",
+                                "systemd-timesyncd.service",
+                                "replace");
 
-                return 1;
+        if (r < 0) {
+                if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND) ||
+                    sd_bus_error_has_name(error, "org.freedesktop.systemd1.LoadFailed") ||
+                    sd_bus_error_has_name(error, "org.freedesktop.systemd1.NoSuchUnit")) {
+                        sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
+                        return -ENOTSUP;
+                }
+
+                return r;
         }
 
-        sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
-        return -ENOTSUP;
+        return 0;
+}
+
+static int context_enable_ntp(Context*c, sd_bus *bus, sd_bus_error *error) {
+        int r;
+
+        assert(c);
+        assert(bus);
+        assert(error);
+
+        if (c->use_ntp)
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "EnableUnitFiles",
+                                error,
+                                NULL,
+                                "asbb", 1,
+                                "systemd-timesyncd.service",
+                                false, true);
+        else
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "DisableUnitFiles",
+                                error,
+                                NULL,
+                                "asb", 1,
+                                "systemd-timesyncd.service",
+                                false);
+
+        if (r < 0) {
+                if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND)) {
+                        sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
+                        return -ENOTSUP;
+                }
+
+                return r;
+        }
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Reload",
+                        error,
+                        NULL,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int property_get_rtc_time(
@@ -502,13 +389,13 @@ static int method_set_timezone(sd_bus *bus, sd_bus_message *m, void *userdata, s
         if (r < 0)
                 return r;
 
-        if (!valid_timezone(z))
+        if (!timezone_is_valid(z))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-timezone", interactive, error, method_set_timezone, c);
+        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-timezone", interactive, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -569,7 +456,7 @@ static int method_set_local_rtc(sd_bus *bus, sd_bus_message *m, void *userdata, 
         if (lrtc == c->local_rtc)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-local-rtc", interactive, error, method_set_local_rtc, c);
+        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-local-rtc", interactive, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -674,7 +561,7 @@ static int method_set_time(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bu
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-time", interactive, error, method_set_time, c);
+        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-time", interactive, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -714,7 +601,7 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         if ((bool)ntp == c->use_ntp)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(bus, &c->polkit_registry, m, "org.freedesktop.timedate1.set-ntp", interactive, error, method_set_ntp, c);
+        r = bus_verify_polkit_async(m, CAP_SYS_TIME, "org.freedesktop.timedate1.set-ntp", interactive, &c->polkit_registry, error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -737,8 +624,6 @@ static int method_set_ntp(sd_bus *bus, sd_bus_message *m, void *userdata, sd_bus
         return sd_bus_reply_method_return(m, NULL);
 }
 
-#include <sys/capability.h>
-
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -756,7 +641,7 @@ static const sd_bus_vtable timedate_vtable[] = {
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -796,7 +681,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 int main(int argc, char *argv[]) {
         Context context = {};
         _cleanup_event_unref_ sd_event *event = NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -842,7 +727,7 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
-        context_free(&context, bus);
+        context_free(&context);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

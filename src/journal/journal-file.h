@@ -27,7 +27,7 @@
 #include <gcrypt.h>
 #endif
 
-#include <systemd/sd-id128.h>
+#include "systemd/sd-id128.h"
 
 #include "sparse-endian.h"
 #include "journal-def.h"
@@ -56,7 +56,8 @@ typedef struct JournalFile {
         int flags;
         int prot;
         bool writable:1;
-        bool compress:1;
+        bool compress_xz:1;
+        bool compress_lz4:1;
         bool seal:1;
 
         bool tail_entry_monotonic_valid:1;
@@ -75,11 +76,11 @@ typedef struct JournalFile {
         JournalMetrics metrics;
         MMapCache *mmap;
 
-        Hashmap *chain_cache;
+        OrderedHashmap *chain_cache;
 
-#ifdef HAVE_XZ
+#if defined(HAVE_XZ) || defined(HAVE_LZ4)
         void *compress_buffer;
-        uint64_t compress_buffer_size;
+        size_t compress_buffer_size;
 #endif
 
 #ifdef HAVE_GCRYPT
@@ -153,8 +154,11 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_SEALED(h) \
         (!!(le32toh((h)->compatible_flags) & HEADER_COMPATIBLE_SEALED))
 
-#define JOURNAL_HEADER_COMPRESSED(h) \
-        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED))
+#define JOURNAL_HEADER_COMPRESSED_XZ(h) \
+        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED_XZ))
+
+#define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
+        (!!(le32toh((h)->incompatible_flags) & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
 
 int journal_file_move_to_object(JournalFile *f, int type, uint64_t offset, Object **ret);
 
@@ -208,16 +212,14 @@ static unsigned type_to_context(int type) {
         return type > 0 && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
-static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset) {
+static inline int journal_file_object_keep(JournalFile *f, Object *o, uint64_t offset, void **release_cookie) {
         unsigned context = type_to_context(o->object.type);
+        uint64_t s = le64toh(o->object.size);
 
         return mmap_cache_get(f->mmap, f->fd, f->prot, context, true,
-                              offset, o->object.size, &f->last_stat, NULL);
+                              offset, s, &f->last_stat, NULL, release_cookie);
 }
 
-static inline int journal_file_object_release(JournalFile *f, Object *o, uint64_t offset) {
-        unsigned context = type_to_context(o->object.type);
-
-        return mmap_cache_release(f->mmap, f->fd, f->prot, context,
-                                  offset, o->object.size);
+static inline int journal_file_object_release(JournalFile *f, void *release_cookie) {
+        return mmap_cache_release(f->mmap, f->fd, release_cookie);
 }

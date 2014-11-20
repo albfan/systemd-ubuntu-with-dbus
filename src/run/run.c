@@ -48,8 +48,7 @@ static bool arg_nice_set = false;
 static char **arg_environment = NULL;
 static char **arg_property = NULL;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] COMMAND [ARGS...]\n\n"
                "Run the specified command in a transient scope or service unit.\n\n"
                "  -h --help                 Show this help\n"
@@ -70,8 +69,6 @@ static int help(void) {
                "     --nice=NICE            Nice level\n"
                "     --setenv=NAME=VALUE    Set environment\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -119,12 +116,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "+hrH:M:p:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "+hrH:M:p:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -215,7 +213,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (optind >= argc) {
                 log_error("Command line to execute required.");
@@ -335,11 +332,11 @@ static int start_transient_service(
         _cleanup_free_ char *name = NULL;
         int r;
 
-        if (arg_unit)
+        if (arg_unit) {
                 name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".service");
-        else
-                asprintf(&name, "run-"PID_FMT".service", getpid());
-        if (!name)
+                if (!name)
+                        return log_oom();
+        } else if (asprintf(&name, "run-"PID_FMT".service", getpid()) < 0)
                 return log_oom();
 
         r = message_start_transient_unit_new(bus, name, &m);
@@ -471,11 +468,11 @@ static int start_transient_scope(
 
         assert(bus);
 
-        if (arg_unit)
+        if (arg_unit) {
                 name = unit_name_mangle_with_suffix(arg_unit, MANGLE_NOGLOB, ".scope");
-        else
-                asprintf(&name, "run-"PID_FMT".scope", getpid());
-        if (!name)
+                if (!name)
+                        return log_oom();
+        } else if (asprintf(&name, "run-"PID_FMT".scope", getpid()) < 0)
                 return log_oom();
 
         r = message_start_transient_unit_new(bus, name, &m);
@@ -565,7 +562,7 @@ static int start_transient_scope(
 
 int main(int argc, char* argv[]) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL, *command = NULL;
         int r;
 

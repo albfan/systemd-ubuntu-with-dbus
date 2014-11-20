@@ -101,7 +101,11 @@ struct Socket {
         unsigned max_connections;
 
         unsigned backlog;
+        unsigned keep_alive_cnt;
         usec_t timeout_usec;
+        usec_t keep_alive_time;
+        usec_t keep_alive_interval;
+        usec_t defer_accept;
 
         ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
@@ -134,6 +138,7 @@ struct Socket {
 
         /* Socket options */
         bool keep_alive;
+        bool no_delay;
         bool free_bind;
         bool transparent;
         bool broadcast;
@@ -160,6 +165,8 @@ struct Socket {
         char *smack_ip_in;
         char *smack_ip_out;
 
+        bool selinux_context_from_net;
+
         char *user, *group;
 };
 
@@ -183,3 +190,5 @@ const char* socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
+
+int socket_instantiate_service(Socket *s);

@@ -290,14 +290,19 @@ static int busname_watch_fd(BusName *n) {
 }
 
 static int busname_open_fd(BusName *n) {
+        _cleanup_free_ char *path = NULL;
+        const char *mode;
+
         assert(n);
 
         if (n->starter_fd >= 0)
                 return 0;
 
-        n->starter_fd = bus_kernel_open_bus_fd(UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user");
+        mode = UNIT(n)->manager->running_as == SYSTEMD_SYSTEM ? "system" : "user";
+        n->starter_fd = bus_kernel_open_bus_fd(mode, &path);
         if (n->starter_fd < 0) {
-                log_warning_unit(UNIT(n)->id, "Failed to create starter fd: %s", strerror(-n->starter_fd));
+                log_warning_unit(UNIT(n)->id, "Failed to open %s: %s",
+                                 path ?: "kdbus", strerror(-n->starter_fd));
                 return n->starter_fd;
         }
 
@@ -441,7 +446,7 @@ static void busname_enter_signal(BusName *n, BusNameState state, BusNameResult f
 
         r = unit_kill_context(UNIT(n),
                               &kill_context,
-                              state != BUSNAME_SIGTERM,
+                              state != BUSNAME_SIGTERM ? KILL_KILL : KILL_TERMINATE,
                               -1,
                               n->control_pid,
                               false);
@@ -763,7 +768,7 @@ static void busname_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 f = BUSNAME_FAILURE_EXIT_CODE;
         else if (code == CLD_KILLED)
                 f = BUSNAME_FAILURE_SIGNAL;
-        else if (code == CLD_KILLED)
+        else if (code == CLD_DUMPED)
                 f = BUSNAME_FAILURE_CORE_DUMP;
         else
                 assert_not_reached("Unknown sigchld code");
@@ -905,14 +910,6 @@ static const char* const busname_result_table[_BUSNAME_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(busname_result, BusNameResult);
-
-static const char* const busname_policy_access_table[_BUSNAME_POLICY_ACCESS_MAX] = {
-        [BUSNAME_POLICY_ACCESS_SEE] = "see",
-        [BUSNAME_POLICY_ACCESS_TALK] = "talk",
-        [BUSNAME_POLICY_ACCESS_OWN] = "own",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(busname_policy_access, BusNamePolicyAccess);
 
 const UnitVTable busname_vtable = {
         .object_size = sizeof(BusName),

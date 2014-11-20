@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.DIRECTIVES" "7" "" "systemd 215" "systemd.directives"
+.TH "SYSTEMD\&.DIRECTIVES" "7" "" "systemd 217" "systemd.directives"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -120,6 +120,11 @@ Directives for configuring units, used in unit files\&.
 \fBsystemd.service\fR(5)
 .RE
 .PP
+\fIBusPolicy=\fR
+.RS 4
+\fBsystemd.service\fR(5)
+.RE
+.PP
 \fICPUAccounting=\fR
 .RS 4
 \fBsystemd.resource-control\fR(5)
@@ -191,6 +196,11 @@ Directives for configuring units, used in unit files\&.
 .RE
 .PP
 \fIConditionFileNotEmpty=\fR
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
+\fIConditionFirstBoot=\fR
 .RS 4
 \fBsystemd.unit\fR(5)
 .RE
@@ -268,6 +278,11 @@ Directives for configuring units, used in unit files\&.
 \fIDefaultInstance=\fR
 .RS 4
 \fBsystemd.unit\fR(5)
+.RE
+.PP
+\fIDeferAcceptSec=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
 .RE
 .PP
 \fIDescription=\fR
@@ -411,6 +426,16 @@ Directives for configuring units, used in unit files\&.
 \fBsystemd.exec\fR(5)
 .RE
 .PP
+\fIJobTimeoutAction=\fR
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
+\fIJobTimeoutRebootArgument=\fR
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
 \fIJobTimeoutSec=\fR
 .RS 4
 \fBsystemd.unit\fR(5)
@@ -422,6 +447,21 @@ Directives for configuring units, used in unit files\&.
 .RE
 .PP
 \fIKeepAlive=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
+.RE
+.PP
+\fIKeepAliveIntervalSec=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
+.RE
+.PP
+\fIKeepAliveProbes=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
+.RE
+.PP
+\fIKeepAliveTimeSec=\fR
 .RS 4
 \fBsystemd.socket\fR(5)
 .RE
@@ -596,6 +636,11 @@ Directives for configuring units, used in unit files\&.
 \fBsystemd.exec\fR(5)
 .RE
 .PP
+\fINoDelay=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
+.RE
+.PP
 \fINoNewPrivileges=\fR
 .RS 4
 \fBsystemd.exec\fR(5)
@@ -658,7 +703,8 @@ Directives for configuring units, used in unit files\&.
 .PP
 \fIOptions=\fR
 .RS 4
-\fBsystemd.mount\fR(5)
+\fBsystemd.mount\fR(5),
+\fBsystemd.swap\fR(5)
 .RE
 .PP
 \fIPAMName=\fR
@@ -890,6 +936,11 @@ Directives for configuring units, used in unit files\&.
 \fISELinuxContext=\fR
 .RS 4
 \fBsystemd.exec\fR(5)
+.RE
+.PP
+\fISELinuxContextFromNet=\fR
+.RS 4
+\fBsystemd.socket\fR(5)
 .RE
 .PP
 \fISecureBits=\fR
@@ -1379,6 +1430,21 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 \fBsystemd-modules-load.service\fR(8)
 .RE
 .PP
+\fImount\&.usr=\fR
+.RS 4
+\fBsystemd-fstab-generator\fR(8)
+.RE
+.PP
+\fImount\&.usrflags=\fR
+.RS 4
+\fBsystemd-fstab-generator\fR(8)
+.RE
+.PP
+\fImount\&.usrfstype=\fR
+.RS 4
+\fBsystemd-fstab-generator\fR(8)
+.RE
+.PP
 \fInet\&.ifnames=\fR
 .RS 4
 \fBkernel-command-line\fR(7),
@@ -1461,6 +1527,12 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 \fBsystemd-udevd.service\fR(8)
 .RE
 .PP
+\fIrd\&.udev\&.event\-timeout=\fR
+.RS 4
+\fBkernel-command-line\fR(7),
+\fBsystemd-udevd.service\fR(8)
+.RE
+.PP
 \fIrd\&.udev\&.exec\-delay=\fR
 .RS 4
 \fBkernel-command-line\fR(7),
@@ -1473,6 +1545,18 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 \fBsystemd-udevd.service\fR(8)
 .RE
 .PP
+\fIrescue\fR
+.RS 4
+\fBkernel-command-line\fR(7),
+\fBsystemd\fR(1)
+.RE
+.PP
+\fIresume=\fR
+.RS 4
+\fBkernel-command-line\fR(7),
+\fBsystemd-hibernate-resume-generator\fR(8)
+.RE
+.PP
 \fIro\fR
 .RS 4
 \fBkernel-command-line\fR(7)
@@ -1480,7 +1564,13 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 .PP
 \fIroot=\fR
 .RS 4
-\fBkernel-command-line\fR(7)
+\fBkernel-command-line\fR(7),
+\fBsystemd-fstab-generator\fR(8)
+.RE
+.PP
+\fIrootflags=\fR
+.RS 4
+\fBsystemd-fstab-generator\fR(8)
 .RE
 .PP
 \fIrootfsflags=\fR
@@ -1490,7 +1580,8 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 .PP
 \fIrootfstype=\fR
 .RS 4
-\fBkernel-command-line\fR(7)
+\fBkernel-command-line\fR(7),
+\fBsystemd-fstab-generator\fR(8)
 .RE
 .PP
 \fIrw\fR
@@ -1640,6 +1731,12 @@ Kernel boot options for configuring the behaviour of the systemd process\&.
 .RE
 .PP
 \fIudev\&.children\-max=\fR
+.RS 4
+\fBkernel-command-line\fR(7),
+\fBsystemd-udevd.service\fR(8)
+.RE
+.PP
+\fIudev\&.event\-timeout=\fR
 .RS 4
 \fBkernel-command-line\fR(7),
 \fBsystemd-udevd.service\fR(8)
@@ -2230,11 +2327,6 @@ Directives for configuring systemd units through the udev database\&.
 \fBudev\fR(7)
 .RE
 .PP
-\fBevent_timeout=\fR
-.RS 4
-\fBudev\fR(7)
-.RE
-.PP
 \fBlink_priority=\fR
 .RS 4
 \fBudev\fR(7)
@@ -2338,6 +2430,16 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.netdev\fR(5)
 .RE
 .PP
+\fIDomains=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
+\fIDownDelaySec=\fR
+.RS 4
+\fBsystemd.netdev\fR(5)
+.RE
+.PP
 \fIDriver=\fR
 .RS 4
 \fBsystemd.link\fR(5),
@@ -2347,6 +2449,16 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fIDuplex=\fR
 .RS 4
 \fBsystemd.link\fR(5)
+.RE
+.PP
+\fIFallbackDNS=\fR
+.RS 4
+\fBresolved.conf\fR(5)
+.RE
+.PP
+\fIFallbackNTP=\fR
+.RS 4
+\fBtimesyncd.conf\fR(5)
 .RE
 .PP
 \fIGateway=\fR
@@ -2371,6 +2483,11 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.network\fR(5)
 .RE
 .PP
+\fIIPv4LLRoute=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
 \fIId=\fR
 .RS 4
 \fBsystemd.netdev\fR(5)
@@ -2386,6 +2503,17 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fIKind=\fR
 .RS 4
 \fBsystemd.netdev\fR(5)
+.RE
+.PP
+\fILACPTransmitRate=\fR
+.RS 4
+\fBsystemd.netdev\fR(5)
+.RE
+.PP
+\fILLMNR=\fR
+.RS 4
+\fBresolved.conf\fR(5),
+\fBsystemd.network\fR(5)
 .RE
 .PP
 \fILabel=\fR
@@ -2415,6 +2543,11 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.network\fR(5)
 .RE
 .PP
+\fIMIIMonitorSec=\fR
+.RS 4
+\fBsystemd.netdev\fR(5)
+.RE
+.PP
 \fIMTUBytes=\fR
 .RS 4
 \fBsystemd.link\fR(5),
@@ -2426,6 +2559,11 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.netdev\fR(5)
 .RE
 .PP
+\fIMetric=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
 \fIMode=\fR
 .RS 4
 \fBsystemd.netdev\fR(5)
@@ -2434,6 +2572,12 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fIMultiQueue=\fR
 .RS 4
 \fBsystemd.netdev\fR(5)
+.RE
+.PP
+\fINTP=\fR
+.RS 4
+\fBsystemd.network\fR(5),
+\fBtimesyncd.conf\fR(5)
 .RE
 .PP
 \fIName=\fR
@@ -2464,9 +2608,24 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.network\fR(5)
 .RE
 .PP
+\fIPeer=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
 \fIRemote=\fR
 .RS 4
 \fBsystemd.netdev\fR(5)
+.RE
+.PP
+\fIRequestBroadcast=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
+\fIRouteMetric=\fR
+.RS 4
+\fBsystemd.network\fR(5)
 .RE
 .PP
 \fISendHostname=\fR
@@ -2484,6 +2643,11 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.netdev\fR(5)
 .RE
 .PP
+\fITransmitHashPolicy=\fR
+.RS 4
+\fBsystemd.netdev\fR(5)
+.RE
+.PP
 \fITunnel=\fR
 .RS 4
 \fBsystemd.network\fR(5)
@@ -2495,7 +2659,17 @@ Directives for configuring network links through the net\-setup\-link udev built
 \fBsystemd.network\fR(5)
 .RE
 .PP
+\fIUpDelaySec=\fR
+.RS 4
+\fBsystemd.netdev\fR(5)
+.RE
+.PP
 \fIUseDNS=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
+\fIUseDomains=\fR
 .RS 4
 \fBsystemd.network\fR(5)
 .RE
@@ -2526,6 +2700,11 @@ Directives for configuring network links through the net\-setup\-link udev built
 .RE
 .PP
 \fIVXLAN=\fR
+.RS 4
+\fBsystemd.network\fR(5)
+.RE
+.PP
+\fIVendorClassIdentifier=\fR
 .RS 4
 \fBsystemd.network\fR(5)
 .RE
@@ -2970,6 +3149,7 @@ Options which influence mounted filesystems and encrypted volumes\&.
 .PP
 \fBx\-systemd\&.device\-timeout=\fR
 .RS 4
+\fBcrypttab\fR(5),
 \fBsystemd.mount\fR(5)
 .RE
 .SH "SYSTEM MANAGER DIRECTIVES"
@@ -3325,7 +3505,8 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-after\-cursor=\fR
 .RS 4
-\fBjournalctl\fR(1)
+\fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 \fB\-\-all\fR
@@ -3449,6 +3630,26 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-bootchart\fR(1)
 .RE
 .PP
+\fB\-\-copy\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-copy\-locale\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-copy\-root\-password\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-copy\-timezone\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-crash\-shell\fR
 .RS 4
 \fBsystemd\fR(1)
@@ -3461,7 +3662,8 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-cursor=\fR
 .RS 4
-\fBjournalctl\fR(1)
+\fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 \fB\-\-daemon\fR
@@ -3513,6 +3715,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-directory=\fR
 .RS 4
 \fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-nspawn\fR(1)
 .RE
 .PP
@@ -3551,9 +3754,19 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd\fR(1)
 .RE
 .PP
+\fB\-\-echo\fR
+.RS 4
+\fBsystemd-ask-password\fR(1)
+.RE
+.PP
 \fB\-\-entropy\fR
 .RS 4
 \fBsystemd-bootchart\fR(1)
+.RE
+.PP
+\fB\-\-event\-timeout=\fR
+.RS 4
+\fBsystemd-udevd.service\fR(8)
 .RE
 .PP
 \fB\-\-exclude\-prefix=\fR
@@ -3597,19 +3810,15 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBjournalctl\fR(1)
 .RE
 .PP
-\fB\-\-file\-size\-max=\fR
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
-.RE
-.PP
 \fB\-\-file=\fR
 .RS 4
-\fBjournalctl\fR(1)
+\fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
-\fB\-\-files\-max=\fR
+\fB\-\-flush\fR
 .RS 4
-\fBsystemd-readahead-replay.service\fR(8)
+\fBjournalctl\fR(1)
 .RE
 .PP
 \fB\-\-follow\fR
@@ -3699,14 +3908,16 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-cgtop\fR(1),
 \fBsystemd-delta\fR(1),
 \fBsystemd-detect-virt\fR(1),
+\fBsystemd-escape\fR(1),
+\fBsystemd-firstboot\fR(1),
 \fBsystemd-inhibit\fR(1),
 \fBsystemd-journal-gatewayd.service\fR(8),
 \fBsystemd-journal-remote\fR(8),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-machine-id-setup\fR(1),
 \fBsystemd-notify\fR(1),
 \fBsystemd-nspawn\fR(1),
 \fBsystemd-path\fR(1),
-\fBsystemd-readahead-replay.service\fR(8),
 \fBsystemd-run\fR(1),
 \fBsystemd-socket-proxyd\fR(8),
 \fBsystemd-suspend.service\fR(8),
@@ -3732,6 +3943,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBtimedatectl\fR(1)
 .RE
 .PP
+\fB\-\-hostname=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-icon=\fR
 .RS 4
 \fBsystemd-ask-password\fR(1)
@@ -3739,6 +3955,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-identifier=\fR
 .RS 4
+\fBjournalctl\fR(1),
 \fBsystemd-cat\fR(1)
 .RE
 .PP
@@ -3851,6 +4068,16 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-activate\fR(8)
 .RE
 .PP
+\fB\-\-locale\-messages=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-locale=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-log\-color=\fR
 .RS 4
 \fBsystemd\fR(1)
@@ -3876,6 +4103,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd\fR(1)
 .RE
 .PP
+\fB\-\-machine\-id=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-machine=\fR
 .RS 4
 \fBbusctl\fR(1),
@@ -3890,6 +4122,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBtimedatectl\fR(1)
 .RE
 .PP
+\fB\-\-mangle\fR
+.RS 4
+\fBsystemd-escape\fR(1)
+.RE
+.PP
 \fB\-\-match=\fR
 .RS 4
 \fBbusctl\fR(1)
@@ -3897,7 +4134,8 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-merge\fR
 .RS 4
-\fBjournalctl\fR(1)
+\fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 \fB\-\-mode=\fR
@@ -3988,6 +4226,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemctl\fR(1)
 .RE
 .PP
+\fB\-\-no\-man\fR
+.RS 4
+\fBsystemd-analyze\fR(1)
+.RE
+.PP
 \fB\-\-no\-pager\fR
 .RS 4
 \fBbusctl\fR(1),
@@ -4064,6 +4307,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBudevadm\fR(8)
 .RE
 .PP
+\fB\-\-path\fR
+.RS 4
+\fBsystemd-escape\fR(1)
+.RE
+.PP
 \fB\-\-path=\fR
 .RS 4
 \fBudevadm\fR(8)
@@ -4121,10 +4369,29 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-nspawn\fR(1)
 .RE
 .PP
-\fB\-\-privileged\fR
+\fB\-\-prompt\fR
 .RS 4
-\fBhostnamectl\fR(1),
-\fBlocalectl\fR(1)
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-prompt\-hostname\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-prompt\-locale\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-prompt\-root\-password\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-prompt\-timezone\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
 .RE
 .PP
 \fB\-\-property\fR
@@ -4172,11 +4439,6 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-read\-only\fR
 .RS 4
 \fBsystemd-nspawn\fR(1)
-.RE
-.PP
-\fB\-\-readahead=\fR
-.RS 4
-\fBsystemd-notify\fR(1)
 .RE
 .PP
 \fB\-\-ready\fR
@@ -4242,10 +4504,21 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBudevadm\fR(8)
 .RE
 .PP
+\fB\-\-root\-password\-file=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+\fB\-\-root\-password=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-root=\fR
 .RS 4
 \fBjournalctl\fR(1),
 \fBsystemctl\fR(1),
+\fBsystemd-firstboot\fR(1),
 \fBsystemd-machine-id-setup\fR(1),
 \fBsystemd-sysusers\fR(8),
 \fBsystemd-tmpfiles\fR(8),
@@ -4260,6 +4533,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-sample\fR
 .RS 4
 \fBsystemd-bootchart\fR(1)
+.RE
+.PP
+\fB\-\-save\-state\fR
+.RS 4
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 \fB\-\-scale\-x\fR
@@ -4314,6 +4592,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBjournalctl\fR(1)
 .RE
 .PP
+\fB\-\-setup\-machine\-id\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 \fB\-\-share\-system\fR
 .RS 4
 \fBsystemd-nspawn\fR(1)
@@ -4357,6 +4640,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-run\fR(1)
 .RE
 .PP
+\fB\-\-split\-mode\fR
+.RS 4
+\fBsystemd-journal-remote\fR(8)
+.RE
+.PP
 \fB\-\-start\-exec\-queue\fR
 .RS 4
 \fBudevadm\fR(8)
@@ -4394,6 +4682,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-suffix=\fR
 .RS 4
+\fBsystemd-escape\fR(1),
 \fBsystemd-path\fR(1)
 .RE
 .PP
@@ -4409,12 +4698,18 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemctl\fR(1),
 \fBsystemd\fR(1),
 \fBsystemd-analyze\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-run\fR(1)
 .RE
 .PP
 \fB\-\-tag\-match=\fR
 .RS 4
 \fBudevadm\fR(8)
+.RE
+.PP
+\fB\-\-template=\fR
+.RS 4
+\fBsystemd-escape\fR(1)
 .RE
 .PP
 \fB\-\-test\fR
@@ -4430,8 +4725,12 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-timeout=\fR
 .RS 4
 \fBsystemd-ask-password\fR(1),
-\fBsystemd-readahead-replay.service\fR(8),
 \fBudevadm\fR(8)
+.RE
+.PP
+\fB\-\-timezone=\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
 .RE
 .PP
 \fB\-\-tmpfs=\fR
@@ -4466,6 +4765,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-run\fR(1)
 .RE
 .PP
+\fB\-\-unescape\fR
+.RS 4
+\fBsystemd-escape\fR(1)
+.RE
+.PP
 \fB\-\-unique\fR
 .RS 4
 \fBbusctl\fR(1)
@@ -4495,7 +4799,8 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-\-url=\fR
 .RS 4
-\fBsystemd-journal-remote\fR(8)
+\fBsystemd-journal-remote\fR(8),
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 \fB\-\-user\fR
@@ -4505,6 +4810,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemctl\fR(1),
 \fBsystemd\fR(1),
 \fBsystemd-analyze\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-run\fR(1)
 .RE
 .PP
@@ -4516,6 +4822,16 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-user=\fR
 .RS 4
 \fBsystemd-nspawn\fR(1)
+.RE
+.PP
+\fB\-\-usr\fR
+.RS 4
+\fBudevadm\fR(8)
+.RE
+.PP
+\fB\-\-utc\fR
+.RS 4
+\fBjournalctl\fR(1)
 .RE
 .PP
 \fB\-\-uuid=\fR
@@ -4558,14 +4874,16 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-cgtop\fR(1),
 \fBsystemd-delta\fR(1),
 \fBsystemd-detect-virt\fR(1),
+\fBsystemd-escape\fR(1),
+\fBsystemd-firstboot\fR(1),
 \fBsystemd-inhibit\fR(1),
 \fBsystemd-journal-gatewayd.service\fR(8),
 \fBsystemd-journal-remote\fR(8),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-machine-id-setup\fR(1),
 \fBsystemd-notify\fR(1),
 \fBsystemd-nspawn\fR(1),
 \fBsystemd-path\fR(1),
-\fBsystemd-readahead-replay.service\fR(8),
 \fBsystemd-run\fR(1),
 \fBsystemd-socket-proxyd\fR(8),
 \fBsystemd-suspend.service\fR(8),
@@ -4580,6 +4898,11 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-\-vm\fR
 .RS 4
 \fBsystemd-detect-virt\fR(1)
+.RE
+.PP
+\fB\-\-volatile\fR
+.RS 4
+\fBsystemd-nspawn\fR(1)
 .RE
 .PP
 \fB\-\-wall\fR
@@ -4630,6 +4953,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-D\fR
 .RS 4
 \fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-nspawn\fR(1)
 .RE
 .PP
@@ -4686,8 +5010,6 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-P\fR
 .RS 4
-\fBhostnamectl\fR(1),
-\fBlocalectl\fR(1),
 \fBshutdown\fR(8),
 \fBudevadm\fR(8)
 .RE
@@ -4785,14 +5107,16 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-cgtop\fR(1),
 \fBsystemd-delta\fR(1),
 \fBsystemd-detect-virt\fR(1),
+\fBsystemd-escape\fR(1),
+\fBsystemd-firstboot\fR(1),
 \fBsystemd-inhibit\fR(1),
 \fBsystemd-journal-gatewayd.service\fR(8),
 \fBsystemd-journal-remote\fR(8),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-machine-id-setup\fR(1),
 \fBsystemd-notify\fR(1),
 \fBsystemd-nspawn\fR(1),
 \fBsystemd-path\fR(1),
-\fBsystemd-readahead-replay.service\fR(8),
 \fBsystemd-run\fR(1),
 \fBsystemd-socket-proxyd\fR(8),
 \fBsystemd-suspend.service\fR(8),
@@ -4840,6 +5164,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 .RS 4
 \fBjournalctl\fR(1),
 \fBsystemd-cgtop\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBudevadm\fR(8)
 .RE
 .PP
@@ -4870,6 +5195,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fBsystemd-bootchart\fR(1),
 \fBsystemd-cat\fR(1),
 \fBsystemd-cgtop\fR(1),
+\fBsystemd-escape\fR(1),
 \fBsystemd-run\fR(1),
 \fBudevadm\fR(8)
 .RE
@@ -4902,6 +5228,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 .PP
 \fB\-t\fR
 .RS 4
+\fBjournalctl\fR(1),
 \fBsystemctl\fR(1),
 \fBsystemd-cat\fR(1),
 \fBsystemd-cgtop\fR(1),
@@ -4912,6 +5239,7 @@ Command\-line options accepted by programs in the systemd suite\&.
 \fB\-u\fR
 .RS 4
 \fBjournalctl\fR(1),
+\fBsystemd-journal-upload\fR(8),
 \fBsystemd-nspawn\fR(1),
 \fBudevadm\fR(8)
 .RE
@@ -5061,19 +5389,146 @@ Various constant used and/or defined by systemd\&.
 \fBsystemd\fR(1)
 .RE
 .PP
+\fB\-EADDRINUSE\fR
+.RS 4
+\fBsd_bus_request_name\fR(3)
+.RE
+.PP
+\fB\-EALREADY\fR
+.RS 4
+\fBsd_bus_request_name\fR(3)
+.RE
+.PP
+\fB\-EBUSY\fR
+.RS 4
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_signal\fR(3)
+.RE
+.PP
 \fB\-ECHILD\fR
 .RS 4
+\fBsd_bus_request_name\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_time\fR(3),
+\fBsd_event_get_fd\fR(3),
 \fBsd_journal_open\fR(3)
+.RE
+.PP
+\fB\-EEXIST\fR
+.RS 4
+\fBsd_bus_request_name\fR(3)
+.RE
+.PP
+\fB\-EINVAL\fR
+.RS 4
+\fBsd_bus_creds_get_pid\fR(3),
+\fBsd_bus_creds_new_from_pid\fR(3),
+\fBsd_bus_error\fR(3),
+\fBsd_bus_message_append\fR(3),
+\fBsd_bus_message_append_array\fR(3),
+\fBsd_bus_message_append_basic\fR(3),
+\fBsd_bus_message_append_string_memfd\fR(3),
+\fBsd_bus_message_append_strv\fR(3),
+\fBsd_bus_message_get_cookie\fR(3),
+\fBsd_bus_message_get_monotonic_usec\fR(3),
+\fBsd_bus_open_user\fR(3),
+\fBsd_bus_request_name\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_time\fR(3),
+\fBsd_event_get_fd\fR(3),
+\fBsd_event_set_name\fR(3)
+.RE
+.PP
+\fB\-EMFILE\fR
+.RS 4
+\fBsd_event_new\fR(3)
 .RE
 .PP
 \fB\-ENODATA\fR
 .RS 4
+\fBsd_bus_creds_get_pid\fR(3),
+\fBsd_bus_message_get_cookie\fR(3),
+\fBsd_bus_message_get_monotonic_usec\fR(3),
 \fBsd_bus_negotiate_fds\fR(3)
+.RE
+.PP
+\fB\-ENOENT\fR
+.RS 4
+\fBsd_bus_creds_get_pid\fR(3)
+.RE
+.PP
+\fB\-ENOMEM\fR
+.RS 4
+\fBsd_bus_creds_get_pid\fR(3),
+\fBsd_bus_creds_new_from_pid\fR(3),
+\fBsd_bus_error\fR(3),
+\fBsd_bus_message_append\fR(3),
+\fBsd_bus_message_append_array\fR(3),
+\fBsd_bus_message_append_basic\fR(3),
+\fBsd_bus_message_append_string_memfd\fR(3),
+\fBsd_bus_message_append_strv\fR(3),
+\fBsd_bus_new\fR(3),
+\fBsd_bus_open_user\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_time\fR(3),
+\fBsd_event_new\fR(3),
+\fBsd_event_set_name\fR(3)
+.RE
+.PP
+\fB\-ENOTCONN\fR
+.RS 4
+\fBsd_bus_request_name\fR(3)
+.RE
+.PP
+\fB\-ENOTSUP\fR
+.RS 4
+\fBsd_event_add_time\fR(3)
 .RE
 .PP
 \fB\-ENXIO\fR
 .RS 4
-\fBsd_bus_error\fR(3)
+\fBsd_bus_creds_get_pid\fR(3),
+\fBsd_bus_error\fR(3),
+\fBsd_bus_message_append\fR(3),
+\fBsd_bus_message_append_array\fR(3),
+\fBsd_bus_message_append_basic\fR(3),
+\fBsd_bus_message_append_string_memfd\fR(3),
+\fBsd_bus_message_append_strv\fR(3)
+.RE
+.PP
+\fB\-EPERM\fR
+.RS 4
+\fBsd_bus_message_append\fR(3),
+\fBsd_bus_message_append_array\fR(3),
+\fBsd_bus_message_append_basic\fR(3),
+\fBsd_bus_message_append_string_memfd\fR(3),
+\fBsd_bus_message_append_strv\fR(3),
+\fBsd_bus_negotiate_fds\fR(3)
+.RE
+.PP
+\fB\-ESRCH\fR
+.RS 4
+\fBsd_bus_creds_new_from_pid\fR(3),
+\fBsd_bus_request_name\fR(3)
+.RE
+.PP
+\fB\-ESTALE\fR
+.RS 4
+\fBsd_bus_message_append\fR(3),
+\fBsd_bus_message_append_array\fR(3),
+\fBsd_bus_message_append_basic\fR(3),
+\fBsd_bus_message_append_string_memfd\fR(3),
+\fBsd_bus_message_append_strv\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_time\fR(3)
 .RE
 .PP
 \fB0\fR
@@ -5186,6 +5641,11 @@ Various constant used and/or defined by systemd\&.
 \fBsystemd.exec\fR(5)
 .RE
 .PP
+\fBIP_FREEBIND\fR
+.RS 4
+\fBdaemon\fR(7)
+.RE
+.PP
 \fBLOG_ALERT\fR
 .RS 4
 \fBsd_journal_print\fR(3),
@@ -5241,6 +5701,7 @@ Various constant used and/or defined by systemd\&.
 \fBsd_bus_message_append_string_memfd\fR(3),
 \fBsd_bus_message_append_strv\fR(3),
 \fBsd_bus_path_encode\fR(3),
+\fBsd_event_set_name\fR(3),
 \fBsd_id128_to_string\fR(3),
 \fBsystemd.socket\fR(5)
 .RE
@@ -5257,6 +5718,9 @@ Various constant used and/or defined by systemd\&.
 \fBsd_bus_new\fR(3),
 \fBsd_bus_open_user\fR(3),
 \fBsd_bus_path_encode\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_new\fR(3),
+\fBsd_event_set_name\fR(3),
 \fBsd_get_seats\fR(3),
 \fBsd_is_fifo\fR(3),
 \fBsd_journal_get_cutoff_realtime_usec\fR(3),
@@ -5284,6 +5748,11 @@ Various constant used and/or defined by systemd\&.
 .RS 4
 \fBsd_journal_get_fd\fR(3),
 \fBsd_login_monitor_new\fR(3)
+.RE
+.PP
+\fBRLIMIT_NOFILE\fR
+.RS 4
+\fBdaemon\fR(7)
 .RE
 .PP
 \fBSD_BUS_CREDS_AUDIT_LOGIN_UID\fR
@@ -5670,6 +6139,21 @@ Various constant used and/or defined by systemd\&.
 \fBsd_bus_message_append\fR(3)
 .RE
 .PP
+\fBSD_EVENT_ON\fR
+.RS 4
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_time\fR(3)
+.RE
+.PP
+\fBSD_EVENT_ONESHOT\fR
+.RS 4
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_time\fR(3)
+.RE
+.PP
 \fBSD_JOURNAL_APPEND\fR
 .RS 4
 \fBsd_journal_get_fd\fR(3)
@@ -5834,11 +6318,6 @@ Various constant used and/or defined by systemd\&.
 \fBsystemd\fR(1)
 .RE
 .PP
-\fBSIGRTMIN+29\fR
-.RS 4
-\fBsystemd\fR(1)
-.RE
-.PP
 \fBSIGRTMIN+3\fR
 .RS 4
 \fBsystemd\fR(1)
@@ -5924,6 +6403,31 @@ Various constant used and/or defined by systemd\&.
 \fBsystemd.socket\fR(5)
 .RE
 .PP
+\fBTCP_DEFER_ACCEPT\fR
+.RS 4
+\fBsystemd.socket\fR(5)
+.RE
+.PP
+\fBWCONTINUED\fR
+.RS 4
+\fBsd_event_add_child\fR(3)
+.RE
+.PP
+\fBWEXITED\fR
+.RS 4
+\fBsd_event_add_child\fR(3)
+.RE
+.PP
+\fBWSTOPPED\fR
+.RS 4
+\fBsd_event_add_child\fR(3)
+.RE
+.PP
+\fB_NSIG\fR
+.RS 4
+\fBdaemon\fR(7)
+.RE
+.PP
 \fB_SD_BUS_CREDS_ALL\fR
 .RS 4
 \fBsd_bus_creds_new_from_pid\fR(3)
@@ -5969,6 +6473,16 @@ Various constant used and/or defined by systemd\&.
 \fBsd_bus_error\fR(3)
 .RE
 .PP
+\fBhost\fR
+.RS 4
+\fBsystemd-journal-remote\fR(8)
+.RE
+.PP
+\fBhttps\fR
+.RS 4
+\fBsystemd-journal-upload\fR(8)
+.RE
+.PP
 \fBlate\fR
 .RS 4
 \fBudevadm\fR(8)
@@ -5995,8 +6509,13 @@ Various constant used and/or defined by systemd\&.
 \fBsd_bus_open_user\fR(3),
 \fBsd_bus_path_encode\fR(3),
 \fBsd_bus_request_name\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
+\fBsd_event_add_signal\fR(3),
 \fBsd_event_add_time\fR(3),
+\fBsd_event_get_fd\fR(3),
 \fBsd_event_new\fR(3),
+\fBsd_event_set_name\fR(3),
 \fBsd_get_seats\fR(3),
 \fBsd_is_fifo\fR(3),
 \fBsd_journal_add_match\fR(3),
@@ -6015,6 +6534,7 @@ Various constant used and/or defined by systemd\&.
 \fBsd_journal_stream_fd\fR(3),
 \fBsd_listen_fds\fR(3),
 \fBsd_login_monitor_new\fR(3),
+\fBsd_machine_get_class\fR(3),
 \fBsd_notify\fR(3),
 \fBsd_pid_get_session\fR(3),
 \fBsd_seat_get_active\fR(3),
@@ -6046,6 +6566,11 @@ Various constant used and/or defined by systemd\&.
 \fBnever\fR
 .RS 4
 \fBudevadm\fR(8)
+.RE
+.PP
+\fBnone\fR
+.RS 4
+\fBsystemd-journal-remote\fR(8)
 .RE
 .PP
 \fBpath\fR
@@ -6116,123 +6641,6 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 \fBsystemd-journal-remote\fR(8)
 .RE
 .PP
-\fI\-EADDRINUSE\fR
-.RS 4
-\fBsd_bus_request_name\fR(3)
-.RE
-.PP
-\fI\-EALREADY\fR
-.RS 4
-\fBsd_bus_request_name\fR(3)
-.RE
-.PP
-\fB\-ECHILD\fR
-.RS 4
-\fBsd_bus_request_name\fR(3),
-\fBsd_event_add_time\fR(3)
-.RE
-.PP
-\fI\-EEXIST\fR
-.RS 4
-\fBsd_bus_request_name\fR(3)
-.RE
-.PP
-\fI\-EINVAL\fR
-.RS 4
-\fBsd_bus_creds_get_pid\fR(3),
-\fBsd_bus_creds_new_from_pid\fR(3),
-\fBsd_bus_error\fR(3),
-\fBsd_bus_message_append\fR(3),
-\fBsd_bus_message_append_array\fR(3),
-\fBsd_bus_message_append_basic\fR(3),
-\fBsd_bus_message_append_string_memfd\fR(3),
-\fBsd_bus_message_append_strv\fR(3),
-\fBsd_bus_message_get_cookie\fR(3),
-\fBsd_bus_message_get_monotonic_usec\fR(3),
-\fBsd_bus_open_user\fR(3),
-\fBsd_bus_request_name\fR(3),
-\fBsd_event_add_time\fR(3)
-.RE
-.PP
-\fI\-EMFILE\fR
-.RS 4
-\fBsd_event_new\fR(3)
-.RE
-.PP
-\fB\-ENODATA\fR
-.RS 4
-\fBsd_bus_creds_get_pid\fR(3),
-\fBsd_bus_message_get_cookie\fR(3),
-\fBsd_bus_message_get_monotonic_usec\fR(3)
-.RE
-.PP
-\fI\-ENOENT\fR
-.RS 4
-\fBsd_bus_creds_get_pid\fR(3)
-.RE
-.PP
-\fI\-ENOMEM\fR
-.RS 4
-\fBsd_bus_creds_get_pid\fR(3),
-\fBsd_bus_creds_new_from_pid\fR(3),
-\fBsd_bus_error\fR(3),
-\fBsd_bus_message_append\fR(3),
-\fBsd_bus_message_append_array\fR(3),
-\fBsd_bus_message_append_basic\fR(3),
-\fBsd_bus_message_append_string_memfd\fR(3),
-\fBsd_bus_message_append_strv\fR(3),
-\fBsd_bus_new\fR(3),
-\fBsd_bus_open_user\fR(3),
-\fBsd_event_add_time\fR(3),
-\fBsd_event_new\fR(3)
-.RE
-.PP
-\fI\-ENOTCONN\fR
-.RS 4
-\fBsd_bus_request_name\fR(3)
-.RE
-.PP
-\fI\-ENOTSUP\fR
-.RS 4
-\fBsd_event_add_time\fR(3)
-.RE
-.PP
-\fB\-ENXIO\fR
-.RS 4
-\fBsd_bus_creds_get_pid\fR(3),
-\fBsd_bus_message_append\fR(3),
-\fBsd_bus_message_append_array\fR(3),
-\fBsd_bus_message_append_basic\fR(3),
-\fBsd_bus_message_append_string_memfd\fR(3),
-\fBsd_bus_message_append_strv\fR(3)
-.RE
-.PP
-\fI\-EPERM\fR
-.RS 4
-\fBsd_bus_message_append\fR(3),
-\fBsd_bus_message_append_array\fR(3),
-\fBsd_bus_message_append_basic\fR(3),
-\fBsd_bus_message_append_string_memfd\fR(3),
-\fBsd_bus_message_append_strv\fR(3),
-\fBsd_bus_negotiate_fds\fR(3)
-.RE
-.PP
-\fI\-ESRCH\fR
-.RS 4
-\fBsd_bus_creds_new_from_pid\fR(3),
-\fBsd_bus_request_name\fR(3)
-.RE
-.PP
-\fI\-ESTALE\fR
-.RS 4
-\fBsd_bus_message_append\fR(3),
-\fBsd_bus_message_append_array\fR(3),
-\fBsd_bus_message_append_basic\fR(3),
-\fBsd_bus_message_append_string_memfd\fR(3),
-\fBsd_bus_message_append_strv\fR(3),
-\fBsd_event_add_time\fR(3)
-.RE
-.PP
 \fIANSI_COLOR=\fR
 .RS 4
 \fBos-release\fR(5)
@@ -6272,6 +6680,11 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 \fID\fR
 .RS 4
 \fBtmpfiles.d\fR(5)
+.RE
+.PP
+\fIDEPLOYMENT=\fR
+.RS 4
+\fBmachine-info\fR(5)
 .RE
 .PP
 \fIExternalSizeMax=\fR
@@ -6330,6 +6743,11 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 .RE
 .PP
 \fIHandleLidSwitch=\fR
+.RS 4
+\fBlogind.conf\fR(5)
+.RE
+.PP
+\fIHandleLidSwitchDocked=\fR
 .RS 4
 \fBlogind.conf\fR(5)
 .RE
@@ -6422,6 +6840,11 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 \fIL+\fR
 .RS 4
 \fBtmpfiles.d\fR(5)
+.RE
+.PP
+\fILOCATION=\fR
+.RS 4
+\fBmachine-info\fR(5)
 .RE
 .PP
 \fILidSwitchIgnoreInhibited=\fR
@@ -6718,6 +7141,7 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 .PP
 \fBr\fR
 .RS 4
+\fBsysusers.d\fR(5),
 \fBtmpfiles.d\fR(5)
 .RE
 .PP
@@ -6738,7 +7162,7 @@ Other configuration elements which don\*(Aqt fit in any of the above groups\&.
 .PP
 \fIudev_log\fR
 .RS 4
-\fBsystemd-udevd.service\fR(8)
+\fBudev.conf\fR(5)
 .RE
 .PP
 \fIunchanged\fR
@@ -6783,7 +7207,22 @@ $HOME/\&.config/systemd/user/
 \fBsystemd.unit\fR(5)
 .RE
 .PP
+$HOME/\&.local/share/systemd/user/
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
 $XDG_CONFIG_HOME/systemd/user/
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
+$XDG_DATA_HOME/systemd/user/
+.RS 4
+\fBsystemd.unit\fR(5)
+.RE
+.PP
+$XDG_RUNTIME_DIR/systemd/user/
 .RS 4
 \fBsystemd.unit\fR(5)
 .RE
@@ -6791,11 +7230,6 @@ $XDG_CONFIG_HOME/systemd/user/
 \-\&.slice
 .RS 4
 \fBsystemd.special\fR(7)
-.RE
-.PP
-/\&.readahead
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
 .RE
 .PP
 /bin
@@ -6839,6 +7273,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-getty-generator\fR(8),
 \fBsystemd-tty-ask-password-agent\fR(1),
 \fBsystemd.exec\fR(5)
+.RE
+.PP
+/dev/disk/by\-foo/bar
+.RS 4
+\fBsystemd-hibernate-resume-generator\fR(8)
 .RE
 .PP
 /dev/full
@@ -6891,6 +7330,7 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd.preset\fR(5),
 \fBsystemd.resource-control\fR(5),
 \fBsystemd.unit\fR(5),
+\fBsysusers.d\fR(5),
 \fBtmpfiles.d\fR(5),
 \fBudev\fR(7)
 .RE
@@ -6953,7 +7393,8 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd.network\fR(5),
 \fBsystemd.preset\fR(5),
 \fBsystemd.unit\fR(5),
-\fBudev\fR(7)
+\fBudev\fR(7),
+\fBudevadm\fR(8)
 .RE
 .PP
 /etc/\&.updated
@@ -7091,6 +7532,7 @@ $XDG_CONFIG_HOME/systemd/user/
 .PP
 /etc/resolv\&.conf
 .RS 4
+\fBresolved.conf\fR(5),
 \fBsystemd-resolved.service\fR(8)
 .RE
 .PP
@@ -7123,6 +7565,16 @@ $XDG_CONFIG_HOME/systemd/user/
 /etc/systemd/coredump\&.conf
 .RS 4
 \fBcoredump.conf\fR(5)
+.RE
+.PP
+/etc/systemd/journal\-remote\&.conf
+.RS 4
+\fBsystemd-journal-upload\fR(8)
+.RE
+.PP
+/etc/systemd/journal\-upload\&.conf
+.RS 4
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 /etc/systemd/journald\&.conf
@@ -7180,6 +7632,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-system.conf\fR(5)
 .RE
 .PP
+/etc/systemd/timesyncd\&.conf
+.RS 4
+\fBtimesyncd.conf\fR(5)
+.RE
+.PP
 /etc/systemd/user/
 .RS 4
 \fBsystemd.unit\fR(5)
@@ -7193,6 +7650,11 @@ $XDG_CONFIG_HOME/systemd/user/
 /etc/systemd/user\&.conf
 .RS 4
 \fBsystemd-system.conf\fR(5)
+.RE
+.PP
+/etc/sysusers\&.d
+.RS 4
+\fBsysusers.d\fR(5)
 .RE
 .PP
 /etc/tmpfiles\&.d
@@ -7213,7 +7675,8 @@ $XDG_CONFIG_HOME/systemd/user/
 .PP
 /etc/udev/hwdb\&.d
 .RS 4
-\fBudev\fR(7)
+\fBudev\fR(7),
+\fBudevadm\fR(8)
 .RE
 .PP
 /etc/udev/rules\&.d
@@ -7221,14 +7684,14 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBudev\fR(7)
 .RE
 .PP
-/etc/udev/rules\&.d/99\-bridge\&.conf
+/etc/udev/rules\&.d/99\-bridge\&.rules
 .RS 4
 \fBsysctl.d\fR(5)
 .RE
 .PP
 /etc/udev/udev\&.conf
 .RS 4
-\fBsystemd-udevd.service\fR(8)
+\fBudev.conf\fR(5)
 .RE
 .PP
 /etc/vconsole\&.conf
@@ -7400,6 +7863,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-journald.service\fR(8)
 .RE
 .PP
+/run/systemd/log
+.RS 4
+\fBjournalctl\fR(1)
+.RE
+.PP
 /run/systemd/network
 .RS 4
 \fBsystemd-networkd.service\fR(8),
@@ -7416,11 +7884,6 @@ $XDG_CONFIG_HOME/systemd/user/
 /run/systemd/private
 .RS 4
 \fBsystemd\fR(1)
-.RE
-.PP
-/run/systemd/readahead/
-.RS 4
-\fBsd_readahead\fR(3)
 .RE
 .PP
 /run/systemd/resolve/resolv\&.conf
@@ -7452,6 +7915,11 @@ $XDG_CONFIG_HOME/systemd/user/
 /run/systemd/user\-preset/*\&.preset
 .RS 4
 \fBsystemd.preset\fR(5)
+.RE
+.PP
+/run/sysusers\&.d
+.RS 4
+\fBsysusers.d\fR(5)
 .RE
 .PP
 /run/tmpfiles\&.d
@@ -7506,7 +7974,7 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBbootchart.conf\fR(5)
 .RE
 .PP
-/sbin/login
+/sbin/nologin
 .RS 4
 \fBsysusers.d\fR(5)
 .RE
@@ -7554,6 +8022,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-sleep.conf\fR(5)
 .RE
 .PP
+/sys/power/resume
+.RS 4
+\fBsystemd-hibernate-resume@.service\fR(8)
+.RE
+.PP
 /sys/power/state
 .RS 4
 \fBsystemd-sleep.conf\fR(5),
@@ -7599,6 +8072,8 @@ $XDG_CONFIG_HOME/systemd/user/
 .RS 4
 \fBbootup\fR(7),
 \fBfile-hierarchy\fR(7),
+\fBsystemd-fstab-generator\fR(8),
+\fBsystemd-nspawn\fR(1),
 \fBsystemd-remount-fs.service\fR(8),
 \fBsystemd-update-done.service\fR(8),
 \fBsystemd.exec\fR(5),
@@ -7673,6 +8148,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsysctl.d\fR(5)
 .RE
 .PP
+/usr/lib/sysctl\&.d/50\-coredump\&.conf
+.RS 4
+\fBsystemd-coredump\fR(8)
+.RE
+.PP
 /usr/lib/systemd/network
 .RS 4
 \fBsystemd-networkd.service\fR(8),
@@ -7717,6 +8197,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-gpt-auto-generator\fR(8)
 .RE
 .PP
+/usr/lib/systemd/system\-generators/systemd\-hibernate\-resume\-generator
+.RS 4
+\fBsystemd-hibernate-resume-generator\fR(8)
+.RE
+.PP
 /usr/lib/systemd/system\-generators/systemd\-system\-update\-generator
 .RS 4
 \fBsystemd-system-update-generator\fR(8)
@@ -7742,7 +8227,7 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-halt.service\fR(8)
 .RE
 .PP
-/usr/lib/systemd/system\-sleep/
+/usr/lib/systemd/system\-sleep
 .RS 4
 \fBsystemd-suspend.service\fR(8)
 .RE
@@ -7772,6 +8257,11 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-bus-proxyd\fR(8)
 .RE
 .PP
+/usr/lib/systemd/systemd\-coredump
+.RS 4
+\fBsystemd-coredump\fR(8)
+.RE
+.PP
 /usr/lib/systemd/systemd\-cryptsetup
 .RS 4
 \fBsystemd-cryptsetup@.service\fR(8)
@@ -7780,6 +8270,11 @@ $XDG_CONFIG_HOME/systemd/user/
 /usr/lib/systemd/systemd\-fsck
 .RS 4
 \fBsystemd-fsck@.service\fR(8)
+.RE
+.PP
+/usr/lib/systemd/systemd\-hibernate\-resume
+.RS 4
+\fBsystemd-hibernate-resume@.service\fR(8)
 .RE
 .PP
 /usr/lib/systemd/systemd\-hostnamed
@@ -7842,11 +8337,6 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd-random-seed.service\fR(8)
 .RE
 .PP
-\fB/usr/lib/systemd/systemd\-readahead/systemd\-readahead\fR
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
-.RE
-.PP
 /usr/lib/systemd/systemd\-remount\-fs
 .RS 4
 \fBsystemd-remount-fs.service\fR(8)
@@ -7870,11 +8360,6 @@ $XDG_CONFIG_HOME/systemd/user/
 /usr/lib/systemd/systemd\-shutdownd
 .RS 4
 \fBsystemd-shutdownd.service\fR(8)
-.RE
-.PP
-/usr/lib/systemd/systemd\-sleep
-.RS 4
-\fBsystemd-suspend.service\fR(8)
 .RE
 .PP
 /usr/lib/systemd/systemd\-sysctl
@@ -7927,7 +8412,7 @@ $XDG_CONFIG_HOME/systemd/user/
 \fBsystemd.preset\fR(5)
 .RE
 .PP
-/usr/lib/sysusers\&.d/
+/usr/lib/sysusers\&.d
 .RS 4
 \fBsysusers.d\fR(5)
 .RE
@@ -7950,6 +8435,12 @@ $XDG_CONFIG_HOME/systemd/user/
 /usr/lib/udev
 .RS 4
 \fBudev\fR(7)
+.RE
+.PP
+/usr/lib/udev/hwdb\&.bin
+.RS 4
+\fBudev\fR(7),
+\fBudevadm\fR(8)
 .RE
 .PP
 /usr/lib/udev/hwdb\&.d
@@ -8057,7 +8548,13 @@ $XDG_CONFIG_HOME/systemd/user/
 .PP
 /var/lib/systemd/coredump
 .RS 4
-\fBcoredump.conf\fR(5)
+\fBcoredump.conf\fR(5),
+\fBsystemd-coredump\fR(8)
+.RE
+.PP
+/var/lib/systemd/journal\-upload/state
+.RS 4
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 /var/lib/systemd/random\-seed
@@ -8078,9 +8575,13 @@ $XDG_CONFIG_HOME/systemd/user/
 /var/log/journal
 .RS 4
 \fBjournald.conf\fR(5),
-\fBsystemd-journal-remote\fR(8),
 \fBsystemd-journald.service\fR(8),
 \fBsystemd-nspawn\fR(1)
+.RE
+.PP
+/var/log/journal/remote/
+.RS 4
+\fBsystemd-journal-remote\fR(8)
 .RE
 .PP
 /var/log/journal/some\&.host/remote\-some~host\&.journal
@@ -8107,6 +8608,11 @@ $XDG_CONFIG_HOME/systemd/user/
 /var/spool
 .RS 4
 \fBfile-hierarchy\fR(7)
+.RE
+.PP
+/var/systemd/log
+.RS 4
+\fBjournalctl\fR(1)
 .RE
 .PP
 /var/tmp
@@ -8659,6 +9165,21 @@ systemd\-cryptsetup@\&.service
 \fBsystemd-detect-virt\fR(1)
 .RE
 .PP
+\fBsystemd\-escape\fR
+.RS 4
+\fBsystemd-escape\fR(1)
+.RE
+.PP
+\fBsystemd\-firstboot\fR
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
+systemd\-firstboot\&.service
+.RS 4
+\fBsystemd-firstboot\fR(1)
+.RE
+.PP
 systemd\-fsck\-root\&.service
 .RS 4
 \fBsystemd-fsck@.service\fR(8)
@@ -8672,6 +9193,11 @@ systemd\-fsck@\&.service
 systemd\-halt\&.service
 .RS 4
 \fBsystemd-halt.service\fR(8)
+.RE
+.PP
+systemd\-hibernate\-resume@\&.service
+.RS 4
+\fBsystemd-hibernate-resume@.service\fR(8)
 .RE
 .PP
 systemd\-hibernate\&.service
@@ -8717,6 +9243,11 @@ systemd\-journal\-gatewayd\&.socket
 \fBsystemd\-journal\-remote\fR
 .RS 4
 \fBsystemd-journal-remote\fR(8)
+.RE
+.PP
+\fBsystemd\-journal\-upload\fR
+.RS 4
+\fBsystemd-journal-upload\fR(8)
 .RE
 .PP
 systemd\-journald\-dev\-log\&.socket
@@ -8802,26 +9333,6 @@ systemd\-quotacheck\&.service
 systemd\-random\-seed\&.service
 .RS 4
 \fBsystemd-random-seed.service\fR(8)
-.RE
-.PP
-systemd\-readahead\-collect\&.service
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
-.RE
-.PP
-systemd\-readahead\-done\&.service
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
-.RE
-.PP
-systemd\-readahead\-done\&.timer
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
-.RE
-.PP
-systemd\-readahead\-replay\&.service
-.RS 4
-\fBsystemd-readahead-replay.service\fR(8)
 .RE
 .PP
 systemd\-reboot\&.service
@@ -9012,4 +9523,4 @@ user\&.slice
 .RE
 .SH "COLOPHON"
 .PP
-This index contains 1621 entries in 14 sections, referring to 177 individual manual pages\&.
+This index contains 1709 entries in 14 sections, referring to 189 individual manual pages\&.

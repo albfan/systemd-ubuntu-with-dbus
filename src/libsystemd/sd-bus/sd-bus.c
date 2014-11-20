@@ -139,9 +139,10 @@ static void bus_free(sd_bus *b) {
 
         bus_reset_queues(b);
 
-        hashmap_free_free(b->reply_callbacks);
+        ordered_hashmap_free_free(b->reply_callbacks);
         prioq_free(b->reply_callbacks_prioq);
 
+        assert(b->match_callbacks.type == BUS_MATCH_ROOT);
         bus_match_free(&b->match_callbacks);
 
         hashmap_free_free(b->vtable_methods);
@@ -349,8 +350,6 @@ static int hello_callback(sd_bus *bus, sd_bus_message *reply, void *userdata, sd
         assert(reply);
 
         r = sd_bus_message_get_errno(reply);
-        if (r < 0)
-                return r;
         if (r > 0)
                 return -r;
 
@@ -768,7 +767,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
         if (!machine)
                 return -EINVAL;
 
-        if (!filename_is_safe(machine))
+        if (!machine_name_is_valid(machine))
                 return -EINVAL;
 
         free(b->machine);
@@ -810,7 +809,7 @@ static int parse_container_kernel_address(sd_bus *b, const char **p, char **guid
         if (!machine)
                 return -EINVAL;
 
-        if (!filename_is_safe(machine))
+        if (!machine_name_is_valid(machine))
                 return -EINVAL;
 
         free(b->machine);
@@ -1158,13 +1157,13 @@ int bus_set_address_user(sd_bus *b) {
                         return -ENOMEM;
 
 #ifdef ENABLE_KDBUS
-                asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, getuid(), ee);
+                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT ";" UNIX_USER_BUS_FMT, getuid(), ee);
 #else
-                asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
+                (void) asprintf(&b->address, UNIX_USER_BUS_FMT, ee);
 #endif
         } else {
 #ifdef ENABLE_KDBUS
-                asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
+                (void) asprintf(&b->address, KERNEL_USER_BUS_FMT, getuid());
 #else
                 return -ECONNREFUSED;
 #endif
@@ -1306,7 +1305,7 @@ _public_ int sd_bus_open_system_container(sd_bus **ret, const char *machine) {
 
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(filename_is_safe(machine), -EINVAL);
+        assert_return(machine_name_is_valid(machine), -EINVAL);
 
         r = sd_bus_new(&bus);
         if (r < 0)
@@ -1756,7 +1755,7 @@ _public_ int sd_bus_call_async(
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        r = hashmap_ensure_allocated(&bus->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        r = ordered_hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
                 return r;
 
@@ -1779,7 +1778,7 @@ _public_ int sd_bus_call_async(
         s->reply_callback.callback = callback;
 
         s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
-        r = hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
+        r = ordered_hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
         if (r < 0) {
                 s->reply_callback.cookie = 0;
                 return r;
@@ -2093,7 +2092,7 @@ static int process_timeout(sd_bus *bus) {
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
         c->timeout = 0;
 
-        hashmap_remove(bus->reply_callbacks, &c->cookie);
+        ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
         c->cookie = 0;
 
         slot = container_of(c, sd_bus_slot, reply_callback);
@@ -2102,14 +2101,20 @@ static int process_timeout(sd_bus *bus) {
 
         bus->current_message = m;
         bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
         r = c->callback(bus, m, slot->userdata, &error_buffer);
-        bus->current_slot = sd_bus_slot_unref(slot);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
+        bus->current_slot = NULL;
         bus->current_message = NULL;
 
         if (slot->floating) {
                 bus_slot_disconnect(slot);
                 sd_bus_slot_unref(slot);
         }
+
+        sd_bus_slot_unref(slot);
 
         return bus_maybe_reply_error(m, r, &error_buffer);
 }
@@ -2156,7 +2161,7 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         if (m->destination && bus->unique_name && !streq_ptr(m->destination, bus->unique_name))
                 return 0;
 
-        c = hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
+        c = ordered_hashmap_remove(bus->reply_callbacks, &m->reply_cookie);
         if (!c)
                 return 0;
 
@@ -2194,13 +2199,19 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
         }
 
         bus->current_slot = sd_bus_slot_ref(slot);
+        bus->current_handler = c->callback;
+        bus->current_userdata = slot->userdata;
         r = c->callback(bus, m, slot->userdata, &error_buffer);
-        bus->current_slot = sd_bus_slot_unref(slot);
+        bus->current_userdata = NULL;
+        bus->current_handler = NULL;
+        bus->current_slot = NULL;
 
         if (slot->floating) {
                 bus_slot_disconnect(slot);
                 sd_bus_slot_unref(slot);
         }
+
+        sd_bus_slot_unref(slot);
 
         return bus_maybe_reply_error(m, r, &error_buffer);
 }
@@ -2235,7 +2246,11 @@ static int process_filter(sd_bus *bus, sd_bus_message *m) {
                         slot = container_of(l, sd_bus_slot, filter_callback);
 
                         bus->current_slot = sd_bus_slot_ref(slot);
+                        bus->current_handler = l->callback;
+                        bus->current_userdata = slot->userdata;
                         r = l->callback(bus, m, slot->userdata, &error_buffer);
+                        bus->current_userdata = NULL;
+                        bus->current_handler = NULL;
                         bus->current_slot = sd_bus_slot_unref(slot);
 
                         r = bus_maybe_reply_error(m, r, &error_buffer);
@@ -2480,7 +2495,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         assert(bus);
         assert(bus->state == BUS_CLOSING);
 
-        c = hashmap_first(bus->reply_callbacks);
+        c = ordered_hashmap_first(bus->reply_callbacks);
         if (c) {
                 _cleanup_bus_error_free_ sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
                 sd_bus_slot *slot;
@@ -2503,7 +2518,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
                         c->timeout = 0;
                 }
 
-                hashmap_remove(bus->reply_callbacks, &c->cookie);
+                ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
                 c->cookie = 0;
 
                 slot = container_of(c, sd_bus_slot, reply_callback);
@@ -2512,14 +2527,20 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
                 bus->current_message = m;
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->callback;
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, m, slot->userdata, &error_buffer);
-                bus->current_slot = sd_bus_slot_unref(slot);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
+                bus->current_slot = NULL;
                 bus->current_message = NULL;
 
                 if (slot->floating) {
                         bus_slot_disconnect(slot);
                         sd_bus_slot_unref(slot);
                 }
+
+                sd_bus_slot_unref(slot);
 
                 return bus_maybe_reply_error(m, r, &error_buffer);
         }
@@ -2646,7 +2667,7 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[2] = {};
         int r, e, n;
         struct timespec ts;
-        usec_t m = (usec_t) -1;
+        usec_t m = USEC_INFINITY;
 
         assert(bus);
 
@@ -2991,6 +3012,10 @@ static int attach_io_events(sd_bus *bus) {
                         return r;
 
                 r = sd_event_source_set_priority(bus->input_io_event_source, bus->event_priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_name(bus->input_io_event_source, "bus-input");
         } else
                 r = sd_event_source_set_io_fd(bus->input_io_event_source, bus->input_fd);
 
@@ -3006,6 +3031,10 @@ static int attach_io_events(sd_bus *bus) {
                                 return r;
 
                         r = sd_event_source_set_priority(bus->output_io_event_source, bus->event_priority);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_event_source_set_name(bus->input_io_event_source, "bus-output");
                 } else
                         r = sd_event_source_set_io_fd(bus->output_io_event_source, bus->output_fd);
 
@@ -3058,7 +3087,15 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_source_set_name(bus->time_event_source, "bus-time");
+        if (r < 0)
+                goto fail;
+
         r = sd_event_add_exit(bus->event, &bus->quit_event_source, quit_callback, bus);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_name(bus->quit_event_source, "bus-exit");
         if (r < 0)
                 goto fail;
 
@@ -3111,6 +3148,18 @@ _public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
         assert_return(bus, NULL);
 
         return bus->current_slot;
+}
+
+_public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current_handler;
+}
+
+_public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
+        assert_return(bus, NULL);
+
+        return bus->current_userdata;
 }
 
 static int bus_default(int (*bus_open)(sd_bus **), sd_bus **default_bus, sd_bus **ret) {
@@ -3247,55 +3296,6 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ext
         return 1;
 }
 
-_public_ int sd_bus_get_peer_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        sd_bus_creds *c;
-        pid_t pid = 0;
-        int r;
-
-        assert_return(bus, -EINVAL);
-        assert_return(mask <= _SD_BUS_CREDS_ALL, -ENOTSUP);
-        assert_return(ret, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (bus->is_kernel)
-                return -ENOTSUP;
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        if (!bus->ucred_valid && !isempty(bus->label))
-                return -ENODATA;
-
-        c = bus_creds_new();
-        if (!c)
-                return -ENOMEM;
-
-        if (bus->ucred_valid) {
-                pid = c->pid = bus->ucred.pid;
-                c->uid = bus->ucred.uid;
-                c->gid = bus->ucred.gid;
-
-                c->mask |= (SD_BUS_CREDS_UID | SD_BUS_CREDS_PID | SD_BUS_CREDS_GID) & mask;
-        }
-
-        if (!isempty(bus->label) && (mask & SD_BUS_CREDS_SELINUX_CONTEXT)) {
-                c->label = strdup(bus->label);
-                if (!c->label) {
-                        sd_bus_creds_unref(c);
-                        return -ENOMEM;
-                }
-
-                c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
-        }
-
-        r = bus_creds_add_more(c, mask, pid, 0);
-        if (r < 0)
-                return r;
-
-        *ret = c;
-        return 0;
-}
-
 _public_ int sd_bus_try_close(sd_bus *bus) {
         int r;
 
@@ -3329,4 +3329,22 @@ _public_ int sd_bus_get_name(sd_bus *bus, const char **name) {
 
         *name = bus->connection_name;
         return 0;
+}
+
+int bus_get_root_path(sd_bus *bus) {
+        int r;
+
+        if (bus->cgroup_root)
+                return 0;
+
+        r = cg_get_root_path(&bus->cgroup_root);
+        if (r == -ENOENT) {
+                bus->cgroup_root = strdup("/");
+                if (!bus->cgroup_root)
+                        return -ENOMEM;
+
+                r = 0;
+        }
+
+        return r;
 }

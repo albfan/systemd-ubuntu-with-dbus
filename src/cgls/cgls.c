@@ -46,8 +46,7 @@ static bool arg_all = false;
 static int arg_full = -1;
 static char* arg_machine = NULL;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
                "  -h --help           Show this help\n"
@@ -56,10 +55,8 @@ static int help(void) {
                "  -a --all            Show all groups, including empty\n"
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
-               "  -M --machine        Show container\n",
-               program_invocation_short_name);
-
-        return 0;
+               "  -M --machine        Show container\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -84,12 +81,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hkalM:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hkalM:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -122,7 +120,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -131,7 +128,7 @@ int main(int argc, char *argv[]) {
         int r = 0, retval = EXIT_FAILURE;
         int output_flags;
         _cleanup_free_ char *root = NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
 
         log_parse_environment();
         log_open();

@@ -76,7 +76,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
         pager_open_if_enabled();
 
-        names = hashmap_new(string_hash_func, string_compare_func);
+        names = hashmap_new(&string_hash_ops);
         if (!names)
                 return log_oom();
 
@@ -142,7 +142,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
 
                 printf("%-*s", (int) max_i, *i);
 
-                r = sd_bus_get_owner(bus, *i,
+                r = sd_bus_get_name_creds(bus, *i,
                                      SD_BUS_CREDS_UID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|
                                      SD_BUS_CREDS_UNIQUE_NAME|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_SESSION|
                                      SD_BUS_CREDS_CONNECTION_NAME, &creds);
@@ -210,7 +210,7 @@ static int list_bus_names(sd_bus *bus, char **argv) {
                         printf("          - -               -                -             -                         -          -                  ");
 
                 if (arg_show_machine) {
-                        r = sd_bus_get_owner_machine_id(bus, *i, &mid);
+                        r = sd_bus_get_name_machine_id(bus, *i, &mid);
                         if (r >= 0) {
                                 char m[SD_ID128_STRING_MAX];
                                 printf(" %s\n", sd_id128_to_string(mid, m));
@@ -306,7 +306,7 @@ static int status(sd_bus *bus, char *argv[]) {
 
         r = parse_pid(argv[1], &pid);
         if (r < 0)
-                r = sd_bus_get_owner(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
+                r = sd_bus_get_name_creds(bus, argv[1], _SD_BUS_CREDS_ALL, &creds);
         else
                 r = sd_bus_creds_new_from_pid(&creds, pid, _SD_BUS_CREDS_ALL);
 
@@ -320,7 +320,6 @@ static int status(sd_bus *bus, char *argv[]) {
 }
 
 static int help(void) {
-
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Introspect the bus.\n\n"
                "  -h --help               Show this help\n"
@@ -341,8 +340,8 @@ static int help(void) {
                "  list                    List bus names\n"
                "  monitor [SERVICE...]    Show bus traffic\n"
                "  status NAME             Show name status\n"
-               "  help                    Show this help\n",
-               program_invocation_short_name);
+               "  help                    Show this help\n"
+               , program_invocation_short_name);
 
         return 0;
 }
@@ -386,7 +385,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -455,7 +454,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (!arg_unique && !arg_acquired && !arg_activatable)
                 arg_unique = arg_acquired = arg_activatable = true;
@@ -484,7 +482,7 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMCTL" "1" "" "systemd 215" "systemctl"
+.TH "SYSTEMCTL" "1" "" "systemd 217" "systemctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -28,8 +28,10 @@ systemctl \- Control the systemd system and service manager
 .PP
 \fBsystemctl\fR
 may be used to introspect and control the state of the
+"systemd"
+system and service manager\&. Please refer to
 \fBsystemd\fR(1)
-system and service manager\&.
+for an introduction into the basic concepts and functionality this tool manages\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
@@ -452,9 +454,7 @@ systemd unit file\&.
 .sp
 This command should not be confused with the
 \fBdaemon\-reload\fR
-or
-\fBload\fR
-commands\&.
+command\&.
 .RE
 .PP
 \fBrestart \fR\fB\fIPATTERN\fR\fR\fB\&.\&.\&.\fR
@@ -627,6 +627,10 @@ Depending on whether
 \fB\-\-runtime\fR, or
 \fB\-\-global\fR
 is specified, this enables the unit for the system, for the calling user only, for only this boot of the system, or for all future logins of all users, or only this boot\&. Note that in the last case, no systemd daemon configuration is reloaded\&.
+.sp
+Using
+\fBenable\fR
+on masked units results in an error\&.
 .RE
 .PP
 \fBdisable \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
@@ -769,7 +773,7 @@ to control whether units shall be enabled and disabled, or only enabled, or only
 .RS 4
 Mask one or more unit files, as specified on the command line\&. This will link these units to
 /dev/null, making it impossible to start them\&. This is a stronger version of
-\fBdisable\fR, since it prohibits all kinds of activation of the unit, including manual activation\&. Use this option with care\&. This honors the
+\fBdisable\fR, since it prohibits all kinds of activation of the unit, including enablement and manual activation\&. Use this option with care\&. This honors the
 \fB\-\-runtime\fR
 option to only mask temporarily until the next reboot of the system\&.
 .RE
@@ -778,6 +782,26 @@ option to only mask temporarily until the next reboot of the system\&.
 .RS 4
 Unmask one or more unit files, as specified on the command line\&. This will undo the effect of
 \fBmask\fR\&.
+.RE
+.PP
+\fBadd\-wants \fR\fB\fITARGET\fR\fR\fB \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR, \fBadd\-requires \fR\fB\fITARGET\fR\fR\fB \fR\fB\fINAME\fR\fR\fB\&.\&.\&.\fR
+.RS 4
+Adds
+"Wants="
+resp\&.
+"Requires="
+dependency to the specified
+\fITARGET\fR
+for one or more units\&.
+.sp
+This command honors
+\fB\-\-system\fR,
+\fB\-\-user\fR,
+\fB\-\-runtime\fR
+and
+\fB\-\-global\fR
+in a similar way as
+\fBenable\fR\&.
 .RE
 .PP
 \fBlink \fR\fB\fIFILENAME\fR\fR\fB\&.\&.\&.\fR
@@ -865,13 +889,11 @@ Import all, one or more environment variables set on the client into the systemd
 .PP
 \fBdaemon\-reload\fR
 .RS 4
-Reload systemd manager configuration\&. This will reload all unit files and recreate the entire dependency tree\&. While the daemon is being reloaded, all sockets systemd listens on on behalf of user configuration will stay accessible\&.
+Reload systemd manager configuration\&. This will reload all unit files and recreate the entire dependency tree\&. While the daemon is being reloaded, all sockets systemd listens on behalf of user configuration will stay accessible\&.
 .sp
 This command should not be confused with the
-\fBload\fR
-or
 \fBreload\fR
-commands\&.
+command\&.
 .RE
 .PP
 \fBdaemon\-reexec\fR
@@ -883,9 +905,66 @@ Reexecute the systemd manager\&. This will serialize the manager state, reexecut
 .PP
 \fBis\-system\-running\fR
 .RS 4
-Checks whether the system is running\&. This returns success when the system is fully up and running, meaning not in startup, shutdown or maintainance mode\&. Failure is returned otherwise\&. In addition, the current state is printed in a short string to standard output\&. Use
+Checks whether the system is operational\&. This returns success when the system is fully up and running, meaning not in startup, shutdown or maintenance mode\&. Failure is returned otherwise\&. In addition, the current state is printed in a short string to standard output, see table below\&. Use
 \fB\-\-quiet\fR
-to suppress output of this state string\&.
+to suppress this output\&.
+.sp
+.it 1 an-trap
+.nr an-no-space-flag 1
+.nr an-break-flag 1
+.br
+.B Table\ \&2.\ \&Manager Operational States
+.TS
+allbox tab(:);
+lB lB.
+T{
+Name
+T}:T{
+Description
+T}
+.T&
+l l
+l l
+l l
+l l
+l l
+l l.
+T{
+\fIinitializing\fR
+T}:T{
+Early bootup, before
+basic\&.target
+is reached or the
+\fImaintenance\fR
+state entered\&.
+T}
+T{
+\fIstarting\fR
+T}:T{
+Late bootup, before the job queue becomes idle for the first time, or one of the rescue targets are reached\&.
+T}
+T{
+\fIrunning\fR
+T}:T{
+The system is fully operational\&.
+T}
+T{
+\fIdegraded\fR
+T}:T{
+The system is operational but one or more units failed\&.
+T}
+T{
+\fImaintenance\fR
+T}:T{
+The rescue or emergency target is active\&.
+T}
+T{
+\fIstopping\fR
+T}:T{
+The manager is shutting down\&.
+T}
+.TE
+.sp 1
 .RE
 .PP
 \fBdefault\fR

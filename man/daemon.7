@@ -1,5 +1,5 @@
 '\" t
-.TH "DAEMON" "7" "" "systemd 215" "daemon"
+.TH "DAEMON" "7" "" "systemd 217" "daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -40,7 +40,8 @@ When a traditional SysV daemon starts, it should execute the following steps as 
 Close all open file descriptors except standard input, output, and error (i\&.e\&. the first three file descriptors 0, 1, 2)\&. This ensures that no accidentally passed file descriptor stays around in the daemon process\&. On Linux, this is best implemented by iterating through
 /proc/self/fd, with a fallback of iterating from file descriptor 3 to the value returned by
 \fBgetrlimit()\fR
-for RLIMIT_NOFILE\&.
+for
+\fBRLIMIT_NOFILE\fR\&.
 .RE
 .sp
 .RS 4
@@ -51,7 +52,9 @@ for RLIMIT_NOFILE\&.
 .sp -1
 .IP "  2." 4.2
 .\}
-Reset all signal handlers to their default\&. This is best done by iterating through the available signals up to the limit of _NSIG and resetting them to
+Reset all signal handlers to their default\&. This is best done by iterating through the available signals up to the limit of
+\fB_NSIG\fR
+and resetting them to
 \fBSIG_DFL\fR\&.
 .RE
 .sp
@@ -360,7 +363,9 @@ interface\&.
 Instead of using the
 \fBsyslog()\fR
 call to log directly to the system syslog service, a new\-style daemon may choose to simply log to standard error via
-\fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log priorities are necessary, these can be encoded by prefixing individual log lines with strings like "<4>" (for log priority 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
+\fBfprintf()\fR, which is then forwarded to syslog by the init system\&. If log priorities are necessary, these can be encoded by prefixing individual log lines with strings like
+"<4>"
+(for log priority 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel\*(Aqs
 \fBprintk()\fR
 priority system\&. For details, see
 \fBsd-daemon\fR(3)
@@ -462,7 +467,9 @@ units, as described in
 .PP
 Other forms of activation have been suggested and implemented in some systems\&. However, there are often simpler or better alternatives, or they can be put together of combinations of the schemes above\&. Example: Sometimes, it appears useful to start daemons or
 \&.socket
-units when a specific IP address is configured on a network interface, because network sockets shall be bound to the address\&. However, an alternative to implement this is by utilizing the Linux IP_FREEBIND socket option, as accessible via
+units when a specific IP address is configured on a network interface, because network sockets shall be bound to the address\&. However, an alternative to implement this is by utilizing the Linux
+\fBIP_FREEBIND\fR
+socket option, as accessible via
 \fIFreeBind=yes\fR
 in systemd socket files (see
 \fBsystemd.socket\fR(5)

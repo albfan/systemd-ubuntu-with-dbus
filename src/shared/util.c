@@ -140,48 +140,59 @@ char* endswith(const char *s, const char *postfix) {
         return (char*) s + sl - pl;
 }
 
-bool first_word(const char *s, const char *word) {
+char* first_word(const char *s, const char *word) {
         size_t sl, wl;
+        const char *p;
 
         assert(s);
         assert(word);
+
+        /* Checks if the string starts with the specified word, either
+         * followed by NUL or by whitespace. Returns a pointer to the
+         * NUL or the first character after the whitespace. */
 
         sl = strlen(s);
         wl = strlen(word);
 
         if (sl < wl)
-                return false;
+                return NULL;
 
         if (wl == 0)
-                return true;
+                return (char*) s;
 
         if (memcmp(s, word, wl) != 0)
-                return false;
+                return NULL;
 
-        return s[wl] == 0 ||
-                strchr(WHITESPACE, s[wl]);
+        p = s + wl;
+        if (*p == 0)
+                return (char*) p;
+
+        if (!strchr(WHITESPACE, *p))
+                return NULL;
+
+        p += strspn(p, WHITESPACE);
+        return (char*) p;
 }
 
 int close_nointr(int fd) {
-        int r;
-
         assert(fd >= 0);
-        r = close(fd);
-        if (r >= 0)
-                return r;
-        else if (errno == EINTR)
-                /*
-                 * Just ignore EINTR; a retry loop is the wrong
-                 * thing to do on Linux.
-                 *
-                 * http://lkml.indiana.edu/hypermail/linux/kernel/0509.1/0877.html
-                 * https://bugzilla.gnome.org/show_bug.cgi?id=682819
-                 * http://utcc.utoronto.ca/~cks/space/blog/unix/CloseEINTR
-                 * https://sites.google.com/site/michaelsafyan/software-engineering/checkforeintrwheninvokingclosethinkagain
-                 */
+
+        if (close(fd) >= 0)
                 return 0;
-        else
-                return -errno;
+
+        /*
+         * Just ignore EINTR; a retry loop is the wrong thing to do on
+         * Linux.
+         *
+         * http://lkml.indiana.edu/hypermail/linux/kernel/0509.1/0877.html
+         * https://bugzilla.gnome.org/show_bug.cgi?id=682819
+         * http://utcc.utoronto.ca/~cks/space/blog/unix/CloseEINTR
+         * https://sites.google.com/site/michaelsafyan/software-engineering/checkforeintrwheninvokingclosethinkagain
+         */
+        if (errno == EINTR)
+                return 0;
+
+        return -errno;
 }
 
 int safe_close(int fd) {
@@ -231,9 +242,9 @@ int unlink_noerrno(const char *path) {
 int parse_boolean(const char *v) {
         assert(v);
 
-        if (streq(v, "1") || v[0] == 'y' || v[0] == 'Y' || v[0] == 't' || v[0] == 'T' || strcaseeq(v, "on"))
+        if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
                 return 1;
-        else if (streq(v, "0") || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F' || strcaseeq(v, "off"))
+        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") || strcaseeq(v, "f") || strcaseeq(v, "off"))
                 return 0;
 
         return -EINVAL;
@@ -332,6 +343,26 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
+int safe_atou8(const char *s, uint8_t *ret) {
+        char *x = NULL;
+        unsigned long l;
+
+        assert(s);
+        assert(ret);
+
+        errno = 0;
+        l = strtoul(s, &x, 0);
+
+        if (!x || x == s || *x || errno)
+                return errno > 0 ? -errno : -EINVAL;
+
+        if ((unsigned long) (uint8_t) l != l)
+                return -ERANGE;
+
+        *ret = (uint8_t) l;
+        return 0;
+}
+
 int safe_atollu(const char *s, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;
@@ -395,37 +426,50 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
                 else if (s[n] == '\\')
                         escaped = true;
                 else if (strchr(reject, s[n]))
-                        return n;
+                        break;
         }
-        return n;
+        /* if s ends in \, return index of previous char */
+        return n - escaped;
 }
 
 /* Split a string into words. */
-char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state) {
-        char *current;
+const char* split(const char **state, size_t *l, const char *separator, bool quoted) {
+        const char *current;
 
-        current = *state ? *state : (char*) c;
+        current = *state;
 
-        if (!*current || *c == 0)
+        if (!*current) {
+                assert(**state == '\0');
                 return NULL;
-
-        current += strspn(current, separator);
-        if (!*current)
-                return NULL;
-
-        if (quoted && strchr("\'\"", *current)) {
-                char quotechar = *(current++);
-                *l = strcspn_escaped(current, (char[]){quotechar, '\0'});
-                *state = current+*l+1;
-        } else if (quoted) {
-                *l = strcspn_escaped(current, separator);
-                *state = current+*l;
-        } else {
-                *l = strcspn(current, separator);
-                *state = current+*l;
         }
 
-        return (char*) current;
+        current += strspn(current, separator);
+        if (!*current) {
+                *state = current;
+                return NULL;
+        }
+
+        if (quoted && strchr("\'\"", *current)) {
+                char quotechars[2] = {*current, '\0'};
+
+                *l = strcspn_escaped(current + 1, quotechars);
+                if (current[*l + 1] == '\0' ||
+                    (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
+                        /* right quote missing or garbage at the end*/
+                        *state = current;
+                        return NULL;
+                }
+                assert(current[*l + 1] == quotechars[0]);
+                *state = current++ + *l + 2;
+        } else if (quoted) {
+                *l = strcspn_escaped(current, separator);
+                *state = current + *l;
+        } else {
+                *l = strcspn(current, separator);
+                *state = current + *l;
+        }
+
+        return current;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
@@ -893,7 +937,7 @@ int readlink_and_canonicalize(const char *p, char **r) {
 }
 
 int reset_all_signal_handlers(void) {
-        int sig;
+        int sig, r = 0;
 
         for (sig = 1; sig < _NSIG; sig++) {
                 struct sigaction sa = {
@@ -901,15 +945,28 @@ int reset_all_signal_handlers(void) {
                         .sa_flags = SA_RESTART,
                 };
 
+                /* These two cannot be caught... */
                 if (sig == SIGKILL || sig == SIGSTOP)
                         continue;
 
                 /* On Linux the first two RT signals are reserved by
                  * glibc, and sigaction() will return EINVAL for them. */
                 if ((sigaction(sig, &sa, NULL) < 0))
-                        if (errno != EINVAL)
-                                return -errno;
+                        if (errno != EINVAL && r == 0)
+                                r = -errno;
         }
+
+        return r;
+}
+
+int reset_signal_mask(void) {
+        sigset_t ss;
+
+        if (sigemptyset(&ss) < 0)
+                return -errno;
+
+        if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0)
+                return -errno;
 
         return 0;
 }
@@ -1038,7 +1095,7 @@ int unhexchar(char c) {
         if (c >= 'A' && c <= 'F')
                 return c - 'A' + 10;
 
-        return -1;
+        return -EINVAL;
 }
 
 char *hexmem(const void *p, size_t l) {
@@ -1093,7 +1150,7 @@ int unoctchar(char c) {
         if (c >= '0' && c <= '7')
                 return c - '0';
 
-        return -1;
+        return -EINVAL;
 }
 
 char decchar(int x) {
@@ -1105,7 +1162,7 @@ int undecchar(char c) {
         if (c >= '0' && c <= '9')
                 return c - '0';
 
-        return -1;
+        return -EINVAL;
 }
 
 char *cescape(const char *s) {
@@ -1197,7 +1254,7 @@ char *cunescape_length_with_prefix(const char *s, size_t length, const char *pre
 
         r = new(char, pl+length+1);
         if (!r)
-                return r;
+                return NULL;
 
         if (prefix)
                 memcpy(r, prefix, pl);
@@ -1377,6 +1434,7 @@ _pure_ static bool ignore_file_allow_backup(const char *filename) {
                 endswith(filename, ".rpmorig") ||
                 endswith(filename, ".dpkg-old") ||
                 endswith(filename, ".dpkg-new") ||
+                endswith(filename, ".dpkg-tmp") ||
                 endswith(filename, ".swp");
 }
 
@@ -1581,7 +1639,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                 if (tcsetattr(fileno(f), TCSADRAIN, &new_termios) >= 0) {
                         size_t k;
 
-                        if (t != (usec_t) -1) {
+                        if (t != USEC_INFINITY) {
                                 if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0) {
                                         tcsetattr(fileno(f), TCSADRAIN, &old_termios);
                                         return -ETIMEDOUT;
@@ -1603,13 +1661,14 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
                 }
         }
 
-        if (t != (usec_t) -1) {
+        if (t != USEC_INFINITY) {
                 if (fd_wait_for_event(fileno(f), POLLIN, t) <= 0)
                         return -ETIMEDOUT;
         }
 
+        errno = 0;
         if (!fgets(line, sizeof(line), f))
-                return -EIO;
+                return errno ? -errno : -EIO;
 
         truncate_nl(line);
 
@@ -1623,7 +1682,7 @@ int read_one_char(FILE *f, char *ret, usec_t t, bool *need_nl) {
         return 0;
 }
 
-int ask(char *ret, const char *replies, const char *text, ...) {
+int ask_char(char *ret, const char *replies, const char *text, ...) {
         int r;
 
         assert(ret);
@@ -1647,7 +1706,7 @@ int ask(char *ret, const char *replies, const char *text, ...) {
 
                 fflush(stdout);
 
-                r = read_one_char(stdin, &c, (usec_t) -1, &need_nl);
+                r = read_one_char(stdin, &c, USEC_INFINITY, &need_nl);
                 if (r < 0) {
 
                         if (r == -EBADMSG) {
@@ -1668,6 +1727,49 @@ int ask(char *ret, const char *replies, const char *text, ...) {
                 }
 
                 puts("Read unexpected character, please try again.");
+        }
+}
+
+int ask_string(char **ret, const char *text, ...) {
+        assert(ret);
+        assert(text);
+
+        for (;;) {
+                char line[LINE_MAX];
+                va_list ap;
+
+                if (on_tty())
+                        fputs(ANSI_HIGHLIGHT_ON, stdout);
+
+                va_start(ap, text);
+                vprintf(text, ap);
+                va_end(ap);
+
+                if (on_tty())
+                        fputs(ANSI_HIGHLIGHT_OFF, stdout);
+
+                fflush(stdout);
+
+                errno = 0;
+                if (!fgets(line, sizeof(line), stdin))
+                        return errno ? -errno : -EIO;
+
+                if (!endswith(line, "\n"))
+                        putchar('\n');
+                else {
+                        char *s;
+
+                        if (isempty(line))
+                                continue;
+
+                        truncate_nl(line);
+                        s = strdup(line);
+                        if (!s)
+                                return -ENOMEM;
+
+                        *ret = s;
+                        return 0;
+                }
         }
 }
 
@@ -1776,9 +1878,6 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        if (fd < 0)
-                return -errno;
-
         r = isatty(fd);
         if (r < 0) {
                 safe_close(fd);
@@ -1854,11 +1953,11 @@ int acquire_terminal(
          * on the same tty as an untrusted user this should not be a
          * problem. (Which he probably should not do anyway.) */
 
-        if (timeout != (usec_t) -1)
+        if (timeout != USEC_INFINITY)
                 ts = now(CLOCK_MONOTONIC);
 
         if (!fail && !force) {
-                notify = inotify_init1(IN_CLOEXEC | (timeout != (usec_t) -1 ? IN_NONBLOCK : 0));
+                notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
                 if (notify < 0) {
                         r = -errno;
                         goto fail;
@@ -1922,7 +2021,7 @@ int acquire_terminal(
                         ssize_t l;
                         struct inotify_event *e;
 
-                        if (timeout != (usec_t) -1) {
+                        if (timeout != USEC_INFINITY) {
                                 usec_t n;
 
                                 n = now(CLOCK_MONOTONIC);
@@ -1975,7 +2074,7 @@ int acquire_terminal(
                  * ended our handle will be dead. It's important that
                  * we do this after sleeping, so that we don't enter
                  * an endless loop. */
-                safe_close(fd);
+                fd = safe_close(fd);
         }
 
         safe_close(notify);
@@ -1994,12 +2093,14 @@ fail:
 }
 
 int release_terminal(void) {
-        int r = 0;
-        struct sigaction sa_old, sa_new = {
+        static const struct sigaction sa_new = {
                 .sa_handler = SIG_IGN,
                 .sa_flags = SA_RESTART,
         };
-        _cleanup_close_ int fd;
+
+        _cleanup_close_ int fd = -1;
+        struct sigaction sa_old;
+        int r = 0;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_NDELAY|O_CLOEXEC);
         if (fd < 0)
@@ -2104,7 +2205,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
                          * and expect that any error/EOF is reported
                          * via read() */
 
-                        fd_wait_for_event(fd, POLLIN, (usec_t) -1);
+                        fd_wait_for_event(fd, POLLIN, USEC_INFINITY);
                         continue;
                 }
 
@@ -2139,7 +2240,7 @@ ssize_t loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                          * and expect that any error/EOF is reported
                          * via write() */
 
-                        fd_wait_for_event(fd, POLLOUT, (usec_t) -1);
+                        fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
                         continue;
                 }
 
@@ -2500,7 +2601,7 @@ bool hostname_is_set(void) {
         return !isempty(u.nodename) && !streq(u.nodename, "(none)");
 }
 
-static char *lookup_uid(uid_t uid) {
+char *lookup_uid(uid_t uid) {
         long bufsize;
         char *name;
         _cleanup_free_ char *buf = NULL;
@@ -2966,7 +3067,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
                 if (emax < 3)
                         emax = 3;
 
-                e = ellipsize(s, emax, 75);
+                e = ellipsize(s, emax, 50);
                 if (e) {
                         free(s);
                         s = e;
@@ -3086,12 +3187,13 @@ fail:
 }
 
 char **replace_env_argv(char **argv, char **env) {
-        char **r, **i;
+        char **ret, **i;
         unsigned k = 0, l = 0;
 
         l = strv_length(argv);
 
-        if (!(r = new(char*, l+1)))
+        ret = new(char*, l+1);
+        if (!ret)
                 return NULL;
 
         STRV_FOREACH(i, argv) {
@@ -3104,10 +3206,12 @@ char **replace_env_argv(char **argv, char **env) {
 
                         e = strv_env_get(env, *i+1);
                         if (e) {
+                                int r;
 
-                                if (!(m = strv_split_quoted(e))) {
-                                        r[k] = NULL;
-                                        strv_free(r);
+                                r = strv_split_quoted(&m, e);
+                                if (r < 0) {
+                                        ret[k] = NULL;
+                                        strv_free(ret);
                                         return NULL;
                                 }
                         } else
@@ -3116,16 +3220,17 @@ char **replace_env_argv(char **argv, char **env) {
                         q = strv_length(m);
                         l = l + q - 1;
 
-                        if (!(w = realloc(r, sizeof(char*) * (l+1)))) {
-                                r[k] = NULL;
-                                strv_free(r);
+                        w = realloc(ret, sizeof(char*) * (l+1));
+                        if (!w) {
+                                ret[k] = NULL;
+                                strv_free(ret);
                                 strv_free(m);
                                 return NULL;
                         }
 
-                        r = w;
+                        ret = w;
                         if (m) {
-                                memcpy(r + k, m, q * sizeof(char*));
+                                memcpy(ret + k, m, q * sizeof(char*));
                                 free(m);
                         }
 
@@ -3134,14 +3239,16 @@ char **replace_env_argv(char **argv, char **env) {
                 }
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
-                if (!(r[k++] = replace_env(*i, env))) {
-                        strv_free(r);
+                ret[k] = replace_env(*i, env);
+                if (!ret[k]) {
+                        strv_free(ret);
                         return NULL;
                 }
+                k++;
         }
 
-        r[k] = NULL;
-        return r;
+        ret[k] = NULL;
+        return ret;
 }
 
 int fd_columns(int fd) {
@@ -3166,7 +3273,7 @@ unsigned columns(void) {
         c = 0;
         e = getenv("COLUMNS");
         if (e)
-                safe_atoi(e, &c);
+                (void) safe_atoi(e, &c);
 
         if (c <= 0)
                 c = fd_columns(STDOUT_FILENO);
@@ -3200,7 +3307,7 @@ unsigned lines(void) {
         l = 0;
         e = getenv("LINES");
         if (e)
-                safe_atou(e, &l);
+                (void) safe_atou(e, &l);
 
         if (l <= 0)
                 l = fd_lines(STDOUT_FILENO);
@@ -3384,7 +3491,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
                         return -errno;
         }
 
-        if (stamp != (usec_t) -1) {
+        if (stamp != USEC_INFINITY) {
                 struct timespec ts[2];
 
                 timespec_store(&ts[0], stamp);
@@ -3399,7 +3506,7 @@ int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gi
 }
 
 int touch(const char *path) {
-        return touch_file(path, false, (usec_t) -1, (uid_t) -1, (gid_t) -1, 0);
+        return touch_file(path, false, USEC_INFINITY, (uid_t) -1, (gid_t) -1, 0);
 }
 
 char *unquote(const char *s, const char* quotes) {
@@ -3555,6 +3662,17 @@ int null_or_empty_path(const char *fn) {
         assert(fn);
 
         if (stat(fn, &st) < 0)
+                return -errno;
+
+        return null_or_empty(&st);
+}
+
+int null_or_empty_fd(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         return null_or_empty(&st);
@@ -3769,16 +3887,13 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                 _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
                 _cleanup_closedir_ DIR *_d = NULL;
                 struct dirent *de;
-                sigset_t ss;
 
                 /* We fork this all off from a child process so that
                  * we can somewhat cleanly make use of SIGALRM to set
                  * a time limit */
 
                 reset_all_signal_handlers();
-
-                assert_se(sigemptyset(&ss) == 0);
-                assert_se(sigprocmask(SIG_SETMASK, &ss, NULL) == 0);
+                reset_signal_mask();
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
@@ -3793,7 +3908,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                         }
                 }
 
-                pids = hashmap_new(NULL, NULL);
+                pids = hashmap_new(NULL);
                 if (!pids) {
                         log_oom();
                         _exit(EXIT_FAILURE);
@@ -3806,7 +3921,8 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                         if (!dirent_is_file(de))
                                 continue;
 
-                        if (asprintf(&path, "%s/%s", directory, de->d_name) < 0) {
+                        path = strjoin(directory, "/", de->d_name, NULL);
+                        if (!path) {
                                 log_oom();
                                 _exit(EXIT_FAILURE);
                         }
@@ -3832,7 +3948,6 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                                 _exit(EXIT_FAILURE);
                         }
 
-
                         log_debug("Spawned %s as " PID_FMT ".", path, pid);
 
                         r = hashmap_put(pids, UINT_TO_PTR(pid), path);
@@ -3848,7 +3963,7 @@ void execute_directory(const char *directory, DIR *d, usec_t timeout, char *argv
                  * timout. We simply rely on SIGALRM as default action
                  * terminating the process, and turn on alarm(). */
 
-                if (timeout != (usec_t) -1)
+                if (timeout != USEC_INFINITY)
                         alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
 
                 while (!hashmap_isempty(pids)) {
@@ -4018,7 +4133,7 @@ int fd_wait_for_event(int fd, int event, usec_t t) {
         struct timespec ts;
         int r;
 
-        r = ppoll(&pollfd, 1, t == (usec_t) -1 ? NULL : timespec_store(&ts, t), NULL);
+        r = ppoll(&pollfd, 1, t == USEC_INFINITY ? NULL : timespec_store(&ts, t), NULL);
         if (r < 0)
                 return -errno;
 
@@ -4848,7 +4963,7 @@ int signal_from_string(const char *s) {
                 if (signo > 0 && signo < _NSIG)
                         return signo;
         }
-        return -1;
+        return -EINVAL;
 }
 
 bool kexec_loaded(void) {
@@ -4861,24 +4976,6 @@ bool kexec_loaded(void) {
                free(s);
        }
        return loaded;
-}
-
-int strdup_or_null(const char *a, char **b) {
-        char *c;
-
-        assert(b);
-
-        if (!a) {
-                *b = NULL;
-                return 0;
-        }
-
-        c = strdup(a);
-        if (!c)
-                return -ENOMEM;
-
-        *b = c;
-        return 0;
 }
 
 int prot_from_flags(int flags) {
@@ -4984,9 +5081,9 @@ int fd_inc_rcvbuf(int fd, size_t n) {
 }
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...) {
-        pid_t parent_pid, agent_pid;
-        int fd;
         bool stdout_is_tty, stderr_is_tty;
+        pid_t parent_pid, agent_pid;
+        sigset_t ss, saved_ss;
         unsigned n, i;
         va_list ap;
         char **l;
@@ -4994,16 +5091,25 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
         assert(pid);
         assert(path);
 
-        parent_pid = getpid();
-
         /* Spawns a temporary TTY agent, making sure it goes away when
          * we go away */
 
+        parent_pid = getpid();
+
+        /* First we temporarily block all signals, so that the new
+         * child has them blocked initially. This way, we can be sure
+         * that SIGTERMs are not lost we might send to the agent. */
+        assert_se(sigfillset(&ss) >= 0);
+        assert_se(sigprocmask(SIG_SETMASK, &ss, &saved_ss) >= 0);
+
         agent_pid = fork();
-        if (agent_pid < 0)
+        if (agent_pid < 0) {
+                assert_se(sigprocmask(SIG_SETMASK, &saved_ss, NULL) >= 0);
                 return -errno;
+        }
 
         if (agent_pid != 0) {
+                assert_se(sigprocmask(SIG_SETMASK, &saved_ss, NULL) >= 0);
                 *pid = agent_pid;
                 return 0;
         }
@@ -5014,8 +5120,14 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
         if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
                 _exit(EXIT_FAILURE);
 
+        /* Make sure we actually can kill the agent, if we need to, in
+         * case somebody invoked us from a shell script that trapped
+         * SIGTERM or so... */
+        reset_all_signal_handlers();
+        reset_signal_mask();
+
         /* Check whether our parent died before we were able
-         * to set the death signal */
+         * to set the death signal and unblock the signals */
         if (getppid() != parent_pid)
                 _exit(EXIT_SUCCESS);
 
@@ -5026,6 +5138,8 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
         stderr_is_tty = isatty(STDERR_FILENO);
 
         if (!stdout_is_tty || !stderr_is_tty) {
+                int fd;
+
                 /* Detach from stdout/stderr. and reopen
                  * /dev/tty for them. This is important to
                  * ensure that when systemctl is started via
@@ -5217,7 +5331,7 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", false, true, true, (usec_t) -1);
+        fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
         if (fd < 0) {
                 log_error("Failed to acquire terminal: %s", strerror(-fd));
                 return fd;
@@ -5349,13 +5463,14 @@ bool filename_is_safe(const char *p) {
 bool string_is_safe(const char *p) {
         const char *t;
 
-        assert(p);
+        if (!p)
+                return false;
 
         for (t = p; *t; t++) {
                 if (*t > 0 && *t < ' ')
                         return false;
 
-                if (strchr("\\\"\'", *t))
+                if (strchr("\\\"\'\0x7f", *t))
                         return false;
         }
 
@@ -5363,17 +5478,24 @@ bool string_is_safe(const char *p) {
 }
 
 /**
- * Check if a string contains control characters.
- * Spaces and tabs are not considered control characters.
+ * Check if a string contains control characters. If 'ok' is non-NULL
+ * it may be a string containing additional CCs to be considered OK.
  */
-bool string_has_cc(const char *p) {
+bool string_has_cc(const char *p, const char *ok) {
         const char *t;
 
         assert(p);
 
-        for (t = p; *t; t++)
-                if (*t > 0 && *t < ' ' && *t != '\t')
+        for (t = p; *t; t++) {
+                if (ok && strchr(ok, *t))
+                        continue;
+
+                if (*t > 0 && *t < ' ')
                         return true;
+
+                if (*t == 127)
+                        return true;
+        }
 
         return false;
 }
@@ -5975,7 +6097,7 @@ int split_pair(const char *s, const char *sep, char **l, char **r) {
 
 int shall_restore_state(void) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *word, *state;
         size_t l;
         int r;
 
@@ -5987,12 +6109,12 @@ int shall_restore_state(void) {
 
         r = 1;
 
-        FOREACH_WORD_QUOTED(w, l, line, state) {
+        FOREACH_WORD_QUOTED(word, l, line, state) {
                 const char *e;
                 char n[l+1];
                 int k;
 
-                memcpy(n, w, l);
+                memcpy(n, word, l);
                 n[l] = 0;
 
                 e = startswith(n, "systemd.restore_state=");
@@ -6036,7 +6158,7 @@ int proc_cmdline(char **ret) {
 
 int parse_proc_cmdline(int (*parse_item)(const char *key, const char *value)) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *w, *state;
         size_t l;
         int r;
 
@@ -6569,7 +6691,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
 
         path_kill_slashes(cleaned);
 
-        done = set_new(string_hash_func, string_compare_func);
+        done = set_new(&string_hash_ops);
         if (!done)
                 return -ENOMEM;
 
@@ -6579,7 +6701,7 @@ int bind_remount_recursive(const char *prefix, bool ro) {
                 bool top_autofs = false;
                 char *x;
 
-                todo = set_new(string_hash_func, string_compare_func);
+                todo = set_new(&string_hash_ops);
                 if (!todo)
                         return -ENOMEM;
 
@@ -6752,13 +6874,324 @@ char *tempfn_random(const char *p) {
 bool is_localhost(const char *hostname) {
         assert(hostname);
 
-        /* This tries to identify local hostnames described in RFC6761
-         * plus the redhatism of .localdomain */
+        /* This tries to identify local host and domain names
+         * described in RFC6761 plus the redhatism of .localdomain */
 
         return streq(hostname, "localhost") ||
                streq(hostname, "localhost.") ||
+               streq(hostname, "localdomain.") ||
+               streq(hostname, "localdomain") ||
                endswith(hostname, ".localhost") ||
                endswith(hostname, ".localhost.") ||
                endswith(hostname, ".localdomain") ||
                endswith(hostname, ".localdomain.");
+}
+
+int take_password_lock(const char *root) {
+
+        struct flock flock = {
+                .l_type = F_WRLCK,
+                .l_whence = SEEK_SET,
+                .l_start = 0,
+                .l_len = 0,
+        };
+
+        const char *path;
+        int fd, r;
+
+        /* This is roughly the same as lckpwdf(), but not as awful. We
+         * don't want to use alarm() and signals, hence we implement
+         * our own trivial version of this.
+         *
+         * Note that shadow-utils also takes per-database locks in
+         * addition to lckpwdf(). However, we don't given that they
+         * are redundant as they they invoke lckpwdf() first and keep
+         * it during everything they do. The per-database locks are
+         * awfully racy, and thus we just won't do them. */
+
+        if (root)
+                path = strappenda(root, "/etc/.pwd.lock");
+        else
+                path = "/etc/.pwd.lock";
+
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return -errno;
+
+        r = fcntl(fd, F_SETLKW, &flock);
+        if (r < 0) {
+                safe_close(fd);
+                return -errno;
+        }
+
+        return fd;
+}
+
+int is_symlink(const char *path) {
+        struct stat info;
+
+        if (lstat(path, &info) < 0)
+                return -errno;
+
+        return !!S_ISLNK(info.st_mode);
+}
+
+int is_dir(const char* path, bool follow) {
+        struct stat st;
+
+        if (follow) {
+                if (stat(path, &st) < 0)
+                        return -errno;
+        } else {
+                if (lstat(path, &st) < 0)
+                        return -errno;
+        }
+
+        return !!S_ISDIR(st.st_mode);
+}
+
+int unquote_first_word(const char **p, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        size_t allocated = 0, sz = 0;
+
+        enum {
+                START,
+                VALUE,
+                VALUE_ESCAPE,
+                SINGLE_QUOTE,
+                SINGLE_QUOTE_ESCAPE,
+                DOUBLE_QUOTE,
+                DOUBLE_QUOTE_ESCAPE,
+                SPACE,
+        } state = START;
+
+        assert(p);
+        assert(*p);
+        assert(ret);
+
+        /* Parses the first word of a string, and returns it in
+         * *ret. Removes all quotes in the process. When parsing fails
+         * (because of an uneven number of quotes or similar), leaves
+         * the pointer *p at the first invalid character. */
+
+        for (;;) {
+                char c = **p;
+
+                switch (state) {
+
+                case START:
+                        if (c == 0)
+                                goto finish;
+                        else if (strchr(WHITESPACE, c))
+                                break;
+
+                        state = VALUE;
+                        /* fallthrough */
+
+                case VALUE:
+                        if (c == 0)
+                                goto finish;
+                        else if (c == '\'')
+                                state = SINGLE_QUOTE;
+                        else if (c == '\\')
+                                state = VALUE_ESCAPE;
+                        else if (c == '\"')
+                                state = DOUBLE_QUOTE;
+                        else if (strchr(WHITESPACE, c))
+                                state = SPACE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case VALUE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = VALUE;
+
+                        break;
+
+                case SINGLE_QUOTE:
+                        if (c == 0)
+                                return -EINVAL;
+                        else if (c == '\'')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = SINGLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case SINGLE_QUOTE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = SINGLE_QUOTE;
+                        break;
+
+                case DOUBLE_QUOTE:
+                        if (c == 0)
+                                return -EINVAL;
+                        else if (c == '\"')
+                                state = VALUE;
+                        else if (c == '\\')
+                                state = DOUBLE_QUOTE_ESCAPE;
+                        else {
+                                if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                        return -ENOMEM;
+
+                                s[sz++] = c;
+                        }
+
+                        break;
+
+                case DOUBLE_QUOTE_ESCAPE:
+                        if (c == 0)
+                                return -EINVAL;
+
+                        if (!GREEDY_REALLOC(s, allocated, sz+2))
+                                return -ENOMEM;
+
+                        s[sz++] = c;
+                        state = DOUBLE_QUOTE;
+                        break;
+
+                case SPACE:
+                        if (c == 0)
+                                goto finish;
+                        if (!strchr(WHITESPACE, c))
+                                goto finish;
+
+                        break;
+                }
+
+                (*p) ++;
+        }
+
+finish:
+        if (!s) {
+                *ret = NULL;
+                return 0;
+        }
+
+        s[sz] = 0;
+        *ret = s;
+        s = NULL;
+
+        return 1;
+}
+
+int unquote_many_words(const char **p, ...) {
+        va_list ap;
+        char **l;
+        int n = 0, i, c, r;
+
+        /* Parses a number of words from a string, stripping any
+         * quotes if necessary. */
+
+        assert(p);
+
+        /* Count how many words are expected */
+        va_start(ap, p);
+        for (;;) {
+                if (!va_arg(ap, char **))
+                        break;
+                n++;
+        }
+        va_end(ap);
+
+        if (n <= 0)
+                return 0;
+
+        /* Read all words into a temporary array */
+        l = newa0(char*, n);
+        for (c = 0; c < n; c++) {
+
+                r = unquote_first_word(p, &l[c]);
+                if (r < 0) {
+                        int j;
+
+                        for (j = 0; j < c; j++)
+                                free(l[j]);
+
+                        return r;
+                }
+
+                if (r == 0)
+                        break;
+        }
+
+        /* If we managed to parse all words, return them in the passed
+         * in parameters */
+        va_start(ap, p);
+        for (i = 0; i < n; i++) {
+                char **v;
+
+                v = va_arg(ap, char **);
+                assert(v);
+
+                *v = l[i];
+        }
+        va_end(ap);
+
+        return c;
+}
+
+int free_and_strdup(char **p, const char *s) {
+        char *t;
+
+        assert(p);
+
+        /* Replaces a string pointer with an strdup()ed new string,
+         * possibly freeing the old one. */
+
+        if (s) {
+                t = strdup(s);
+                if (!t)
+                        return -ENOMEM;
+        } else
+                t = NULL;
+
+        free(*p);
+        *p = t;
+
+        return 0;
+}
+
+int sethostname_idempotent(const char *s) {
+        int r;
+        char buf[HOST_NAME_MAX + 1] = {};
+
+        assert(s);
+
+        r = gethostname(buf, sizeof(buf));
+        if (r < 0)
+                return -errno;
+
+        if (streq(buf, s))
+                return 0;
+
+        r = sethostname(s, strlen(s));
+        if (r < 0)
+                return -errno;
+
+        return 1;
 }

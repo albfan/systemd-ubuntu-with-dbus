@@ -19,11 +19,27 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd-timesyncd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-timesyncd.service, systemd-timesyncd — Network Time Synchronization</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-timesyncd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-timesyncd</code></p></div><div class="refsect1"><a name="idm214193943296"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-timesyncd</code> is a
-                system service that may be used to synchronize the local
-                system clock with a Network Time Protocol Server.</p></div><div class="refsect1"><a name="idm214193941392"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-timesyncd.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-timesyncd.service, systemd-timesyncd — Network Time Synchronization</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-timesyncd.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-timesyncd</code></p></div><div class="refsect1"><a name="idm214185183920"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><code class="filename">systemd-timesyncd</code> is a
+                system service that may be used to synchronize the
+                local system clock with a remote Network Time Protocol
+                server. It also saves the local time to disk every
+                time the clock has been synchronized and uses this to
+                possibly advance the system realtime clock on
+                subsequent reboots to ensure it
+                monotonically advances even if the system lacks a
+                battery-buffered RTC chip.</p><p>The NTP servers contacted are determined from
+                the global settings in
+                <a href="timesyncd.conf.html"><span class="citerefentry"><span class="refentrytitle">timesyncd.conf</span>(5)</span></a>,
+                the per-link static settings in
+                <code class="filename">.network</code> files, and the per-link
+                dynamic settings received over DHCP. See
+                <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>
+                for more details.</p></div><div class="refsect1"><a name="idm214185178720"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="timesyncd.conf.html"><span class="citerefentry"><span class="refentrytitle">timesyncd.conf</span>(5)</span></a>,
+                        <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>,
+                        <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>,
                         <a href="timedatectl.html"><span class="citerefentry"><span class="refentrytitle">timedatectl</span>(1)</span></a>,
                         <a href="localtime.html"><span class="citerefentry"><span class="refentrytitle">localtime</span>(5)</span></a>,
-                        <a href="hwclock.html"><span class="citerefentry"><span class="refentrytitle">hwclock</span>(8)</span></a>
+                        <a href="http://man7.org/linux/man-pages/man8/hwclock.8.html"><span class="citerefentry"><span class="refentrytitle">hwclock</span>(8)</span></a>
                 </p></div></div></body></html>

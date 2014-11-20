@@ -33,6 +33,7 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_failure_action, failure_action, FailureAction);
 
 static int property_get_names(
                 sd_bus *bus,
@@ -421,6 +422,12 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         assert(message);
         assert(u);
 
+        r = bus_verify_manage_unit_async_for_kill(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         r = sd_bus_message_read(message, "si", &swho, &signo);
         if (r < 0)
                 return r;
@@ -436,7 +443,7 @@ int bus_unit_method_kill(sd_bus *bus, sd_bus_message *message, void *userdata, s
         if (signo <= 0 || signo >= _NSIG)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
 
-        r = selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
                 return r;
 
@@ -455,7 +462,13 @@ int bus_unit_method_reset_failed(sd_bus *bus, sd_bus_message *message, void *use
         assert(message);
         assert(u);
 
-        r = selinux_unit_access_check(u, message, "reload", error);
+        r = bus_verify_manage_unit_async(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = mac_selinux_unit_access_check(u, message, "reload", error);
         if (r < 0)
                 return r;
 
@@ -472,11 +485,17 @@ int bus_unit_method_set_properties(sd_bus *bus, sd_bus_message *message, void *u
         assert(message);
         assert(u);
 
+        r = bus_verify_manage_unit_async(u->manager, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
         r = sd_bus_message_read(message, "b", &runtime);
         if (r < 0)
                 return r;
 
-        r = selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
 
@@ -544,6 +563,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("IgnoreOnSnapshot", "b", bus_property_get_bool, offsetof(Unit, ignore_on_snapshot), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NeedDaemonReload", "b", property_get_need_daemon_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobTimeoutUSec", "t", bus_property_get_usec, offsetof(Unit, job_timeout), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JobTimeoutAction", "s", property_get_failure_action, offsetof(Unit, job_timeout_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("JobTimeoutRebootArgument", "s", NULL, offsetof(Unit, job_timeout_reboot_arg), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConditionResult", "b", bus_property_get_bool, offsetof(Unit, condition_result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("ConditionTimestamp", offsetof(Unit, condition_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, 0, 0),
@@ -736,7 +757,7 @@ int bus_unit_queue_job(
                         type = JOB_RELOAD;
         }
 
-        r = selinux_unit_access_check(
+        r = mac_selinux_unit_access_check(
                         u, message,
                         (type == JOB_START || type == JOB_RESTART || type == JOB_TRY_RESTART) ? "start" :
                         type == JOB_STOP ? "stop" : "reload", error);
@@ -758,13 +779,13 @@ int bus_unit_queue_job(
                 return r;
 
         if (bus == u->manager->api_bus) {
-                if (!j->subscribed) {
-                        r = sd_bus_track_new(bus, &j->subscribed, NULL, NULL);
+                if (!j->clients) {
+                        r = sd_bus_track_new(bus, &j->clients, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
 
-                r = sd_bus_track_add_sender(j->subscribed, message);
+                r = sd_bus_track_add_sender(j->clients, message);
                 if (r < 0)
                         return r;
         }

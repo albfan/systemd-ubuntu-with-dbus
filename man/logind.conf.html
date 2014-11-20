@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf — Login manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p></div><div class="refsect1"><a name="idm214189817760"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the systemd login manager, <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214189815776"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="logind.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>logind.conf — Login manager configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/logind.conf</code></p></div><div class="refsect1"><a name="idm214179006432"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the systemd login manager, <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214179004400"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
                 "<code class="literal">[Login]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="NAutoVTs="><span class="term"><code class="varname">NAutoVTs=</code></span><a class="headerlink" title="Permalink to this term" href="#NAutoVTs=">¶</a></dt><dd><p>Takes a positive
                                 integer. Configures how many virtual
                                 terminals (VTs) to allocate by default
@@ -125,7 +125,7 @@
                                 being active before the inhibitor is
                                 ignored and the operation executes
                                 anyway. Defaults to
-                                5.</p></dd><dt id="HandlePowerKey="><span class="term"><code class="varname">HandlePowerKey=</code>, </span><span class="term"><code class="varname">HandleSuspendKey=</code>, </span><span class="term"><code class="varname">HandleHibernateKey=</code>, </span><span class="term"><code class="varname">HandleLidSwitch=</code></span><a class="headerlink" title="Permalink to this term" href="#HandlePowerKey=">¶</a></dt><dd><p>Controls whether
+                                5.</p></dd><dt id="HandlePowerKey="><span class="term"><code class="varname">HandlePowerKey=</code>, </span><span class="term"><code class="varname">HandleSuspendKey=</code>, </span><span class="term"><code class="varname">HandleHibernateKey=</code>, </span><span class="term"><code class="varname">HandleLidSwitch=</code>, </span><span class="term"><code class="varname">HandleLidSwitchDocked=</code></span><a class="headerlink" title="Permalink to this term" href="#HandlePowerKey=">¶</a></dt><dd><p>Controls whether
                                 logind shall handle the system power
                                 and sleep keys and the lid switch to
                                 trigger actions such as system
@@ -155,13 +155,18 @@
                                 and
                                 <code class="varname">HandleLidSwitch=</code>
                                 default to "<code class="literal">suspend</code>".
+                                <code class="varname">HandleLidSwitchDocked=</code>
+                                defaults to "<code class="literal">ignore</code>".
                                 <code class="varname">HandleHibernateKey=</code>
                                 defaults to
-                                "<code class="literal">hibernate</code>". Note
-                                that the lid switch is ignored if the
-                                system is inserted in a docking
-                                station, or if more than one display
-                                is connected.</p></dd><dt id="PowerKeyIgnoreInhibited="><span class="term"><code class="varname">PowerKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">SuspendKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">HibernateKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">LidSwitchIgnoreInhibited=</code></span><a class="headerlink" title="Permalink to this term" href="#PowerKeyIgnoreInhibited=">¶</a></dt><dd><p>Controls whether
+                                "<code class="literal">hibernate</code>". If the
+                                system is inserted in a docking station,
+                                or if more than one display is connected,
+                                the action specified by
+                                <code class="varname">HandleLidSwitchDocked=</code>
+                                occurs; otherwise the
+                                <code class="varname">HandleLidSwitch=</code>
+                                action occurs.</p></dd><dt id="PowerKeyIgnoreInhibited="><span class="term"><code class="varname">PowerKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">SuspendKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">HibernateKeyIgnoreInhibited=</code>, </span><span class="term"><code class="varname">LidSwitchIgnoreInhibited=</code></span><a class="headerlink" title="Permalink to this term" href="#PowerKeyIgnoreInhibited=">¶</a></dt><dd><p>Controls whether
                                 actions triggered by the power and
                                 sleep keys and the lid switch are
                                 subject to inhibitor locks. These
@@ -205,7 +210,7 @@
                                 when the user fully logs out. Takes a
                                 boolean argument. If enabled, the user
                                 may not consume IPC resources after
-                                the last of his sessions
+                                the last of the user's sessions
                                 terminated. This covers System V
                                 semaphores, shared memory and message
                                 queues, as well as POSIX shared memory
@@ -213,7 +218,7 @@
                                 objects of the root user are excluded
                                 from the effect of this
                                 setting. Defaults to
-                                "<code class="literal">yes</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm214188723664"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                "<code class="literal">yes</code>".</p></dd></dl></div></div><div class="refsect1"><a name="idm214177911248"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd-logind.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-logind.service</span>(8)</span></a>,
                           <a href="loginctl.html"><span class="citerefentry"><span class="refentrytitle">loginctl</span>(1)</span></a>,

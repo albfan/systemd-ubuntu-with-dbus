@@ -173,7 +173,7 @@ int detect_vm(const char **id) {
                         if (streq(cap, "control_d"))
                                 break;
 
-                if (!i)  {
+                if (!cap)  {
                         _id = "xen";
                         r = 1;
                 }
@@ -219,6 +219,23 @@ int detect_vm(const char **id) {
                 r = 1;
                 goto finish;
         }
+
+#if defined(__s390__)
+        {
+                _cleanup_free_ char *t = NULL;
+
+                r = get_status_field("/proc/sysinfo", "VM00 Control Program:", &t);
+                if (r >= 0) {
+                        if (streq(t, "z/VM"))
+                                _id = "zvm";
+                        else
+                                _id = "kvm";
+                        r = 1;
+
+                        goto finish;
+                }
+        }
+#endif
 
         r = 0;
 
@@ -293,6 +310,8 @@ int detect_container(const char **id) {
                 _id = "lxc-libvirt";
         else if (streq(e, "systemd-nspawn"))
                 _id = "systemd-nspawn";
+        else if (streq(e, "docker"))
+                _id = "docker";
         else
                 _id = "other";
 

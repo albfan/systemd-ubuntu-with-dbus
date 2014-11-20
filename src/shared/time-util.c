@@ -22,9 +22,11 @@
 #include <time.h>
 #include <string.h>
 #include <sys/timex.h>
+#include <sys/timerfd.h>
 
 #include "util.h"
 #include "time-util.h"
+#include "strv.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
@@ -47,25 +49,20 @@ dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         int64_t delta;
         assert(ts);
 
-        if (u == (usec_t) -1) {
-                ts->realtime = ts->monotonic = (usec_t) -1;
+        if (u == USEC_INFINITY || u <= 0) {
+                ts->realtime = ts->monotonic = u;
                 return ts;
         }
 
         ts->realtime = u;
 
-        if (u == 0)
+        delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
+        ts->monotonic = now(CLOCK_MONOTONIC);
+
+        if ((int64_t) ts->monotonic > delta)
+                ts->monotonic -= delta;
+        else
                 ts->monotonic = 0;
-        else {
-                delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-
-                ts->monotonic = now(CLOCK_MONOTONIC);
-
-                if ((int64_t) ts->monotonic > delta)
-                        ts->monotonic -= delta;
-                else
-                        ts->monotonic = 0;
-        }
 
         return ts;
 }
@@ -74,8 +71,8 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         int64_t delta;
         assert(ts);
 
-        if (u == (usec_t) -1) {
-                ts->realtime = ts->monotonic = (usec_t) -1;
+        if (u == USEC_INFINITY) {
+                ts->realtime = ts->monotonic = USEC_INFINITY;
                 return ts;
         }
 
@@ -96,10 +93,10 @@ usec_t timespec_load(const struct timespec *ts) {
 
         if (ts->tv_sec == (time_t) -1 &&
             ts->tv_nsec == (long) -1)
-                return (usec_t) -1;
+                return USEC_INFINITY;
 
         if ((usec_t) ts->tv_sec > (UINT64_MAX - (ts->tv_nsec / NSEC_PER_USEC)) / USEC_PER_SEC)
-                return (usec_t) -1;
+                return USEC_INFINITY;
 
         return
                 (usec_t) ts->tv_sec * USEC_PER_SEC +
@@ -109,7 +106,7 @@ usec_t timespec_load(const struct timespec *ts) {
 struct timespec *timespec_store(struct timespec *ts, usec_t u)  {
         assert(ts);
 
-        if (u == (usec_t) -1) {
+        if (u == USEC_INFINITY) {
                 ts->tv_sec = (time_t) -1;
                 ts->tv_nsec = (long) -1;
                 return ts;
@@ -126,10 +123,10 @@ usec_t timeval_load(const struct timeval *tv) {
 
         if (tv->tv_sec == (time_t) -1 &&
             tv->tv_usec == (suseconds_t) -1)
-                return (usec_t) -1;
+                return USEC_INFINITY;
 
         if ((usec_t) tv->tv_sec > (UINT64_MAX - tv->tv_usec) / USEC_PER_SEC)
-                return (usec_t) -1;
+                return USEC_INFINITY;
 
         return
                 (usec_t) tv->tv_sec * USEC_PER_SEC +
@@ -139,7 +136,7 @@ usec_t timeval_load(const struct timeval *tv) {
 struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         assert(tv);
 
-        if (u == (usec_t) -1) {
+        if (u == USEC_INFINITY) {
                 tv->tv_sec = (time_t) -1;
                 tv->tv_usec = (suseconds_t) -1;
         } else {
@@ -150,36 +147,51 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-char *format_timestamp(char *buf, size_t l, usec_t t) {
+static char *format_timestamp_internal(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
         assert(buf);
         assert(l > 0);
 
-        if (t <= 0 || t == (usec_t) -1)
+        if (t <= 0 || t == USEC_INFINITY)
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
 
-        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm)) <= 0)
+        if (utc)
+                gmtime_r(&sec, &tm);
+        else
+                localtime_r(&sec, &tm);
+        if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S %Z", &tm) <= 0)
                 return NULL;
 
         return buf;
 }
 
-char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+char *format_timestamp(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal(buf, l, t, false);
+}
+
+char *format_timestamp_utc(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal(buf, l, t, true);
+}
+
+static char *format_timestamp_internal_us(char *buf, size_t l, usec_t t, bool utc) {
         struct tm tm;
         time_t sec;
 
         assert(buf);
         assert(l > 0);
 
-        if (t <= 0 || t == (usec_t) -1)
+        if (t <= 0 || t == USEC_INFINITY)
                 return NULL;
 
         sec = (time_t) (t / USEC_PER_SEC);
-        localtime_r(&sec, &tm);
+        if (utc)
+                gmtime_r(&sec, &tm);
+        else
+                localtime_r(&sec, &tm);
 
         if (strftime(buf, l, "%a %Y-%m-%d %H:%M:%S", &tm) <= 0)
                 return NULL;
@@ -190,15 +202,22 @@ char *format_timestamp_us(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
+char *format_timestamp_us(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal_us(buf, l, t, false);
+}
+
+char *format_timestamp_us_utc(char *buf, size_t l, usec_t t) {
+        return format_timestamp_internal_us(buf, l, t, true);
+}
+
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
         const char *s;
         usec_t n, d;
 
-        n = now(CLOCK_REALTIME);
-
-        if (t <= 0 || (t == (usec_t) -1))
+        if (t <= 0 || t == USEC_INFINITY)
                 return NULL;
 
+        n = now(CLOCK_REALTIME);
         if (n > t) {
                 d = n - t;
                 s = "ago";
@@ -277,11 +296,14 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         assert(buf);
         assert(l > 0);
 
-        if (t == (usec_t) -1)
-                return NULL;
+        if (t == USEC_INFINITY) {
+                strncpy(p, "infinity", l-1);
+                p[l-1] = 0;
+                return p;
+        }
 
         if (t <= 0) {
-                snprintf(p, l, "0");
+                strncpy(p, "0", l-1);
                 p[l-1] = 0;
                 return p;
         }
@@ -626,7 +648,7 @@ int parse_sec(const char *t, usec_t *usec) {
                 { "", USEC_PER_SEC }, /* default is sec */
         };
 
-        const char *p;
+        const char *p, *s;
         usec_t r = 0;
         bool something = false;
 
@@ -634,6 +656,18 @@ int parse_sec(const char *t, usec_t *usec) {
         assert(usec);
 
         p = t;
+
+        p += strspn(p, WHITESPACE);
+        s = startswith(p, "infinity");
+        if (s) {
+                s += strspn(s, WHITESPACE);
+                if (*s != 0)
+                        return -EINVAL;
+
+                *usec = USEC_INFINITY;
+                return 0;
+        }
+
         for (;;) {
                 long long l, z = 0;
                 char *e;
@@ -739,7 +773,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 { "", 1ULL }, /* default is nsec */
         };
 
-        const char *p;
+        const char *p, *s;
         nsec_t r = 0;
         bool something = false;
 
@@ -747,6 +781,18 @@ int parse_nsec(const char *t, nsec_t *nsec) {
         assert(nsec);
 
         p = t;
+
+        p += strspn(p, WHITESPACE);
+        s = startswith(p, "infinity");
+        if (s) {
+                s += strspn(s, WHITESPACE);
+                if (!*s != 0)
+                        return -EINVAL;
+
+                *nsec = NSEC_INFINITY;
+                return 0;
+        }
+
         for (;;) {
                 long long l, z = 0;
                 char *e;
@@ -825,4 +871,124 @@ bool ntp_synced(void) {
                 return false;
 
         return true;
+}
+
+int get_timezones(char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_strv_free_ char **zones = NULL;
+        size_t n_zones = 0, n_allocated = 0;
+
+        assert(ret);
+
+        zones = strv_new("UTC", NULL);
+        if (!zones)
+                return -ENOMEM;
+
+        n_allocated = 2;
+        n_zones = 1;
+
+        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
+        if (f) {
+                char l[LINE_MAX];
+
+                FOREACH_LINE(l, f, return -errno) {
+                        char *p, *w;
+                        size_t k;
+
+                        p = strstrip(l);
+
+                        if (isempty(p) || *p == '#')
+                                continue;
+
+                        /* Skip over country code */
+                        p += strcspn(p, WHITESPACE);
+                        p += strspn(p, WHITESPACE);
+
+                        /* Skip over coordinates */
+                        p += strcspn(p, WHITESPACE);
+                        p += strspn(p, WHITESPACE);
+
+                        /* Found timezone name */
+                        k = strcspn(p, WHITESPACE);
+                        if (k <= 0)
+                                continue;
+
+                        w = strndup(p, k);
+                        if (!w)
+                                return -ENOMEM;
+
+                        if (!GREEDY_REALLOC(zones, n_allocated, n_zones + 2)) {
+                                free(w);
+                                return -ENOMEM;
+                        }
+
+                        zones[n_zones++] = w;
+                        zones[n_zones] = NULL;
+                }
+
+                strv_sort(zones);
+
+        } else if (errno != ENOENT)
+                return -errno;
+
+        *ret = zones;
+        zones = NULL;
+
+        return 0;
+}
+
+bool timezone_is_valid(const char *name) {
+        bool slash = false;
+        const char *p, *t;
+        struct stat st;
+
+        if (!name || *name == 0 || *name == '/')
+                return false;
+
+        for (p = name; *p; p++) {
+                if (!(*p >= '0' && *p <= '9') &&
+                    !(*p >= 'a' && *p <= 'z') &&
+                    !(*p >= 'A' && *p <= 'Z') &&
+                    !(*p == '-' || *p == '_' || *p == '+' || *p == '/'))
+                        return false;
+
+                if (*p == '/') {
+
+                        if (slash)
+                                return false;
+
+                        slash = true;
+                } else
+                        slash = false;
+        }
+
+        if (slash)
+                return false;
+
+        t = strappenda("/usr/share/zoneinfo/", name);
+        if (stat(t, &st) < 0)
+                return false;
+
+        if (!S_ISREG(st.st_mode))
+                return false;
+
+        return true;
+}
+
+clockid_t clock_boottime_or_monotonic(void) {
+        static clockid_t clock = -1;
+        int fd;
+
+        if (clock != -1)
+                return clock;
+
+        fd = timerfd_create(CLOCK_BOOTTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (fd < 0)
+                clock = CLOCK_MONOTONIC;
+        else {
+                safe_close(fd);
+                clock = CLOCK_BOOTTIME;
+        }
+
+        return clock;
 }

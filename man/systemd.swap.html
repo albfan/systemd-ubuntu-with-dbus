@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd.swap"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.swap — Swap unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214170852608"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd.swap"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd.swap — Swap unit configuration</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename"><em class="replaceable"><code>swap</code></em>.swap</code></p></div><div class="refsect1"><a name="idm214167710448"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>A unit configuration file whose name ends in
                 "<code class="literal">.swap</code>" encodes information about a
                 swap device or file for memory paging controlled and
                 supervised by systemd.</p><p>This man page lists the configuration options
@@ -51,7 +51,7 @@
                 <code class="varname">DefaultDependencies=</code> enabled
                 implicitly acquire a conflicting dependency to
                 <code class="filename">umount.target</code> so that they are
-                deactivated at shutdown.</p></div><div class="refsect1"><a name="idm214167005072"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Swap units may either be configured via unit
+                deactivated at shutdown.</p></div><div class="refsect1"><a name="idm214167697520"></a><h2 id="fstab"><code class="filename">fstab</code><a class="headerlink" title="Permalink to this headline" href="#fstab">¶</a></h2><p>Swap units may either be configured via unit
                 files, or via <code class="filename">/etc/fstab</code> (see
                 <a href="fstab.html"><span class="citerefentry"><span class="refentrytitle">fstab</span>(5)</span></a>
                 for details). Swaps listed in
@@ -67,7 +67,7 @@
                 <code class="filename">/etc/fstab</code> are also added as
                 requirements to <code class="filename">swap.target</code>, so
                 that they are waited for and activated during
-                boot.</p></div><div class="refsect1"><a name="idm214170949104"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Swap files must include a [Swap] section, which
+                boot.</p></div><div class="refsect1"><a name="idm214171640160"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>Swap files must include a [Swap] section, which
                 carries information about the swap device it
                 supervises. A number of options that may be used in
                 this section are shared with other unit types. These
@@ -94,7 +94,15 @@
                                 mandatory.</p></dd><dt id="Priority="><span class="term"><code class="varname">Priority=</code></span><a class="headerlink" title="Permalink to this term" href="#Priority=">¶</a></dt><dd><p>Swap priority to use
                                 when activating the swap device or
                                 file. This takes an integer. This
-                                setting is optional.</p></dd><dt id="TimeoutSec="><span class="term"><code class="varname">TimeoutSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimeoutSec=">¶</a></dt><dd><p>Configures the time to
+                                setting is optional.</p></dd><dt id="Options="><span class="term"><code class="varname">Options=</code></span><a class="headerlink" title="Permalink to this term" href="#Options=">¶</a></dt><dd><p>May contain an option
+                                string for the swap device. This may
+                                be used for controlling discard
+                                options among other functionality, if
+                                the swap backing device supports the
+                                discard or trim operation. (See
+                                <a href="swapon.html"><span class="citerefentry"><span class="refentrytitle">swapon</span>(8)</span></a>
+                                for more information.)
+                                </p></dd><dt id="TimeoutSec="><span class="term"><code class="varname">TimeoutSec=</code></span><a class="headerlink" title="Permalink to this term" href="#TimeoutSec=">¶</a></dt><dd><p>Configures the time to
                                 wait for the swapon command to
                                 finish. If a command does not exit
                                 within the configured time, the swap
@@ -107,15 +115,17 @@
                                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
-                                20s". Pass 0 to disable the timeout
-                                logic. Defaults to <code class="varname">TimeoutStartSec=</code> from the
-                                manager configuration file.</p></dd></dl></div><p>Check
+                                20s". Pass "<code class="literal">0</code>" to disable the timeout
+                                logic. Defaults to <code class="varname">DefaultTimeoutStartSec=</code> from the
+                                manager configuration file
+                                (see <a href="systemd-system.conf.html"><span class="citerefentry"><span class="refentrytitle">systemd-system.conf</span>(5)</span></a>).
+                                </p></dd></dl></div><p>Check
                 <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>
                 and
                 <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>
-                for more settings.</p></div><div class="refsect1"><a name="idm214170924512"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                for more settings.</p></div><div class="refsect1"><a name="idm214171611248"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
-                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(8)</span></a>,
+                          <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
                           <a href="systemd.unit.html"><span class="citerefentry"><span class="refentrytitle">systemd.unit</span>(5)</span></a>,
                           <a href="systemd.exec.html"><span class="citerefentry"><span class="refentrytitle">systemd.exec</span>(5)</span></a>,
                           <a href="systemd.kill.html"><span class="citerefentry"><span class="refentrytitle">systemd.kill</span>(5)</span></a>,
