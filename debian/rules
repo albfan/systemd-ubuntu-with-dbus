@@ -127,6 +127,12 @@ override_dh_install:
 		-name ldconfig.service -o \
 		-name etc.conf \) -delete
 	rm -rf debian/install/*/usr/share/factory/
+	# don't ship systemd-firstboot for now; we rather want debconf, and
+	# this needs to be adjusted to Debian config files
+	rm -f debian/install/*/usr/share/man/man*/*firstboot*
+	rm -f debian/install/*/lib/systemd/system/*firstboot*
+	rm -f debian/install/*/lib/systemd/system/*.wants/*firstboot*
+	rm -f debian/install/*/bin/*firstboot*
 	# remove .so for deprecated compatibility libraries
 	rm -f debian/install/*/usr/lib/*/libsystemd-daemon.so
 	rm -f debian/install/*/usr/lib/*/libsystemd-login.so
