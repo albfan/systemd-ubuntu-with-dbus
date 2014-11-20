@@ -5,6 +5,8 @@ systemd (217-1) UNRELEASED; urgency=medium
   * Disable systemd-resolved for now. It still needs to mature, and
     integration into Debian should be discussed first.
   * Bump util-linux dependency to >= 2.25 as per NEWS.
+  * Drop installation of 50-firmware.rules, not shipped upstream any more.
+    Firmware loading is now exclusively done by the kernel.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 

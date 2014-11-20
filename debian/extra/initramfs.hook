@@ -33,7 +33,7 @@ mkdir -p $DESTDIR/etc/udev
 cp -p /etc/udev/udev.conf $DESTDIR/etc/udev/
 
 mkdir -p $DESTDIR/lib/udev/rules.d/
-for rules in 50-firmware.rules 50-udev-default.rules 60-persistent-storage.rules \
+for rules in 50-udev-default.rules 60-persistent-storage.rules \
 	80-drivers.rules \
 	64-md-raid.rules 60-persistent-storage-lvm.rules \
 	55-dm.rules 60-persistent-storage-dm.rules; do
