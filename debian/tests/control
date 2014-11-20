@@ -9,5 +9,5 @@ Tests: python3
 Depends: python3-systemd
 
 Tests: boot-and-services
-Depends: lightdm, cron, network-manager
+Depends: lightdm, cron, network-manager, busybox-static
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed

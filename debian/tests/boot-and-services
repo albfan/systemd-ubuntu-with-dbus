@@ -7,6 +7,8 @@ import sys
 import os
 import unittest
 import subprocess
+import tempfile
+import shutil
 
 
 class ServicesTest(unittest.TestCase):
@@ -97,6 +99,44 @@ class JournalTest(unittest.TestCase):
         self.assertRegex(out, b'NetworkManager.*:.*starting')
         self.assertNotIn(b'kernel:', out)
         self.assertNotIn(b'systemd:', out)
+
+
+class NspawnTest(unittest.TestCase):
+    '''Check nspawn'''
+
+    @classmethod
+    def setUpClass(kls):
+        '''Build a bootable busybox mini-container'''
+
+        kls.td_c_busybox = tempfile.TemporaryDirectory(prefix='c_busybox.')
+        kls.c_busybox = kls.td_c_busybox.name
+        for d in ['etc/init.d', 'bin', 'sbin']:
+            os.makedirs(os.path.join(kls.c_busybox, d))
+        shutil.copy('/bin/busybox', os.path.join(kls.c_busybox, 'bin'))
+        shutil.copy('/etc/os-release', os.path.join(kls.c_busybox, 'etc'))
+        os.symlink('busybox', os.path.join(kls.c_busybox, 'bin', 'sh'))
+        os.symlink('../bin/busybox', os.path.join(kls.c_busybox, 'sbin/init'))
+        with open(os.path.join(kls.c_busybox, 'etc/init.d/rcS'), 'w') as f:
+            f.write('''#!/bin/sh
+echo fake container started
+ps aux
+poweroff\n''')
+            os.fchmod(f.fileno(), 0o755)
+
+    def setUp(self):
+        self.workdir = tempfile.TemporaryDirectory()
+
+    def test_boot(self):
+        cont = os.path.join(self.workdir.name, 'c1')
+        shutil.copytree(self.c_busybox, cont, symlinks=True)
+        shutil.copytree(self.c_busybox, '/tmp/cont', symlinks=True)
+        out = subprocess.check_output(['systemd-nspawn', '-D', cont, '-b'],
+                                      timeout=60, stderr=subprocess.STDOUT)
+        self.assertIn(b'Spawning container c1', out)
+        self.assertIn(b'fake container started', out)
+        self.assertRegex(out, b'\n\s+1\s+0\s+init[\r\n]')
+        self.assertRegex(out, b'\n\s+2+\s+0\s.*rcS[\r\n]')
+        self.assertRegex(out, b'Container c1.*shut down')
 
 
 def boot_with_systemd():
