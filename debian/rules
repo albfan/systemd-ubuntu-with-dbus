@@ -141,6 +141,8 @@ override_dh_install:
 	# remove symlinks enabling default-on services
 	rm -rf debian/install/*/etc/systemd/system/*.target.wants/
 	dh_install -pudev-udeb -plibudev1-udeb --sourcedir=debian/install/udeb
+	# we disable machined for now, so don't ship nss-mymachines either
+	rm -f debian/install/*/usr/lib/*/libnss_mymachines*
 	dh_install $(BOOTSTRAP_DH_FLAGS) -Nudev-udeb -Nlibudev1-udeb --sourcedir=debian/install/deb --fail-missing
 	# install some files manually, --sourcedir makes that necessary
 	# udev-udeb
