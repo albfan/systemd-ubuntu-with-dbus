@@ -125,9 +125,7 @@ Copyright: 2003 IBM Corp.
 License: GPL-2
 
 Files: src/systemd/sd-daemon.h
-       src/systemd/sd-readahead.h
        src/libsystemd-daemon/sd-daemon.c
-       src/readahead/sd-readahead.c
 Copyright: 2010 Lennart Poettering
 License: Expat
 

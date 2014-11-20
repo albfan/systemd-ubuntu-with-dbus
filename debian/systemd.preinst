@@ -42,8 +42,6 @@ if [ "$1" = "install" ] || [ "$1" = "upgrade" ] && dpkg --compare-versions "$2" 
     save_is_enabled getty@tty1.service
     save_is_enabled remote-fs.target
     save_is_enabled rescue.target
-    save_is_enabled systemd-readahead-collect.service
-    save_is_enabled systemd-readahead-replay.service
     if dpkg --compare-versions "$2" ge "204-8~" ; then
         save_is_enabled tmp.mount
     fi

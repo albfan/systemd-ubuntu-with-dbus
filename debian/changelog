@@ -7,6 +7,8 @@ systemd (217-1) UNRELEASED; urgency=medium
   * Bump util-linux dependency to >= 2.25 as per NEWS.
   * Drop installation of 50-firmware.rules, not shipped upstream any more.
     Firmware loading is now exclusively done by the kernel.
+  * Drop installation of readahead related services and code, readahead got
+    dropped in this version.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 

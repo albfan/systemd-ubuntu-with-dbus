@@ -52,7 +52,6 @@ CONFFLAGS_udeb = \
 	--disable-introspection \
 	--disable-gtk-doc \
 	--disable-binfmt \
-	--disable-readahead \
 	--disable-bootchart \
 	--disable-quotacheck \
 	--disable-tmpfiles \
@@ -200,9 +199,6 @@ override_dh_install:
 	done
 	# man files for example code in /usr/share/doc
 	mkdir -p debian/systemd/usr/share/man/man3/
-	mv debian/libsystemd-dev/usr/share/man/man3/sd-readahead.3 \
-		debian/libsystemd-dev/usr/share/man/man3/sd_readahead.3 \
-		debian/systemd/usr/share/man/man3/
 	install --mode=755 debian/systemd-logind-launch \
 		debian/systemd/lib/systemd/
 	# remove duplicates
