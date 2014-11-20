@@ -37,14 +37,14 @@
 
 static void forward_syslog_iovec(Server *s, const struct iovec *iovec, unsigned n_iovec, struct ucred *ucred, struct timeval *tv) {
 
-        union sockaddr_union sa = {
+        static const union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "/run/systemd/journal/syslog",
         };
         struct msghdr msghdr = {
                 .msg_iov = (struct iovec *) iovec,
                 .msg_iovlen = n_iovec,
-                .msg_name = &sa,
+                .msg_name = (struct sockaddr*) &sa.sa,
                 .msg_namelen = offsetof(union sockaddr_union, un.sun_path)
                                + strlen("/run/systemd/journal/syslog"),
         };
@@ -426,7 +426,7 @@ int server_open_syslog_socket(Server *s) {
         assert(s);
 
         if (s->syslog_fd < 0) {
-                union sockaddr_union sa = {
+                static const union sockaddr_union sa = {
                         .un.sun_family = AF_UNIX,
                         .un.sun_path = "/run/systemd/journal/dev-log",
                 };
@@ -441,7 +441,7 @@ int server_open_syslog_socket(Server *s) {
 
                 r = bind(s->syslog_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind() failed: %m");
+                        log_error("bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
@@ -457,7 +457,7 @@ int server_open_syslog_socket(Server *s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 one = 1;
                 r = setsockopt(s->syslog_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)

@@ -79,7 +79,8 @@
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
 
-#define UNIQUE(prefix) CONCATENATE(prefix, __LINE__)
+#define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
+#define UNIQ __COUNTER__
 
 /* Rounds up */
 
@@ -124,52 +125,77 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
  * @ptr: the pointer to the member.
  * @type: the type of the container struct this is embedded in.
  * @member: the name of the member within the struct.
- *
  */
-#define container_of(ptr, type, member)                                 \
+#define container_of(ptr, type, member) __container_of(UNIQ, (ptr), type, member)
+#define __container_of(uniq, ptr, type, member)                         \
         __extension__ ({                                                \
-                        const typeof( ((type *)0)->member ) *__mptr = (ptr); \
-                        (type *)( (char *)__mptr - offsetof(type,member) ); \
-                })
+                const typeof( ((type*)0)->member ) *UNIQ_T(A, uniq) = (ptr); \
+                (type*)( (char *)UNIQ_T(A, uniq) - offsetof(type,member) ); \
+        })
 
 #undef MAX
-#define MAX(a,b)                                 \
-        __extension__ ({                         \
-                        typeof(a) _a = (a);      \
-                        typeof(b) _b = (b);      \
-                        _a > _b ? _a : _b;       \
-                })
+#define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
+#define __MAX(aq, a, bq, b)                             \
+        __extension__ ({                                \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+        })
 
-#define MAX3(x,y,z)                              \
-        __extension__ ({                         \
-                        typeof(x) _c = MAX(x,y); \
-                        MAX(_c, z);              \
+/* evaluates to (void) if _A or _B are not constant or of different types */
+#define CONST_MAX(_A, _B) \
+        __extension__ (__builtin_choose_expr(                           \
+                __builtin_constant_p(_A) &&                             \
+                __builtin_constant_p(_B) &&                             \
+                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
+                ((_A) > (_B)) ? (_A) : (_B),                            \
+                (void)0))
+
+/* takes two types and returns the size of the larger one */
+#define MAXSIZE(A, B) (sizeof(union _packed_ { typeof(A) a; typeof(B) b; }))
+
+#define MAX3(x,y,z)                                     \
+        __extension__ ({                                \
+                        const typeof(x) _c = MAX(x,y);  \
+                        MAX(_c, z);                     \
                 })
 
 #undef MIN
-#define MIN(a,b)                                \
-        __extension__ ({                        \
-                        typeof(a) _a = (a);     \
-                        typeof(b) _b = (b);     \
-                        _a < _b ? _a : _b;      \
+#define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
+#define __MIN(aq, a, bq, b)                             \
+        __extension__ ({                                \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) < UNIQ_T(B,bq) ? UNIQ_T(A,aq) : UNIQ_T(B,bq); \
+        })
+
+#define MIN3(x,y,z)                                     \
+        __extension__ ({                                \
+                        const typeof(x) _c = MIN(x,y);  \
+                        MIN(_c, z);                     \
                 })
 
-#define LESS_BY(A,B)                            \
-        __extension__ ({                        \
-                        typeof(A) _A = (A);     \
-                        typeof(B) _B = (B);     \
-                        _A > _B ? _A - _B : 0;  \
-                })
+#define LESS_BY(a, b) __LESS_BY(UNIQ, (a), UNIQ, (b))
+#define __LESS_BY(aq, a, bq, b)                         \
+        __extension__ ({                                \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A,aq) > UNIQ_T(B,bq) ? UNIQ_T(A,aq) - UNIQ_T(B,bq) : 0; \
+        })
 
-#ifndef CLAMP
-#define CLAMP(x, low, high)                                             \
+#undef CLAMP
+#define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
+#define __CLAMP(xq, x, lowq, low, highq, high)                          \
         __extension__ ({                                                \
-                        typeof(x) _x = (x);                             \
-                        typeof(low) _low = (low);                       \
-                        typeof(high) _high = (high);                    \
-                        ((_x > _high) ? _high : ((_x < _low) ? _low : _x)); \
-                })
-#endif
+                const typeof(x) UNIQ_T(X,xq) = (x);                     \
+                const typeof(low) UNIQ_T(LOW,lowq) = (low);             \
+                const typeof(high) UNIQ_T(HIGH,highq) = (high);         \
+                        UNIQ_T(X,xq) > UNIQ_T(HIGH,highq) ?             \
+                                UNIQ_T(HIGH,highq) :                    \
+                                UNIQ_T(X,xq) < UNIQ_T(LOW,lowq) ?       \
+                                        UNIQ_T(LOW,lowq) :              \
+                                        UNIQ_T(X,xq);                   \
+        })
 
 #define assert_se(expr)                                                 \
         do {                                                            \
@@ -201,7 +227,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #else
 #define assert_cc(expr)                                                 \
         DISABLE_WARNING_DECLARATION_AFTER_STATEMENT;                    \
-        struct UNIQUE(_assert_struct_) {                                \
+        struct CONCATENATE(_assert_struct_, __LINE__) {                 \
                 char x[(expr) ? 0 : -1];                                \
         };                                                              \
         REENABLE_WARNING
@@ -234,6 +260,9 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 #define INT64_TO_PTR(u) ((void *) ((intptr_t) (u)))
 #define PTR_TO_UINT64(p) ((uint64_t) ((uintptr_t) (p)))
 #define UINT64_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+#define PTR_TO_SIZE(p) ((size_t) ((uintptr_t) (p)))
+#define SIZE_TO_PTR(u) ((void *) ((uintptr_t) (u)))
 
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))

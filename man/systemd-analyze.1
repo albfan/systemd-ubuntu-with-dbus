@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-ANALYZE" "1" "" "systemd 215" "systemd-analyze"
+.TH "SYSTEMD\-ANALYZE" "1" "" "systemd 217" "systemd-analyze"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,10 +36,12 @@ systemd-analyze \- Analyze system boot\-up performance
 \fBsystemd\-analyze\fR [OPTIONS...] dump
 .HP \w'\fBsystemd\-analyze\fR\ 'u
 \fBsystemd\-analyze\fR [OPTIONS...] set\-log\-level [\fILEVEL\fR]
+.HP \w'\fBsystemd\-analyze\fR\ 'u
+\fBsystemd\-analyze\fR [OPTIONS...] verify [\fIFILES\fR...]
 .SH "DESCRIPTION"
 .PP
 \fBsystemd\-analyze\fR
-may be used to determine system boot\-up performance statistics and retrieve other state and tracing information from the system and service manager\&.
+may be used to determine system boot\-up performance statistics and retrieve other state and tracing information from the system and service manager, and to verify the correctness of unit files\&.
 .PP
 \fBsystemd\-analyze time\fR
 prints the time spent in the kernel before userspace has been reached, the time spent in the initial RAM disk (initrd) before normal system userspace has been reached, and the time normal system userspace took to initialize\&. Note that these measurements simply measure the time passed up to the point where all system services have been spawned, but not necessarily until they fully finished initialization or the disk is idle\&.
@@ -79,6 +81,9 @@ daemon to
 described in
 \fBsystemd\fR(1))\&.
 .PP
+\fBsystemd\-analyze verify\fR
+will load unit files and print warnings if any errors are detected\&. Files specified on the command line will be loaded, but also any other units referenced by them\&. This command works by prepending the directories for all command line arguments at the beginning of the unit load path, which means that all units files found in those directories will be used in preference to the unit files found in the standard locations, even if not listed explicitly\&.
+.PP
 If no command is passed,
 \fBsystemd\-analyze time\fR
 is implied\&.
@@ -88,12 +93,12 @@ The following options are understood:
 .PP
 \fB\-\-user\fR
 .RS 4
-Shows performance data of user sessions instead of the system manager\&.
+Operates on the user systemd instance\&.
 .RE
 .PP
 \fB\-\-system\fR
 .RS 4
-Shows performance data of the system manager\&. This is the implied default\&.
+Operates on the system systemd instance\&. This is the implied default\&.
 .RE
 .PP
 \fB\-\-order\fR, \fB\-\-require\fR
@@ -139,6 +144,12 @@ earlier, than the latest unit in the same level\&. The unit of
 is seconds unless specified with a different unit, e\&.g\&. "50ms"\&.
 .RE
 .PP
+\fB\-\-no\-man\fR
+.RS 4
+Do not invoke man to verify the existence of man pages listen in
+\fIDocumentation=\fR\&.
+.RE
+.PP
 \fB\-H\fR, \fB\-\-host=\fR
 .RS 4
 Execute the operation remotely\&. Specify a hostname, or a username and hostname separated by
@@ -169,23 +180,22 @@ Do not pipe output into a pager\&.
 .SH "EXIT STATUS"
 .PP
 On success, 0 is returned, a non\-zero failure code otherwise\&.
-.SH "EXAMPLES"
+.SH "EXAMPLES FOR DOT"
 .PP
-This plots all dependencies of any unit whose name starts with
-"avahi\-daemon\&.":
+\fBExample\ \&1.\ \&Plots all dependencies of any unit whose name starts with "avahi\-daemon"\fR
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
 $ systemd\-analyze dot \*(Aqavahi\-daemon\&.*\*(Aq | dot \-Tsvg > avahi\&.svg
-$ eog avahi\&.svg
+                        $ eog avahi\&.svg
 .fi
 .if n \{\
 .RE
 .\}
 .PP
-This plots the dependencies between all known target units:
+\fBExample\ \&2.\ \&Plots the dependencies between all known target units\fR
 .sp
 .if n \{\
 .RS 4
@@ -193,6 +203,111 @@ This plots the dependencies between all known target units:
 .nf
 systemd\-analyze dot \-\-to\-pattern=\*(Aq*\&.target\*(Aq \-\-from\-pattern=\*(Aq*\&.target\*(Aq | dot \-Tsvg > targets\&.svg
 $ eog targets\&.svg
+.fi
+.if n \{\
+.RE
+.\}
+.SH "EXAMPLES FOR VERIFY"
+.PP
+The following errors are currently detected:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+unknown sections and directives,
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+missing dependencies which are required to start the given unit,
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+man pages listed in
+\fIDocumentation=\fR
+which are not found in the system,
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+commands listed in
+\fIExecStart=\fR
+and similar which are not found in the system or not executable\&.
+.RE
+.PP
+\fBExample\ \&3.\ \&Misspelt directives\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ cat \&./user\&.slice
+[Unit]
+WhatIsThis=11
+Documentation=man:nosuchfile(1)
+Requires=different\&.service
+
+[Service]
+Desription=x
+
+$ systemd\-verify \&./user\&.slice
+[\&./user\&.slice:9] Unknown lvalue \*(AqWhatIsThis\*(Aq in section \*(AqUnit\*(Aq
+[\&./user\&.slice:13] Unknown section \*(AqService\*(Aq\&. Ignoring\&.
+Error: org\&.freedesktop\&.systemd1\&.LoadFailed:
+         Unit different\&.service failed to load:
+         No such file or directory\&.
+Failed to create user\&.slice/start: Invalid argument
+user\&.slice: man nosuchfile(1) command failed with code 16
+                        
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+\fBExample\ \&4.\ \&Missing service units\fR
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ tail \&./a\&.socket \&./b\&.socket
+==> \&./a\&.socket <==
+[Socket]
+ListenStream=100
+
+==> \&./b\&.socket <==
+[Socket]
+ListenStream=100
+Accept=yes
+
+$ systemd\-verify \&./a\&.socket \&./b\&.socket
+Service a\&.service not loaded, a\&.socket cannot be started\&.
+Service b@0\&.service not loaded, b\&.socket cannot be started\&.
+                        
 .fi
 .if n \{\
 .RE

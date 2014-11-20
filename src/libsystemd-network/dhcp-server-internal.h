@@ -39,6 +39,8 @@ typedef struct DHCPLease {
         DHCPClientId client_id;
 
         be32_t address;
+        be32_t gateway;
+        uint8_t chaddr[16];
         usec_t expiration;
 } DHCPLease;
 
@@ -53,6 +55,7 @@ struct sd_dhcp_server {
 
         int index;
         be32_t address;
+        be32_t netmask;
         be32_t pool_start;
         size_t pool_size;
         size_t next_offer;

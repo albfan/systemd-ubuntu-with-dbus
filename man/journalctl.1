@@ -1,5 +1,5 @@
 '\" t
-.TH "JOURNALCTL" "1" "" "systemd 215" "journalctl"
+.TH "JOURNALCTL" "1" "" "systemd 217" "journalctl"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -38,9 +38,9 @@ If one or more match arguments are passed, the output is filtered accordingly\&.
 "FIELD=VALUE", e\&.g\&.
 "_SYSTEMD_UNIT=httpd\&.service", referring to the components of a structured journal entry\&. See
 \fBsystemd.journal-fields\fR(7)
-for a list of well\-known fields\&. If multiple matches are specified matching different fields, the log entries are filtered by both, i\&.e\&. the resulting output will show only entries matching all the specified matches of this kind\&. If two matches apply to the same field, then they are automatically matched as alternatives, i\&.e\&. the resulting output will show entries matching any of the specified matches for the same field\&. Finally, if the character
+for a list of well\-known fields\&. If multiple matches are specified matching different fields, the log entries are filtered by both, i\&.e\&. the resulting output will show only entries matching all the specified matches of this kind\&. If two matches apply to the same field, then they are automatically matched as alternatives, i\&.e\&. the resulting output will show entries matching any of the specified matches for the same field\&. Finally, the character
 "+"
-appears as a separate word on the command line, all matches before and after are combined in a disjunction (i\&.e\&. logical OR)\&.
+may appears as a separate word between other terms on the command line\&. This causes all matches before and after to be combined in a disjunction (i\&.e\&. logical OR)\&.
 .PP
 As shortcuts for a few types of field/value matches, file paths may be specified\&. If a file path refers to an executable file, this is equivalent to an
 "_EXE="
@@ -48,7 +48,18 @@ match for the canonicalized binary path\&. Similarly, if a path refers to a devi
 "_KERNEL_DEVICE="
 match for the device\&.
 .PP
+Additional constraints may be added using options
+\fB\-\-boot\fR,
+\fB\-\-unit=\fR, etc, to further limit what entries will be shown (logical AND)\&.
+.PP
 Output is interleaved from all accessible journal files, whether they are rotated or currently being written, and regardless of whether they belong to the system itself or are accessible user journals\&.
+.PP
+The set of journal files which will be used can be modified using the
+\fB\-\-user\fR,
+\fB\-\-system\fR,
+\fB\-\-directory\fR, and
+\fB\-\-file\fR
+options, see below\&.
 .PP
 All users are granted access to their private per\-user journals\&. However, by default, only root and users who are members of the
 "systemd\-journal"
@@ -60,7 +71,7 @@ by default, and long lines are "truncated" to screen width\&. The hidden part ca
 \fB\-\-no\-pager\fR
 option and the "Environment" section below\&.
 .PP
-When outputing to a tty, lines are colored according to priority: lines of level ERROR and higher are colored red; lines of level NOTICE and higher are highlighted; other lines are displayed normally\&.
+When outputting to a tty, lines are colored according to priority: lines of level ERROR and higher are colored red; lines of level NOTICE and higher are highlighted; other lines are displayed normally\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
@@ -91,7 +102,9 @@ Immediately jump to the end of the journal inside the implied pager tool\&. This
 \fB\-n1000\fR
 to guarantee that the pager will not buffer logs of unbounded size\&. This may be overridden with an explicit
 \fB\-n\fR
-with some other numeric value on the command line\&. Note that this option is only supported for the
+with some other numeric value while
+\fB\-nall\fR
+will disable this cap\&. Note that this option is only supported for the
 \fBless\fR(1)
 pager\&.
 .RE
@@ -100,7 +113,9 @@ pager\&.
 .RS 4
 Show the most recent journal events and limit the number of events shown\&. If
 \fB\-\-follow\fR
-is used, this option is implied\&. The argument, a positive integer, is optional, and defaults to 10\&.
+is used, this option is implied\&. The argument is a positive integer or
+"all"
+to disable line limiting\&. The default value is 10 if no argument is given\&.
 .RE
 .PP
 \fB\-\-no\-tail\fR
@@ -172,6 +187,11 @@ formats entries as JSON data structures, but wraps them in a format suitable for
 .RS 4
 generates a very terse output, only showing the actual message of each journal entry with no metadata, not even a timestamp\&.
 .RE
+.RE
+.PP
+\fB\-\-utc\fR
+.RS 4
+Express time in Coordinated Universal Time (UTC)\&.
 .RE
 .PP
 \fB\-x\fR, \fB\-\-catalog\fR
@@ -248,10 +268,22 @@ and adds the match
 "_TRANSPORT=kernel"\&.
 .RE
 .PP
+\fB\-t\fR, \fB\-\-identifier=\fR\fB\fISYSLOG_IDENTIFIER\fR\fR\fB|\fR\fB\fIPATTERN\fR\fR
+.RS 4
+Show messages for the specified syslog identifier
+\fISYSLOG_IDENTIFIER\fR, or for any of the messages with a
+"SYSLOG_IDENTIFIER"
+matched by
+\fIPATTERN\fR\&.
+.sp
+This parameter can be specified multiple times\&.
+.RE
+.PP
 \fB\-u\fR, \fB\-\-unit=\fR\fB\fIUNIT\fR\fR\fB|\fR\fB\fIPATTERN\fR\fR
 .RS 4
 Show messages for the specified systemd unit
-\fIUNIT\fR, or for any of the units matched by
+\fIUNIT\fR
+(such as a service unit), or for any of the units matched by
 \fIPATTERN\fR\&. If a pattern is specified, a list of unit names found in the journal is compared with the specified pattern and all that match are used\&. For each unit name, a match is added for messages from the unit ("_SYSTEMD_UNIT=\fIUNIT\fR"), along with additional matches for messages from systemd and messages about coredumps for the specified unit\&.
 .sp
 This parameter can be specified multiple times\&.
@@ -453,6 +485,14 @@ Specifies the FSS verification key to use for the
 operation\&.
 .RE
 .PP
+\fB\-\-flush\fR
+.RS 4
+Asks the Journal daemon to flush any log data stored in
+/run/systemd/log
+into
+/var/systemd/log, if persistent storage is enabled\&. This call does not return until the operation is complete\&.
+.RE
+.PP
 \fB\-h\fR, \fB\-\-help\fR
 .RS 4
 Print a short help text and exit\&.
@@ -589,11 +629,25 @@ journalctl \-k \-b \-1
 .if n \{\
 .RE
 .\}
+.PP
+Show a live log display from a system service
+apache\&.service:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+journalctl \-f \-u apache
+.fi
+.if n \{\
+.RE
+.\}
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
 \fBsystemd-journald.service\fR(8),
 \fBsystemctl\fR(1),
+\fBcoredumpctl\fR(1),
 \fBsystemd.journal-fields\fR(7),
 \fBjournald.conf\fR(5)
 .SH "NOTES"

@@ -75,7 +75,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
         case BUS_REPLY_CALLBACK:
 
                 if (slot->reply_callback.cookie != 0)
-                        hashmap_remove(slot->bus->reply_callbacks, &slot->reply_callback.cookie);
+                        ordered_hashmap_remove(slot->bus->reply_callbacks, &slot->reply_callback.cookie);
 
                 if (slot->reply_callback.timeout != 0)
                         prioq_remove(slot->bus->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
@@ -244,4 +244,24 @@ _public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
                 return NULL;
 
         return slot->bus->current_message;
+}
+
+_public_ sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *slot) {
+        assert_return(slot, NULL);
+        assert_return(slot->type >= 0, NULL);
+
+        if (slot->bus->current_slot != slot)
+                return NULL;
+
+        return slot->bus->current_handler;
+}
+
+_public_ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
+        assert_return(slot, NULL);
+        assert_return(slot->type >= 0, NULL);
+
+        if (slot->bus->current_slot != slot)
+                return NULL;
+
+        return slot->bus->current_userdata;
 }

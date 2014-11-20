@@ -1,6 +1,8 @@
+Fixes needed before 217:
+
+* verify that both resolved and timesyncd work OK without networkd around
+
 Bugfixes:
-* Re-enable "fsck -l" when it is ready:
-   https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
 
 * Should systemctl status \* work on all unit types, not just .service?
 
@@ -10,47 +12,165 @@ Bugfixes:
 
 * properly handle .mount unit state tracking when two mount points are stacked one on top of another on the exact same mount point.
 
-External:
-* Fedora: when installing fedora with yum --installroot /var/run is a directory, not a symlink
-   https://bugzilla.redhat.com/show_bug.cgi?id=975864
+* ExecStart with unicode characters fails in strv_split_quoted:
 
+          [Service]
+          Environment=ONE='one' "TWO='two two' too" THREE=
+          ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
+
+* MEMORY return code is overloaded for syntax errors in the commandline.
+  str_split_quoted() should return a real return code, so spawn_child can
+  report the failure properly.
+
+External:
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.
 
 * Fedora: post FPC ticket to move add %tmpfiles_create to the packaging guidelines
 
 * Fedora: move kernel image to /usr/lib/modules/, kernel-install will take care of populating /boot
 
+* Fedora: remove /etc/resolv.conf tmpfiles hack
+
+* wiki: update journal format documentation for lz4 additions
+
+* When lz4 gets an API for lz4 command output, make use of it to
+  compress coredumps in a way compatible with /usr/bin/lz4.
+
 Features:
 
-* new component "systemd-first-boot" which asks for locale, timezone,
-  root password on first boot if the configuration for that has not
-  been provisioned yet. Similar in style to what the distros have, but
-  minimalist, text-only /dev/console stuff.
+* journald: allow per-priority and per-service retention times when rotating/vacuuming
+
+* introduce systemd-timesync-wait.service or so to sync on an NTP fix?
+
+* systemd --user should issue sd_notify() upon reaching basic.target, not on becoming idle
+
+* configure.ac pretends dbus was optional but actually hardcodes use of dbus' pkg-config file to determine various dbus dirs such as policy and activation dirs
+
+* consider showing the unit names during boot up in the status output, not just the unit descriptions
+
+* dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
+
+* maybe allow timer units with an empty Units= setting, so that they
+  can be used for resuming the system but nothing else.
+
+* what to do about udev db binary stability for apps?
+
+* maybe provide an API to allow migration of foreign PIDs into existing scopes.
+
+* kdbus: maybe rename "connection name" concept to something that doesn't reuse the word "name"?
+
+* PID 1 doesn't apply nspawns devices cgroup policy
+
+* rework journal-send.c to use memfds for large blobs if they are available instead of unlinked files in /tmp. Also, if we detect that the kernel knows memfds, refuse anything but sealed memfds.
+
+* maybe support a new very "soft" reboot mode, that simply kills all processes, disassembles everything, flushes /run and sysvipc, and then reexecs systemd again
+
+* man: document that corrupted journal files is nothing to act on
+
+* bus-proxy: when passing messages from kdbus, make sure we properly
+  handle the case where a large number of fds is appended that we
+  cannot pass into sendmsg() of the AF_UNIX sokcet (which only accepts
+  253 messages)
+
+* busctl: add a pcap writer, using LINKTYPE_DBUS/231
+
+* man: maybe use the word "inspect" rather than "introspect"?
+
+* introduce machines.target to order after all nspawn instances
+
+* systemd-nspawn@.service should fail if some nspawn arg is invalid, with Type=notify
+
+* "machinectl list" should probably show columns for OS version and IP addresses
+
+* systemctl: if it fails, show log output?
+
+* maybe add "systemctl edit" that copies unit files from /usr/lib/systemd/system to /etc/systemd/system and invokes vim on them
+
+* maybe introduce AssertXYZ= similar to ConditionXYZ= that causes a unit to fail (instead of skipping it) if some condition is not true...
+
+* refcounting in sd-resolve is borked
+
+* exponential backoff in timesyncd and resolved when we cannot reach a server
+
+* journald: make use of uid-range.h to managed uid ranges to split
+  journals in.
+
+* tmpfiles: port to unquote_many_words(), similar to sysusers
+
+* unquote_many_words() should probably be used by a lot of code that
+  currently uses FOREACH_WORD and friends. For example, most conf
+  parsing callbacks should use it.
+
+* logind: make the Suspend()/Hibernate() bus calls wait for the for
+  the job to be completed. before returning, so that clients can wait
+  for "systemctl suspend" to finish to know when the suspending is
+  complete.
+
+* merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
+
+* journald: allows specification of UID range for splitting up journal files
+
+* systemd.show_status= should probably have a mode where only failed
+  units are shown.
+
+* networkd:
+  - add LLDP client side support
+  - the DHCP lease data (such as NTP/DNS) is still made available when
+    a carrier is lost on a link. It should be removed instantly.
+  - .network setting that allows overriding of the hostname to send to the dhcp server
+    http://lists.freedesktop.org/archives/systemd-devel/2014-July/021550.html
+  - expose in the API the following bits:
+        - option 15, domain name and/or option 119, search list
+        - option 12, host name and/or option 81, fqdn
+        - option 100, 101, timezone
+        - option 123, 144, geolocation
+        - option 252, configure http proxy (PAC/wpad)
+  - networkd's dhcp server should transparently pass on the DNS and
+    NTP server list it got from user configuration and its dhcp client
+    to clients. It should also pass on its own timezone information.
+  - provide a way to define a per-network interface default metric value
+    for all routes to it. possibly a second default for DHCP routes.
+  - allow Name= to be specified repeatedly in the [Match] section. Maybe also
+    support Name=foo*|bar*|baz ?
+
+* resolved:
+  - put networkd events and rtnl events at a higher priority, so that
+    we always process them before we process client requests
+  - DNSSEC
+        - use base64 for key presentation?
+        - add display of private key types (http://tools.ietf.org/html/rfc4034#appendix-A.1.1)?
+        - add nice formatting of DNS timestamps
+  - DNS
+        - search paths
+  - mDNS/DNS-SD
+        - avahi compat
+  - DNS-SD service registration from socket units
+  - edns0
+  - dname
+  - cname on PTR (?)
+
+* Ignore .busname units on classic D-Bus boots, systemd-resolved cannot be started on kdbus
+  without the active policy and should get a Wants=org.freedesktop.resolve1.busname to
+  pull-in the policy.
+
+* Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
 
 * Add a new verb "systemctl top"
 
-* order OnCalendar timer units after timer-sync.target if DefaultDependencies=no so that we don't trigger them prematurely
-
-* refuse mounting on symlinks
-
 * logind: allow users to kill or lock their own sessions
+
+* add new gpt type for btrfs volumes
 
 * support empty /etc boots nicely:
   - nspawn/gpt-generator: introduce new gpt partition type for /usr
-  - nspawn: add --mode=auto,stateful,stateless,volatile
-  - fstab-generator: support auot/stateful/stateless/volatile on the kernel cmdline, too
+  - fstab-generator: support systemd.volatile=yes|no|state on the kernel cmdline, too, similar to nspawn's --volatile=
   - fstab-generator: add support for usr= in addition to root= on the kernel cmdline
 
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
 * support setting empty environment variables with Environment= and EnvironmentFile=
 
-* machined/machinectl: sort IP addresses we return by scope and protocol
-* machined: write NSS module for looking up IP addresses for machines
-
 * timer units: actually add extra delays to timer units with high AccuracySec values, don't start them already when we are awake...
-
-* timesyncd - hookup with networkd: NTP servers from dhcp
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
@@ -58,14 +178,10 @@ Features:
 
 * journalctl: add the ability to look for the most recent process of a binary. journalctl /usr/bin/X11 --pid=-1 or so...
 
-* set NOTIFY_SOCKET also for control processes
-
 * mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
   they run added to the initial transaction and thus confuse Type=idle.
-
-* Add timeout to early-boot, and shut down the system if it is hit. Solves the laptop-in-bag problem and is useful for embedded cases
 
 * Run most system services with cgroupfs read-only and procfs with a more secure mode (doesn't work, since the hidepid= option is per-pid-namespace, not per-mount)
 
@@ -146,8 +262,6 @@ Features:
 
 * unify dispatch table in systemctl_main() and friends
 
-* Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
-
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
 
 * After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
@@ -189,13 +303,13 @@ Features:
        - kdbus mapping
        - NameLost/NameAcquired obsolete
        - GVariant
-       - "const" properties (posted)
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
   - test bloom filter generation indexes
 
 * sd-event
   - allow multiple signal handlers per signal?
+  - document chaining of signal handler for SIGCHLD and child handlers
 
 * in the final killing spree, detect processes from the root directory, and
   complain loudly if they have argv[0][0] == '@' set.
@@ -211,8 +325,6 @@ Features:
 * add a pam module that on password changes updates any LUKS slot where the password matches
 
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
-
-* timedatctl, localectl: possibly make some commands work without the daemon, for chroot situations...
 
 * timedatectl: print a nicer message when enabling ntp fails because ntpd/chrony are not installed
 
@@ -376,7 +488,6 @@ Features:
   - "systemctl mask" should find all names by which a unit is accessible
     (i.e. by scanning for symlinks to it) and link them all to /dev/null
   - systemctl list-unit-files should list generated files (and probably with a new state "generated" for them, or so)
-  - systemctl: maybe add "systemctl add-wants" or so...
 
 * timer units:
   - timer units should get the ability to trigger when:
@@ -452,10 +563,6 @@ Features:
 
 * properly handle loop back mounts via fstab, especially regards to fsck/passno
 
-* allow services with no ExecStart= but with an ExecStop=
-
-* dracut-shutdown needs to be ordered before unmounting /boot
-
 * initialize the hostname from the fs label of /, if /etc/hostname does not exist?
 
 * rename "userspace" to "core-os"
@@ -483,7 +590,6 @@ Features:
 * ExecOnFailure=/usr/bin/foo
 
 * udev:
-  - remove src/udev/udev-builtin-firmware.c (CONFIG_FW_LOADER_USER_HELPER=n)
   - move to LGPL
   - kill scsi_id
   - add trigger --subsystem-match=usb/usb_device device
@@ -529,9 +635,7 @@ Features:
 
 * make sure systemd-ask-password-wall does not shutdown systemd-ask-password-console too early
 
-* support sd_notify() style notification when reload begins (RELOADING=1), reload is finished (READY=1), and add ReloadSignal= then to use in combination
-
-* support sd_notify() style notification when shutting down, to make auto-exit bus services work (STOPPING=1)
+* add ReloadSignal= for configuring a reload signal to use
 
 * verify that the AF_UNIX sockets of a service in the fs still exist
   when we start a service in order to avoid confusion when a user
@@ -612,16 +716,13 @@ Features:
 * networkd:
    - add more keys to [Route] and [Address] sections
    - add support for more DHCPv4 options (and, longer term, other kinds of dynamic config)
-   - send hostname to DHCP server
    - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
    - add reduced [Link] support to .network files
    - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
-   - add veth netdev support (c.f. http://shorewall.net/bridge-Shorewall-perl.html#veth)
-   - add tun/tap netdev support
    - add more attribute support for SIT tunnel
-   - make metric of routes configurable
    - work with non-ethernet devices
+   - add support for more bond options
 
 * networkd-wait-online:
    - make operstates to wait for configurable?
@@ -629,7 +730,7 @@ Features:
 * dhcp:
    - figure out how much we can increase Maximum Message Size
    - export timezone information
-   - FORCERENEW
+   - support RFC4702 (pass FQDN)
 
 * dhcp6:
    - add functions to set previously stored IPv6 addresses on startup and get
@@ -639,7 +740,6 @@ Features:
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
    - implement information request, see 1.2. and 18.1.5.
    - implement support for temporary adressess (IA_TA)
-   - implement elapsed time option
    - implement dhcpv6 authentication
    - investigate the usefulness of Confirm messages; i.e. are there any
      situations where the link changes without any loss in carrier detection
@@ -680,6 +780,11 @@ External:
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
 * register catalog database signature as file magic
+
+* zsh shell completion:
+  - <command> <verb> -<TAB> should complete options, but currently does not
+  - systemctl add-wants,add-requires
+
 
 Regularly:
 

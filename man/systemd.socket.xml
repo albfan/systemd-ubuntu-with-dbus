@@ -188,7 +188,7 @@
                                 replaced with a
                                 <constant>NUL</constant> character
                                 before binding. For details, see
-                                <citerefentry><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+                                <citerefentry project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
                                 <para>If the address string is a
                                 single number, it is read as port
@@ -488,6 +488,53 @@
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>KeepAliveTimeSec=</varname></term>
+                                <listitem><para>Takes time (in seconds) as argument . The connection needs to remain
+                                idle before TCP starts sending keepalive probes. This controls the TCP_KEEPIDLE
+                                socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 7200 seconds (2 hours).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KeepAliveIntervalSec=</varname></term>
+                                <listitem><para>Takes time (in seconds) as argument between individual keepalive probes,
+                                if the socket option SO_KEEPALIVE has  been set on this socket seconds as argument.
+                                This controls the TCP_KEEPINTVL socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 75 seconds.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>KeepAliveProbes=</varname></term>
+                                <listitem><para>Takes integer as argument. It's the number of unacknowledged probes to
+                                send before considering the connection dead and notifying the application layer.
+                                This controls the TCP_KEEPCNT socket option (see
+                                <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                and the <ulink
+                                url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
+                                Keepalive HOWTO</ulink> for details.)
+                                Defaults value is 9.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>NoDelay=</varname></term>
+                                <listitem><para>Takes a boolean
+                                argument. TCP Nagle's algorithm works by combining a number of
+                                small outgoing messages, and sending them all at once.
+                                This controls the TCP_NODELAY socket option (see
+                                <citerefentry><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                Defaults to
+                                <option>false</option>.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
                                 <term><varname>Priority=</varname></term>
                                 <listitem><para>Takes an integer
                                 argument controlling the priority for
@@ -496,6 +543,47 @@
                                 socket option (see
                                 <citerefentry><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details.).</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                                <term><varname>DeferAcceptSec=</varname></term>
+
+                                <listitem><para>Takes time (in
+                                seconds) as argument. If set, the
+                                listening process will be awakened
+                                only when data arrives on the socket,
+                                and not immediately when connection is
+                                established. When this option is set,
+                                the
+                                <constant>TCP_DEFER_ACCEPT</constant>
+                                socket option will be used (see
+                                <citerefentry><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+                                and the kernel will ignore initial ACK
+                                packets without any data. The argument
+                                specifies the approximate amount of
+                                time the kernel should wait for
+                                incoming data before falling back to
+                                the normal behaviour of honouring
+                                empty ACK packets. This option is
+                                beneficial for protocols where the
+                                client sends the data first (e.g.
+                                HTTP, in contrast to SMTP), because
+                                the server process will not be woken
+                                up unnecessarily before it can take
+                                any action.
+                                </para>
+
+                                <para>If the client also uses the
+                                <constant>TCP_DEFER_ACCEPT</constant>
+                                option, the latency of the initial
+                                connection may be reduced, because the
+                                kernel will send data in the final
+                                packet establishing the connection
+                                (the third packet in the "three-way
+                                handshake").</para>
+
+                                <para>Disabled by default.</para>
+                                </listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -585,6 +673,32 @@
                                 <ulink
                                 url="https://www.kernel.org/doc/Documentation/security/Smack.txt">Smack.txt</ulink>
                                 for details.</para></listitem>
+                        </varlistentry>
+
+                        <varlistentry>
+                          <term><varname>SELinuxContextFromNet=</varname></term>
+                                 <listitem><para>Takes a boolean
+                                 argument. When true, systemd will attempt
+                                 to figure out the SELinux label used
+                                 for the instantiated service from the
+                                 information handed by the peer over the
+                                 network. Note that only the security
+                                 level is used from the information
+                                 provided by the peer. Other parts of
+                                 the resulting SELinux context originate
+                                 from either the target binary that is
+                                 effectively triggered by socket unit
+                                 or from the value of the
+                                 <varname>SELinuxContext=</varname>
+                                 option. This configuration option only
+                                 affects sockets with
+                                 <varname>Accept=</varname> mode set to
+                                 <literal>true</literal>. Also note that
+                                 this option is useful only when
+                                 MLS/MCS SELinux policy is
+                                 deployed. Defaults to
+                                 <literal>false</literal>.
+                                 </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -722,16 +836,18 @@
                                 finish. If a command does not exit
                                 within the configured time, the socket
                                 will be considered failed and be shut
-                                down again. All commands still running,
+                                down again. All commands still running
                                 will be terminated forcibly via
                                 <constant>SIGTERM</constant>, and after another delay of
                                 this time with <constant>SIGKILL</constant>. (See
                                 <option>KillMode=</option> in <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
                                 Takes a unit-less value in seconds, or
                                 a time span value such as "5min
-                                20s". Pass 0 to disable the timeout
-                                logic. Defaults to <varname>TimeoutStartSec=</varname> from the
-                                manager configuration file.</para></listitem>
+                                20s". Pass <literal>0</literal> to disable the timeout
+                                logic. Defaults to <varname>DefaultTimeoutStartSec=</varname> from the
+                                manager configuration file
+                                (see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+                                </para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -799,7 +915,7 @@
                   <title>See Also</title>
                   <para>
                           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                          <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                           <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

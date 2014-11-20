@@ -45,25 +45,24 @@
 static const char *arg_icon = NULL;
 static const char *arg_id = NULL;
 static const char *arg_message = NULL;
+static bool arg_echo = false;
 static bool arg_use_tty = true;
 static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 static bool arg_accept_cached = false;
 static bool arg_multiple = false;
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] MESSAGE\n\n"
                "Query the user for a system passphrase, via the TTY or an UI agent.\n\n"
                "  -h --help          Show this help\n"
                "     --icon=NAME     Icon name\n"
                "     --timeout=SEC   Timeout in sec\n"
+               "     --echo          Do not mask input (useful for usernames)\n"
                "     --no-tty        Ask question via agent even on TTY\n"
                "     --accept-cached Accept cached passwords\n"
                "     --multiple      List multiple passwords if available\n"
-               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n",
-               program_invocation_short_name);
-
-        return 0;
+               "     --id=ID         Query identifier (e.g. cryptsetup:/dev/sda5)\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -71,6 +70,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ICON = 0x100,
                 ARG_TIMEOUT,
+                ARG_ECHO,
                 ARG_NO_TTY,
                 ARG_ACCEPT_CACHED,
                 ARG_MULTIPLE,
@@ -81,6 +81,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",          no_argument,       NULL, 'h'               },
                 { "icon",          required_argument, NULL, ARG_ICON          },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
+                { "echo",          no_argument,       NULL, ARG_ECHO          },
                 { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
                 { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
                 { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
@@ -93,12 +94,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_ICON:
                         arg_icon = optarg;
@@ -109,6 +111,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 log_error("Failed to parse --timeout parameter %s", optarg);
                                 return -EINVAL;
                         }
+                        break;
+
+                case ARG_ECHO:
+                        arg_echo = true;
                         break;
 
                 case ARG_NO_TTY:
@@ -133,10 +139,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
-        if (optind != argc-1) {
-                help();
+        if (optind != argc - 1) {
+                log_error("%s: required argument missing.", program_invocation_short_name);
                 return -EINVAL;
         }
 
@@ -151,7 +156,8 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        if ((r = parse_argv(argc, argv)) <= 0)
+        r = parse_argv(argc, argv);
+        if (r <= 0)
                 goto finish;
 
         if (arg_timeout > 0)
@@ -162,7 +168,7 @@ int main(int argc, char *argv[]) {
         if (arg_use_tty && isatty(STDIN_FILENO)) {
                 char *password = NULL;
 
-                if ((r = ask_password_tty(arg_message, timeout, NULL, &password)) >= 0) {
+                if ((r = ask_password_tty(arg_message, timeout, arg_echo, NULL, &password)) >= 0) {
                         puts(password);
                         free(password);
                 }
@@ -170,7 +176,7 @@ int main(int argc, char *argv[]) {
         } else {
                 char **l;
 
-                if ((r = ask_password_agent(arg_message, arg_icon, arg_id, timeout, arg_accept_cached, &l)) >= 0) {
+                if ((r = ask_password_agent(arg_message, arg_icon, arg_id, timeout, arg_echo, arg_accept_cached, &l)) >= 0) {
                         char **p;
 
                         STRV_FOREACH(p, l) {

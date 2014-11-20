@@ -63,8 +63,13 @@ typedef struct MountPoint {
 
 /* The first three entries we might need before SELinux is up. The
  * fourth (securityfs) is needed by IMA to load a custom policy. The
- * other ones we can delay until SELinux and IMA are loaded. */
+ * other ones we can delay until SELinux and IMA are loaded. When
+ * SMACK is enabled we need smackfs, too, so it's a fifth one. */
+#ifdef HAVE_SMACK
 #define N_EARLY_MOUNT 5
+#else
+#define N_EARLY_MOUNT 4
+#endif
 
 static const MountPoint mount_table[] = {
         { "sysfs",      "/sys",                      "sysfs",      NULL, MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -77,9 +82,9 @@ static const MountPoint mount_table[] = {
           NULL,       MNT_NONE },
 #ifdef HAVE_SMACK
         { "smackfs",    "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          use_smack,  MNT_FATAL },
+          mac_smack_use, MNT_FATAL },
         { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          use_smack,  MNT_FATAL },
+          mac_smack_use, MNT_FATAL },
 #endif
         { "tmpfs",      "/dev/shm",                  "tmpfs",      "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
@@ -87,7 +92,7 @@ static const MountPoint mount_table[] = {
           NULL,       MNT_IN_CONTAINER },
 #ifdef HAVE_SMACK
         { "tmpfs",      "/run",                      "tmpfs",      "mode=755,smackfsroot=*", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          use_smack,  MNT_FATAL },
+          mac_smack_use, MNT_FATAL },
 #endif
         { "tmpfs",      "/run",                      "tmpfs",      "mode=755", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,       MNT_FATAL|MNT_IN_CONTAINER },
@@ -230,7 +235,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 return 0;
         }
 
-        controllers = set_new(string_hash_func, string_compare_func);
+        controllers = set_new(&string_hash_ops);
         if (!controllers)
                 return log_oom();
 
@@ -346,6 +351,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
         return 0;
 }
 
+#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
 static int nftw_cb(
                 const char *fpath,
                 const struct stat *sb,
@@ -367,6 +373,7 @@ static int nftw_cb(
 
         return FTW_CONTINUE;
 };
+#endif
 
 int mount_setup(bool loaded_policy) {
         int r;
@@ -379,6 +386,7 @@ int mount_setup(bool loaded_policy) {
                         return r;
         }
 
+#if defined(HAVE_SELINUX) || defined(HAVE_SMACK)
         /* Nodes in devtmpfs and /run need to be manually updated for
          * the appropriate labels, after mounting. The other virtual
          * API file systems like /sys and /proc do not need that, they
@@ -397,6 +405,7 @@ int mount_setup(bool loaded_policy) {
                 log_info("Relabelled /dev and /run in %s.",
                          format_timespan(timespan, sizeof(timespan), after_relabel - before_relabel, 0));
         }
+#endif
 
         /* Create a few default symlinks, which are normally created
          * by udevd, but some scripts might need them before we start

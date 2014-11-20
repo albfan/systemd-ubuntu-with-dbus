@@ -25,15 +25,13 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <syslog.h>
 #include <getopt.h>
 #include <sys/signalfd.h>
 
 #include "udev.h"
 #include "udev-util.h"
 
-static int adm_test(struct udev *udev, int argc, char *argv[])
-{
+static int adm_test(struct udev *udev, int argc, char *argv[]) {
         int resolve_names = 1;
         char filename[UTIL_PATH_SIZE];
         const char *action = "add";
@@ -138,7 +136,7 @@ static int adm_test(struct udev *udev, int argc, char *argv[])
                 goto out;
         }
 
-        udev_event_execute_rules(event, rules, &sigmask_orig);
+        udev_event_execute_rules(event, 60 * USEC_PER_SEC, 20 * USEC_PER_SEC, rules, &sigmask_orig);
 
         udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev))
                 printf("%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));

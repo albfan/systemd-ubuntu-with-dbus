@@ -47,7 +47,7 @@ static const char *arg_repair = "-a";
 
 static void start_target(const char *target) {
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         assert(target);
@@ -320,16 +320,11 @@ int main(int argc, char *argv[]) {
         cmdline[i++] = "-T";
 
         /*
-         * Disable locking which conflict with udev's event
-         * ownershipi, until util-linux moves the flock
-         * synchronization file which prevents multiple fsck running
-         * on the same rotationg media, from the disk device
-         * node to a privately owned regular file.
-         *
-         * https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
-         *
-         * cmdline[i++] = "-l";
+         * Since util-linux v2.25 fsck uses /run/fsck/<diskname>.lock files.
+         * The previous versions use flock for the device and conflict with
+         * udevd, see https://bugs.freedesktop.org/show_bug.cgi?id=79576#c5
          */
+        cmdline[i++] = "-l";
 
         if (!root_directory)
                 cmdline[i++] = "-M";

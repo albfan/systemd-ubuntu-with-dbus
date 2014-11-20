@@ -25,6 +25,7 @@ typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
+typedef struct ExecParameters ExecParameters;
 
 #include <linux/types.h>
 #include <sys/time.h>
@@ -40,6 +41,7 @@ typedef struct ExecRuntime ExecRuntime;
 #include "fdset.h"
 #include "missing.h"
 #include "namespace.h"
+#include "bus-endpoint.h"
 
 typedef enum ExecInput {
         EXEC_INPUT_NULL,
@@ -187,25 +189,35 @@ struct ExecContext {
         bool ioprio_set:1;
         bool cpu_sched_set:1;
         bool no_new_privileges_set:1;
+
+        /* custom dbus enpoint */
+        BusEndpoint *bus_endpoint;
 };
 
 #include "cgroup.h"
 
+struct ExecParameters {
+        char **argv;
+        int *fds; unsigned n_fds;
+        char **environment;
+        bool apply_permissions;
+        bool apply_chroot;
+        bool apply_tty_stdin;
+        bool confirm_spawn;
+        bool selinux_context_net;
+        CGroupControllerMask cgroup_supported;
+        const char *cgroup_path;
+        const char *runtime_prefix;
+        const char *unit_id;
+        usec_t watchdog_usec;
+        int *idle_pipe;
+        char *bus_endpoint_path;
+        int bus_endpoint_fd;
+};
+
 int exec_spawn(ExecCommand *command,
-               char **argv,
-               ExecContext *context,
-               int fds[], unsigned n_fds,
-               char **environment,
-               bool apply_permissions,
-               bool apply_chroot,
-               bool apply_tty_stdin,
-               bool confirm_spawn,
-               CGroupControllerMask cgroup_mask,
-               const char *cgroup_path,
-               const char *runtime_prefix,
-               const char *unit_id,
-               usec_t watchdog_usec,
-               int pipe_fd[2],
+               const ExecContext *context,
+               const ExecParameters *exec_params,
                ExecRuntime *runtime,
                pid_t *ret);
 
@@ -221,6 +233,7 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
+int exec_command_append(ExecCommand *c, const char *path, ...);
 
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
@@ -228,7 +241,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
 
-int exec_context_load_environment(const ExecContext *c, char ***l);
+int exec_context_load_environment(const ExecContext *c, const char *unit_id, char ***l);
 
 bool exec_context_may_touch_console(ExecContext *c);
 

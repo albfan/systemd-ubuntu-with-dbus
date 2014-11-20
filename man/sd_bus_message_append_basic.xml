@@ -95,7 +95,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
           <row>
             <entry><literal>y</literal></entry>
             <entry><constant>SD_BUS_TYPE_BYTE</constant></entry>
-            <entry>unsigned interger</entry>
+            <entry>unsigned integer</entry>
             <entry>1 byte</entry>
           </row>
 
@@ -200,7 +200,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     valid Unicode string encoded as UTF-8. In case of the two latter
     types, the additional requirements for a D-Bus object path or
     type signature should be satisfied. Those requirements should be
-    verified by the recepient of the message.
+    verified by the recipient of the message.
     </para>
   </refsect1>
 
@@ -219,35 +219,35 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <variablelist>
 
       <varlistentry>
-        <term><varname>-EINVAL</varname></term>
+        <term><constant>-EINVAL</constant></term>
 
         <listitem><para>Specified parameter is invalid.
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-EPERM</varname></term>
+        <term><constant>-EPERM</constant></term>
 
         <listitem><para>Message has been sealed.
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ESTALE</varname></term>
+        <term><constant>-ESTALE</constant></term>
 
         <listitem><para>Message is in invalid state.
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ENXIO</varname></term>
+        <term><constant>-ENXIO</constant></term>
 
         <listitem><para>Message cannot be appended to.
         </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>-ENOMEM</varname></term>
+        <term><constant>-ENOMEM</constant></term>
 
         <listitem><para>Memory allocation failed.</para></listitem>
       </varlistentry>
@@ -260,7 +260,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para>The <function>sd_bus_append_basic()</function> function
     described here is available as a shared library, which can be
     compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 

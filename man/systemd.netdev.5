@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.NETDEV" "5" "" "systemd 215" "systemd.network"
+.TH "SYSTEMD\&.NETDEV" "5" "" "systemd 217" "systemd.network"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -30,7 +30,7 @@ Network setup is performed by
 \fBsystemd-networkd\fR(8)\&.
 .PP
 Virtual Network Device files must have the extension
-\&.netdev; other extensions are ignored\&. Virtual network devices are created as soon as networkd is started\&.
+\&.netdev; other extensions are ignored\&. Virtual network devices are created as soon as networkd is started\&. If a netdev with the specified name already exists, networkd will use that as\-is rather than create its own\&. Note that the settings of the pre\-existing netdev will not be changed by networkd\&.
 .PP
 The
 \&.netdev
@@ -117,20 +117,31 @@ The netdev kind\&. Currently,
 "gre",
 "sit",
 "vti",
-"veth", and
+"veth",
+"tun",
+"tap"
+and
 "dummy"
 are supported\&. This option is compulsory\&.
 .RE
 .PP
 \fIMTUBytes=\fR
 .RS 4
-The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&.
+The maximum transmission unit in bytes to set for the device\&. The usual suffixes K, M, G, are supported and are understood to the base of 1024\&. This key is not currently suported for
+"tun"
+or
+"tap"
+devices\&.
 .RE
 .PP
 \fIMACAddress=\fR
 .RS 4
 The MAC address to use for the device\&. If none is given, one is generated based on the interface name and the
-\fBmachine-id\fR(5)\&.
+\fBmachine-id\fR(5)\&. This key is not currently suported for
+"tun"
+or
+"tap"
+devices\&.
 .RE
 .SH "[VLAN] SECTION OPTIONS"
 .PP
@@ -292,6 +303,59 @@ section only applies for netdevs of kind
 "tap", and accepts the same keys as the
 "[Tun]"
 section\&.
+.SH "[BOND] SECTION OPTIONS"
+.PP
+The
+"[Bond]"
+section accepts the following key:
+.PP
+\fIMode=\fR
+.RS 4
+Specifies one of the bonding policies\&. The default is
+"balance\-rr"
+(round robin)\&. Possible values are
+"balance\-rr",
+"active\-backup",
+"balance\-xor",
+"broadcast",
+"802\&.3ad",
+"balance\-tlb", and
+"balance\-alb"\&.
+.RE
+.PP
+\fITransmitHashPolicy=\fR
+.RS 4
+Selects the transmit hash policy to use for slave selection in balance\-xor, 802\&.3ad, and tlb modes\&. Possible values are
+"layer2",
+"layer3+4",
+"layer2+3",
+"encap2+3",
+"802\&.3ad", and
+"encap3+4"\&.
+.RE
+.PP
+\fILACPTransmitRate=\fR
+.RS 4
+Specifies the rate with which link partner transmits Link Aggregation Control Protocol Data Unit packets in 802\&.3ad mode\&. Possible values are
+"slow", which requests partner to transmit LACPDUs every 30 seconds, and
+"fast", which requests partner to transmit LACPDUs every second\&. The default value is
+"slow"\&.
+.RE
+.PP
+\fIMIIMonitorSec=\fR
+.RS 4
+Specifies the frequency that Media Independent Interface link monitoring will occur\&. A value of zero disables MII link monitoring\&. This values is rounded down to the nearest millisecond\&. The default value is 0\&.
+.RE
+.PP
+\fIUpDelaySec=\fR
+.RS 4
+Specifies the delay before a link is enabled after a link up status has been detected\&. This value is rounded down to a multiple of MIIMonitorSec\&. The default value is 0\&.
+.RE
+.PP
+\fIDownDelaySec=\fR
+.RS 4
+Specifies the delay before a link is disabled after a link down status has been detected\&. This value is rounded down to a multiple of MIIMonitorSec\&. The default value is 0\&.
+.RE
 .SH "EXAMPLE"
 .PP
 \fBExample\ \&1.\ \&/etc/systemd/network/bridge.netdev\fR

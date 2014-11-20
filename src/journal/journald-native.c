@@ -82,7 +82,7 @@ void server_process_native_message(
         struct iovec *iovec = NULL;
         unsigned n = 0, j, tn = (unsigned) -1;
         const char *p;
-        size_t remaining, m = 0;
+        size_t remaining, m = 0, entry_size = 0;
         int priority = LOG_INFO;
         char *identifier = NULL, *message = NULL;
         pid_t object_pid = 0;
@@ -106,9 +106,16 @@ void server_process_native_message(
 
                 if (e == p) {
                         /* Entry separator */
+
+                        if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.", n, entry_size);
+                                continue;
+                        }
+
                         server_dispatch_message(s, iovec, n, m, ucred, tv, label, label_len, NULL, priority, object_pid);
                         n = 0;
                         priority = LOG_INFO;
+                        entry_size = 0;
 
                         p++;
                         remaining--;
@@ -126,8 +133,7 @@ void server_process_native_message(
                 /* A property follows */
 
                 /* n received properties, +1 for _TRANSPORT */
-                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS +
-                                              !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
+                if (!GREEDY_REALLOC(iovec, m, n + 1 + N_IOVEC_META_FIELDS + !!object_pid * N_IOVEC_OBJECT_FIELDS)) {
                         log_oom();
                         break;
                 }
@@ -145,6 +151,7 @@ void server_process_native_message(
                                  * field */
                                 iovec[n].iov_base = (char*) p;
                                 iovec[n].iov_len = l;
+                                entry_size += iovec[n].iov_len;
                                 n++;
 
                                 /* We need to determine the priority
@@ -214,7 +221,7 @@ void server_process_native_message(
                         l = le64toh(l_le);
 
                         if (l > DATA_SIZE_MAX) {
-                                log_debug("Received binary data block too large, ignoring.");
+                                log_debug("Received binary data block of %"PRIu64" bytes is too large, ignoring.", l);
                                 break;
                         }
 
@@ -237,6 +244,7 @@ void server_process_native_message(
                         if (valid_user_field(p, e - p, false)) {
                                 iovec[n].iov_base = k;
                                 iovec[n].iov_len = (e - p) + 1 + l;
+                                entry_size += iovec[n].iov_len;
                                 n++;
                         } else
                                 free(k);
@@ -251,6 +259,13 @@ void server_process_native_message(
 
         tn = n++;
         IOVEC_SET_STRING(iovec[tn], "_TRANSPORT=journal");
+        entry_size += strlen("_TRANSPORT=journal");
+
+        if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
+                log_debug("Entry is too big with %u properties and %zu bytes, ignoring.",
+                          n, entry_size);
+                goto finish;
+        }
 
         if (message) {
                 if (s->forward_to_syslog)
@@ -366,12 +381,15 @@ void server_process_native_file(
 }
 
 int server_open_native_socket(Server*s) {
-        union sockaddr_union sa;
         int one, r;
 
         assert(s);
 
         if (s->native_fd < 0) {
+                union sockaddr_union sa = {
+                        .un.sun_family = AF_UNIX,
+                        .un.sun_path = "/run/systemd/journal/socket",
+                };
 
                 s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->native_fd < 0) {
@@ -379,15 +397,11 @@ int server_open_native_socket(Server*s) {
                         return -errno;
                 }
 
-                zero(sa);
-                sa.un.sun_family = AF_UNIX;
-                strncpy(sa.un.sun_path, "/run/systemd/journal/socket", sizeof(sa.un.sun_path));
-
                 unlink(sa.un.sun_path);
 
                 r = bind(s->native_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind() failed: %m");
+                        log_error("bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
@@ -403,7 +417,7 @@ int server_open_native_socket(Server*s) {
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 one = 1;
                 r = setsockopt(s->native_fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one));
                 if (r < 0)

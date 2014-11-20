@@ -51,7 +51,9 @@ static int node_vtable_get_userdata(
         u = s->userdata;
         if (c->find) {
                 bus->current_slot = sd_bus_slot_ref(s);
+                bus->current_userdata = u;
                 r = c->find(bus, path, c->interface, u, &u, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(s);
 
                 if (r < 0)
@@ -123,7 +125,9 @@ static int add_enumerated_to_set(
                 slot = container_of(c, sd_bus_slot, node_enumerator);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, prefix, slot->userdata, &children, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
@@ -221,7 +225,7 @@ static int get_child_nodes(
         assert(n);
         assert(_s);
 
-        s = set_new(string_hash_func, string_compare_func);
+        s = set_new(&string_hash_ops);
         if (!s)
                 return -ENOMEM;
 
@@ -273,7 +277,11 @@ static int node_callbacks_run(
                 slot = container_of(c, sd_bus_slot, node_callback);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->callback;
+                bus->current_userdata = slot->userdata;
                 r = c->callback(bus, m, slot->userdata, &error_buffer);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 r = bus_maybe_reply_error(m, r, &error_buffer);
@@ -287,9 +295,7 @@ static int node_callbacks_run(
 #define CAPABILITY_SHIFT(x) (((x) >> __builtin_ctzll(_SD_BUS_VTABLE_CAPABILITY_MASK)) & 0xFFFF)
 
 static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c, sd_bus_error *error) {
-        _cleanup_bus_creds_unref_ sd_bus_creds *creds = NULL;
         uint64_t cap;
-        uid_t uid;
         int r;
 
         assert(bus);
@@ -304,17 +310,6 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         if (c->vtable->flags & SD_BUS_VTABLE_UNPRIVILEGED)
                 return 0;
 
-        /* If we are not connected to kdbus we cannot retrieve the
-         * effective capability set without race. Since we need this
-         * for a security decision we cannot use racy data, hence
-         * don't request it. */
-        if (bus->is_kernel)
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID|SD_BUS_CREDS_EFFECTIVE_CAPS, &creds);
-        else
-                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds);
-        if (r < 0)
-                return r;
-
         /* Check have the caller has the requested capability
          * set. Note that the flags value contains the capability
          * number plus one, which we need to subtract here. We do this
@@ -328,16 +323,11 @@ static int check_access(sd_bus *bus, sd_bus_message *m, struct vtable_member *c,
         else
                 cap --;
 
-        r = sd_bus_creds_has_effective_cap(creds, cap);
+        r = sd_bus_query_sender_privilege(m, cap);
+        if (r < 0)
+                return r;
         if (r > 0)
-                return 1;
-
-        /* Caller has same UID as us, then let's grant access */
-        r = sd_bus_creds_get_uid(creds, &uid);
-        if (r >= 0) {
-                if (uid == getuid())
-                        return 1;
-        }
+                return 0;
 
         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Access to %s.%s() not permitted.", c->interface, c->member);
 }
@@ -405,7 +395,11 @@ static int method_callbacks_run(
                 slot = container_of(c->parent, sd_bus_slot, node_vtable);
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_handler = c->vtable->x.method.handler;
+                bus->current_userdata = u;
                 r = c->vtable->x.method.handler(bus, m, u, &error);
+                bus->current_userdata = NULL;
+                bus->current_handler = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 return bus_maybe_reply_error(m, r, &error);
@@ -444,7 +438,9 @@ static int invoke_property_get(
         if (v->x.property.get) {
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = userdata;
                 r = v->x.property.get(bus, path, interface, property, reply, userdata, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
@@ -506,7 +502,9 @@ static int invoke_property_set(
         if (v->x.property.set) {
 
                 bus->current_slot = sd_bus_slot_ref(slot);
+                bus->current_userdata = userdata;
                 r = v->x.property.set(bus, path, interface, property, value, userdata, error);
+                bus->current_userdata = NULL;
                 bus->current_slot = sd_bus_slot_unref(slot);
 
                 if (r < 0)
@@ -822,20 +820,7 @@ static int property_get_all_callbacks_run(
         return 1;
 }
 
-static bool bus_node_with_object_manager(sd_bus *bus, struct node *n) {
-        assert(bus);
-        assert(n);
-
-        if (n->object_managers)
-                return true;
-
-        if (n->parent)
-                return bus_node_with_object_manager(bus, n->parent);
-
-        return false;
-}
-
-static bool bus_node_exists(
+static int bus_node_exists(
                 sd_bus *bus,
                 struct node *n,
                 const char *path,
@@ -843,6 +828,7 @@ static bool bus_node_exists(
 
         struct node_vtable *c;
         struct node_callback *k;
+        int r;
 
         assert(bus);
         assert(n);
@@ -851,11 +837,14 @@ static bool bus_node_exists(
         /* Tests if there's anything attached directly to this node
          * for the specified path */
 
+        if (!require_fallback && (n->enumerators || n->object_managers))
+                return true;
+
         LIST_FOREACH(callbacks, k, n->callbacks) {
                 if (require_fallback && !k->is_fallback)
                         continue;
 
-                return true;
+                return 1;
         }
 
         LIST_FOREACH(vtables, c, n->vtables) {
@@ -864,13 +853,14 @@ static bool bus_node_exists(
                 if (require_fallback && !c->is_fallback)
                         continue;
 
-                if (node_vtable_get_userdata(bus, path, c, NULL, &error) > 0)
-                        return true;
+                r = node_vtable_get_userdata(bus, path, c, NULL, &error);
+                if (r != 0)
+                        return r;
                 if (bus->nodes_modified)
-                        return false;
+                        return 0;
         }
 
-        return !require_fallback && (n->enumerators || n->object_managers);
+        return 0;
 }
 
 static int process_introspect(
@@ -904,7 +894,7 @@ static int process_introspect(
         if (r < 0)
                 return r;
 
-        r = introspect_write_default_interfaces(&intro, bus_node_with_object_manager(bus, n));
+        r = introspect_write_default_interfaces(&intro, !require_fallback && n->object_managers);
         if (r < 0)
                 return r;
 
@@ -953,12 +943,12 @@ static int process_introspect(
                 /* Nothing?, let's see if we exist at all, and if not
                  * refuse to do anything */
                 r = bus_node_exists(bus, n, m->path, require_fallback);
-                if (r < 0)
-                        return r;
-                if (bus->nodes_modified)
-                        return 0;
-                if (r == 0)
+                if (r <= 0)
                         goto finish;
+                if (bus->nodes_modified) {
+                        r = 0;
+                        goto finish;
+                }
         }
 
         *found_object = true;
@@ -1144,7 +1134,8 @@ static int process_get_managed_objects(
         _cleanup_bus_error_free_ sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_bus_message_unref_ sd_bus_message *reply = NULL;
         _cleanup_set_free_free_ Set *s = NULL;
-        bool empty;
+        Iterator i;
+        char *path;
         int r;
 
         assert(bus);
@@ -1152,7 +1143,11 @@ static int process_get_managed_objects(
         assert(n);
         assert(found_object);
 
-        if (!bus_node_with_object_manager(bus, n))
+        /* Spec says, GetManagedObjects() is only implemented on the root of a
+         * sub-tree. Therefore, we require a registered object-manager on
+         * exactly the queried path, otherwise, we refuse to respond. */
+
+        if (require_fallback || !n->object_managers)
                 return 0;
 
         r = get_child_nodes(bus, m->path, n, &s, &error);
@@ -1169,42 +1164,13 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        empty = set_isempty(s);
-        if (empty) {
-                struct node_vtable *c;
+        SET_FOREACH(path, s, i) {
+                r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
+                if (r < 0)
+                        return r;
 
-                /* Hmm, so we have no children? Then let's check
-                 * whether we exist at all, i.e. whether at least one
-                 * vtable exists. */
-
-                LIST_FOREACH(vtables, c, n->vtables) {
-
-                        if (require_fallback && !c->is_fallback)
-                                continue;
-
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        empty = false;
-                        break;
-                }
-
-                if (empty)
+                if (bus->nodes_modified)
                         return 0;
-        } else {
-                Iterator i;
-                char *path;
-
-                SET_FOREACH(path, s, i) {
-                        r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
-                        if (r < 0)
-                                return r;
-
-                        if (bus->nodes_modified)
-                                return 0;
-                }
         }
 
         r = sd_bus_message_close_container(reply);
@@ -1332,6 +1298,8 @@ static int object_find_and_run(
                 r = bus_node_exists(bus, n, m->path, require_fallback);
                 if (r < 0)
                         return r;
+                if (bus->nodes_modified)
+                        return 0;
                 if (r > 0)
                         *found_object = true;
         }
@@ -1422,7 +1390,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
         if (n)
                 return n;
 
-        r = hashmap_ensure_allocated(&bus->nodes, string_hash_func, string_compare_func);
+        r = hashmap_ensure_allocated(&bus->nodes, &string_hash_ops);
         if (r < 0)
                 return NULL;
 
@@ -1592,6 +1560,11 @@ static int vtable_member_compare_func(const void *a, const void *b) {
         return strcmp(x->member, y->member);
 }
 
+static const struct hash_ops vtable_member_hash_ops = {
+        .hash = vtable_member_hash_func,
+        .compare = vtable_member_compare_func
+};
+
 static int add_object_vtable_internal(
                 sd_bus *bus,
                 sd_bus_slot **slot,
@@ -1620,11 +1593,11 @@ static int add_object_vtable_internal(
                       !streq(interface, "org.freedesktop.DBus.Peer") &&
                       !streq(interface, "org.freedesktop.DBus.ObjectManager"), -EINVAL);
 
-        r = hashmap_ensure_allocated(&bus->vtable_methods, vtable_member_hash_func, vtable_member_compare_func);
+        r = hashmap_ensure_allocated(&bus->vtable_methods, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&bus->vtable_properties, vtable_member_hash_func, vtable_member_compare_func);
+        r = hashmap_ensure_allocated(&bus->vtable_properties, &vtable_member_hash_ops);
         if (r < 0)
                 return r;
 

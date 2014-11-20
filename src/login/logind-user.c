@@ -37,6 +37,7 @@
 #include "conf-parser.h"
 #include "clean-ipc.h"
 #include "logind-user.h"
+#include "smack-util.h"
 
 User* user_new(Manager *m, uid_t uid, gid_t gid, const char *name) {
         User *u;
@@ -325,7 +326,12 @@ static int user_mkdir_runtime_path(User *u) {
 
                 mkdir(p, 0700);
 
-                if (asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size) < 0) {
+                if (mac_smack_use())
+                        r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
+                else
+                        r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
+
+                if (r < 0) {
                         r = log_oom();
                         goto fail;
                 }
@@ -714,7 +720,7 @@ int user_kill(User *u, int signo) {
 }
 
 void user_elect_display(User *u) {
-        Session *graphical = NULL, *text = NULL, *s;
+        Session *graphical = NULL, *text = NULL, *other = NULL, *s;
 
         assert(u);
 
@@ -732,22 +738,35 @@ void user_elect_display(User *u) {
 
                 if (SESSION_TYPE_IS_GRAPHICAL(s->type))
                         graphical = s;
-                else
+                else if (s->type == SESSION_TTY)
                         text = s;
+                else
+                        other = s;
         }
 
         if (graphical &&
             (!u->display ||
              u->display->class != SESSION_USER ||
              u->display->stopping ||
-             !SESSION_TYPE_IS_GRAPHICAL(u->display->type)))
+             !SESSION_TYPE_IS_GRAPHICAL(u->display->type))) {
                 u->display = graphical;
+                return;
+        }
 
         if (text &&
             (!u->display ||
              u->display->class != SESSION_USER ||
-             u->display->stopping))
+             u->display->stopping ||
+             u->display->type != SESSION_TTY)) {
                 u->display = text;
+                return;
+        }
+
+        if (other &&
+            (!u->display ||
+             u->display->class != SESSION_USER ||
+             u->display->stopping))
+                u->display = other;
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {

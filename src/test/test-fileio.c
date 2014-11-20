@@ -90,7 +90,7 @@ static void test_parse_env_file(void) {
         assert_se(streq_ptr(a[9], "ten="));
         assert_se(a[10] == NULL);
 
-        strv_env_clean_log(a, "test");
+        strv_env_clean_log(a, NULL, "test");
 
         k = 0;
         STRV_FOREACH(i, b) {
@@ -246,25 +246,25 @@ static void test_status_field(void) {
 
         r = get_status_field("/proc/meminfo", "MemTotal:", &p);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(p);
                 assert_se(safe_atollu(p, &total) == 0);
         }
 
         r = get_status_field("/proc/meminfo", "\nBuffers:", &s);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(s);
                 assert_se(safe_atollu(s, &buffers) == 0);
         }
 
-        if (p && t)
-                assert(buffers < total);
+        if (p)
+                assert_se(buffers < total);
 
         /* Seccomp should be a good test for field full of zeros. */
         r = get_status_field("/proc/meminfo", "\nSeccomp:", &z);
         if (r != -ENOENT) {
-                assert(r == 0);
+                assert_se(r == 0);
                 puts(z);
                 assert_se(safe_atollu(z, &buffers) == 0);
         }
@@ -283,11 +283,76 @@ static void test_capeff(void) {
                 if (r == -ENOENT || r == -EPERM)
                         return;
 
-                assert(r == 0);
-                assert(*capeff);
+                assert_se(r == 0);
+                assert_se(*capeff);
                 p = capeff[strspn(capeff, DIGITS "abcdefABCDEF")];
-                assert(!p || isspace(p));
+                assert_se(!p || isspace(p));
         }
+}
+
+static void test_write_string_stream(void) {
+        char fn[] = "/tmp/test-write_string_stream-XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        int fd;
+        char buf[64];
+
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "r");
+        assert_se(f);
+        assert_se(write_string_stream(f, "boohoo") < 0);
+
+        f = freopen(fn, "r+", f);
+        assert_se(f);
+
+        assert_se(write_string_stream(f, "boohoo") == 0);
+        rewind(f);
+
+        assert_se(fgets(buf, sizeof(buf), f));
+        assert_se(streq(buf, "boohoo\n"));
+
+        unlink(fn);
+}
+
+static void test_write_string_file(void) {
+        char fn[] = "/tmp/test-write_string_file-XXXXXX";
+        char buf[64] = {};
+        _cleanup_close_ int fd;
+
+        fd = mkostemp_safe(fn, O_RDWR);
+        assert_se(fd >= 0);
+
+        assert_se(write_string_file(fn, "boohoo") == 0);
+
+        assert_se(read(fd, buf, sizeof(buf)) == 7);
+        assert_se(streq(buf, "boohoo\n"));
+
+        unlink(fn);
+}
+
+static void test_sendfile_full(void) {
+        char in_fn[] = "/tmp/test-sendfile_full-XXXXXX";
+        char out_fn[] = "/tmp/test-sendfile_full-XXXXXX";
+        _cleanup_close_ int in_fd, out_fd;
+        char text[] = "boohoo\nfoo\n\tbar\n";
+        char buf[64] = {0};
+
+        in_fd = mkostemp_safe(in_fn, O_RDWR);
+        assert_se(in_fd >= 0);
+        out_fd = mkostemp_safe(out_fn, O_RDWR);
+        assert_se(out_fd >= 0);
+
+        assert_se(write_string_file(in_fn, text) == 0);
+        assert_se(sendfile_full(out_fd, "/a/file/which/does/not/exist/i/guess") < 0);
+        assert_se(sendfile_full(out_fd, in_fn) == sizeof(text) - 1);
+        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
+
+        assert_se(read(out_fd, buf, sizeof(buf)) == sizeof(text) - 1);
+        assert_se(streq(buf, text));
+
+        unlink(in_fn);
+        unlink(out_fn);
 }
 
 int main(int argc, char *argv[]) {
@@ -299,6 +364,9 @@ int main(int argc, char *argv[]) {
         test_executable_is_script();
         test_status_field();
         test_capeff();
+        test_write_string_stream();
+        test_write_string_file();
+        test_sendfile_full();
 
         return 0;
 }

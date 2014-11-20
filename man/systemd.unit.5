@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.UNIT" "5" "" "systemd 215" "systemd.unit"
+.TH "SYSTEMD\&.UNIT" "5" "" "systemd 217" "systemd.unit"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -48,7 +48,10 @@ systemd.unit \- Unit configuration
 $XDG_CONFIG_HOME/systemd/user/*
 $HOME/\&.config/systemd/user/*
 /etc/systemd/user/*
+$XDG_RUNTIME_DIR/systemd/user/*
 /run/systemd/user/*
+$XDG_DATA_HOME/systemd/user/*
+$HOME/\&.local/share/systemd/user/*
 /usr/lib/systemd/user/*
 \&.\&.\&.
                 
@@ -110,9 +113,9 @@ Along with a unit file
 foo\&.service, the directory
 foo\&.service\&.wants/
 may exist\&. All unit files symlinked from such a directory are implicitly added as dependencies of type
-\fIWanted=\fR
+\fIWants=\fR
 to the unit\&. This is useful to hook units into the start\-up of other units, without having to modify their unit files\&. For details about the semantics of
-\fIWanted=\fR, see below\&. The preferred way to create symlinks in the
+\fIWants=\fR, see below\&. The preferred way to create symlinks in the
 \&.wants/
 directory of a unit file is with the
 \fBenable\fR
@@ -129,7 +132,15 @@ foo\&.service, a directory
 foo\&.service\&.d/
 may exist\&. All files with the suffix
 "\&.conf"
-from this directory will be parsed after the file itself is parsed\&. This is useful to alter or add configuration settings to a unit, without having to modify their unit files\&. Make sure that the file that is included has the appropriate section headers before any directive\&.
+from this directory will be parsed after the file itself is parsed\&. This is useful to alter or add configuration settings to a unit, without having to modify their unit files\&. Make sure that the file that is included has the appropriate section headers before any directive\&. Note that for instanced units this logic will first look for the instance
+"\&.d/"
+subdirectory and read its
+"\&.conf"
+files, followed by the template
+"\&.d/"
+subdirectory and reads its
+"\&.conf"
+files\&.
 .PP
 Note that while systemd offers a flexible dependency system between units it is recommended to use this functionality only sparingly and instead rely on techniques such as bus\-based or socket\-based activation which make dependencies implicit, resulting in a both simpler and more flexible system\&.
 .PP
@@ -137,7 +148,7 @@ Some unit names reflect paths existing in the file system namespace\&. Example: 
 dev\-sda\&.device
 refers to a device with the device node
 /dev/sda
-in the file system namespace\&. If this applies, a special way to escape the path name is used, so that the result is usable as part of a filename\&. Basically, given a path, "/" is replaced by "\-", and all unprintable characters and the "\-" are replaced by C\-style "\ex20" escapes\&. The root directory "/" is encoded as single dash, while otherwise the initial and ending "/" is removed from all paths during transformation\&. This escaping is reversible\&.
+in the file system namespace\&. If this applies, a special way to escape the path name is used, so that the result is usable as part of a filename\&. Basically, given a path, "/" is replaced by "\-", and all unprintable characters and the "\-" are replaced by C\-style "\ex2d" escapes\&. The root directory "/" is encoded as single dash, while otherwise the initial and ending "/" is removed from all paths during transformation\&. This escaping is reversible\&.
 .PP
 Optionally, units may be instantiated from a template file at runtime\&. This allows creation of multiple units from a single configuration file\&. If systemd looks for a unit configuration file, it will first search for the literal unit name in the file system\&. If that yields no success and the unit name contains an
 "@"
@@ -165,7 +176,9 @@ Unit files are loaded from a set of paths determined during compilation, describ
 .PP
 When systemd is running in user mode (\fB\-\-user\fR) and the variable
 \fI$SYSTEMD_UNIT_PATH\fR
-is set, this contents of this variable overrides the unit load path\&.
+is set, this contents of this variable overrides the unit load path\&. If
+\fI$SYSTEMD_UNIT_PATH\fR
+ends with an empty component (":"), the usual unit load path will be appended to the contents of the variable\&.
 .sp
 .it 1 an-trap
 .nr an-no-space-flag 1
@@ -220,6 +233,9 @@ l l
 l l
 l l
 l l
+l l
+l l
+l l
 l l.
 T{
 $XDG_CONFIG_HOME/systemd/user
@@ -237,14 +253,29 @@ T}:T{
 Local configuration
 T}
 T{
+$XDG_RUNTIME_DIR/systemd/user
+T}:T{
+Runtime units (only used when $XDG_RUNTIME_DIR is set)
+T}
+T{
 /run/systemd/user
 T}:T{
 Runtime units
 T}
 T{
+$XDG_DATA_HOME/systemd/user
+T}:T{
+Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)
+T}
+T{
+$HOME/\&.local/share/systemd/user
+T}:T{
+Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)
+T}
+T{
 /usr/lib/systemd/user
 T}:T{
-Units of installed packages
+Units of packages that have been installed system\-wide
 T}
 .TE
 .sp 1
@@ -503,16 +534,28 @@ Takes a boolean argument\&. If
 \fBfalse\fR, this option does not disable all implicit dependencies, just non\-essential ones\&.
 .RE
 .PP
-\fIJobTimeoutSec=\fR
+\fIJobTimeoutSec=\fR, \fIJobTimeoutAction=\fR, \fIJobTimeoutRebootArgument=\fR
 .RS 4
-When clients are waiting for a job of this unit to complete, time out after the specified time\&. If this time limit is reached, the job will be cancelled, the unit however will not change state or even enter the
+When a job for this unit is queued a time\-out may be configured\&. If this time limit is reached, the job will be cancelled, the unit however will not change state or even enter the
 "failed"
 mode\&. This value defaults to 0 (job timeouts disabled), except for device units\&. NB: this timeout is independent from any unit\-specific timeout (for example, the timeout set with
-\fITimeout=\fR
+\fIStartTimeoutSec=\fR
 in service units) as the job timeout has no effect on the unit itself, only on the job that might be pending for it\&. Or in other words: unit\-specific timeouts are useful to abort unit state changes, and revert them\&. The job timeout set with this option however is useful to abort only the job waiting for the unit state to change\&.
+.sp
+\fIJobTimeoutAction=\fR
+optionally configures an additional action to take when the time\-out is hit\&. It takes the same values as the per\-service
+\fIStartLimitAction=\fR
+setting, see
+\fBsystemd.service\fR(5)
+for details\&. Defaults to
+\fBnone\fR\&.
+\fIJobTimeoutRebootArgument=\fR
+configures an optional reboot string to pass to the
+\fBreboot\fR(2)
+system call\&.
 .RE
 .PP
-\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionNeedsUpdate=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
+\fIConditionArchitecture=\fR, \fIConditionVirtualization=\fR, \fIConditionHost=\fR, \fIConditionKernelCommandLine=\fR, \fIConditionSecurity=\fR, \fIConditionCapability=\fR, \fIConditionACPower=\fR, \fIConditionNeedsUpdate=\fR, \fIConditionFirstBoot=\fR, \fIConditionPathExists=\fR, \fIConditionPathExistsGlob=\fR, \fIConditionPathIsDirectory=\fR, \fIConditionPathIsSymbolicLink=\fR, \fIConditionPathIsMountPoint=\fR, \fIConditionPathIsReadWrite=\fR, \fIConditionDirectoryNotEmpty=\fR, \fIConditionFileNotEmpty=\fR, \fIConditionFileIsExecutable=\fR, \fIConditionNull=\fR
 .RS 4
 Before starting a unit verify that the specified condition is true\&. If it is not true, the starting of the unit will be skipped, however all ordering dependencies of it are still respected\&. A failing condition will not result in the unit being moved into a failure state\&. The condition is checked at the time the queued start job is to be executed\&.
 .sp
@@ -521,7 +564,9 @@ may be used to check whether the system is running on a specific architecture\&.
 \fIx86\fR,
 \fIx86\-64\fR,
 \fIppc\fR,
+\fIppc\-le\fR,
 \fIppc64\fR,
+\fIppc64\-le\fR,
 \fIia64\fR,
 \fIparisc\fR,
 \fIparisc64\fR,
@@ -530,7 +575,9 @@ may be used to check whether the system is running on a specific architecture\&.
 \fIsparc\fR,
 \fIsparc64\fR,
 \fImips\fR,
+\fImips\-le\fR,
 \fImips64\fR,
+\fImips64\-le\fR,
 \fIalpha\fR,
 \fIarm\fR,
 \fIarm\-be\fR,
@@ -538,7 +585,9 @@ may be used to check whether the system is running on a specific architecture\&.
 \fIarm64\-be\fR,
 \fIsh\fR,
 \fIsh64\fR,
-\fIm86k\fR
+\fIm86k\fR,
+\fItilegx\fR,
+\fIcris\fR
 to test against a specific architecture\&. The architecture is determined from the information returned by
 \fBuname\fR(2)
 and is thus subject to
@@ -556,18 +605,21 @@ and
 to test against a generic type of virtualization solution, or one of
 \fIqemu\fR,
 \fIkvm\fR,
+\fIzvm\fR,
 \fIvmware\fR,
 \fImicrosoft\fR,
 \fIoracle\fR,
 \fIxen\fR,
 \fIbochs\fR,
-\fIchroot\fR,
 \fIuml\fR,
 \fIopenvz\fR,
 \fIlxc\fR,
 \fIlxc\-libvirt\fR,
-\fIsystemd\-nspawn\fR
-to test against a specific implementation\&. If multiple virtualization technologies are nested, only the innermost is considered\&. The test may be negated by prepending an exclamation mark\&.
+\fIsystemd\-nspawn\fR,
+\fIdocker\fR
+to test against a specific implementation\&. See
+\fBsystemd-detect-virt\fR(1)
+for a full list of known virtualization technologies and their identifiers\&. If multiple virtualization technologies are nested, only the innermost is considered\&. The test may be negated by prepending an exclamation mark\&.
 .sp
 \fIConditionHost=\fR
 may be used to match against the hostname or machine ID of the host\&. This either takes a hostname string (optionally with shell style globs) which is tested against the locally set hostname as returned by
@@ -615,6 +667,13 @@ or
 /var
 on the next following boot\&. Units making use of this condition should order themselves before
 \fBsystemd-update-done.service\fR(8), to make sure they run before the stamp files\*(Aqs modification time gets reset indicating a completed update\&.
+.sp
+\fIConditionFirstBoot=\fR
+takes a boolean argument\&. This condition may be used to conditionalize units on whether the system is booting up with an unpopulated
+/etc
+directory\&. This may be used to populate
+/etc
+on the first boot after factory reset, or when a new system instances boots up for the first time\&.
 .sp
 With
 \fIConditionPathExists=\fR
@@ -676,7 +735,9 @@ A path to a configuration file this unit has been generated from\&. This is prim
 .RE
 .SH "[INSTALL] SECTION OPTIONS"
 .PP
-Unit file may include a [Install] section, which carries installation information for the unit\&. This section is not interpreted by
+Unit file may include an
+"[Install]"
+section, which carries installation information for the unit\&. This section is not interpreted by
 \fBsystemd\fR(1)
 during runtime\&. It is used exclusively by the
 \fBenable\fR
@@ -688,7 +749,7 @@ tool during installation of a unit:
 .PP
 \fIAlias=\fR
 .RS 4
-A space\-seperated list of additional names this unit shall be installed under\&. The names listed here must have the same suffix (i\&.e\&. type) as the unit file name\&. This option may be specified more than once, in which case all listed names are used\&. At installation time,
+A space\-separated list of additional names this unit shall be installed under\&. The names listed here must have the same suffix (i\&.e\&. type) as the unit file name\&. This option may be specified more than once, in which case all listed names are used\&. At installation time,
 \fBsystemctl enable\fR
 will create symlinks from these names to the unit filename\&.
 .RE
@@ -935,7 +996,7 @@ T}
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.special\fR(7),
 \fBsystemd.service\fR(5),
 \fBsystemd.socket\fR(5),
@@ -950,6 +1011,7 @@ T}
 \fBsystemd.scope\fR(5),
 \fBsystemd.slice\fR(5),
 \fBsystemd.time\fR(7),
+\fBsystemd-verify\fR(1),
 \fBcapabilities\fR(7),
 \fBsystemd.directives\fR(7),
 \fBuname\fR(1)

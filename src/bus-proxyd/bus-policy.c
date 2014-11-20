@@ -24,6 +24,7 @@
 #include "strv.h"
 #include "conf-files.h"
 #include "bus-internal.h"
+#include "bus-message.h"
 #include "bus-policy.h"
 
 static void policy_item_free(PolicyItem *i) {
@@ -38,6 +39,14 @@ static void policy_item_free(PolicyItem *i) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PolicyItem*, policy_item_free);
+
+static void item_append(PolicyItem *i, PolicyItem **list) {
+
+        PolicyItem *tail;
+
+        LIST_FIND_TAIL(items, *list, tail);
+        LIST_INSERT_AFTER(items, *list, tail, i);
+}
 
 static int file_load(Policy *p, const char *path) {
 
@@ -330,15 +339,15 @@ static int file_load(Policy *p, const char *path) {
                                 }
 
                                 if (policy_category == POLICY_CATEGORY_DEFAULT)
-                                        LIST_PREPEND(items, p->default_items, i);
+                                        item_append(i, &p->default_items);
                                 else if (policy_category == POLICY_CATEGORY_MANDATORY)
-                                        LIST_PREPEND(items, p->default_items, i);
+                                        item_append(i, &p->mandatory_items);
                                 else if (policy_category == POLICY_CATEGORY_USER) {
                                         const char *u = policy_user;
 
                                         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
-                                        r = hashmap_ensure_allocated(&p->user_items, trivial_hash_func, trivial_compare_func);
+                                        r = hashmap_ensure_allocated(&p->user_items, NULL);
                                         if (r < 0)
                                                 return log_oom();
 
@@ -355,7 +364,8 @@ static int file_load(Policy *p, const char *path) {
                                                 PolicyItem *first;
 
                                                 first = hashmap_get(p->user_items, UINT32_TO_PTR(i->uid));
-                                                LIST_PREPEND(items, first, i);
+                                                item_append(i, &first);
+                                                i->uid_valid = true;
 
                                                 r = hashmap_replace(p->user_items, UINT32_TO_PTR(i->uid), first);
                                                 if (r < 0) {
@@ -369,7 +379,7 @@ static int file_load(Policy *p, const char *path) {
 
                                         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
-                                        r = hashmap_ensure_allocated(&p->group_items, trivial_hash_func, trivial_compare_func);
+                                        r = hashmap_ensure_allocated(&p->group_items, NULL);
                                         if (r < 0)
                                                 return log_oom();
 
@@ -386,7 +396,8 @@ static int file_load(Policy *p, const char *path) {
                                                 PolicyItem *first;
 
                                                 first = hashmap_get(p->group_items, UINT32_TO_PTR(i->gid));
-                                                LIST_PREPEND(items, first, i);
+                                                item_append(i, &first);
+                                                i->gid_valid = true;
 
                                                 r = hashmap_replace(p->group_items, UINT32_TO_PTR(i->gid), first);
                                                 if (r < 0) {
@@ -515,8 +526,36 @@ static int file_load(Policy *p, const char *path) {
                                         return -EINVAL;
                                 }
 
+                                switch (i->class) {
+                                case POLICY_ITEM_USER:
+                                        if (!streq(name, "*")) {
+                                                const char *u = name;
+
+                                                r = get_user_creds(&u, &i->uid, NULL, NULL, NULL);
+                                                if (r < 0)
+                                                        log_error("Failed to resolve user %s: %s", name, strerror(-r));
+                                                else
+                                                        i->uid_valid = true;
+                                        }
+                                        break;
+                                case POLICY_ITEM_GROUP:
+                                        if (!streq(name, "*")) {
+                                                const char *g = name;
+
+                                                r = get_group_creds(&g, &i->gid);
+                                                if (r < 0)
+                                                        log_error("Failed to resolve group %s: %s", name, strerror(-r));
+                                                else
+                                                        i->gid_valid = true;
+                                        }
+                                        break;
+                                default:
+                                        break;
+                                }
+
                                 i->name = name;
                                 name = NULL;
+
                                 state = STATE_ALLOW_DENY;
                         } else {
                                 log_error("Unexpected token (14) in %s:%u.", path, line);
@@ -551,6 +590,225 @@ static int file_load(Policy *p, const char *path) {
                         break;
                 }
         }
+}
+
+enum {
+        ALLOW,
+        DUNNO,
+        DENY,
+};
+
+struct policy_check_filter {
+        int class;
+        const struct ucred *ucred;
+        int message_type;
+        const char *name;
+        const char *interface;
+        const char *path;
+        const char *member;
+};
+
+static int is_permissive(PolicyItem *i) {
+
+        assert(i);
+
+        return (i->type == POLICY_ITEM_ALLOW) ? ALLOW : DENY;
+}
+
+static int check_policy_item(PolicyItem *i, const struct policy_check_filter *filter) {
+
+        assert(i);
+        assert(filter);
+
+        switch (i->class) {
+        case POLICY_ITEM_SEND:
+        case POLICY_ITEM_RECV:
+
+                if (i->name && !streq_ptr(i->name, filter->name))
+                        break;
+
+                if ((i->message_type != _POLICY_ITEM_CLASS_UNSET) && (i->message_type != filter->message_type))
+                        break;
+
+                if (i->path && !streq_ptr(i->path, filter->path))
+                        break;
+
+                if (i->member && !streq_ptr(i->member, filter->member))
+                        break;
+
+                if (i->interface && !streq_ptr(i->interface, filter->interface))
+                        break;
+
+                return is_permissive(i);
+
+        case POLICY_ITEM_OWN:
+                assert(filter->name);
+
+                if (streq(i->name, "*") || streq(i->name, filter->name))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_OWN_PREFIX:
+                assert(filter->name);
+
+                if (streq(i->name, "*") || startswith(i->name, filter->name))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_USER:
+                assert(filter->ucred);
+
+                if ((streq_ptr(i->name, "*") || (i->uid_valid && i->uid == filter->ucred->uid)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_GROUP:
+                assert(filter->ucred);
+
+                if ((streq_ptr(i->name, "*") || (i->gid_valid && i->gid == filter->ucred->gid)))
+                        return is_permissive(i);
+                break;
+
+        case POLICY_ITEM_IGNORE:
+        default:
+                break;
+        }
+
+        return DUNNO;
+}
+
+static int check_policy_items(PolicyItem *items, const struct policy_check_filter *filter) {
+
+        PolicyItem *i;
+        int r, ret = DUNNO;
+
+        assert(filter);
+
+        /* Check all policies in a set - a broader one might be followed by a more specific one,
+         * and the order of rules in policy definitions matters */
+        LIST_FOREACH(items, i, items) {
+                if (i->class != filter->class)
+                        continue;
+
+                r = check_policy_item(i, filter);
+                if (r != DUNNO)
+                        ret = r;
+        }
+
+        return ret;
+}
+
+static int policy_check(Policy *p, const struct policy_check_filter *filter) {
+
+        PolicyItem *items;
+        int r;
+
+        assert(p);
+        assert(filter);
+
+        /*
+         * The policy check is implemented by the following logic:
+         *
+         * 1. Check mandatory items. If the message matches any of these, it is decisive.
+         * 2. See if the passed ucred match against the user/group hashmaps. A matching entry is also decisive.
+         * 3. Consult the defaults if non of the above matched with a more specific rule.
+         * 4. If the message isn't caught be the defaults either, reject it.
+         */
+
+        r = check_policy_items(p->mandatory_items, filter);
+        if (r != DUNNO)
+                return r;
+
+        if (filter->ucred) {
+                items = hashmap_get(p->user_items, UINT32_TO_PTR(filter->ucred->uid));
+                if (items) {
+                        r = check_policy_items(items, filter);
+                        if (r != DUNNO)
+                                return r;
+                }
+
+                items = hashmap_get(p->group_items, UINT32_TO_PTR(filter->ucred->gid));
+                if (items) {
+                        r = check_policy_items(items, filter);
+                        if (r != DUNNO)
+                                return r;
+                }
+        }
+
+        return check_policy_items(p->default_items, filter);
+}
+
+bool policy_check_own(Policy *p, const struct ucred *ucred, const char *name) {
+
+        struct policy_check_filter filter = {
+                .class = POLICY_ITEM_OWN,
+                .ucred = ucred,
+                .name  = name,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
+}
+
+bool policy_check_hello(Policy *p, const struct ucred *ucred) {
+
+        struct policy_check_filter filter = {
+                .ucred  = ucred,
+        };
+        int user, group;
+
+        filter.class = POLICY_ITEM_USER;
+        user = policy_check(p, &filter);
+        if (user == DENY)
+                return false;
+
+        filter.class = POLICY_ITEM_GROUP;
+        group = policy_check(p, &filter);
+        if (group == DENY)
+                return false;
+
+        return !(user == DUNNO && group == DUNNO);
+}
+
+bool policy_check_recv(Policy *p,
+                       const struct ucred *ucred,
+                       int message_type,
+                       const char *name,
+                       const char *path,
+                       const char *interface,
+                       const char *member) {
+
+        struct policy_check_filter filter = {
+                .class        = POLICY_ITEM_RECV,
+                .ucred        = ucred,
+                .message_type = message_type,
+                .name         = name,
+                .interface    = interface,
+                .path         = path,
+                .member       = member,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
+}
+
+bool policy_check_send(Policy *p,
+                       const struct ucred *ucred,
+                       int message_type,
+                       const char *name,
+                       const char *path,
+                       const char *interface,
+                       const char *member) {
+
+        struct policy_check_filter filter = {
+                .class        = POLICY_ITEM_SEND,
+                .ucred        = ucred,
+                .message_type = message_type,
+                .name         = name,
+                .interface    = interface,
+                .path         = path,
+                .member       = member,
+        };
+
+        return policy_check(p, &filter) == ALLOW;
 }
 
 int policy_load(Policy *p, char **files) {
@@ -620,64 +878,64 @@ void policy_free(Policy *p) {
         p->user_items = p->group_items = NULL;
 }
 
-static void dump_items(PolicyItem *i, const char *prefix) {
+static void dump_items(PolicyItem *items, const char *prefix) {
 
-        if (!i)
+        PolicyItem *i;
+
+        if (!items)
                 return;
 
         if (!prefix)
                 prefix = "";
 
-        printf("%sType: %s\n"
-               "%sClass: %s\n",
-               prefix, policy_item_type_to_string(i->type),
-               prefix, policy_item_class_to_string(i->class));
+        LIST_FOREACH(items, i, items) {
 
-        if (i->interface)
-                printf("%sInterface: %s\n",
-                       prefix, i->interface);
+                printf("%sType: %s\n"
+                       "%sClass: %s\n",
+                       prefix, policy_item_type_to_string(i->type),
+                       prefix, policy_item_class_to_string(i->class));
 
-        if (i->member)
-                printf("%sMember: %s\n",
-                       prefix, i->member);
+                if (i->interface)
+                        printf("%sInterface: %s\n",
+                               prefix, i->interface);
 
-        if (i->error)
-                printf("%sError: %s\n",
-                       prefix, i->error);
+                if (i->member)
+                        printf("%sMember: %s\n",
+                               prefix, i->member);
 
-        if (i->path)
-                printf("%sPath: %s\n",
-                       prefix, i->path);
+                if (i->error)
+                        printf("%sError: %s\n",
+                               prefix, i->error);
 
-        if (i->name)
-                printf("%sName: %s\n",
-                       prefix, i->name);
+                if (i->path)
+                        printf("%sPath: %s\n",
+                               prefix, i->path);
 
-        if (i->message_type != 0)
-                printf("%sMessage Type: %s\n",
-                       prefix, bus_message_type_to_string(i->message_type));
+                if (i->name)
+                        printf("%sName: %s\n",
+                               prefix, i->name);
 
-        if (i->uid_valid) {
-                _cleanup_free_ char *user;
+                if (i->message_type != 0)
+                        printf("%sMessage Type: %s\n",
+                               prefix, bus_message_type_to_string(i->message_type));
 
-                user = uid_to_name(i->uid);
+                if (i->uid_valid) {
+                        _cleanup_free_ char *user;
 
-                printf("%sUser: %s\n",
-                       prefix, strna(user));
-        }
+                        user = uid_to_name(i->uid);
 
-        if (i->gid_valid) {
-                _cleanup_free_ char *group;
+                        printf("%sUser: %s (%d)\n",
+                               prefix, strna(user), i->uid);
+                }
 
-                group = gid_to_name(i->gid);
+                if (i->gid_valid) {
+                        _cleanup_free_ char *group;
 
-                printf("%sGroup: %s\n",
-                       prefix, strna(group));
-        }
+                        group = gid_to_name(i->gid);
 
-        if (i->items_next) {
-                printf("%s%s\n", prefix, draw_special_char(DRAW_DASH));
-                dump_items(i->items_next, prefix);
+                        printf("%sGroup: %s (%d)\n",
+                               prefix, strna(group), i->gid);
+                }
         }
 }
 
@@ -692,7 +950,7 @@ static void dump_hashmap_items(Hashmap *h) {
         }
 }
 
-noreturn void policy_dump(Policy *p) {
+void policy_dump(Policy *p) {
 
         printf("%s Default Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->default_items, "\t");
@@ -705,8 +963,6 @@ noreturn void policy_dump(Policy *p) {
 
         printf("%s Mandatory Items:\n", draw_special_char(DRAW_ARROW));
         dump_items(p->mandatory_items, "\t");
-
-        exit(0);
 }
 
 static const char* const policy_item_type_table[_POLICY_ITEM_TYPE_MAX] = {
@@ -724,5 +980,6 @@ static const char* const policy_item_class_table[_POLICY_ITEM_CLASS_MAX] = {
         [POLICY_ITEM_OWN_PREFIX] = "own-prefix",
         [POLICY_ITEM_USER] = "user",
         [POLICY_ITEM_GROUP] = "group",
+        [POLICY_ITEM_IGNORE] = "ignore",
 };
 DEFINE_STRING_TABLE_LOOKUP(policy_item_class, PolicyItemClass);

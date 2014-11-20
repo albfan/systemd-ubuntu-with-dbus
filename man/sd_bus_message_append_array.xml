@@ -68,7 +68,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
         <funcdef>int sd_bus_message_append_array_memfd</funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
-        <paramdef>sd_memfd *<parameter>memfd</parameter></paramdef>
+        <paramdef>int <parameter>memfd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -104,7 +104,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic Types</ulink>
     section of the D-Bus specification, and listed in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    Pointer <parameter>p</parameter> must point to an array of of size
+    Pointer <parameter>p</parameter> must point to an array of size
     <parameter>size</parameter> bytes containing items of the
     respective type. Size <parameter>size</parameter> must be a
     multiple of the size of the type <parameter>type</parameter>. As a
@@ -171,7 +171,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
     <para><function>sd_bus_append_array()</function> and other
     functions described here are available as a shared library, which
     can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     file.</para>
   </refsect1>
 

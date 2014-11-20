@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND" "3" "" "systemd 215" "sd_bus_message_append"
+.TH "SD_BUS_MESSAGE_APPEND" "3" "" "systemd 217" "sd_bus_message_append"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -105,7 +105,7 @@ T{
 T}:T{
 \fBSD_BUS_TYPE_BYTE\fR
 T}:T{
-unsigned interger
+unsigned integer
 T}:T{
 1 byte
 T}
@@ -380,27 +380,27 @@ On success, this call returns 0 or a positive integer\&. On failure, this call r
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Specified parameter is invalid\&.
 .RE
 .PP
-\fI\-EPERM\fR
+\fB\-EPERM\fR
 .RS 4
 Message has been sealed\&.
 .RE
 .PP
-\fI\-ESTALE\fR
+\fB\-ESTALE\fR
 .RS 4
 Message is in invalid state\&.
 .RE
 .PP
-\fI\-ENXIO\fR
+\fB\-ENXIO\fR
 .RS 4
 Message cannot be appended to\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE

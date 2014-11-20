@@ -37,8 +37,7 @@ LICENSE:
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
 
 REQUIREMENTS:
-        Linux kernel >= 3.0
-        Linux kernel >= 3.3 for loop device partition support features with nspawn
+        Linux kernel >= 3.7
         Linux kernel >= 3.8 for Smack support
 
         Kernel Config Options:
@@ -53,14 +52,14 @@ REQUIREMENTS:
           CONFIG_PROC_FS
           CONFIG_FHANDLE (libudev, mount and bind mount handling)
 
-        Udev will fail to work with the legacy layout:
+        udev will fail to work with the legacy sysfs layout:
           CONFIG_SYSFS_DEPRECATED=n
 
         Legacy hotplug slows down the system and confuses udev:
           CONFIG_UEVENT_HELPER_PATH=""
 
-        Userspace firmware loading is deprecated, will go away, and
-        sometimes causes problems:
+        Userspace firmware loading is not supported and should
+        be disabled in the kernel:
           CONFIG_FW_LOADER_USER_HELPER=n
 
         Some udev rules and virtualization detection relies on it:
@@ -117,10 +116,12 @@ REQUIREMENTS:
         libacl (optional)
         libselinux (optional)
         liblzma (optional)
+        liblz4 >= 119 (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
         libpython (optional)
+        libidn (optional)
         gobject-introspection > 1.40.0 (optional)
         elfutils >= 158 (optional)
         make, gcc, and similar tools
@@ -128,11 +129,8 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.19 (requires fsck -l, agetty -s),
-                      v2.21 required for tests in test/
+        util-linux >= v2.25 required
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
-        sulogin (from util-linux >= 2.22 or sysvinit-tools, optional but recommended,
-                 required for tests in test/)
         dracut (optional)
         PolicyKit (optional)
 
@@ -199,6 +197,27 @@ USERS AND GROUPS:
 
         Similarly, the kdbus dbus1 proxy daemon requires the
         "systemd-bus-proxy" system user and group to exist.
+
+NSS:
+        systemd ships with three NSS modules:
+
+        nss-myhostname resolves the local hostname to locally
+        configured IP addresses, as well as "localhost" to
+        127.0.0.1/::1.
+
+        nss-resolve enables DNS resolution via the systemd-resolved
+        DNS/LLMNR caching stub resolver "systemd-resolved".
+
+        nss-mymachines enables resolution of all local containers
+        registered with machined to their respective IP addresses.
+
+        To make use of these NSS modules, please add them to the
+        "hosts: " line in /etc/nsswitch.conf. The "resolve" module
+        should replace the glibc "dns" module in this file.
+
+        The three modules should be used in the following order:
+
+                hosts: files mymachines resolve myhostname
 
 WARNINGS:
         systemd will warn you during boot if /etc/mtab is not a

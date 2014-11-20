@@ -20,6 +20,12 @@
 ***/
 
 #include "util.h"
+#include "label.h"
+
+#define MESSAGE                                                         \
+        "This file was created by systemd-update-done. Its only \n"     \
+        "purpose is to hold a timestamp of the time this directory\n"   \
+        "was updated. See systemd-update-done.service(8).\n"
 
 static int apply_timestamp(const char *path, struct timespec *ts) {
         struct timespec twice[2];
@@ -51,10 +57,20 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
         } else if (errno == ENOENT) {
                 _cleanup_close_ int fd = -1;
+                int r;
 
                 /* The timestamp file doesn't exist yet? Then let's create it. */
 
+                r = mac_selinux_create_file_prepare(path, S_IFREG);
+                if (r < 0) {
+                        log_error("Failed to set SELinux context for %s: %s",
+                                  path, strerror(-r));
+                        return r;
+                }
+
                 fd = open(path, O_CREAT|O_EXCL|O_WRONLY|O_TRUNC|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
+                mac_selinux_create_file_clear();
+
                 if (fd < 0) {
 
                         if (errno == EROFS) {
@@ -65,6 +81,8 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
                         log_error("Failed to create timestamp file %s: %m", path);
                         return -errno;
                 }
+
+                (void) loop_write(fd, MESSAGE, strlen(MESSAGE), false);
 
                 twice[0] = *ts;
                 twice[1] = *ts;
@@ -83,7 +101,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
 int main(int argc, char *argv[]) {
         struct stat st;
-        int r, q;
+        int r, q = 0;
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
@@ -94,11 +112,15 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
+        r = mac_selinux_init(NULL);
+        if (r < 0) {
+                log_error("SELinux setup failed: %s", strerror(-r));
+                goto finish;
+        }
+
         r = apply_timestamp("/etc/.updated", &st.st_mtim);
-
         q = apply_timestamp("/var/.updated", &st.st_mtim);
-        if (q < 0 && r == 0)
-                r = q;
 
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+finish:
+        return r < 0 || q < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

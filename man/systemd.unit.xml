@@ -73,7 +73,10 @@
                 <para><literallayout><filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
 <filename>$HOME/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
+<filename>$XDG_DATA_HOME/systemd/user/*</filename>
+<filename>$HOME/.local/share/systemd/user/*</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>...</filename>
                 </literallayout></para>
@@ -178,10 +181,10 @@
                 <filename>foo.service.wants/</filename> may exist. All
                 unit files symlinked from such a directory are
                 implicitly added as dependencies of type
-                <varname>Wanted=</varname> to the unit. This is useful
+                <varname>Wants=</varname> to the unit. This is useful
                 to hook units into the start-up of other units,
                 without having to modify their unit files. For details
-                about the semantics of <varname>Wanted=</varname>, see
+                about the semantics of <varname>Wants=</varname>, see
                 below. The preferred way to create symlinks in the
                 <filename>.wants/</filename> directory of a unit file
                 is with the <command>enable</command> command of the
@@ -201,7 +204,12 @@
                 settings to a unit, without having to modify their
                 unit files. Make sure that the file that is included
                 has the appropriate section headers before any
-                directive.</para>
+                directive. Note that for instanced units this logic
+                will first look for the instance
+                <literal>.d/</literal> subdirectory and read its
+                <literal>.conf</literal> files, followed by the
+                template <literal>.d/</literal> subdirectory and reads
+                its <literal>.conf</literal> files.</para>
 
                 <para>Note that while systemd offers a flexible
                 dependency system between units it is recommended to
@@ -219,7 +227,7 @@
                 result is usable as part of a filename. Basically,
                 given a path, "/" is replaced by "-", and all
                 unprintable characters and the "-" are replaced by
-                C-style "\x20" escapes. The root directory "/" is
+                C-style "\x2d" escapes. The root directory "/" is
                 encoded as single dash, while otherwise the initial
                 and ending "/" is removed from all paths during
                 transformation. This escaping is reversible.</para>
@@ -273,8 +281,10 @@
                 (<option>--user</option>) and the variable
                 <varname>$SYSTEMD_UNIT_PATH</varname> is set, this
                 contents of this variable overrides the unit load
-                path.
-                </para>
+                path. If <varname>$SYSTEMD_UNIT_PATH</varname> ends
+                with an empty component (<literal>:</literal>), the
+                usual unit load path will be appended to the contents
+                of the variable.</para>
 
                 <table>
                   <title>
@@ -335,12 +345,24 @@
                         <entry>Local configuration</entry>
                       </row>
                       <row>
+                        <entry><filename>$XDG_RUNTIME_DIR/systemd/user</filename></entry>
+                        <entry>Runtime units (only used when $XDG_RUNTIME_DIR is set)</entry>
+                      </row>
+                      <row>
                         <entry><filename>/run/systemd/user</filename></entry>
                         <entry>Runtime units</entry>
                       </row>
                       <row>
+                        <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
+                        <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
+                      </row>
+                      <row>
+                        <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
+                        <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
+                      </row>
+                      <row>
                         <entry><filename>/usr/lib/systemd/user</filename></entry>
-                        <entry>Units of installed packages</entry>
+                        <entry>Units of packages that have been installed system-wide</entry>
                       </row>
                     </tbody>
                   </tgroup>
@@ -396,7 +418,7 @@
                                 <literal>man:</literal>. For more
                                 information about the syntax of these
                                 URIs, see
-                                <citerefentry><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+                                <citerefentry project='man-pages'><refentrytitle>uri</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
                                 URIs should be listed in order of
                                 relevance, starting with the most
                                 relevant. It is a good idea to first
@@ -866,20 +888,22 @@
 
                         <varlistentry>
                                 <term><varname>JobTimeoutSec=</varname></term>
+                                <term><varname>JobTimeoutAction=</varname></term>
+                                <term><varname>JobTimeoutRebootArgument=</varname></term>
 
-                                <listitem><para>When clients are
-                                waiting for a job of this unit to
-                                complete, time out after the specified
-                                time. If this time limit is reached,
-                                the job will be cancelled, the unit
-                                however will not change state or even
-                                enter the <literal>failed</literal>
-                                mode. This value defaults to 0 (job
-                                timeouts disabled), except for device
+                                <listitem><para>When a job for this
+                                unit is queued a time-out may be
+                                configured. If this time limit is
+                                reached, the job will be cancelled,
+                                the unit however will not change state
+                                or even enter the
+                                <literal>failed</literal> mode. This
+                                value defaults to 0 (job timeouts
+                                disabled), except for device
                                 units. NB: this timeout is independent
                                 from any unit-specific timeout (for
                                 example, the timeout set with
-                                <varname>Timeout=</varname> in service
+                                <varname>StartTimeoutSec=</varname> in service
                                 units) as the job timeout has no
                                 effect on the unit itself, only on the
                                 job that might be pending for it. Or
@@ -889,7 +913,22 @@
                                 timeout set with this option however
                                 is useful to abort only the job
                                 waiting for the unit state to
-                                change.</para></listitem>
+                                change.</para>
+
+                                <para><varname>JobTimeoutAction=</varname>
+                                optionally configures an additional
+                                action to take when the time-out is
+                                hit. It takes the same values as the
+                                per-service
+                                <varname>StartLimitAction=</varname>
+                                setting, see
+                                <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                                for details. Defaults to
+                                <option>none</option>. <varname>JobTimeoutRebootArgument=</varname>
+                                configures an optional reboot string
+                                to pass to the
+                                <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+                                system call.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
@@ -901,6 +940,7 @@
                                 <term><varname>ConditionCapability=</varname></term>
                                 <term><varname>ConditionACPower=</varname></term>
                                 <term><varname>ConditionNeedsUpdate=</varname></term>
+                                <term><varname>ConditionFirstBoot=</varname></term>
                                 <term><varname>ConditionPathExists=</varname></term>
                                 <term><varname>ConditionPathExistsGlob=</varname></term>
                                 <term><varname>ConditionPathIsDirectory=</varname></term>
@@ -931,7 +971,9 @@
                                 <varname>x86</varname>,
                                 <varname>x86-64</varname>,
                                 <varname>ppc</varname>,
+                                <varname>ppc-le</varname>,
                                 <varname>ppc64</varname>,
+                                <varname>ppc64-le</varname>,
                                 <varname>ia64</varname>,
                                 <varname>parisc</varname>,
                                 <varname>parisc64</varname>,
@@ -940,7 +982,9 @@
                                 <varname>sparc</varname>,
                                 <varname>sparc64</varname>,
                                 <varname>mips</varname>,
+                                <varname>mips-le</varname>,
                                 <varname>mips64</varname>,
+                                <varname>mips64-le</varname>,
                                 <varname>alpha</varname>,
                                 <varname>arm</varname>,
                                 <varname>arm-be</varname>,
@@ -948,7 +992,9 @@
                                 <varname>arm64-be</varname>,
                                 <varname>sh</varname>,
                                 <varname>sh64</varname>,
-                                <varname>m86k</varname> to test
+                                <varname>m86k</varname>,
+                                <varname>tilegx</varname>,
+                                <varname>cris</varname> to test
                                 against a specific architecture. The
                                 architecture is determined from the
                                 information returned by
@@ -979,23 +1025,27 @@
                                 virtualization solution, or one of
                                 <varname>qemu</varname>,
                                 <varname>kvm</varname>,
+                                <varname>zvm</varname>,
                                 <varname>vmware</varname>,
                                 <varname>microsoft</varname>,
                                 <varname>oracle</varname>,
                                 <varname>xen</varname>,
                                 <varname>bochs</varname>,
-                                <varname>chroot</varname>,
                                 <varname>uml</varname>,
                                 <varname>openvz</varname>,
                                 <varname>lxc</varname>,
                                 <varname>lxc-libvirt</varname>,
-                                <varname>systemd-nspawn</varname> to
-                                test against a specific
-                                implementation. If multiple
-                                virtualization technologies are nested,
-                                only the innermost is considered. The
-                                test may be negated by prepending an
-                                exclamation mark.</para>
+                                <varname>systemd-nspawn</varname>,
+                                <varname>docker</varname> to test
+                                against a specific implementation. See
+                                <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                                for a full list of known
+                                virtualization technologies and their
+                                identifiers. If multiple
+                                virtualization technologies are
+                                nested, only the innermost is
+                                considered. The test may be negated by
+                                prepending an exclamation mark.</para>
 
                                 <para><varname>ConditionHost=</varname>
                                 may be used to match against the
@@ -1046,7 +1096,7 @@
                                 (i.e. this does not check whether
                                 capability is actually available in
                                 the permitted or effective sets, see
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for details). Pass a capability name
                                 such as <literal>CAP_MKNOD</literal>,
                                 possibly prefixed with an exclamation
@@ -1095,6 +1145,18 @@
                                 to make sure they run before the stamp
                                 files's modification time gets reset
                                 indicating a completed update.</para>
+
+                                <para><varname>ConditionFirstBoot=</varname>
+                                takes a boolean argument. This
+                                condition may be used to
+                                conditionalize units on whether the
+                                system is booting up with an
+                                unpopulated <filename>/etc</filename>
+                                directory. This may be used to
+                                populate <filename>/etc</filename> on
+                                the first boot after factory reset, or
+                                when a new system instances boots up
+                                for the first time.</para>
 
                                 <para>With
                                 <varname>ConditionPathExists=</varname>
@@ -1220,9 +1282,10 @@
         <refsect1>
                 <title>[Install] Section Options</title>
 
-                <para>Unit file may include a [Install] section, which
-                carries installation information for the unit. This
-                section is not interpreted by
+                <para>Unit file may include an
+                <literal>[Install]</literal> section, which carries
+                installation information for the unit. This section is
+                not interpreted by
                 <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 during runtime. It is used exclusively by the
                 <command>enable</command> and
@@ -1234,7 +1297,7 @@
                         <varlistentry>
                                 <term><varname>Alias=</varname></term>
 
-                                <listitem><para>A space-seperated list
+                                <listitem><para>A space-separated list
                                 of additional names this unit shall be
                                 installed under. The names listed here
                                 must have the same suffix (i.e. type)
@@ -1467,7 +1530,7 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -1482,7 +1545,8 @@
                         <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry><refentrytitle>systemd-verify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>

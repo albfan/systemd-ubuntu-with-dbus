@@ -19,9 +19,9 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf — Journal service configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p></div><div class="refsect1"><a name="idm214198630544"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="journald.conf"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journald.conf — Journal service configuration file</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">/etc/systemd/journald.conf</code></p></div><div class="refsect1"><a name="idm214196102640"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p>This file configures various parameters of the
                 systemd journal service,
-                <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214200500944"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
+                <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>.</p></div><div class="refsect1"><a name="idm214196100464"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>All options are configured in the
                 "<code class="literal">[Journal]</code>" section:</p><div class="variablelist"><dl class="variablelist"><dt id="Storage="><span class="term"><code class="varname">Storage=</code></span><a class="headerlink" title="Permalink to this term" href="#Storage=">¶</a></dt><dd><p>Controls where to
                                 store journal data. One of
                                 "<code class="literal">volatile</code>",
@@ -275,8 +275,8 @@
                                 forwarding to syslog is enabled but no
                                 syslog daemon is running, the
                                 respective option has no effect. By
-                                default, only forwarding to syslog and
-                                wall is enabled. These settings may be
+                                default, only forwarding wall is
+                                enabled. These settings may be
                                 overridden at boot time with the
                                 kernel command line options
                                 "<code class="literal">systemd.journald.forward_to_syslog=</code>",
@@ -285,9 +285,9 @@
                                 and
                                 "<code class="literal">systemd.journald.forward_to_wall=</code>".
                                 When forwarding to the console, the
-                                TTY to log to can be changed
-                                with <code class="varname">TTYPath=</code>,
-                                described below.</p></dd><dt id="MaxLevelStore="><span class="term"><code class="varname">MaxLevelStore=</code>, </span><span class="term"><code class="varname">MaxLevelSyslog=</code>, </span><span class="term"><code class="varname">MaxLevelKMsg=</code>, </span><span class="term"><code class="varname">MaxLevelConsole=</code>, </span><span class="term"><code class="varname">MaxLevelWall=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxLevelStore=">¶</a></dt><dd><p>Controls the maximum
+                                TTY to log to can be changed with
+                                <code class="varname">TTYPath=</code>, described
+                                below.</p></dd><dt id="MaxLevelStore="><span class="term"><code class="varname">MaxLevelStore=</code>, </span><span class="term"><code class="varname">MaxLevelSyslog=</code>, </span><span class="term"><code class="varname">MaxLevelKMsg=</code>, </span><span class="term"><code class="varname">MaxLevelConsole=</code>, </span><span class="term"><code class="varname">MaxLevelWall=</code></span><a class="headerlink" title="Permalink to this term" href="#MaxLevelStore=">¶</a></dt><dd><p>Controls the maximum
                                 log level of messages that are stored
                                 on disk, forwarded to syslog, kmsg,
                                 the console or wall (if that is
@@ -321,7 +321,7 @@
                                 to use if
                                 <code class="varname">ForwardToConsole=yes</code>
                                 is used. Defaults to
-                                <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214200261392"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                                <code class="filename">/dev/console</code>.</p></dd></dl></div></div><div class="refsect1"><a name="idm214194981616"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                           <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                           <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
                           <a href="journalctl.html"><span class="citerefentry"><span class="refentrytitle">journalctl</span>(1)</span></a>,

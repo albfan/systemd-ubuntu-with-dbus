@@ -161,7 +161,7 @@ int cg_kill(const char *controller, const char *path, int sig, bool sigcont, boo
          * tasks list, to properly handle forking processes */
 
         if (!s) {
-                s = allocated_set = set_new(trivial_hash_func, trivial_compare_func);
+                s = allocated_set = set_new(NULL);
                 if (!s)
                         return -ENOMEM;
         }
@@ -239,7 +239,7 @@ int cg_kill_recursive(const char *controller, const char *path, int sig, bool si
         assert(sig >= 0);
 
         if (!s) {
-                s = allocated_set = set_new(trivial_hash_func, trivial_compare_func);
+                s = allocated_set = set_new(NULL);
                 if (!s)
                         return -ENOMEM;
         }
@@ -290,7 +290,7 @@ int cg_migrate(const char *cfrom, const char *pfrom, const char *cto, const char
         assert(cto);
         assert(pto);
 
-        s = set_new(trivial_hash_func, trivial_compare_func);
+        s = set_new(NULL);
         if (!s)
                 return -ENOMEM;
 
@@ -643,7 +643,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
 
         snprintf(c, sizeof(c), PID_FMT"\n", pid);
 
-        return write_string_file(fs, c);
+        return write_string_file_no_create(fs, c);
 }
 
 int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
@@ -753,9 +753,9 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         cs = strlen(controller);
 
         FOREACH_LINE(line, f, return -errno) {
-                char *l, *p, *w, *e;
+                char *l, *p, *e;
                 size_t k;
-                char *state;
+                const char *word, *state;
                 bool found = false;
 
                 truncate_nl(line);
@@ -771,16 +771,16 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
 
                 *e = 0;
 
-                FOREACH_WORD_SEPARATOR(w, k, l, ",", state) {
+                FOREACH_WORD_SEPARATOR(word, k, l, ",", state) {
 
-                        if (k == cs && memcmp(w, controller, cs) == 0) {
+                        if (k == cs && memcmp(word, controller, cs) == 0) {
                                 found = true;
                                 break;
                         }
 
                         if (k == 5 + cs &&
-                            memcmp(w, "name=", 5) == 0 &&
-                            memcmp(w+5, controller, cs) == 0) {
+                            memcmp(word, "name=", 5) == 0 &&
+                            memcmp(word+5, controller, cs) == 0) {
                                 found = true;
                                 break;
                         }
@@ -817,7 +817,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         sc = strstrip(contents);
         if (sc[0] == 0) {
-                r = write_string_file(fs, agent);
+                r = write_string_file_no_create(fs, agent);
                 if (r < 0)
                         return r;
         } else if (!streq(sc, agent))
@@ -837,7 +837,7 @@ int cg_install_release_agent(const char *controller, const char *agent) {
 
         sc = strstrip(contents);
         if (streq(sc, "0")) {
-                r = write_string_file(fs, "1");
+                r = write_string_file_no_create(fs, "1");
                 if (r < 0)
                         return r;
 
@@ -858,7 +858,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-        r = write_string_file(fs, "0");
+        r = write_string_file_no_create(fs, "0");
         if (r < 0)
                 return r;
 
@@ -869,7 +869,7 @@ int cg_uninstall_release_agent(const char *controller) {
         if (r < 0)
                 return r;
 
-        r = write_string_file(fs, "");
+        r = write_string_file_no_create(fs, "");
         if (r < 0)
                 return r;
 
@@ -1306,9 +1306,8 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
 }
 
 int cg_path_get_session(const char *path, char **session) {
-        const char *e, *n, *x;
+        const char *e, *n, *x, *y;
         char *s;
-        size_t l;
 
         assert(path);
 
@@ -1325,17 +1324,14 @@ int cg_path_get_session(const char *path, char **session) {
         x = startswith(s, "session-");
         if (!x)
                 return -ENOENT;
-        if (!endswith(x, ".scope"))
-                return -ENOENT;
-
-        l = strlen(x);
-        if (l <= 6)
+        y = endswith(x, ".scope");
+        if (!y || x == y)
                 return -ENOENT;
 
         if (session) {
                 char *r;
 
-                r = strndup(x, l - 6);
+                r = strndup(x, y - x);
                 if (!r)
                         return -ENOMEM;
 
@@ -1591,7 +1587,7 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         if (r < 0)
                 return r;
 
-        return write_string_file(p, value);
+        return write_string_file_no_create(p, value);
 }
 
 static const char mask_names[] =

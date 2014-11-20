@@ -26,7 +26,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
-#include <syslog.h>
 #include <grp.h>
 #include <sched.h>
 #include <sys/mount.h>
@@ -80,7 +79,6 @@ out:
         return err;
 }
 
-
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_event_unref_ struct udev_event *event = NULL;
@@ -101,7 +99,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
 
         log_debug("version %s", VERSION);
-        label_init("/dev");
+        mac_selinux_init("/dev");
 
         sigprocmask(SIG_SETMASK, NULL, &sigmask_orig);
 
@@ -151,16 +149,16 @@ int main(int argc, char *argv[]) {
                         mknod(udev_device_get_devnode(dev), mode, udev_device_get_devnum(dev));
                 } else {
                         unlink(udev_device_get_devnode(dev));
-                        util_delete_path(udev, udev_device_get_devnode(dev));
+                        rmdir_parents(udev_device_get_devnode(dev), "/");
                 }
         }
 
-        udev_event_execute_rules(event, rules, &sigmask_orig);
-        udev_event_execute_run(event, NULL);
+        udev_event_execute_rules(event, 3 * USEC_PER_SEC, USEC_PER_SEC, rules, &sigmask_orig);
+        udev_event_execute_run(event, 3 * USEC_PER_SEC, USEC_PER_SEC, NULL);
 out:
         if (event != NULL && event->fd_signal >= 0)
                 close(event->fd_signal);
-        label_finish();
+        mac_selinux_finish();
 
         return err ? EXIT_FAILURE : EXIT_SUCCESS;
 }

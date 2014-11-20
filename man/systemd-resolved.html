@@ -19,20 +19,24 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="systemd-resolved.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-resolved.service, systemd-resolved — Network Name Resolution manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-resolved.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-resolved</code></p></div><div class="refsect1"><a name="idm214173999872"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-resolved</strong></span> is a system
-                service that manages network name resolution. It does so by
-                generating <code class="filename">/run/systemd/resolve/resolv.conf</code>,
-                which may be symlinked from <code class="filename">/etc/resolv.conf</code>.
-                The contents is generated from the global settings in
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="systemd-resolved.service"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>systemd-resolved.service, systemd-resolved — Network Name Resolution manager</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><p><code class="filename">systemd-resolved.service</code></p><p><code class="filename">/usr/lib/systemd/systemd-resolved</code></p></div><div class="refsect1"><a name="idm214167161184"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>systemd-resolved</strong></span> is a system
+                service that manages network name resolution. It
+                implements a caching DNS stub resolver and an LLMNR
+                resolver and responder. It also generates
+                <code class="filename">/run/systemd/resolve/resolv.conf</code>
+                for compatibility which may be symlinked from
+                <code class="filename">/etc/resolv.conf</code>.</p><p>The DNS servers contacted are determined from
+                the global settings in
                 <a href="resolved.conf.html"><span class="citerefentry"><span class="refentrytitle">resolved.conf</span>(5)</span></a>,
-                the per-link static settings in <code class="filename">.network</code> files,
-                and the per-link dynamic settings received over DHCP. See
+                the per-link static settings in
+                <code class="filename">.network</code> files, and the per-link
+                dynamic settings received over DHCP. See
                 <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>
                 for more details.</p><p>Note that <code class="filename">/run/systemd/resolve/resolv.conf</code>
                 should not be used directly, but only through a symlink from
-                <code class="filename">/etc/resolv.conf</code>.</p></div><div class="refsect1"><a name="idm214173992080"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
-                        <a href="resolved.conf.html"><span class="citerefentry"><span class="refentrytitle">resolved.conf</span>(5)</span></a>,
+                <code class="filename">/etc/resolv.conf</code>.</p></div><div class="refsect1"><a name="idm214170988208"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
+                        <a href="resolved.conf.html"><span class="citerefentry"><span class="refentrytitle">resolved.conf</span>(5)</span></a>,
                         <a href="systemd.network.html"><span class="citerefentry"><span class="refentrytitle">systemd.network</span>(5)</span></a>,
                         <a href="systemd-networkd.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-networkd.service</span>(8)</span></a>
                 </p></div></div></body></html>

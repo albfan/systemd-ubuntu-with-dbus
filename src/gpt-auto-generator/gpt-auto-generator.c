@@ -124,7 +124,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
                 return log_oom();
 
         p = strjoin(arg_dest, "/", n, NULL);
-        if (!n)
+        if (!p)
                 return log_oom();
 
         f = fopen(p, "wxe");
@@ -144,7 +144,6 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, char **devi
                 "Before=umount.target cryptsetup.target\n"
                 "After=%s\n"
                 "IgnoreOnIsolate=true\n"
-                "After=systemd-readahead-collect.service systemd-readahead-replay.service\n\n"
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"

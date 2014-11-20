@@ -194,8 +194,10 @@ int bus_error_setfv(sd_bus_error *e, const char *name, const char *format, va_li
                 return -ENOMEM;
         }
 
+        /* Of we hit OOM on formatting the pretty message, we ignore
+         * this, since we at least managed to write the error name */
         if (format)
-                vasprintf((char**) &e->message, format, ap);
+                (void) vasprintf((char**) &e->message, format, ap);
 
         e->_need_free = 1;
 
@@ -312,7 +314,7 @@ static void bus_error_strerror(sd_bus_error *e, int error) {
                         continue;
                 }
 
-                if (!x || errno) {
+                if (errno) {
                         free(m);
                         return;
                 }

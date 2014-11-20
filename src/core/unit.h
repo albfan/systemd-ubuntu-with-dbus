@@ -28,7 +28,6 @@
 typedef struct Unit Unit;
 typedef struct UnitVTable UnitVTable;
 typedef enum UnitActiveState UnitActiveState;
-typedef enum UnitDependency UnitDependency;
 typedef struct UnitRef UnitRef;
 typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 
@@ -42,6 +41,7 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "condition.h"
 #include "install.h"
 #include "unit-name.h"
+#include "failure-action.h"
 
 enum UnitActiveState {
         UNIT_ACTIVE,
@@ -53,6 +53,12 @@ enum UnitActiveState {
         _UNIT_ACTIVE_STATE_MAX,
         _UNIT_ACTIVE_STATE_INVALID = -1
 };
+
+typedef enum KillOperation {
+        KILL_TERMINATE,
+        KILL_KILL,
+        KILL_ABORT,
+} KillOperation;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
         return t == UNIT_ACTIVE || t == UNIT_RELOADING;
@@ -69,53 +75,6 @@ static inline bool UNIT_IS_INACTIVE_OR_DEACTIVATING(UnitActiveState t) {
 static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return t == UNIT_INACTIVE || t == UNIT_FAILED;
 }
-
-enum UnitDependency {
-        /* Positive dependencies */
-        UNIT_REQUIRES,
-        UNIT_REQUIRES_OVERRIDABLE,
-        UNIT_REQUISITE,
-        UNIT_REQUISITE_OVERRIDABLE,
-        UNIT_WANTS,
-        UNIT_BINDS_TO,
-        UNIT_PART_OF,
-
-        /* Inverse of the above */
-        UNIT_REQUIRED_BY,             /* inverse of 'requires' and 'requisite' is 'required_by' */
-        UNIT_REQUIRED_BY_OVERRIDABLE, /* inverse of 'requires_overridable' and 'requisite_overridable' is 'soft_required_by' */
-        UNIT_WANTED_BY,               /* inverse of 'wants' */
-        UNIT_BOUND_BY,                /* inverse of 'binds_to' */
-        UNIT_CONSISTS_OF,             /* inverse of 'part_of' */
-
-        /* Negative dependencies */
-        UNIT_CONFLICTS,               /* inverse of 'conflicts' is 'conflicted_by' */
-        UNIT_CONFLICTED_BY,
-
-        /* Order */
-        UNIT_BEFORE,                  /* inverse of 'before' is 'after' and vice versa */
-        UNIT_AFTER,
-
-        /* On Failure */
-        UNIT_ON_FAILURE,
-
-        /* Triggers (i.e. a socket triggers a service) */
-        UNIT_TRIGGERS,
-        UNIT_TRIGGERED_BY,
-
-        /* Propagate reloads */
-        UNIT_PROPAGATES_RELOAD_TO,
-        UNIT_RELOAD_PROPAGATED_FROM,
-
-        /* Joins namespace of */
-        UNIT_JOINS_NAMESPACE_OF,
-
-        /* Reference information for GC logic */
-        UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
-        UNIT_REFERENCED_BY,
-
-        _UNIT_DEPENDENCY_MAX,
-        _UNIT_DEPENDENCY_INVALID = -1
-};
 
 #include "manager.h"
 #include "job.h"
@@ -160,7 +119,10 @@ struct Unit {
         /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
         Job *nop_job;
 
+        /* Job timeout and action to take */
         usec_t job_timeout;
+        FailureAction job_timeout_action;
+        char *job_timeout_reboot_arg;
 
         /* References to this */
         LIST_HEAD(UnitRef, refs);
@@ -174,12 +136,6 @@ struct Unit {
         dual_timestamp active_enter_timestamp;
         dual_timestamp active_exit_timestamp;
         dual_timestamp inactive_enter_timestamp;
-
-        /* Counterparts in the cgroup filesystem */
-        char *cgroup_path;
-        CGroupControllerMask cgroup_realized_mask;
-        CGroupControllerMask cgroup_subtree_mask;
-        CGroupControllerMask cgroup_members_mask;
 
         UnitRef slice;
 
@@ -224,6 +180,15 @@ struct Unit {
         /* Cached unit file state */
         UnitFileState unit_file_state;
 
+        /* Counterparts in the cgroup filesystem */
+        char *cgroup_path;
+        CGroupControllerMask cgroup_realized_mask;
+        CGroupControllerMask cgroup_subtree_mask;
+        CGroupControllerMask cgroup_members_mask;
+
+        /* How to start OnFailure units */
+        JobMode on_failure_job_mode;
+
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
 
@@ -238,9 +203,6 @@ struct Unit {
 
         /* Allow isolation requests */
         bool allow_isolate;
-
-        /* How to start OnFailure units */
-        JobMode on_failure_job_mode;
 
         /* Ignore this unit when isolating */
         bool ignore_on_isolate;
@@ -620,7 +582,7 @@ int unit_write_drop_in_private_format(Unit *u, UnitSetPropertiesMode mode, const
 
 int unit_remove_drop_in(Unit *u, UnitSetPropertiesMode mode, const char *name);
 
-int unit_kill_context(Unit *u, KillContext *c, bool sigkill, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
 
@@ -628,9 +590,6 @@ int unit_require_mounts_for(Unit *u, const char *path);
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
-
-const char *unit_dependency_to_string(UnitDependency i) _const_;
-UnitDependency unit_dependency_from_string(const char *s) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

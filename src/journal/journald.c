@@ -24,9 +24,9 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <systemd/sd-journal.h>
-#include <systemd/sd-messages.h>
-#include <systemd/sd-daemon.h>
+#include "systemd/sd-journal.h"
+#include "systemd/sd-messages.h"
+#include "systemd/sd-daemon.h"
 
 #include "journal-authenticate.h"
 #include "journald-server.h"
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
                   "STATUS=Processing requests...");
 
         for (;;) {
-                usec_t t = (usec_t) -1, n;
+                usec_t t = USEC_INFINITY, n;
 
                 r = sd_event_get_state(server.event);
                 if (r < 0)
@@ -116,7 +116,9 @@ int main(int argc, char *argv[]) {
         server_driver_message(&server, SD_MESSAGE_JOURNAL_STOP, "Journal stopped");
 
 finish:
-        sd_notify(false, "STATUS=Shutting down...");
+        sd_notify(false,
+                  "STOPPING=1\n"
+                  "STATUS=Shutting down...");
 
         server_done(&server);
 

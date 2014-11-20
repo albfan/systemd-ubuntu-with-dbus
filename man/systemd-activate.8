@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 215" "systemd-activate"
+.TH "SYSTEMD\-ACTIVATE" "8" "" "systemd 217" "systemd-activate"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -89,7 +89,9 @@ See
 Same as in
 \fBsystemd\fR(1)\&.
 .RE
-.SH "EXAMPLE 1"
+.SH "EXAMPLES"
+.PP
+\fBExample\ \&1.\ \&Run an echo server on port 2000\fR
 .sp
 .if n \{\
 .RS 4
@@ -101,8 +103,7 @@ $ /usr/lib/systemd/systemd\-activate \-l 2000 \-a cat
 .RE
 .\}
 .PP
-This runs an echo server on port 2000\&.
-.SH "EXAMPLE 2"
+\fBExample\ \&2.\ \&Run a socket activated instance of systemd-journal-gatewayd(8)\fR
 .sp
 .if n \{\
 .RS 4
@@ -113,9 +114,6 @@ $ /usr/lib/systemd/systemd\-activate \-l 19531 /usr/lib/systemd/systemd\-journal
 .if n \{\
 .RE
 .\}
-.PP
-This runs a socket activated instance of
-\fBsystemd-journal-gatewayd\fR(8)\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

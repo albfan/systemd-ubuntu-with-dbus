@@ -28,6 +28,7 @@
 
 char *strv_find(char **l, const char *name) _pure_;
 char *strv_find_prefix(char **l, const char *name) _pure_;
+char *strv_find_startswith(char **l, const char *name) _pure_;
 
 void strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
@@ -62,7 +63,7 @@ static inline bool strv_isempty(char * const *l) {
 }
 
 char **strv_split(const char *s, const char *separator);
-char **strv_split_quoted(const char *s);
+int strv_split_quoted(char ***t, const char *s);
 char **strv_split_newlines(const char *s);
 
 char *strv_join(char **l, const char *separator);

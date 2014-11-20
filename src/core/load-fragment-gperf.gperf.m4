@@ -152,6 +152,8 @@ Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,         
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_bool,                  0,                             offsetof(Unit, ignore_on_snapshot)
 Unit.JobTimeoutSec,              config_parse_sec,                   0,                             offsetof(Unit, job_timeout)
+Unit.JobTimeoutAction,           config_parse_failure_action,        0,                             offsetof(Unit, job_timeout_action)
+Unit.JobTimeoutRebootArgument,   config_parse_string,                0,                             offsetof(Unit, job_timeout_reboot_arg)
 Unit.ConditionPathExists,        config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         0
 Unit.ConditionPathExistsGlob,    config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    0
 Unit.ConditionPathIsDirectory,   config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   0
@@ -162,6 +164,7 @@ Unit.ConditionDirectoryNotEmpty, config_parse_unit_condition_path,   CONDITION_D
 Unit.ConditionFileNotEmpty,      config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY,      0
 Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE,  0
 Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        0
+Unit.ConditionFirstBoot,         config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          0
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, 0
 Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        0
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      0
@@ -204,6 +207,9 @@ Service.NonBlocking,             config_parse_bool,                  0,         
 Service.BusName,                 config_parse_unit_string_printf,    0,                             offsetof(Service, bus_name)
 Service.NotifyAccess,            config_parse_notify_access,         0,                             offsetof(Service, notify_access)
 Service.Sockets,                 config_parse_service_sockets,       0,                             0
+m4_ifdef(`ENABLE_KDBUS',
+`Service.BusPolicy,              config_parse_bus_endpoint_policy,   0,                             offsetof(Service, exec_context)',
+`Service.BusPolicy,              config_parse_warn_compat,           0,                             0')
 EXEC_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Service)m4_dnl
@@ -230,6 +236,11 @@ Socket.DirectoryMode,            config_parse_mode,                  0,         
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.KeepAlive,                config_parse_bool,                  0,                             offsetof(Socket, keep_alive)
+Socket.KeepAliveTimeSec,         config_parse_sec,                   0,                             offsetof(Socket, keep_alive_time)
+Socket.KeepAliveIntervalSec,     config_parse_sec,                   0,                             offsetof(Socket, keep_alive_interval)
+Socket.KeepAliveProbes,          config_parse_unsigned,              0,                             offsetof(Socket, keep_alive_cnt)
+Socket.DeferAcceptSec,           config_parse_sec,                   0,                             offsetof(Socket, defer_accept)
+Socket.NoDelay,                  config_parse_bool,                  0,                             offsetof(Socket, no_delay)
 Socket.Priority,                 config_parse_int,                   0,                             offsetof(Socket, priority)
 Socket.ReceiveBuffer,            config_parse_iec_size,              0,                             offsetof(Socket, receive_buffer)
 Socket.SendBuffer,               config_parse_iec_size,              0,                             offsetof(Socket, send_buffer)
@@ -256,6 +267,9 @@ Socket.SmackLabelIPOut,          config_parse_string,                0,         
 `Socket.SmackLabel,              config_parse_warn_compat,           0,                             0
 Socket.SmackLabelIPIn,           config_parse_warn_compat,           0,                             0
 Socket.SmackLabelIPOut,          config_parse_warn_compat,           0,                             0')
+m4_ifdef(`HAVE_SELINUX',
+`Socket.SELinuxContextFromNet,   config_parse_bool,                  0,                             offsetof(Socket, selinux_context_from_net)',
+`Socket.SELinuxContextFromNet,   config_parse_warn_compat,           0,                             0')
 EXEC_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Socket)m4_dnl
@@ -285,6 +299,7 @@ Automount.DirectoryMode,         config_parse_mode,                  0,         
 m4_dnl
 Swap.What,                       config_parse_path,                  0,                             offsetof(Swap, parameters_fragment.what)
 Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
+Swap.Options,                    config_parse_string,                0,                             offsetof(Swap, parameters_fragment.options)
 Swap.TimeoutSec,                 config_parse_sec,                   0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl

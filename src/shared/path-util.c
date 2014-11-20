@@ -435,6 +435,22 @@ bool path_equal(const char *a, const char *b) {
         }
 }
 
+char* path_join(const char *root, const char *path, const char *rest) {
+        assert(path);
+
+        if (!isempty(root))
+                return strjoin(root, "/",
+                               path[0] == '/' ? path+1 : path,
+                               rest ? "/" : NULL,
+                               rest && rest[0] == '/' ? rest+1 : rest,
+                               NULL);
+        else
+                return strjoin(path,
+                               rest ? "/" : NULL,
+                               rest && rest[0] == '/' ? rest+1 : rest,
+                               NULL);
+}
+
 int path_is_mount_point(const char *t, bool allow_symlink) {
 
         union file_handle_union h = {
@@ -517,7 +533,16 @@ int path_is_read_only_fs(const char *path) {
         if (statvfs(path, &st) < 0)
                 return -errno;
 
-        return !!(st.f_flag & ST_RDONLY);
+        if (st.f_flag & ST_RDONLY)
+                return true;
+
+        /* On NFS, statvfs() might not reflect whether we can actually
+         * write to the remote share. Let's try again with
+         * access(W_OK) which is more reliable, at least sometimes. */
+        if (access(path, W_OK) < 0 && errno == EROFS)
+                return true;
+
+        return false;
 }
 
 int path_is_os_tree(const char *path) {
@@ -558,7 +583,7 @@ int find_binary(const char *name, char **filename) {
                 return 0;
         } else {
                 const char *path;
-                char *state, *w;
+                const char *word, *state;
                 size_t l;
 
                 /**
@@ -569,10 +594,10 @@ int find_binary(const char *name, char **filename) {
                 if (!path)
                         path = DEFAULT_PATH;
 
-                FOREACH_WORD_SEPARATOR(w, l, path, ":", state) {
+                FOREACH_WORD_SEPARATOR(word, l, path, ":", state) {
                         _cleanup_free_ char *p = NULL;
 
-                        if (asprintf(&p, "%.*s/%s", (int) l, w, name) < 0)
+                        if (asprintf(&p, "%.*s/%s", (int) l, word, name) < 0)
                                 return -ENOMEM;
 
                         if (access(p, X_OK) < 0)
@@ -636,7 +661,7 @@ int fsck_exists(const char *fstype) {
         if (r < 0)
                 return r;
 
-        /* An fsck that is linked to /bin/true is a non-existant
+        /* An fsck that is linked to /bin/true is a non-existent
          * fsck */
 
         r = readlink_malloc(p, &d);

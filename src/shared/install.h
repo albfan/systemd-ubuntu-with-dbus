@@ -22,6 +22,7 @@
 ***/
 
 #include "hashmap.h"
+#include "unit-name.h"
 
 typedef enum UnitFileScope {
         UNIT_FILE_SYSTEM,
@@ -49,7 +50,7 @@ typedef enum UnitFilePresetMode {
         UNIT_FILE_PRESET_FULL,
         UNIT_FILE_PRESET_ENABLE_ONLY,
         UNIT_FILE_PRESET_DISABLE_ONLY,
-        _UNIT_FILE_PRESET_MODE_MAX,
+        _UNIT_FILE_PRESET_MAX,
         _UNIT_FILE_PRESET_INVALID = -1
 } UnitFilePresetMode;
 
@@ -93,6 +94,7 @@ int unit_file_mask(UnitFileScope scope, bool runtime, const char *root_dir, char
 int unit_file_unmask(UnitFileScope scope, bool runtime, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_set_default(UnitFileScope scope, const char *root_dir, const char *file, bool force, UnitFileChange **changes, unsigned *n_changes);
 int unit_file_get_default(UnitFileScope scope, const char *root_dir, char **name);
+int unit_file_add_dependency(UnitFileScope scope, bool runtime, const char *root_dir, char **files, char *target, UnitDependency dep, bool force, UnitFileChange **changes, unsigned *n_changes);
 
 UnitFileState unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename);
 

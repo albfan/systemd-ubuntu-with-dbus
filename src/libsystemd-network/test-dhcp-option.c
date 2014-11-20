@@ -92,7 +92,7 @@ static void test_message_init(void)
         message = malloc0(len);
 
         assert_se(dhcp_message_init(message, BOOTREQUEST, 0x12345678,
-                  DHCP_DISCOVER, optlen, &optoffset) >= 0);
+                  DHCP_DISCOVER, ARPHRD_ETHER, optlen, &optoffset) >= 0);
 
         assert_se(message->xid == htobe32(0x12345678));
         assert_se(message->op == BOOTREQUEST);
@@ -100,9 +100,9 @@ static void test_message_init(void)
         magic = (uint8_t*)&message->magic;
 
         assert_se(magic[0] == 99);
-        assert_se(magic[1] = 130);
-        assert_se(magic[2] = 83);
-        assert_se(magic[3] = 99);
+        assert_se(magic[1] == 130);
+        assert_se(magic[2] == 83);
+        assert_se(magic[3] == 99);
 
         assert_se(dhcp_option_parse(message, len, NULL, NULL) >= 0);
 }
@@ -115,6 +115,7 @@ static DHCPMessage *create_message(uint8_t *options, uint16_t optlen,
         size_t len = sizeof(DHCPMessage) + optlen;
 
         message = malloc0(len);
+        assert_se(message);
 
         if (options && optlen)
                 memcpy(&message->options, options, optlen);

@@ -29,13 +29,12 @@
 #include <dirent.h>
 #include <getopt.h>
 
-#include <systemd/sd-login.h>
+#include "systemd/sd-login.h"
 #include "logind-acl.h"
 #include "udev.h"
 #include "util.h"
 
-static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool test)
-{
+static int builtin_uaccess(struct udev_device *dev, int argc, char *argv[], bool test) {
         int r;
         const char *path = NULL, *seat;
         bool changed_acl = false;

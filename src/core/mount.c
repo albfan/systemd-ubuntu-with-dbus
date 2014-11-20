@@ -380,7 +380,8 @@ static int mount_add_default_dependencies(Mount *m) {
         if (!p)
                 return 0;
 
-        if (path_equal(m->where, "/"))
+        if (path_equal(m->where, "/") ||
+            path_equal(m->where, "/usr"))
                 return 0;
 
         if (mount_is_network(p)) {
@@ -690,6 +691,11 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
+        ExecParameters exec_params = {
+                .apply_permissions = true,
+                .apply_chroot      = true,
+                .apply_tty_stdin   = true,
+        };
 
         assert(m);
         assert(c);
@@ -705,21 +711,16 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
+        exec_params.environment = UNIT(m)->manager->environment;
+        exec_params.confirm_spawn = UNIT(m)->manager->confirm_spawn;
+        exec_params.cgroup_supported = UNIT(m)->manager->cgroup_supported;
+        exec_params.cgroup_path = UNIT(m)->cgroup_path;
+        exec_params.runtime_prefix = manager_get_runtime_prefix(UNIT(m)->manager);
+        exec_params.unit_id = UNIT(m)->id;
+
         r = exec_spawn(c,
-                       NULL,
                        &m->exec_context,
-                       NULL, 0,
-                       UNIT(m)->manager->environment,
-                       true,
-                       true,
-                       true,
-                       UNIT(m)->manager->confirm_spawn,
-                       UNIT(m)->manager->cgroup_supported,
-                       UNIT(m)->cgroup_path,
-                       manager_get_runtime_prefix(UNIT(m)->manager),
-                       UNIT(m)->id,
-                       0,
-                       NULL,
+                       &exec_params,
                        m->exec_runtime,
                        &pid);
         if (r < 0)
@@ -774,7 +775,8 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         r = unit_kill_context(
                         UNIT(m),
                         &m->kill_context,
-                        state != MOUNT_MOUNTING_SIGTERM && state != MOUNT_UNMOUNTING_SIGTERM && state != MOUNT_REMOUNTING_SIGTERM,
+                        (state != MOUNT_MOUNTING_SIGTERM && state != MOUNT_UNMOUNTING_SIGTERM && state != MOUNT_REMOUNTING_SIGTERM) ?
+                        KILL_KILL : KILL_TERMINATE,
                         -1,
                         m->control_pid,
                         false);
@@ -826,6 +828,23 @@ void warn_if_dir_nonempty(const char *unit, const char* where) {
                    NULL);
 }
 
+static int fail_if_symlink(const char *unit, const char* where) {
+        assert(where);
+
+        if (is_symlink(where) > 0) {
+                log_struct_unit(LOG_WARNING,
+                                unit,
+                                "MESSAGE=%s: Mount on symlink %s not allowed.",
+                                unit, where,
+                                "WHERE=%s", where,
+                                MESSAGE_ID(SD_MESSAGE_OVERMOUNTING),
+                                NULL);
+
+                return -ELOOP;
+        }
+        return 0;
+}
+
 static void mount_enter_unmounting(Mount *m) {
         int r;
 
@@ -875,6 +894,10 @@ static void mount_enter_mounting(Mount *m) {
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p))
                 mkdir_p_label(p->what, m->directory_mode);
+
+        r = fail_if_symlink(m->meta.id, m->where);
+        if (r < 0)
+                goto fail;
 
         if (m->from_fragment)
                 r = exec_command_set(

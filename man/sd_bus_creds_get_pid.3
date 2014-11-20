@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 215" "sd_bus_creds_get_pid"
+.TH "SD_BUS_CREDS_GET_PID" "3" "" "systemd 217" "sd_bus_creds_get_pid"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,7 +20,7 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-sd_bus_creds_get_pid, sd_bus_creds_get_pid_starttime, sd_bus_creds_get_tid, sd_bus_creds_get_uid, sd_bus_creds_get_gid, sd_bus_creds_get_comm, sd_bus_creds_get_tid_comm, sd_bus_creds_get_exe, sd_bus_creds_get_cmdline, sd_bus_creds_get_cgroup, sd_bus_creds_get_unit, sd_bus_creds_get_user_unit, sd_bus_creds_get_slice, sd_bus_creds_get_session, sd_bus_creds_get_owner_uid, sd_bus_creds_has_effective_cap, sd_bus_creds_has_permitted_cap, sd_bus_creds_has_inheritable_cap, sd_bus_creds_has_bounding_cap, sd_bus_creds_get_selinux_context, sd_bus_creds_get_audit_session_id, sd_bus_creds_get_audit_login_uid, sd_bus_creds_get_unique_name, sd_bus_creds_get_well_known_names \- Retrieve fields from a credentials object
+sd_bus_creds_get_pid, sd_bus_creds_get_pid_starttime, sd_bus_creds_get_tid, sd_bus_creds_get_uid, sd_bus_creds_get_gid, sd_bus_creds_get_comm, sd_bus_creds_get_tid_comm, sd_bus_creds_get_exe, sd_bus_creds_get_cmdline, sd_bus_creds_get_cgroup, sd_bus_creds_get_unit, sd_bus_creds_get_user_unit, sd_bus_creds_get_slice, sd_bus_creds_get_session, sd_bus_creds_get_owner_uid, sd_bus_creds_has_effective_cap, sd_bus_creds_has_permitted_cap, sd_bus_creds_has_inheritable_cap, sd_bus_creds_has_bounding_cap, sd_bus_creds_get_selinux_context, sd_bus_creds_get_audit_session_id, sd_bus_creds_get_audit_login_uid, sd_bus_creds_get_unique_name, sd_bus_creds_get_well_known_names, sd_bus_creds_get_connection_name \- Retrieve fields from a credentials object
 .SH "SYNOPSIS"
 .sp
 .ft B
@@ -76,73 +76,75 @@ sd_bus_creds_get_pid, sd_bus_creds_get_pid_starttime, sd_bus_creds_get_tid, sd_b
 .BI "int sd_bus_creds_get_unique_name(sd_bus_creds\ *" "c" ", const\ char\ **" "name" ");"
 .HP \w'int\ sd_bus_creds_get_well_known_names('u
 .BI "int sd_bus_creds_get_well_known_names(sd_bus_creds\ *" "c" ", char\ ***" "name" ");"
+.HP \w'int\ sd_bus_creds_get_connection_name('u
+.BI "int sd_bus_creds_get_connection_name(sd_bus_creds\ *" "c" ", const\ char\ **" "name" ");"
 .SH "DESCRIPTION"
 .PP
 These functions return information from an
 \fIsd_bus_creds\fR
 object\&. It may be created with
 \fBsd_bus_creds_new_from_pid\fR(3), in which case it will describe the specified process, or it may be created by
-\fBsd_bus_get_peer_creds\fR(3), in which case it will describe the process at the other endpoint of a connection\&.
+\fBsd_bus_get_owner_creds\fR(3), in which case it will describe the process at the other endpoint of a connection\&.
 .PP
-\fBsd_bus_creds_get_pid\fR
+\fBsd_bus_creds_get_pid()\fR
 will retrieve the PID (process identifier)\&.
 .PP
-\fBsd_bus_creds_get_pid_starttime\fR
+\fBsd_bus_creds_get_pid_starttime()\fR
 will retrieve the time since the start of the epoch in microseconds since the process was started\&.
 .PP
-\fBsd_bus_creds_get_tid\fR
+\fBsd_bus_creds_get_tid()\fR
 will retrieve the TID (thread identifier)\&.
 .PP
-\fBsd_bus_creds_get_uid\fR
+\fBsd_bus_creds_get_uid()\fR
 will retrieve the numeric UID (user identifier)\&.
 .PP
-\fBsd_bus_creds_get_gid\fR
+\fBsd_bus_creds_get_gid()\fR
 will retrieve the numeric GID (group identifier)\&.
 .PP
-\fBsd_bus_creds_get_comm\fR
+\fBsd_bus_creds_get_comm()\fR
 will retrieve the comm field (truncated name of the executable, as stored in
 /proc/\fIpid\fR/comm)\&.
 .PP
-\fBsd_bus_creds_get_tid_comm\fR
+\fBsd_bus_creds_get_tid_comm()\fR
 will retrieve the comm field of the thread (as stored in
 /proc/\fIpid\fR/task/\fItid\fR/comm)\&.
 .PP
-\fBsd_bus_creds_get_exe\fR
+\fBsd_bus_creds_get_exe()\fR
 will retrieve the path to the program (as stored in the
 /proc/\fIpid\fR/exe
 link, but with
 " (deleted)"
 suffix removed)\&.
 .PP
-\fBsd_bus_creds_get_cmdline\fR
+\fBsd_bus_creds_get_cmdline()\fR
 will retrieve an array of command\-line arguments (as stored in
 /proc/\fIpid\fR/cmdline)\&.
 .PP
-\fBsd_bus_creds_get_cgroup\fR
+\fBsd_bus_creds_get_cgroup()\fR
 will retrieve the cgroup path\&. See
 \m[blue]\fBcgroups\&.txt\fR\m[]\&\s-2\u[1]\d\s+2\&.
 .PP
-\fBsd_bus_creds_get_unit\fR
+\fBsd_bus_creds_get_unit()\fR
 will retrieve the systemd unit name (in the system instance of systemd) that the process is part of\&. See
 \fBsystemd.unit\fR(5)\&.
 .PP
-\fBsd_bus_creds_get_user_unit\fR
+\fBsd_bus_creds_get_user_unit()\fR
 will retrieve the systemd unit name (in the user instance of systemd) that the process is part of\&. See
 \fBsystemd.unit\fR(5)\&.
 .PP
-\fBsd_bus_creds_get_slice\fR
+\fBsd_bus_creds_get_slice()\fR
 will retrieve the systemd slice (a unit in the system instance of systemd) that the process is part of\&. See
 \fBsystemd.slice\fR(5)\&.
 .PP
-\fBsd_bus_creds_get_session\fR
+\fBsd_bus_creds_get_session()\fR
 will retrieve the logind session that the process is part of\&. See
 \fBsystemd-logind.service\fR(8)\&.
 .PP
-\fBsd_bus_creds_get_owner_uid\fR
+\fBsd_bus_creds_get_owner_uid()\fR
 will retrieve the numeric UID (user identifier) of the user who owns the slice that the process is part of\&. See
 \fBsystemd.slice\fR(5)\&.
 .PP
-\fBsd_bus_creds_has_effective_cap\fR
+\fBsd_bus_creds_has_effective_cap()\fR
 will check whether the capability specified by
 \fIcapability\fR
 was set in the effective capabilities mask\&. A positive return value means that is was set, zero means that it was not set, and a negative return value signifies an error\&. See
@@ -154,34 +156,39 @@ and
 settings in
 \fBsystemd.exec\fR(5)\&.
 .PP
-\fBsd_bus_creds_has_permitted_cap\fR
+\fBsd_bus_creds_has_permitted_cap()\fR
 is similar to
-\fBsd_bus_creds_has_effective_cap\fR, but will check the permitted capabilities mask\&.
+\fBsd_bus_creds_has_effective_cap()\fR, but will check the permitted capabilities mask\&.
 .PP
-\fBsd_bus_creds_has_inheritable_cap\fR
+\fBsd_bus_creds_has_inheritable_cap()\fR
 is similar to
-\fBsd_bus_creds_has_effective_cap\fR, but will check the inheritable capabilities mask\&.
+\fBsd_bus_creds_has_effective_cap()\fR, but will check the inheritable capabilities mask\&.
 .PP
-\fBsd_bus_creds_has_bounding_cap\fR
+\fBsd_bus_creds_has_bounding_cap()\fR
 is similar to
-\fBsd_bus_creds_has_effective_cap\fR, but will check the bounding capabilities mask\&.
+\fBsd_bus_creds_has_effective_cap()\fR, but will check the bounding capabilities mask\&.
 .PP
-\fBsd_bus_creds_get_selinux_context\fR
+\fBsd_bus_creds_get_selinux_context()\fR
 will retrieve the SELinux security context (label) of the process\&.
 .PP
-\fBsd_bus_creds_get_audit_session_id\fR
+\fBsd_bus_creds_get_audit_session_id()\fR
 will retrieve the audit session identifier of the process\&.
 .PP
-\fBsd_bus_creds_get_audit_login_uid\fR
+\fBsd_bus_creds_get_audit_login_uid()\fR
 will retrieve the audit user login identifier (the identifier of the user who is "responsible" for the session)\&.
 .PP
-\fBsd_bus_creds_get_unique_name\fR
+\fBsd_bus_creds_get_unique_name()\fR
 will retrieve the D\-Bus unique name\&. See
 \m[blue]\fBThe D\-Bus specification\fR\m[]\&\s-2\u[2]\d\s+2\&.
 .PP
-\fBsd_bus_creds_get_well_known_names\fR
+\fBsd_bus_creds_get_well_known_names()\fR
 will retrieve the set of D\-Bus well\-known names\&. See
 \m[blue]\fBThe D\-Bus specification\fR\m[]\&\s-2\u[2]\d\s+2\&.
+.PP
+\fBsd_bus_creds_get_connection_name()\fR
+will retrieve a descriptive name of the bus connection of the peer\&. This name is useful to discern multiple bus connections by the same peer, and may be altered by the peer with the
+\fBsd_bus_set_name()\fR(3)
+call\&.
 .PP
 All functions that take a
 \fIconst char**\fR
@@ -201,37 +208,37 @@ On success, these calls return 0 or a positive integer\&. On failure, these call
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-ENODATA\fR
+\fB\-ENODATA\fR
 .RS 4
 Given field is not available in
 \fIc\fR\&.
 .RE
 .PP
-\fI\-ENOENT\fR
+\fB\-ENOENT\fR
 .RS 4
 Given field is not specified for the sender\&. This will be returned by
-\fBsd_bus_get_unit\fR,
-\fBsd_bus_get_user_unit\fR,
-\fBsd_bus_get_slice\fR,
-\fBsd_bus_get_session\fR, and
-\fBsd_bus_get_owner_uid\fR
+\fBsd_bus_get_unit()\fR,
+\fBsd_bus_get_user_unit()\fR,
+\fBsd_bus_get_slice()\fR,
+\fBsd_bus_get_session()\fR, and
+\fBsd_bus_get_name_creds_uid()\fR
 if the sender is not part of a systemd system unit, systemd user unit, systemd slice, logind session, or a systemd user session\&.
 .RE
 .PP
-\fI\-ENXIO\fR
+\fB\-ENXIO\fR
 .RS 4
-An error occured in parsing cgroup paths\&.
+An error occurred in parsing cgroup paths\&.
 libsystemd
 might be out of sync with the running systemd version\&.
 .RE
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Specified pointer parameter is
 \fBNULL\fR\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE
@@ -245,9 +252,9 @@ file\&.
 .PP
 \fBsystemd\fR(1),
 \fBsd-bus\fR(3),
-\fBcredentials\fR(7),
 \fBfork\fR(2),
 \fBexecve\fR(2),
+\fBcredentials\fR(7),
 \fBfree\fR(3),
 \fBproc\fR(5),
 \fBsystemd.journald-fields\fR(7)

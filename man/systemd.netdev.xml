@@ -60,7 +60,10 @@
 
                 <para>Virtual Network Device files must have the extension
                 <filename>.netdev</filename>; other extensions are ignored. Virtual
-                network devices are created as soon as networkd is started.</para>
+                network devices are created as soon as networkd is started. If a netdev
+                with the specified name already exists, networkd will use that as-is
+                rather than create its own. Note that the settings of the pre-existing
+                netdev will not be changed by networkd.</para>
 
                 <para>The <filename>.netdev</filename> files are read from the files located in the
                 system network directory <filename>/usr/lib/systemd/network</filename>,
@@ -163,7 +166,8 @@
                                                 <literal>macvlan</literal>, <literal>vxlan</literal>,
                                                 <literal>ipip</literal>, <literal>gre</literal>,
                                                 <literal>sit</literal>, <literal>vti</literal>,
-                                                <literal>veth</literal>, and <literal>dummy</literal>
+                                                <literal>veth</literal>, <literal>tun</literal>,
+                                                <literal>tap</literal> and <literal>dummy</literal>
                                                 are supported. This option is compulsory.</para>
                                         </listitem>
                                 </varlistentry>
@@ -173,7 +177,9 @@
                                                 <para>The maximum transmission unit in bytes to
                                                 set for the device. The usual suffixes K, M, G,
                                                 are supported and are understood to the base of
-                                                1024.</para>
+                                                1024. This key is not currently suported for
+                                                <literal>tun</literal> or <literal>tap</literal> devices.
+                                                </para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -183,6 +189,7 @@
                                                 If none is given, one is generated based on
                                                 the interface name and the
                                                 <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+                                                This key is not currently suported for <literal>tun</literal> or <literal>tap</literal> devices.
                                                 </para>
                                         </listitem>
                                 </varlistentry>
@@ -392,6 +399,87 @@
                         <para>The <literal>[Tap]</literal> section only applies for netdevs of kind
                         <literal>tap</literal>, and accepts the same keys as the
                         <literal>[Tun]</literal> section.</para>
+        </refsect1>
+
+        <refsect1>
+                <title>[Bond] Section Options</title>
+
+                        <para>The <literal>[Bond]</literal> section accepts the following
+                        key:</para>
+
+                        <variablelist class='network-directives'>
+                                <varlistentry>
+                                        <term><varname>Mode=</varname></term>
+                                        <listitem>
+                                          <para>Specifies one of the bonding policies. The default is
+                                          <literal>balance-rr</literal> (round robin). Possible values are
+                                                <literal>balance-rr</literal>,
+                                                <literal>active-backup</literal>,
+                                                <literal>balance-xor</literal>,
+                                                <literal>broadcast</literal>,
+                                                <literal>802.3ad</literal>,
+                                                <literal>balance-tlb</literal>, and
+                                                <literal>balance-alb</literal>.
+                                          </para>
+                                        </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>TransmitHashPolicy=</varname></term>
+                                  <listitem>
+                                    <para>Selects the transmit hash policy to use for slave selection in
+                                    balance-xor, 802.3ad, and tlb modes. Possible values are
+                                    <literal>layer2</literal>,
+                                    <literal>layer3+4</literal>,
+                                    <literal>layer2+3</literal>,
+                                    <literal>encap2+3</literal>,
+                                    <literal>802.3ad</literal>, and
+                                    <literal>encap3+4</literal>.
+                                    </para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>LACPTransmitRate=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the rate with which link partner
+                                    transmits Link Aggregation Control Protocol Data Unit packets
+                                    in 802.3ad mode. Possible values are
+                                    <literal>slow</literal>, which requests partner to transmit LACPDUs every 30 seconds, and
+                                    <literal>fast</literal>, which requests partner to transmit LACPDUs every second.
+                                    The default value is <literal>slow</literal>.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>MIIMonitorSec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the frequency that Media Independent Interface link
+                                    monitoring will occur. A value of zero disables MII link monitoring.
+                                    This values is rounded down to the nearest millisecond. The default
+                                    value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>UpDelaySec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the delay before a link is enabled after a link up
+                                    status has been detected. This value is rounded down to a multiple of
+                                    MIIMonitorSec. The default value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                                <varlistentry>
+                                  <term><varname>DownDelaySec=</varname></term>
+                                  <listitem>
+                                    <para>Specifies the delay before a link is disabled after a link down
+                                    status has been detected. This value is rounded down to a multiple of
+                                    MIIMonitorSec. The default value is 0.</para>
+                                  </listitem>
+                                </varlistentry>
+
+                        </variablelist>
         </refsect1>
 
         <refsect1>

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.EXEC" "5" "" "systemd 215" "systemd.exec"
+.TH "SYSTEMD\&.EXEC" "5" "" "systemd 217" "systemd.exec"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -190,26 +190,36 @@ Controls where file descriptor 0 (STDIN) of the executed processes is connected 
 \fBtty\-force\fR,
 \fBtty\-fail\fR
 or
-\fBsocket\fR\&. If
+\fBsocket\fR\&.
+.sp
+If
 \fBnull\fR
 is selected, standard input will be connected to
-/dev/null, i\&.e\&. all read attempts by the process will result in immediate EOF\&. If
+/dev/null, i\&.e\&. all read attempts by the process will result in immediate EOF\&.
+.sp
+If
 \fBtty\fR
 is selected, standard input is connected to a TTY (as configured by
 \fITTYPath=\fR, see below) and the executed process becomes the controlling process of the terminal\&. If the terminal is already being controlled by another process, the executed process waits until the current controlling process releases the terminal\&.
+.sp
 \fBtty\-force\fR
 is similar to
 \fBtty\fR, but the executed process is forcefully and immediately made the controlling process of the terminal, potentially removing previous controlling processes from the terminal\&.
+.sp
 \fBtty\-fail\fR
 is similar to
 \fBtty\fR
-but if the terminal already has a controlling process start\-up of the executed process fails\&. The
+but if the terminal already has a controlling process start\-up of the executed process fails\&.
+.sp
+The
 \fBsocket\fR
 option is only valid in socket\-activated services, and only when the socket configuration file (see
 \fBsystemd.socket\fR(5)
 for details) specifies a single socket only\&. If this option is set, standard input will be connected to the socket the service was activated from, which is primarily useful for compatibility with daemons designed for use with the traditional
 \fBinetd\fR(8)
-daemon\&. This setting defaults to
+daemon\&.
+.sp
+This setting defaults to
 \fBnull\fR\&.
 .RE
 .PP
@@ -219,38 +229,52 @@ Controls where file descriptor 1 (STDOUT) of the executed processes is connected
 \fBinherit\fR,
 \fBnull\fR,
 \fBtty\fR,
+\fBjournal\fR,
 \fBsyslog\fR,
 \fBkmsg\fR,
-\fBjournal\fR,
+\fBjournal+console\fR,
 \fBsyslog+console\fR,
-\fBkmsg+console\fR,
-\fBjournal+console\fR
+\fBkmsg+console\fR
 or
-\fBsocket\fR\&. If set to
-\fBinherit\fR, the file descriptor of standard input is duplicated for standard output\&. If set to
-\fBnull\fR, standard output will be connected to
-/dev/null, i\&.e\&. everything written to it will be lost\&. If set to
-\fBtty\fR, standard output will be connected to a tty (as configured via
+\fBsocket\fR\&.
+.sp
+\fBinherit\fR
+duplicates the file descriptor of standard input for standard output\&.
+.sp
+\fBnull\fR
+connects standard output to
+/dev/null, i\&.e\&. everything written to it will be lost\&.
+.sp
+\fBtty\fR
+connects standard output to a tty (as configured via
 \fITTYPath=\fR, see below)\&. If the TTY is used for output only, the executed process will not become the controlling process of the terminal, and will not fail or wait for other processes to release the terminal\&.
+.sp
+\fBjournal\fR
+connects standard output with the journal which is accessible via
+\fBjournalctl\fR(1)\&. Note that everything that is written to syslog or kmsg (see below) is implicitly stored in the journal as well, the specific two options listed below are hence supersets of this one\&.
+.sp
 \fBsyslog\fR
 connects standard output to the
 \fBsyslog\fR(3)
-system syslog service\&.
+system syslog service, in addition to the journal\&. Note that the journal daemon is usually configured to forward everything it receives to syslog anyway, in which case this option is no different from
+\fBjournal\fR\&.
+.sp
 \fBkmsg\fR
-connects it with the kernel log buffer which is accessible via
-\fBdmesg\fR(1)\&.
-\fBjournal\fR
-connects it with the journal which is accessible via
-\fBjournalctl\fR(1)
-(Note that everything that is written to syslog or kmsg is implicitly stored in the journal as well, those options are hence supersets of this one)\&.
-\fBsyslog+console\fR,
-\fBjournal+console\fR
+connects standard output with the kernel log buffer which is accessible via
+\fBdmesg\fR(1), in addition to the journal\&. The journal daemon might be configured to send all logs to kmsg anyway, in which case this option is no different from
+\fBjournal\fR\&.
+.sp
+\fBjournal+console\fR,
+\fBsyslog+console\fR
 and
 \fBkmsg+console\fR
-work similarly but copy the output to the system console as well\&.
+work in a similar way as the three options above but copy the output to the system console as well\&.
+.sp
 \fBsocket\fR
-connects standard output to a socket from socket activation, semantics are similar to the respective option of
-\fIStandardInput=\fR\&. This setting defaults to the value set with
+connects standard output to a socket acquired via socket activation\&. The semantics are similar to the same option of
+\fIStandardInput=\fR\&.
+.sp
+This setting defaults to the value set with
 \fBDefaultStandardOutput=\fR
 in
 \fBsystemd-system.conf\fR(5), which defaults to
@@ -301,14 +325,17 @@ is a virtual console terminal, try to deallocate the TTY before and after execut
 .PP
 \fISyslogIdentifier=\fR
 .RS 4
-Sets the process name to prefix log lines sent to syslog or the kernel log buffer with\&. If not set, defaults to the process name of the executed process\&. This option is only useful when
+Sets the process name to prefix log lines sent to the logging system or the kernel log buffer with\&. If not set, defaults to the process name of the executed process\&. This option is only useful when
 \fIStandardOutput=\fR
 or
 \fIStandardError=\fR
 are set to
-\fBsyslog\fR
+\fBsyslog\fR,
+\fBjournal\fR
 or
-\fBkmsg\fR\&.
+\fBkmsg\fR
+(or to the same settings in combination with
+\fB+console\fR)\&.
 .RE
 .PP
 \fISyslogFacility=\fR
@@ -427,16 +454,15 @@ does\&. If this option is not used, the capability bounding set is not modified 
 .PP
 \fISecureBits=\fR
 .RS 4
-Controls the secure bits set for the executed process\&. See
-\fBcapabilities\fR(7)
-for details\&. Takes a list of strings:
+Controls the secure bits set for the executed process\&. Takes a space\-separated combination of options from the following list:
 \fBkeep\-caps\fR,
 \fBkeep\-caps\-locked\fR,
 \fBno\-setuid\-fixup\fR,
 \fBno\-setuid\-fixup\-locked\fR,
-\fBnoroot\fR
-and/or
-\fBnoroot\-locked\fR\&. This option may appear more than once in which case the secure bits are ORed\&. If the empty string is assigned to this option, the bits are reset to 0\&.
+\fBnoroot\fR, and
+\fBnoroot\-locked\fR\&. This option may appear more than once in which case the secure bits are ORed\&. If the empty string is assigned to this option, the bits are reset to 0\&. See
+\fBcapabilities\fR(7)
+for details\&.
 .RE
 .PP
 \fICapabilities=\fR
@@ -446,7 +472,7 @@ Controls the
 set for the executed process\&. Take a capability string describing the effective, permitted and inherited capability sets as documented in
 \fBcap_from_text\fR(3)\&. Note that these capability sets are usually influenced (and filtered) by the capabilities attached to the executed file\&. Due to that
 \fICapabilityBoundingSet=\fR
-is probably the much more useful setting\&.
+is probably a much more useful setting\&.
 .RE
 .PP
 \fIReadWriteDirectories=\fR, \fIReadOnlyDirectories=\fR, \fIInaccessibleDirectories=\fR
@@ -536,7 +562,7 @@ Takes a boolean argument or
 and
 /run/user
 are made inaccessible and empty for processes invoked by this unit\&. If set to
-"read\-only", the two directores are made read\-only instead\&. It is recommended to enable this setting for all long\-running services (in particular network\-facing ones), to ensure they cannot get access to private user data, unless the services actually require access to the user\*(Aqs private data\&. Note however that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
+"read\-only", the two directories are made read\-only instead\&. It is recommended to enable this setting for all long\-running services (in particular network\-facing ones), to ensure they cannot get access to private user data, unless the services actually require access to the user\*(Aqs private data\&. Note however that processes retaining the CAP_SYS_ADMIN capability can undo the effect of this setting\&. This setting is hence particularly useful for daemons which have this capability removed, for example with
 \fICapabilityBoundingSet=\fR\&. Defaults to off\&.
 .RE
 .PP
@@ -557,10 +583,10 @@ to run processes so that none of their mounts and unmounts will propagate to the
 \fBprivate\fR
 to also ensure that no mounts and unmounts from the host will propagate into the unit processes\*(Aq namespace\&. Note that
 \fBslave\fR
-means that file systems mounted on the host might stay mounted continously in the unit\*(Aqs namespace, and thus keep the device busy\&. Note that the file system namespace related options (\fIPrivateTmp=\fR,
+means that file systems mounted on the host might stay mounted continuously in the unit\*(Aqs namespace, and thus keep the device busy\&. Note that the file system namespace related options (\fIPrivateTmp=\fR,
 \fIPrivateDevices=\fR,
-\fIReadOnlySystem=\fR,
-\fIProtectedHome=\fR,
+\fIProtectSystem=\fR,
+\fIProtectHome=\fR,
 \fIReadOnlyDirectories=\fR,
 \fIInaccessibleDirectories=\fR
 and
@@ -800,7 +826,7 @@ options above; to specify variables globally, use
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBjournalctl\fR(8),
 \fBsystemd.unit\fR(5),
 \fBsystemd.service\fR(5),

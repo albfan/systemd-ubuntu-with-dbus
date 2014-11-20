@@ -23,7 +23,6 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <getopt.h>
 #include <signal.h>
 #include <time.h>
@@ -34,16 +33,14 @@
 
 #include "udev.h"
 
-static void help(struct udev *udev)
-{
+static void help(struct udev *udev) {
         fprintf(stderr, "\n");
         fprintf(stderr, "Usage: udevadm builtin [--help] COMMAND SYSPATH\n");
         udev_builtin_list(udev);
         fprintf(stderr, "\n");
 }
 
-static int adm_builtin(struct udev *udev, int argc, char *argv[])
-{
+static int adm_builtin(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help", no_argument, NULL, 'h' },
                 {}

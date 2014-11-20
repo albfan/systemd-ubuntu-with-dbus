@@ -27,28 +27,27 @@
 #include "strv.h"
 #include "siphash24.h"
 #include "libudev-private.h"
-#include "network-internal.h"
 #include "dhcp-lease-internal.h"
 #include "log.h"
 #include "utf8.h"
 #include "util.h"
 #include "conf-parser.h"
 #include "condition.h"
+#include "network-internal.h"
 
 const char *net_get_name(struct udev_device *device) {
-        const char *name = NULL, *field = NULL;
+        const char *name, *field;
 
         assert(device);
 
         /* fetch some persistent data unique (on this machine) to this device */
-        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT",
-                       "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
+        FOREACH_STRING(field, "ID_NET_NAME_ONBOARD", "ID_NET_NAME_SLOT", "ID_NET_NAME_PATH", "ID_NET_NAME_MAC") {
                 name = udev_device_get_property_value(device, field);
                 if (name)
-                        break;
+                        return name;
         }
 
-        return name;
+        return NULL;
 }
 
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,fa,90,fe,4b,4c,9d,af,d5,d7,a1,b1,2e,8a)
@@ -133,12 +132,6 @@ bool net_match_config(const struct ether_addr *match_mac,
         return 1;
 }
 
-unsigned net_netmask_to_prefixlen(const struct in_addr *addr) {
-        assert(addr);
-
-        return 32 - u32ctz(be32toh(addr->s_addr));
-}
-
 int config_parse_net_condition(const char *unit,
                                const char *filename,
                                unsigned line,
@@ -206,7 +199,6 @@ int config_parse_ifname(const char *unit,
         if (!ascii_is_valid(n) || strlen(n) >= IFNAMSIZ) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Interface name is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
-                free(n);
                 return 0;
         }
 
@@ -304,66 +296,25 @@ int config_parse_hwaddr(const char *unit,
         return 0;
 }
 
-int net_parse_inaddr(const char *address, unsigned char *family, void *dst) {
-        int r;
-
-        assert(address);
-        assert(family);
-        assert(dst);
-
-        /* IPv4 */
-        r = inet_pton(AF_INET, address, dst);
-        if (r > 0) {
-                /* succsefully parsed IPv4 address */
-                if (*family == AF_UNSPEC)
-                        *family = AF_INET;
-                else if (*family != AF_INET)
-                        return -EINVAL;
-        } else  if (r < 0)
-                return -errno;
-        else {
-                /* not an IPv4 address, so let's try IPv6 */
-                r = inet_pton(AF_INET6, address, dst);
-                if (r > 0) {
-                        /* successfully parsed IPv6 address */
-                        if (*family == AF_UNSPEC)
-                                *family = AF_INET6;
-                        else if (*family != AF_INET6)
-                                return -EINVAL;
-                } else if (r < 0)
-                        return -errno;
-                else
-                        return -EINVAL;
-        }
-
-        return 0;
-}
-
-void serialize_in_addrs(FILE *f, const char *key, struct in_addr *addresses, size_t size) {
+void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         unsigned i;
 
         assert(f);
-        assert(key);
         assert(addresses);
         assert(size);
-
-        fprintf(f, "%s=", key);
 
         for (i = 0; i < size; i++)
                 fprintf(f, "%s%s", inet_ntoa(addresses[i]),
                         (i < (size - 1)) ? " ": "");
-
-        fputs("\n", f);
 }
 
-int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *string) {
+int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         _cleanup_free_ struct in_addr *addresses = NULL;
-        size_t size = 0;
-        char *word, *state;
+        int size = 0;
+        const char *word, *state;
         size_t len;
 
         assert(ret);
-        assert(ret_size);
         assert(string);
 
         FOREACH_WORD(word, len, string, state) {
@@ -388,21 +339,19 @@ int deserialize_in_addrs(struct in_addr **ret, size_t *ret_size, const char *str
                 size ++;
         }
 
-        *ret_size = size;
         *ret = addresses;
         addresses = NULL;
 
-        return 0;
+        return size;
 }
 
-int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *string) {
+int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
-        size_t size = 0;
-        char *word, *state;
+        int size = 0;
+        const char *word, *state;
         size_t len;
 
         assert(ret);
-        assert(ret_size);
         assert(string);
 
         FOREACH_WORD(word, len, string, state) {
@@ -427,11 +376,10 @@ int deserialize_in6_addrs(struct in6_addr **ret, size_t *ret_size, const char *s
                 size++;
         }
 
-        *ret_size = size;
         *ret = addresses;
         addresses = NULL;
 
-        return 0;
+        return size;
 }
 
 void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *routes, size_t size) {
@@ -455,7 +403,7 @@ void serialize_dhcp_routes(FILE *f, const char *key, struct sd_dhcp_route *route
 int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string) {
         _cleanup_free_ struct sd_dhcp_route *routes = NULL;
         size_t size = 0, allocated = 0;
-        char *word, *state;
+        const char *word, *state;
         size_t len;
 
         assert(ret);

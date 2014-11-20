@@ -22,6 +22,7 @@
 #include <net/if.h>
 
 #include "networkd.h"
+#include "networkd-link.h"
 
 #include "utf8.h"
 #include "util.h"
@@ -41,8 +42,7 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
         _cleanup_address_free_ Address *address = NULL;
 
         if (section) {
-                uint64_t key = section;
-                address = hashmap_get(network->addresses_by_section, &key);
+                address = hashmap_get(network->addresses_by_section, UINT_TO_PTR(section));
                 if (address) {
                         *ret = address;
                         address = NULL;
@@ -63,7 +63,8 @@ int address_new_static(Network *network, unsigned section, Address **ret) {
 
         if (section) {
                 address->section = section;
-                hashmap_put(network->addresses_by_section, &address->section, address);
+                hashmap_put(network->addresses_by_section,
+                            UINT_TO_PTR(address->section), address);
         }
 
         *ret = address;
@@ -96,7 +97,7 @@ void address_free(Address *address) {
 
                 if (address->section)
                         hashmap_remove(address->network->addresses_by_section,
-                                       &address->section);
+                                       UINT_TO_PTR(address->section));
         }
 
         free(address);
@@ -243,7 +244,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        if (in_addr_null(original->family, &original->in_addr) <= 0)
+        if (in_addr_is_null(original->family, &original->in_addr) <= 0)
                 return 0;
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
@@ -345,12 +346,24 @@ int address_configure(Address *address, Link *link,
                 return r;
         }
 
-        if (address->family == AF_INET) {
-                r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+        if (!in_addr_is_null(address->family, &address->in_addr_peer)) {
+                if (address->family == AF_INET)
+                        r = sd_rtnl_message_append_in_addr(req, IFA_ADDRESS, &address->in_addr_peer.in);
+                else if (address->family == AF_INET6)
+                        r = sd_rtnl_message_append_in6_addr(req, IFA_ADDRESS, &address->in_addr_peer.in6);
                 if (r < 0) {
-                        log_error("Could not append IFA_BROADCAST attribute: %s",
+                        log_error("Could not append IFA_ADDRESS attribute: %s",
                                   strerror(-r));
                         return r;
+                }
+        } else {
+                if (address->family == AF_INET) {
+                        r = sd_rtnl_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
+                        if (r < 0) {
+                                log_error("Could not append IFA_BROADCAST attribute: %s",
+                                          strerror(-r));
+                                return r;
+                        }
                 }
         }
 
@@ -382,7 +395,8 @@ int address_configure(Address *address, Link *link,
         return 0;
 }
 
-int config_parse_dns(const char *unit,
+int config_parse_broadcast(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -392,58 +406,9 @@ int config_parse_dns(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Network *network = userdata;
-        Address *tail;
-        _cleanup_address_free_ Address *n = NULL;
-        int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(network);
-
-        r = address_new_dynamic(&n);
-        if (r < 0)
-                return r;
-
-        r = net_parse_inaddr(rvalue, &n->family, &n->in_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "DNS address is invalid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (streq(lvalue, "DNS")) {
-                LIST_FIND_TAIL(addresses, network->dns, tail);
-                LIST_INSERT_AFTER(addresses, network->dns, tail, n);
-        } else if (streq(lvalue, "NTP")) {
-                LIST_FIND_TAIL(addresses, network->ntp, tail);
-                LIST_INSERT_AFTER(addresses, network->ntp, tail, n);
-        } else {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Key is invalid, ignoring assignment: %s=%s", lvalue, rvalue);
-                return 0;
-        }
-
-        n = NULL;
-
-        return 0;
-}
-
-int config_parse_broadcast(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
-        _cleanup_free_ char *address = NULL;
         int r;
 
         assert(filename);
@@ -458,18 +423,18 @@ int config_parse_broadcast(const char *unit,
 
         if (n->family == AF_INET6) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is not valid for IPv6 addresses, "
-                           "ignoring assignment: %s", address);
+                           "Broadcast is not valid for IPv6 addresses, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        r = net_parse_inaddr(address, &n->family, &n->broadcast);
+        r = in_addr_from_string(AF_INET, rvalue, (union in_addr_union*) &n->broadcast);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                           "Broadcast is invalid, ignoring assignment: %s", address);
+                           "Broadcast is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
+        n->family = AF_INET;
         n = NULL;
 
         return 0;
@@ -485,11 +450,12 @@ int config_parse_address(const char *unit,
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_address_free_ Address *n = NULL;
-        _cleanup_free_ char *address = NULL;
-        const char *e;
-        int r;
+        const char *address, *e;
+        union in_addr_union buffer;
+        int r, f;
 
         assert(filename);
         assert(section);
@@ -516,32 +482,47 @@ int config_parse_address(const char *unit,
                 r = safe_atou(e + 1, &i);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, EINVAL,
-                                   "Interface prefix length is invalid, "
-                                   "ignoring assignment: %s", e + 1);
+                                   "Prefix length is invalid, ignoring assignment: %s", e + 1);
                         return 0;
                 }
 
                 n->prefixlen = (unsigned char) i;
 
-                address = strndup(rvalue, e - rvalue);
-                if (!address)
-                        return log_oom();
-        } else {
-                address = strdup(rvalue);
-                if (!address)
-                        return log_oom();
-        }
+                address = strndupa(rvalue, e - rvalue);
+        } else
+                address = rvalue;
 
-        r = net_parse_inaddr(address, &n->family, &n->in_addr);
+        r = in_addr_from_string_auto(address, &f, &buffer);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, EINVAL,
                            "Address is invalid, ignoring assignment: %s", address);
                 return 0;
         }
 
-        if (n->family == AF_INET && !n->broadcast.s_addr)
-                n->broadcast.s_addr = n->in_addr.in.s_addr |
-                                      htonl(0xfffffffflu >> n->prefixlen);
+        if (!e && f == AF_INET) {
+                r = in_addr_default_prefixlen(&buffer.in, &n->prefixlen);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                                   "Prefix length not specified, and a default one can not be deduced for '%s', ignoring assignment", address);
+                        return 0;
+                }
+        }
+
+        if (n->family != AF_UNSPEC && f != n->family) {
+                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                           "Address is incompatible, ignoring assignment: %s", address);
+                return 0;
+        }
+
+        n->family = f;
+
+        if (streq(lvalue, "Address"))
+                n->in_addr = buffer;
+        else
+                n->in_addr_peer = buffer;
+
+        if (n->family == AF_INET && n->broadcast.s_addr == 0)
+                n->broadcast.s_addr = n->in_addr.in.s_addr | htonl(0xfffffffflu >> n->prefixlen);
 
         n = NULL;
 

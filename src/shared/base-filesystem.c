@@ -42,12 +42,13 @@ typedef struct BaseFilesystem {
 } BaseFilesystem;
 
 static const BaseFilesystem table[] = {
-        { "bin",      0, "usr/bin",                             NULL },
-        { "lib",      0, "usr/lib",                             NULL },
-        { "root",  0755, NULL,                                  NULL },
-        { "sbin",     0, "usr/sbin",                            NULL },
+        { "bin",      0, "usr/bin\0",                  NULL },
+        { "lib",      0, "usr/lib\0",                  NULL },
+        { "root",  0755, NULL,                         NULL },
+        { "sbin",     0, "usr/sbin\0",                 NULL },
 #if defined(__i386__) || defined(__x86_64__)
-        { "lib64",    0, "usr/lib/x86_64-linux-gnu\0usr/lib64", "ld-linux-x86-64.so.2" },
+        { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
+                         "usr/lib64\0",                "ld-linux-x86-64.so.2" },
 #endif
 };
 
@@ -57,16 +58,17 @@ int base_filesystem_create(const char *root) {
         int r;
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
+        if (fd < 0) {
+                log_error("Failed to open root file system: %m");
                 return -errno;
+        }
 
         for (i = 0; i < ELEMENTSOF(table); i ++) {
-                if (table[i].target) {
-                        const char *target = NULL;
-                        const char *s;
+                if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
+                        continue;
 
-                        if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
-                                continue;
+                if (table[i].target) {
+                        const char *target = NULL, *s;
 
                         /* check if one of the targets exists */
                         NULSTR_FOREACH(s, table[i].target) {

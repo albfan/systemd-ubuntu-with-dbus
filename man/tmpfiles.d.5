@@ -1,5 +1,5 @@
 '\" t
-.TH "TMPFILES\&.D" "5" "" "systemd 215" "tmpfiles.d"
+.TH "TMPFILES\&.D" "5" "" "systemd 217" "tmpfiles.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -144,14 +144,14 @@ are created\&.
 .RS 4
 Create a character device node if it does not exist yet\&. If suffixed with
 \fI+\fR
-and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&.
+and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&. It is recommended to suffix this entry with an exclamation mark to only create static device nodes at boot, as udev will not manage static device nodes that are created at runtime\&.
 .RE
 .PP
 \fIb\fR, \fIb+\fR
 .RS 4
 Create a block device node if it does not exist yet\&. If suffixed with
 \fI+\fR
-and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&.
+and a file already exists where the device node is to be created, it will be removed and be replaced by the device node\&. It is recommended to suffix this entry with an exclamation mark to only create static device nodes at boot, as udev will not manage static device nodes that are created at runtime\&.
 .RE
 .PP
 \fIC\fR

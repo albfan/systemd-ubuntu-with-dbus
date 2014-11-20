@@ -20,7 +20,6 @@
 #ifndef _LIBUDEV_PRIVATE_H_
 #define _LIBUDEV_PRIVATE_H_
 
-#include <syslog.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -60,6 +59,7 @@ uid_t udev_device_get_devnode_uid(struct udev_device *udev_device);
 gid_t udev_device_get_devnode_gid(struct udev_device *udev_device);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
+int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
@@ -74,6 +74,7 @@ const char *udev_device_get_devpath_old(struct udev_device *udev_device);
 const char *udev_device_get_id_filename(struct udev_device *udev_device);
 void udev_device_set_is_initialized(struct udev_device *udev_device);
 int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
+void udev_device_remove_tag(struct udev_device *udev_device, const char *tag);
 void udev_device_cleanup_tags_list(struct udev_device *udev_device);
 usec_t udev_device_get_usec_initialized(struct udev_device *udev_device);
 void udev_device_set_usec_initialized(struct udev_device *udev_device, usec_t usec_initialized);
@@ -167,10 +168,6 @@ unsigned int util_string_hash32(const char *key);
 uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
-int util_delete_path(struct udev *udev, const char *path);
-uid_t util_lookup_user(struct udev *udev, const char *user);
-gid_t util_lookup_group(struct udev *udev, const char *group);
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
-ssize_t print_kmsg(const char *fmt, ...) _printf_(1, 2);
 
 #endif

@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 215" "systemd.socket"
+.TH "SYSTEMD\&.SOCKET" "5" "" "systemd 217" "systemd.socket"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -278,11 +278,60 @@ for details\&.) Defaults to
 \fBfalse\fR\&.
 .RE
 .PP
+\fIKeepAliveTimeSec=\fR
+.RS 4
+Takes time (in seconds) as argument \&. The connection needs to remain idle before TCP starts sending keepalive probes\&. This controls the TCP_KEEPIDLE socket option (see
+\fBsocket\fR(7)
+and the
+\m[blue]\fBTCP Keepalive HOWTO\fR\m[]\&\s-2\u[1]\d\s+2
+for details\&.) Defaults value is 7200 seconds (2 hours)\&.
+.RE
+.PP
+\fIKeepAliveIntervalSec=\fR
+.RS 4
+Takes time (in seconds) as argument between individual keepalive probes, if the socket option SO_KEEPALIVE has been set on this socket seconds as argument\&. This controls the TCP_KEEPINTVL socket option (see
+\fBsocket\fR(7)
+and the
+\m[blue]\fBTCP Keepalive HOWTO\fR\m[]\&\s-2\u[1]\d\s+2
+for details\&.) Defaults value is 75 seconds\&.
+.RE
+.PP
+\fIKeepAliveProbes=\fR
+.RS 4
+Takes integer as argument\&. It\*(Aqs the number of unacknowledged probes to send before considering the connection dead and notifying the application layer\&. This controls the TCP_KEEPCNT socket option (see
+\fBsocket\fR(7)
+and the
+\m[blue]\fBTCP Keepalive HOWTO\fR\m[]\&\s-2\u[1]\d\s+2
+for details\&.) Defaults value is 9\&.
+.RE
+.PP
+\fINoDelay=\fR
+.RS 4
+Takes a boolean argument\&. TCP Nagle\*(Aqs algorithm works by combining a number of small outgoing messages, and sending them all at once\&. This controls the TCP_NODELAY socket option (see
+\fBtcp\fR(7)
+Defaults to
+\fBfalse\fR\&.
+.RE
+.PP
 \fIPriority=\fR
 .RS 4
 Takes an integer argument controlling the priority for all traffic sent from this socket\&. This controls the SO_PRIORITY socket option (see
 \fBsocket\fR(7)
 for details\&.)\&.
+.RE
+.PP
+\fIDeferAcceptSec=\fR
+.RS 4
+Takes time (in seconds) as argument\&. If set, the listening process will be awakened only when data arrives on the socket, and not immediately when connection is established\&. When this option is set, the
+\fBTCP_DEFER_ACCEPT\fR
+socket option will be used (see
+\fBtcp\fR(7)), and the kernel will ignore initial ACK packets without any data\&. The argument specifies the approximate amount of time the kernel should wait for incoming data before falling back to the normal behaviour of honouring empty ACK packets\&. This option is beneficial for protocols where the client sends the data first (e\&.g\&. HTTP, in contrast to SMTP), because the server process will not be woken up unnecessarily before it can take any action\&.
+.sp
+If the client also uses the
+\fBTCP_DEFER_ACCEPT\fR
+option, the latency of the initial connection may be reduced, because the kernel will send data in the final packet establishing the connection (the third packet in the "three\-way handshake")\&.
+.sp
+Disabled by default\&.
 .RE
 .PP
 \fIReceiveBuffer=\fR, \fISendBuffer=\fR
@@ -338,6 +387,17 @@ and
 "security\&.SMACK64IPOUT", respectively, i\&.e\&. the security label of the FIFO, or the security label for the incoming or outgoing connections of the socket, respectively\&. See
 \m[blue]\fBSmack\&.txt\fR\m[]\&\s-2\u[2]\d\s+2
 for details\&.
+.RE
+.PP
+\fISELinuxContextFromNet=\fR
+.RS 4
+Takes a boolean argument\&. When true, systemd will attempt to figure out the SELinux label used for the instantiated service from the information handed by the peer over the network\&. Note that only the security level is used from the information provided by the peer\&. Other parts of the resulting SELinux context originate from either the target binary that is effectively triggered by socket unit or from the value of the
+\fISELinuxContext=\fR
+option\&. This configuration option only affects sockets with
+\fIAccept=\fR
+mode set to
+"true"\&. Also note that this option is useful only when MLS/MCS SELinux policy is deployed\&. Defaults to
+"false"\&.
 .RE
 .PP
 \fIPipeSize=\fR
@@ -415,14 +475,17 @@ Configures the time to wait for the commands specified in
 \fIExecStopPre=\fR
 and
 \fIExecStopPost=\fR
-to finish\&. If a command does not exit within the configured time, the socket will be considered failed and be shut down again\&. All commands still running, will be terminated forcibly via
+to finish\&. If a command does not exit within the configured time, the socket will be considered failed and be shut down again\&. All commands still running will be terminated forcibly via
 \fBSIGTERM\fR, and after another delay of this time with
 \fBSIGKILL\fR\&. (See
 \fBKillMode=\fR
 in
-\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass 0 to disable the timeout logic\&. Defaults to
-\fITimeoutStartSec=\fR
-from the manager configuration file\&.
+\fBsystemd.kill\fR(5)\&.) Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass
+"0"
+to disable the timeout logic\&. Defaults to
+\fIDefaultTimeoutStartSec=\fR
+from the manager configuration file (see
+\fBsystemd-system.conf\fR(5))\&.
 .RE
 .PP
 \fIService=\fR
@@ -450,7 +513,7 @@ for more settings\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.exec\fR(5),
 \fBsystemd.kill\fR(5),

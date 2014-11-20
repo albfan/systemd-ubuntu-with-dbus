@@ -19,7 +19,7 @@
   <a href="systemd.directives.html">Directives </a>·
   <a href="../python-systemd/index.html">Python </a>·
   <a href="../libudev/index.html">libudev </a>·
-  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 215</span><hr><div class="refentry"><a name="journalctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journalctl — Query the systemd journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">journalctl</code>  [OPTIONS...] [MATCHES...]</p></div></div><div class="refsect1"><a name="idm214192081472"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>journalctl</strong></span> may be used to
+  <a href="../libudev/index.html">gudev </a><span style="float:right">systemd 217</span><hr><div class="refentry"><a name="journalctl"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>journalctl — Query the systemd journal</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">journalctl</code>  [OPTIONS...] [MATCHES...]</p></div></div><div class="refsect1"><a name="idm214180318720"></a><h2 id="Description">Description<a class="headerlink" title="Permalink to this headline" href="#Description">¶</a></h2><p><span class="command"><strong>journalctl</strong></span> may be used to
                 query the contents of the
                 <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>
                 journal as written by
@@ -40,20 +40,27 @@
                 field, then they are automatically matched as
                 alternatives, i.e. the resulting output will show
                 entries matching any of the specified matches for the
-                same field. Finally, if the character
-                "<code class="literal">+</code>" appears as a separate word on the
-                command line, all matches before and after are combined
-                in a disjunction (i.e. logical OR).</p><p>As shortcuts for a few types of field/value
+                same field. Finally, the character
+                "<code class="literal">+</code>" may appears as a separate word
+                between other terms on the command line. This causes
+                all matches before and after to be combined in a
+                disjunction (i.e. logical OR).</p><p>As shortcuts for a few types of field/value
                 matches, file paths may be specified. If a file path
                 refers to an executable file, this is equivalent to an
                 "<code class="literal">_EXE=</code>" match for the canonicalized
                 binary path. Similarly, if a path refers to a device
                 node, this is equivalent to a
                 "<code class="literal">_KERNEL_DEVICE=</code>" match for the
-                device.</p><p>Output is interleaved from all accessible
+                device.</p><p>Additional constraints may be added using options
+                <code class="option">--boot</code>, <code class="option">--unit=</code>,
+                etc, to further limit what entries will be shown
+                (logical AND).</p><p>Output is interleaved from all accessible
                 journal files, whether they are rotated or currently
                 being written, and regardless of whether they belong to the
-                system itself or are accessible user journals.</p><p>All users are granted access to their private
+                system itself or are accessible user journals.</p><p>The set of journal files which will be used
+                can be modified using the <code class="option">--user</code>,
+                <code class="option">--system</code>, <code class="option">--directory</code>,
+                and <code class="option">--file</code> options, see below.</p><p>All users are granted access to their private
                 per-user journals. However, by default, only root and
                 users who are members of the "<code class="literal">systemd-journal</code>"
                 group get access to the system journal and the
@@ -63,11 +70,11 @@
                 viewed by using the left-arrow and right-arrow
                 keys. Paging can be disabled; see the
                 <code class="option">--no-pager</code> option and the "Environment"
-                section below.</p><p>When outputing to a tty, lines are colored
+                section below.</p><p>When outputting to a tty, lines are colored
                 according to priority: lines of level ERROR and higher
                 are colored red; lines of level NOTICE and higher are
                 highlighted; other lines are displayed normally.
-                </p></div><div class="refsect1"><a name="idm214193028176"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-full"><span class="term"><code class="option">--no-full</code>, </span><span class="term"><code class="option">--full</code>, </span><span class="term"><code class="option">-l</code></span><a class="headerlink" title="Permalink to this term" href="#--no-full">¶</a></dt><dd><p>Ellipsize fields when
+                </p></div><div class="refsect1"><a name="idm214184199968"></a><h2 id="Options">Options<a class="headerlink" title="Permalink to this headline" href="#Options">¶</a></h2><p>The following options are understood:</p><div class="variablelist"><dl class="variablelist"><dt id="--no-full"><span class="term"><code class="option">--no-full</code>, </span><span class="term"><code class="option">--full</code>, </span><span class="term"><code class="option">-l</code></span><a class="headerlink" title="Permalink to this term" href="#--no-full">¶</a></dt><dd><p>Ellipsize fields when
                                 they do not fit in available columns.
                                 The default is to show full fields,
                                 allowing them to wrap or be truncated
@@ -87,17 +94,18 @@
                                 that the pager will not buffer logs of
                                 unbounded size. This may be overridden
                                 with an explicit <code class="option">-n</code>
-                                with some other numeric value on the
-                                command line. Note that this option is
-                                only supported for the
-                                <a href="less.html"><span class="citerefentry"><span class="refentrytitle">less</span>(1)</span></a>
+                                with some other numeric value while
+                                <code class="option">-nall</code> will disable this cap.
+                                Note that this option is only supported for the
+                                <a href="http://man7.org/linux/man-pages/man1/less.1.html"><span class="citerefentry"><span class="refentrytitle">less</span>(1)</span></a>
                                 pager.</p></dd><dt id="-n"><span class="term"><code class="option">-n</code>, </span><span class="term"><code class="option">--lines=</code></span><a class="headerlink" title="Permalink to this term" href="#-n">¶</a></dt><dd><p>Show the most recent
                                 journal events and limit the number of
                                 events shown. If
                                 <code class="option">--follow</code> is used,
-                                this option is implied. The argument,
-                                a positive integer, is optional, and
-                                defaults to 10. </p></dd><dt id="--no-tail"><span class="term"><code class="option">--no-tail</code></span><a class="headerlink" title="Permalink to this term" href="#--no-tail">¶</a></dt><dd><p>Show all stored output
+                                this option is implied. The argument is
+                                a positive integer or "<code class="literal">all</code>"
+                                to disable line limiting. The default value is
+                                10 if no argument is given.</p></dd><dt id="--no-tail"><span class="term"><code class="option">--no-tail</code></span><a class="headerlink" title="Permalink to this term" href="#--no-tail">¶</a></dt><dd><p>Show all stored output
                                 lines, even in follow mode. Undoes the
                                 effect of
                                 <code class="option">--lines=</code>.</p></dd><dt id="-r"><span class="term"><code class="option">-r</code>, </span><span class="term"><code class="option">--reverse</code></span><a class="headerlink" title="Permalink to this term" href="#-r">¶</a></dt><dd><p>Reverse output so that the newest
@@ -191,7 +199,8 @@
                                                         message of each journal
                                                         entry with no metadata,
                                                         not even a timestamp.
-                                                        </p></dd></dl></div></dd><dt id="-x"><span class="term"><code class="option">-x</code>, </span><span class="term"><code class="option">--catalog</code></span><a class="headerlink" title="Permalink to this term" href="#-x">¶</a></dt><dd><p>Augment log lines with
+                                                        </p></dd></dl></div></dd><dt id="--utc"><span class="term"><code class="option">--utc</code></span><a class="headerlink" title="Permalink to this term" href="#--utc">¶</a></dt><dd><p>Express time in Coordinated Universal
+                                Time (UTC).</p></dd><dt id="-x"><span class="term"><code class="option">-x</code>, </span><span class="term"><code class="option">--catalog</code></span><a class="headerlink" title="Permalink to this term" href="#-x">¶</a></dt><dd><p>Augment log lines with
                                 explanation texts from the message
                                 catalog. This will add explanatory
                                 help texts to log messages in the
@@ -257,10 +266,16 @@
                                 </p></dd><dt id="-k"><span class="term"><code class="option">-k</code>, </span><span class="term"><code class="option">--dmesg</code></span><a class="headerlink" title="Permalink to this term" href="#-k">¶</a></dt><dd><p>Show only kernel messages. This
                                 implies <code class="option">-b</code> and adds the match
                                 "<code class="literal">_TRANSPORT=kernel</code>".
-                                </p></dd><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--unit=<em class="replaceable"><code>UNIT</code></em>|<em class="replaceable"><code>PATTERN</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>Show messages for the
+                                </p></dd><dt id="-t"><span class="term"><code class="option">-t</code>, </span><span class="term"><code class="option">--identifier=<em class="replaceable"><code>SYSLOG_IDENTIFIER</code></em>|<em class="replaceable"><code>PATTERN</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-t">¶</a></dt><dd><p>Show messages for the
+                                specified syslog identifier
+                                <em class="replaceable"><code>SYSLOG_IDENTIFIER</code></em>, or
+                                for any of the messages with a "<code class="literal">SYSLOG_IDENTIFIER</code>"
+                                matched by <em class="replaceable"><code>PATTERN</code></em>.</p><p>This parameter can be specified
+                                multiple times.</p></dd><dt id="-u"><span class="term"><code class="option">-u</code>, </span><span class="term"><code class="option">--unit=<em class="replaceable"><code>UNIT</code></em>|<em class="replaceable"><code>PATTERN</code></em></code></span><a class="headerlink" title="Permalink to this term" href="#-u">¶</a></dt><dd><p>Show messages for the
                                 specified systemd unit
-                                <em class="replaceable"><code>UNIT</code></em>, or
-                                for any of the units matched by
+                                <em class="replaceable"><code>UNIT</code></em> (such
+                                as a service unit), or for any of the
+                                units matched by
                                 <em class="replaceable"><code>PATTERN</code></em>.
                                 If a pattern is specified, a list of
                                 unit names found in the journal is
@@ -291,7 +306,7 @@
                                 the form FROM..TO. The log levels are
                                 the usual syslog log levels as
                                 documented in
-                                <a href="syslog.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>,
+                                <a href="http://man7.org/linux/man-pages/man3/syslog.3.html"><span class="citerefentry"><span class="refentrytitle">syslog</span>(3)</span></a>,
                                 i.e. "<code class="literal">emerg</code>" (0),
                                 "<code class="literal">alert</code>" (1),
                                 "<code class="literal">crit</code>" (2),
@@ -456,9 +471,17 @@
                                 verified.</p></dd><dt id="--verify-key="><span class="term"><code class="option">--verify-key=</code></span><a class="headerlink" title="Permalink to this term" href="#--verify-key=">¶</a></dt><dd><p>Specifies the FSS
                                 verification key to use for the
                                 <code class="option">--verify</code>
-                                operation.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
-    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm214193157888"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero
-                failure code is returned.</p></div><div class="refsect1"><a name="idm214181682304"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
+                                operation.</p></dd><dt id="--flush"><span class="term"><code class="option">--flush</code></span><a class="headerlink" title="Permalink to this term" href="#--flush">¶</a></dt><dd><p>Asks the Journal
+                                daemon to flush any log data stored in
+                                <code class="filename">/run/systemd/log</code>
+                                into
+                                <code class="filename">/var/systemd/log</code>,
+                                if persistent storage is enabled. This
+                                call does not return until the
+                                operation is
+                                complete.</p></dd><dt id="-h"><span class="term"><code class="option">-h</code>, </span><span class="term"><code class="option">--help</code></span><a class="headerlink" title="Permalink to this term" href="#-h">¶</a></dt><dd><p><a name="help-text"></a>Print a short help text and exit.
+    </p></dd><dt id="--version"><span class="term"><code class="option">--version</code></span><a class="headerlink" title="Permalink to this term" href="#--version">¶</a></dt><dd><p><a name="version-text"></a>Print a short version string and exit.</p></dd><dt id="--no-pager"><span class="term"><code class="option">--no-pager</code></span><a class="headerlink" title="Permalink to this term" href="#--no-pager">¶</a></dt><dd><p>Do not pipe output into a pager.</p></dd></dl></div></div><div class="refsect1"><a name="idm214179111664"></a><h2 id="Exit status">Exit status<a class="headerlink" title="Permalink to this headline" href="#Exit%20status">¶</a></h2><p>On success, 0 is returned; otherwise, a non-zero
+                failure code is returned.</p></div><div class="refsect1"><a name="idm214170766464"></a><h2 id="Environment">Environment<a class="headerlink" title="Permalink to this headline" href="#Environment">¶</a></h2><div class="variablelist"><dl class="variablelist"><dt id="$SYSTEMD_PAGER"><span class="term"><code class="varname">$SYSTEMD_PAGER</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_PAGER">¶</a></dt><dd><p>Pager to use when
                         <code class="option">--no-pager</code> is not given;
                         overrides <code class="varname">$PAGER</code>.  Setting
                         this to an empty string or the value
@@ -466,16 +489,17 @@
                         <code class="option">--no-pager</code>.</p></dd><dt id="$SYSTEMD_LESS"><span class="term"><code class="varname">$SYSTEMD_LESS</code></span><a class="headerlink" title="Permalink to this term" href="#%24SYSTEMD_LESS">¶</a></dt><dd><p>Override the default
                         options passed to
                         <span class="command"><strong>less</strong></span>
-                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm214193156064"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Without arguments, all collected logs are shown
+                        ("<code class="literal">FRSXMK</code>").</p></dd></dl></div></div><div class="refsect1"><a name="idm214179109904"></a><h2 id="Examples">Examples<a class="headerlink" title="Permalink to this headline" href="#Examples">¶</a></h2><p>Without arguments, all collected logs are shown
                 unfiltered:</p><pre class="programlisting">journalctl</pre><p>With one match specified, all entries with a field matching the expression are shown:</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service</pre><p>If two different fields are matched, only entries matching both expressions at the same time are shown:</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097</pre><p>If two matches refer to the same field, all entries matching either expression are shown:</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service</pre><p>If the separator "<code class="literal">+</code>" is used,
                 two expressions may be combined in a logical OR. The
                 following will show all messages from the Avahi
                 service process with the PID 28097 plus all messages
                 from the D-Bus service (from any of its
-                processes):</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</pre><p>Show all logs generated by the D-Bus executable:</p><pre class="programlisting">journalctl /usr/bin/dbus-daemon</pre><p>Show all logs of the kernel device node <code class="filename">/dev/sda</code>:</p><pre class="programlisting">journalctl /dev/sda</pre><p>Show all kernel logs from previous boot:</p><pre class="programlisting">journalctl -k -b -1</pre></div><div class="refsect1"><a name="idm214193144192"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
+                processes):</p><pre class="programlisting">journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</pre><p>Show all logs generated by the D-Bus executable:</p><pre class="programlisting">journalctl /usr/bin/dbus-daemon</pre><p>Show all logs of the kernel device node <code class="filename">/dev/sda</code>:</p><pre class="programlisting">journalctl /dev/sda</pre><p>Show all kernel logs from previous boot:</p><pre class="programlisting">journalctl -k -b -1</pre><p>Show a live log display from a system service <code class="filename">apache.service</code>:</p><pre class="programlisting">journalctl -f -u apache</pre></div><div class="refsect1"><a name="idm214179096960"></a><h2 id="See Also">See Also<a class="headerlink" title="Permalink to this headline" href="#See%20Also">¶</a></h2><p>
                         <a href="systemd.html"><span class="citerefentry"><span class="refentrytitle">systemd</span>(1)</span></a>,
                         <a href="systemd-journald.service.html"><span class="citerefentry"><span class="refentrytitle">systemd-journald.service</span>(8)</span></a>,
                         <a href="systemctl.html"><span class="citerefentry"><span class="refentrytitle">systemctl</span>(1)</span></a>,
+                        <a href="coredumpctl.html"><span class="citerefentry"><span class="refentrytitle">coredumpctl</span>(1)</span></a>,
                         <a href="systemd.journal-fields.html"><span class="citerefentry"><span class="refentrytitle">systemd.journal-fields</span>(7)</span></a>,
                         <a href="journald.conf.html"><span class="citerefentry"><span class="refentrytitle">journald.conf</span>(5)</span></a>
                 </p></div></div></body></html>

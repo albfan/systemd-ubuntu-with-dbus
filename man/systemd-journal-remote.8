@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-JOURNAL\-REMOTE" "8" "" "systemd 215" "systemd-journal-remote"
+.TH "SYSTEMD\-JOURNAL\-REMOTE" "8" "" "systemd 217" "systemd-journal-remote"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -20,16 +20,16 @@
 .\" * MAIN CONTENT STARTS HERE *
 .\" -----------------------------------------------------------------
 .SH "NAME"
-systemd-journal-remote \- Stream journal messages over the network
+systemd-journal-remote \- Receive journal messages over the network
 .SH "SYNOPSIS"
 .HP \w'\fBsystemd\-journal\-remote\fR\ 'u
-\fBsystemd\-journal\-remote\fR [OPTIONS...] [\-o/\-\-output=DIR|FILE] [SOURCES...]
+\fBsystemd\-journal\-remote\fR [OPTIONS...] [\-o/\-\-output=\fIDIR\fR|\fIFILE\fR] [SOURCES...]
 .SH "DESCRIPTION"
 .PP
 systemd\-journal\-remote
-is a command to receive serialized journal events and store them to the journal\&. Input streams must be in the
+is a command to receive serialized journal events and store them to the journal\&. Input streams are in the
 \m[blue]\fBJournal Export Format\fR\m[]\&\s-2\u[1]\d\s+2, i\&.e\&. like the output from
-\fBjournalctl \-\-output=export\fR\&.
+\fBjournalctl \-\-output=export\fR\&. For transport over the network, this serialized stream is usually carried over an HTTPS connection\&.
 .SH "SOURCES"
 .PP
 Sources can be either "active" (\fBsystemd\-journal\-remote\fR
@@ -112,11 +112,11 @@ above\&. In the latter case, an HTTP or HTTPS server will be spawned using this 
 The location of the output journal can be specified with
 \fB\-o\fR
 or
-\fB\-\-output=\fR\&.
+\fB\-\-output=\fR\&. For "active" sources, this option is required\&.
 .PP
 \fB\-\-output=\fR\fB\fIFILE\fR\fR
 .RS 4
-Will write to this journal\&. The filename must end with
+Will write to this journal file\&. The filename must end with
 \&.journal\&. The file will be created if it does not exist\&. If necessary (journal file full, or corrupted), the file will be renamed following normal journald rules and a new journal file will be created in its stead\&.
 .RE
 .PP
@@ -131,34 +131,27 @@ will be generated using the rules described below\&.
 If
 \fB\-\-output=\fR
 is not used, the output directory
-/var/log/journal/\fImachine\-id\fR/
-will be used, where
-\fImachine\-id\fR
-is the identifier of the current system (see
-\fBmachine-id\fR(5))\&. In case the output file is not specified, journal files will be created underneath the selected directory\&. Files will be called
-remote\-\fIvariable\fR\&.journal, where the
-\fIvariable\fR
-part is generated based on what passive and active sources are specified\&. It is recommended to give a full output filename\&.
+/var/log/journal/remote/
+will be used\&. In case the output file is not specified, journal files will be created underneath the selected directory\&. Files will be called
+remote\-\fIhostname\fR\&.journal, where the
+\fIhostname\fR
+part is the escaped hostname of the source endpoint of the connection, or the numerical address if the hostname cannot be determined\&.
 .PP
-In case of "active" sources, if the hostname is known, it will be used in the
-\fIvariable\fR
-part\&. Otherwise, local address and port number will be used, or
-"stdin"
-for events passed over standard input, and
-"multiple"
-if more than one source is specified\&.
+In case of "active" sources, the output file name must always be given explicitly\&.
 .SH "OPTIONS"
 .PP
 The following options are understood:
 .PP
-\fB\-\-help\fR, \fB\-h\fR
+\fB\-\-split\-mode\fR
 .RS 4
-Print a short help text and exit\&.
-.RE
-.PP
-\fB\-\-version\fR
-.RS 4
-Print a short version string and exit\&.
+One of
+\fBnone\fR
+or
+\fBhost\fR\&. For the first, only one output journal file is used\&. For the latter, a separate output file is used, based on the hostname of the other endpoint of a connection\&.
+.sp
+In case of "active" sources, the output file name must always be given explicitly and only
+\fBnone\fR
+is allowed\&.
 .RE
 .PP
 \fB\-\-compress\fR, \fB\-\-no\-compress\fR
@@ -197,6 +190,16 @@ Examples:
 .RE
 .\}
 .RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print a short help text and exit\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print a short version string and exit\&.
+.RE
 .SH "EXAMPLES"
 .PP
 Copy local journal events to a different journal directory:
@@ -230,9 +233,10 @@ systemd\-journal\-remote \-\-url http://some\&.host:19531/
 .sp
 .SH "SEE ALSO"
 .PP
+\fBsystemd-journal-upload\fR(8),
 \fBjournalctl\fR(1),
 \fBsystemd-journald.service\fR(8),
-\fBsystemd-journal-gatewayd.service\fR(8)\&.
+\fBsystemd-journal-gatewayd.service\fR(8)
 .SH "NOTES"
 .IP " 1." 4
 Journal Export Format

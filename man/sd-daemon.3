@@ -1,5 +1,5 @@
 '\" t
-.TH "SD\-DAEMON" "3" "" "systemd 215" "sd-daemon"
+.TH "SD\-DAEMON" "3" "" "systemd 217" "sd-daemon"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -63,6 +63,7 @@ for more information about the functions implemented\&. In addition to these fun
 .\}
 .PP
 These prefixes are intended to be used in conjunction with stderr\-based logging as implemented by systemd\&. If a systemd service definition file is configured with
+\fIStandardError=journal\fR,
 \fIStandardError=syslog\fR
 or
 \fIStandardError=kmsg\fR, these prefixes can be used to encode a log level in lines printed\&. This is similar to the kernel
@@ -103,5 +104,4 @@ file\&.
 \fBsystemd.service\fR(5),
 \fBsystemd.socket\fR(5),
 \fBfprintf\fR(3),
-\fBsd-readahead\fR(3),
 \fBpkg-config\fR(1)

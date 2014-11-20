@@ -69,7 +69,7 @@
 
 #if SIZEOF_TIME_T == 8
 #  define PRI_TIME PRIu64
-#elif SIZEOF_GID_T == 4
+#elif SIZEOF_TIME_T == 4
 #  define PRI_TIME PRIu32
 #else
 #  error Unknown time_t size
@@ -84,6 +84,7 @@
 #endif
 
 #include "macro.h"
+#include "missing.h"
 #include "time-util.h"
 
 /* What is interpreted as whitespace? */
@@ -92,6 +93,12 @@
 #define QUOTES     "\"\'"
 #define COMMENTS   "#;"
 #define GLOB_CHARS "*?["
+
+/* What characters are special in the shell? */
+/* must be escaped outside and inside double-quotes */
+#define SHELL_NEED_ESCAPE "\"\\`$"
+/* can be escaped or double-quoted */
+#define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;"
 
 #define FORMAT_BYTES_MAX 8
 
@@ -121,6 +128,8 @@ bool streq_ptr(const char *a, const char *b) _pure_;
 
 #define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
 
+#define newa0(t, n) ((t*) alloca0(sizeof(t)*(n)))
+
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define malloc0(n) (calloc((n), 1))
@@ -149,21 +158,29 @@ static inline bool isempty(const char *p) {
         return !p || !p[0];
 }
 
-static inline const char *startswith(const char *s, const char *prefix) {
-        if (strncmp(s, prefix, strlen(prefix)) == 0)
-                return s + strlen(prefix);
+static inline char *startswith(const char *s, const char *prefix) {
+        size_t l;
+
+        l = strlen(prefix);
+        if (strncmp(s, prefix, l) == 0)
+                return (char*) s + l;
+
         return NULL;
 }
 
-static inline const char *startswith_no_case(const char *s, const char *prefix) {
-        if (strncasecmp(s, prefix, strlen(prefix)) == 0)
-                return s + strlen(prefix);
+static inline char *startswith_no_case(const char *s, const char *prefix) {
+        size_t l;
+
+        l = strlen(prefix);
+        if (strncasecmp(s, prefix, l) == 0)
+                return (char*) s + l;
+
         return NULL;
 }
 
 char *endswith(const char *s, const char *postfix) _pure_;
 
-bool first_word(const char *s, const char *word) _pure_;
+char *first_word(const char *s, const char *word) _pure_;
 
 int close_nointr(int fd);
 int safe_close(int fd);
@@ -186,7 +203,9 @@ int safe_atolli(const char *s, long long int *ret_i);
 
 int safe_atod(const char *s, double *ret_d);
 
-#if __WORDSIZE == 32
+int safe_atou8(const char *s, uint8_t *ret);
+
+#if LONG_MAX == INT_MAX
 static inline int safe_atolu(const char *s, unsigned long *ret_u) {
         assert_cc(sizeof(unsigned long) == sizeof(unsigned));
         return safe_atou(s, (unsigned*) ret_u);
@@ -226,7 +245,7 @@ static inline int safe_atoi64(const char *s, int64_t *ret_i) {
         return safe_atolli(s, (long long int*) ret_i);
 }
 
-char *split(const char *c, size_t *l, const char *separator, bool quoted, char **state);
+const char* split(const char **state, size_t *l, const char *separator, bool quoted);
 
 #define FOREACH_WORD(word, length, s, state)                            \
         _FOREACH_WORD(word, length, s, WHITESPACE, false, state)
@@ -237,11 +256,8 @@ char *split(const char *c, size_t *l, const char *separator, bool quoted, char *
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         _FOREACH_WORD(word, length, s, WHITESPACE, true, state)
 
-#define FOREACH_WORD_SEPARATOR_QUOTED(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, true, state)
-
 #define _FOREACH_WORD(word, length, s, separator, quoted, state)        \
-        for ((state) = NULL, (word) = split((s), &(length), (separator), (quoted), &(state)); (word); (word) = split((s), &(length), (separator), (quoted), &(state)))
+        for ((state) = (s), (word) = split(&(state), &(length), (separator), (quoted)); (word); (word) = split(&(state), &(length), (separator), (quoted)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 int get_starttime_of_pid(pid_t pid, unsigned long long *st);
@@ -258,6 +274,7 @@ int readlink_and_make_absolute(const char *p, char **r);
 int readlink_and_canonicalize(const char *p, char **r);
 
 int reset_all_signal_handlers(void);
+int reset_signal_mask(void);
 
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
@@ -382,7 +399,8 @@ bool fstype_is_network(const char *fstype);
 int chvt(int vt);
 
 int read_one_char(FILE *f, char *ret, usec_t timeout, bool *need_nl);
-int ask(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
+int ask_char(char *ret, const char *replies, const char *text, ...) _printf_(3, 4);
+int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
@@ -414,6 +432,7 @@ int sigprocmask_many(int how, ...);
 
 bool hostname_is_set(void);
 
+char* lookup_uid(uid_t uid);
 char* gethostname_malloc(void);
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
@@ -492,6 +511,7 @@ noreturn void freeze(void);
 
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path(const char *fn);
+int null_or_empty_fd(int fd);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
 
@@ -562,8 +582,6 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
 int block_get_whole_disk(dev_t d, dev_t *ret);
 
 int file_is_priv_sticky(const char *p);
-
-int strdup_or_null(const char *a, char **b);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
@@ -692,7 +710,7 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t a, size_
 bool filename_is_safe(const char *p) _pure_;
 bool path_is_safe(const char *p) _pure_;
 bool string_is_safe(const char *p) _pure_;
-bool string_has_cc(const char *p) _pure_;
+bool string_has_cc(const char *p, const char *ok) _pure_;
 
 /**
  * Check if a string contains any glob patterns.
@@ -834,29 +852,35 @@ int unlink_noerrno(const char *path);
                 (void *) memset(_new_, 0, _len_);       \
         })
 
-#define strappenda(a, b)                                \
-        ({                                              \
-                const char *_a_ = (a), *_b_ = (b);      \
-                char *_c_;                              \
-                size_t _x_, _y_;                        \
-                _x_ = strlen(_a_);                      \
-                _y_ = strlen(_b_);                      \
-                _c_ = alloca(_x_ + _y_ + 1);            \
-                strcpy(stpcpy(_c_, _a_), _b_);          \
-                _c_;                                    \
+#define alloca_align(size, align)                                       \
+        ({                                                              \
+                void *_ptr_;                                            \
+                size_t _mask_ = (align) - 1;                            \
+                _ptr_ = alloca((size) + _mask_);                        \
+                (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
         })
 
-#define strappenda3(a, b, c)                                    \
-        ({                                                      \
-                const char *_a_ = (a), *_b_ = (b), *_c_ = (c);  \
-                char *_d_;                                      \
-                size_t _x_, _y_, _z_;                           \
-                _x_ = strlen(_a_);                              \
-                _y_ = strlen(_b_);                              \
-                _z_ = strlen(_c_);                              \
-                _d_ = alloca(_x_ + _y_ + _z_ + 1);              \
-                strcpy(stpcpy(stpcpy(_d_, _a_), _b_), _c_);     \
-                _d_;                                            \
+#define alloca0_align(size, align)                                      \
+        ({                                                              \
+                void *_new_;                                            \
+                size_t _size_ = (size);                                 \
+                _new_ = alloca_align(_size_, (align));                  \
+                (void*)memset(_new_, 0, _size_);                        \
+        })
+
+#define strappenda(a, ...)                                       \
+        ({                                                       \
+                int _len = strlen(a);                            \
+                unsigned _i;                                     \
+                char *_d_, *_p_;                                 \
+                const char *_appendees_[] = { __VA_ARGS__ };     \
+                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
+                        _len += strlen(_appendees_[_i]);         \
+                _d_ = alloca(_len + 1);                          \
+                _p_ = stpcpy(_d_, a);                            \
+                for (_i = 0; _i < ELEMENTSOF(_appendees_); _i++) \
+                        _p_ = stpcpy(_p_, _appendees_[_i]);      \
+                _d_;                                             \
         })
 
 #define procfs_file_alloca(pid, field)                                  \
@@ -963,3 +987,15 @@ char *tempfn_xxxxxx(const char *p);
 char *tempfn_random(const char *p);
 
 bool is_localhost(const char *hostname);
+
+int take_password_lock(const char *root);
+
+int is_symlink(const char *path);
+int is_dir(const char *path, bool follow);
+
+int unquote_first_word(const char **p, char **ret);
+int unquote_many_words(const char **p, ...) _sentinel_;
+
+int free_and_strdup(char **p, const char *s);
+
+int sethostname_idempotent(const char *s);

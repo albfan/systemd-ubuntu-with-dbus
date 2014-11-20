@@ -25,7 +25,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <systemd/sd-id128.h>
+#include "systemd/sd-id128.h"
 
 #include "journal-def.h"
 #include "list.h"
@@ -100,7 +100,7 @@ struct sd_journal {
         char *path;
         char *prefix;
 
-        Hashmap *files;
+        OrderedHashmap *files;
         MMapCache *mmap;
 
         Location current_location;
@@ -124,6 +124,10 @@ struct sd_journal {
 
         bool on_network;
         bool no_new_files;
+        bool unique_file_lost; /* File we were iterating over got
+                                  removed, and there were no more
+                                  files, so sd_j_enumerate_unique
+                                  will return a value equal to 0. */
 
         size_t data_threshold;
 

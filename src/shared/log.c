@@ -51,6 +51,8 @@ static bool syslog_is_stream = false;
 static bool show_color = false;
 static bool show_location = false;
 
+static bool upgrade_syslog_to_journal = false;
+
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
@@ -266,6 +268,13 @@ int log_open(void) {
 void log_set_target(LogTarget target) {
         assert(target >= 0);
         assert(target < _LOG_TARGET_MAX);
+
+        if (upgrade_syslog_to_journal) {
+                if (target == LOG_TARGET_SYSLOG)
+                        target = LOG_TARGET_JOURNAL;
+                else if (target == LOG_TARGET_SYSLOG_OR_KMSG)
+                        target = LOG_TARGET_JOURNAL_OR_KMSG;
+        }
 
         log_target = target;
 }
@@ -862,41 +871,62 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
-void log_parse_environment(void) {
-        _cleanup_free_ char *line = NULL;
-        const char *e;
-        int r;
+static int parse_proc_cmdline_item(const char *key, const char *value) {
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                log_warning("Failed to read /proc/cmdline. Ignoring: %s", strerror(-r));
-        else if (r > 0) {
-                char *w, *state;
-                size_t l;
+        /*
+         * The systemd.log_xyz= settings are parsed by all tools, and
+         * so is "debug".
+         *
+         * However, "quiet" is only parsed by PID 1!
+         */
 
-                FOREACH_WORD_QUOTED(w, l, line, state) {
-                        if (l == 5 && startswith(w, "debug")) {
-                                log_set_max_level(LOG_DEBUG);
-                                break;
-                        }
-                }
+        if (streq(key, "debug") && !value)
+                log_set_max_level(LOG_DEBUG);
+
+        else if (streq(key, "systemd.log_target") && value) {
+
+                if (log_set_target_from_string(value) < 0)
+                        log_warning("Failed to parse log target '%s'. Ignoring.", value);
+
+        } else if (streq(key, "systemd.log_level") && value) {
+
+                if (log_set_max_level_from_string(value) < 0)
+                        log_warning("Failed to parse log level '%s'. Ignoring.", value);
+
+        } else if (streq(key, "systemd.log_color") && value) {
+
+                if (log_show_color_from_string(value) < 0)
+                        log_warning("Failed to parse log color setting '%s'. Ignoring.", value);
+
+        } else if (streq(key, "systemd.log_location") && value) {
+
+                if (log_show_location_from_string(value) < 0)
+                        log_warning("Failed to parse log location setting '%s'. Ignoring.", value);
         }
+
+        return 0;
+}
+
+void log_parse_environment(void) {
+        const char *e;
+
+        parse_proc_cmdline(parse_proc_cmdline_item);
 
         e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
-                log_warning("Failed to parse log target %s. Ignoring.", e);
+                log_warning("Failed to parse log target '%s'. Ignoring.", e);
 
         e = secure_getenv("SYSTEMD_LOG_LEVEL");
         if (e && log_set_max_level_from_string(e) < 0)
-                log_warning("Failed to parse log level %s. Ignoring.", e);
+                log_warning("Failed to parse log level '%s'. Ignoring.", e);
 
         e = secure_getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
-                log_warning("Failed to parse bool %s. Ignoring.", e);
+                log_warning("Failed to parse bool '%s'. Ignoring.", e);
 
         e = secure_getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
-                log_warning("Failed to parse bool %s. Ignoring.", e);
+                log_warning("Failed to parse bool '%s'. Ignoring.", e);
 }
 
 LogTarget log_get_target(void) {
@@ -981,4 +1011,8 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          "Received SIG%s.",
                          signal_to_string(si->ssi_signo));
 
+}
+
+void log_set_upgrade_syslog_to_journal(bool b) {
+        upgrade_syslog_to_journal = b;
 }

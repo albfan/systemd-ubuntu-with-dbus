@@ -1,5 +1,5 @@
 '\" t
-.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 215" "kernel-command-line"
+.TH "KERNEL\-COMMAND\-LINE" "7" "" "systemd 217" "kernel-command-line"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -69,7 +69,7 @@ Parameter understood by both the kernel and the system and service manager to co
 \fBsystemd\fR(1)\&.
 .RE
 .PP
-\fI\-b\fR, \fIemergency\fR, \fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR, \fI2\fR, \fI3\fR, \fI4\fR, \fI5\fR
+\fI\-b\fR, \fIemergency\fR, \fIrescue\fR, \fIsingle\fR, \fIs\fR, \fIS\fR, \fI1\fR, \fI2\fR, \fI3\fR, \fI4\fR, \fI5\fR
 .RS 4
 Parameters understood by the system and service manager, as compatibility options\&. For details, see
 \fBsystemd\fR(1)\&.
@@ -105,7 +105,7 @@ Parameters understood by the virtual console setup logic\&. For details, see
 \fBsystemd-vconsole-setup.service\fR(8)\&.
 .RE
 .PP
-\fIudev\&.log\-priority=\fR, \fIrd\&.udev\&.log\-priority=\fR, \fIudev\&.children\-max=\fR, \fIrd\&.udev\&.children\-max=\fR, \fIudev\&.exec\-delay=\fR, \fIrd\&.udev\&.exec\-delay=\fR, \fInet\&.ifnames=\fR
+\fIudev\&.log\-priority=\fR, \fIrd\&.udev\&.log\-priority=\fR, \fIudev\&.children\-max=\fR, \fIrd\&.udev\&.children\-max=\fR, \fIudev\&.exec\-delay=\fR, \fIrd\&.udev\&.exec\-delay=\fR, \fIudev\&.event\-timeout=\fR, \fIrd\&.udev\&.event\-timeout=\fR, \fInet\&.ifnames=\fR
 .RS 4
 Parameters understood by the device event managing daemon\&. For details, see
 \fBsystemd-udevd.service\fR(8)\&.
@@ -148,6 +148,13 @@ Configures whether GPT based partition auto\-discovery shall be attempted\&. For
 Load a specific kernel module early at boot\&. For details, see
 \fBsystemd-modules-load.service\fR(8)\&.
 .RE
+.PP
+\fIresume=\fR
+.RS 4
+Enables resume from hibernation using the specified device\&. All
+\fBfstab\fR(5)\-like paths are supported\&. For details, see
+\fBsystemd-hibernate-resume-generator\fR(8)\&.
+.RE
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
@@ -165,7 +172,8 @@ Load a specific kernel module early at boot\&. For details, see
 \fBsystemd-gpt-auto-generator\fR(8),
 \fBsystemd-modules-load.service\fR(8),
 \fBsystemd-backlight@.service\fR(8),
-\fBsystemd-rfkill@.service\fR(8)
+\fBsystemd-rfkill@.service\fR(8),
+\fBsystemd-hibernate-resume-generator\fR(8)
 .SH "NOTES"
 .IP " 1." 4
 kernel-parameters.txt

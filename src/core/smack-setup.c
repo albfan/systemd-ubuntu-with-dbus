@@ -116,7 +116,7 @@ static int write_rules(const char* dstpath, const char* srcdir) {
 
 #endif
 
-int smack_setup(bool *loaded_policy) {
+int mac_smack_setup(bool *loaded_policy) {
 
 #ifdef HAVE_SMACK
 
@@ -158,7 +158,7 @@ int smack_setup(bool *loaded_policy) {
                 return 0;
         case 0:
                 log_info("Successfully loaded Smack/CIPSO policies.");
-                return 0;
+                break;
         default:
                 log_warning("Failed to load Smack/CIPSO access rules: %s, ignoring.",
                             strerror(abs(r)));

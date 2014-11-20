@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSCTL\&.D" "5" "" "systemd 215" "sysctl.d"
+.TH "SYSCTL\&.D" "5" "" "systemd 217" "sysctl.d"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -114,13 +114,13 @@ kernel\&.domainname=example\&.com
 .PP
 \fBExample\ \&2.\ \&Disable packet filter on bridged packets (method one)\fR
 .PP
-/etc/udev/rules\&.d/99\-bridge\&.conf:
+/etc/udev/rules\&.d/99\-bridge\&.rules:
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd\-sysctl \-\-prefix=/proc/sys/net/bridge"
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="bridge", RUN+="/usr/lib/systemd/systemd\-sysctl \-\-prefix=/net/bridge"
 .fi
 .if n \{\
 .RE
@@ -173,4 +173,5 @@ net\&.bridge\&.bridge\-nf\-call\-arptables = 0
 \fBsystemd-sysctl.service\fR(8),
 \fBsystemd-delta\fR(1),
 \fBsysctl\fR(8),
-\fBsysctl.conf\fR(5)\fBmodprobe\fR(8)
+\fBsysctl.conf\fR(5),
+\fBmodprobe\fR(8)

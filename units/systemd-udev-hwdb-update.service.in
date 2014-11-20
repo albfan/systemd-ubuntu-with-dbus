@@ -10,9 +10,12 @@ Description=Rebuild Hardware Database
 Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-readahead-collect.service systemd-readahead-replay.service systemd-remount-fs.service
+After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target systemd-update-done.service
 ConditionNeedsUpdate=/etc
+ConditionPathExists=|!@udevlibexecdir@/hwdb.bin
+ConditionPathExists=|/etc/udev/hwdb.bin
+ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
 
 [Service]
 Type=oneshot

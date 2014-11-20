@@ -266,7 +266,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        f = hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
+        f = ordered_hashmap_get(s->user_journals, UINT32_TO_PTR(uid));
         if (f)
                 return f;
 
@@ -274,9 +274,9 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
                      SD_ID128_FORMAT_VAL(machine), uid) < 0)
                 return s->system_journal;
 
-        while (hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
+        while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
                 /* Too many open? Then let's close one */
-                f = hashmap_steal_first(s->user_journals);
+                f = ordered_hashmap_steal_first(s->user_journals);
                 assert(f);
                 journal_file_close(f);
         }
@@ -287,7 +287,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
 
         server_fix_perms(s, f, uid);
 
-        r = hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
+        r = ordered_hashmap_put(s->user_journals, UINT32_TO_PTR(uid), f);
         if (r < 0) {
                 journal_file_close(f);
                 return s->system_journal;
@@ -328,13 +328,13 @@ void server_rotate(Server *s) {
         do_rotate(s, &s->runtime_journal, "runtime", false, 0);
         do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
-        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = do_rotate(s, &f, "user", s->seal, PTR_TO_UINT32(k));
                 if (r >= 0)
-                        hashmap_replace(s->user_journals, k, f);
+                        ordered_hashmap_replace(s->user_journals, k, f);
                 else if (!f)
                         /* Old file has been closed and deallocated */
-                        hashmap_remove(s->user_journals, k);
+                        ordered_hashmap_remove(s->user_journals, k);
         }
 }
 
@@ -350,7 +350,7 @@ void server_sync(Server *s) {
                         log_error("Failed to sync system journal: %s", strerror(-r));
         }
 
-        HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
                 r = journal_file_set_offline(f);
                 if (r < 0)
                         log_error("Failed to sync user journal: %s", strerror(-r));
@@ -680,7 +680,7 @@ static void dispatch_message_real(
                 }
 
 #ifdef HAVE_SELINUX
-                if (use_selinux()) {
+                if (mac_selinux_use()) {
                         if (label) {
                                 x = alloca(strlen("_SELINUX_CONTEXT=") + label_len + 1);
 
@@ -919,7 +919,7 @@ finish:
 }
 
 
-static int system_journal_open(Server *s) {
+static int system_journal_open(Server *s, bool flush_requested) {
         int r;
         char *fn;
         sd_id128_t machine;
@@ -935,7 +935,8 @@ static int system_journal_open(Server *s) {
 
         if (!s->system_journal &&
             (s->storage == STORAGE_PERSISTENT || s->storage == STORAGE_AUTO) &&
-            access("/run/systemd/journal/flushed", F_OK) >= 0) {
+            (flush_requested
+             || access("/run/systemd/journal/flushed", F_OK) >= 0)) {
 
                 /* If in auto mode: first try to create the machine
                  * path, but not the prefix.
@@ -1029,7 +1030,7 @@ int server_flush_to_var(Server *s) {
         if (!s->runtime_journal)
                 return 0;
 
-        system_journal_open(s);
+        system_journal_open(s, true);
 
         if (!s->system_journal)
                 return 0;
@@ -1221,9 +1222,11 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 
         log_info("Received request to flush runtime journal from PID %"PRIu32, si->ssi_pid);
 
-        touch("/run/systemd/journal/flushed");
         server_flush_to_var(s);
         server_sync(s);
+        server_vacuum(s);
+
+        touch("/run/systemd/journal/flushed");
 
         return 0;
 }
@@ -1282,7 +1285,7 @@ static int setup_signals(Server *s) {
 
 static int server_parse_proc_cmdline(Server *s) {
         _cleanup_free_ char *line = NULL;
-        char *w, *state;
+        const char *w, *state;
         size_t l;
         int r;
 
@@ -1326,32 +1329,18 @@ static int server_parse_proc_cmdline(Server *s) {
                 } else if (startswith(word, "systemd.journald"))
                         log_warning("Invalid systemd.journald parameter. Ignoring.");
         }
+        /* do not warn about state here, since probably systemd already did */
 
         return 0;
 }
 
 static int server_parse_config_file(Server *s) {
-        static const char fn[] = "/etc/systemd/journald.conf";
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
         assert(s);
 
-        f = fopen(fn, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
-
-                log_warning("Failed to open configuration file %s: %m", fn);
-                return -errno;
-        }
-
-        r = config_parse(NULL, fn, f, "Journal\0", config_item_perf_lookup,
-                         (void*) journald_gperf_lookup, false, false, s);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
-
-        return r;
+        return config_parse(NULL, "/etc/systemd/journald.conf", NULL,
+                            "Journal\0",
+                            config_item_perf_lookup, journald_gperf_lookup,
+                            false, false, true, s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
@@ -1473,7 +1462,6 @@ int server_init(Server *s) {
         s->rate_limit_interval = DEFAULT_RATE_LIMIT_INTERVAL;
         s->rate_limit_burst = DEFAULT_RATE_LIMIT_BURST;
 
-        s->forward_to_syslog = true;
         s->forward_to_wall = true;
 
         s->max_file_usec = DEFAULT_MAX_FILE_USEC;
@@ -1490,15 +1478,14 @@ int server_init(Server *s) {
         server_parse_config_file(s);
         server_parse_proc_cmdline(s);
         if (!!s->rate_limit_interval ^ !!s->rate_limit_burst) {
-                log_debug("Setting both rate limit interval and burst from %llu,%u to 0,0",
-                          (long long unsigned) s->rate_limit_interval,
-                          s->rate_limit_burst);
+                log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
+                          s->rate_limit_interval, s->rate_limit_burst);
                 s->rate_limit_interval = s->rate_limit_burst = 0;
         }
 
         mkdir_p("/run/systemd/journal", 0755);
 
-        s->user_journals = hashmap_new(trivial_hash_func, trivial_compare_func);
+        s->user_journals = ordered_hashmap_new(NULL);
         if (!s->user_journals)
                 return log_oom();
 
@@ -1600,7 +1587,7 @@ int server_init(Server *s) {
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        r = system_journal_open(s);
+        r = system_journal_open(s, false);
         if (r < 0)
                 return r;
 
@@ -1618,7 +1605,7 @@ void server_maybe_append_tags(Server *s) {
         if (s->system_journal)
                 journal_file_maybe_append_tag(s->system_journal, n);
 
-        HASHMAP_FOREACH(f, s->user_journals, i)
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i)
                 journal_file_maybe_append_tag(f, n);
 #endif
 }
@@ -1636,10 +1623,10 @@ void server_done(Server *s) {
         if (s->runtime_journal)
                 journal_file_close(s->runtime_journal);
 
-        while ((f = hashmap_steal_first(s->user_journals)))
+        while ((f = ordered_hashmap_steal_first(s->user_journals)))
                 journal_file_close(f);
 
-        hashmap_free(s->user_journals);
+        ordered_hashmap_free(s->user_journals);
 
         sd_event_source_unref(s->syslog_event_source);
         sd_event_source_unref(s->native_event_source);

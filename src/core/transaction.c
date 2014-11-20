@@ -870,7 +870,7 @@ int transaction_add_job_and_dependencies(
         }
 
         if (type != JOB_STOP && unit->load_state == UNIT_ERROR) {
-                if (unit->load_error == -ENOENT)
+                if (unit->load_error == -ENOENT || unit->manager->test_run)
                         sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED,
                                           "Unit %s failed to load: %s.",
                                           unit->id,
@@ -1143,7 +1143,7 @@ Transaction *transaction_new(bool irreversible) {
         if (!tr)
                 return NULL;
 
-        tr->jobs = hashmap_new(trivial_hash_func, trivial_compare_func);
+        tr->jobs = hashmap_new(NULL);
         if (!tr->jobs) {
                 free(tr);
                 return NULL;

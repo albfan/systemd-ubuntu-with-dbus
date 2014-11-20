@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.INDEX" "7" "" "systemd 215" "systemd.index"
+.TH "SYSTEMD\&.INDEX" "7" "" "systemd 217" "systemd.index"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -179,9 +179,6 @@ systemd.index \- List all manpages from the systemd project
 \fBsd-login\fR(3)
 \-\- APIs for tracking logins
 .br
-\fBsd-readahead\fR(3)
-\-\- Reference implementation of APIs for controlling boot\-time read\-ahead
-.br
 \fBSD_ALERT\fR(3)
 \-\- APIs for new\-style daemons
 .br
@@ -201,6 +198,9 @@ systemd.index \- List all manpages from the systemd project
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_comm\fR(3)
+\-\- Retrieve fields from a credentials object
+.br
+\fBsd_bus_creds_get_connection_name\fR(3)
 \-\- Retrieve fields from a credentials object
 .br
 \fBsd_bus_creds_get_exe\fR(3)
@@ -407,17 +407,47 @@ systemd.index \- List all manpages from the systemd project
 \fBSD_ERR\fR(3)
 \-\- APIs for new\-style daemons
 .br
+\fBsd_event_add_child\fR(3)
+\-\- Add a child state change event source to an event loop
+.br
+\fBsd_event_add_defer\fR(3)
+\-\- Add static event sources to an event loop
+.br
+\fBsd_event_add_exit\fR(3)
+\-\- Add static event sources to an event loop
+.br
+\fBsd_event_add_post\fR(3)
+\-\- Add static event sources to an event loop
+.br
+\fBsd_event_add_signal\fR(3)
+\-\- Add a signal event source to an event loop
+.br
 \fBsd_event_add_time\fR(3)
 \-\- Add a timer event source to an event loop
 .br
 \fBsd_event_default\fR(3)
 \-\- Acquire and release an event loop object
 .br
+\fBsd_event_get_fd\fR(3)
+\-\- Obtain a file descriptor to poll for event loop events
+.br
+\fBsd_event_get_name\fR(3)
+\-\- Set human\-readable names for event sources
+.br
 \fBsd_event_new\fR(3)
 \-\- Acquire and release an event loop object
 .br
 \fBsd_event_ref\fR(3)
 \-\- Acquire and release an event loop object
+.br
+\fBsd_event_set_name\fR(3)
+\-\- Set human\-readable names for event sources
+.br
+\fBsd_event_source_get_child_pid\fR(3)
+\-\- Add a child state change event source to an event loop
+.br
+\fBsd_event_source_get_signal\fR(3)
+\-\- Add a signal event source to an event loop
 .br
 \fBsd_event_source_get_time\fR(3)
 \-\- Add a timer event source to an event loop
@@ -710,14 +740,20 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_login_monitor_unref\fR(3)
 \-\- Monitor login sessions, seats, users and virtual machines/containers
 .br
+\fBsd_machine_get_class\fR(3)
+\-\- Determine the class and network interface indices of a locally running virtual machine or container\&.
+.br
+\fBsd_machine_get_ifindices\fR(3)
+\-\- Determine the class and network interface indices of a locally running virtual machine or container\&.
+.br
 \fBSD_NOTICE\fR(3)
 \-\- APIs for new\-style daemons
 .br
 \fBsd_notify\fR(3)
-\-\- Notify service manager about start\-up completion and other daemon status changes
+\-\- Notify service manager about start\-up completion and other service status changes
 .br
 \fBsd_notifyf\fR(3)
-\-\- Notify service manager about start\-up completion and other daemon status changes
+\-\- Notify service manager about start\-up completion and other service status changes
 .br
 \fBsd_peer_get_machine_name\fR(3)
 \-\- Determine session, service, owner of a session, container/VM or slice of a specific PID or socket peer
@@ -755,9 +791,6 @@ systemd.index \- List all manpages from the systemd project
 \fBsd_pid_get_user_unit\fR(3)
 \-\- Determine session, service, owner of a session, container/VM or slice of a specific PID or socket peer
 .br
-\fBsd_readahead\fR(3)
-\-\- Control ongoing disk boot\-time read\-ahead operations
-.br
 \fBsd_seat_can_graphical\fR(3)
 \-\- Determine state of a specific seat
 .br
@@ -774,6 +807,9 @@ systemd.index \- List all manpages from the systemd project
 \-\- Determine state of a specific seat
 .br
 \fBsd_session_get_class\fR(3)
+\-\- Determine state of a specific session
+.br
+\fBsd_session_get_desktop\fR(3)
 \-\- Determine state of a specific session
 .br
 \fBsd_session_get_display\fR(3)
@@ -899,6 +935,9 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-cgtop\fR(1)
 \-\- Show top control groups by their resource usage
 .br
+\fBsystemd-coredump\fR(8)
+\-\- Log and store core dumps
+.br
 \fBsystemd-cryptsetup\fR(8)
 \-\- Full disk decryption logic
 .br
@@ -920,6 +959,15 @@ systemd.index \- List all manpages from the systemd project
 \fBsystemd-efi-boot-generator\fR(8)
 \-\- Generator for automatically mounting the EFI System Partition used by the current boot to
 .br
+\fBsystemd-escape\fR(1)
+\-\- Escape strings for usage in system unit names
+.br
+\fBsystemd-firstboot\fR(1)
+\-\- Initialize basic system settings on or before the first boot\-up of a system
+.br
+\fBsystemd-firstboot.service\fR(1)
+\-\- Initialize basic system settings on or before the first boot\-up of a system
+.br
 \fBsystemd-fsck\fR(8)
 \-\- File system checker logic
 .br
@@ -940,6 +988,15 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-halt.service\fR(8)
 \-\- System shutdown logic
+.br
+\fBsystemd-hibernate-resume\fR(8)
+\-\- Resume from hibernation
+.br
+\fBsystemd-hibernate-resume-generator\fR(8)
+\-\- Unit generator for resume= kernel parameter
+.br
+\fBsystemd-hibernate-resume@.service\fR(8)
+\-\- Resume from hibernation
 .br
 \fBsystemd-hibernate.service\fR(8)
 \-\- System sleep state logic
@@ -975,7 +1032,10 @@ systemd.index \- List all manpages from the systemd project
 \-\- HTTP server for journal events
 .br
 \fBsystemd-journal-remote\fR(8)
-\-\- Stream journal messages over the network
+\-\- Receive journal messages over the network
+.br
+\fBsystemd-journal-upload\fR(8)
+\-\- Send journal messages over the network
 .br
 \fBsystemd-journald\fR(8)
 \-\- Journal service
@@ -1054,21 +1114,6 @@ systemd.index \- List all manpages from the systemd project
 .br
 \fBsystemd-random-seed.service\fR(8)
 \-\- Load and save the system random seed at boot and shutdown
-.br
-\fBsystemd-readahead\fR(8)
-\-\- Disk read ahead logic
-.br
-\fBsystemd-readahead-collect.service\fR(8)
-\-\- Disk read ahead logic
-.br
-\fBsystemd-readahead-done.service\fR(8)
-\-\- Disk read ahead logic
-.br
-\fBsystemd-readahead-done.timer\fR(8)
-\-\- Disk read ahead logic
-.br
-\fBsystemd-readahead-replay.service\fR(8)
-\-\- Disk read ahead logic
 .br
 \fBsystemd-reboot.service\fR(8)
 \-\- System shutdown logic
@@ -1292,6 +1337,9 @@ systemd.index \- List all manpages from the systemd project
 \fBtimedatectl\fR(1)
 \-\- Control the system time and date
 .br
+\fBtimesyncd.conf\fR(5)
+\-\- Network Time Synchronization configuration file
+.br
 \fBtmpfiles.d\fR(5)
 \-\- Configuration for creation, deletion and cleaning of volatile and temporary files
 .br
@@ -1300,6 +1348,9 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBudev\fR(7)
 \-\- Dynamic device management
+.br
+\fBudev.conf\fR(5)
+\-\- Configuration for device event managing daemon
 .br
 \fBudevadm\fR(8)
 \-\- udev management tool
@@ -1315,4 +1366,4 @@ systemd.index \- List all manpages from the systemd project
 .PP
 \fBsystemd.directives\fR(7)
 .PP
-This index contains 412 entries, referring to 180 individual manual pages\&.
+This index contains 429 entries, referring to 191 individual manual pages\&.

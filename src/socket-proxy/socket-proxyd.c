@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -125,7 +125,7 @@ static int connection_create_pipes(Connection *c, int buffer[2], size_t *sz) {
                 return -errno;
         }
 
-        fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
+        (void) fcntl(buffer[0], F_SETPIPE_SZ, BUFFER_SIZE);
 
         r = fcntl(buffer[0], F_GETPIPE_SZ);
         if (r < 0) {
@@ -473,7 +473,7 @@ static int add_connection_socket(Context *context, int fd) {
                 return 0;
         }
 
-        r = set_ensure_allocated(&context->connections, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&context->connections, NULL);
         if (r < 0) {
                 log_oom();
                 return 0;
@@ -543,7 +543,7 @@ static int add_listen_socket(Context *context, int fd) {
         assert(context);
         assert(fd >= 0);
 
-        r = set_ensure_allocated(&context->listen, trivial_hash_func, trivial_compare_func);
+        r = set_ensure_allocated(&context->listen, NULL);
         if (r < 0) {
                 log_oom();
                 return r;
@@ -589,17 +589,13 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static int help(void) {
-
-        printf("%s [HOST:PORT]\n"
-               "%s [SOCKET]\n\n"
+static void help(void) {
+        printf("%1$s [HOST:PORT]\n"
+               "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n",
-               program_invocation_short_name,
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -620,12 +616,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -638,7 +635,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         if (optind >= argc) {
                 log_error("Not enough parameters.");

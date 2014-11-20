@@ -395,7 +395,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         }
 
 #ifdef HAVE_SELINUX
-        if (use_selinux()) {
+        if (mac_selinux_use()) {
                 if (getpeercon(fd, &stream->security_context) < 0 && errno != ENOPROTOOPT)
                         log_error("Failed to determine peer security context: %m");
         }
@@ -450,14 +450,14 @@ int server_open_stdout_socket(Server *s) {
 
                 r = bind(s->stdout_fd, &sa.sa, offsetof(union sockaddr_union, un.sun_path) + strlen(sa.un.sun_path));
                 if (r < 0) {
-                        log_error("bind() failed: %m");
+                        log_error("bind(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
 
                 chmod(sa.un.sun_path, 0666);
 
                 if (listen(s->stdout_fd, SOMAXCONN) < 0) {
-                        log_error("listen() failed: %m");
+                        log_error("listen(%s) failed: %m", sa.un.sun_path);
                         return -errno;
                 }
         } else

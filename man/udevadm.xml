@@ -20,7 +20,6 @@
   <refmeta>
     <refentrytitle>udevadm</refentrytitle>
     <manvolnum>8</manvolnum>
-    <refmiscinfo class="version"></refmiscinfo>
   </refmeta>
 
   <refnamediv>
@@ -492,6 +491,15 @@
             any update to the source files; it will not be called automatically. The running
             udev daemon will detect a new database on its own and does not need to be
             notified about it.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--usr</option></term>
+          <listitem>
+            <para>Put the compiled database into <filename>/usr/lib/udev/hwdb.bin</filename> instead.
+            Use this if you want to ship a pre-compiled database in immutable system images, or
+            don't use <filename>/etc/udev/hwdb.d</filename> and want to avoid large binary files in
+            <filename>/etc</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

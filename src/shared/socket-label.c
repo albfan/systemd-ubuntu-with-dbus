@@ -64,7 +64,7 @@ int socket_address_listen(
                 return -EAFNOSUPPORT;
 
         if (label) {
-                r = label_socket_set(label);
+                r = mac_selinux_create_socket_prepare(label);
                 if (r < 0)
                         return r;
         }
@@ -73,7 +73,7 @@ int socket_address_listen(
         r = fd < 0 ? -errno : 0;
 
         if (label)
-                label_socket_clear();
+                mac_selinux_create_socket_clear();
 
         if (r < 0)
                 return r;
@@ -119,7 +119,7 @@ int socket_address_listen(
                 /* Include the original umask in our mask */
                 umask(~socket_mode | old_mask);
 
-                r = label_bind(fd, &a->sockaddr.sa, a->size);
+                r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
 
                 if (r < 0 && errno == EADDRINUSE) {
                         /* Unlink and try again */
@@ -150,7 +150,8 @@ int make_socket_fd(int log_level, const char* address, int flags) {
 
         r = socket_address_parse(&a, address);
         if (r < 0) {
-                log_error("Failed to parse socket: %s", strerror(-r));
+                log_error("Failed to parse socket address \"%s\": %s",
+                          address, strerror(-r));
                 return r;
         }
 
@@ -166,7 +167,7 @@ int make_socket_fd(int log_level, const char* address, int flags) {
                 }
 
                 if (fd < 0)
-                        log_error("Failed to listen on %s: %s", p, strerror(-r));
+                        log_error("Failed to listen on %s: %s", p, strerror(-fd));
                 else
                         log_full(log_level, "Listening on %s", p);
         }

@@ -48,7 +48,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
-#include <systemd/sd-journal.h>
+#include "systemd/sd-journal.h"
 
 #include "util.h"
 #include "fileio.h"
@@ -124,17 +124,11 @@ static void parse_conf(void) {
                 { "Bootchart", "ControlGroup",     config_parse_bool,   0, &arg_show_cgroup },
                 { NULL, NULL, NULL, 0, NULL }
         };
-        _cleanup_fclose_ FILE *f;
-        int r;
 
-        f = fopen(BOOTCHART_CONF, "re");
-        if (!f)
-                return;
-
-        r = config_parse(NULL, BOOTCHART_CONF, f,
-                         NULL, config_item_table_lookup, (void*) items, true, false, NULL);
-        if (r < 0)
-                log_warning("Failed to parse configuration file: %s", strerror(-r));
+        config_parse(NULL, BOOTCHART_CONF, NULL,
+                     NULL,
+                     config_item_table_lookup, items,
+                     true, false, true, NULL);
 
         if (init != NULL)
                 strscpy(arg_init_path, sizeof(arg_init_path), init);
@@ -169,29 +163,31 @@ static void help(void) {
                 DEFAULT_INIT);
 }
 
-static int parse_args(int argc, char *argv[]) {
-        static struct option options[] = {
-                {"rel",       no_argument,        NULL,  'r'},
-                {"freq",      required_argument,  NULL,  'f'},
-                {"samples",   required_argument,  NULL,  'n'},
-                {"pss",       no_argument,        NULL,  'p'},
-                {"output",    required_argument,  NULL,  'o'},
-                {"init",      required_argument,  NULL,  'i'},
-                {"no-filter", no_argument,        NULL,  'F'},
-                {"cmdline",   no_argument,        NULL,  'C'},
-                {"control-group", no_argument,    NULL,  'c'},
-                {"help",      no_argument,        NULL,  'h'},
-                {"scale-x",   required_argument,  NULL,  'x'},
-                {"scale-y",   required_argument,  NULL,  'y'},
-                {"entropy",   no_argument,        NULL,  'e'},
-                {NULL, 0, NULL, 0}
+static int parse_argv(int argc, char *argv[]) {
+        static const struct option options[] = {
+                {"rel",           no_argument,        NULL,  'r'},
+                {"freq",          required_argument,  NULL,  'f'},
+                {"samples",       required_argument,  NULL,  'n'},
+                {"pss",           no_argument,        NULL,  'p'},
+                {"output",        required_argument,  NULL,  'o'},
+                {"init",          required_argument,  NULL,  'i'},
+                {"no-filter",     no_argument,        NULL,  'F'},
+                {"cmdline",       no_argument,        NULL,  'C'},
+                {"control-group", no_argument,        NULL,  'c'},
+                {"help",          no_argument,        NULL,  'h'},
+                {"scale-x",       required_argument,  NULL,  'x'},
+                {"scale-y",       required_argument,  NULL,  'y'},
+                {"entropy",       no_argument,        NULL,  'e'},
+                {}
         };
-        int c;
+        int c, r;
 
-        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0) {
-                int r;
+        if (getpid() == 1)
+                opterr = 0;
 
+        while ((c = getopt_long(argc, argv, "erpf:n:o:i:FCchx:y:", options, NULL)) >= 0)
                 switch (c) {
+
                 case 'r':
                         arg_relative = true;
                         break;
@@ -244,18 +240,22 @@ static int parse_args(int argc, char *argv[]) {
                         break;
                 case 'h':
                         help();
-                        exit (EXIT_SUCCESS);
+                        return 0;
+                case '?':
+                        if (getpid() != 1)
+                                return -EINVAL;
+                        else
+                                return 0;
                 default:
-                        break;
+                        assert_not_reached("Unhandled option code.");
                 }
-        }
 
-        if (arg_hz <= 0.0) {
-                fprintf(stderr, "Error: Frequency needs to be > 0\n");
+        if (arg_hz <= 0) {
+                log_error("Frequency needs to be > 0");
                 return -EINVAL;
         }
 
-        return 0;
+        return 1;
 }
 
 static void do_journal_append(char *file) {
@@ -316,12 +316,13 @@ int main(int argc, char *argv[]) {
         time_t t = 0;
         int r;
         struct rlimit rlim;
+        bool has_procfs = false;
 
         parse_conf();
 
-        r = parse_args(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
         /*
          * If the kernel executed us through init=/usr/lib/systemd/systemd-bootchart, then
@@ -355,6 +356,16 @@ int main(int argc, char *argv[]) {
 
         log_uptime();
 
+        if (graph_start < 0.0) {
+                fprintf(stderr,
+                        "Failed to setup graph start time.\n\nThe system uptime "
+                        "probably includes time that the system was suspended. "
+                        "Use --rel to bypass this issue.\n");
+                exit (EXIT_FAILURE);
+        }
+
+        has_procfs = access("/proc/vmstat", F_OK) == 0;
+
         LIST_HEAD_INIT(head);
 
         /* main program loop */
@@ -369,8 +380,8 @@ int main(int argc, char *argv[]) {
 
                 sampledata = new0(struct list_sample_data, 1);
                 if (sampledata == NULL) {
-                        log_error("Failed to allocate memory for a node: %m");
-                        return -1;
+                        log_oom();
+                        return EXIT_FAILURE;
                 }
 
                 sampledata->sampletime = gettime_ns();
@@ -378,7 +389,9 @@ int main(int argc, char *argv[]) {
 
                 if (!of && (access(arg_output_path, R_OK|W_OK|X_OK) == 0)) {
                         t = time(NULL);
-                        strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                        r = strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                        assert_se(r > 0);
+
                         snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
                         of = fopen(output_file, "we");
                 }
@@ -391,11 +404,11 @@ int main(int argc, char *argv[]) {
                                 parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &build, NULL);
                 }
 
-                /* wait for /proc to become available, discarding samples */
-                if (graph_start <= 0.0)
-                        log_uptime();
-                else
+                if (has_procfs)
                         log_sample(samples, &sampledata);
+                else
+                        /* wait for /proc to become available, discarding samples */
+                        has_procfs = access("/proc/vmstat", F_OK) == 0;
 
                 sample_stop = gettime_ns();
 
@@ -446,7 +459,9 @@ int main(int argc, char *argv[]) {
 
         if (!of) {
                 t = time(NULL);
-                strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                r = strftime(datestr, sizeof(datestr), "%Y%m%d-%H%M", localtime(&t));
+                assert_se(r > 0);
+
                 snprintf(output_file, PATH_MAX, "%s/bootchart-%s.svg", arg_output_path, datestr);
                 of = fopen(output_file, "we");
         }
@@ -456,7 +471,7 @@ int main(int argc, char *argv[]) {
                 exit (EXIT_FAILURE);
         }
 
-        svg_do(build);
+        svg_do(strna(build));
 
         fprintf(stderr, "systemd-bootchart wrote %s\n", output_file);
 

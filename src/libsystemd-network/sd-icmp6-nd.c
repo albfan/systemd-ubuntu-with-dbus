@@ -212,7 +212,7 @@ static int icmp6_router_advertisment_recv(sd_event_source *s, int fd,
         if (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
                 event = ICMP6_EVENT_ROUTER_ADVERTISMENT_MANAGED;
 
-        log_icmp6_nd(nd, "Received Router Advertisment flags %s/%s",
+        log_icmp6_nd(nd, "Received Router Advertisement flags %s/%s",
                      (ra.nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)? "MANAGED":
                      "none",
                      (ra.nd_ra_flags_reserved & ND_RA_FLAG_OTHER)? "OTHER":
@@ -255,7 +255,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec,
 
                 nd->nd_sent++;
 
-                r = sd_event_now(nd->event, CLOCK_MONOTONIC, &time_now);
+                r = sd_event_now(nd->event, clock_boottime_or_monotonic(), &time_now);
                 if (r < 0) {
                         icmp6_nd_notify(nd, r);
                         return 0;
@@ -263,7 +263,7 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec,
 
                 next_timeout = time_now + ICMP6_ROUTER_SOLICITATION_INTERVAL;
 
-                r = sd_event_add_time(nd->event, &nd->timeout, CLOCK_MONOTONIC,
+                r = sd_event_add_time(nd->event, &nd->timeout, clock_boottime_or_monotonic(),
                                       next_timeout, 0,
                                       icmp6_router_solicitation_timeout, nd);
                 if (r < 0) {
@@ -273,6 +273,12 @@ static int icmp6_router_solicitation_timeout(sd_event_source *s, uint64_t usec,
 
                 r = sd_event_source_set_priority(nd->timeout,
                                                  nd->event_priority);
+                if (r < 0) {
+                        icmp6_nd_notify(nd, r);
+                        return 0;
+                }
+
+                r = sd_event_source_set_name(nd->timeout, "icmp6-timeout");
                 if (r < 0) {
                         icmp6_nd_notify(nd, r);
                         return 0;
@@ -322,13 +328,20 @@ int sd_icmp6_router_solicitation_start(sd_icmp6_nd *nd) {
         if (r < 0)
                 goto error;
 
-        r = sd_event_add_time(nd->event, &nd->timeout, CLOCK_MONOTONIC,
+        r = sd_event_source_set_name(nd->recv, "icmp6-receive-message");
+        if (r < 0)
+                goto error;
+
+        r = sd_event_add_time(nd->event, &nd->timeout, clock_boottime_or_monotonic(),
                               0, 0, icmp6_router_solicitation_timeout, nd);
         if (r < 0)
                 goto error;
 
         r = sd_event_source_set_priority(nd->timeout, nd->event_priority);
+        if (r < 0)
+                goto error;
 
+        r = sd_event_source_set_name(nd->timeout, "icmp6-timeout");
 error:
         if (r < 0)
                 icmp6_nd_init(nd);

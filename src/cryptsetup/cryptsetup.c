@@ -175,16 +175,16 @@ static int parse_one_option(const char *option) {
 }
 
 static int parse_options(const char *options) {
-        char *state, *w;
+        const char *word, *state;
         size_t l;
         int r;
 
         assert(options);
 
-        FOREACH_WORD_SEPARATOR(w, l, options, ",", state) {
+        FOREACH_WORD_SEPARATOR(word, l, options, ",", state) {
                 _cleanup_free_ char *o;
 
-                o = strndup(w, l);
+                o = strndup(word, l);
                 if (!o)
                         return -ENOMEM;
                 r = parse_one_option(o);
@@ -549,13 +549,18 @@ int main(int argc, char *argv[]) {
                         description = NULL;
                 }
 
+                k = 0;
                 if (mount_point && description)
-                        asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
+                        k = asprintf(&name_buffer, "%s (%s) on %s", description, argv[2], mount_point);
                 else if (mount_point)
-                        asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
+                        k = asprintf(&name_buffer, "%s on %s", argv[2], mount_point);
                 else if (description)
-                        asprintf(&name_buffer, "%s (%s)", description, argv[2]);
+                        k = asprintf(&name_buffer, "%s (%s)", description, argv[2]);
 
+                if (k < 0) {
+                        log_oom();
+                        goto finish;
+                }
                 name = name_buffer ? name_buffer : argv[2];
 
                 k = crypt_init(&cd, argv[3]);

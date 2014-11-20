@@ -74,8 +74,6 @@ udev_queue_get_seqnum_sequence_is_finished,
 udev_queue_get_udev,
 udev_queue_get_udev_is_active,
 udev_queue_get_udev_seqnum,
-udev_queue_get_fd,
-udev_queue_flush,
 udev_queue_new,
 udev_queue_ref,
 udev_queue_unref,
@@ -91,6 +89,8 @@ udev_hwdb_ref,
 udev_hwdb_unref,
 udev_hwdb_get_properties_list_entry,
 udev_device_set_sysattr_value,
+udev_queue_flush,
+udev_queue_get_fd,
 };
 int main(void) {
 unsigned i; for (i=0;i<sizeof(functions)/sizeof(void*);i++) printf("%p\n", functions[i]);

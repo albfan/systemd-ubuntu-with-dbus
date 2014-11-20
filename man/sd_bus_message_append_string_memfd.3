@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_MESSAGE_APPEND_STRING_MEMFD" "3" "" "systemd 215" "sd_bus_message_append_string_memfd"
+.TH "SD_BUS_MESSAGE_APPEND_STRING_MEMFD" "3" "" "systemd 217" "sd_bus_message_append_string_memfd"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,7 +29,7 @@ sd_bus_message_append_string_memfd, sd_bus_message_append_string_iovec, sd_bus_m
 .fi
 .ft
 .HP \w'int\ sd_bus_message_append_string_memfd('u
-.BI "int sd_bus_message_append_string_memfd(sd_bus_message\ *" "m" ", sd_memfd\ *" "memfd" ");"
+.BI "int sd_bus_message_append_string_memfd(sd_bus_message\ *" "m" ", int\ " "memfd" ");"
 .HP \w'int\ sd_bus_message_append_string_iovec('u
 .BI "int sd_bus_message_append_string_iovec(sd_bus_message\ *" "m" ", const\ struct\ iovec\ *" "iov" ", unsigned\ " "n" ");"
 .HP \w'int\ sd_bus_message_append_string_space('u
@@ -91,27 +91,27 @@ On success, those calls return 0 or a positive integer\&. On failure, they retur
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Specified parameter is invalid\&.
 .RE
 .PP
-\fI\-EPERM\fR
+\fB\-EPERM\fR
 .RS 4
 Message has been sealed\&.
 .RE
 .PP
-\fI\-ESTALE\fR
+\fB\-ESTALE\fR
 .RS 4
 Message is in invalid state\&.
 .RE
 .PP
-\fI\-ENXIO\fR
+\fB\-ENXIO\fR
 .RS 4
 Message cannot be appended to\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE

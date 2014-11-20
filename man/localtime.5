@@ -1,5 +1,5 @@
 '\" t
-.TH "LOCALTIME" "5" "" "systemd 215" "localtime"
+.TH "LOCALTIME" "5" "" "systemd 217" "localtime"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -46,11 +46,14 @@ The timezone may be overridden for individual programs by using the TZ environme
 .PP
 You may use
 \fBtimedatectl\fR(1)
-to change the settings of this file from the command line\&.
+to change the settings of this file from the command line during runtime\&. Use
+\fBsystemd-firstboot\fR(1)
+to initialize the time zone on mounted (but not booted) system images\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
 \fBtzset\fR(3),
 \fBlocaltime\fR(3),
 \fBtimedatectl\fR(1),
-\fBsystemd-timedated.service\fR(8)
+\fBsystemd-timedated.service\fR(8),
+\fBsystemd-firstboot\fR(1)

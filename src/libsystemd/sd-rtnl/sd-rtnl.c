@@ -473,7 +473,7 @@ static usec_t calc_elapse(uint64_t usec) {
 static int rtnl_poll(sd_rtnl *rtnl, bool need_more, uint64_t timeout_usec) {
         struct pollfd p[1] = {};
         struct timespec ts;
-        usec_t m = (usec_t) -1;
+        usec_t m = USEC_INFINITY;
         int r, e;
 
         assert(rtnl);
@@ -557,7 +557,7 @@ int sd_rtnl_call_async(sd_rtnl *nl,
         assert_return(callback, -EINVAL);
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
 
-        r = hashmap_ensure_allocated(&nl->reply_callbacks, uint64_hash_func, uint64_compare_func);
+        r = hashmap_ensure_allocated(&nl->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
                 return r;
 
@@ -680,7 +680,7 @@ int sd_rtnl_call(sd_rtnl *rtnl,
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        /* receieved message, so try to process straight away */
+                        /* received message, so try to process straight away */
                         continue;
 
                 if (timeout > 0) {
@@ -859,6 +859,10 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_source_set_name(rtnl->io_event_source, "rtnl-receive-message");
+        if (r < 0)
+                goto fail;
+
         r = sd_event_source_set_prepare(rtnl->io_event_source, prepare_callback);
         if (r < 0)
                 goto fail;
@@ -871,7 +875,15 @@ int sd_rtnl_attach_event(sd_rtnl *rtnl, sd_event *event, int priority) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_source_set_name(rtnl->time_event_source, "rtnl-timer");
+        if (r < 0)
+                goto fail;
+
         r = sd_event_add_exit(rtnl->event, &rtnl->exit_event_source, exit_callback, rtnl);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_name(rtnl->exit_event_source, "rtnl-exit");
         if (r < 0)
                 goto fail;
 

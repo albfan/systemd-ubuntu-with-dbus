@@ -20,7 +20,7 @@
 AC_PREREQ([2.64])
 
 AC_INIT([systemd],
-        [215],
+        [217],
         [http://bugs.freedesktop.org/enter_bug.cgi?product=systemd],
         [systemd],
         [http://www.freedesktop.org/wiki/Software/systemd])
@@ -62,7 +62,7 @@ AS_IF([test x"$intltool_found" != xyes],
       ])
 
 AM_NLS
-AS_IF([test x"$enable_nls" != xno], [
+AS_IF([test x"$enable_nls" != xno -o "x$enable_polkit" != xno], [
     # intltoolize greps for '^(AC|IT)_PROG_INTLTOOL', so it needs to be on its own line
 IT_PROG_INTLTOOL([0.40.0])
 ])
@@ -189,7 +189,6 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -ffast-math \
         -fno-common \
         -fdiagnostics-show-option \
-        -fdiagnostics-color \
         -fno-strict-aliasing \
         -fvisibility=hidden \
         -ffunction-sections \
@@ -198,6 +197,13 @@ CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
         -fstack-protector-strong \
         -fPIE \
         --param=ssp-buffer-size=4])
+
+AS_CASE([$CC], [*clang*],
+        [CC_CHECK_FLAGS_APPEND([with_cppflags], [CPPFLAGS], [\
+               -Wno-typedef-redefinition \
+               -Wno-gnu-variable-sized-type-not-at-end \
+        ])])
+
 AS_CASE([$CFLAGS], [*-O[[12345\ ]]*],
         [CC_CHECK_FLAGS_APPEND([with_cflags], [CFLAGS], [\
                -flto -ffat-lto-objects])],
@@ -224,6 +230,7 @@ AC_CHECK_SIZEOF(pid_t)
 AC_CHECK_SIZEOF(uid_t)
 AC_CHECK_SIZEOF(gid_t)
 AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(dev_t)
 AC_CHECK_SIZEOF(rlim_t,,[
        #include <sys/time.h>
        #include <sys/resource.h>
@@ -282,6 +289,7 @@ AM_CONDITIONAL([HAVE_PYTHON_DEVEL], [test "$have_python_devel" = "yes"])
 AC_SEARCH_LIBS([dlsym], [dl], [], [AC_MSG_ERROR([*** Dynamic linking loader library not found])])
 AC_CHECK_HEADERS([sys/capability.h], [], [AC_MSG_ERROR([*** POSIX caps headers not found])])
 AC_CHECK_HEADERS([linux/btrfs.h], [], [])
+AC_CHECK_HEADERS([linux/memfd.h], [], [])
 
 # unconditionally pull-in librt with old glibc versions
 AC_SEARCH_LIBS([clock_gettime], [rt], [], [])
@@ -298,7 +306,7 @@ RT_LIBS="$LIBS"
 AC_SUBST(RT_LIBS)
 LIBS="$save_LIBS"
 
-AC_CHECK_FUNCS([fanotify_init fanotify_mark])
+AC_CHECK_FUNCS([memfd_create])
 AC_CHECK_FUNCS([__secure_getenv secure_getenv])
 AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN],
                [], [], [[
@@ -310,7 +318,9 @@ AC_CHECK_DECLS([gettid, pivot_root, name_to_handle_at, setns, LO_FLAGS_PARTSCAN]
 #include <linux/loop.h>
 ]])
 
-AC_CHECK_DECLS([IFLA_PHYS_PORT_ID,
+AC_CHECK_DECLS([IFLA_MACVLAN_FLAGS,
+                IFLA_VTI_REMOTE,
+                IFLA_PHYS_PORT_ID,
                 IFLA_BOND_AD_INFO,
                 IFLA_VLAN_PROTOCOL,
                 IFLA_VXLAN_LOCAL6,
@@ -341,6 +351,16 @@ AS_IF([test "x$enable_dbus" != "xno"], [
         AS_IF([test "x$have_dbus" = "xno" -a "x$enable_dbus" = "xyes"],
                 [AC_MSG_ERROR([*** dbus-1 support requested but libraries not found])])])
 AM_CONDITIONAL(HAVE_DBUS, [test "$have_dbus" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_utmp=yes
+AC_ARG_ENABLE([utmp], AS_HELP_STRING([--disable-utmp], [disable utmp/wtmp log handling]),
+        AS_CASE("x${enableval}",
+                [xyes], [have_utmp=yes],
+                [xno],  [have_utmp=no],
+                AC_MSG_ERROR(bad value ${enableval} for --enable-utmp)))
+AS_IF([test "x$have_utmp" = "xyes"], [AC_DEFINE(HAVE_UTMP, 1, [Define if utmp/wtmp support is enabled])])
+AM_CONDITIONAL([HAVE_UTMP], [test "x$have_utmp" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_compat_libs=no
@@ -498,17 +518,37 @@ AC_ARG_WITH([debug-tty],
 
 AC_SUBST(DEBUGTTY)
 
+AC_ARG_WITH([certificate-root],
+        AS_HELP_STRING([--with-certificate-root=PATH],
+                [Specify the prefix for TLS certificates [/etc/ssl]]),
+        [CERTIFICATEROOT="$withval"],
+        [CERTIFICATEROOT="/etc/ssl"])
+
+AC_SUBST(CERTIFICATEROOT)
+
 # ------------------------------------------------------------------------------
 have_xz=no
 AC_ARG_ENABLE(xz, AS_HELP_STRING([--disable-xz], [Disable optional XZ support]))
 if test "x$enable_xz" != "xno"; then
         PKG_CHECK_MODULES(XZ, [ liblzma ],
-                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes], have_xz=no)
+                [AC_DEFINE(HAVE_XZ, 1, [Define if XZ is available]) have_xz=yes])
         if test "x$have_xz" = xno -a "x$enable_xz" = xyes; then
-                AC_MSG_ERROR([*** Xz support requested but libraries not found])
+                AC_MSG_ERROR([*** XZ support requested but libraries not found])
         fi
 fi
 AM_CONDITIONAL(HAVE_XZ, [test "$have_xz" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_lz4=no
+AC_ARG_ENABLE(lz4, AS_HELP_STRING([--enable-lz4], [Enable optional LZ4 support]))
+AS_IF([test "x$enable_lz4" == "xyes"], [
+        AC_CHECK_HEADERS(lz4.h,
+               [AC_DEFINE(HAVE_LZ4, 1, [Define in LZ4 is available]) have_lz4=yes],
+               [AC_MSG_ERROR([*** LZ4 support requested but headers not found])])
+])
+AM_CONDITIONAL(HAVE_LZ4, [test "$have_lz4" = "yes"])
+
+AM_CONDITIONAL(HAVE_COMPRESSION, [test "$have_xz" = "yes" -o "$have_lz4" = "yes"])
 
 # ------------------------------------------------------------------------------
 AC_ARG_ENABLE([pam],
@@ -776,6 +816,33 @@ fi
 AM_CONDITIONAL(HAVE_GNUTLS, [test "$have_gnutls" = "yes"])
 
 # ------------------------------------------------------------------------------
+have_libcurl=no
+AC_ARG_ENABLE(libcurl, AS_HELP_STRING([--disable-libcurl], [disable libcurl support]))
+if test "x$enable_libcurl" != "xno"; then
+        PKG_CHECK_MODULES(LIBCURL, [libcurl],
+                [AC_DEFINE(HAVE_LIBCURL, 1, [Define if libcurl is available]) have_libcurl=yes], have_libcurl=no)
+        if test "x$have_libcurl" = xno -a "x$enable_libcurl" = xyes; then
+                AC_MSG_ERROR([*** libcurl support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBCURL, [test "$have_libcurl" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_libidn=no
+AC_ARG_ENABLE(libidn, AS_HELP_STRING([--disable-libidn], [Disable optional LIBIDN support]))
+if test "x$enable_libidn" != "xno"; then
+        PKG_CHECK_MODULES(LIBIDN, [libidn],
+               [AC_DEFINE(HAVE_LIBIDN, 1, [Define if libidn is available])
+                have_libidn=yes
+                M4_DEFINES="$M4_DEFINES -DHAVE_LIBIDN"],
+               [have_libidn=no])
+        if test "x$have_libidn" = "xno" -a "x$enable_libidn" = "xyes"; then
+                AC_MSG_ERROR([*** libidn support requested but libraries not found])
+        fi
+fi
+AM_CONDITIONAL(HAVE_LIBIDN, [test "$have_libidn" = "yes"])
+
+# ------------------------------------------------------------------------------
 have_binfmt=no
 AC_ARG_ENABLE(binfmt, AS_HELP_STRING([--disable-binfmt], [disable binfmt tool]))
 if test "x$enable_binfmt" != "xno"; then
@@ -790,14 +857,6 @@ if test "x$enable_vconsole" != "xno"; then
         have_vconsole=yes
 fi
 AM_CONDITIONAL(ENABLE_VCONSOLE, [test "$have_vconsole" = "yes"])
-
-# ------------------------------------------------------------------------------
-have_readahead=no
-AC_ARG_ENABLE(readahead, AS_HELP_STRING([--disable-readahead], [disable readahead tools]))
-if test "x$enable_readahead" != "xno"; then
-        have_readahead=yes
-fi
-AM_CONDITIONAL(ENABLE_READAHEAD, [test "$have_readahead" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_bootchart=no
@@ -830,6 +889,14 @@ if test "x$enable_sysusers" != "xno"; then
         have_sysusers=yes
 fi
 AM_CONDITIONAL(ENABLE_SYSUSERS, [test "$have_sysusers" = "yes"])
+
+# ------------------------------------------------------------------------------
+have_firstboot=no
+AC_ARG_ENABLE(firstboot, AS_HELP_STRING([--disable-firstboot], [disable firstboot support]))
+if test "x$enable_firstboot" != "xno"; then
+        have_firstboot=yes
+fi
+AM_CONDITIONAL(ENABLE_FIRSTBOOT, [test "$have_firstboot" = "yes"])
 
 # ------------------------------------------------------------------------------
 have_randomseed=no
@@ -964,6 +1031,7 @@ have_resolved=no
 AC_ARG_ENABLE(resolved, AS_HELP_STRING([--disable-resolved], [disable resolve daemon]))
 if test "x$enable_resolved" != "xno"; then
         have_resolved=yes
+        M4_DEFINES="$M4_DEFINES -DENABLE_RESOLVED"
 fi
 AM_CONDITIONAL(ENABLE_RESOLVED, [test "$have_resolved" = "yes"])
 
@@ -995,12 +1063,16 @@ fi
 AM_CONDITIONAL(ENABLE_EFI, [test "x$have_efi" = "xyes"])
 
 # ------------------------------------------------------------------------------
-have_multi_seat_x=no
-AC_ARG_ENABLE(multi_seat_x, AS_HELP_STRING([--disable-multi-seat-x], [do not build multi-seat-x]))
-if test "x$enable_multi_seat_x" != "xno"; then
-        have_multi_seat_x=yes
+have_terminal=no
+AC_ARG_ENABLE(terminal, AS_HELP_STRING([--enable-terminal], [enable terminal support]))
+if test "x$enable_terminal" = "xyes"; then
+        PKG_CHECK_MODULES([TERMINAL], [ libevdev >= 1.2 xkbcommon >= 0.4 libdrm >= 2.4], [have_terminal=yes])
+        AS_IF([test "x$have_terminal" != xyes -a "x$enable_terminal" = xyes],
+              [AC_MSG_ERROR([*** terminal support requested but required dependencies not available])],
+              [test "x$have_terminal" = xyes],
+              [AC_DEFINE(ENABLE_TERMINAL, 1, [Define if terminal support is to be enabled])])
 fi
-AM_CONDITIONAL(ENABLE_MULTI_SEAT_X, [test "$have_multi_seat_x" = "yes"])
+AM_CONDITIONAL(ENABLE_TERMINAL, [test "x$have_terminal" = "xyes"])
 
 # ------------------------------------------------------------------------------
 have_kdbus=no
@@ -1082,25 +1154,6 @@ fi
 AM_CONDITIONAL(HAVE_MYHOSTNAME, [test "$have_myhostname" = "yes"])
 
 # ------------------------------------------------------------------------------
-AC_ARG_WITH(firmware-path,
-       AS_HELP_STRING([--with-firmware-path=DIR[[[:DIR[...]]]]],
-          [Firmware search path (default="")]),
-       [], [with_firmware_path=""])
-OLD_IFS=$IFS
-IFS=:
-for i in $with_firmware_path; do
-       if test "x${FIRMWARE_PATH}" = "x"; then
-              FIRMWARE_PATH="\\\"${i}/\\\""
-       else
-              FIRMWARE_PATH="${FIRMWARE_PATH}, \\\"${i}/\\\""
-       fi
-done
-IFS=$OLD_IFS
-AC_SUBST(FIRMWARE_PATH)
-AS_IF([test "x${FIRMWARE_PATH}" != "x"], [ AC_DEFINE(HAVE_FIRMWARE, 1, [Define if FIRMWARE is available]) ])
-AM_CONDITIONAL(ENABLE_FIRMWARE, [test "x${FIRMWARE_PATH}" != "x"])
-
-# ------------------------------------------------------------------------------
 AC_ARG_ENABLE([gudev],
        AS_HELP_STRING([--disable-gudev], [disable Gobject libudev support @<:@default=enabled@:>@]),
        [], [enable_gudev=yes])
@@ -1115,7 +1168,18 @@ AS_IF([test "x$enable_manpages" != xno], [have_manpages=yes])
 AM_CONDITIONAL(ENABLE_MANPAGES, [test "x$have_manpages" = "xyes"])
 
 # ------------------------------------------------------------------------------
+AC_ARG_ENABLE(hibernate,
+       [AC_HELP_STRING([--disable-hibernate], [disable hibernation support])],
+       enable_hibernate=$enableval, enable_hibernate=yes)
+AM_CONDITIONAL(ENABLE_HIBERNATE, [test x$enable_hibernate = xyes])
 
+# ------------------------------------------------------------------------------
+AC_ARG_ENABLE(ldconfig,
+       [AC_HELP_STRING([--disable-ldconfig], [disable ldconfig])],
+       enable_ldconfig=$enableval, enable_ldconfig=yes)
+AM_CONDITIONAL(ENABLE_LDCONFIG, [test x$enable_ldconfig = xyes])
+
+# ------------------------------------------------------------------------------
 # Location of the init scripts as mandated by LSB
 SYSTEM_SYSVINIT_PATH=/etc/init.d
 SYSTEM_SYSVRCND_PATH=/etc/rc.d
@@ -1266,20 +1330,23 @@ AC_MSG_RESULT([
         SECCOMP:                 ${have_seccomp}
         SMACK:                   ${have_smack}
         XZ:                      ${have_xz}
+        LZ4:                     ${have_lz4}
         ACL:                     ${have_acl}
         GCRYPT:                  ${have_gcrypt}
         QRENCODE:                ${have_qrencode}
         MICROHTTPD:              ${have_microhttpd}
         CHKCONFIG:               ${have_chkconfig}
         GNUTLS:                  ${have_gnutls}
+        libcurl:                 ${have_libcurl}
+        libidn:                  ${have_libidn}
         ELFUTILS:                ${have_elfutils}
         binfmt:                  ${have_binfmt}
         vconsole:                ${have_vconsole}
-        readahead:               ${have_readahead}
         bootchart:               ${have_bootchart}
         quotacheck:              ${have_quotacheck}
         tmpfiles:                ${have_tmpfiles}
         sysusers:                ${have_sysusers}
+        firstboot:               ${have_firstboot}
         randomseed:              ${have_randomseed}
         backlight:               ${have_backlight}
         rfkill:                  ${have_rfkill}
@@ -1303,7 +1370,7 @@ AC_MSG_RESULT([
         nss-myhostname:          ${have_myhostname}
         gudev:                   ${enable_gudev}
         gintrospection:          ${enable_introspection}
-        multi-seat-x:            ${have_multi_seat_x}
+        terminal:                ${have_terminal}
         kdbus:                   ${have_kdbus}
         Python:                  ${have_python}
         Python Headers:          ${have_python_devel}
@@ -1313,6 +1380,7 @@ AC_MSG_RESULT([
         Split /usr:              ${enable_split_usr}
         SysV compatibility:      ${SYSTEM_SYSV_COMPAT}
         compatibility libraries: ${have_compat_libs}
+        utmp/wtmp support:       ${have_utmp}
 
         prefix:                  ${prefix}
         rootprefix:              ${with_rootprefix}
@@ -1327,7 +1395,6 @@ AC_MSG_RESULT([
         Build Python:            ${PYTHON}
         Installation Python:     ${PYTHON_BINARY}
         sphinx binary:           ${SPHINX_BUILD}
-        firmware path:           ${FIRMWARE_PATH}
         PAM modules dir:         ${with_pamlibdir}
         PAM configuration dir:   ${with_pamconfdir}
         D-Bus policy dir:        ${with_dbuspolicydir}
@@ -1342,6 +1409,7 @@ AC_MSG_RESULT([
         TTY GID:                 ${TTY_GID}
         Maximum System UID:      ${SYSTEM_UID_MAX}
         Maximum System GID:      ${SYSTEM_GID_MAX}
+        Certificate root:        ${CERTIFICATEROOT}
 
         CFLAGS:                  ${OUR_CFLAGS} ${CFLAGS}
         CPPFLAGS:                ${OUR_CPPFLAGS} ${CPPFLAGS}

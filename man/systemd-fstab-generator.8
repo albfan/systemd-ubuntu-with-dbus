@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 215" "systemd-fstab-generator"
+.TH "SYSTEMD\-FSTAB\-GENERATOR" "8" "" "systemd 217" "systemd-fstab-generator"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -63,6 +63,96 @@ Takes a boolean argument\&. Defaults to
 is honored only by initial RAM disk (initrd) while
 \fIfstab=\fR
 is honored by both the main system and the initrd\&.
+.RE
+.PP
+\fIroot=\fR
+.RS 4
+Takes the root filesystem to mount in the initrd\&.
+\fIroot=\fR
+is honored by the initrd\&.
+.RE
+.PP
+\fIrootfstype=\fR
+.RS 4
+Takes the root filesystem type that will be passed to the mount command\&.
+\fIrootfstype=\fR
+is honored by the initrd\&.
+.RE
+.PP
+\fIrootflags=\fR
+.RS 4
+Takes the root filesystem mount options to use\&.
+\fIrootflags=\fR
+is honored by the initrd\&.
+.RE
+.PP
+\fImount\&.usr=\fR
+.RS 4
+Takes the
+/usr
+filesystem to be mounted by the initrd\&. If
+\fImount\&.usrfstype=\fR
+or
+\fImount\&.usrflags=\fR
+is set, then
+\fImount\&.usr=\fR
+will default to the value set in
+\fIroot=\fR\&.
+.sp
+Otherwise this parameter defaults to the
+/usr
+entry found in
+/etc/fstab
+on the root filesystem\&.
+.sp
+\fImount\&.usr=\fR
+is honored by the initrd\&.
+.RE
+.PP
+\fImount\&.usrfstype=\fR
+.RS 4
+Takes the
+/usr
+filesystem type that will be passed to the mount command\&. If
+\fImount\&.usr=\fR
+or
+\fImount\&.usrflags=\fR
+is set, then
+\fImount\&.usrfstype=\fR
+will default to the value set in
+\fIrootfstype=\fR\&.
+.sp
+Otherwise this value will be read from the
+/usr
+entry in
+/etc/fstab
+on the root filesystem\&.
+.sp
+\fImount\&.usrfstype=\fR
+is honored by the initrd\&.
+.RE
+.PP
+\fImount\&.usrflags=\fR
+.RS 4
+Takes the
+/usr
+filesystem mount options to use\&. If
+\fImount\&.usr=\fR
+or
+\fImount\&.usrfstype=\fR
+is set, then
+\fImount\&.usrflages=\fR
+will default to the value set in
+\fIrootflags=\fR\&.
+.sp
+Otherwise this value will be read from the
+/usr
+entry in
+/etc/fstab
+on the root filesystem\&.
+.sp
+\fImount\&.usrflags=\fR
+is honored by the initrd\&.
 .RE
 .SH "SEE ALSO"
 .PP

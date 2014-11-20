@@ -212,10 +212,25 @@
                                         <term><varname>IPv4LL=</varname></term>
                                         <listitem>
                                                 <para>A boolean. When true, enables IPv4 link-local support.
-                                                If <literal>DHCP=</literal> is also true, acquiring DHCP address
-                                                will deprecate previously acquired IPv4 link-local address or
-                                                stop acquiring process if one has not been acquired before.
                                                 </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>IPv4LLRoute=</varname></term>
+                                        <listitem>
+                                                <para>A boolean. When true, sets up the route needed for
+                                                non-IPv4LL hosts to communicate with IPv4LL-only hosts. Defaults
+                                                to false.
+                                                </para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>LLMNR=</varname></term>
+                                        <listitem>
+                                                <para>A boolean or <literal>resolve</literal>. When true, enables
+                                                Link-Local Multicast Name Resolution on the link, when set to
+                                                <literal>resolve</literal> only resolution is enabled, but not
+                                                announcement. Defaults to true.</para>
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
@@ -286,7 +301,18 @@
                                                 This option may be specified more than once.</para>
                                         </listitem>
                                 </varlistentry>
-<!-- TODO: document NTP= option when it is actually used somewhere -->
+                                <varlistentry>
+                                        <term><varname>Domains=</varname></term>
+                                        <listitem>
+                                                <para>The domains used for DNS resolution over this link.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>NTP=</varname></term>
+                                        <listitem>
+                                                <para>An NTP server address. This option may be specified more than once.</para>
+                                        </listitem>
+                                </varlistentry>
                                 <varlistentry>
                                         <term><varname>Bridge=</varname></term>
                                         <listitem>
@@ -346,6 +372,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>Peer=</varname></term>
+                                        <listitem>
+                                                <para>The peer address in a point-to-point connection. Accepts the same format as
+                                                the <literal>Address</literal> key.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>Broadcast=</varname></term>
                                         <listitem>
                                                 <para>The broadcast address, which must be in the format described in
@@ -379,7 +412,13 @@
                                         <term><varname>Destination=</varname></term>
                                         <listitem>
                                                 <para>The destination prefix of the route. Possibly followed by a slash and the
-                                                prefixlength. If ommitted, a full-length host route is assumed.</para>
+                                                prefixlength. If omitted, a full-length host route is assumed.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>Metric=</varname></term>
+                                        <listitem>
+                                                <para>The metric of the route. An unsigned integer</para>
                                         </listitem>
                                 </varlistentry>
                         </variablelist>
@@ -419,6 +458,13 @@
                                         </listitem>
                                 </varlistentry>
                                 <varlistentry>
+                                        <term><varname>UseDomains=</varname></term>
+                                        <listitem>
+                                                <para>When true (not the default), the domain name received from the DHCP server
+                                                will be used for DNS resolution over this link.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
                                         <term><varname>UseRoutes=</varname></term>
                                         <listitem>
                                                 <para>When true (the default), the static routes will be requested from the DHCP server
@@ -431,6 +477,27 @@
                                                 <para>When true, the connection will never be torn down even if the DHCP lease
                                                 expires. This is contrary to the DHCP specification, but may be the best choice
                                                 if, say, the root filesystem relies on this connection. Defaults to false.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>VendorClassIdentifier=</varname></term>
+                                        <listitem>
+                                                <para>The vendor class identifier used to identify vendor type and configuration.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>RequestBroadcast=</varname></term>
+                                        <listitem>
+                                                <para>Request the server to use broadcast messages before the IP address has been
+                                                configured. This is necessary for devices that cannot receive RAW packets, or that
+                                                cannot receive packets at all before an IP address has been configured. On the other
+                                                hand, this must not be enabled on networks where broadcasts are filtered out.</para>
+                                        </listitem>
+                                </varlistentry>
+                                <varlistentry>
+                                        <term><varname>RouteMetric=</varname></term>
+                                        <listitem>
+                                                <para>Set the routing metric for routes specified by the DHCP server.</para>
                                         </listitem>
                                 </varlistentry>
                        </variablelist>
@@ -457,7 +524,7 @@ Gateway=192.168.0.1</programlisting>
 Name=en*
 
 [Network]
-DHCP=yes</programlisting>
+DHCP=both</programlisting>
                 </example>
 
                 <example>

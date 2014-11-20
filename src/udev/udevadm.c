@@ -1,3 +1,4 @@
+/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 /*
  * Copyright (C) 2007-2012 Kay Sievers <kay@vrfy.org>
  *
@@ -27,13 +28,11 @@
 
 void udev_main_log(struct udev *udev, int priority,
                    const char *file, int line, const char *fn,
-                   const char *format, va_list args)
-{
+                   const char *format, va_list args) {
         log_metav(priority, file, line, fn, format, args);
 }
 
-static int adm_version(struct udev *udev, int argc, char *argv[])
-{
+static int adm_version(struct udev *udev, int argc, char *argv[]) {
         printf("%s\n", VERSION);
         return 0;
 }
@@ -63,8 +62,7 @@ static const struct udevadm_cmd *udevadm_cmds[] = {
         &udevadm_help,
 };
 
-static int adm_help(struct udev *udev, int argc, char *argv[])
-{
+static int adm_help(struct udev *udev, int argc, char *argv[]) {
         unsigned int i;
 
         fprintf(stderr, "Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
@@ -75,16 +73,14 @@ static int adm_help(struct udev *udev, int argc, char *argv[])
         return 0;
 }
 
-static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[])
-{
+static int run_command(struct udev *udev, const struct udevadm_cmd *cmd, int argc, char *argv[]) {
         if (cmd->debug)
                 log_set_max_level(LOG_DEBUG);
         log_debug("calling: %s", cmd->name);
         return cmd->cmd(udev, argc, argv);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
         struct udev *udev;
         static const struct option options[] = {
                 { "debug", no_argument, NULL, 'd' },
@@ -94,7 +90,7 @@ int main(int argc, char *argv[])
         };
         const char *command;
         unsigned int i;
-        int rc = 1;
+        int rc = 1, c;
 
         udev = udev_new();
         if (udev == NULL)
@@ -103,34 +99,32 @@ int main(int argc, char *argv[])
         log_parse_environment();
         log_open();
         udev_set_log_fn(udev, udev_main_log);
-        label_init("/dev");
+        mac_selinux_init("/dev");
 
-        for (;;) {
-                int option;
+        while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
+                switch (c) {
 
-                option = getopt_long(argc, argv, "+dhV", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
                 case 'd':
                         log_set_max_level(LOG_DEBUG);
                         udev_set_log_priority(udev, LOG_DEBUG);
                         break;
+
                 case 'h':
                         rc = adm_help(udev, argc, argv);
                         goto out;
+
                 case 'V':
                         rc = adm_version(udev, argc, argv);
                         goto out;
+
                 default:
                         goto out;
                 }
-        }
+
         command = argv[optind];
 
         if (command != NULL)
-                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++) {
+                for (i = 0; i < ELEMENTSOF(udevadm_cmds); i++)
                         if (streq(udevadm_cmds[i]->name, command)) {
                                 argc -= optind;
                                 argv += optind;
@@ -139,13 +133,11 @@ int main(int argc, char *argv[])
                                 rc = run_command(udev, udevadm_cmds[i], argc, argv);
                                 goto out;
                         }
-                }
 
-        fprintf(stderr, "missing or unknown command\n\n");
-        adm_help(udev, argc, argv);
+        fprintf(stderr, "%s: missing or unknown command\n", program_invocation_short_name);
         rc = 2;
 out:
-        label_finish();
+        mac_selinux_finish();
         udev_unref(udev);
         log_close();
         return rc;

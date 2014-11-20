@@ -70,7 +70,7 @@
                 <para><command>systemd-nspawn</command> may be used to
                 run a command or OS in a light-weight namespace
                 container. In many ways it is similar to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                 but more powerful since it fully virtualizes the file
                 system hierarchy, as well as the process tree, the
                 various IPC subsystems and the host and domain
@@ -98,15 +98,15 @@
                 involved with boot and systems management.</para>
 
                 <para>In contrast to
-                <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
+                <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry> <command>systemd-nspawn</command>
                 may be used to boot full Linux-based operating systems
                 in a container.</para>
 
                 <para>Use a tool like
-                <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                 or
-                <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>
                 to set up an OS directory tree suitable as file system
                 hierarchy for <command>systemd-nspawn</command>
                 containers.</para>
@@ -393,7 +393,7 @@
                                 additional capabilities to grant the
                                 container. Takes a comma-separated
                                 list of capability names, see
-                                <citerefentry><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                                <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                                 for more information. Note that the
                                 following capabilities will be granted
                                 in any way: CAP_CHOWN,
@@ -581,7 +581,7 @@
                                 accessible via
                                 <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                                 and shown by tools such as
-                                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
+                                <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
                                 the container does not run an init
                                 system, it is recommended to set this
                                 option to <literal>no</literal>. Note
@@ -644,6 +644,49 @@
                                 of the container OS itself.</para></listitem>
                         </varlistentry>
 
+                        <varlistentry>
+                                <term><option>--volatile</option><replaceable>=MODE</replaceable></term>
+
+                                <listitem><para>Boots the container in
+                                volatile (ephemeral) mode. When no
+                                mode parameter is passed or when mode
+                                is specified as <literal>yes</literal>
+                                full volatile mode is enabled. This
+                                means the root directory is mounted as
+                                mostly unpopulated
+                                <literal>tmpfs</literal> instance, and
+                                <filename>/usr</filename> from the OS
+                                tree is mounted into it, read-only
+                                (the system thus starts up with
+                                read-only OS resources, but pristine
+                                state and configuration, any changes
+                                to the either are lost on
+                                shutdown). When the mode parameter is
+                                specified as <literal>state</literal>
+                                the OS tree is mounted read-only, but
+                                <filename>/var</filename> is mounted
+                                as <literal>tmpfs</literal> instance
+                                into it (the system thus starts up
+                                with read-only OS resources and
+                                configuration, but pristine state, any
+                                changes to the latter are lost on
+                                shutdown). When the mode parameter is
+                                specified as <literal>no</literal>
+                                (the default) the whole OS tree is made
+                                available writable.</para>
+
+                                <para>Note that setting this to
+                                <literal>yes</literal> or
+                                <literal>state</literal> will only
+                                work correctly with operating systems
+                                in the container that can boot up with
+                                only <filename>/usr</filename>
+                                mounted, and are able to populate
+                                <filename>/var</filename>
+                                automatically, as
+                                needed.</para></listitem>
+                        </varlistentry>
+
                         <xi:include href="standard-options.xml" xpointer="help" />
                         <xi:include href="standard-options.xml" xpointer="version" />
                 </variablelist>
@@ -651,69 +694,70 @@
         </refsect1>
 
         <refsect1>
-                <title>Example 1</title>
+                <title>Examples</title>
+                <example>
+                        <title>Boot a minimal Fedora distribution in a container</title>
 
-                <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
+                        <programlisting># yum -y --releasever=19 --nogpg --installroot=/srv/mycontainer --disablerepo='*' --enablerepo=fedora install systemd passwd yum fedora-release vim-minimal
 # systemd-nspawn -bD /srv/mycontainer</programlisting>
 
-                <para>This installs a minimal Fedora distribution into
-                the directory <filename noindex='true'>/srv/mycontainer/</filename> and
-                then boots an OS in a namespace container in
-                it.</para>
-        </refsect1>
+                        <para>This installs a minimal Fedora distribution into
+                        the directory <filename noindex='true'>/srv/mycontainer/</filename> and
+                        then boots an OS in a namespace container in
+                        it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 2</title>
+                <example>
+                        <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
 
-                <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+                        <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</programlisting>
 
-                <para>This installs a minimal Debian unstable
-                distribution into the directory
-                <filename>~/debian-tree/</filename> and then spawns a
-                shell in a namespace container in it.</para>
-        </refsect1>
+                        <para>This installs a minimal Debian unstable
+                        distribution into the directory
+                        <filename>~/debian-tree/</filename> and then spawns a
+                        shell in a namespace container in it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 3</title>
+                <example>
+                        <title>Boot a minimal Arch Linux distribution in a container</title>
 
-                <programlisting># pacstrap -c -d ~/arch-tree/ base
+                        <programlisting># pacstrap -c -d ~/arch-tree/ base
 # systemd-nspawn -bD ~/arch-tree/</programlisting>
 
-                <para>This installs a mimimal Arch Linux distribution into
-                the directory <filename>~/arch-tree/</filename> and then
-                boots an OS in a namespace container in it.</para>
-        </refsect1>
+                        <para>This installs a mimimal Arch Linux distribution into
+                        the directory <filename>~/arch-tree/</filename> and then
+                        boots an OS in a namespace container in it.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 4</title>
+                <example>
+                        <title>Enable Arch Linux container on boot</title>
 
-                <programlisting># mv ~/arch-tree /var/lib/container/arch
+                        <programlisting># mv ~/arch-tree /var/lib/container/arch
 # systemctl enable systemd-nspawn@arch.service
 # systemctl start systemd-nspawn@arch.service</programlisting>
 
-                <para>This makes the Arch Linux container part of the
-                <filename>multi-user.target</filename> on the host.
-                </para>
-        </refsect1>
+                        <para>This makes the Arch Linux container part of the
+                        <filename>multi-user.target</filename> on the host.
+                        </para>
+                </example>
 
-        <refsect1>
-                <title>Example 5</title>
+                <example>
+                        <title>Boot into a btrfs snapshot of the host system</title>
 
-                <programlisting># btrfs subvolume snapshot / /.tmp
+                        <programlisting># btrfs subvolume snapshot / /.tmp
 # systemd-nspawn --private-network -D /.tmp -b</programlisting>
 
-                <para>This runs a copy of the host system in a
-                btrfs snapshot.</para>
-        </refsect1>
+                        <para>This runs a copy of the host system in a
+                        btrfs snapshot.</para>
+                </example>
 
-        <refsect1>
-                <title>Example 6</title>
+                <example>
+                        <title>Run a container with SELinux sandbox security contexts</title>
 
-                <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
+                        <programlisting># chcon system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -R /srv/container
 # systemd-nspawn -L system_u:object_r:svirt_sandbox_file_t:s0:c0,c1 -Z system_u:system_r:svirt_lxc_net_t:s0:c0,c1 -D /srv/container /bin/sh</programlisting>
-
-                <para>This runs a container with SELinux sandbox security contexts.</para>
+                </example>
         </refsect1>
 
         <refsect1>
@@ -727,10 +771,10 @@
                 <title>See Also</title>
                 <para>
                         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>yum</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+                        <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 </para>

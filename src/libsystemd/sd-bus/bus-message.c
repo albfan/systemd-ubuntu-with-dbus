@@ -28,6 +28,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "cgroup-util.h"
+#include "memfd.h"
 
 #include "sd-bus.h"
 #include "bus-message.h"
@@ -126,15 +127,16 @@ static void message_free(sd_bus_message *m) {
 
         message_reset_parts(m);
 
+        if (m->release_kdbus) {
+                struct kdbus_cmd_free cmd_free;
+
+                cmd_free.flags = 0;
+                cmd_free.offset = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
+                (void) ioctl(m->bus->input_fd, KDBUS_CMD_FREE, &cmd_free);
+        }
+
         if (m->free_kdbus)
                 free(m->kdbus);
-
-        if (m->release_kdbus) {
-                uint64_t off;
-
-                off = (uint8_t *)m->kdbus - (uint8_t *)m->bus->kdbus_buffer;
-                ioctl(m->bus->input_fd, KDBUS_CMD_FREE, &off);
-        }
 
         sd_bus_unref(m->bus);
 
@@ -847,6 +849,13 @@ _public_ int sd_bus_message_get_auto_start(sd_bus_message *m) {
         return !(m->header->flags & BUS_MESSAGE_NO_AUTO_START);
 }
 
+_public_ int sd_bus_message_get_allow_interactive_authorization(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+
+        return m->header->type == SD_BUS_MESSAGE_METHOD_CALL &&
+                (m->header->flags & BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION);
+}
+
 _public_ const char *sd_bus_message_get_path(sd_bus_message *m) {
         assert_return(m, NULL);
 
@@ -997,6 +1006,18 @@ _public_ int sd_bus_message_set_auto_start(sd_bus_message *m, int b) {
         return 0;
 }
 
+_public_ int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *m, int b) {
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+
+        if (b)
+                m->header->flags |= BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+        else
+                m->header->flags &= ~BUS_MESSAGE_ALLOW_INTERACTIVE_AUTHORIZATION;
+
+        return 0;
+}
+
 static struct bus_container *message_get_container(sd_bus_message *m) {
         assert(m);
 
@@ -1076,7 +1097,7 @@ static int part_make_space(
                         uint64_t new_allocated;
 
                         new_allocated = PAGE_ALIGN(sz > 0 ? 2 * sz : 1);
-                        r = ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &new_allocated);
+                        r = ftruncate(part->memfd, new_allocated);
                         if (r < 0) {
                                 m->poisoned = true;
                                 return -errno;
@@ -2527,7 +2548,7 @@ _public_ int sd_bus_message_append_array_iovec(
 
 _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
                                                char type,
-                                               sd_memfd *memfd) {
+                                               int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         ssize_t align, sz;
@@ -2537,7 +2558,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
 
         if (!m)
                 return -EINVAL;
-        if (!memfd)
+        if (memfd < 0)
                 return -EINVAL;
         if (m->sealed)
                 return -EPERM;
@@ -2546,15 +2567,15 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         if (m->poisoned)
                 return -ESTALE;
 
-        r = sd_memfd_set_sealed(memfd, true);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 
@@ -2593,7 +2614,7 @@ _public_ int sd_bus_message_append_array_memfd(sd_bus_message *m,
         return sd_bus_message_close_container(m);
 }
 
-_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *memfd) {
+_public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, int memfd) {
         _cleanup_close_ int copy_fd = -1;
         struct bus_body_part *part;
         struct bus_container *c;
@@ -2602,19 +2623,19 @@ _public_ int sd_bus_message_append_string_memfd(sd_bus_message *m, sd_memfd *mem
         int r;
 
         assert_return(m, -EINVAL);
-        assert_return(memfd, -EINVAL);
+        assert_return(memfd >= 0, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        r = sd_memfd_set_sealed(memfd, true);
+        r = memfd_set_sealed(memfd);
         if (r < 0)
                 return r;
 
-        copy_fd = sd_memfd_dup_fd(memfd);
+        copy_fd = dup(memfd);
         if (copy_fd < 0)
                 return copy_fd;
 
-        r = sd_memfd_get_size(memfd, &size);
+        r = memfd_get_size(memfd, &size);
         if (r < 0)
                 return r;
 
@@ -2799,11 +2820,11 @@ int bus_message_seal(sd_bus_message *m, uint64_t cookie, usec_t timeout) {
 
                                 /* Then, sync up real memfd size */
                                 sz = part->size;
-                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SIZE_SET, &sz) < 0)
+                                if (ftruncate(part->memfd, sz) < 0)
                                         return -errno;
 
                                 /* Finally, try to seal */
-                                if (ioctl(part->memfd, KDBUS_CMD_MEMFD_SEAL_SET, 1) >= 0)
+                                if (fcntl(part->memfd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) >= 0)
                                         part->sealed = true;
                         }
         }
@@ -2840,7 +2861,7 @@ int bus_body_part_map(struct bus_body_part *part) {
         psz = PAGE_ALIGN(part->size);
 
         if (part->memfd >= 0)
-                p = mmap(NULL, psz, PROT_READ, MAP_SHARED, part->memfd, 0);
+                p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, 0);
         else if (part->is_zero)
                 p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
         else
@@ -5336,7 +5357,7 @@ int bus_header_message_size(struct bus_header *h, size_t *sum) {
 }
 
 _public_ int sd_bus_message_get_errno(sd_bus_message *m) {
-        assert_return(m, -EINVAL);
+        assert_return(m, EINVAL);
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;

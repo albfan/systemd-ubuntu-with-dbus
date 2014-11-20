@@ -26,8 +26,6 @@
 #include <sys/types.h>
 #include <inttypes.h>
 
-#include "sd-dhcp-lease.h"
-
 #include "_sd-common.h"
 
 /*
@@ -51,62 +49,80 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* Get state from ifindex.
- * Possible states: failed, configuring, configured
- * Possible return codes:
- *   -ENODATA: networkd is not aware of the link
- *   -EUNATCH: networkd is not managing this link
- *   -EBUSY: udev is still processing the link, networkd does not yet know if it will manage it
- */
-int sd_network_get_link_state(unsigned index, char **state);
-
-/* Get operatinal state from ifindex.
- * Possible states: unknown, dormant, carrier, degraded, routable
- * Possible return codes:
- *   -ENODATA: networkd is not aware of the link
- */
-int sd_network_get_link_operational_state(unsigned index, char **state);
-
-/* Get overall opeartional state
- * Possible states: unknown, dormant, carrier, degraded, routable
+/* Get overall operational state
+ * Possible states: down, up, dormant, carrier, degraded, routable
  * Possible return codes:
  *   -ENODATA: networkd is not aware of any links
  */
 int sd_network_get_operational_state(char **state);
 
-/* Returns true if link exists and is loopback, and false otherwise */
-int sd_network_link_is_loopback(unsigned index);
+/* Get DNS entries for all links. These are string representations of
+ * IP addresses */
+int sd_network_get_dns(char ***dns);
 
-/* Get DHCPv4 lease from ifindex. */
-int sd_network_get_dhcp_lease(unsigned index, sd_dhcp_lease **ret);
+/* Get NTP entries for all links. These are domain names or string
+ * representations of IP addresses */
+int sd_network_get_ntp(char ***ntp);
 
-/* Returns true if link is configured to respect DNS entries received by DHCP */
-int sd_network_dhcp_use_dns(unsigned index);
+/* Get the search/routing domains for all links. */
+int sd_network_get_domains(char ***domains);
 
-/* Returns true if link is configured to respect NTP entries received by DHCP */
-int sd_network_dhcp_use_ntp(unsigned index);
+/* Get setup state from ifindex.
+ * Possible states:
+ *   pending: udev is still processing the link, we don't yet know if we will manage it
+ *   failed: networkd failed to manage the link
+ *   configuring: in the process of retrieving configuration or configuring the link
+ *   configured: link configured successfully
+ *   unmanaged: networkd is not handling the link
+ *   linger: the link is gone, but has not yet been dropped by networkd
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_setup_state(int ifindex, char **state);
 
-/* Get IPv4 DNS entries statically configured for the link */
-int sd_network_get_dns(unsigned index, struct in_addr **addr, size_t *addr_size);
+/* Get operational state from ifindex.
+ * Possible states:
+ *   off: the device is powered down
+ *   no-carrier: the device is powered up, but it does not yet have a carrier
+ *   dormant: the device has a carrier, but is not yet ready for normal traffic
+ *   carrier: the link has a carrier
+ *   degraded: the link has carrier and addresses valid on the local link configured
+ *   routable: the link has carrier and routable address configured
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_operational_state(int ifindex, char **state);
 
-/* Get IPv4 NTP entries statically configured for the link */
-int sd_network_get_ntp(unsigned index, struct in_addr **addr, size_t *addr_size);
+/* Get path to .network file applied to link */
+int sd_network_link_get_network_file(int ifindex, char **filename);
 
-/* Get IPv6 DNS entries statically configured for the link */
-int sd_network_get_dns6(unsigned index, struct in6_addr **addr, size_t *addr_size);
+/* Get DNS entries for a given link. These are string representations of
+ * IP addresses */
+int sd_network_link_get_dns(int ifindex, char ***addr);
 
-/* Get IPv6 NTP entries statically configured for the link */
-int sd_network_get_ntp6(unsigned index, struct in6_addr **addr, size_t *addr_size);
+/* Get NTP entries for a given link. These are domain names or string
+ * representations of IP addresses */
+int sd_network_link_get_ntp(int ifindex, char ***addr);
 
-/* Get all network interfaces' indices, and store them in *indices. Returns
- * the number of indices. If indices is NULL, only returns the number of indices. */
-int sd_network_get_ifindices(unsigned **indices);
+/* Indicates whether or not LLMNR should be enabled for the link
+ * Possible levels of support: yes, no, resolve
+ * Possible return codes:
+ *   -ENODATA: networkd is not aware of the link
+ */
+int sd_network_link_get_llmnr(int ifindex, char **llmnr);
+
+/* Get the DNS domain names for a given link. */
+int sd_network_link_get_domains(int ifindex, char ***domains);
+
+/* Returns whether or not domains that don't match any link should be resolved
+ * on this link. 1 for yes, 0 for no and negative value for error */
+int sd_network_link_get_wildcard_domain(int ifindex);
 
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
 
 /* Create a new monitor. Category must be NULL, "links" or "leases". */
-int sd_network_monitor_new(const char *category, sd_network_monitor **ret);
+int sd_network_monitor_new(sd_network_monitor **ret, const char *category);
 
 /* Destroys the passed monitor. Returns NULL. */
 sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m);

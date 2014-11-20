@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_EVENT_ADD_TIME" "3" "" "systemd 215" "sd_event_add_time"
+.TH "SD_EVENT_ADD_TIME" "3" "" "systemd 217" "sd_event_add_time"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -30,6 +30,8 @@ sd_event_add_time, sd_event_source_get_time, sd_event_source_set_time, sd_event_
 .ft
 .HP \w'int\ sd_event_add_time('u
 .BI "int sd_event_add_time(sd_event\ *" "event" ", sd_event_source\ **" "source" ", clockid_t\ " "clock" ", uint64_t\ " "usec" ", uint64_t\ " "accuracy" ", sd_event_time_handler_t\ " "handler" ", void\ *" "userdata" ");"
+.HP \w'typedef\ int\ (*sd_event_time_handler_t)('u
+.BI "typedef int (*sd_event_time_handler_t)(sd_event_source\ *" "s" ", uint64_t\ " "usec" ", void\ *" "userdata" ");"
 .HP \w'int\ sd_event_source_get_time('u
 .BI "int sd_event_source_get_time(sd_event_source\ *" "source" ", usec_t\ *" "usec" ");"
 .HP \w'int\ sd_event_source_set_time('u
@@ -63,8 +65,12 @@ parameter takes an additional accuracy value in microseconds specifying a time t
 shall reference a function to call when the timer elapses\&. The handler function will be passed the
 \fIuserdata\fR
 pointer, which may be chosen freely by the caller\&. The handler is also passed the configured time it was triggered, however it might actually have been called at a slightly later time, subject to the specified accuracy value, the kernel timer slack (see
-\fBprctl\fR(2)) and additional scheduling latencies\&. By default, the timer will elapse once (SD_EVENT_ONESHOT), but this may be changed with
-\fBsd_event_source_set_enabled\fR(3)\&. If the handler function returns a negative error code, it will be disabled after the invocation, even if SD_EVENT_ON mode is set\&.
+\fBprctl\fR(2)) and additional scheduling latencies\&.
+.PP
+By default, the timer will elapse once (\fBSD_EVENT_ONESHOT\fR), but this may be changed with
+\fBsd_event_source_set_enabled\fR(3)\&. If the handler function returns a negative error code, it will be disabled after the invocation, even if
+\fBSD_EVENT_ON\fR
+mode is set\&.
 .PP
 \fBsd_event_source_get_time()\fR
 retrieves the configured time value of a timer event source created previously with
@@ -92,27 +98,27 @@ On success, these functions return 0 or a positive integer\&. On failure, they r
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
-Not enough memory to allocate object\&.
+Not enough memory to allocate an object\&.
 .RE
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 An invalid argument has been passed\&.
 .RE
 .PP
-\fI\-ESTALE\fR
+\fB\-ESTALE\fR
 .RS 4
 The event loop is already terminated\&.
 .RE
 .PP
-\fI\-ECHILD\fR
+\fB\-ECHILD\fR
 .RS 4
 The event loop has been created in a different process\&.
 .RE
 .PP
-\fI\-ENOTSUP\fR
+\fB\-ENOTSUP\fR
 .RS 4
 The selected clock is not supported by the event loop implementation\&.
 .RE
@@ -127,5 +133,8 @@ file\&.
 \fBsystemd\fR(1),
 \fBsd-event\fR(3),
 \fBsd_event_new\fR(3),
+\fBsd_event_add_signal\fR(3),
+\fBsd_event_add_child\fR(3),
+\fBsd_event_add_defer\fR(3),
 \fBclock_gettime\fR(2),
 \fBsd_event_source_set_enabled\fR(3)

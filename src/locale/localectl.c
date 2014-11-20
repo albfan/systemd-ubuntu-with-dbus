@@ -43,6 +43,9 @@
 #include "path-util.h"
 #include "utf8.h"
 #include "def.h"
+#include "virt.h"
+#include "fileio.h"
+#include "locale-util.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
@@ -79,6 +82,52 @@ typedef struct StatusInfo {
         const char *x11_variant;
         const char *x11_options;
 } StatusInfo;
+
+static void print_overriden_variables(void) {
+        int r;
+        char *variables[_VARIABLE_LC_MAX] = {};
+        LocaleVariable j;
+        bool print_warning = true;
+
+        if (detect_container(NULL) > 0 || arg_host)
+                return;
+
+        r = parse_env_file("/proc/cmdline", WHITESPACE,
+                           "locale.LANG",              &variables[VARIABLE_LANG],
+                           "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
+                           "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
+                           "locale.LC_NUMERIC",        &variables[VARIABLE_LC_NUMERIC],
+                           "locale.LC_TIME",           &variables[VARIABLE_LC_TIME],
+                           "locale.LC_COLLATE",        &variables[VARIABLE_LC_COLLATE],
+                           "locale.LC_MONETARY",       &variables[VARIABLE_LC_MONETARY],
+                           "locale.LC_MESSAGES",       &variables[VARIABLE_LC_MESSAGES],
+                           "locale.LC_PAPER",          &variables[VARIABLE_LC_PAPER],
+                           "locale.LC_NAME",           &variables[VARIABLE_LC_NAME],
+                           "locale.LC_ADDRESS",        &variables[VARIABLE_LC_ADDRESS],
+                           "locale.LC_TELEPHONE",      &variables[VARIABLE_LC_TELEPHONE],
+                           "locale.LC_MEASUREMENT",    &variables[VARIABLE_LC_MEASUREMENT],
+                           "locale.LC_IDENTIFICATION", &variables[VARIABLE_LC_IDENTIFICATION],
+                           NULL);
+
+        if (r < 0 && r != -ENOENT) {
+                log_warning("Failed to read /proc/cmdline: %s", strerror(-r));
+                goto finish;
+        }
+
+        for (j = 0; j < _VARIABLE_LC_MAX; j++)
+                if (variables[j]) {
+                        if (print_warning) {
+                                log_warning("Warning: Settings on kernel command line override system locale settings in /etc/locale.conf.\n"
+                                            "  Command Line: %s=%s\n", locale_variable_to_string(j), variables[j]);
+
+                                print_warning = false;
+                        } else
+                                log_warning("                %s=%s\n", locale_variable_to_string(j), variables[j]);
+                }
+ finish:
+        for (j = 0; j < _VARIABLE_LC_MAX; j++)
+                free(variables[j]);
+}
 
 static void print_status_info(StatusInfo *i) {
         assert(i);
@@ -133,6 +182,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                 goto fail;
         }
 
+        print_overriden_variables();
         print_status_info(&info);
 
 fail:
@@ -177,192 +227,19 @@ static int set_locale(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int add_locales_from_archive(Set *locales) {
-        /* Stolen from glibc... */
-
-        struct locarhead {
-                uint32_t magic;
-                /* Serial number.  */
-                uint32_t serial;
-                /* Name hash table.  */
-                uint32_t namehash_offset;
-                uint32_t namehash_used;
-                uint32_t namehash_size;
-                /* String table.  */
-                uint32_t string_offset;
-                uint32_t string_used;
-                uint32_t string_size;
-                /* Table with locale records.  */
-                uint32_t locrectab_offset;
-                uint32_t locrectab_used;
-                uint32_t locrectab_size;
-                /* MD5 sum hash table.  */
-                uint32_t sumhash_offset;
-                uint32_t sumhash_used;
-                uint32_t sumhash_size;
-        };
-
-        struct namehashent {
-                /* Hash value of the name.  */
-                uint32_t hashval;
-                /* Offset of the name in the string table.  */
-                uint32_t name_offset;
-                /* Offset of the locale record.  */
-                uint32_t locrec_offset;
-        };
-
-        const struct locarhead *h;
-        const struct namehashent *e;
-        const void *p = MAP_FAILED;
-        _cleanup_close_ int fd = -1;
-        size_t sz = 0;
-        struct stat st;
-        unsigned i;
-        int r;
-
-        fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                if (errno != ENOENT)
-                        log_error("Failed to open locale archive: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        if (fstat(fd, &st) < 0) {
-                log_error("fstat() failed: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                log_error("Archive file is not regular");
-                r = -EBADMSG;
-                goto finish;
-        }
-
-        if (st.st_size < (off_t) sizeof(struct locarhead)) {
-                log_error("Archive has invalid size");
-                r = -EBADMSG;
-                goto finish;
-        }
-
-        p = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-        if (p == MAP_FAILED) {
-                log_error("Failed to map archive: %m");
-                r = -errno;
-                goto finish;
-        }
-
-        h = (const struct locarhead *) p;
-        if (h->magic != 0xde020109 ||
-            h->namehash_offset + h->namehash_size > st.st_size ||
-            h->string_offset + h->string_size > st.st_size ||
-            h->locrectab_offset + h->locrectab_size > st.st_size ||
-            h->sumhash_offset + h->sumhash_size > st.st_size) {
-                log_error("Invalid archive file.");
-                r = -EBADMSG;
-                goto finish;
-        }
-
-        e = (const struct namehashent*) ((const uint8_t*) p + h->namehash_offset);
-        for (i = 0; i < h->namehash_size; i++) {
-                char *z;
-
-                if (e[i].locrec_offset == 0)
-                        continue;
-
-                if (!utf8_is_valid((char*) p + e[i].name_offset))
-                        continue;
-
-                z = strdup((char*) p + e[i].name_offset);
-                if (!z) {
-                        r = log_oom();
-                        goto finish;
-                }
-
-                r = set_consume(locales, z);
-                if (r < 0) {
-                        log_error("Failed to add locale: %s", strerror(-r));
-                        goto finish;
-                }
-        }
-
-        r = 0;
-
- finish:
-        if (p != MAP_FAILED)
-                munmap((void*) p, sz);
-
-        return r;
-}
-
-static int add_locales_from_libdir (Set *locales) {
-        _cleanup_closedir_ DIR *dir;
-        struct dirent *entry;
-        int r;
-
-        dir = opendir("/usr/lib/locale");
-        if (!dir) {
-                log_error("Failed to open locale directory: %m");
-                return -errno;
-        }
-
-        errno = 0;
-        while ((entry = readdir(dir))) {
-                char *z;
-
-                if (entry->d_type != DT_DIR)
-                        continue;
-
-                if (ignore_file(entry->d_name))
-                        continue;
-
-                z = strdup(entry->d_name);
-                if (!z)
-                        return log_oom();
-
-                r = set_consume(locales, z);
-                if (r < 0 && r != -EEXIST) {
-                        log_error("Failed to add locale: %s", strerror(-r));
-                        return r;
-                }
-
-                errno = 0;
-        }
-
-        if (errno > 0) {
-                log_error("Failed to read locale directory: %m");
-                return -errno;
-        }
-
-        return 0;
-}
-
 static int list_locales(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_set_free_ Set *locales;
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        locales = set_new(string_hash_func, string_compare_func);
-        if (!locales)
-                return log_oom();
+        assert(args);
 
-        r = add_locales_from_archive(locales);
-        if (r < 0 && r != -ENOENT)
+        r = get_locales(&l);
+        if (r < 0) {
+                log_error("Failed to read list of locales: %s", strerror(-r));
                 return r;
-
-        r = add_locales_from_libdir(locales);
-        if (r < 0)
-                return r;
-
-        l = set_get_strv(locales);
-        if (!l)
-                return log_oom();
-
-        strv_sort(l);
+        }
 
         pager_open_if_enabled();
-
         strv_print(l);
 
         return 0;
@@ -444,7 +321,7 @@ static int list_vconsole_keymaps(sd_bus *bus, char **args, unsigned n) {
         _cleanup_strv_free_ char **l = NULL;
         const char *dir;
 
-        keymaps = set_new(string_hash_func, string_compare_func);
+        keymaps = set_new(&string_hash_ops);
         if (!keymaps)
                 return log_oom();
 
@@ -612,8 +489,7 @@ static int list_x11_keymaps(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system locale and keyboard settings.\n\n"
                "  -h --help                Show this help\n"
@@ -635,10 +511,8 @@ static int help(void) {
                "  list-x11-keymap-layouts  Show known X11 keyboard mapping layouts\n"
                "  list-x11-keymap-variants [LAYOUT]\n"
                "                           Show known X11 keyboard mapping variants\n"
-               "  list-x11-keymap-options  Show known X11 keyboard mapping options\n",
-               program_invocation_short_name);
-
-        return 0;
+               "  list-x11-keymap-options  Show known X11 keyboard mapping options\n"
+               , program_invocation_short_name);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -666,12 +540,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -706,7 +581,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -796,7 +670,7 @@ static int localectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

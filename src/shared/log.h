@@ -157,6 +157,12 @@ do { \
 #define log_warning(...) log_full(LOG_WARNING, __VA_ARGS__)
 #define log_error(...)   log_full(LOG_ERR,     __VA_ARGS__)
 
+#ifdef LOG_TRACE
+#  define log_trace(...) log_debug(__VA_ARGS__)
+#else
+#  define log_trace(...) do {} while(0)
+#endif
+
 #define log_struct(level, ...) log_struct_internal(level, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #define log_oom() log_oom_internal(__FILE__, __LINE__, __func__)
@@ -172,3 +178,5 @@ LogTarget log_target_from_string(const char *s) _pure_;
 #define MESSAGE_ID(x) "MESSAGE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(x)
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
+
+void log_set_upgrade_syslog_to_journal(bool b);

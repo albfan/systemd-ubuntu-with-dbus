@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 215" "systemd-udevd.service"
+.TH "SYSTEMD\-UDEVD\&.SERVICE" "8" "" "systemd 217" "systemd-udevd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -29,14 +29,15 @@ systemd\-udevd\-control\&.socket
 .PP
 systemd\-udevd\-kernel\&.socket
 .HP \w'\fB/usr/lib/systemd/systemd\-udevd\fR\ 'u
-\fB/usr/lib/systemd/systemd\-udevd\fR [\fB\-\-daemon\fR] [\fB\-\-debug\fR] [\fB\-\-children\-max=\fR] [\fB\-\-exec\-delay=\fR] [\fB\-\-resolve\-names=early|late|never\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
+\fB/usr/lib/systemd/systemd\-udevd\fR [\fB\-\-daemon\fR] [\fB\-\-debug\fR] [\fB\-\-children\-max=\fR] [\fB\-\-exec\-delay=\fR] [\fB\-\-event\-timeout=\fR] [\fB\-\-resolve\-names=early|late|never\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
 .SH "DESCRIPTION"
 .PP
 \fBsystemd\-udevd\fR
 listens to kernel uevents\&. For every event, systemd\-udevd executes matching instructions specified in udev rules\&. See
 \fBudev\fR(7)\&.
 .PP
-The behavior of the running daemon can be changed with
+The behavior of the daemon can be configured using
+\fBudev.conf\fR(5), its command\-line options, environment variables, and on the kernel command\-line, or changed dynamically with
 \fBudevadm control\fR\&.
 .SH "OPTIONS"
 .PP
@@ -60,6 +61,11 @@ Limit the number of events executed in parallel\&.
 Delay the execution of
 \fIRUN\fR
 instructions by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
+.RE
+.PP
+\fB\-\-event\-timeout=\fR
+.RS 4
+Set the number of seconds to wait for events to finish\&. After this time the event will be terminated\&. The default is 30 seconds\&.
 .RE
 .PP
 \fB\-\-resolve\-names=\fR
@@ -109,24 +115,17 @@ Delay the execution of
 instructions by the given number of seconds\&. This option might be useful when debugging system crashes during coldplug caused by loading non\-working kernel modules\&.
 .RE
 .PP
+\fIudev\&.event\-timeout=\fR, \fIrd\&.udev\&.event\-timeout=\fR
+.RS 4
+Wait for events to finish up to the given number of seconds\&. This option might be useful if events are terminated due to kernel drivers taking too long to initialize\&.
+.RE
+.PP
 \fInet\&.ifnames=\fR
 .RS 4
 Network interfaces are renamed to give them predictable names when possible\&. It is enabled by default; specifying 0 disables it\&.
 .RE
-.SH "CONFIGURATION FILE"
-.PP
-udev expects its main configuration file at
-/etc/udev/udev\&.conf\&. It consists of a set of variables allowing the user to override default udev values\&. All empty lines or lines beginning with \*(Aq#\*(Aq are ignored\&. The following variables can be set:
-.PP
-\fIudev_log\fR
-.RS 4
-The logging priority\&. Valid values are the numerical syslog priorities or their textual representations:
-\fBerr\fR,
-\fBinfo\fR
-and
-\fBdebug\fR\&.
-.RE
 .SH "SEE ALSO"
 .PP
+\fBudev.conf\fR(5),
 \fBudev\fR(7),
 \fBudevadm\fR(8)

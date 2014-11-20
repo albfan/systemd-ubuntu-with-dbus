@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 215" "systemd.service"
+.TH "SYSTEMD\&.SERVICE" "5" "" "systemd 217" "systemd.service"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -90,10 +90,11 @@ or
 .sp
 If set to
 \fBsimple\fR
-(the default value if neither
+(the default if neither
 \fIType=\fR
 nor
-\fIBusName=\fR
+\fIBusName=\fR, but
+\fIExecStart=\fR
 are specified), it is expected that the process configured with
 \fIExecStart=\fR
 is the main process of the service\&. In this mode, if the process offers functionality to other processes on the system, its communication channels should be installed before the daemon is started up (e\&.g\&. sockets set up by systemd, via socket activation), as systemd will immediately proceed starting follow\-up units\&.
@@ -112,7 +113,11 @@ Behavior of
 is similar to
 \fBsimple\fR; however, it is expected that the process has to exit before systemd starts follow\-up units\&.
 \fIRemainAfterExit=\fR
-is particularly useful for this type of service\&.
+is particularly useful for this type of service\&. This is the implied default if neither
+\fIType=\fR
+or
+\fIExecStart=\fR
+are specified\&.
 .sp
 Behavior of
 \fBdbus\fR
@@ -177,56 +182,68 @@ is set to
 \fBdbus\fR, but its use is otherwise recommended if the process takes a name on the D\-Bus bus\&.
 .RE
 .PP
+\fIBusPolicy=\fR
+.RS 4
+If specified, a custom
+\m[blue]\fBkdbus\fR\m[]\&\s-2\u[2]\d\s+2
+endpoint will be created and installed as the default bus node for the service\&. Such a custom endpoint can hold an own set of policy rules that are enforced on top of the bus\-wide ones\&. The custom endpoint is named after the service it was created for, and its node will be bind\-mounted over the default bus node location, so the service can only access the bus through its own endpoint\&. Note that custom bus endpoints default to a \*(Aqdeny all\*(Aq policy\&. Hence, if at least one
+\fIBusPolicy=\fR
+directive is given, you have to make sure to add explicit rules for everything the service should be able to do\&.
+.sp
+The value of this directive is comprised of two parts; the bus name, and a verb to specify to granted access, which is one of
+\fBsee\fR,
+\fBtalk\fR, or
+\fBown\fR\&.
+\fBtalk\fR
+implies
+\fBsee\fR, and
+\fBown\fR
+implies both
+\fBtalk\fR
+and
+\fBsee\fR\&. If multiple access levels are specified for the same bus name, the most powerful one takes effect\&.
+.sp
+Examples:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+BusPolicy=org\&.freedesktop\&.systemd1 talk
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+BusPolicy=org\&.foo\&.bar see
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+This option is only available on kdbus enabled systems\&.
+.RE
+.PP
 \fIExecStart=\fR
 .RS 4
-Commands with their arguments that are executed when this service is started\&. For each of the specified commands, the first argument must be an absolute and literal path to an executable\&.
+Commands with their arguments that are executed when this service is started\&. The value is split into zero or more command lines is according to the rules described below (see section "Command Lines" below)\&.
 .sp
 When
 \fIType\fR
 is not
-\fBoneshot\fR, only one command may be given\&. When
+\fBoneshot\fR, only one command may and must be given\&. When
 \fIType=oneshot\fR
-is used, more than one command may be specified\&. Multiple command lines may be concatenated in a single directive by separating them with semicolons (these semicolons must be passed as separate words)\&. Alternatively, this directive may be specified more than once with the same effect\&. Lone semicolons may be escaped as
-"\e;"\&. If the empty string is assigned to this option, the list of commands to start is reset, prior assignments of this option will have no effect\&.
+is used, zero or more commands may be specified\&. This can be specified by providing multiple command lines in the same directive, or alternatively, this directive may be specified more than once with the same effect\&. If the empty string is assigned to this option, the list of commands to start is reset, prior assignments of this option will have no effect\&. If no
+\fIExecStart=\fR
+is specified, then the service must have
+\fIRemainAfterExit=yes\fR
+set\&.
 .sp
-Each command line is split on whitespace, with the first item being the command to execute, and the subsequent items being the arguments\&. Double quotes ("\&.\&.\&.") and single quotes (\*(Aq\&.\&.\&.\*(Aq) may be used, in which case everything until the next matching quote becomes part of the same argument\&. Quotes themselves are removed after parsing\&. In addition, a trailing backslash ("\e") may be used to merge lines\&. This syntax is intended to be very similar to shell syntax, but only the meta\-characters and expansions described in the following paragraphs are understood\&. Specifically, redirection using
-"<",
-"<<",
-">", and
-">>", pipes using
-"|", and running programs in the background using
-"&"
-and
-\fIother elements of shell syntax are not supported\fR\&.
-.sp
-If more than one command is specified, the commands are invoked sequentially in the order they appear in the unit file\&. If one of the commands fails (and is not prefixed with
-"\-"), other lines are not executed, and the unit is considered failed\&.
-.sp
-Unless
-\fIType=forking\fR
-is set, the process started via this command line will be considered the main process of the daemon\&.
-.sp
-The command line accepts
-"%"
-specifiers as described in
-\fBsystemd.unit\fR(5)\&. Note that the first argument of the command line (i\&.e\&. the program to execute) may not include specifiers\&.
-.sp
-Basic environment variable substitution is supported\&. Use
-"${FOO}"
-as part of a word, or as a word of its own, on the command line, in which case it will be replaced by the value of the environment variable including all whitespace it contains, resulting in a single argument\&. Use
-"$FOO"
-as a separate word on the command line, in which case it will be replaced by the value of the environment variable split at whitespace, resulting in zero or more arguments\&. To pass a literal dollar sign, use
-"$$"\&. Variables whose value is not known at expansion time are treated as empty strings\&. Note that the first argument (i\&.e\&. the program to execute) may not be a variable\&.
-.sp
-Variables to be used in this fashion may be defined through
-\fIEnvironment=\fR
-and
-\fIEnvironmentFile=\fR\&. In addition, variables listed in the section "Environment variables in spawned processes" in
-\fBsystemd.exec\fR(5), which are considered "static configuration", may be used (this includes e\&.g\&.
-\fI$USER\fR, but not
-\fI$TERM\fR)\&.
-.sp
-Optionally, if the absolute file name is prefixed with
+For each of the specified commands, the first argument must be an absolute and literal path to an executable\&. Optionally, if the absolute file name is prefixed with
 "@", the second token will be passed as
 "argv[0]"
 to the executed process, followed by the further arguments specified\&. If the absolute filename is prefixed with
@@ -236,81 +253,12 @@ and
 "@"
 are used, they can appear in either order\&.
 .sp
-Note that this setting does not directly support shell command lines\&. If shell command lines are to be used, they need to be passed explicitly to a shell implementation of some kind\&. Example:
+If more than one command is specified, the commands are invoked sequentially in the order they appear in the unit file\&. If one of the commands fails (and is not prefixed with
+"\-"), other lines are not executed, and the unit is considered failed\&.
 .sp
-.if n \{\
-.RS 4
-.\}
-.nf
-ExecStart=/bin/sh \-c \*(Aqdmesg | tac\*(Aq
-.fi
-.if n \{\
-.RE
-.\}
-.sp
-Example:
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-ExecStart=/bin/echo one ; /bin/echo "two two"
-.fi
-.if n \{\
-.RE
-.\}
-.sp
-This will execute
-\fB/bin/echo\fR
-two times, each time with one argument:
-"one"
-and
-"two two", respectively\&. Because two commands are specified,
-\fIType=oneshot\fR
-must be used\&.
-.sp
-Example:
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-ExecStart=/bin/echo / >/dev/null & \e; \e
-/bin/ls
-.fi
-.if n \{\
-.RE
-.\}
-.sp
-This will execute
-\fB/bin/echo\fR
-with five arguments:
-"/",
-">/dev/null",
-"&",
-";", and
-"/bin/ls"\&.
-.sp
-Example:
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-Environment="ONE=one" \*(AqTWO=two two\*(Aq
-ExecStart=/bin/echo $ONE $TWO ${TWO}
-.fi
-.if n \{\
-.RE
-.\}
-.sp
-This will execute
-\fB/bin/echo\fR
-with four arguments:
-"one",
-"two",
-"two", and
-"two two"\&.
+Unless
+\fIType=forking\fR
+is set, the process started via this command line will be considered the main process of the daemon\&.
 .RE
 .PP
 \fIExecStartPre=\fR, \fIExecStartPost=\fR
@@ -382,10 +330,11 @@ Configures the time to sleep before restarting a service (as configured with
 Configures the time to wait for start\-up\&. If a daemon service does not signal start\-up completion within the configured time, the service will be considered failed and will be shut down again\&. Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass
 "0"
 to disable the timeout logic\&. Defaults to
-\fITimeoutStartSec=\fR
+\fIDefaultTimeoutStartSec=\fR
 from the manager configuration file, except when
 \fIType=oneshot\fR
-is used, in which case the timeout is disabled by default\&.
+is used, in which case the timeout is disabled by default (see
+\fBsystemd-system.conf\fR(5))\&.
 .RE
 .PP
 \fITimeoutStopSec=\fR
@@ -399,8 +348,9 @@ in
 \fBsystemd.kill\fR(5))\&. Takes a unit\-less value in seconds, or a time span value such as "5min 20s"\&. Pass
 "0"
 to disable the timeout logic\&. Defaults to
-\fITimeoutStartSec=\fR
-from the manager configuration file\&.
+\fIDefaultTimeoutStopSec=\fR
+from the manager configuration file (see
+\fBsystemd-system.conf\fR(5))\&.
 .RE
 .PP
 \fITimeoutSec=\fR
@@ -418,7 +368,8 @@ Configures the watchdog timeout for a service\&. The watchdog is activated when 
 \fBsd_notify\fR(3)
 regularly with
 "WATCHDOG=1"
-(i\&.e\&. the "keep\-alive ping")\&. If the time between two such calls is larger than the configured time, then the service is placed in a failed state\&. By setting
+(i\&.e\&. the "keep\-alive ping")\&. If the time between two such calls is larger than the configured time, then the service is placed in a failed state and it will be terminated with
+\fISIGABRT\fR\&. By setting
 \fIRestart=\fR
 to
 \fBon\-failure\fR
@@ -621,7 +572,7 @@ are considered clean service terminations\&.
 Note that if a process has a signal handler installed and exits by calling
 \fB_exit\fR(2)
 in response to a signal, the information about the signal is lost\&. Programs should instead perform cleanup and kill themselves with the same signal instead\&. See
-\m[blue]\fBProper handling of SIGINT/SIGQUIT \(em How to be a proper program\fR\m[]\&\s-2\u[2]\d\s+2\&.
+\m[blue]\fBProper handling of SIGINT/SIGQUIT \(em How to be a proper program\fR\m[]\&\s-2\u[3]\d\s+2\&.
 .sp
 This option may appear more than once, in which case the list of successful exit statuses is merged\&. If the empty string is assigned to this option, the list is reset, all prior assignments of this option will have no effect\&.
 .RE
@@ -719,9 +670,9 @@ is not configured, it will be implicitly set to
 .PP
 \fISockets=\fR
 .RS 4
-Specifies the name of the socket units this service shall inherit the sockets from when the service is started\&. Normally it should not be necessary to use this setting as all sockets whose unit shares the same name as the service (ignoring the different suffix of course) are passed to the spawned process\&.
+Specifies the name of the socket units this service shall inherit socket file descriptors from when the service is started\&. Normally it should not be necessary to use this setting as all socket file descriptors whose unit shares the same name as the service (subject to the different unit name suffix of course) are passed to the spawned process\&.
 .sp
-Note that the same socket may be passed to multiple processes at the same time\&. Also note that a different service may be activated on incoming traffic than that which inherits the sockets\&. Or in other words: the
+Note that the same socket file descriptors may be passed to multiple processes simultaneously\&. Also note that a different service may be activated on incoming socket traffic than the one which is ultimately configured to inherit the socket file descriptors\&. Or in other words: the
 \fIService=\fR
 setting of
 \&.socket
@@ -763,8 +714,12 @@ and
 is hit\&. Takes one of
 \fBnone\fR,
 \fBreboot\fR,
-\fBreboot\-force\fR, or
-\fBreboot\-immediate\fR\&. If
+\fBreboot\-force\fR,
+\fBreboot\-immediate\fR,
+\fBpoweroff\fR,
+\fBpoweroff\-force\fR
+or
+\fBpoweroff\-immediate\fR\&. If
 \fBnone\fR
 is set, hitting the rate limit will trigger no action besides that the start will not be permitted\&.
 \fBreboot\fR
@@ -776,7 +731,19 @@ causes a forced reboot which will terminate all processes forcibly but should ca
 \fBreboot\-immediate\fR
 causes immediate execution of the
 \fBreboot\fR(2)
-system call, which might result in data loss\&. Defaults to
+system call, which might result in data loss\&. Similar,
+\fBpoweroff\fR,
+\fBpoweroff\-force\fR,
+\fBpoweroff\-immediate\fR
+have the effect of powering down the system with similar semantics\&. Defaults to
+\fBnone\fR\&.
+.RE
+.PP
+\fIFailureAction=\fR
+.RS 4
+Configure the action to take when the service enters a failed state\&. Takes the same values as
+\fIStartLimitAction=\fR
+and executes the same actions\&. Defaults to
 \fBnone\fR\&.
 .RE
 .PP
@@ -786,17 +753,11 @@ Configure the optional argument for the
 \fBreboot\fR(2)
 system call if
 \fIStartLimitAction=\fR
+or
+\fIFailureAction=\fR
 is a reboot action\&. This works just like the optional argument to
 \fBsystemctl reboot\fR
 command\&.
-.RE
-.PP
-\fIFailureAction=\fR
-.RS 4
-Configure the action to take when the service enters a failed state\&. Takes the same values as
-\fIStartLimitAction=\fR
-and executes the same actions\&. Defaults to
-\fBnone\fR\&.
 .RE
 .PP
 Check
@@ -818,10 +779,156 @@ or
 \fIBefore=\fR, instead\&. For more details, see
 \fBsystemd.unit\fR(5)\&. If used, pass an integer value in the range 0\-99\&.
 .RE
+.SH "COMMAND LINES"
+.PP
+This section describes command line parsing and variable and specifier substitions for
+\fIExecStart=\fR,
+\fIExecStartPre=\fR,
+\fIExecStartPost=\fR,
+\fIExecReload=\fR,
+\fIExecStop=\fR, and
+\fIExecStopPost=\fR
+options\&.
+.PP
+Multiple command lines may be concatenated in a single directive by separating them with semicolons (these semicolons must be passed as separate words)\&. Lone semicolons may be escaped as
+"\e;"\&.
+.PP
+Each command line is split on whitespace, with the first item being the command to execute, and the subsequent items being the arguments\&. Double quotes ("\&.\&.\&.") and single quotes (\*(Aq\&.\&.\&.\*(Aq) may be used, in which case everything until the next matching quote becomes part of the same argument\&. Quotes themselves are removed after parsing\&. In addition, a trailing backslash ("\e") may be used to merge lines\&.
+.PP
+This syntax is intended to be very similar to shell syntax, but only the meta\-characters and expansions described in the following paragraphs are understood\&. Specifically, redirection using
+"<",
+"<<",
+">", and
+">>", pipes using
+"|", running programs in the background using
+"&", and
+\fIother elements of shell syntax are not supported\fR\&.
+.PP
+The command line accepts
+"%"
+specifiers as described in
+\fBsystemd.unit\fR(5)\&. Note that the first argument of the command line (i\&.e\&. the program to execute) may not include specifiers\&.
+.PP
+Basic environment variable substitution is supported\&. Use
+"${FOO}"
+as part of a word, or as a word of its own, on the command line, in which case it will be replaced by the value of the environment variable including all whitespace it contains, resulting in a single argument\&. Use
+"$FOO"
+as a separate word on the command line, in which case it will be replaced by the value of the environment variable split at whitespace resulting in zero or more arguments\&. For this type of expansion, quotes and respected when splitting into words, and afterwards removed\&.
+.PP
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Environment="ONE=one" \*(AqTWO=two two\*(Aq
+ExecStart=/bin/echo $ONE $TWO ${TWO}
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This will execute
+\fB/bin/echo\fR
+with four arguments:
+"one",
+"two",
+"two", and
+"two two"\&.
+.PP
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+Environment=ONE=\*(Aqone\*(Aq "TWO=\*(Aqtwo\ \&two\*(Aq\ \&too" THREE=
+ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
+ExecStart=/bin/echo $ONE $TWO $THREE
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This results in
+echo
+being called twice, the first time with arguments
+"\*(Aqone\*(Aq",
+"\*(Aqtwo\ \&two\*(Aq\ \&too",
+"", and the second time with arguments
+"one",
+"two\ \&two",
+"too"\&.
+.PP
+To pass a literal dollar sign, use
+"$$"\&. Variables whose value is not known at expansion time are treated as empty strings\&. Note that the first argument (i\&.e\&. the program to execute) may not be a variable\&.
+.PP
+Variables to be used in this fashion may be defined through
+\fIEnvironment=\fR
+and
+\fIEnvironmentFile=\fR\&. In addition, variables listed in the section "Environment variables in spawned processes" in
+\fBsystemd.exec\fR(5), which are considered "static configuration", may be used (this includes e\&.g\&.
+\fI$USER\fR, but not
+\fI$TERM\fR)\&.
+.PP
+Note that shell command lines are not directly supported\&. If shell command lines are to be used, they need to be passed explicitly to a shell implementation of some kind\&. Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ExecStart=/bin/sh \-c \*(Aqdmesg | tac\*(Aq
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ExecStart=/bin/echo one ; /bin/echo "two two"
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This will execute
+\fB/bin/echo\fR
+two times, each time with one argument:
+"one"
+and
+"two two", respectively\&. Because two commands are specified,
+\fIType=oneshot\fR
+must be used\&.
+.PP
+Example:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+ExecStart=/bin/echo / >/dev/null & \e; \e
+/bin/ls
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+This will execute
+\fB/bin/echo\fR
+with five arguments:
+"/",
+">/dev/null",
+"&",
+";", and
+"/bin/ls"\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),
-\fBsystemctl\fR(8),
+\fBsystemctl\fR(1),
 \fBsystemd.unit\fR(5),
 \fBsystemd.exec\fR(5),
 \fBsystemd.resource-control\fR(5),
@@ -834,6 +941,11 @@ Incompatibilities with SysV
 \%http://www.freedesktop.org/wiki/Software/systemd/Incompatibilities
 .RE
 .IP " 2." 4
+kdbus
+.RS 4
+\%https://code.google.com/p/d-bus/
+.RE
+.IP " 3." 4
 Proper handling of SIGINT/SIGQUIT \(em How to be a proper program
 .RS 4
 \%http://www.cons.org/cracauer/sigint.html

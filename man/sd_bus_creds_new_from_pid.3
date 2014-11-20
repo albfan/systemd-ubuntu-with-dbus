@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_BUS_CREDS_NEW_FROM_PID" "3" "" "systemd 215" "sd_bus_creds_new_from_pid"
+.TH "SD_BUS_CREDS_NEW_FROM_PID" "3" "" "systemd 217" "sd_bus_creds_new_from_pid"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -103,7 +103,7 @@ Fields can be retrieved from the credentials object using
 \fBsd_bus_creds_get_pid\fR(3)
 and other functions which correspond directly to the constants listed above\&.
 .PP
-A mask of fields which were actually sucessfully set (acquired from
+A mask of fields which were actually successfully set (acquired from
 /proc, etc\&.) can be retrieved with
 \fBsd_bus_creds_get_mask()\fR\&. If the credentials object was created with
 \fBsd_bus_creds_new_from_pid()\fR, this will be a subset of fields requested in
@@ -115,7 +115,7 @@ creates a new reference to the credentials object
 \fBsd_bus_creds_unref\fR
 has been called as many times plus once more\&. Once the reference count has dropped to zero,
 \fIc\fR
-cannot be used anymore, so futher calls to
+cannot be used anymore, so further calls to
 \fBsd_bus_creds_ref(c)\fR
 or
 \fBsd_bus_creds_unref(c)\fR
@@ -149,20 +149,20 @@ creates a new object and the caller owns the sole reference\&. When not needed a
 .PP
 Returned errors may indicate the following problems:
 .PP
-\fI\-ESRCH\fR
+\fB\-ESRCH\fR
 .RS 4
 Specified
 \fIpid\fR
 could not be found\&.
 .RE
 .PP
-\fI\-EINVAL\fR
+\fB\-EINVAL\fR
 .RS 4
 Specified parameter is invalid (\fBNULL\fR
 in case of output parameters)\&.
 .RE
 .PP
-\fI\-ENOMEM\fR
+\fB\-ENOMEM\fR
 .RS 4
 Memory allocation failed\&.
 .RE

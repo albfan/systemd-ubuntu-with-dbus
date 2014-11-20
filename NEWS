@@ -1,5 +1,414 @@
 systemd System and Service Manager
 
+CHANGES WITH 217:
+
+        * journalctl gained the new options -t/--identifier= to match
+          on the syslog identifier (aka "tag"), as well as --utc to
+          show log timestamps in the UTC timezone. journalctl now also
+          accepts -n/--lines=all to disable line capping in a pager.
+
+        * Services can notify the manager before they start a reload
+          (by sending RELOADING=1) or shutdown (by sending
+          STOPPING=1). This allows the manager to track and show the
+          internal state of daemons and closes a race condition when
+          the process is still running but has closed its D-Bus
+          connection.
+
+        * Services with Type=oneshot do not have to have any ExecStart
+          commands anymore.
+
+        * User units are now loaded also from
+          $XDG_RUNTIME_DIR/systemd/user/. This is similar to the
+          /run/systemd/user directory that was already previously
+          supported, but is under the control of the user.
+
+        * Job timeouts (i.e. time-outs on the time a job that is
+          queued stays in the run queue) can now optionally result in
+          immediate reboot or power-off actions (JobTimeoutAction= and
+          JobTimeoutRebootArgument=). This is useful on ".target"
+          units, to limit the maximum time a target remains
+          undispatched in the run queue, and to trigger an emergency
+          operation in such a case. This is now used by default to
+          turn off the system if boot-up (as defined by everything in
+          basic.target) hangs and does not complete for at least
+          15min. Also, if power-off or reboot hang for at least 30min
+          an immediate power-off/reboot operation is triggered. This
+          functionality is particularly useful to increase reliability
+          on embedded devices, but also on laptops which might
+          accidentally get powered on when carried in a backpack and
+          whose boot stays stuck in a hard disk encryption passphrase
+          question.
+
+        * systemd-logind can be configured to also handle lid switch
+          events even when the machine is docked or multiple displays
+          are attached (HandleLidSwitchDocked= option).
+
+        * A helper binary and a service have been added which can be
+          used to resume from hibernation in the initramfs. A
+          generator will parse the resume= option on the kernel
+          command-line to trigger resume.
+
+        * A user console daemon systemd-consoled has been
+          added. Currently, it is a preview, and will so far open a
+          single terminal on each session of the user marked as
+          Desktop=systemd-console.
+
+        * Route metrics can be specified for DHCP routes added by
+          systemd-networkd.
+
+        * The SELinux context of socket-activated services can be set
+          from the information provided by the networking stack
+          (SELinuxContextFromNet= option).
+
+        * Userspace firmware loading support has been removed and
+          the minimum supported kernel version is thus bumped to 3.7.
+
+        * Timeout for udev workers has been increased from 1 to 3
+          minutes, but a warning will be printed after 1 minute to
+          help diagnose kernel modules that take a long time to load.
+
+        * Udev rules can now remove tags on devices with TAG-="foobar".
+
+        * systemd's readahead implementation has been removed. In many
+          circumstances it didn't give expected benefits even for
+          rotational disk drives and was becoming less relevant in the
+          age of SSDs. As none of the developers has been using
+          rotating media anymore, and nobody stepped up to actively
+          maintain this component of systemd it has now been removed.
+
+        * Swap units can use Discard= to specify discard options.
+          Discard options specified for swaps in /etc/fstab are now
+          respected.
+
+        * Docker containers are now detected as a separate type of
+          virtualization.
+
+        * The Password Agent protocol gained support for queries where
+          the user input is shown, useful e.g. for user names.
+          systemd-ask-password gained a new --echo option to turn that
+          on.
+
+        * The default sysctl.d/ snippets will now set:
+
+                net.core.default_qdisc = fq_codel
+
+          This selects Fair Queuing Controlled Delay as the default
+          queuing discipline for network interfaces. fq_codel helps
+          fight the network bufferbloat problem. It is believed to be
+          a good default with no tuning required for most workloads.
+          Downstream distributions may override this choice. On 10Gbit
+          servers that do not do forwarding, "fq" may perform better.
+          Systems without a good clocksource should use "pfifo_fast".
+
+        * If kdbus is enabled during build a new option BusPolicy= is
+          available for service units, that allows locking all service
+          processes into a stricter bus policy, in order to limit
+          access to various bus services, or even hide most of them
+          from the service's view entirely.
+
+        * networkctl will now show the .network and .link file
+          networkd has applied to a specific interface.
+
+        * sd-login gained a new API call sd_session_get_desktop() to
+          query which desktop environment has been selected for a
+          session.
+
+        * UNIX utmp support is now compile-time optional to support
+          legacy-free systems.
+
+        * systemctl gained two new commands "add-wants" and
+          "add-requires" for pulling in units from specific targets
+          easily.
+
+        * If the word "rescue" is specified on the kernel command line
+          the system will now boot into rescue mode (aka
+          rescue.target), which was previously available only by
+          specifying "1" or "systemd.unit=rescue.target" on the kernel
+          command line. This new kernel command line option nicely
+          mirrors the already existing "emergency" kernel command line
+          option.
+
+        * New kernel command line options mount.usr=, mount.usrflags=,
+          mount.usrfstype= have been added that match root=, rootflags=,
+          rootfstype= but allow mounting a specific file system to
+          /usr.
+
+        * The $NOTIFY_SOCKET is now also passed to control processes of
+          services, not only the main process.
+
+        * This version reenables support for fsck's -l switch. This
+          means at least version v2.25 of util-linux is required for
+          operation, otherwise dead-locks on device nodes may
+          occur. Again: you need to update util-linux to at least
+          v2.25 when updating systemd to v217.
+
+        * The "multi-seat-x" tool has been removed from systemd, as
+          its functionality has been integrated into X servers 1.16,
+          and the tool is hence redundant. It is recommended to update
+          display managers invoking this tool to simply invoke X
+          directly from now on, again.
+
+        * Support for the new ALLOW_INTERACTIVE_AUTHORIZATION D-Bus
+          message flag has been added for all of systemd's PolicyKit
+          authenticated method calls has been added. In particular
+          this now allows optional interactive authorization via
+          PolicyKit for many of PID1's privileged operations such as
+          unit file enabling and disabling.
+
+        * "udevadm hwdb --update" learnt a new switch "--usr" for
+          placing the rebuilt hardware database in /usr instead of
+          /etc. When used only hardware database entries stored in
+          /usr will be used, and any user database entries in /etc are
+          ignored. This functionality is useful for vendors to ship a
+          pre-built database on systems where local configuration is
+          unnecessary or unlikely.
+
+        * Calendar time specifications in .timer units now also
+          understand the strings "semi-annually", "quarterly" and
+          "minutely" as shortcuts (in addition to the preexisting
+          "anually", "hourly", ...).
+
+        * systemd-tmpfiles will now correctly create files in /dev
+          at boot which are marked for creation only at boot. It is
+          recommended to always create static device nodes with 'c!'
+          and 'b!', so that they are created only at boot and not
+          overwritten at runtime.
+
+        * When the watchdog logic is used for a service (WatchdogSec=)
+          and the watchdog timeout is hit the service will now be
+          terminated with SIGABRT (instead of just SIGTERM), in order
+          to make sure a proper coredump and backtrace is
+          generated. This ensures that hanging services will result in
+          similar coredump/backtrace behaviour as services that hit a
+          segmentation fault.
+
+        Contributions from: Andreas Henriksson, Andrei Borzenkov,
+        Angus Gibson, Ansgar Burchardt, Ben Wolsieffer, Brandon L.
+        Black, Christian Hesse, Cristian Rodríguez, Daniel Buch,
+        Daniele Medri, Daniel Mack, Dan Williams, Dave Reisner, David
+        Herrmann, David Sommerseth, David Strauss, Emil Renner
+        Berthing, Eric Cook, Evangelos Foutras, Filipe Brandenburger,
+        Gustavo Sverzut Barbieri, Hans de Goede, Harald Hoyer, Hristo
+        Venev, Hugo Grostabussiat, Ivan Shapovalov, Jan Janssen, Jan
+        Synacek, Jonathan Liu, Juho Son, Karel Zak, Kay Sievers, Klaus
+        Purer, Koen Kooi, Lennart Poettering, Lukas Nykryn, Lukasz
+        Skalski, Łukasz Stelmach, Mantas Mikulėnas, Marcel Holtmann,
+        Marius Tessmann, Marko Myllynen, Martin Pitt, Michael Biebl,
+        Michael Marineau, Michael Olbrich, Michael Scherer, Michal
+        Schmidt, Michal Sekletar, Miroslav Lichvar, Patrik Flykt,
+        Philippe De Swert, Piotr Drąg, Rahul Sundaram, Richard
+        Weinberger, Robert Milasan, Ronny Chevalier, Ruben Kerkhof,
+        Santiago Vila, Sergey Ptashnick, Simon McVittie, Sjoerd
+        Simons, Stefan Brüns, Steven Allen, Steven Noonan, Susant
+        Sahani, Sylvain Plantefève, Thomas Hindoe Paaboel Andersen,
+        Timofey Titovets, Tobias Hunger, Tom Gundersen, Torstein
+        Husebø, Umut Tezduyar Lindskog, WaLyong Cho, Zbigniew
+        Jędrzejewski-Szmek.
+
+        -- Berlin, 2014-10-28
+
+CHANGES WITH 216:
+
+        * timedated no longer reads NTP implementation unit names from
+          /usr/lib/systemd/ntp-units.d/*.list. Alternative NTP
+          implementations should add a
+
+            Conflicts=systemd-timesyncd.service
+
+          to their unit files to take over and replace systemd's NTP
+          default functionality.
+
+        * systemd-sysusers gained a new line type "r" for configuring
+          which UID/GID ranges to allocate system users/groups
+          from. Lines of type "u" may now add an additional column
+          that specifies the home directory for the system user to be
+          created. Also, systemd-sysusers may now optionally read user
+          information from STDIN instead of a file. This is useful for
+          invoking it from RPM preinst scriptlets that need to create
+          users before the first RPM file is installed since these
+          files might need to be owned by them. A new
+          %sysusers_create_inline RPM macro has been introduced to do
+          just that. systemd-sysusers now updates the shadow files as
+          well as the user/group databases, which should enhance
+          compatibility with certain tools like grpck.
+
+        * A number of bus APIs of PID 1 now optionally consult
+          PolicyKit to permit access for otherwise unprivileged
+          clients under certain conditions. Note that this currently
+          doesn't support interactive authentication yet, but this is
+          expected to be added eventually, too.
+
+        * /etc/machine-info now has new fields for configuring the
+          deployment environment of the machine, as well as the
+          location of the machine. hostnamectl has been updated with
+          new command to update these fields.
+
+        * systemd-timesyncd has been updated to automatically acquire
+          NTP server information from systemd-networkd, which might
+          have been discovered via DHCP.
+
+        * systemd-resolved now includes a caching DNS stub resolver
+          and a complete LLMNR name resolution implementation. A new
+          NSS module "nss-resolve" has been added which can be used
+          instead of glibc's own "nss-dns" to resolve hostnames via
+          systemd-resolved. Hostnames, addresses and arbitrary RRs may
+          be resolved via systemd-resolved D-Bus APIs. In contrast to
+          the glibc internal resolver systemd-resolved is aware of
+          multi-homed system, and keeps DNS server and caches separate
+          and per-interface. Queries are sent simultaneously on all
+          interfaces that have DNS servers configured, in order to
+          properly handle VPNs and local LANs which might resolve
+          separate sets of domain names. systemd-resolved may acquire
+          DNS server information from systemd-networkd automatically,
+          which in turn might have discovered them via DHCP. A tool
+          "systemd-resolve-host" has been added that may be used to
+          query the DNS logic in resolved. systemd-resolved implements
+          IDNA and automatically uses IDNA or UTF-8 encoding depending
+          on whether classic DNS or LLMNR is used as transport. In the
+          next releases we intend to add a DNSSEC and mDNS/DNS-SD
+          implementation to systemd-resolved.
+
+        * A new NSS module nss-mymachines has been added, that
+          automatically resolves the names of all local registered
+          containers to their respective IP addresses.
+
+        * A new client tool "networkctl" for systemd-networkd has been
+          added. It currently is entirely passive and will query
+          networking configuration from udev, rtnetlink and networkd,
+          and present it to the user in a very friendly
+          way. Eventually, we hope to extend it to become a full
+          control utility for networkd.
+
+        * .socket units gained a new DeferAcceptSec= setting that
+          controls the kernels' TCP_DEFER_ACCEPT sockopt for
+          TCP. Similar, support for controlling TCP keep-alive
+          settings has been added (KeepAliveTimeSec=,
+          KeepAliveIntervalSec=, KeepAliveProbes=). Also, support for
+          turning off Nagle's algorithm on TCP has been added
+          (NoDelay=).
+
+        * logind learned a new session type "web", for use in projects
+          like Cockpit which register web clients as PAM sessions.
+
+        * timer units with at least one OnCalendar= setting will now
+          be started only after timer-sync.target has been
+          reached. This way they will not elapse before the system
+          clock has been corrected by a local NTP client or
+          similar. This is particular useful on RTC-less embedded
+          machines, that come up with an invalid system clock.
+
+        * systemd-nspawn's --network-veth= switch should now result in
+          stable MAC addresses for both the outer and the inner side
+          of the link.
+
+        * systemd-nspawn gained a new --volatile= switch for running
+          container instances with /etc or /var unpopulated.
+
+        * The kdbus client code has been updated to use the new Linux
+          3.17 memfd subsystem instead of the old kdbus-specific one.
+
+        * systemd-networkd's DHCP client and server now support
+          FORCERENEW. There are also new configuration options to
+          configure the vendor client identifier and broadcast mode
+          for DHCP.
+
+        * systemd will no longer inform the kernel about the current
+          timezone, as this is necessarily incorrect and racy as the
+          kernel has no understanding of DST and similar
+          concepts. This hence means FAT timestamps will be always
+          considered UTC, similar to what Android is already
+          doing. Also, when the RTC is configured to the local time
+          (rather than UTC) systemd will never synchronize back to it,
+          as this might confuse Windows at a later boot.
+
+        * systemd-analyze gained a new command "verify" for offline
+          validation of unit files.
+
+        * systemd-networkd gained support for a couple of additional
+          settings for bonding networking setups. Also, the metric for
+          statically configured routes may now be configured. For
+          network interfaces where this is appropriate the peer IP
+          address may now be configured.
+
+        * systemd-networkd's DHCP client will no longer request
+          broadcasting by default, as this tripped up some networks.
+          For hardware where broadcast is required the feature should
+          be switched back on using RequestBroadcast=yes.
+
+        * systemd-networkd will now set up IPv4LL addresses (when
+          enabled) even if DHCP is configured successfully.
+
+        * udev will now default to respect network device names given
+          by the kernel when the kernel indicates that these are
+          predictable. This behavior can be tweaked by changing
+          NamePolicy= in the relevant .link file.
+
+        * A new library systemd-terminal has been added that
+          implements full TTY stream parsing and rendering. This
+          library is supposed to be used later on for implementing a
+          full userspace VT subsystem, replacing the current kernel
+          implementation.
+
+        * A new tool systemd-journal-upload has been added to push
+          journal data to a remote system running
+          systemd-journal-remote.
+
+        * journald will no longer forward all local data to another
+          running syslog daemon. This change has been made because
+          rsyslog (which appears to be the most commonly used syslog
+          implementation these days) no longer makes use of this, and
+          instead pulls the data out of the journal on its own. Since
+          forwarding the messages to a non-existent syslog server is
+          more expensive than we assumed we have now turned this
+          off. If you run a syslog server that is not a recent rsyslog
+          version, you have to turn this option on again
+          (ForwardToSyslog= in journald.conf).
+
+        * journald now optionally supports the LZ4 compressor for
+          larger journal fields. This compressor should perform much
+          better than XZ which was the previous default.
+
+        * machinectl now shows the IP addresses of local containers,
+          if it knows them, plus the interface name of the container.
+
+        * A new tool "systemd-escape" has been added that makes it
+          easy to escape strings to build unit names and similar.
+
+        * sd_notify() messages may now include a new ERRNO= field
+          which is parsed and collected by systemd and shown among the
+          "systemctl status" output for a service.
+
+        * A new component "systemd-firstboot" has been added that
+          queries the most basic systemd information (timezone,
+          hostname, root password) interactively on first
+          boot. Alternatively it may also be used to provision these
+          things offline on OS images installed into directories.
+
+        * The default sysctl.d/ snippets will now set
+
+                net.ipv4.conf.default.promote_secondaries=1
+
+          This has the benefit of no flushing secondary IP addresses
+          when primary addresses are removed.
+
+        Contributions from: Ansgar Burchardt, Bastien Nocera, Colin
+        Walters, Dan Dedrick, Daniel Buch, Daniel Korostil, Daniel
+        Mack, Dan Williams, Dave Reisner, David Herrmann, Denis
+        Kenzior, Eelco Dolstra, Eric Cook, Hannes Reinecke, Harald
+        Hoyer, Hong Shick Pak, Hui Wang, Jean-André Santoni, Jóhann
+        B. Guðmundsson, Jon Severinsson, Karel Zak, Kay Sievers, Kevin
+        Wells, Lennart Poettering, Lukas Nykryn, Mantas Mikulėnas,
+        Marc-Antoine Perennou, Martin Pitt, Michael Biebl, Michael
+        Marineau, Michael Olbrich, Michal Schmidt, Michal Sekletar,
+        Miguel Angel Ajo, Mike Gilbert, Olivier Brunel, Robert
+        Schiele, Ronny Chevalier, Simon McVittie, Sjoerd Simons, Stef
+        Walter, Steven Noonan, Susant Sahani, Tanu Kaskinen, Thomas
+        Blume, Thomas Hindoe Paaboel Andersen, Timofey Titovets,
+        Tobias Geerinckx-Rice, Tomasz Torcz, Tom Gundersen, Umut
+        Tezduyar Lindskog, Zbigniew Jędrzejewski-Szmek
+
+        -- Berlin, 2014-08-19
+
 CHANGES WITH 215:
 
         * A new tool systemd-sysusers has been added. This tool
@@ -292,7 +701,7 @@ CHANGES WITH 214:
           moved to /run/systemd/resolve/. If you have a symlink from
           /etc/resolv.conf, it might be necessary to correct it.
 
-        * Two new service settings, ProtectedHome= and ProtectedSystem=,
+        * Two new service settings, ProtectHome= and ProtectSystem=,
           have been added. When enabled, they will make the user data
           (such as /home) inaccessible or read-only and the system
           (such as /usr) read-only, for specific services. This allows
@@ -404,7 +813,7 @@ CHANGES WITH 214:
 
         * Access modes specified in tmpfiles snippets may now be
           prefixed with "~", which indicates that they shall be masked
-          by whether the existing file or directly is currently
+          by whether the existing file or directory is currently
           writable, readable or executable at all. Also, if specified,
           the sgid/suid/sticky bits will be masked for all
           non-directories.
@@ -1411,7 +1820,7 @@ CHANGES WITH 208:
           kernel, and on seats that are not seat0.
 
         * A new kernel command line option luks.options= is understood
-          now which allows specifiying LUKS options for usage for LUKS
+          now which allows specifying LUKS options for usage for LUKS
           encrypted partitions specified with luks.uuid=.
 
         * tmpfiles.d(5) snippets may now use specifier expansion in

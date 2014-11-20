@@ -1,5 +1,5 @@
 '\" t
-.TH "SD_WATCHDOG_ENABLED" "3" "" "systemd 215" "sd_watchdog_enabled"
+.TH "SD_WATCHDOG_ENABLED" "3" "" "systemd 217" "sd_watchdog_enabled"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,6 +36,15 @@ sd_watchdog_enabled \- Check whether the service manager expects watchdog keep\-
 may be called by a service to detect whether the service manager expects regular keep\-alive watchdog notification events from it, and the timeout after which the manager will act on the service if it did not get such a notification\&.
 .PP
 If the
+\fI$WATCHDOG_USEC\fR
+environment variable is set, and the
+\fI$WATCHDOG_PID\fR
+variable is unset or set to the PID of the current process, the service manager expects notifications from this process\&. The manager will usually terminate a service when it does not get a notification message within the specified time after startup and after each previous message\&. It is recommended that a daemon sends a keep\-alive notification message to the service manager every half of the time returned here\&. Notification messages may be sent with
+\fBsd_notify\fR(3)
+with a message string of
+"WATCHDOG=1"\&.
+.PP
+If the
 \fIunset_environment\fR
 parameter is non\-zero,
 \fBsd_watchdog_enabled()\fR
@@ -43,18 +52,15 @@ will unset the
 \fI$WATCHDOG_USEC\fR
 and
 \fI$WATCHDOG_PID\fR
-environment variables before returning (regardless of whether the function call itself succeeded or not)\&. Further calls to
+environment variables before returning (regardless of whether the function call itself succeeded or not)\&. Those variables are no longer inherited by child processes\&. Further calls to
 \fBsd_watchdog_enabled()\fR
-will then return with zero, but the variable is no longer inherited by child processes\&.
+will also return with zero\&.
 .PP
 If the
 \fIusec\fR
 parameter is non\-NULL,
 \fBsd_watchdog_enabled()\fR
-will return the timeout in \(mcs for the watchdog logic\&. The service manager will usually terminate a service when it did not get a notification message within the specified time after startup and after each previous message\&. It is recommended that a daemon sends a keep\-alive notification message to the service manager every half of the time returned here\&. Notification messages may be sent with
-\fBsd_notify\fR(3)
-with a message string of
-"WATCHDOG=1"\&.
+will write the timeout in \(mcs for the watchdog logic to it\&.
 .PP
 To enable service supervision with the watchdog logic, use
 \fIWatchdogSec=\fR
@@ -90,6 +96,16 @@ Set by the system manager for supervised process for which watchdog support is e
 .RS 4
 Set by the system manager for supervised process for which watchdog support is enabled, and contains the watchdog timeout in \(mcs See above for details\&.
 .RE
+.SH "HISTORY"
+.PP
+The watchdog functionality and the
+\fI$WATCHDOG_USEC\fR
+variable were added in systemd\-41\&.
+.PP
+\fBsd_watchdog_enabled()\fR
+function was added in systemd\-209\&. Since that version the
+\fI$WATCHDOG_PID\fR
+variable is also set\&.
 .SH "SEE ALSO"
 .PP
 \fBsystemd\fR(1),

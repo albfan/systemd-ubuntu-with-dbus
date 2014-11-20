@@ -1,5 +1,5 @@
 '\" t
-.TH "SYSTEMD\&.TIME" "7" "" "systemd 215" "systemd.time"
+.TH "SYSTEMD\&.TIME" "7" "" "systemd 217" "systemd.time"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -277,17 +277,25 @@ is assumed\&.
 Timezone names may not be specified\&.
 .PP
 The special expressions
+"minutely",
 "hourly",
 "daily",
-"monthly"
-and
-"weekly"
+"monthly",
+"weekly",
+"yearly",
+"quarterly",
+"semiannually"
 may be used as calendar events which refer to
-"*\-*\-* *:00:00",
-"*\-*\-* 00:00:00",
-"*\-*\-01 00:00:00"
+"*\-*\-*\ \&*:*:00",
+"*\-*\-*\ \&*:00:00",
+"*\-*\-*\ \&00:00:00",
+"*\-*\-01\ \&00:00:00",
+"Mon\ \&*\-*\-*\ \&00:00:00",
+"*\-01\-01\ \&00:00:00",
+"*\-01,04,07,10\-01 00:00:0"
 and
-"Mon *\-*\-* 00:00:00", respectively\&.
+"*\-01,07\-01 00:00:00"
+respectively\&.
 .PP
 Examples for valid timestamps and their normalized form:
 .sp
@@ -319,6 +327,8 @@ Wed\-Sat,Tue 12\-10\-15 1:2:3 → Tue\-Sat 2012\-10\-15 01:02:03
                      daily → *\-*\-* 00:00:00
                    monthly → *\-*\-01 00:00:00
                     weekly → Mon *\-*\-* 00:00:00
+                    yearly → *\-01\-01 00:00:00
+                  annually → *\-01\-01 00:00:00
                      *:2/3 → *\-*\-* *:02/3:00
 .fi
 .if n \{\

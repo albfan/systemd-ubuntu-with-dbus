@@ -1,5 +1,5 @@
 '\" t
-.TH "CRYPTTAB" "5" "" "systemd 215" "crypttab"
+.TH "CRYPTTAB" "5" "" "systemd 217" "crypttab"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -194,6 +194,15 @@ Use TrueCrypt in system encryption mode\&. This option implies
 \fBtimeout=\fR
 .RS 4
 Specifies the timeout for querying for a password\&. If no unit is specified, seconds is used\&. Supported units are s, ms, us, min, h, d\&. A timeout of 0 waits indefinitely (which is the default)\&.
+.RE
+.PP
+\fBx\-systemd\&.device\-timeout=\fR
+.RS 4
+Specifies how long systemd should wait for a device to show up before giving up on the entry\&. The argument is a time in seconds or explicitly specifified units of
+"s",
+"min",
+"h",
+"ms"\&.
 .RE
 .PP
 \fBtmp\fR

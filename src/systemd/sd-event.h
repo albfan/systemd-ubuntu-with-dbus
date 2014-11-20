@@ -52,6 +52,8 @@ enum {
 
 enum {
         SD_EVENT_PASSIVE,
+        SD_EVENT_PREPARED,
+        SD_EVENT_PENDING,
         SD_EVENT_RUNNING,
         SD_EVENT_EXITING,
         SD_EVENT_FINISHED
@@ -84,12 +86,16 @@ int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t call
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 
+int sd_event_prepare(sd_event *e);
+int sd_event_wait(sd_event *e, uint64_t timeout);
+int sd_event_dispatch(sd_event *e);
 int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
 int sd_event_exit(sd_event *e, int code);
 
 int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec);
 
+int sd_event_get_fd(sd_event *e);
 int sd_event_get_state(sd_event *e);
 int sd_event_get_tid(sd_event *e, pid_t *tid);
 int sd_event_get_exit_code(sd_event *e, int *code);
@@ -103,6 +109,8 @@ sd_event *sd_event_source_get_event(sd_event_source *s);
 void* sd_event_source_get_userdata(sd_event_source *s);
 void* sd_event_source_set_userdata(sd_event_source *s, void *userdata);
 
+int sd_event_source_set_name(sd_event_source *s, const char *name);
+int sd_event_source_get_name(sd_event_source *s, const char **name);
 int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback);
 int sd_event_source_get_pending(sd_event_source *s);
 int sd_event_source_get_priority(sd_event_source *s, int64_t *priority);

@@ -147,6 +147,9 @@ int sd_session_get_type(const char *session, char **type);
 /* Determine the class of this session, i.e. one of "user", "greeter" or "lock-screen". */
 int sd_session_get_class(const char *session, char **clazz);
 
+/* Determine the desktop brand of this session, i.e. something like "GNOME", "KDE" or "systemd-console". */
+int sd_session_get_desktop(const char *session, char **desktop);
+
 /* Determine the X11 display of this session. */
 int sd_session_get_display(const char *session, char **display);
 
@@ -180,6 +183,9 @@ int sd_seat_can_graphical(const char *seat);
 
 /* Return the class of machine */
 int sd_machine_get_class(const char *machine, char **clazz);
+
+/* Return the list if host-side network interface indices of a machine */
+int sd_machine_get_ifindices(const char *machine, int **ifindices);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL, this only returns the number of seats. */

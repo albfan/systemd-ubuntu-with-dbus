@@ -203,9 +203,10 @@ static void print_status_info(const StatusInfo *i) {
 
         if (i->rtc_local)
                 fputs("\n" ANSI_HIGHLIGHT_ON
-                      "Warning: The RTC is configured to maintain time in the local time zone. This\n"
-                      "         mode is not fully supported and will create various problems with time\n"
-                      "         zone changes and daylight saving time adjustments. If at all possible, use\n"
+                      "Warning: The system is configured to read the RTC time in the local time zone. This\n"
+                      "         mode can not be fully supported. It will create various problems with time\n"
+                      "         zone changes and daylight saving time adjustments. The RTC time is never updated,\n"
+                      "         it relies on external facilities to maintain it. If at all possible, use\n"
                       "         RTC in UTC by calling 'timedatectl set-local-rtc 0'" ANSI_HIGHLIGHT_OFF ".\n", stdout);
 }
 
@@ -355,76 +356,25 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
 }
 
 static int list_timezones(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **zones = NULL;
-        size_t n_zones = 0;
+        int r;
 
         assert(args);
         assert(n == 1);
 
-        f = fopen("/usr/share/zoneinfo/zone.tab", "re");
-        if (!f) {
-                log_error("Failed to open time zone database: %m");
-                return -errno;
+        r = get_timezones(&zones);
+        if (r < 0) {
+                log_error("Failed to read list of time zones: %s", strerror(-r));
+                return r;
         }
-
-        for (;;) {
-                char l[LINE_MAX], *p, **z, *w;
-                size_t k;
-
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
-
-                        log_error("Failed to read time zone database: %m");
-                        return -errno;
-                }
-
-                p = strstrip(l);
-
-                if (isempty(p) || *p == '#')
-                        continue;
-
-                /* Skip over country code */
-                p += strcspn(p, WHITESPACE);
-                p += strspn(p, WHITESPACE);
-
-                /* Skip over coordinates */
-                p += strcspn(p, WHITESPACE);
-                p += strspn(p, WHITESPACE);
-
-                /* Found timezone name */
-                k = strcspn(p, WHITESPACE);
-                if (k <= 0)
-                        continue;
-
-                w = strndup(p, k);
-                if (!w)
-                        return log_oom();
-
-                z = realloc(zones, sizeof(char*) * (n_zones + 2));
-                if (!z) {
-                        free(w);
-                        return log_oom();
-                }
-
-                zones = z;
-                zones[n_zones++] = w;
-        }
-
-        if (zones)
-                zones[n_zones] = NULL;
 
         pager_open_if_enabled();
-
-        strv_sort(zones);
         strv_print(zones);
 
         return 0;
 }
 
-static int help(void) {
-
+static void help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
                "  -h --help                Show this help message\n"
@@ -442,8 +392,6 @@ static int help(void) {
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
                "  set-ntp BOOL             Control whether NTP is enabled\n",
                program_invocation_short_name);
-
-        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -471,12 +419,13 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
 
                 switch (c) {
 
                 case 'h':
-                        return help();
+                        help();
+                        return 0;
 
                 case ARG_VERSION:
                         puts(PACKAGE_STRING);
@@ -511,7 +460,6 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
-        }
 
         return 1;
 }
@@ -597,7 +545,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_bus_unref_ sd_bus *bus = NULL;
+        _cleanup_bus_close_unref_ sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");

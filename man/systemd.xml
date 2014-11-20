@@ -180,10 +180,8 @@
                                 target. Argument must be one of
                                 <option>console</option>,
                                 <option>journal</option>,
-                                <option>syslog</option>,
                                 <option>kmsg</option>,
                                 <option>journal-or-kmsg</option>,
-                                <option>syslog-or-kmsg</option>,
                                 <option>null</option>.</para></listitem>
                         </varlistentry>
                         <varlistentry>
@@ -191,7 +189,7 @@
 
                                 <listitem><para>Set log level. As
                                 argument this accepts a numerical log
-                                level or the well-known <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+                                level or the well-known <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
                                 symbolic names (lowercase):
                                 <option>emerg</option>,
                                 <option>alert</option>,
@@ -424,7 +422,7 @@
                 file system hierarchy (beneath
                 <filename>/sys/fs/cgroup/systemd/</filename>), or in tools
                 such as
-                <citerefentry><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                <citerefentry project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                 (<command>ps xawf -eo pid,user,cgroup,args</command>
                 is particularly useful to list all processes and the
                 systemd units they belong to.).</para>
@@ -844,26 +842,21 @@
                                 <term><constant>SIGRTMIN+26</constant></term>
                                 <term><constant>SIGRTMIN+27</constant></term>
                                 <term><constant>SIGRTMIN+28</constant></term>
-                                <term><constant>SIGRTMIN+29</constant></term>
 
                                 <listitem><para>Sets the log level to
-                                <literal>journal-or-kmsg</literal>
-                                (or <literal>console</literal> on
+                                <literal>journal-or-kmsg</literal> (or
+                                <literal>console</literal> on
                                 <constant>SIGRTMIN+27</constant>,
                                 <literal>kmsg</literal> on
-                                <constant>SIGRTMIN+28</constant>,
-                                or <literal>syslog-or-kmsg</literal>
-                                on <constant>SIGRTMIN+29</constant>), as
+                                <constant>SIGRTMIN+28</constant>), as
                                 controlled via
                                 <varname>systemd.log_target=journal-or-kmsg</varname>
-                                (or <varname>systemd.log_target=console</varname>
-                                on <constant>SIGRTMIN+27</constant>,
+                                (or
+                                <varname>systemd.log_target=console</varname>
+                                on <constant>SIGRTMIN+27</constant> or
                                 <varname>systemd.log_target=kmsg</varname>
-                                on <constant>SIGRTMIN+28</constant>,
-                                or
-                                <varname>systemd.log_target=syslog-or-kmsg</varname>
-                                on <constant>SIGRTMIN+29</constant>) on
-                                the kernel command
+                                on <constant>SIGRTMIN+28</constant>)
+                                on the kernel command
                                 line.</para></listitem>
                         </varlistentry>
                 </variablelist>
@@ -1132,17 +1125,19 @@
                         </varlistentry>
 
                         <varlistentry>
-                                <term><varname>-b</varname></term>
                                 <term><varname>emergency</varname></term>
+                                <term><varname>-b</varname></term>
 
                                 <listitem><para>Boot into emergency
                                 mode. This is equivalent to
                                 <varname>systemd.unit=emergency.target</varname>
-                                and provided for compatibility
-                                reasons and to be easier to type.</para></listitem>
+                                and provided for compatibility reasons
+                                and to be easier to
+                                type.</para></listitem>
                         </varlistentry>
 
                         <varlistentry>
+                                <term><varname>rescue</varname></term>
                                 <term><varname>single</varname></term>
                                 <term><varname>s</varname></term>
                                 <term><varname>S</varname></term>
@@ -1274,9 +1269,9 @@
                         <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+                        <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-                        <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+                        <citerefentry project='man-pages'><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
                         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
                 </para>
         </refsect1>
