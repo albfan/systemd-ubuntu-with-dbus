@@ -4,6 +4,7 @@ systemd (217-1) UNRELEASED; urgency=medium
     specific ones.
   * Disable systemd-resolved for now. It still needs to mature, and
     integration into Debian should be discussed first.
+  * Bump util-linux dependency to >= 2.25 as per NEWS.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 
