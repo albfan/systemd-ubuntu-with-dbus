@@ -9,6 +9,7 @@ systemd (217-1) UNRELEASED; urgency=medium
     Firmware loading is now exclusively done by the kernel.
   * Drop installation of readahead related services and code, readahead got
     dropped in this version.
+  * Ship new networkctl CLI tool.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 

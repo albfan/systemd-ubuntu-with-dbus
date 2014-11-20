@@ -3,6 +3,7 @@ bin/systemctl
 bin/journalctl
 bin/loginctl
 bin/machinectl
+bin/networkctl
 bin/systemd-notify
 bin/systemd-tty-ask-password-agent
 bin/systemd-ask-password
