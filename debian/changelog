@@ -10,6 +10,7 @@ systemd (217-1) UNRELEASED; urgency=medium
   * Drop installation of readahead related services and code, readahead got
     dropped in this version.
   * Ship new networkctl CLI tool.
+  * debian/libsystemd0.symbols: Add new symbols from this release.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 

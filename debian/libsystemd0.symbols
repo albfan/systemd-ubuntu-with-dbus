@@ -3,6 +3,8 @@ libsystemd.so.0 libsystemd0 #MINVER#
  LIBSYSTEMD_211@LIBSYSTEMD_211 211
  LIBSYSTEMD_213@LIBSYSTEMD_213 213
  LIBSYSTEMD_214@LIBSYSTEMD_214 214
+ LIBSYSTEMD_216@LIBSYSTEMD_216 217
+ LIBSYSTEMD_217@LIBSYSTEMD_217 217
  sd_booted@LIBSYSTEMD_209 0
  sd_get_machine_names@LIBSYSTEMD_209 0
  sd_get_seats@LIBSYSTEMD_209 0
@@ -79,6 +81,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_login_monitor_new@LIBSYSTEMD_209 0
  sd_login_monitor_unref@LIBSYSTEMD_209 0
  sd_machine_get_class@LIBSYSTEMD_211 211
+ sd_machine_get_ifindices@LIBSYSTEMD_216 217
  sd_notify@LIBSYSTEMD_209 0
  sd_notifyf@LIBSYSTEMD_209 0
  sd_peer_get_machine_name@LIBSYSTEMD_211 211
@@ -101,6 +104,7 @@ libsystemd.so.0 libsystemd0 #MINVER#
  sd_seat_get_active@LIBSYSTEMD_209 0
  sd_seat_get_sessions@LIBSYSTEMD_209 0
  sd_session_get_class@LIBSYSTEMD_209 0
+ sd_session_get_desktop@LIBSYSTEMD_217 217
  sd_session_get_display@LIBSYSTEMD_209 0
  sd_session_get_remote_host@LIBSYSTEMD_209 0
  sd_session_get_remote_user@LIBSYSTEMD_209 0
