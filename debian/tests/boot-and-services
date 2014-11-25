@@ -9,6 +9,7 @@ import unittest
 import subprocess
 import tempfile
 import shutil
+import time
 
 
 class ServicesTest(unittest.TestCase):
@@ -122,6 +123,8 @@ echo fake container started
 ps aux
 poweroff\n''')
             os.fchmod(f.fileno(), 0o755)
+        subprocess.check_call(['systemd-machine-id-setup', '--root',
+                               kls.c_busybox], stderr=subprocess.PIPE)
 
     def setUp(self):
         self.workdir = tempfile.TemporaryDirectory()
@@ -129,7 +132,6 @@ poweroff\n''')
     def test_boot(self):
         cont = os.path.join(self.workdir.name, 'c1')
         shutil.copytree(self.c_busybox, cont, symlinks=True)
-        shutil.copytree(self.c_busybox, '/tmp/cont', symlinks=True)
         out = subprocess.check_output(['systemd-nspawn', '-D', cont, '-b'],
                                       timeout=60, stderr=subprocess.STDOUT)
         self.assertIn(b'Spawning container c1', out)
@@ -137,6 +139,20 @@ poweroff\n''')
         self.assertRegex(out, b'\n\s+1\s+0\s+init[\r\n]')
         self.assertRegex(out, b'\n\s+2+\s+0\s.*rcS[\r\n]')
         self.assertRegex(out, b'Container c1.*shut down')
+
+    def test_service(self):
+        self.assertTrue(os.path.isdir('/var/lib/container'))
+        cont = '/var/lib/container/c1'
+        shutil.copytree(self.c_busybox, cont, symlinks=True)
+        subprocess.check_call(['systemctl', 'start', 'systemd-nspawn@c1'])
+        time.sleep(5)
+
+        systemctl = subprocess.Popen(
+            ['systemctl', 'status', '-l', 'systemd-nspawn@c1'],
+            stdout=subprocess.PIPE)
+        out = systemctl.communicate()[0]
+        self.assertEqual(systemctl.returncode, 3, out)
+        self.assertIn(b'Requesting system poweroff', out)
 
 
 def boot_with_systemd():
