@@ -13,7 +13,7 @@ started as user).
  1 file changed, 2 insertions(+)
 
 diff --git a/tmpfiles.d/var.conf b/tmpfiles.d/var.conf
-index 4b63e41..b4bf3bc 100644
+index 4b63e41..d9545fe 100644
 --- a/tmpfiles.d/var.conf
 +++ b/tmpfiles.d/var.conf
 @@ -18,4 +18,6 @@ f /var/log/btmp 0600 root utmp -

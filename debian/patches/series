@@ -109,7 +109,7 @@ udev-link-config-fix-crash-due-to-missing-hwaddr.patch
 tests-fix-some-tests-to-pass-in-koji.patch
 Make-emergency.service-conflict-with-rescue.service.patch
 udev-hwdb-Support-shipping-pre-compiled-database-in-.patch
-tmpfiles.d-Create-var-lib-containers.patch
+tmpfiles.d-Create-var-lib-container.patch
 nspawn-Add-try-host-guest-journal-link-modes.patch
 selinux-access-fix-broken-ternary-operator.patch
 
