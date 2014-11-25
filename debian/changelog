@@ -11,6 +11,8 @@ systemd (215-7) UNRELEASED; urgency=medium
     - Add new try-{guest,host} modes for --link-journal to silently skip
       setting up the guest journal if the host has no persistant journal.
     - Extend boot-and-services autopkgtest to cover systemd-nspawn@.service.
+  * Cherry-pick upstream patch to fix SELinux unit access check (regression
+    in 215).
 
   [ Jon Severinsson]
   * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf. This
