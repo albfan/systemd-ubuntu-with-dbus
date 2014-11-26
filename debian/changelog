@@ -15,6 +15,9 @@ systemd (217-1) UNRELEASED; urgency=medium
   * debian/rules: Call dpkg-gensymbols with -c4 to immediately spot
     changed/missing symbols during build.
 
+  [ Marc Deslauriers ]
+  * Build-depend on libapparmor-dev to enable AppArmor support. (LP: #1396270)
+
   [ Didier Roche ]
   * Handle display-manager transitions: (Closes: #748668)
     - Add a generator to ensure /etc/X11/default-display-manager is controlling
