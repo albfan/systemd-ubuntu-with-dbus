@@ -58,3 +58,4 @@ shared-fix-utf16_to_utf8-on-big-endian-machines.patch
 Support-system-image-read-only-etc.patch
 Provide-shutdown-fallback-for-upstart.patch
 Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
+core-Put-session-scopes-into-all-cgroup-controllers.patch
