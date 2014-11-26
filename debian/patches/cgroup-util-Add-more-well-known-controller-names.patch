@@ -1,0 +1,58 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 26 Nov 2014 11:49:56 +0100
+Subject: cgroup-util: Add more well-known controller names
+
+Change the CGroupControllerMask values to be proper bit masks with (1 << n) to
+ease readability and avoid typos.
+---
+ src/shared/cgroup-util.c |  8 +++++++-
+ src/shared/cgroup-util.h | 17 ++++++++++++-----
+ 2 files changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
+index da8e885..6a09e9f 100644
+--- a/src/shared/cgroup-util.c
++++ b/src/shared/cgroup-util.c
+@@ -1595,7 +1595,13 @@ static const char mask_names[] =
+         "cpuacct\0"
+         "blkio\0"
+         "memory\0"
+-        "devices\0";
++        "devices\0"
++        "hugetlb\0"
++        "cpuset\0"
++        "net_cls\0"
++        "net_prio\0"
++        "freezer\0"
++        "perf_event\0";
+ 
+ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path) {
+         CGroupControllerMask bit = 1;
+diff --git a/src/shared/cgroup-util.h b/src/shared/cgroup-util.h
+index aca4e44..56862b3 100644
+--- a/src/shared/cgroup-util.h
++++ b/src/shared/cgroup-util.h
+@@ -30,11 +30,18 @@
+ 
+ /* A bit mask of well known cgroup controllers */
+ typedef enum CGroupControllerMask {
+-        CGROUP_CPU = 1,
+-        CGROUP_CPUACCT = 2,
+-        CGROUP_BLKIO = 4,
+-        CGROUP_MEMORY = 8,
+-        CGROUP_DEVICE = 16
++        CGROUP_CPU = (1 << 0),
++        CGROUP_CPUACCT = (1 << 1),
++        CGROUP_BLKIO = (1 << 2),
++        CGROUP_MEMORY = (1 << 3),
++        CGROUP_DEVICE = (1 << 4),
++        CGROUP_HUGETLB = (1 << 5),
++        CGROUP_CPUSET = (1 << 6),
++        CGROUP_NET_CLS = (1 << 7),
++        CGROUP_NET_PRIO = (1 << 8),
++        CGROUP_FREEZER = (1 << 9),
++        CGROUP_PERF_EVENT = (1 << 10),
++        _CGROUP_CONTROLLER_MASK_ALL = (1 << 11) - 1
+ } CGroupControllerMask;
+ 
+ /*
