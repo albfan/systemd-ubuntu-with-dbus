@@ -64,3 +64,6 @@ Add-support-for-ProLiant-Server-Cartridge-power-butt.patch
 Provide-shutdown-fallback-for-upstart.patch
 Trigger-ifup-.service-on-network-devices.patch
 Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
+cgroup-util-Add-more-well-known-controller-names.patch
+core-Put-user-slices-into-all-cgroup-controllers.patch
+cgroup-Initialize-cpuset.clone_children.patch

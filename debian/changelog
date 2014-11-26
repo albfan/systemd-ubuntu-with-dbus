@@ -39,6 +39,8 @@ systemd (217-1ubuntu1) UNRELEASED; urgency=medium
       (LP: #1377258)
     - Add systemd Apport hook for adding systemd-delta and information about
       failed units.
+    - Put user slices into all cgroup controllers. This makes unprivileged user
+      LXC containers work under systemd. (LP: #1346734)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
