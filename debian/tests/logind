@@ -36,7 +36,7 @@ pkill -HUP udevd || pkill -HUP systemd-udevd
 echo " * coldplug: logind started with existing device"
 killall systemd-logind
 modprobe scsi_debug
-while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block`; do sleep 0.1; done
+while ! dev=/dev/`ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null`; do sleep 0.1; done
 test -b $dev
 echo "got block device $dev"
 udevadm settle

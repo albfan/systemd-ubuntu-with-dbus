@@ -7,6 +7,9 @@ import sys
 import os
 import unittest
 import subprocess
+import tempfile
+import shutil
+import time
 
 
 class ServicesTest(unittest.TestCase):
@@ -32,8 +35,13 @@ class ServicesTest(unittest.TestCase):
         self.active_unit('dbus')
 
     def test_network_manager(self):
-        out = subprocess.check_output(['nmcli', 'nm'])
-        self.assertIn(b'running', out)
+        # 0.9.10 changed the command name
+        _help = subprocess.check_output(['nmcli', '--help'],
+                                        stderr=subprocess.STDOUT)
+        if b' g[eneral]' in _help:
+            out = subprocess.check_output(['nmcli', 'general'])
+        else:
+            out = subprocess.check_output(['nmcli', 'nm'])
         self.assertIn(b'enabled', out)
         self.active_unit('network-manager')
 
@@ -94,11 +102,70 @@ class JournalTest(unittest.TestCase):
         self.assertNotIn(b'systemd:', out)
 
 
-def boot_with_systemd():
-    '''Reboot with systemd as init'''
+class NspawnTest(unittest.TestCase):
+    '''Check nspawn'''
 
-    subprocess.check_call('apt-get -y install systemd-sysv 2>&1', shell=True)
-    subprocess.check_call(['autopkgtest-reboot', 'boot1'])
+    @classmethod
+    def setUpClass(kls):
+        '''Build a bootable busybox mini-container'''
+
+        kls.td_c_busybox = tempfile.TemporaryDirectory(prefix='c_busybox.')
+        kls.c_busybox = kls.td_c_busybox.name
+        for d in ['etc/init.d', 'bin', 'sbin']:
+            os.makedirs(os.path.join(kls.c_busybox, d))
+        shutil.copy('/bin/busybox', os.path.join(kls.c_busybox, 'bin'))
+        shutil.copy('/etc/os-release', os.path.join(kls.c_busybox, 'etc'))
+        os.symlink('busybox', os.path.join(kls.c_busybox, 'bin', 'sh'))
+        os.symlink('../bin/busybox', os.path.join(kls.c_busybox, 'sbin/init'))
+        with open(os.path.join(kls.c_busybox, 'etc/init.d/rcS'), 'w') as f:
+            f.write('''#!/bin/sh
+echo fake container started
+ps aux
+poweroff\n''')
+            os.fchmod(f.fileno(), 0o755)
+        subprocess.check_call(['systemd-machine-id-setup', '--root',
+                               kls.c_busybox], stderr=subprocess.PIPE)
+
+    def setUp(self):
+        self.workdir = tempfile.TemporaryDirectory()
+
+    def test_boot(self):
+        cont = os.path.join(self.workdir.name, 'c1')
+        shutil.copytree(self.c_busybox, cont, symlinks=True)
+        out = subprocess.check_output(['systemd-nspawn', '-D', cont, '-b'],
+                                      timeout=60, stderr=subprocess.STDOUT)
+        self.assertIn(b'Spawning container c1', out)
+        self.assertIn(b'fake container started', out)
+        self.assertRegex(out, b'\n\s+1\s+0\s+init[\r\n]')
+        self.assertRegex(out, b'\n\s+2+\s+0\s.*rcS[\r\n]')
+        self.assertRegex(out, b'Container c1.*shut down')
+
+    def test_service(self):
+        self.assertTrue(os.path.isdir('/var/lib/container'))
+        cont = '/var/lib/container/c1'
+        shutil.copytree(self.c_busybox, cont, symlinks=True)
+        subprocess.check_call(['systemctl', 'start', 'systemd-nspawn@c1'])
+        time.sleep(5)
+
+        systemctl = subprocess.Popen(
+            ['systemctl', 'status', '-l', 'systemd-nspawn@c1'],
+            stdout=subprocess.PIPE)
+        out = systemctl.communicate()[0]
+        self.assertEqual(systemctl.returncode, 3, out)
+        self.assertIn(b'Requesting system poweroff', out)
+
+
+def boot_with_systemd():
+    '''Reboot with systemd as init
+
+    In case something else is currently running in the testbed
+    '''
+    if subprocess.call(['systemctl', 'status'], stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE) != 0:
+        print('Installing systemd-sysv and rebooting...')
+        subprocess.check_call('apt-get -y install systemd-sysv 2>&1',
+                              shell=True)
+        subprocess.check_call(['autopkgtest-reboot', 'boot-systemd'])
 
 
 if __name__ == '__main__':
