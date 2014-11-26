@@ -1,0 +1,28 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 26 Nov 2014 15:41:44 +0100
+Subject: cgroup: Initialize cpuset.clone_children
+
+scope_start() calls cg_attach_many_everywhere() to move a unit's PIDs to all
+supported cgroup controllers. However, that fails with ENOSPC for cpuset as
+by default cpuset.{cpus,mems} are empty. Thus set cgroup.clone_children to 1 to
+make the configuration of the root cgroup propagate to children. See
+https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt for details.
+---
+ src/core/cgroup.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/core/cgroup.c b/src/core/cgroup.c
+index cd67963..00b5d4b 100644
+--- a/src/core/cgroup.c
++++ b/src/core/cgroup.c
+@@ -906,6 +906,10 @@ int manager_setup_cgroup(Manager *m) {
+         /* 7.  Always enable hierarchial support if it exists... */
+         cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
+ 
++        /* 8. Enable conf copying of cpuset attributes to children, so
++         * that we can actually attach processes to cpuset */
++        cg_set_attribute("cpuset", "/", "cgroup.clone_children", "1");
++
+         return 0;
+ }
+ 

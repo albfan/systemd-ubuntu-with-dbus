@@ -1,0 +1,130 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 26 Nov 2014 11:51:04 +0100
+Subject: core: Put user slices into all cgroup controllers
+
+Unprivileged (per-user) LXC containers need to be able to create sub-cgroups
+for all controllers underneath the ones from the lxc-start caller. Thus the
+logind sessions need to be in all cgroup controllers instead of just "systemd".
+
+Add cg_create_uid() and cg_create_everywhere_uid() API to cgroup-util which
+create cgroups whose directories (not their contents!) is owned by a particular
+user. That user can then create sub-cgroups without being able to modify the
+existing ones.
+
+FIXME: There doesn't seem to be a good way of figuring out the user ID from a
+"user-NNNN.slice", so this currently parses the name.
+
+https://launchpad.net/bugs/1346734
+---
+ src/core/slice.c         | 10 ++++++++++
+ src/shared/cgroup-util.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ src/shared/cgroup-util.h |  2 ++
+ 3 files changed, 60 insertions(+)
+
+diff --git a/src/core/slice.c b/src/core/slice.c
+index 057feef..0c90d7e 100644
+--- a/src/core/slice.c
++++ b/src/core/slice.c
+@@ -186,6 +186,16 @@ static int slice_start(Unit *u) {
+ 
+         unit_realize_cgroup(u);
+ 
++        /* put user slices into all controllers, for LXC user containers */
++        if (startswith(u->id, "user-")) {
++                int r;
++                long uid = atol(u->id + 5); /* FIXME: Eww! Is there a better way to get the UID? */
++                CGroupControllerMask mask = cg_mask_supported();
++                r = cg_create_everywhere_uid(mask, mask, u->cgroup_path, (uid > 0) ? (uid_t) uid : (uid_t) -1);
++                if (r < 0)
++                        log_warning_unit(u->id, "Cannot create cgroup controllers for %s: %s", u->id, strerror(-r));
++        }
++
+         slice_set_state(t, SLICE_ACTIVE);
+         return 0;
+ }
+diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
+index a1591d2..e26b7f4 100644
+--- a/src/shared/cgroup-util.c
++++ b/src/shared/cgroup-util.c
+@@ -609,6 +609,27 @@ int cg_create(const char *controller, const char *path) {
+         return 1;
+ }
+ 
++int cg_create_uid(const char *controller, const char *path, uid_t uid) {
++        _cleanup_free_ char *fs = NULL;
++        int r;
++
++        r = cg_get_path_and_check(controller, path, NULL, &fs);
++        if (r < 0)
++                return r;
++
++        r = mkdir_parents(fs, 0755);
++        if (r < 0)
++                return r;
++
++        if (mkdir(fs, 0755) < 0 && errno != EEXIST)
++                return -errno;
++
++        if (chown(fs, uid, (gid_t) -1) < 0)
++                return -errno;
++
++        return 1;
++}
++
+ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+         int r, q;
+ 
+@@ -1634,6 +1655,33 @@ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask ma
+         return 0;
+ }
+ 
++int cg_create_everywhere_uid(CGroupControllerMask supported, CGroupControllerMask mask, const char *path, uid_t uid) {
++        CGroupControllerMask bit = 1;
++        const char *n;
++        int r;
++
++        /* This one will create a cgroup in our private tree, but also
++         * duplicate it in the trees specified in mask, and remove it
++         * in all others */
++
++        /* First create the cgroup in our own hierarchy. */
++        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
++        if (r < 0)
++                return r;
++
++        /* Then, do the same in the other hierarchies */
++        NULSTR_FOREACH(n, mask_names) {
++                if (mask & bit)
++                        cg_create_uid(n, path, uid);
++                else if (supported & bit)
++                        cg_trim(n, path, true);
++
++                bit <<= 1;
++        }
++
++        return 0;
++}
++
+ int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid) {
+         CGroupControllerMask bit = 1;
+         const char *n;
+diff --git a/src/shared/cgroup-util.h b/src/shared/cgroup-util.h
+index 56862b3..be10583 100644
+--- a/src/shared/cgroup-util.h
++++ b/src/shared/cgroup-util.h
+@@ -86,6 +86,7 @@ int cg_rmdir(const char *controller, const char *path);
+ int cg_delete(const char *controller, const char *path);
+ 
+ int cg_create(const char *controller, const char *path);
++int cg_create_uid(const char *controller, const char *path, uid_t uid);
+ int cg_attach(const char *controller, const char *path, pid_t pid);
+ int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
+ int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
+@@ -132,6 +133,7 @@ int cg_slice_to_path(const char *unit, char **ret);
+ typedef const char* (*cg_migrate_callback_t)(CGroupControllerMask mask, void *userdata);
+ 
+ int cg_create_everywhere(CGroupControllerMask supported, CGroupControllerMask mask, const char *path);
++int cg_create_everywhere_uid(CGroupControllerMask supported, CGroupControllerMask mask, const char *path, uid_t uid);
+ int cg_attach_everywhere(CGroupControllerMask supported, const char *path, pid_t pid);
+ int cg_attach_many_everywhere(CGroupControllerMask supported, const char *path, Set* pids);
+ int cg_migrate_everywhere(CGroupControllerMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);

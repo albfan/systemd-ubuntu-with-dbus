@@ -1,3 +1,10 @@
+systemd (215-6ubuntu2) UNRELEASED; urgency=medium
+
+  * Put user slices into all cgroup controllers. This makes unprivileged user
+    LXC containers work under systemd. (LP: #1396270)
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 26 Nov 2014 16:41:33 +0100
+
 systemd (215-6ubuntu1) vivid; urgency=medium
 
   * Merge fixes from Debian master.
