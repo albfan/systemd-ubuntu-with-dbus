@@ -41,3 +41,7 @@ Restrictions: needs-recommends, needs-root, isolation-container, allow-stderr
 Tests: systemd-fsckd
 Depends: systemd-sysv, python3, plymouth
 Restrictions: needs-root, isolation-machine, needs-recommends, breaks-testbed
+
+Tests: user-session-cgroups
+Depends: systemd-sysv
+Restrictions: isolation-container
