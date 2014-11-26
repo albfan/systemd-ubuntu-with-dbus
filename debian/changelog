@@ -1,7 +1,11 @@
 systemd (215-6ubuntu2) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Put user slices into all cgroup controllers. This makes unprivileged user
     LXC containers work under systemd. (LP: #1396270)
+
+  [ Marc Deslauriers ]
+  * Build-depend on libapparmor-dev to enable AppArmor support. (LP: #1396270)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Wed, 26 Nov 2014 16:41:33 +0100
 
