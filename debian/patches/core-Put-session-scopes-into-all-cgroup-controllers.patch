@@ -1,0 +1,203 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Wed, 26 Nov 2014 11:51:04 +0100
+Subject: core: Put session scopes into all cgroup controllers
+
+Unprivileged (per-user) LXC containers need to be able to create sub-cgroups
+for all controllers underneath the ones from the lxc-start caller. Thus the
+logind sessions need to be in all cgroup controllers instead of just "systemd".
+
+Add cg_create_uid() and cg_create_everywhere_uid() cgroup API which create
+cgroups whose directory (not contents!) is owned by a particular user. That
+user can then create sub-cgroups without being able to modify the existing
+ones.
+
+FIXME: There doesn't seem to be a good way of figuring out the user ID from a
+"user-NNNN.slice", so this currently parses the name.
+
+scope_start() calls cg_attach_many_everywhere() to move a unit's PIDs to all
+supported cgroup controllers. However, that fails with ENOSPC for cpuset as
+by default cpuset.{cpus,mems} are empty. Thus set cgroup.clone_children to 1 to
+make the configuration of the root cgroup propagate to children. See
+https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt for details.
+
+https://launchpad.net/bugs/1346734
+---
+ src/basic/cgroup-util.c | 62 +++++++++++++++++++++++++++++++++++++++++++++++++
+ src/basic/cgroup-util.h |  7 ++++++
+ src/core/cgroup.c       | 10 ++++++++
+ src/core/scope.c        | 15 ++++++++++++
+ 4 files changed, 94 insertions(+)
+
+diff --git a/src/basic/cgroup-util.c b/src/basic/cgroup-util.c
+index 0cb5b57..51e3146 100644
+--- a/src/basic/cgroup-util.c
++++ b/src/basic/cgroup-util.c
+@@ -679,6 +679,27 @@ int cg_create(const char *controller, const char *path) {
+         return 1;
+ }
+ 
++int cg_create_uid(const char *controller, const char *path, uid_t uid) {
++        _cleanup_free_ char *fs = NULL;
++        int r;
++
++        r = cg_get_path_and_check(controller, path, NULL, &fs);
++        if (r < 0)
++                return r;
++
++        r = mkdir_parents(fs, 0755);
++        if (r < 0)
++                return r;
++
++        if (mkdir(fs, 0755) < 0 && errno != EEXIST)
++                return -errno;
++
++        if (chown(fs, uid, (gid_t) -1) < 0)
++                return -errno;
++
++        return 1;
++}
++
+ int cg_create_and_attach(const char *controller, const char *path, pid_t pid) {
+         int r, q;
+ 
+@@ -1867,6 +1888,42 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
+         return 0;
+ }
+ 
++int cg_create_everywhere_uid(CGroupMask supported, CGroupMask mask, const char *path, uid_t uid) {
++        CGroupController c;
++        int r, unified;
++
++        /* This one will create a cgroup in our private tree, but also
++         * duplicate it in the trees specified in mask, and remove it
++         * in all others */
++
++        /* First create the cgroup in our own hierarchy. */
++        r = cg_create_uid(SYSTEMD_CGROUP_CONTROLLER, path, uid);
++        if (r < 0)
++                return r;
++
++        /* If we are in the unified hierarchy, we are done now */
++        unified = cg_unified();
++        if (unified < 0)
++                return unified;
++        if (unified > 0)
++                return 0;
++
++        /* Otherwise, do the same in the other hierarchies */
++        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
++                CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
++                const char *n;
++
++                n = cgroup_controller_to_string(c);
++
++                if (mask & bit)
++                        (void) cg_create_uid(n, path, uid);
++                else if (supported & bit)
++                        (void) cg_trim(n, path, true);
++        }
++
++        return 0;
++}
++
+ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
+         CGroupController c;
+         int r, unified;
+@@ -2264,6 +2321,11 @@ static const char *cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
+         [CGROUP_CONTROLLER_DEVICES] = "devices",
+         [CGROUP_CONTROLLER_PIDS] = "pids",
+         [CGROUP_CONTROLLER_NET_CLS] = "net_cls",
++        [CGROUP_CONTROLLER_HUGETLB] = "hugetlb",
++        [CGROUP_CONTROLLER_CPUSET] = "cpuset",
++        [CGROUP_CONTROLLER_NET_PRIO] = "net_prio",
++        [CGROUP_CONTROLLER_FREEZER] = "freezer",
++        [CGROUP_CONTROLLER_PERF_EVENT] = "perf_event",
+ };
+ 
+ DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
+diff --git a/src/basic/cgroup-util.h b/src/basic/cgroup-util.h
+index 01359fa..661ce4a 100644
+--- a/src/basic/cgroup-util.h
++++ b/src/basic/cgroup-util.h
+@@ -37,6 +37,11 @@ typedef enum CGroupController {
+         CGROUP_CONTROLLER_DEVICES,
+         CGROUP_CONTROLLER_PIDS,
+         CGROUP_CONTROLLER_NET_CLS,
++        CGROUP_CONTROLLER_HUGETLB,
++        CGROUP_CONTROLLER_CPUSET,
++        CGROUP_CONTROLLER_NET_PRIO,
++        CGROUP_CONTROLLER_FREEZER,
++        CGROUP_CONTROLLER_PERF_EVENT,
+         _CGROUP_CONTROLLER_MAX,
+         _CGROUP_CONTROLLER_INVALID = -1,
+ } CGroupController;
+@@ -120,6 +125,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root);
+ int cg_rmdir(const char *controller, const char *path);
+ 
+ int cg_create(const char *controller, const char *path);
++int cg_create_uid(const char *controller, const char *path, uid_t uid);
+ int cg_attach(const char *controller, const char *path, pid_t pid);
+ int cg_attach_fallback(const char *controller, const char *path, pid_t pid);
+ int cg_create_and_attach(const char *controller, const char *path, pid_t pid);
+@@ -169,6 +175,7 @@ int cg_slice_to_path(const char *unit, char **ret);
+ typedef const char* (*cg_migrate_callback_t)(CGroupMask mask, void *userdata);
+ 
+ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path);
++int cg_create_everywhere_uid(CGroupMask supported, CGroupMask mask, const char *path, uid_t uid);
+ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t callback, void *userdata);
+ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t callback, void *userdata);
+ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t callback, void *userdata);
+diff --git a/src/core/cgroup.c b/src/core/cgroup.c
+index 6124a85..57ea554 100644
+--- a/src/core/cgroup.c
++++ b/src/core/cgroup.c
+@@ -573,6 +573,11 @@ CGroupMask unit_get_own_mask(Unit *u) {
+                         return _CGROUP_MASK_ALL;
+         }
+ 
++        if (u->type == UNIT_SCOPE && UNIT_ISSET(u->slice) && startswith(UNIT_DEREF(u->slice)->id, "user-")) {
++                log_unit_debug(u, "Putting user session scope into all cgroup controllers for LXC user containers");
++                return u->manager->cgroup_supported;
++        }
++
+         return cgroup_context_get_mask(c);
+ }
+ 
+@@ -1471,6 +1476,11 @@ int manager_setup_cgroup(Manager *m) {
+                 /* 6.  Always enable hierarchical support if it exists... */
+                 if (!unified)
+                         (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
++
++                /* 7. Enable conf copying of cpuset attributes to children, so
++                 * that we can actually attach processes to cpuset */
++                if (!unified)
++                        (void) cg_set_attribute("cpuset", "/", "cgroup.clone_children", "1");
+         }
+ 
+         /* 7. Figure out which controllers are supported */
+diff --git a/src/core/scope.c b/src/core/scope.c
+index 1953af1..4d6a463 100644
+--- a/src/core/scope.c
++++ b/src/core/scope.c
+@@ -304,6 +304,21 @@ static int scope_start(Unit *u) {
+         (void) unit_realize_cgroup(u);
+         (void) unit_reset_cpu_usage(u);
+ 
++        /* put logind sessions into all controllers, for LXC user containers */
++        if (UNIT_ISSET(u->slice) && startswith(UNIT_DEREF(u->slice)->id, "user-")) {
++                long uid = atol(UNIT_DEREF(u->slice)->id + 5); /* FIXME: Eww! Is there a better way to get the UID? */
++                if (uid > 0) {
++                        assert(u->cgroup_path);
++                        r = cg_create_everywhere_uid(u->manager->cgroup_supported,
++                                                     u->manager->cgroup_supported,
++                                                     u->cgroup_path, (uid_t) uid);
++                        if (r < 0)
++                                log_unit_warning(u, "Cannot create cgroup controllers for %s: %s", UNIT_DEREF(u->slice)->id, strerror(-r));
++                } else {
++                        log_unit_warning(u, "Cannot determine UID from slice %s", UNIT_DEREF(u->slice)->id);
++                }
++        }
++
+         r = unit_attach_pids_to_cgroup(u);
+         if (r < 0) {
+                 log_unit_warning_errno(UNIT(s), r, "Failed to add PIDs to scope's control group: %m");

@@ -19,6 +19,8 @@ systemd (228-2ubuntu2) UNRELEASED; urgency=medium
       Ubuntu we currently keep the setting whether the RTC is in local or UTC
       time in /etc/default/rcS "UTC=yes|no", instead of /etc/adjtime.
       (LP: #1377258)
+    - Put session scopes into all cgroup controllers. This makes unprivileged
+      user LXC containers work under systemd. (LP: #1346734)
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 13 Nov 2015 08:45:51 +0100
 
