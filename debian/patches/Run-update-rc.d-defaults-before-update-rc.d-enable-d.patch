@@ -4,11 +4,11 @@ Subject: Run update-rc.d defaults before update-rc.d <enable|disable>
 
 Closes: #722523
 ---
- src/systemctl/systemctl.c | 42 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 40 insertions(+), 2 deletions(-)
+ src/systemctl/systemctl.c | 40 +++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 39 insertions(+), 1 deletion(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index d54de20..2933c24 100644
+index d54de20..cf416e5 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
 @@ -5135,8 +5135,46 @@ static int enable_sysv_units(const char *verb, char **args) {

@@ -1,5 +1,6 @@
 systemd (217-1) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * New upstream release. Drop all cherry-picked patches and port the Debian
     specific ones.
   * Disable systemd-resolved for now. It still needs to mature, and
@@ -13,6 +14,11 @@ systemd (217-1) UNRELEASED; urgency=medium
   * debian/libsystemd0.symbols: Add new symbols from this release.
   * debian/rules: Call dpkg-gensymbols with -c4 to immediately spot
     changed/missing symbols during build.
+
+  [ Didier Roche ]
+  * Handle display-manager transitions:
+    - Add a generator to ensure /etc/X11/default-display-manager is controlling
+      which display-manager is started.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 
