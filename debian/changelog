@@ -23,6 +23,8 @@ systemd (217-1) UNRELEASED; urgency=medium
       $x-display-manager tag if they don't match
       /etc/X11/default-display-manager. This avoids starting multiple dms at
       boot.
+  * Cherry-pick Shared-add-readlink_value.patch as using that function in the
+    generator.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 

@@ -4,6 +4,7 @@
 nspawn-Add-try-host-guest-journal-link-modes.patch
 tmpfiles.d-Create-var-lib-container.patch
 selinux-access-fix-broken-ternary-operator.patch
+shared-add-readlink_value.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
