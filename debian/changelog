@@ -14,6 +14,7 @@ systemd (217-1) UNRELEASED; urgency=medium
   * debian/libsystemd0.symbols: Add new symbols from this release.
   * debian/rules: Call dpkg-gensymbols with -c4 to immediately spot
     changed/missing symbols during build.
+  * boot-and-services autopkgtest: Test AppArmor confined units (LP #1396270)
 
   [ Marc Deslauriers ]
   * Build-depend on libapparmor-dev to enable AppArmor support. (LP: #1396270)

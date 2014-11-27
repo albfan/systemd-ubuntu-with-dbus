@@ -155,6 +155,60 @@ poweroff\n''')
         self.assertIn(b'Requesting system poweroff', out)
 
 
+class AppArmorTest(unittest.TestCase):
+    def test_profile(self):
+        '''AppArmor confined unit'''
+
+        # create AppArmor profile
+        aa_profile = tempfile.NamedTemporaryFile(prefix='aa_violator.')
+        aa_profile.write(b'''#include <tunables/global>
+
+profile "violator-test" {
+  #include <abstractions/base>
+
+  /bin/** rix,
+  /etc/machine-id r,
+}
+''')
+        aa_profile.flush()
+        subprocess.check_call(['apparmor_parser', '-r', '-v', aa_profile.name])
+
+        # create confined unit
+        with open('/run/systemd/system/violator.service', 'w') as f:
+            f.write('''[Unit]
+Description=AppArmor test
+
+[Service]
+ExecStart=/bin/sh -euc 'echo CP1; cat /etc/machine-id; echo CP2; if cat /etc/passwd; then exit 1; fi; echo CP3'
+AppArmorProfile=violator-test
+''')
+        self.addCleanup(os.unlink, '/run/systemd/system/violator.service')
+
+        # launch
+        subprocess.check_call(['systemctl', 'daemon-reload'])
+        subprocess.check_call(['systemctl', 'start', 'violator.service'])
+
+        # check status
+        st = subprocess.Popen(['systemctl', 'status', '-l',
+                               'violator.service'], stdout=subprocess.PIPE,
+                              universal_newlines=True)
+        out = st.communicate()[0]
+        # unit should be stopped
+        self.assertEqual(st.returncode, 3)
+
+        self.assertIn('inactive', out)
+        self.assertIn('CP1', out)
+        self.assertIn('CP2', out)
+        self.assertIn('CP3', out)
+        with open('/etc/machine-id') as f:
+            self.assertIn(f.read().strip(), out)
+        self.assertNotIn('root:x', out, 'unit can read /etc/passwd')
+
+        # check kernel log of violation
+        out = subprocess.check_output(['dmesg'])
+        self.assertRegex(out, b'apparmor.*DENIED.*violator-test.*/etc/passwd')
+
+
 def boot_with_systemd():
     '''Reboot with systemd as init
 
