@@ -16,9 +16,13 @@ systemd (217-1) UNRELEASED; urgency=medium
     changed/missing symbols during build.
 
   [ Didier Roche ]
-  * Handle display-manager transitions:
+  * Handle display-manager transitions: (Closes: #748668)
     - Add a generator to ensure /etc/X11/default-display-manager is controlling
       which display-manager is started.
+    - Modify insserv generator to mask of sysvinit-only dms with insserv
+      $x-display-manager tag if they don't match
+      /etc/X11/default-display-manager. This avoids starting multiple dms at
+      boot.
 
  -- Martin Pitt <mpitt@debian.org>  Wed, 19 Nov 2014 08:06:34 +0100
 
