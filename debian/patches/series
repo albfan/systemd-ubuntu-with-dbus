@@ -118,6 +118,7 @@ core-swap-follow-the-configured-unit-by-default.patch
 core-swap-advertise-Discard-over-dbus.patch
 core-swap-only-make-configured-units-part-of-swap.ta.patch
 swap-replace-Discard-setting-by-a-more-generic-Optio.patch
+shared-add-readlink_value.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
