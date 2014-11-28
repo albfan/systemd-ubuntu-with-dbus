@@ -159,3 +159,4 @@ sd-bus-Accept-no-sender-as-the-destination-field.patch
 login-don-t-overmount-run-user-UID-on-upgrades.patch
 udev-re-enable-mount-propagation-for-udevd.patch
 Add-env-variable-for-machine-ID-path.patch
+sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
