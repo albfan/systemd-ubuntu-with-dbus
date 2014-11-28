@@ -21,6 +21,7 @@ CONFFLAGS = \
 	--disable-coredump \
 	--disable-efi \
 	--disable-myhostname \
+	--disable-resolved \
 	--disable-vconsole \
 	--disable-microhttpd \
 	--disable-sysusers \
