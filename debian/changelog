@@ -2,6 +2,8 @@ systemd (215-8) UNRELEASED; urgency=medium
 
   * Cherry-pick shared-add-readlink_value.patch, we will use that function in
     the generator.
+  * Cherry-pick util-allow-strappenda-to-take-any-number-of-args.patch, we
+    will use that function in the generator.
 
  -- Didier Roche <didrocks@ubuntu.com>  Fri, 28 Nov 2014 08:50:35 +0100
 
