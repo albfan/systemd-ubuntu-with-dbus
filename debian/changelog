@@ -15,6 +15,9 @@ systemd (215-7) UNRELEASED; urgency=medium
     in 215).
   * sysv-generator: Avoid wrong dependencies for failing units. Thanks to
     Michael Biebl for the patch! (Closes: #771118)
+  * Cherry-pick patches to recognize and respect the "discard" mount option
+    for swap devices. Thanks to Aurelien Jarno for finding and testing!
+    (Closes: #769734)
 
   [ Jon Severinsson]
   * Add /run/shm -> /dev/shm symlink in debian/tmpfiles.d/debian.conf. This

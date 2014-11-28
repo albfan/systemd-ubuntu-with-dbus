@@ -112,6 +112,12 @@ udev-hwdb-Support-shipping-pre-compiled-database-in-.patch
 tmpfiles.d-Create-var-lib-container.patch
 nspawn-Add-try-host-guest-journal-link-modes.patch
 selinux-access-fix-broken-ternary-operator.patch
+swap-introduce-Discard-property.patch
+fstab-generator-properly-deal-with-discard-as-non-la.patch
+core-swap-follow-the-configured-unit-by-default.patch
+core-swap-advertise-Discard-over-dbus.patch
+core-swap-only-make-configured-units-part-of-swap.ta.patch
+swap-replace-Discard-setting-by-a-more-generic-Optio.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
