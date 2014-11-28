@@ -4,6 +4,10 @@ systemd (215-8) UNRELEASED; urgency=medium
     the generator.
   * Cherry-pick util-allow-strappenda-to-take-any-number-of-args.patch, we
     will use that function in the generator.
+  * Handle multiple display managers which don't ship a systemd unit:
+    - Add a generator to ensure /etc/X11/default-display-manager is
+      controlling which display-manager is started.
+    - (Closes: #771287)
 
  -- Didier Roche <didrocks@ubuntu.com>  Fri, 28 Nov 2014 08:50:35 +0100
 
