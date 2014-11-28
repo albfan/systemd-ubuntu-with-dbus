@@ -7,6 +7,10 @@ systemd (215-8) UNRELEASED; urgency=medium
   * Handle multiple display managers which don't ship a systemd unit:
     - Add a generator to ensure /etc/X11/default-display-manager is
       controlling which display-manager is started.
+    - Modify insserv generator to mask sysvinit-only display managers (those
+      which refer to insserv's $x-display-manager tag) if they don't match
+      /etc/X11/default-display-manager. This avoids starting multiple DMs at
+      boot.
     - (Closes: #771287)
 
  -- Didier Roche <didrocks@ubuntu.com>  Fri, 28 Nov 2014 08:50:35 +0100
