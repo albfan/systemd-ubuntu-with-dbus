@@ -3,6 +3,8 @@ systemd (217-2) UNRELEASED; urgency=medium
   * Re-enable journal forwarding to syslog, until Debian's sysloggers
     can/do all read from the journal directly.
   * Fix hostnamectl exit code on success.
+  * Fix "diff failed with error code 1" spew with systemd-delta.
+    (Closes: #771397)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 28 Nov 2014 14:46:30 +0100
 
