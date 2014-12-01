@@ -8,11 +8,11 @@ https://bugs.debian/org/771397
  src/delta/delta.c             |  2 +-
  src/login/inhibit.c           |  2 +-
  src/nspawn/nspawn.c           |  4 ++--
- src/quotacheck/quotacheck.c   |  4 +++-
+ src/quotacheck/quotacheck.c   |  2 +-
  src/shared/util.c             | 22 ++++++++++++----------
  src/shared/util.h             |  2 +-
  src/vconsole/vconsole-setup.c |  4 ++--
- 8 files changed, 23 insertions(+), 19 deletions(-)
+ 8 files changed, 21 insertions(+), 19 deletions(-)
 
 diff --git a/src/core/shutdown.c b/src/core/shutdown.c
 index 20cf526..d923995 100644
@@ -76,17 +76,15 @@ index 5f6633e..d94d726 100644
          /* Skip over the username and subsequent separator whitespace */
          x = line;
 diff --git a/src/quotacheck/quotacheck.c b/src/quotacheck/quotacheck.c
-index ed95b48..bfff11b 100644
+index ed95b48..6c69ae3 100644
 --- a/src/quotacheck/quotacheck.c
 +++ b/src/quotacheck/quotacheck.c
-@@ -107,5 +107,7 @@ int main(int argc, char *argv[]) {
+@@ -107,5 +107,5 @@ int main(int argc, char *argv[]) {
                  _exit(1); /* Operational error */
          }
  
 -        return wait_for_terminate_and_warn("quotacheck", pid) >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-+        r = wait_for_terminate_and_warn("quotacheck", pid, true);
-+
-+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
++        return wait_for_terminate_and_warn("quotacheck", pid, true) < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
  }
 diff --git a/src/shared/util.c b/src/shared/util.c
 index 1b3bbeb..7d70bb0 100644
