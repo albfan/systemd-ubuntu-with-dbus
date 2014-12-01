@@ -1,3 +1,10 @@
+systemd (217-3) UNRELEASED; urgency=medium
+
+  * systemd.bug-script: Really capture stderr of systemd-delta.
+    (Closes: #771498)
+
+ -- Martin Pitt <mpitt@debian.org>  Mon, 01 Dec 2014 17:01:29 +0100
+
 systemd (217-2) experimental; urgency=medium
 
   * Re-enable journal forwarding to syslog, until Debian's sysloggers
