@@ -188,6 +188,8 @@ AppArmorProfile=violator-test
         subprocess.check_call(['systemctl', 'daemon-reload'])
         subprocess.check_call(['systemctl', 'start', 'violator.service'])
 
+        time.sleep(2)
+
         # check status
         st = subprocess.Popen(['systemctl', 'status', '-l',
                                'violator.service'], stdout=subprocess.PIPE,
