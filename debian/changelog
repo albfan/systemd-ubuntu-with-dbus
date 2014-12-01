@@ -2,6 +2,8 @@ systemd (217-3) UNRELEASED; urgency=medium
 
   * systemd.bug-script: Really capture stderr of systemd-delta.
     (Closes: #771498)
+  * boot-and-services autopkgtest: Give test apparmor job some time to
+    actually finish.
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Dec 2014 17:01:29 +0100
 
