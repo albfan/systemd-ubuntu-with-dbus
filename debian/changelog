@@ -65,6 +65,8 @@ systemd (217-1ubuntu1) vivid; urgency=medium
       failed units.
     - Put user slices into all cgroup controllers. This makes unprivileged user
       LXC containers work under systemd. (LP: #1346734)
+    - Build-depend on libapparmor-dev to enable AppArmor support
+      (LP: #1396270)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
