@@ -9,6 +9,8 @@ systemd (217-2) UNRELEASED; urgency=medium
     networkd, just disable the new NSS module. Remove that one manually
     instead. (Closes: #771423, LP: #1397361)
   * Import v217-stable patches (up to commit bfb4c47 from 2014-11-07).
+  * Disable AppArmor again. This first requires moving libapparmor to /lib
+    (see #771667). (Closes: #771652)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 28 Nov 2014 14:46:30 +0100
 
