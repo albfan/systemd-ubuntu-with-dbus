@@ -44,6 +44,8 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
     - Do not realize and migrate cgroups multiple times, in particular
       "-.slice". This fixes PIDs in non-systemd cgroup controllers to be
       randomly migrated back to /.
+    - Build-depend on libapparmor-dev to enable AppArmor support
+      (LP: #1396270)
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
