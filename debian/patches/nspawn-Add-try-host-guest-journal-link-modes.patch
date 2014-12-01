@@ -60,7 +60,7 @@ index b3a2d32..75db65e 100644
  
                          <varlistentry>
 diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
-index b6d9bc6..5f6633e 100644
+index f332ade..14c4e13 100644
 --- a/src/nspawn/nspawn.c
 +++ b/src/nspawn/nspawn.c
 @@ -123,6 +123,7 @@ static bool arg_private_network = false;

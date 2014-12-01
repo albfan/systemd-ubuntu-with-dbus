@@ -1,0 +1,1635 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 1 Dec 2014 13:17:02 +0100
+Subject: v217-stable
+
+Import v217-stable patches up to
+
+  timer: reenable TIMER_ACTIVE timers when restarted
+
+(bfb4c47ddd, 2014-11-07)
+---
+ Makefile.am                               |  4 ++
+ NEWS                                      |  7 ++-
+ README                                    |  1 -
+ TODO                                      |  7 ---
+ hwdb/20-bluetooth-vendor-product.hwdb     | 57 ++++++++++++++++++
+ hwdb/60-keyboard.hwdb                     |  5 ++
+ man/hostnamectl.xml                       |  3 +-
+ man/journalctl.xml                        |  4 +-
+ man/sd_event_add_defer.xml                |  2 +-
+ man/tmpfiles.d.xml                        |  4 +-
+ man/udevadm.xml                           | 11 +++-
+ shell-completion/bash/hostnamectl         |  2 +-
+ shell-completion/bash/systemctl.in        | 33 ++++++-----
+ shell-completion/zsh/_hostnamectl         |  2 +-
+ shell-completion/zsh/_systemctl.in        | 28 ++++++---
+ src/core/machine-id-setup.c               | 17 ++++--
+ src/core/manager.c                        | 96 +++++++++++++++++--------------
+ src/core/shutdown.c                       | 17 ++++--
+ src/core/snapshot.c                       |  2 +-
+ src/core/timer.c                          |  6 ++
+ src/core/transaction.c                    |  6 +-
+ src/hostname/hostnamed.c                  |  3 +-
+ src/journal/journal-vacuum.c              |  6 +-
+ src/journal/journald-server.c             |  1 +
+ src/kernel-install/90-loaderentry.install |  2 +-
+ src/libsystemd-network/sd-dhcp-client.c   |  3 +
+ src/libsystemd-network/sd-dhcp6-client.c  | 10 ++--
+ src/libsystemd/sd-bus/bus-match.c         |  2 +-
+ src/libudev/libudev-util.c                | 10 +++-
+ src/libudev/libudev.c                     | 28 ++++++---
+ src/locale/localectl.c                    |  2 +-
+ src/nspawn/nspawn.c                       | 55 +++++++-----------
+ src/shared/capability.c                   |  4 +-
+ src/shared/copy.h                         |  3 +
+ src/shared/install.c                      |  8 +--
+ src/shared/locale-util.h                  |  4 ++
+ src/shared/logs-show.c                    |  2 +-
+ src/shared/selinux-util.c                 |  8 ++-
+ src/shared/switch-root.c                  | 12 ++--
+ src/systemctl/systemctl.c                 | 62 +++++++++++++++-----
+ src/sysusers/sysusers.c                   | 61 +++++++++++++-------
+ src/udev/scsi_id/scsi_id.c                |  4 +-
+ src/udev/udev-builtin-path_id.c           | 12 ++--
+ src/udev/udevd.c                          | 24 ++++----
+ src/vconsole/90-vconsole.rules            | 11 ++++
+ units/basic.target                        |  6 +-
+ units/poweroff.target                     |  2 -
+ units/reboot.target                       |  2 -
+ units/systemd-journal-flush.service.in    |  6 +-
+ units/systemd-journald.service.in         |  1 +
+ units/timers.target                       |  3 +
+ 51 files changed, 442 insertions(+), 229 deletions(-)
+ create mode 100644 src/vconsole/90-vconsole.rules
+
+diff --git a/Makefile.am b/Makefile.am
+index c80d25d..22fd306 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1527,6 +1527,7 @@ test_util_SOURCES = \
+ 	src/test/test-util.c
+ 
+ test_util_LDADD = \
++	-lm \
+ 	libsystemd-core.la
+ 
+ test_uid_range_SOURCES = \
+@@ -4402,6 +4403,9 @@ rootlibexec_PROGRAMS += \
+ nodist_systemunit_DATA += \
+ 	units/systemd-vconsole-setup.service
+ 
++dist_udevrules_DATA += \
++	src/vconsole/90-vconsole.rules
++
+ SYSINIT_TARGET_WANTS += \
+ 	systemd-vconsole-setup.service
+ endif
+diff --git a/NEWS b/NEWS
+index 84a43fd..0ed03da 100644
+--- a/NEWS
++++ b/NEWS
+@@ -7,6 +7,11 @@ CHANGES WITH 217:
+           show log timestamps in the UTC timezone. journalctl now also
+           accepts -n/--lines=all to disable line capping in a pager.
+ 
++        * journalctl gained a new switch, --flush, that synchronously
++          flushes logs from /run/log/journal to /var/log/journal if
++          persistent storage is enabled. systemd-journal-flush.service
++          now waits until the operation is complete.
++
+         * Services can notify the manager before they start a reload
+           (by sending RELOADING=1) or shutdown (by sending
+           STOPPING=1). This allows the manager to track and show the
+@@ -76,7 +81,7 @@ CHANGES WITH 217:
+           rotating media anymore, and nobody stepped up to actively
+           maintain this component of systemd it has now been removed.
+ 
+-        * Swap units can use Discard= to specify discard options.
++        * Swap units can use Options= to specify discard options.
+           Discard options specified for swaps in /etc/fstab are now
+           respected.
+ 
+diff --git a/README b/README
+index 99b66a8..1440367 100644
+--- a/README
++++ b/README
+@@ -30,7 +30,6 @@ AUTHOR:
+ 
+ LICENSE:
+         LGPLv2.1+ for all code
+-        - except sd-readahead.[ch] which is MIT
+         - except src/shared/MurmurHash2.c which is Public Domain
+         - except src/shared/siphash24.c which is CC0 Public Domain
+         - except src/journal/lookup3.c which is Public Domain
+diff --git a/TODO b/TODO
+index b07d664..abe89b7 100644
+--- a/TODO
++++ b/TODO
+@@ -646,13 +646,6 @@ Features:
+ 
+ * and a dbus call to generate target from current state
+ 
+-* readahead:
+-  - drop /.readahead on bigger upgrades with yum
+-  - move readahead files into /var (look for them with .path units?)
+-  - readahead: use BTRFS_IOC_DEFRAG_RANGE instead of BTRFS_IOC_DEFRAG ioctl, with START_IO
+-  - readahead: when bumping /sys readahead variable save mtime and compare later to detect changes
+-  - readahead: make use of EXT4_IOC_MOVE_EXT, as used by http://e4rat.sourceforge.net/
+-
+ * GC unreferenced jobs (such as .device jobs)
+ 
+ * write blog stories about:
+diff --git a/hwdb/20-bluetooth-vendor-product.hwdb b/hwdb/20-bluetooth-vendor-product.hwdb
+index ee2efdf..58ca87d 100644
+--- a/hwdb/20-bluetooth-vendor-product.hwdb
++++ b/hwdb/20-bluetooth-vendor-product.hwdb
+@@ -1166,3 +1166,60 @@ bluetooth:v0181*
+ 
+ bluetooth:v0182*
+  ID_VENDOR_FROM_DATABASE=HOP Ubiquitous
++
++bluetooth:v0183*
++ ID_VENDOR_FROM_DATABASE=To Be Assigned
++
++bluetooth:v0184*
++ ID_VENDOR_FROM_DATABASE=Nectar
++
++bluetooth:v0185*
++ ID_VENDOR_FROM_DATABASE=bel'apps LLC
++
++bluetooth:v0186*
++ ID_VENDOR_FROM_DATABASE=CORE Lighting Ltd
++
++bluetooth:v0187*
++ ID_VENDOR_FROM_DATABASE=Seraphim Sense Ltd
++
++bluetooth:v0188*
++ ID_VENDOR_FROM_DATABASE=Unico RBC
++
++bluetooth:v0189*
++ ID_VENDOR_FROM_DATABASE=Physical Enterprises Inc.
++
++bluetooth:v018A*
++ ID_VENDOR_FROM_DATABASE=Able Trend Technology Limited
++
++bluetooth:v018B*
++ ID_VENDOR_FROM_DATABASE=Konica Minolta, Inc.
++
++bluetooth:v018C*
++ ID_VENDOR_FROM_DATABASE=Wilo SE
++
++bluetooth:v018D*
++ ID_VENDOR_FROM_DATABASE=Extron Design Services
++
++bluetooth:v018E*
++ ID_VENDOR_FROM_DATABASE=Fitbit, Inc.
++
++bluetooth:v018F*
++ ID_VENDOR_FROM_DATABASE=Fireflies Systems
++
++bluetooth:v0190*
++ ID_VENDOR_FROM_DATABASE=Intelletto Technologies Inc.
++
++bluetooth:v0191*
++ ID_VENDOR_FROM_DATABASE=FDK CORPORATION
++
++bluetooth:v0192*
++ ID_VENDOR_FROM_DATABASE=Cloudleaf, Inc
++
++bluetooth:v0193*
++ ID_VENDOR_FROM_DATABASE=Maveric Automation LLC
++
++bluetooth:v0194*
++ ID_VENDOR_FROM_DATABASE=Acoustic Stream Corporation
++
++bluetooth:v0195*
++ ID_VENDOR_FROM_DATABASE=Zuli
+diff --git a/hwdb/60-keyboard.hwdb b/hwdb/60-keyboard.hwdb
+index 06caba9..d2ca965 100644
+--- a/hwdb/60-keyboard.hwdb
++++ b/hwdb/60-keyboard.hwdb
+@@ -230,6 +230,11 @@ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1110:pvr*
+ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1210:pvr*
+  KEYBOARD_KEY_84=wlan
+ 
++# Dell Inspiron 1520
++keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:pvr*
++ KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
++ KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
++
+ # Latitude XT2
+ keyboard:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
+  KEYBOARD_KEY_9b=up                                     # tablet rocker up
+diff --git a/man/hostnamectl.xml b/man/hostnamectl.xml
+index 128d92f..ffae5e6 100644
+--- a/man/hostnamectl.xml
++++ b/man/hostnamectl.xml
+@@ -217,7 +217,8 @@
+                                 <literal>server</literal>,
+                                 <literal>tablet</literal>,
+                                 <literal>handset</literal>,
+-                                <literal>watch</literal>, as well as
++                                <literal>watch</literal>,
++                                <literal>embedded</literal> as well as
+                                 the special chassis types
+                                 <literal>vm</literal> and
+                                 <literal>container</literal> for
+diff --git a/man/journalctl.xml b/man/journalctl.xml
+index db2a1e1..0ed3ca3 100644
+--- a/man/journalctl.xml
++++ b/man/journalctl.xml
+@@ -883,9 +883,9 @@
+ 
+                                 <listitem><para>Asks the Journal
+                                 daemon to flush any log data stored in
+-                                <filename>/run/systemd/log</filename>
++                                <filename>/run/log/journal</filename>
+                                 into
+-                                <filename>/var/systemd/log</filename>,
++                                <filename>/var/log/journal</filename>,
+                                 if persistent storage is enabled. This
+                                 call does not return until the
+                                 operation is
+diff --git a/man/sd_event_add_defer.xml b/man/sd_event_add_defer.xml
+index 442600a..dcc76cd 100644
+--- a/man/sd_event_add_defer.xml
++++ b/man/sd_event_add_defer.xml
+@@ -104,7 +104,7 @@ along with systemd; If not, see <http://www.gnu.org/licenses/>.
+     default, the handler will be called once
+     (<constant>SD_EVENT_ONESHOT</constant>).</para>
+ 
+-    <para><function>sd_event_add_defer()</function> adds a new event
++    <para><function>sd_event_add_post()</function> adds a new event
+     source that will "fire" if any event handlers are invoked whenever
+     the event loop is run. By default, the source is enabled
+     permanently (<constant>SD_EVENT_ON</constant>).</para>
+diff --git a/man/tmpfiles.d.xml b/man/tmpfiles.d.xml
+index f2360ba..1b14d69 100644
+--- a/man/tmpfiles.d.xml
++++ b/man/tmpfiles.d.xml
+@@ -108,8 +108,8 @@
+                 filename in lexicographic order, regardless of which
+                 of the directories they reside in. If multiple files
+                 specify the same path, the entry in the file with the
+-                lexicographically earliest name will be applied, all
+-                all other conflicting entries will be logged as
++                lexicographically earliest name will be applied.
++                All other conflicting entries will be logged as
+                 errors. When two lines are prefix and suffix of each
+                 other, then the prefix is always processed first, the
+                 suffix later. Otherwise, the files/directories are
+diff --git a/man/udevadm.xml b/man/udevadm.xml
+index b85d9a9..fd17f40 100644
+--- a/man/udevadm.xml
++++ b/man/udevadm.xml
+@@ -368,9 +368,14 @@
+           <term><option>-l</option></term>
+           <term><option>--log-priority=<replaceable>value</replaceable></option></term>
+           <listitem>
+-            <para>Set the internal log level of systemd-udevd. Valid values are the numerical
+-            syslog priorities or their textual representations: <option>err</option>,
+-            <option>info</option> and <option>debug</option>.</para>
++            <para>Set the internal log level of
++            <filename>systemd-udevd</filename>. Valid values are the
++            numerical syslog priorities or their textual
++            representations: <option>emerg</option>,
++            <option>alert</option>, <option>crit</option>,
++            <option>err</option>, <option>warning</option>,
++            <option>notice</option>, <option>info</option>, and
++            <option>debug</option>.</para>
+           </listitem>
+         </varlistentry>
+         <varlistentry>
+diff --git a/shell-completion/bash/hostnamectl b/shell-completion/bash/hostnamectl
+index a5e3460..7a0850d 100644
+--- a/shell-completion/bash/hostnamectl
++++ b/shell-completion/bash/hostnamectl
+@@ -52,7 +52,7 @@ _hostnamectl() {
+         if [[ -z $verb ]]; then
+                 comps=${VERBS[*]}
+         elif __contains_word "$verb" ${VERBS[CHASSIS]}; then
+-                comps='desktop laptop server tablet handset watch vm container'
++                comps='desktop laptop server tablet handset watch embedded vm container'
+         elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[ICONS]} ${VERBS[NAME]}; then
+                 comps=''
+         fi
+diff --git a/shell-completion/bash/systemctl.in b/shell-completion/bash/systemctl.in
+index 1c44a8d..9e98a18 100644
+--- a/shell-completion/bash/systemctl.in
++++ b/shell-completion/bash/systemctl.in
+@@ -52,20 +52,29 @@ __filter_units_by_property () {
+ }
+ 
+ __get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
+-        | { while read -r a b; do echo " $a"; done; }; }
++        | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
+ __get_template_names () { __systemctl $1 list-unit-files \
+         | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
+ 
+ __get_active_units   () { __systemctl $1 list-units       \
+         | { while read -r a b; do echo " $a"; done; }; }
+ __get_startable_units () {
+-        # find inactive or failed units, filter out masked and not-found
+-        __systemctl $1 list-units --state inactive,failed -- $( __get_all_units ) | \
+-                { while read -r a b c d; do [[ $b == "loaded" ]] && echo " $a"; done; }; }
++        # find startable inactive units
++        __filter_units_by_property $mode ActiveState inactive $(
++            __filter_units_by_property $mode CanStart yes $(
++                __systemctl $mode list-unit-files --state enabled,disabled,static | \
++                    { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
++                __systemctl $mode list-units --state inactive,failed | \
++                    { while read -r a b; do echo " $a"; done; } ))
++}
+ __get_restartable_units () {
+-        # find !masked, filter out masked and not-found
+-        __systemctl $1 list-units --state active,inactive,failed -- $( __get_all_units ) | \
+-                { while read -r a b c d; do [[ $b == "loaded" ]] && echo " $a"; done; }; }
++        # filter out masked and not-found
++        __filter_units_by_property $mode CanStart yes $(
++            __systemctl $mode list-unit-files --state enabled,disabled,static | \
++                    { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
++            __systemctl $mode list-units | \
++                    { while read -r a b; do echo " $a"; done; } )
++}
+ __get_failed_units   () { __systemctl $1 list-units       \
+         | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
+ __get_enabled_units  () { __systemctl $1 list-unit-files  \
+@@ -186,15 +195,13 @@ _systemctl () {
+                 compopt -o filenames
+ 
+         elif __contains_word "$verb" ${VERBS[STARTABLE_UNITS]}; then
+-                comps=$( __filter_units_by_property $mode CanStart yes \
+-                        $( __get_startable_units $mode);
+-                        __get_template_names $mode)
++                comps=$( __get_startable_units $mode;
++                         __get_template_names $mode)
+                 compopt -o filenames
+ 
+         elif __contains_word "$verb" ${VERBS[RESTARTABLE_UNITS]}; then
+-                comps=$( __filter_units_by_property $mode CanStart yes \
+-                        $( __get_restartable_units $mode); \
+-                        __get_template_names $mode)
++                comps=$( __get_restartable_units $mode;
++                         __get_template_names $mode)
+                 compopt -o filenames
+ 
+         elif __contains_word "$verb" ${VERBS[STOPPABLE_UNITS]}; then
+diff --git a/shell-completion/zsh/_hostnamectl b/shell-completion/zsh/_hostnamectl
+index e02f6de..a7217a1 100644
+--- a/shell-completion/zsh/_hostnamectl
++++ b/shell-completion/zsh/_hostnamectl
+@@ -18,7 +18,7 @@ _hostnamectl_set-icon-name() {
+ 
+ _hostnamectl_set-chassis() {
+     if (( CURRENT <= 3 )); then
+-        _chassis=( desktop laptop server tablet handset watch vm container )
++        _chassis=( desktop laptop server tablet handset watch embedded vm container )
+         _describe chassis _chassis
+     else
+         _message "no more options"
+diff --git a/shell-completion/zsh/_systemctl.in b/shell-completion/zsh/_systemctl.in
+index 44981fe..7eefe53 100644
+--- a/shell-completion/zsh/_systemctl.in
++++ b/shell-completion/zsh/_systemctl.in
+@@ -141,13 +141,29 @@ _filter_units_by_property() {
+   done
+ }
+ 
+-_systemctl_all_units() { { __systemctl list-unit-files; __systemctl list-units --all; } | { while read -r a b; do echo -E - " $a"; done; } }
++_systemctl_all_units() { { __systemctl list-unit-files; __systemctl list-units --all; } | { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; } }
+ _systemctl_get_template_names() { __systemctl list-unit-files | { while read -r a b; do  [[ $a =~ @\. ]] && echo -E - " ${a%%@.*}@"; done; } }
+ 
+ 
+ _systemctl_active_units()  {_sys_active_units=(  $(__systemctl list-units          | { while read -r a b; do echo -E - " $a"; done; }) )}
+-_systemctl_startable_units(){_sys_startable_units=($(__systemctl list-units --state inactive,failed -- $(_systemctl_all_units) | { while read -r a b c d; do [[ $b == "loaded" ]] && echo -E - " $a"; done; }) )}
+-_systemctl_restartable_units(){_sys_restartable_units=($(__systemctl list-units --state inactive,failed,active -- $(_systemctl_all_units) | { while read -r a b c d; do [[ $b == "loaded" ]] && echo -E - " $a"; done; }) )}
++
++_systemctl_startable_units(){
++    _sys_startable_units=(_filter_units_by_property ActiveState inactive $(
++                          _filter_units_by_property CanStart yes $(
++                          __systemctl $mode list-unit-files --state enabled,disabled,static | \
++                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
++                          __systemctl $mode list-units --state inactive,failed | \
++                               { while read -r a b; do echo -E - " $a"; done; } )))
++}
++
++_systemctl_restartable_units(){
++    _sys_restartable_units=(_filter_units_by_property CanStart yes $(
++                          __systemctl $mode list-unit-files --state enabled,disabled,static | \
++                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
++                          __systemctl $mode list-units | \
++                               { while read -r a b; do echo -E - " $a"; done; } ))
++}
++
+ _systemctl_failed_units()  {_sys_failed_units=(  $(__systemctl list-units --failed | { while read -r a b; do echo -E - " $a"; done; }) )}
+ _systemctl_enabled_units() {_sys_enabled_units=( $(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "enabled" ]] && echo -E - " $a"; done; }) )}
+ _systemctl_disabled_units(){_sys_disabled_units=($(__systemctl list-unit-files     | { while read -r a b; do [[ $b == "disabled" ]] && echo -E - " $a"; done; }) )}
+@@ -194,8 +210,7 @@ done
+ (( $+functions[_systemctl_start] )) || _systemctl_start()
+ {
+    _systemctl_startable_units
+-   compadd "$@" - $( _filter_units_by_property CanStart yes \
+-      ${_sys_startable_units[*]} )
++   compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
+ }
+ 
+ # Completion functions for STOPPABLE_UNITS
+@@ -231,8 +246,7 @@ for fun in restart reload-or-restart ; do
+   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+   {
+     _systemctl_restartable_units
+-    compadd "$@" - $( _filter_units_by_property CanStart yes \
+-      ${_sys_restartable_units[*]} )
++    compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
+   }
+ done
+ 
+diff --git a/src/core/machine-id-setup.c b/src/core/machine-id-setup.c
+index efb074f..ce6d8e0 100644
+--- a/src/core/machine-id-setup.c
++++ b/src/core/machine-id-setup.c
+@@ -162,7 +162,7 @@ static int generate(char id[34], const char *root) {
+ int machine_id_setup(const char *root) {
+         const char *etc_machine_id, *run_machine_id;
+         _cleanup_close_ int fd = -1;
+-        bool writable = false;
++        bool writable = true;
+         struct stat st;
+         char id[34]; /* 32 + \n + \0 */
+         int r;
+@@ -186,12 +186,19 @@ int machine_id_setup(const char *root) {
+ 
+                 mkdir_parents(etc_machine_id, 0755);
+                 fd = open(etc_machine_id, O_RDWR|O_CREAT|O_CLOEXEC|O_NOCTTY, 0444);
+-                if (fd >= 0)
+-                        writable = true;
+-                else {
++                if (fd < 0) {
++                        int old_errno = errno;
++
+                         fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                         if (fd < 0) {
+-                                log_error("Cannot open %s: %m", etc_machine_id);
++                                if (old_errno == EROFS && errno == ENOENT)
++                                        log_error("System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
++                                                  "Booting up is supported only when:\n"
++                                                  "1) /etc/machine-id exists and is populated.\n"
++                                                  "2) /etc/machine-id exists and is empty.\n"
++                                                  "3) /etc/machine-id is missing and /etc is writable.\n");
++                                else
++                                        log_error("Cannot open %s: %m", etc_machine_id);
+                                 return -errno;
+                         }
+ 
+diff --git a/src/core/manager.c b/src/core/manager.c
+index d427d88..47e23ba 100644
+--- a/src/core/manager.c
++++ b/src/core/manager.c
+@@ -662,9 +662,11 @@ static int manager_setup_notify(Manager *m) {
+                         return -errno;
+                 }
+ 
+-                if (m->running_as == SYSTEMD_SYSTEM)
++                if (m->running_as == SYSTEMD_SYSTEM) {
+                         m->notify_socket = strdup("/run/systemd/notify");
+-                else {
++                        if (!m->notify_socket)
++                                return log_oom();
++                } else {
+                         const char *e;
+ 
+                         e = getenv("XDG_RUNTIME_DIR");
+@@ -674,9 +676,11 @@ static int manager_setup_notify(Manager *m) {
+                         }
+ 
+                         m->notify_socket = strappend(e, "/systemd/notify");
++                        if (!m->notify_socket)
++                                return log_oom();
++
++                        mkdir_parents_label(m->notify_socket, 0755);
+                 }
+-                if (!m->notify_socket)
+-                        return log_oom();
+ 
+                 strncpy(sa.un.sun_path, m->notify_socket, sizeof(sa.un.sun_path)-1);
+                 r = bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path) + strlen(sa.un.sun_path));
+@@ -2584,45 +2588,13 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
+         return unit_inactive_or_pending(u);
+ }
+ 
+-void manager_check_finished(Manager *m) {
++static void manager_notify_finished(Manager *m) {
+         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
+         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
+-        Unit *u = NULL;
+-        Iterator i;
+-
+-        assert(m);
+-
+-        if (m->n_running_jobs == 0)
+-                m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
+ 
+-        if (hashmap_size(m->jobs) > 0) {
+-
+-                if (m->jobs_in_progress_event_source)
+-                        sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
+-
+-                return;
+-        }
+-
+-        manager_flip_auto_status(m, false);
+-
+-        /* Notify Type=idle units that we are done now */
+-        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
+-        manager_close_idle_pipe(m);
+-
+-        /* Turn off confirm spawn now */
+-        m->confirm_spawn = false;
+-
+-        /* No need to update ask password status when we're going non-interactive */
+-        manager_close_ask_password(m);
+-
+-        /* This is no longer the first boot */
+-        manager_set_first_boot(m, false);
+-
+-        if (dual_timestamp_is_set(&m->finish_timestamp))
++        if (m->test_run)
+                 return;
+ 
+-        dual_timestamp_get(&m->finish_timestamp);
+-
+         if (m->running_as == SYSTEMD_SYSTEM && detect_container(NULL) <= 0) {
+ 
+                 /* Note that m->kernel_usec.monotonic is always at 0,
+@@ -2677,10 +2649,6 @@ void manager_check_finished(Manager *m) {
+                            NULL);
+         }
+ 
+-        SET_FOREACH(u, m->startup_units, i)
+-                if (u->cgroup_path)
+-                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path, manager_state(m));
+-
+         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
+ 
+         sd_notifyf(false,
+@@ -2689,6 +2657,50 @@ void manager_check_finished(Manager *m) {
+                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC));
+ }
+ 
++void manager_check_finished(Manager *m) {
++        Unit *u = NULL;
++        Iterator i;
++
++        assert(m);
++
++        if (m->n_running_jobs == 0)
++                m->jobs_in_progress_event_source = sd_event_source_unref(m->jobs_in_progress_event_source);
++
++        if (hashmap_size(m->jobs) > 0) {
++
++                if (m->jobs_in_progress_event_source)
++                        sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
++
++                return;
++        }
++
++        manager_flip_auto_status(m, false);
++
++        /* Notify Type=idle units that we are done now */
++        m->idle_pipe_event_source = sd_event_source_unref(m->idle_pipe_event_source);
++        manager_close_idle_pipe(m);
++
++        /* Turn off confirm spawn now */
++        m->confirm_spawn = false;
++
++        /* No need to update ask password status when we're going non-interactive */
++        manager_close_ask_password(m);
++
++        /* This is no longer the first boot */
++        manager_set_first_boot(m, false);
++
++        if (dual_timestamp_is_set(&m->finish_timestamp))
++                return;
++
++        dual_timestamp_get(&m->finish_timestamp);
++
++        manager_notify_finished(m);
++
++        SET_FOREACH(u, m->startup_units, i)
++                if (u->cgroup_path)
++                        cgroup_context_apply(unit_get_cgroup_context(u), unit_get_cgroup_mask(u), u->cgroup_path, manager_state(m));
++}
++
+ static int create_generator_dir(Manager *m, char **generator, const char *name) {
+         char *p;
+         int r;
+diff --git a/src/core/shutdown.c b/src/core/shutdown.c
+index 20cf526..03cfddc 100644
+--- a/src/core/shutdown.c
++++ b/src/core/shutdown.c
+@@ -75,7 +75,9 @@ static int parse_argv(int argc, char *argv[]) {
+         assert(argc >= 1);
+         assert(argv);
+ 
+-        while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
++        /* "-" prevents getopt from permuting argv[] and moving the verb away
++         * from argv[1]. Our interface to initrd promises it'll be there. */
++        while ((c = getopt_long(argc, argv, "-", options, NULL)) >= 0)
+                 switch (c) {
+ 
+                 case ARG_LOG_LEVEL:
+@@ -113,6 +115,13 @@ static int parse_argv(int argc, char *argv[]) {
+ 
+                         break;
+ 
++                case '\001':
++                        if (!arg_verb)
++                                arg_verb = optarg;
++                        else
++                                log_error("Excess arguments, ignoring");
++                        break;
++
+                 case '?':
+                         return -EINVAL;
+ 
+@@ -120,15 +129,11 @@ static int parse_argv(int argc, char *argv[]) {
+                         assert_not_reached("Unhandled option code.");
+                 }
+ 
+-        if (optind >= argc) {
++        if (!arg_verb) {
+                 log_error("Verb argument missing.");
+                 return -EINVAL;
+         }
+ 
+-        arg_verb = argv[optind];
+-
+-        if (optind + 1 < argc)
+-                log_error("Excess arguments, ignoring");
+         return 0;
+ }
+ 
+diff --git a/src/core/snapshot.c b/src/core/snapshot.c
+index 5eed615..c2678cb 100644
+--- a/src/core/snapshot.c
++++ b/src/core/snapshot.c
+@@ -208,7 +208,7 @@ int snapshot_create(Manager *m, const char *name, bool cleanup, sd_bus_error *e,
+                         return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s lacks snapshot suffix.", name);
+ 
+                 if (manager_get_unit(m, name))
+-                        sd_bus_error_setf(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
++                        return sd_bus_error_setf(e, BUS_ERROR_UNIT_EXISTS, "Snapshot %s exists already.", name);
+ 
+         } else {
+ 
+diff --git a/src/core/timer.c b/src/core/timer.c
+index a3713e2..5c4e9f9 100644
+--- a/src/core/timer.c
++++ b/src/core/timer.c
+@@ -521,6 +521,7 @@ fail:
+ 
+ static int timer_start(Unit *u) {
+         Timer *t = TIMER(u);
++        TimerValue *v;
+ 
+         assert(t);
+         assert(t->state == TIMER_DEAD || t->state == TIMER_FAILED);
+@@ -530,6 +531,11 @@ static int timer_start(Unit *u) {
+ 
+         t->last_trigger = DUAL_TIMESTAMP_NULL;
+ 
++        /* Reenable all timers that depend on unit activation time */
++        LIST_FOREACH(value, v, t->values)
++                if (v->base == TIMER_ACTIVE)
++                        v->disabled = false;
++
+         if (t->stamp_path) {
+                 struct stat st;
+ 
+diff --git a/src/core/transaction.c b/src/core/transaction.c
+index dbb4133..91f5ee1 100644
+--- a/src/core/transaction.c
++++ b/src/core/transaction.c
+@@ -377,9 +377,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
+                 for (k = from; k; k = ((k->generation == generation && k->marker != k) ? k->marker : NULL)) {
+ 
+                         /* logging for j not k here here to provide consistent narrative */
+-                        log_info_unit(j->unit->id,
+-                                      "Found dependency on %s/%s",
+-                                      k->unit->id, job_type_to_string(k->type));
++                        log_warning_unit(j->unit->id,
++                                         "Found dependency on %s/%s",
++                                         k->unit->id, job_type_to_string(k->type));
+ 
+                         if (!delete && hashmap_get(tr->jobs, k->unit) &&
+                             !unit_matters_to_anchor(k->unit, k)) {
+diff --git a/src/hostname/hostnamed.c b/src/hostname/hostnamed.c
+index a449610..0123922 100644
+--- a/src/hostname/hostnamed.c
++++ b/src/hostname/hostnamed.c
+@@ -138,7 +138,8 @@ static bool valid_chassis(const char *chassis) {
+                         "server\0"
+                         "tablet\0"
+                         "handset\0"
+-                        "watch\0",
++                        "watch\0"
++                        "embedded\0",
+                         chassis);
+ }
+ 
+diff --git a/src/journal/journal-vacuum.c b/src/journal/journal-vacuum.c
+index 7699482..226af82 100644
+--- a/src/journal/journal-vacuum.c
++++ b/src/journal/journal-vacuum.c
+@@ -275,7 +275,11 @@ int journal_directory_vacuum(
+ 
+                 patch_realtime(directory, p, &st, &realtime);
+ 
+-                GREEDY_REALLOC(list, n_allocated, n_list + 1);
++                if (!GREEDY_REALLOC(list, n_allocated, n_list + 1)) {
++                        free(p);
++                        r = -ENOMEM;
++                        goto finish;
++                }
+ 
+                 list[n_list].filename = p;
+                 list[n_list].usage = 512UL * (uint64_t) st.st_blocks;
+diff --git a/src/journal/journald-server.c b/src/journal/journald-server.c
+index 12735c4..08b143b 100644
+--- a/src/journal/journald-server.c
++++ b/src/journal/journald-server.c
+@@ -1655,6 +1655,7 @@ void server_done(Server *s) {
+         free(s->buffer);
+         free(s->tty_path);
+         free(s->cgroup_root);
++        free(s->hostname_field);
+ 
+         if (s->mmap)
+                 mmap_cache_unref(s->mmap);
+diff --git a/src/kernel-install/90-loaderentry.install b/src/kernel-install/90-loaderentry.install
+index 6f032b5..d433e00 100644
+--- a/src/kernel-install/90-loaderentry.install
++++ b/src/kernel-install/90-loaderentry.install
+@@ -47,7 +47,7 @@ if [[ -f /etc/kernel/cmdline ]]; then
+ fi
+ 
+ if ! [[ ${BOOT_OPTIONS[*]} ]]; then
+-    read -ar line < /proc/cmdline
++    read -a line -r < /proc/cmdline
+     for i in "${line[@]}"; do
+         [[ "${i#initrd=*}" != "$i" ]] && continue
+         BOOT_OPTIONS[${#BOOT_OPTIONS[@]}]="$i"
+diff --git a/src/libsystemd-network/sd-dhcp-client.c b/src/libsystemd-network/sd-dhcp-client.c
+index 0eba4c3..1f7f238 100644
+--- a/src/libsystemd-network/sd-dhcp-client.c
++++ b/src/libsystemd-network/sd-dhcp-client.c
+@@ -1269,6 +1269,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message,
+                 if (r >= 0) {
+                         client->timeout_resend =
+                                 sd_event_source_unref(client->timeout_resend);
++                        client->receive_message =
++                                sd_event_source_unref(client->receive_message);
++                        client->fd = asynchronous_close(client->fd);
+ 
+                         if (IN_SET(client->state, DHCP_STATE_REQUESTING,
+                                    DHCP_STATE_REBOOTING))
+diff --git a/src/libsystemd-network/sd-dhcp6-client.c b/src/libsystemd-network/sd-dhcp6-client.c
+index fa4f9b5..dbec1a2 100644
+--- a/src/libsystemd-network/sd-dhcp6-client.c
++++ b/src/libsystemd-network/sd-dhcp6-client.c
+@@ -200,19 +200,19 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
+ 
+         switch (type) {
+         case DHCP6_DUID_LLT:
+-                if (duid_len <= sizeof(client->duid.llt))
++                if (duid_len <= sizeof(client->duid.llt) - 2)
+                         return -EINVAL;
+                 break;
+         case DHCP6_DUID_EN:
+-                if (duid_len != sizeof(client->duid.en))
++                if (duid_len != sizeof(client->duid.en) - 2)
+                         return -EINVAL;
+                 break;
+         case DHCP6_DUID_LL:
+-                if (duid_len <= sizeof(client->duid.ll))
++                if (duid_len <= sizeof(client->duid.ll) - 2)
+                         return -EINVAL;
+                 break;
+         case DHCP6_DUID_UUID:
+-                if (duid_len != sizeof(client->duid.uuid))
++                if (duid_len != sizeof(client->duid.uuid) - 2)
+                         return -EINVAL;
+                 break;
+         default:
+@@ -222,7 +222,7 @@ int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, uint16_t type, uint8_t *du
+ 
+         client->duid.raw.type = htobe16(type);
+         memcpy(&client->duid.raw.data, duid, duid_len);
+-        client->duid_len = duid_len;
++        client->duid_len = duid_len + 2;  /* +2 for sizeof(type) */
+ 
+         return 0;
+ }
+diff --git a/src/libsystemd/sd-bus/bus-match.c b/src/libsystemd/sd-bus/bus-match.c
+index 18afe0f..5658c61 100644
+--- a/src/libsystemd/sd-bus/bus-match.c
++++ b/src/libsystemd/sd-bus/bus-match.c
+@@ -537,7 +537,7 @@ static int bus_match_find_compare_value(
+         else if (BUS_MATCH_CAN_HASH(t))
+                 n = hashmap_get(c->compare.children, value_str);
+         else {
+-                for (n = c->child; !value_node_same(n, t, value_u8, value_str); n = n->next)
++                for (n = c->child; n && !value_node_same(n, t, value_u8, value_str); n = n->next)
+                         ;
+         }
+ 
+diff --git a/src/libudev/libudev-util.c b/src/libudev/libudev-util.c
+index f3fdf3b..0bc10f3 100644
+--- a/src/libudev/libudev-util.c
++++ b/src/libudev/libudev-util.c
+@@ -159,9 +159,13 @@ int util_log_priority(const char *priority)
+         char *endptr;
+         int prio;
+ 
+-        prio = strtol(priority, &endptr, 10);
+-        if (endptr[0] == '\0' || isspace(endptr[0]))
+-                return prio;
++        prio = strtoul(priority, &endptr, 10);
++        if (endptr[0] == '\0' || isspace(endptr[0])) {
++                if (prio >= 0 && prio <= 7)
++                        return prio;
++                else
++                        return -ERANGE;
++        }
+ 
+         return log_level_from_string(priority);
+ }
+diff --git a/src/libudev/libudev.c b/src/libudev/libudev.c
+index e2ab960..05f3b47 100644
+--- a/src/libudev/libudev.c
++++ b/src/libudev/libudev.c
+@@ -119,7 +119,7 @@ _public_ struct udev *udev_new(void)
+ {
+         struct udev *udev;
+         const char *env;
+-        FILE *f;
++        _cleanup_fclose_ FILE *f = NULL;
+ 
+         udev = new0(struct udev, 1);
+         if (udev == NULL)
+@@ -132,7 +132,7 @@ _public_ struct udev *udev_new(void)
+         f = fopen("/etc/udev/udev.conf", "re");
+         if (f != NULL) {
+                 char line[UTIL_LINE_SIZE];
+-                int line_nr = 0;
++                unsigned line_nr = 0;
+ 
+                 while (fgets(line, sizeof(line), f)) {
+                         size_t len;
+@@ -153,7 +153,7 @@ _public_ struct udev *udev_new(void)
+                         /* split key/value */
+                         val = strchr(key, '=');
+                         if (val == NULL) {
+-                                udev_err(udev, "missing <key>=<value> in /etc/udev/udev.conf[%i]; skip line\n", line_nr);
++                                udev_err(udev, "/etc/udev/udev.conf:%u: missing assignment,  skipping line.\n", line_nr);
+                                 continue;
+                         }
+                         val[0] = '\0';
+@@ -185,7 +185,7 @@ _public_ struct udev *udev_new(void)
+                         /* unquote */
+                         if (val[0] == '"' || val[0] == '\'') {
+                                 if (val[len-1] != val[0]) {
+-                                        udev_err(udev, "inconsistent quoting in /etc/udev/udev.conf[%i]; skip line\n", line_nr);
++                                        udev_err(udev, "/etc/udev/udev.conf:%u: inconsistent quoting, skipping line.\n", line_nr);
+                                         continue;
+                                 }
+                                 val[len-1] = '\0';
+@@ -193,17 +193,29 @@ _public_ struct udev *udev_new(void)
+                         }
+ 
+                         if (streq(key, "udev_log")) {
+-                                udev_set_log_priority(udev, util_log_priority(val));
++                                int prio;
++
++                                prio = util_log_priority(val);
++                                if (prio < 0)
++                                        udev_err(udev, "/etc/udev/udev.conf:%u: invalid logging level '%s', ignoring.\n", line_nr, val);
++                                else
++                                        udev_set_log_priority(udev, prio);
+                                 continue;
+                         }
+                 }
+-                fclose(f);
+         }
+ 
+         /* environment overrides config */
+         env = secure_getenv("UDEV_LOG");
+-        if (env != NULL)
+-                udev_set_log_priority(udev, util_log_priority(env));
++        if (env != NULL) {
++                int prio;
++
++                prio = util_log_priority(env);
++                if (prio < 0)
++                        udev_err(udev, "$UDEV_LOG specifies invalid logging level '%s', ignoring.\n", env);
++                else
++                        udev_set_log_priority(udev, prio);
++        }
+ 
+         return udev;
+ }
+diff --git a/src/locale/localectl.c b/src/locale/localectl.c
+index 3690f9f..d4a2d29 100644
+--- a/src/locale/localectl.c
++++ b/src/locale/localectl.c
+@@ -505,7 +505,7 @@ static void help(void) {
+                "  list-locales             Show known locales\n"
+                "  set-keymap MAP [MAP]     Set virtual console keyboard mapping\n"
+                "  list-keymaps             Show known virtual console keyboard mappings\n"
+-               "  set-x11-keymap LAYOUT [MODEL] [VARIANT] [OPTIONS]\n"
++               "  set-x11-keymap LAYOUT [MODEL [VARIANT [OPTIONS]]]\n"
+                "                           Set X11 keyboard mapping\n"
+                "  list-x11-keymap-models   Show known X11 keyboard mapping models\n"
+                "  list-x11-keymap-layouts  Show known X11 keyboard mapping layouts\n"
+diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
+index b6d9bc6..f332ade 100644
+--- a/src/nspawn/nspawn.c
++++ b/src/nspawn/nspawn.c
+@@ -758,7 +758,7 @@ static int mount_binds(const char *dest, char **l, bool ro) {
+                  * and char devices. */
+                 if (S_ISDIR(source_st.st_mode)) {
+                         r = mkdir_label(where, 0755);
+-                        if (r < 0) {
++                        if (r < 0 && errno != EEXIST) {
+                                 log_error("Failed to create mount point %s: %s", where, strerror(-r));
+ 
+                                 return r;
+@@ -2911,8 +2911,8 @@ static int change_uid_gid(char **_home) {
+  *       container argument.
+  * > 0 : The program executed in the container terminated with an
+  *       error.  The exit code of the program executed in the
+- *       container is returned.  No change is made to the container
+- *       argument.
++ *       container is returned.  The container argument has been set
++ *       to CONTAINER_TERMINATED.
+  *   0 : The container is being rebooted, has been shut down or exited
+  *       successfully.  The container argument has been set to either
+  *       CONTAINER_TERMINATED or CONTAINER_REBOOTED.
+@@ -2921,8 +2921,8 @@ static int change_uid_gid(char **_home) {
+  * error is indicated by a non-zero value.
+  */
+ static int wait_for_container(pid_t pid, ContainerStatus *container) {
+-        int r;
+         siginfo_t status;
++        int r;
+ 
+         r = wait_for_terminate(pid, &status);
+         if (r < 0) {
+@@ -2931,51 +2931,40 @@ static int wait_for_container(pid_t pid, ContainerStatus *container) {
+         }
+ 
+         switch (status.si_code) {
++
+         case CLD_EXITED:
+-                r = status.si_status;
+-                if (r == 0) {
+-                        if (!arg_quiet)
+-                                log_debug("Container %s exited successfully.",
+-                                          arg_machine);
++                if (status.si_status == 0) {
++                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s exited successfully.", arg_machine);
+ 
+-                        *container = CONTAINER_TERMINATED;
+-                } else {
+-                        log_error("Container %s failed with error code %i.",
+-                                  arg_machine, status.si_status);
+-                }
+-                break;
++                } else
++                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s failed with error code %i.", arg_machine, status.si_status);
++
++                *container = CONTAINER_TERMINATED;
++                return status.si_status;
+ 
+         case CLD_KILLED:
+                 if (status.si_status == SIGINT) {
+-                        if (!arg_quiet)
+-                                log_info("Container %s has been shut down.",
+-                                         arg_machine);
+ 
++                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s has been shut down.", arg_machine);
+                         *container = CONTAINER_TERMINATED;
+-                        r = 0;
+-                        break;
++                        return 0;
++
+                 } else if (status.si_status == SIGHUP) {
+-                        if (!arg_quiet)
+-                                log_info("Container %s is being rebooted.",
+-                                         arg_machine);
+ 
++                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Container %s is being rebooted.", arg_machine);
+                         *container = CONTAINER_REBOOTED;
+-                        r = 0;
+-                        break;
++                        return 0;
+                 }
++
+                 /* CLD_KILLED fallthrough */
+ 
+         case CLD_DUMPED:
+-                log_error("Container %s terminated by signal %s.",
+-                          arg_machine, signal_to_string(status.si_status));
+-                r = -1;
+-                break;
++                log_error("Container %s terminated by signal %s.", arg_machine, signal_to_string(status.si_status));
++                return -EIO;
+ 
+         default:
+-                log_error("Container %s failed due to unknown reason.",
+-                          arg_machine);
+-                r = -1;
+-                break;
++                log_error("Container %s failed due to unknown reason.", arg_machine);
++                return -EIO;
+         }
+ 
+         return r;
+diff --git a/src/shared/capability.c b/src/shared/capability.c
+index d2b9013..0226542 100644
+--- a/src/shared/capability.c
++++ b/src/shared/capability.c
+@@ -228,7 +228,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
+          * which we want to avoid. */
+ 
+         if (setresgid(gid, gid, gid) < 0) {
+-                log_error("Failed change group ID: %m");
++                log_error("Failed to change group ID: %m");
+                 return -errno;
+         }
+ 
+@@ -244,7 +244,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
+ 
+         r = setresuid(uid, uid, uid);
+         if (r < 0) {
+-                log_error("Failed change user ID: %m");
++                log_error("Failed to change user ID: %m");
+                 return -errno;
+         }
+ 
+diff --git a/src/shared/copy.h b/src/shared/copy.h
+index 0bf2598..6b93107 100644
+--- a/src/shared/copy.h
++++ b/src/shared/copy.h
+@@ -21,6 +21,9 @@
+   along with systemd; If not, see <http://www.gnu.org/licenses/>.
+ ***/
+ 
++#include <stdbool.h>
++#include <sys/types.h>
++
+ int copy_file(const char *from, const char *to, int flags, mode_t mode);
+ int copy_tree(const char *from, const char *to, bool merge);
+ int copy_bytes(int fdf, int fdt, off_t max_bytes);
+diff --git a/src/shared/install.c b/src/shared/install.c
+index 035b44c..cab93e8 100644
+--- a/src/shared/install.c
++++ b/src/shared/install.c
+@@ -1620,12 +1620,10 @@ int unit_file_enable(
+         STRV_FOREACH(i, files) {
+                 UnitFileState state;
+ 
++                /* We only want to know if this unit is masked, so we ignore
++                 * errors from unit_file_get_state, deferring other checks.
++                 * This allows templated units to be enabled on the fly. */
+                 state = unit_file_get_state(scope, root_dir, *i);
+-                if (state < 0) {
+-                        log_error("Failed to get unit file state for %s: %s", *i, strerror(-state));
+-                        return state;
+-                }
+-
+                 if (state == UNIT_FILE_MASKED || state == UNIT_FILE_MASKED_RUNTIME) {
+                         log_error("Failed to enable unit: Unit %s is masked", *i);
+                         return -ENOTSUP;
+diff --git a/src/shared/locale-util.h b/src/shared/locale-util.h
+index d7a3e4f..e48aa3d 100644
+--- a/src/shared/locale-util.h
++++ b/src/shared/locale-util.h
+@@ -21,6 +21,10 @@
+   along with systemd; If not, see <http://www.gnu.org/licenses/>.
+ ***/
+ 
++#include <stdbool.h>
++
++#include "macro.h"
++
+ typedef enum LocaleVariable {
+         /* We don't list LC_ALL here on purpose. People should be
+          * using LANG instead. */
+diff --git a/src/shared/logs-show.c b/src/shared/logs-show.c
+index 04e1165..e33824b 100644
+--- a/src/shared/logs-show.c
++++ b/src/shared/logs-show.c
+@@ -365,7 +365,7 @@ static int output_short(
+                 fprintf(f, " %.*s", (int) comm_len, comm);
+                 n += comm_len + 1;
+         } else
+-                fputc(' ', f);
++                fputs(" unknown", f);
+ 
+         if (pid && shall_print(pid, pid_len, flags)) {
+                 fprintf(f, "[%.*s]", (int) pid_len, pid);
+diff --git a/src/shared/selinux-util.c b/src/shared/selinux-util.c
+index 1eddd17..6bd3bf1 100644
+--- a/src/shared/selinux-util.c
++++ b/src/shared/selinux-util.c
+@@ -332,9 +332,13 @@ int mac_selinux_create_file_prepare(const char *path, mode_t mode) {
+                 r = selabel_lookup_raw(label_hnd, &filecon, newpath, mode);
+         }
+ 
+-        if (r < 0 && errno != ENOENT)
++        /* No context specified by the policy? Proceed without setting it. */
++        if (r < 0 && errno == ENOENT)
++                return 0;
++
++        if (r < 0)
+                 r = -errno;
+-        else if (r == 0) {
++        else {
+                 r = setfscreatecon(filecon);
+                 if (r < 0) {
+                         log_enforcing("Failed to set SELinux security context %s for %s: %m", filecon, path);
+diff --git a/src/shared/switch-root.c b/src/shared/switch-root.c
+index bac0e5c..3adb846 100644
+--- a/src/shared/switch-root.c
++++ b/src/shared/switch-root.c
+@@ -47,7 +47,6 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,
+         struct stat new_root_stat;
+         bool old_root_remove;
+         const char *i, *temporary_old_root;
+-        int r;
+ 
+         if (path_equal(new_root, "/"))
+                 return 0;
+@@ -103,11 +102,12 @@ int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot,
+                 }
+         }
+ 
+-        r = base_filesystem_create(new_root);
+-        if (r < 0) {
+-                log_error("Failed to create the base filesystem: %s", strerror(-r));
+-                return r;
+-        }
++        /* Do not fail, if base_filesystem_create() fails. Not all
++         * switch roots are like base_filesystem_create() wants them
++         * to look like. They might even boot, if they are RO and
++         * don't have the FS layout. Just ignore the error and
++         * switch_root() nevertheless. */
++        (void) base_filesystem_create(new_root);
+ 
+         if (chdir(new_root) < 0) {
+                 log_error("Failed to change directory to %s: %m", new_root);
+diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
+index 28eaa6a..207a5e7 100644
+--- a/src/systemctl/systemctl.c
++++ b/src/systemctl/systemctl.c
+@@ -301,21 +301,37 @@ static int compare_unit_info(const void *a, const void *b) {
+ }
+ 
+ static bool output_show_unit(const UnitInfo *u, char **patterns) {
+-        const char *dot;
+-
+         if (!strv_isempty(patterns)) {
+                 char **pattern;
+ 
+                 STRV_FOREACH(pattern, patterns)
+                         if (fnmatch(*pattern, u->id, FNM_NOESCAPE) == 0)
+-                                return true;
++                                goto next;
+                 return false;
+         }
+ 
+-        return (!arg_types || ((dot = strrchr(u->id, '.')) &&
+-                               strv_find(arg_types, dot+1))) &&
+-                (arg_all || !(streq(u->active_state, "inactive")
+-                              || u->following[0]) || u->job_id > 0);
++next:
++        if (arg_types) {
++                const char *dot;
++
++                dot = strrchr(u->id, '.');
++                if (!dot)
++                        return false;
++
++                if (!strv_find(arg_types, dot+1))
++                        return false;
++        }
++
++        if (arg_all)
++                return true;
++
++        if (u->job_id > 0)
++                return true;
++
++        if (streq(u->active_state, "inactive") || u->following[0])
++                return false;
++
++        return true;
+ }
+ 
+ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
+@@ -1231,18 +1247,33 @@ static int compare_unit_file_list(const void *a, const void *b) {
+ }
+ 
+ static bool output_show_unit_file(const UnitFileList *u, char **patterns) {
+-        const char *dot;
+-
+         if (!strv_isempty(patterns)) {
+                 char **pattern;
+ 
+                 STRV_FOREACH(pattern, patterns)
+                         if (fnmatch(*pattern, basename(u->path), FNM_NOESCAPE) == 0)
+-                                return true;
++                                goto next;
+                 return false;
+         }
+ 
+-        return !arg_types || ((dot = strrchr(u->path, '.')) && strv_find(arg_types, dot+1));
++next:
++        if (!strv_isempty(arg_types)) {
++                const char *dot;
++
++                dot = strrchr(u->path, '.');
++                if (!dot)
++                        return false;
++
++                if (!strv_find(arg_types, dot+1))
++                        return false;
++        }
++
++        if (!strv_isempty(arg_states)) {
++                if (!strv_find(arg_states, unit_file_state_to_string(u->state)))
++                        return false;
++        }
++
++        return true;
+ }
+ 
+ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
+@@ -6917,8 +6948,13 @@ done:
+ 
+ static int halt_now(enum action a) {
+ 
+-/* Make sure C-A-D is handled by the kernel from this
+-         * point on... */
++        /* The kernel will automaticall flush ATA disks and suchlike
++         * on reboot(), but the file systems need to be synce'd
++         * explicitly in advance. */
++        sync();
++
++        /* Make sure C-A-D is handled by the kernel from this point
++         * on... */
+         reboot(RB_ENABLE_CAD);
+ 
+         switch (a) {
+diff --git a/src/sysusers/sysusers.c b/src/sysusers/sysusers.c
+index 9b9be96..c133dc5 100644
+--- a/src/sysusers/sysusers.c
++++ b/src/sysusers/sysusers.c
+@@ -358,6 +358,7 @@ static int write_files(void) {
+         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
+         _cleanup_free_ char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
+         const char *passwd_path = NULL, *group_path = NULL, *shadow_path = NULL, *gshadow_path = NULL;
++        struct stat st;
+         bool group_changed = false;
+         Iterator iterator;
+         Item *i;
+@@ -372,15 +373,17 @@ static int write_files(void) {
+                 if (r < 0)
+                         goto finish;
+ 
+-                if (fchmod(fileno(group), 0644) < 0) {
+-                        r = -errno;
+-                        goto finish;
+-                }
+-
+                 original = fopen(group_path, "re");
+                 if (original) {
+                         struct group *gr;
+ 
++                        if (fstat(fileno(original), &st) < 0 ||
++                            fchmod(fileno(group), st.st_mode & 07777) < 0 ||
++                            fchown(fileno(group), st.st_uid, st.st_gid) < 0) {
++                                r = -errno;
++                                goto finish;
++                        }
++
+                         errno = 0;
+                         while ((gr = fgetgrent(original))) {
+                                 /* Safety checks against name and GID
+@@ -418,6 +421,9 @@ static int write_files(void) {
+                 } else if (errno != ENOENT) {
+                         r = -errno;
+                         goto finish;
++                } else if (fchmod(fileno(group), 0644) < 0) {
++                        r = -errno;
++                        goto finish;
+                 }
+ 
+                 HASHMAP_FOREACH(i, todo_gids, iterator) {
+@@ -449,15 +455,17 @@ static int write_files(void) {
+                 if (r < 0)
+                         goto finish;
+ 
+-                if (fchmod(fileno(gshadow), 0000) < 0) {
+-                        r = -errno;
+-                        goto finish;
+-                }
+-
+                 original = fopen(gshadow_path, "re");
+                 if (original) {
+                         struct sgrp *sg;
+ 
++                        if (fstat(fileno(original), &st) < 0 ||
++                            fchmod(fileno(gshadow), st.st_mode & 07777) < 0 ||
++                            fchown(fileno(gshadow), st.st_uid, st.st_gid) < 0) {
++                                r = -errno;
++                                goto finish;
++                        }
++
+                         errno = 0;
+                         while ((sg = fgetsgent(original))) {
+ 
+@@ -483,6 +491,9 @@ static int write_files(void) {
+                 } else if (errno != ENOENT) {
+                         r = -errno;
+                         goto finish;
++                } else if (fchmod(fileno(gshadow), 0000) < 0) {
++                        r = -errno;
++                        goto finish;
+                 }
+ 
+                 HASHMAP_FOREACH(i, todo_gids, iterator) {
+@@ -513,15 +524,17 @@ static int write_files(void) {
+                 if (r < 0)
+                         goto finish;
+ 
+-                if (fchmod(fileno(passwd), 0644) < 0) {
+-                        r = -errno;
+-                        goto finish;
+-                }
+-
+                 original = fopen(passwd_path, "re");
+                 if (original) {
+                         struct passwd *pw;
+ 
++                        if (fstat(fileno(original), &st) < 0 ||
++                            fchmod(fileno(passwd), st.st_mode & 07777) < 0 ||
++                            fchown(fileno(passwd), st.st_uid, st.st_gid) < 0) {
++                                r = -errno;
++                                goto finish;
++                        }
++
+                         errno = 0;
+                         while ((pw = fgetpwent(original))) {
+ 
+@@ -552,6 +565,9 @@ static int write_files(void) {
+                 } else if (errno != ENOENT) {
+                         r = -errno;
+                         goto finish;
++                } else if (fchmod(fileno(passwd), 0644) < 0) {
++                        r = -errno;
++                        goto finish;
+                 }
+ 
+                 HASHMAP_FOREACH(i, todo_uids, iterator) {
+@@ -596,15 +612,17 @@ static int write_files(void) {
+                 if (r < 0)
+                         goto finish;
+ 
+-                if (fchmod(fileno(shadow), 0000) < 0) {
+-                        r = -errno;
+-                        goto finish;
+-                }
+-
+                 original = fopen(shadow_path, "re");
+                 if (original) {
+                         struct spwd *sp;
+ 
++                        if (fstat(fileno(original), &st) < 0 ||
++                            fchmod(fileno(shadow), st.st_mode & 07777) < 0 ||
++                            fchown(fileno(shadow), st.st_uid, st.st_gid) < 0) {
++                                r = -errno;
++                                goto finish;
++                        }
++
+                         errno = 0;
+                         while ((sp = fgetspent(original))) {
+ 
+@@ -629,6 +647,9 @@ static int write_files(void) {
+                 } else if (errno != ENOENT) {
+                         r = -errno;
+                         goto finish;
++                } else if (fchmod(fileno(shadow), 0000) < 0) {
++                        r = -errno;
++                        goto finish;
+                 }
+ 
+                 lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+diff --git a/src/udev/scsi_id/scsi_id.c b/src/udev/scsi_id/scsi_id.c
+index 4d9378a..48c6cf7 100644
+--- a/src/udev/scsi_id/scsi_id.c
++++ b/src/udev/scsi_id/scsi_id.c
+@@ -317,8 +317,8 @@ static void help(void) {
+                "  -f,--config=                     location of config file\n"
+                "  -p,--page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
+                "  -s,--sg-version=3|4              use SGv3 or SGv4\n"
+-               "  -b,--blacklisted                 threat device as blacklisted\n"
+-               "  -g,--whitelisted                 threat device as whitelisted\n"
++               "  -b,--blacklisted                 treat device as blacklisted\n"
++               "  -g,--whitelisted                 treat device as whitelisted\n"
+                "  -u,--replace-whitespace          replace all whitespace by underscores\n"
+                "  -v,--verbose                     verbose logging\n"
+                "     --version                     print version\n"
+diff --git a/src/udev/udev-builtin-path_id.c b/src/udev/udev-builtin-path_id.c
+index 0d247f6..df996cb 100644
+--- a/src/udev/udev-builtin-path_id.c
++++ b/src/udev/udev-builtin-path_id.c
+@@ -548,9 +548,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
+         }
+ 
+         /*
+-         * Do return devices with have an unknown type of parent device, they
+-         * might produce conflicting IDs below multiple independent parent
+-         * devices.
++         * Do not return devices with an unknown parent device type. They
++         * might produce conflicting IDs if the parent does not provide a
++         * unique and predictable name.
+          */
+         if (!supported_parent) {
+                 free(path);
+@@ -558,9 +558,9 @@ static int builtin_path_id(struct udev_device *dev, int argc, char *argv[], bool
+         }
+ 
+         /*
+-         * Do not return a have-only a single-parent block devices, some
+-         * have entire hidden buses behind it, and not create predictable
+-         * IDs that way.
++         * Do not return block devices without a well-known transport. Some
++         * devices do not expose their buses and do not provide a unique
++         * and predictable name that way.
+          */
+         if (streq(udev_device_get_subsystem(dev), "block") && !supported_transport) {
+                 free(path);
+diff --git a/src/udev/udevd.c b/src/udev/udevd.c
+index 2e6c713..65d086e 100644
+--- a/src/udev/udevd.c
++++ b/src/udev/udevd.c
+@@ -967,7 +967,7 @@ static void kernel_cmdline_options(struct udev *udev) {
+                 return;
+ 
+         FOREACH_WORD_QUOTED(word, l, line, state) {
+-                char *s, *opt;
++                char *s, *opt, *value;
+ 
+                 s = strndup(word, l);
+                 if (!s)
+@@ -979,24 +979,24 @@ static void kernel_cmdline_options(struct udev *udev) {
+                 else
+                         opt = s;
+ 
+-                if (startswith(opt, "udev.log-priority=")) {
++                if ((value = startswith(opt, "udev.log-priority="))) {
+                         int prio;
+ 
+-                        prio = util_log_priority(opt + 18);
++                        prio = util_log_priority(value);
+                         log_set_max_level(prio);
+                         udev_set_log_priority(udev, prio);
+-                } else if (startswith(opt, "udev.children-max=")) {
+-                        r = safe_atoi(opt + 18, &arg_children_max);
++                } else if ((value = startswith(opt, "udev.children-max="))) {
++                        r = safe_atoi(value, &arg_children_max);
+                         if (r < 0)
+-                                log_warning("Invalid udev.children-max ignored: %s", opt + 18);
+-                } else if (startswith(opt, "udev.exec-delay=")) {
+-                        r = safe_atoi(opt + 16, &arg_exec_delay);
++                                log_warning("Invalid udev.children-max ignored: %s", value);
++                } else if ((value = startswith(opt, "udev.exec-delay="))) {
++                        r = safe_atoi(value, &arg_exec_delay);
+                         if (r < 0)
+-                                log_warning("Invalid udev.exec-delay ignored: %s", opt + 16);
+-                } else if (startswith(opt, "udev.event-timeout=")) {
+-                        r = safe_atou64(opt + 16, &arg_event_timeout_usec);
++                                log_warning("Invalid udev.exec-delay ignored: %s", value);
++                } else if ((value = startswith(opt, "udev.event-timeout="))) {
++                        r = safe_atou64(value, &arg_event_timeout_usec);
+                         if (r < 0) {
+-                                log_warning("Invalid udev.event-timeout ignored: %s", opt + 16);
++                                log_warning("Invalid udev.event-timeout ignored: %s", value);
+                                 break;
+                         }
+                         arg_event_timeout_usec *= USEC_PER_SEC;
+diff --git a/src/vconsole/90-vconsole.rules b/src/vconsole/90-vconsole.rules
+new file mode 100644
+index 0000000..bf6a9ef
+--- /dev/null
++++ b/src/vconsole/90-vconsole.rules
+@@ -0,0 +1,11 @@
++#  This file is part of systemd.
++#
++#  systemd is free software; you can redistribute it and/or modify it
++#  under the terms of the GNU Lesser General Public License as published by
++#  the Free Software Foundation; either version 2.1 of the License, or
++#  (at your option) any later version.
++
++# Kernel resets vconsole state when changing console drivers so run
++# systemd-vconsole-setup when fbcon loads
++
++ACTION=="add", SUBSYSTEM=="graphics", KERNEL=="fbcon", RUN+="/usr/lib/systemd/systemd-vconsole-setup"
+diff --git a/units/basic.target b/units/basic.target
+index 228f62c..abb63ec 100644
+--- a/units/basic.target
++++ b/units/basic.target
+@@ -8,8 +8,8 @@
+ [Unit]
+ Description=Basic System
+ Documentation=man:systemd.special(7)
++
+ Requires=sysinit.target
++After=sysinit.target
+ Wants=sockets.target timers.target paths.target slices.target
+-After=sysinit.target sockets.target timers.target paths.target slices.target
+-JobTimeoutSec=15min
+-JobTimeoutAction=poweroff-force
++After=sockets.target paths.target slices.target
+diff --git a/units/poweroff.target b/units/poweroff.target
+index dd92d81..7187103 100644
+--- a/units/poweroff.target
++++ b/units/poweroff.target
+@@ -12,8 +12,6 @@ DefaultDependencies=no
+ Requires=systemd-poweroff.service
+ After=systemd-poweroff.service
+ AllowIsolate=yes
+-JobTimeoutSec=30min
+-JobTimeoutAction=poweroff-force
+ 
+ [Install]
+ Alias=ctrl-alt-del.target
+diff --git a/units/reboot.target b/units/reboot.target
+index 668b98d..dec8f56 100644
+--- a/units/reboot.target
++++ b/units/reboot.target
+@@ -12,8 +12,6 @@ DefaultDependencies=no
+ Requires=systemd-reboot.service
+ After=systemd-reboot.service
+ AllowIsolate=yes
+-JobTimeoutSec=30min
+-JobTimeoutAction=reboot-force
+ 
+ [Install]
+ Alias=ctrl-alt-del.target
+diff --git a/units/systemd-journal-flush.service.in b/units/systemd-journal-flush.service.in
+index 699670b..98c91b4 100644
+--- a/units/systemd-journal-flush.service.in
++++ b/units/systemd-journal-flush.service.in
+@@ -6,12 +6,14 @@
+ #  (at your option) any later version.
+ 
+ [Unit]
+-Description=Trigger Flushing of Journal to Persistent Storage
++Description=Flush Journal to Persistent Storage
+ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
+ DefaultDependencies=no
+ Requires=systemd-journald.service
+-After=systemd-journald.service local-fs.target remote-fs.target
++After=systemd-journald.service
++After=systemd-remount-fs.service
+ Before=systemd-user-sessions.service systemd-tmpfiles-setup.service
++RequiresMountsFor=/var/log/journal
+ 
+ [Service]
+ ExecStart=@rootbindir@/journalctl --flush
+diff --git a/units/systemd-journald.service.in b/units/systemd-journald.service.in
+index 4de38fa..441d5b1 100644
+--- a/units/systemd-journald.service.in
++++ b/units/systemd-journald.service.in
+@@ -14,6 +14,7 @@ After=systemd-journald.socket systemd-journald-dev-log.socket syslog.socket
+ Before=sysinit.target
+ 
+ [Service]
++Type=notify
+ Sockets=systemd-journald.socket systemd-journald-dev-log.socket
+ ExecStart=@rootlibexecdir@/systemd-journald
+ Restart=always
+diff --git a/units/timers.target b/units/timers.target
+index 07fda3d..251fa68 100644
+--- a/units/timers.target
++++ b/units/timers.target
+@@ -8,3 +8,6 @@
+ [Unit]
+ Description=Timers
+ Documentation=man:systemd.special(7)
++
++DefaultDependencies=no
++Conflicts=shutdown.target

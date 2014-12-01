@@ -15,10 +15,10 @@ https://bugs.debian/org/771397
  8 files changed, 21 insertions(+), 19 deletions(-)
 
 diff --git a/src/core/shutdown.c b/src/core/shutdown.c
-index 20cf526..d923995 100644
+index 03cfddc..7add89f 100644
 --- a/src/core/shutdown.c
 +++ b/src/core/shutdown.c
-@@ -366,7 +366,7 @@ int main(int argc, char *argv[]) {
+@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
                                  execv(args[0], (char * const *) args);
                                  _exit(EXIT_FAILURE);
                          } else
@@ -54,7 +54,7 @@ index d5ea1d9..848f75f 100644
          }
  
 diff --git a/src/nspawn/nspawn.c b/src/nspawn/nspawn.c
-index 5f6633e..d94d726 100644
+index 14c4e13..de5c600 100644
 --- a/src/nspawn/nspawn.c
 +++ b/src/nspawn/nspawn.c
 @@ -2778,7 +2778,7 @@ static int change_uid_gid(char **_home) {

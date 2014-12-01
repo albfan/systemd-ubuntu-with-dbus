@@ -8,10 +8,10 @@ Subject: Make systemctl enable/disable call update-rc.d for sysv init scripts
  1 file changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/src/systemctl/systemctl.c b/src/systemctl/systemctl.c
-index 28eaa6a..d6719cd 100644
+index 207a5e7..6a8b644 100644
 --- a/src/systemctl/systemctl.c
 +++ b/src/systemctl/systemctl.c
-@@ -5064,7 +5064,7 @@ static int import_environment(sd_bus *bus, char **args) {
+@@ -5095,7 +5095,7 @@ static int import_environment(sd_bus *bus, char **args) {
  static int enable_sysv_units(const char *verb, char **args) {
          int r = 0;
  
@@ -20,7 +20,7 @@ index 28eaa6a..d6719cd 100644
          unsigned f = 1, t = 1;
          _cleanup_lookup_paths_free_ LookupPaths paths = {};
  
-@@ -5072,8 +5072,9 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5103,8 +5103,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                  return 0;
  
          if (!streq(verb, "enable") &&
@@ -32,7 +32,7 @@ index 28eaa6a..d6719cd 100644
                  return 0;
  
          /* Processes all SysV units, and reshuffles the array so that
-@@ -5089,7 +5090,7 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5120,7 +5121,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                  _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                  bool found_native = false, found_sysv;
                  unsigned c = 1;
@@ -41,7 +41,7 @@ index 28eaa6a..d6719cd 100644
                  char **k;
                  int j;
                  pid_t pid;
-@@ -5130,15 +5131,15 @@ static int enable_sysv_units(const char *verb, char **args) {
+@@ -5161,15 +5162,15 @@ static int enable_sysv_units(const char *verb, char **args) {
                  /* Mark this entry, so that we don't try enabling it as native unit */
                  args[f] = (char*) "";
  

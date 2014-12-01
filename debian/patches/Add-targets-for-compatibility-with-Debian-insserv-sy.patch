@@ -11,7 +11,7 @@ Subject: Add targets for compatibility with Debian insserv system facilities
  create mode 100644 units/x-display-manager.target
 
 diff --git a/Makefile.am b/Makefile.am
-index 7bc7d29..ec5b871 100644
+index ed038fc..28370df 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -555,6 +555,12 @@ nodist_systemunit_DATA += \

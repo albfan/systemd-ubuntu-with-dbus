@@ -1,6 +1,5 @@
-## -stable patches:
-
 ## Cherry-picked patches:
+v217-stable.patch
 nspawn-Add-try-host-guest-journal-link-modes.patch
 tmpfiles.d-Create-var-lib-container.patch
 selinux-access-fix-broken-ternary-operator.patch
