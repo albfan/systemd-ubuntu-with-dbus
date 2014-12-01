@@ -1,0 +1,35 @@
+From: Martin Pitt <martin.pitt@ubuntu.com>
+Date: Mon, 1 Dec 2014 10:50:06 +0100
+Subject: Do not realize and migrate cgroups multiple times
+
+unit_create_cgroups() tries to check if a cgroup already exists. But has the
+destination path is always allocated dynamically as a new string, that pointer
+will never already be in the hashmap, thus hashmap_put() will never actually
+fail with EEXISTS. Thus check for the existance of the cgroup path explicitly.
+
+Before this, "-.slice" got initialized and its child PIDs migrated many times
+through queuing the realization of sibling units; thiss caused any cgroup
+controller layout from sub-cgroups to be reverted and their pids moved back to
+the root cgroup in all controllers (except systemd).
+---
+ src/core/cgroup.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/src/core/cgroup.c b/src/core/cgroup.c
+index 58e1758..05beaa1 100644
+--- a/src/core/cgroup.c
++++ b/src/core/cgroup.c
+@@ -602,6 +602,13 @@ static int unit_create_cgroups(Unit *u, CGroupControllerMask mask) {
+         if (!path)
+                 return log_oom();
+ 
++        log_debug("unit_create_cgroups %s: path=%s realized %i hashmap %p", u->id, path, u->cgroup_realized, hashmap_get(u->manager->cgroup_unit, path));
++
++        if (hashmap_get(u->manager->cgroup_unit, path)) {
++                log_warning("unit_create_cgroups %s: cgroup %s exists already", u->id, u->cgroup_path);
++                return 0;
++        }
++
+         r = hashmap_put(u->manager->cgroup_unit, path, u);
+         if (r < 0) {
+                 log_error(r == -EEXIST ? "cgroup %s exists already: %s" : "hashmap_put failed for %s: %s", path, strerror(-r));

@@ -67,3 +67,4 @@ Get-RTC-is-in-local-time-setting-from-etc-default-rc.patch
 cgroup-util-Add-more-well-known-controller-names.patch
 core-Put-session-scopes-into-all-cgroup-controllers.patch
 cgroup-Initialize-cpuset.clone_children.patch
+Do-not-realize-and-migrate-cgroups-multiple-times.patch

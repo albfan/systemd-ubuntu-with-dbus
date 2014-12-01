@@ -41,6 +41,9 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
       failed units.
     - Put session scopes into all cgroup controllers. This makes unprivileged
       user LXC containers work under systemd. (LP: #1346734)
+    - Do not realize and migrate cgroups multiple times, in particular
+      "-.slice". This fixes PIDs in non-systemd cgroup controllers to be
+      randomly migrated back to /.
 
     Upgrade fixes, keep until 16.04 LTS release:
     - systemd Conflicts/Replaces/Provides systemd-services.
