@@ -1,5 +1,6 @@
 systemd (215-8) UNRELEASED; urgency=medium
 
+  [ Didier Roche ]
   * Cherry-pick shared-add-readlink_value.patch, we will use that function in
     the generator.
   * Cherry-pick util-allow-strappenda-to-take-any-number-of-args.patch, we
@@ -13,7 +14,15 @@ systemd (215-8) UNRELEASED; urgency=medium
       boot.
     - (Closes: #771287)
 
- -- Didier Roche <didrocks@ubuntu.com>  Fri, 28 Nov 2014 08:50:35 +0100
+  [ Sjoerd Simons ]
+  * d/p/core-Fix-bind-error-message.patch:
+    + Added. Fix error message on bind failure to print the full path
+  * d/p/core-Make-binding-notify-private-dbus-socket-more-ro.patch:
+    + Added. Be more robust when binding private unix sockets (Based on current
+    upstream logic) (Closes: #761306)
+
+
+ -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
 
 systemd (215-7) unstable; urgency=medium
 

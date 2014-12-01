@@ -169,3 +169,5 @@ udev-re-enable-mount-propagation-for-udevd.patch
 Add-env-variable-for-machine-ID-path.patch
 sysv-generator-Avoid-wrong-dependencies-for-failing-.patch
 Prefer-etc-X11-default-display-manager-if-present.patch
+core-Fix-bind-error-message.patch
+core-Make-binding-notify-private-dbus-socket-more-ro.patch
