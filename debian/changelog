@@ -1,4 +1,4 @@
-systemd (217-2ubuntu1) UNRELEASED; urgency=medium
+systemd (217-2ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. See 217-1ubuntu1 for remaining Ubuntu changes.
   * Put session scopes into all cgroup controllers instead of their parent
@@ -10,7 +10,7 @@ systemd (217-2ubuntu1) UNRELEASED; urgency=medium
   * boot-and-services autopkgtest: Give test apparmor job some time to
     actually finish.
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 17:17:30 +0100
 
 systemd (217-2) experimental; urgency=medium
 
