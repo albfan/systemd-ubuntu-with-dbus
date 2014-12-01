@@ -32,11 +32,11 @@ if dpkg --compare-versions "$REPORTBUG_VERSION" ge "6.5.0"; then
     echo "-- BEGIN ATTACHMENTS --" >&3
 
     # remove highlighting escape codes from systemd-delta output
-    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >$DIR/systemd-delta.txt
+    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >$DIR/systemd-delta.txt 2>&1
     echo "$DIR/systemd-delta.txt" >&3
 
     if [ -d /run/systemd/system ]; then
-        systemd-analyze --no-pager dump >$DIR/systemd-analyze-dump.txt
+        systemd-analyze --no-pager dump >$DIR/systemd-analyze-dump.txt 2>&1
         echo "$DIR/systemd-analyze-dump.txt" >&3
     fi
 
@@ -57,12 +57,12 @@ else
 
     _header "systemd-delta"
     # remove highlighting escape codes from systemd-delta output
-    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >&3
+    systemd-delta --no-pager|sed "s%\x1b[^m]*m%%g" >&3 2>&3
 
     if [ -d /run/systemd/system ]; then
         echo >&3
         _header "systemd-analyze dump"
-        systemd-analyze --no-pager dump >&3
+        systemd-analyze --no-pager dump >&3 2>&3
     fi
 
     if [ -d /var/lib/systemd/deb-systemd-helper-enabled ]; then

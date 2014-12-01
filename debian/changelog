@@ -11,6 +11,8 @@ systemd (217-2) UNRELEASED; urgency=medium
   * Import v217-stable patches (up to commit bfb4c47 from 2014-11-07).
   * Disable AppArmor again. This first requires moving libapparmor to /lib
     (see #771667). (Closes: #771652)
+  * systemd.bug-script: Capture stderr of systemd-{delta,analyze}.
+    (Closes: #771498)
 
  -- Martin Pitt <mpitt@debian.org>  Fri, 28 Nov 2014 14:46:30 +0100
 
