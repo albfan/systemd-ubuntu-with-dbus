@@ -1,47 +1,51 @@
 From: Martin Pitt <martin.pitt@ubuntu.com>
 Date: Wed, 26 Nov 2014 11:51:04 +0100
-Subject: core: Put user slices into all cgroup controllers
+Subject: core: Put session scopes into all cgroup controllers
 
 Unprivileged (per-user) LXC containers need to be able to create sub-cgroups
 for all controllers underneath the ones from the lxc-start caller. Thus the
 logind sessions need to be in all cgroup controllers instead of just "systemd".
 
-Add cg_create_uid() and cg_create_everywhere_uid() API to cgroup-util which
-create cgroups whose directories (not their contents!) is owned by a particular
-user. That user can then create sub-cgroups without being able to modify the
-existing ones.
+Add cg_create_uid() and cg_create_everywhere_uid() cgroup API which create
+cgroups whose directory (not contents!) is owned by a particular user. That
+user can then create sub-cgroups without being able to modify the existing
+ones.
 
 FIXME: There doesn't seem to be a good way of figuring out the user ID from a
 "user-NNNN.slice", so this currently parses the name.
 
 https://launchpad.net/bugs/1346734
 ---
- src/core/slice.c         | 10 ++++++++++
+ src/core/scope.c         | 14 ++++++++++++++
  src/shared/cgroup-util.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
  src/shared/cgroup-util.h |  2 ++
- 3 files changed, 60 insertions(+)
+ 3 files changed, 64 insertions(+)
 
-diff --git a/src/core/slice.c b/src/core/slice.c
-index 057feef..0c90d7e 100644
---- a/src/core/slice.c
-+++ b/src/core/slice.c
-@@ -186,6 +186,16 @@ static int slice_start(Unit *u) {
+diff --git a/src/core/scope.c b/src/core/scope.c
+index 0f7c1f9..aa90ba7 100644
+--- a/src/core/scope.c
++++ b/src/core/scope.c
+@@ -294,6 +294,20 @@ static int scope_start(Unit *u) {
+                 return r;
+         }
  
-         unit_realize_cgroup(u);
- 
-+        /* put user slices into all controllers, for LXC user containers */
-+        if (startswith(u->id, "user-")) {
-+                int r;
-+                long uid = atol(u->id + 5); /* FIXME: Eww! Is there a better way to get the UID? */
-+                CGroupControllerMask mask = cg_mask_supported();
-+                r = cg_create_everywhere_uid(mask, mask, u->cgroup_path, (uid > 0) ? (uid_t) uid : (uid_t) -1);
-+                if (r < 0)
-+                        log_warning_unit(u->id, "Cannot create cgroup controllers for %s: %s", u->id, strerror(-r));
++        /* put logind sessions into all controllers, for LXC user containers */
++        if (UNIT_ISSET(u->slice) && startswith(UNIT_DEREF(u->slice)->id, "user-")) {
++                long uid = atol(UNIT_DEREF(u->slice)->id + 5); /* FIXME: Eww! Is there a better way to get the UID? */
++                if (uid > 0) {
++                        r = cg_create_everywhere_uid(u->manager->cgroup_supported,
++                                                     u->manager->cgroup_supported,
++                                                     u->cgroup_path, (uid_t) uid);
++                        if (r < 0)
++                                log_warning_unit(u->id, "Cannot create cgroup controllers for %s: %s", u->id, strerror(-r));
++                } else {
++                        log_warning_unit(u->id, "Cannot determine UID from slice %s", UNIT_DEREF(u->slice)->id);
++                }
 +        }
 +
-         slice_set_state(t, SLICE_ACTIVE);
-         return 0;
- }
+         r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, UNIT(s)->pids);
+         if (r < 0)
+                 return r;
 diff --git a/src/shared/cgroup-util.c b/src/shared/cgroup-util.c
 index 6a09e9f..b7c3e52 100644
 --- a/src/shared/cgroup-util.c

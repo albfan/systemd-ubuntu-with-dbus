@@ -1,6 +1,9 @@
 systemd (217-2ubuntu1) UNRELEASED; urgency=medium
 
   * Merge with Debian unstable. See 217-1ubuntu1 for remaining Ubuntu changes.
+  * Put session scopes into all cgroup controllers instead of their parent
+    user slices. This works better with killing sessions and is consistent
+    with the "systemd" controller.
 
  -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
 

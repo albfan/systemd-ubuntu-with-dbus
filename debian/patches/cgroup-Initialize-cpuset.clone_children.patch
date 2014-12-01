@@ -12,17 +12,17 @@ https://www.kernel.org/doc/Documentation/cgroups/cgroups.txt for details.
  1 file changed, 4 insertions(+)
 
 diff --git a/src/core/cgroup.c b/src/core/cgroup.c
-index e604c3c..1625211 100644
+index e604c3c..58e1758 100644
 --- a/src/core/cgroup.c
 +++ b/src/core/cgroup.c
-@@ -909,6 +909,10 @@ int manager_setup_cgroup(Manager *m) {
-         /* 7. Figure out which controllers are supported */
-         m->cgroup_supported = cg_mask_supported();
+@@ -904,6 +904,10 @@ int manager_setup_cgroup(Manager *m) {
  
-+        /* 8. Enable conf copying of cpuset attributes to children, so
-+         * that we can actually attach processes to cpuset */
-+        cg_set_attribute("cpuset", "/", "cgroup.clone_children", "1");
+                 /* 6.  Always enable hierarchial support if it exists... */
+                 cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
 +
-         return 0;
- }
++                /* 7. Enable conf copying of cpuset attributes to children, so
++                 * that we can actually attach processes to cpuset */
++                cg_set_attribute("cpuset", "/", "cgroup.clone_children", "1");
+         }
  
+         /* 7. Figure out which controllers are supported */
