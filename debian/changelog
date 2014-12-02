@@ -1,4 +1,4 @@
-systemd (217-3) UNRELEASED; urgency=medium
+systemd (217-3) experimental; urgency=medium
 
   [ Martin Pitt ]
   * systemd.bug-script: Really capture stderr of systemd-delta.
@@ -13,7 +13,7 @@ systemd (217-3) UNRELEASED; urgency=medium
       all sysvinit-only display-manager units enabled to fallback to previous
       behavior and let them starting. (Closes: #771739)
 
- -- Martin Pitt <mpitt@debian.org>  Mon, 01 Dec 2014 17:01:29 +0100
+ -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 16:53:36 +0100
 
 systemd (217-2) experimental; urgency=medium
 
