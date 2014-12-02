@@ -1,9 +1,17 @@
 systemd (217-3) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * systemd.bug-script: Really capture stderr of systemd-delta.
     (Closes: #771498)
   * boot-and-services autopkgtest: Give test apparmor job some time to
     actually finish.
+
+  [ Didier Roche ]
+  * updated debian/patches/insserv.conf-generator.patch:
+    - if /etc/X11/default-display-manager doesn't match a systemd unit
+      (or doesn't exist), be less agressive about what to mask: we let
+      all sysvinit-only display-manager units enabled to fallback to previous
+      behavior and let them starting. (Closes: #771739)
 
  -- Martin Pitt <mpitt@debian.org>  Mon, 01 Dec 2014 17:01:29 +0100
 
