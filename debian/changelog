@@ -1,4 +1,4 @@
-systemd (217-3ubuntu1) UNRELEASED; urgency=medium
+systemd (217-3ubuntu1) vivid; urgency=medium
 
   * Merge with Debian unstable. Remaining Ubuntu changes:
     - Create disk/by-partlabel links for mmcblk partitions.
@@ -52,7 +52,7 @@ systemd (217-3ubuntu1) UNRELEASED; urgency=medium
     - Remove obsolete systemd-logind upstart job.
     - Clean up obsolete /etc/udev/rules.d/README on upgrades. (LP: #1381655)
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 01 Dec 2014 15:41:09 +0100
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 02 Dec 2014 19:37:35 +0100
 
 systemd (217-4) UNRELEASED; urgency=medium
 
