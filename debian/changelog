@@ -1,3 +1,13 @@
+systemd (217-4) UNRELEASED; urgency=medium
+
+  * Reinstate a debian/extra/rules/50-firmware.rules which immediately tells
+    the kernel that userspace firmware loading failed. Otherwise it tries for a
+    minute to call the userspace helper (if CONFIG_FW_LOADER_USER_HELPER is
+    enabled) in vain, which causes long delays with devices which have a range
+    of possible firmware versions. (LP: #1398458)
+
+ -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 18:47:43 +0100
+
 systemd (217-3) experimental; urgency=medium
 
   [ Martin Pitt ]
