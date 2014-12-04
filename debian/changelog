@@ -5,6 +5,11 @@ systemd (217-4) UNRELEASED; urgency=medium
     minute to call the userspace helper (if CONFIG_FW_LOADER_USER_HELPER is
     enabled) in vain, which causes long delays with devices which have a range
     of possible firmware versions. (LP: #1398458)
+  * debian/systemd.postinst: Don't always restart journald, as this currently
+    can't be done without losing the current journal and breaking attached
+    processes. So only restart it from upgrades < 215-3 (where the socket
+    location got moved) as an one-time upgrade path from wheezy.
+    (Closes: #771122)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 18:47:43 +0100
 
