@@ -23,6 +23,11 @@ systemd (215-8) UNRELEASED; urgency=medium
 
   [ Martin Pitt ]
   * Clean up ...journal~ files from unclean shutdowns. (Closes: #771707)
+  * debian/systemd.postinst: Don't always restart journald, as this currently
+    can't be done without losing the current journal and breaking attached
+    processes. So only restart it from upgrades < 215-3 (where the socket
+    location got moved) as an one-time upgrade path from wheezy.
+    (Closes: #771122)
 
  -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
 

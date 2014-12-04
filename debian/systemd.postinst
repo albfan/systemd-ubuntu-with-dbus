@@ -132,7 +132,6 @@ fi
 
 if [ -n "$2" ]; then
     _systemctl daemon-reexec || true
-    _systemctl try-restart systemd-journald.service || true
     _systemctl try-restart systemd-logind.service || true
     _systemctl try-restart systemd-networkd.service || true
     _systemctl try-restart systemd-resolved.service || true
@@ -141,7 +140,9 @@ fi
 
 # The /dev/log socket and /dev/initctl FIFO have been moved to /run and
 # replaced by symlinks. Create the symlinks manually on upgrades as well.
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=761340
+# (https://bugs.debian.org/761340). Note that this will break the current
+# journal as we cannot restart it properly (https://bugs.debian.org/771122) so
+# this is mostly an one-time upgrade path from wheezy.
 if dpkg --compare-versions "$2" lt-nl "215-3"; then
     if [ -p /run/systemd/initctl/fifo ] && [ ! -L /dev/initctl ]; then
          ln -sf /run/systemd/initctl/fifo /dev/initctl
@@ -149,6 +150,7 @@ if dpkg --compare-versions "$2" lt-nl "215-3"; then
     if [ -S /run/systemd/journal/dev-log ] && [ ! -L /dev/log ]; then
          ln -sf /run/systemd/journal/dev-log /dev/log
     fi
+    _systemctl try-restart systemd-journald.service || true
 fi
 
 #DEBHELPER#
