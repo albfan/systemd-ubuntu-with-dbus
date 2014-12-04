@@ -21,6 +21,8 @@ systemd (215-8) UNRELEASED; urgency=medium
     + Added. Be more robust when binding private unix sockets (Based on current
     upstream logic) (Closes: #761306)
 
+  [ Martin Pitt ]
+  * Clean up ...journal~ files from unclean shutdowns. (Closes: #771707)
 
  -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
 

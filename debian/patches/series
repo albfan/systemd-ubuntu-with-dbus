@@ -120,6 +120,7 @@ core-swap-only-make-configured-units-part-of-swap.ta.patch
 swap-replace-Discard-setting-by-a-more-generic-Optio.patch
 shared-add-readlink_value.patch
 util-allow-strappenda-to-take-any-number-of-args.patch
+journal-do-server_vacuum-for-sigusr1.patch
 
 ## Debian specific patches:
 Add-back-support-for-Debian-specific-config-files.patch
