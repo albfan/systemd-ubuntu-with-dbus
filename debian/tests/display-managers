@@ -65,8 +65,6 @@ class DisplayManagersTest(unittest.TestCase):
         self.assertFalse(self.is_active_unit('lightdm'))
         self.assertTrue(self.is_active_unit('systemddm'))
 
-    # FIXME: generator doesn't retarget in that case where it should
-    @unittest.expectedFailure
     def test_multiple_systemd_ddmconfig_match_no_symlink(self):
         '''create a display-manager symlink to matching systemd unit ddm config'''
 
