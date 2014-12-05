@@ -10,6 +10,10 @@ systemd (217-4) UNRELEASED; urgency=medium
     processes. So only restart it from upgrades < 215-3 (where the socket
     location got moved) as an one-time upgrade path from wheezy.
     (Closes: #771122)
+  * Revert "Modify insserv generator to mask sysvinit-only display managers".
+    This is still under dispute, a bit risky, and might get a different
+    implementation. Also, nodm really needs to be fixed properly, working
+    around it is both too risky and also too hard to get right.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 18:47:43 +0100
 
