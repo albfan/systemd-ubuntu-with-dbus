@@ -1,5 +1,6 @@
 systemd (217-4) UNRELEASED; urgency=medium
 
+  [ Martin Pitt ]
   * Reinstate a debian/extra/rules/50-firmware.rules which immediately tells
     the kernel that userspace firmware loading failed. Otherwise it tries for a
     minute to call the userspace helper (if CONFIG_FW_LOADER_USER_HELPER is
@@ -14,6 +15,9 @@ systemd (217-4) UNRELEASED; urgency=medium
     This is still under dispute, a bit risky, and might get a different
     implementation. Also, nodm really needs to be fixed properly, working
     around it is both too risky and also too hard to get right.
+
+  [ Didier Roche ]
+  * Add display managers autopkgtests.
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 18:47:43 +0100
 
