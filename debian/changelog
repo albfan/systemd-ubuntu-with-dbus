@@ -33,6 +33,12 @@ systemd (215-8) UNRELEASED; urgency=medium
     make sure that the udev package has appropriate Breaks:. In particular,
     this avoids installing current udev with kmod << 14. (Closes: #771726)
 
+  [ Michael Biebl ]
+  * systemd.postinst: Move unit enablement after restarting systemd, so that
+    we don't fail to enable units with keywords that wheezy's systemd does not
+    understand yet. Fixes enabling getty units on wheezy upgrades with
+    systemd. (Closes: #771204)
+
  -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
 
 systemd (215-7) unstable; urgency=medium

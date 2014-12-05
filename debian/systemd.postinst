@@ -18,14 +18,6 @@ if [ "$1" = "triggered" ]; then
     exit 0
 fi
 
-# Enable getty and remote-fs.target by default on new installs, and on
-# upgrades from old systemd versions (where the symlinks included as deb
-# content, and will thus have been removed by dpkg during the upgrade).
-if dpkg --compare-versions "$2" lt "214-1"; then
-    systemctl enable getty@tty1.service || true
-    systemctl enable remote-fs.target || true
-fi
-
 # Cleanup state files from the auto-enabler which we used in wheezy
 if dpkg --compare-versions "$2" lt "204-1"; then
     rm -f /var/lib/systemd/enabled-units
@@ -123,19 +115,27 @@ if [ -d /var/log/journal ]; then
     setfacl -R -nm g:adm:rx,d:g:adm:rx /var/log/journal || true
 fi
 
-# Re-run systemctl enable for any service that was enabled when preinst was run.
-if dpkg --compare-versions "$2" ge "204"; then
-    while read UNIT ; do
-        systemctl enable $UNIT || true
-    done </run/systemd/was-enabled || true
-fi
-
 if [ -n "$2" ]; then
     _systemctl daemon-reexec || true
     _systemctl try-restart systemd-logind.service || true
     _systemctl try-restart systemd-networkd.service || true
     _systemctl try-restart systemd-resolved.service || true
     _systemctl try-restart systemd-timesyncd.service || true
+fi
+
+# Enable getty and remote-fs.target by default on new installs, and on
+# upgrades from old systemd versions (where the symlinks included as deb
+# content, and will thus have been removed by dpkg during the upgrade).
+if dpkg --compare-versions "$2" lt "214-1"; then
+    systemctl enable getty@tty1.service || true
+    systemctl enable remote-fs.target || true
+fi
+
+# Re-run systemctl enable for any service that was enabled when preinst was run.
+if dpkg --compare-versions "$2" ge "204"; then
+    while read UNIT ; do
+        systemctl enable $UNIT || true
+    done </run/systemd/was-enabled || true
 fi
 
 # The /dev/log socket and /dev/initctl FIFO have been moved to /run and
