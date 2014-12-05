@@ -29,6 +29,9 @@ systemd (215-8) UNRELEASED; urgency=medium
     location got moved) as an one-time upgrade path from wheezy.
     (Closes: #771122)
   * journalctl: Fix help text for --until. (Closes: #766598)
+  * Bump systemd's udev dependency to >= 208-8, so that on partial upgrades we
+    make sure that the udev package has appropriate Breaks:. In particular,
+    this avoids installing current udev with kmod << 14. (Closes: #771726)
 
  -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
 

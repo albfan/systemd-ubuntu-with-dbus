@@ -55,7 +55,7 @@ Depends: ${shlibs:Depends},
          mount (>= 2.21),
          initscripts (>= 2.88dsf-53.2),
          sysv-rc,
-         udev,
+         udev (>= 208-8),
          acl,
          adduser,
          libcap2-bin
