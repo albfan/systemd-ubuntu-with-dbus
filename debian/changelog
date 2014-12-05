@@ -5,14 +5,10 @@ systemd (215-8) UNRELEASED; urgency=medium
     the generator.
   * Cherry-pick util-allow-strappenda-to-take-any-number-of-args.patch, we
     will use that function in the generator.
-  * Handle multiple display managers which don't ship a systemd unit:
-    - Add a generator to ensure /etc/X11/default-display-manager is
-      controlling which display-manager is started.
-    - Modify insserv generator to mask sysvinit-only display managers (those
-      which refer to insserv's $x-display-manager tag) if they don't match
-      /etc/X11/default-display-manager. This avoids starting multiple DMs at
-      boot.
-    - (Closes: #771287)
+  * Handle multiple display managers which don't ship a systemd unit or the
+    corresponding postinst logic for updating display-manager.service: Add a
+    generator to ensure /etc/X11/default-display-manager is controlling which
+    display-manager is started. (Closes: #771287)
 
   [ Sjoerd Simons ]
   * d/p/core-Fix-bind-error-message.patch:
