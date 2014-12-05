@@ -1,4 +1,4 @@
-systemd (215-8) UNRELEASED; urgency=medium
+systemd (215-8) unstable; urgency=medium
 
   [ Didier Roche ]
   * Cherry-pick shared-add-readlink_value.patch, we will use that function in
@@ -35,7 +35,7 @@ systemd (215-8) UNRELEASED; urgency=medium
     understand yet. Fixes enabling getty units on wheezy upgrades with
     systemd. (Closes: #771204)
 
- -- Sjoerd Simons <sjoerd@debian.org>  Mon, 01 Dec 2014 22:44:48 +0100
+ -- Martin Pitt <mpitt@debian.org>  Fri, 05 Dec 2014 10:01:24 +0100
 
 systemd (215-7) unstable; urgency=medium
 
