@@ -31,10 +31,10 @@ index 863d7f3..ec63e74 100644
                          </varlistentry>
                          <varlistentry>
 diff --git a/src/insserv-generator/insserv-generator.c b/src/insserv-generator/insserv-generator.c
-index 9d417f0..0404ccc 100644
+index d86ee29..6c10735 100644
 --- a/src/insserv-generator/insserv-generator.c
 +++ b/src/insserv-generator/insserv-generator.c
-@@ -64,7 +64,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
+@@ -62,7 +62,7 @@ static int sysv_translate_facility(const char *name, const char *filename, char
  
          static const char * const table[] = {
                  /* LSB defined facilities */

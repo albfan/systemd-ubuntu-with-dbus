@@ -18,6 +18,9 @@ systemd (217-4) UNRELEASED; urgency=medium
 
   [ Didier Roche ]
   * Add display managers autopkgtests.
+  * Reset display-manager symlink to match /e/X/d-d-m even if
+    display-manager.service was removed. Adapt the autopkgtests for it.
+    (LP: #1400680)
 
  -- Martin Pitt <mpitt@debian.org>  Tue, 02 Dec 2014 18:47:43 +0100
 
