@@ -18,6 +18,7 @@ CONFFLAGS = \
 	--with-firmware-path=/lib/firmware \
 	--with-debug-shell=/bin/bash \
 	--with-telinit=/lib/sysvinit/telinit \
+	--enable-split-usr \
 	--disable-coredump \
 	--disable-efi \
 	--disable-myhostname \
